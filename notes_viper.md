@@ -4,11 +4,17 @@
 
 ```
 module purge
-module load gcc/14 rocm/6.3 openmpi/5.0 python-waterboa/2024.06
+module load gcc/14 rocm/6.4 openmpi/5.0 python-waterboa/2024.06 cupy/13.4
 module load amd-llvm/6.1
 ```
 
-Create a virtual environment and install struphy and pyccel from source
+Source the venv if it already exists
+
+```
+source ~/virtual_envs/env_struphy/bin/activate
+```
+
+Otherwise, create a virtual environment and install struphy and pyccel from source
 
 ```
 python -m venv ~/virtual_envs/env_struphy
@@ -87,24 +93,24 @@ module pusher_args_kernels
 
 ```
 # pusher_args_kernels
-pyccel --libdir /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib --language=fortran --compiler=/u/maxlin/git_repos/struphy/testing/compiler_llvm.json --conda-warnings=off --verbose  --openmp  /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_args_kernels.py --verbose
+# pyccel --libdir /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib --language=fortran --compiler=/u/maxlin/git_repos/struphy/testing/compiler_llvm.json --conda-warnings=off --verbose  --openmp  /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_args_kernels.py --verbose
 
 # pusher_kernels_gpu.py
-pyccel --libdir /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib --language=fortran --compiler=/u/maxlin/git_repos/struphy/testing/compiler_llvm.json --conda-warnings=off --verbose  --openmp  /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_kernels_gpu.py --verbose
+pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_kernels_gpu.py
 
 # Fix pusher_args_kernels.f90
-sed -i '1,7c\
-module pusher_args_kernels\
-\
-  !use, intrinsic :: ISO_C_Binding, only : f64 => C_DOUBLE , i64 => &\
-  !      C_INT64_T , b1 => C_BOOL\
-\
-  implicit none\n\
-  \
-  integer, parameter, private :: f64 = 8\
-  integer, parameter, private :: i64 = 8\
-  integer, parameter, private :: b1 = 1' \
-/viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels.f90
+# sed -i '1,7c\
+# module pusher_args_kernels\
+# \
+#   !use, intrinsic :: ISO_C_Binding, only : f64 => C_DOUBLE , i64 => &\
+#   !      C_INT64_T , b1 => C_BOOL\
+# \
+#   implicit none\n\
+#   \
+#   integer, parameter, private :: f64 = 8\
+#   integer, parameter, private :: i64 = 8\
+#   integer, parameter, private :: b1 = 1' \
+#/viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels.f90
 
 
 # Fix pusher_kernels_gpu.py
@@ -126,25 +132,22 @@ module pusher_kernels_gpu\
 
 # Compile pusher_args_kernels.py
 # $ pyccel --libdir /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib --language=fortran --compiler=/u/maxlin/git_repos/struphy/testing/compiler_llvm.json --conda-warnings=off --verbose  --openmp  /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_args_kernels.py --verbose
-/mpcdf/soft/RHEL_9/packages/x86_64/amd-llvm-drop/6.1.0/lib/llvm/bin/amdflang -O3 -fPIC -fopenmp --offload-arch=gfx942 -fopenmp-force-usm -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels.f90 -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels.o -J /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__
-/mpcdf/soft/RHEL_9/packages/x86_64/amd-llvm-drop/6.1.0/lib/llvm/bin/amdflang -O3 -fPIC -fopenmp --offload-arch=gfx942 -fopenmp-force-usm -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_args_kernels.f90 -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_args_kernels.o -J /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__
-/mpcdf/soft/RHEL_9/packages/x86_64/amd-llvm-drop/6.1.0/lib/llvm/bin/amdclang -O3 -funroll-loops -fPIC -fno-strict-overflow -DNDEBUG -O2 -Wall -fPIC -O2 -isystem /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include -fPIC -O2 -isystem /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include -pthread -B /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/compiler_compat -fopenmp -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/cwrapper -I /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include/python3.12 -I /viper/u2/maxlin/virtual_envs/env_struphy/lib/python3.12/site-packages/numpy/_core/include /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels_wrapper.c -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels_wrapper.o
-/mpcdf/soft/RHEL_9/packages/x86_64/amd-llvm-drop/6.1.0/lib/llvm/bin/amdflang -shared -O3 -fPIC -fopenmp --offload-arch=gfx942 -fopenmp-force-usm -L /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib -Wl,-rpath /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels_wrapper.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_args_kernels.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/cwrapper/cwrapper.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels.o /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib/libpython3.12.so -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels.cpython-312-x86_64-linux-gnu.so -lm -lomptarget
+#/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.4.0/bin/amdflang -O3 -fPIC -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/math -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.f90 -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.o -J /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__
+#/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.4.0/bin/amdflang -O3 -fPIC -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/math -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_kernels_gpu.f90 -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_kernels_gpu.o -J /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__
+#/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.4.0/bin/amdclang -O3 -funroll-loops -fPIC -fno-strict-overflow -DNDEBUG -O2 -Wall -fPIC -O2 -isystem /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include -fPIC -O2 -isystem /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include -pthread -B /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/compiler_compat -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/math -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/cwrapper -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ -I /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include/python3.12 -I /viper/u2/maxlin/virtual_envs/env_struphy/lib/python3.12/site-packages/numpy/_core/include /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu_wrapper.c -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu_wrapper.o
+#/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.4.0/bin/amdflang -shared -O3 -fPIC -L /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib -Wl,-rpath /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu_wrapper.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/math/pyc_math_f90.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/cwrapper/cwrapper.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_kernels_gpu.o /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib/libpython3.12.so -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.cpython-312-x86_64-linux-gnu.so -lm
 # > Shared library has been created: /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_args_kernels.cpython-312-x86_64-linux-gnu.so
 
 # Compile pusher_kernels_gpu.py
-# $ pyccel --libdir /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib --language=fortran --compiler=/u/maxlin/git_repos/struphy/testing/compiler_llvm.json --conda-warnings=off --verbose  --openmp  /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_kernels_gpu.py --verbose
-# >>> treating ::  /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_args_kernels.py
-# >>> treating ::  /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_args_kernels.py
-# >>> treating ::  /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_args_kernels.py
-# >>> treating ::  /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_args_kernels.py
-/mpcdf/soft/RHEL_9/packages/x86_64/amd-llvm-drop/6.1.0/lib/llvm/bin/amdflang -O3 -fPIC -fopenmp --offload-arch=gfx942 -fopenmp-force-usm -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.f90 -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.o -J /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__
-/mpcdf/soft/RHEL_9/packages/x86_64/amd-llvm-drop/6.1.0/lib/llvm/bin/amdflang -O3 -fPIC -fopenmp --offload-arch=gfx942 -fopenmp-force-usm -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_kernels_gpu.f90 -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_kernels_gpu.o -J /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__
-/mpcdf/soft/RHEL_9/packages/x86_64/amd-llvm-drop/6.1.0/lib/llvm/bin/amdclang -O3 -funroll-loops -fPIC -fopenmp -fno-strict-overflow -DNDEBUG -O2 -Wall -fPIC -O2 -isystem /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include -fPIC -O2 -isystem /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include -pthread -B /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/compiler_compat -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/cwrapper -I /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include/python3.12 -I /viper/u2/maxlin/virtual_envs/env_struphy/lib/python3.12/site-packages/numpy/_core/include /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu_wrapper.c -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu_wrapper.o
-/mpcdf/soft/RHEL_9/packages/x86_64/amd-llvm-drop/6.1.0/lib/llvm/bin/amdflang -shared -O3 -fPIC -fopenmp --offload-arch=gfx942 -fopenmp-force-usm -L /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib -Wl,-rpath /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu_wrapper.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/cwrapper/cwrapper.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_kernels_gpu.o /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib/libpython3.12.so -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.cpython-312-x86_64-linux-gnu.so -lm -lomptarget
+# $ pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_kernels_gpu.py --openmp
+/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.4.0/bin/amdflang -O3 -fPIC -fopenmp --offload-arch=gfx942 -fopenmp-force-usm -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/math -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.f90 -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.o -J /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__
+/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.4.0/bin/amdflang -O3 -fPIC -fopenmp --offload-arch=gfx942 -fopenmp-force-usm -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/math -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_kernels_gpu.f90 -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_kernels_gpu.o -J /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__
+/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.4.0/bin/amdclang -O3 -funroll-loops -fPIC -fno-strict-overflow -DNDEBUG -O2 -Wall -fPIC -O2 -isystem /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include -fPIC -O2 -isystem /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include -pthread -B /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/compiler_compat -fopenmp -c -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/math -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/cwrapper -I /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__ -I /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/include/python3.12 -I /viper/u2/maxlin/virtual_envs/env_struphy/lib/python3.12/site-packages/numpy/_core/include /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu_wrapper.c -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu_wrapper.o
+/mpcdf/soft/RHEL_9/packages/x86_64/rocm/6.4.0/bin/amdflang -shared -O3 -fPIC -fopenmp --offload-arch=gfx942 -fopenmp-force-usm /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu_wrapper.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/bind_c_pusher_kernels_gpu.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/cwrapper/cwrapper.o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/math/pyc_math_f90.o /mpcdf/soft/RHEL_9/packages/x86_64/python-waterboa/2024.06/lib/libpython3.12.so -o /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.cpython-312-x86_64-linux-gnu.so -lm -lomptarget
+
 # > Shared library has been created: /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_kernels_gpu.cpython-312-x86_64-linux-gnu.so
 
-cp /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels.cpython-312-x86_64-linux-gnu.so /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing
+#cp /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_args_kernels.cpython-312-x86_64-linux-gnu.so /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing
 
 cp /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/__pyccel__/pusher_kernels_gpu.cpython-312-x86_64-linux-gnu.so /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing
 
