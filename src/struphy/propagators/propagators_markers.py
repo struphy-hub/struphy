@@ -4,7 +4,8 @@ from numpy import array, polynomial, random
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
-import struphy.pic.pushing.pusher_kernels_gpu as pusher_kernels_gpu
+# import struphy.pic.pushing.pusher_kernels_gpu as pusher_kernels_gpu
+import struphy.gpu.gpu as struphy_gpu
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
@@ -73,7 +74,7 @@ class PushEta(Propagator):
         super().__init__(particles)
 
         # get kernel
-        if gpu:
+        if gpu and struphy_gpu.gpu_active:
             kernel = push_eta_stage_gpu
             # kernel = pusher_kernels.push_eta_stage
         else:
@@ -203,6 +204,7 @@ class PushVxB(Propagator):
                 kernel = pusher_kernels.push_vxb_implicit
             else:
                 raise ValueError(f"{algo = } not supported.")
+        print(f"Loaded {kernel}")
 
         # instantiate Pusher
         args_kernel = (
@@ -1580,11 +1582,11 @@ class PushVinSPHpressure(Propagator):
 
         # init kernel for evaluating density etc. before each time step.
         if gpu:
-            # init_kernel = pusher_kernels_gpu.sph_isotherm_pressure_coeffs_gpu  # TODO: port2gpu
-            init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
+            init_kernel = pusher_kernels_gpu.sph_isotherm_pressure_coeffs_gpu  # TODO: port2gpu
+            # init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
         else:
             init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
-
+        print(f"Loaded {init_kernel = }")
         first_free_idx = particles.args_markers.first_free_idx
         comps = (0, 1)
 
@@ -1593,7 +1595,6 @@ class PushVinSPHpressure(Propagator):
         holes = particles.holes
         periodic = [bci == "periodic" for bci in particles.bc]
         kernel_nr = particles.ker_dct()[kernel_type]
-        # print(f"{kernel_nr = }"); exit()
 
         if kernel_width is None:
             kernel_width = tuple([1 / ni for ni in self.particles[0].boxes_per_dim])
@@ -1630,13 +1631,10 @@ class PushVinSPHpressure(Propagator):
         #         f"For 2d SPH simulations 340 <= {kernel_nr = } <= 660, {particles.sorting_boxes.nz = } != 1 is not allowed."
         #     )
         if gpu:
-            # kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu  # TODO: port2gpu
-            kernel = pusher_kernels.push_v_sph_pressure
-            print("Using GPU kernel: ", kernel)
+            kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu  # TODO: port2gpu
         else:
-            
             kernel = pusher_kernels.push_v_sph_pressure
-            print("Using CPU kernel: ", kernel)
+        print(f"Loaded {kernel = }")
         # same arguments as init kernel
         args_kernel = args_init
 

@@ -5,37 +5,6 @@ from numpy import abs, exp
 from numpy import copy, empty, floor, log, shape, zeros
 from pyccel.decorators import inline, pure, stack_array
 
-# import struphy.bsplines.bsplines_kernels as bsplines_kernels
-# import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-# import struphy.geometry.evaluation_kernels as evaluation_kernels
-# import struphy.linear_algebra.linalg_kernels as linalg_kernels
-
-# do not remove; needed to identify dependencies
-# # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-# import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
-# from struphy.bsplines.evaluation_kernels_3d import (
-#     # eval_0form_spline_mpi,
-#     # eval_1form_spline_mpi,
-#     # eval_2form_spline_mpi,
-#     # eval_3form_spline_mpi,
-#     # eval_vectorfield_spline_mpi,
-#     get_spans,
-# )
-# import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-# from evaluation_kernels_3d import get_spans
-# import struphy.geometry.mappings_kernels as mappings_kernels
-# import struphy.linear_algebra.linalg_kernels as linalg_kernels
-# from linalg_kernels import det, scalar_dot
-# # do not remove; needed to identify dependencies
-# # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-# import struphy.pic.sph_eval_kernels as sph_eval_kernels
-# from struphy.pic.sph_eval_kernels import boxed_based_kernel
-# from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments, MarkerArguments
-
-# # from struphy.linear_algebra.linalg_kernels import matrix_inv, matrix_vector
-# # from struphy.geometry.evaluation_kernels import df
-
-
 class MarkerArguments:
     """Holds arguments pertaining to :class:`~struphy.pic.base.Particles`
     passed to particle kernels.
@@ -192,6 +161,39 @@ class DomainArguments:
         self.cx = copy(cx)
         self.cy = copy(cy)
         self.cz = copy(cz)
+
+# import struphy.bsplines.bsplines_kernels as bsplines_kernels
+# import struphy.geometry.evaluation_kernels as evaluation_kernels
+# import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+# import struphy.geometry.evaluation_kernels as evaluation_kernels
+# import struphy.linear_algebra.linalg_kernels as linalg_kernels
+
+# do not remove; needed to identify dependencies
+# # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+# import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
+# from struphy.bsplines.evaluation_kernels_3d import (
+#     # eval_0form_spline_mpi,
+#     # eval_1form_spline_mpi,
+#     # eval_2form_spline_mpi,
+#     # eval_3form_spline_mpi,
+#     # eval_vectorfield_spline_mpi,
+#     get_spans,
+# )
+# import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+# from evaluation_kernels_3d import get_spans
+# import struphy.geometry.mappings_kernels as mappings_kernels
+# import struphy.linear_algebra.linalg_kernels as linalg_kernels
+# from linalg_kernels import det, scalar_dot
+# # do not remove; needed to identify dependencies
+# # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+# import struphy.pic.sph_eval_kernels as sph_eval_kernels
+# from struphy.pic.sph_eval_kernels import boxed_based_kernel
+# from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments, MarkerArguments
+
+# # from struphy.linear_algebra.linalg_kernels import matrix_inv, matrix_vector
+# # from struphy.geometry.evaluation_kernels import df
+
+
 
 def _tmp_floor_division_pusher_kernels(x: int):
     y = zeros(10)
@@ -560,9 +562,13 @@ def push_v_sph_pressure_gpu(
     """
 
     # Variables
-    # _s1 = 0.0
-    # _s2 = 0.0
-    # _s3 = 0.0
+    s1 = 0.0
+    s2 = 0.0
+    s3 = 0.0
+    out_bbk = 0.0
+    c = 0
+    box_to_search = 0
+    p = 0
 
     # allocate arrays
     grad_u = zeros(3, dtype=float)
@@ -627,6 +633,13 @@ def push_v_sph_pressure_gpu(
             h1,
             h2,
             h3,
+            s1,
+            s2,
+            s3,
+            c,
+            box_to_search,
+            p,
+            out_bbk,
         )
         grad_u[0] *= kappa / n_at_eta
 
@@ -648,6 +661,13 @@ def push_v_sph_pressure_gpu(
             h1,
             h2,
             h3,
+            s1,
+            s2,
+            s3,
+            c,
+            box_to_search,
+            p,
+            out_bbk,
         )
         sum2 *= kappa
         grad_u[0] += sum2
@@ -672,6 +692,13 @@ def push_v_sph_pressure_gpu(
                 h1,
                 h2,
                 h3,
+                s1,
+                s2,
+                s3,
+                c,
+                box_to_search,
+                p,
+                out_bbk,
             )
             grad_u[1] *= kappa / n_at_eta
 
@@ -693,6 +720,13 @@ def push_v_sph_pressure_gpu(
                 h1,
                 h2,
                 h3,
+                s1,
+                s2,
+                s3,
+                c,
+                box_to_search,
+                p,
+                out_bbk,
             )
             sum4 *= kappa
             grad_u[1] += sum4
@@ -717,6 +751,13 @@ def push_v_sph_pressure_gpu(
                 h1,
                 h2,
                 h3,
+                s1,
+                s2,
+                s3,
+                c,
+                box_to_search,
+                p,
+                out_bbk,
             )
             grad_u[2] *= kappa / n_at_eta
 
@@ -738,6 +779,13 @@ def push_v_sph_pressure_gpu(
                 h1,
                 h2,
                 h3,
+                s1,
+                s2,
+                s3,
+                c,
+                box_to_search,
+                p,
+                out_bbk,
             )
             sum6 *= kappa
             grad_u[2] += sum6
@@ -752,6 +800,30 @@ def push_v_sph_pressure_gpu(
         #     False,
         #     dfinv,
         # )
+        df_inv_inline(
+            eta1,
+            eta2,
+            eta3,
+            # args_domain,
+            # args domain start
+            args_domain_kind_map,
+            args_domain_params,
+            args_domain_p, 
+            args_domain_t1,
+            args_domain_t2,
+            args_domain_t3,
+            args_domain_ind1,
+            args_domain_ind2,
+            args_domain_ind3,
+            args_domain_cx,      
+            args_domain_cy,
+            args_domain_cz,
+            # args domain end
+            tmp1,
+            False,
+            dfinv,
+        )
+
         df_inv_inline(
             eta1,
             eta2,
@@ -834,6 +906,14 @@ def sph_isotherm_pressure_coeffs_gpu(
     The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
     in markers array for each particle.
     """
+    # Variables
+    out_bbk = 0.0
+    s1 = 0.0
+    s2 = 0.0
+    s3 = 0.0
+    c = 0
+    box_to_search = 0
+    p = 0
 
     # get marker arguments
     markers = args_markers.markers
@@ -872,6 +952,13 @@ def sph_isotherm_pressure_coeffs_gpu(
             h1,
             h2,
             h3,
+            s1,
+            s2,
+            s3,
+            c,
+            box_to_search,
+            p,
+            out_bbk,
         )
         weight = markers[ip, weight_idx]
         # save
@@ -897,7 +984,6 @@ def compute_sorting_etas(
 
             val = alpha[d] * (pos + shift) + (1.0 - alpha[d]) * ppos
             sorting_etas[i, d] = val - floor(val)  # mod(val, 1.0)
-
 
 @inline
 def df_inv_inline(
@@ -940,7 +1026,6 @@ def df_inv_inline(
     dfinv_out: np.array
         Output array of shape (3, 3).
     """
-
     # TODO: This should be called with args_xyz
     df_inline(
         eta1,
@@ -963,60 +1048,60 @@ def df_inv_inline(
         # args domain end
         tmp1,
     )
-    # matrix_inv_inline(tmp1, dfinv_out)
+    matrix_inv_inline(tmp1, dfinv_out)
     
     # TODO: Use args_kind_map here
     # set known (analytical) zero components manually to zero to avoid round-off error remainders!
     # if avoid_round_off:
-    #     if args.kind_map == 1:
+    #     if args_domain_kind_map == 1:
     #         dfinv_out[0, 2] = 0.0
     #         dfinv_out[1, 2] = 0.0
     #         dfinv_out[2, 0] = 0.0
     #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 2:
+    #     elif args_domain_kind_map == 2:
     #         dfinv_out[2, 2] = 0
-    #     elif args.kind_map == 10:
+    #     elif args_domain_kind_map == 10:
     #         dfinv_out[0, 1] = 0.0
     #         dfinv_out[0, 2] = 0.0
     #         dfinv_out[1, 0] = 0.0
     #         dfinv_out[1, 2] = 0.0
     #         dfinv_out[2, 0] = 0.0
     #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 11:
+    #     elif args_domain_kind_map == 11:
     #         dfinv_out[0, 1] = 0.0
     #         dfinv_out[0, 2] = 0.0
     #         dfinv_out[1, 0] = 0.0
     #         dfinv_out[1, 2] = 0.0
     #         dfinv_out[2, 0] = 0.0
     #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 12:
+    #     elif args_domain_kind_map == 12:
     #         dfinv_out[0, 2] = 0.0
     #         dfinv_out[1, 2] = 0.0
     #         dfinv_out[2, 0] = 0.0
     #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 20:
+    #     elif args_domain_kind_map == 20:
     #         dfinv_out[0, 2] = 0.0
     #         dfinv_out[1, 2] = 0.0
     #         dfinv_out[2, 0] = 0.0
     #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 21:
+    #     elif args_domain_kind_map == 21:
     #         dfinv_out[0, 2] = 0.0
     #         dfinv_out[1, 2] = 0.0
     #         dfinv_out[2, 0] = 0.0
     #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 22:
+    #     elif args_domain_kind_map == 22:
     #         dfinv_out[2, 2] = 0.0
-    #     elif args.kind_map == 30:
+    #     elif args_domain_kind_map == 30:
     #         dfinv_out[0, 2] = 0.0
     #         dfinv_out[1, 2] = 0.0
     #         dfinv_out[2, 0] = 0.0
     #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 31:
+    #     elif args_domain_kind_map == 31:
     #         dfinv_out[0, 2] = 0.0
     #         dfinv_out[1, 2] = 0.0
     #         dfinv_out[2, 0] = 0.0
     #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 32:
+    #     elif args_domain_kind_map == 32:
     #         dfinv_out[0, 2] = 0.0
     #         dfinv_out[1, 2] = 0.0
     #         dfinv_out[2, 0] = 0.0
@@ -1089,6 +1174,13 @@ def boxed_based_kernel_inline(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
+    c: "int",
+    box_to_search: "int",
+    p: "int",
+    out: "float",
 ) -> float:
     """Box-based single-point sph evaluation.
     The sum is done over the particles that are in the 26 + 1 neighboring boxes
@@ -1129,29 +1221,27 @@ def boxed_based_kernel_inline(
     h1, h2, h3 : float
         Kernel width in respective dimension.
     """
-    r1 = 0.0
-    r2 = 0.0
-    r3 = 0.0
-    out = 0.0
-    _tmp = 0.0
+
+    # s1 = 0.0
+    # s2 = 0.0
+    # s3 = 0.0
+    # out = 0.0
+
     for neigh in range(27):
         box_to_search = neighbours[loc_box, neigh]
         c = 0
-        # # loop over all particles in a box
+        # loop over all particles in a box
         while boxes[box_to_search, c] != -1:
             p = boxes[box_to_search, c]
             c = c + 1
             if not holes[p]:
-                marker_p = 0.0 #markers[p, 0]
-                r1 = distance_inline(eta1, marker_p, periodic1)
+                r1 = distance_inline(eta1, markers[p, 0], periodic1)
                 r2 = distance_inline(eta2, markers[p, 1], periodic2)
                 r3 = distance_inline(eta3, markers[p, 2], periodic3)
-
-                # smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3, _tmp)
-                _s1 = gaussian_uni(r3, h3)
-                _s2 = gaussian_uni(r2, h2)
-                _s3 = gaussian_uni(r3, h3)
-                out = out + markers[p, index] * _s1 * _s2 * _s3
+                _tmp = smoothing_kernel_inline(kernel_type,r1,r2,r3,h1, h2, h3, s1, s2, s3)
+                out = out + markers[p, index] * _tmp
+                # out += markers[p, index] * smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3)
+                pass
     return out / Np
 
 @inline
@@ -1703,6 +1793,9 @@ def trigonometric_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1d kernel S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = trigonometric_uni(r1, h1)
@@ -1716,6 +1809,9 @@ def grad_trigonometric_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Derivative of S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     ds1 = grad_trigonometric_uni(r1, h1)
@@ -1729,6 +1825,9 @@ def gaussian_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1d kernel S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     s1 = gaussian_uni(r1, h1)
@@ -1742,6 +1841,9 @@ def grad_gaussian_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Derivative of S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     ds1 = grad_gaussian_uni(r1, h1)
@@ -1755,6 +1857,9 @@ def linear_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1d kernel S(x, h) = (1 - x)/h if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -1768,6 +1873,9 @@ def grad_linear_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Derivative of S(x, h) = (1 - x)/h if |x|<1, 0 else."""
     ds1 = grad_linear_uni(r1, h1)
@@ -1786,6 +1894,9 @@ def trigonometric_2d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     _temporary =  testfunc()
@@ -1804,6 +1915,9 @@ def grad_trigonometric_2d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     ds1 = grad_trigonometric_uni(r1, h1)
@@ -1818,6 +1932,9 @@ def grad_trigonometric_2d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = trigonometric_uni(r1, h1)
@@ -1832,6 +1949,9 @@ def gaussian_2d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     s1 = gaussian_uni(r1, h1)
@@ -1846,6 +1966,9 @@ def grad_gaussian_2d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1st component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     ds1 = grad_gaussian_uni(r1, h1)
@@ -1860,6 +1983,9 @@ def grad_gaussian_2d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """2nd component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     s1 = gaussian_uni(r1, h1)
@@ -1874,6 +2000,9 @@ def linear_2d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -1888,6 +2017,9 @@ def grad_linear_2d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     ds1 = grad_linear_uni(r1, h1)
@@ -1902,6 +2034,9 @@ def grad_linear_2d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -1920,57 +2055,15 @@ def trigonometric_3d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = trigonometric_uni(r1, h1)
     s2 = trigonometric_uni(r2, h2)
     s3 = trigonometric_uni(r3, h3)
     return s1 * s2 * s3
-
-@inline
-def grad_trigonometric_3d_1(
-    r1: "float",
-    r2: "float",
-    r3: "float",
-    h1: "float",
-    h2: "float",
-    h3: "float",
-) -> float:
-    """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
-    ds1 = grad_trigonometric_uni(r1, h1)
-    s2 = trigonometric_uni(r2, h2)
-    s3 = trigonometric_uni(r3, h3)
-    return ds1 * s2 * s3
-
-@inline
-def grad_trigonometric_3d_2(
-    r1: "float",
-    r2: "float",
-    r3: "float",
-    h1: "float",
-    h2: "float",
-    h3: "float",
-) -> float:
-    """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
-    s1 = trigonometric_uni(r1, h1)
-    ds2 = grad_trigonometric_uni(r2, h2)
-    s3 = trigonometric_uni(r3, h3)
-    return s1 * ds2 * s3
-
-@inline
-def grad_trigonometric_3d_3(
-    r1: "float",
-    r2: "float",
-    r3: "float",
-    h1: "float",
-    h2: "float",
-    h3: "float",
-) -> float:
-    """3rd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
-    s1 = trigonometric_uni(r1, h1)
-    s2 = trigonometric_uni(r2, h2)
-    ds3 = grad_trigonometric_uni(r3, h3)
-    return s1 * s2 * ds3
 
 @inline
 def gaussian_3d(
@@ -1980,20 +2073,16 @@ def gaussian_3d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
     # out: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
-    # _s1 = 1.0
-    # _s2 = 2.0
-    _asdasdasd2 = 2.0
-    _asdasdasd2 = 2.0 * 2.0
-    # _s1 = gaussian_uni(r1, h1)
-    # _s2 = _s1 * 2.0 # gaussian_uni(r2, h2)
-    # _s1 = gaussian_uni(r3, h3)
-    # _s2 = gaussian_uni(r2, h2)
-    # _s3 = gaussian_uni(r3, h3)
-    out = 1.0
-    return 1.0#_s1 * _s2 #s1 * s2 * s3
+    s1 = gaussian_uni(r1, h3)
+    s2 = gaussian_uni(r2, h2)
+    s3 = gaussian_uni(r3, h3)
+    return s1 * s2 * s3
 
 @inline
 def grad_gaussian_3d_1(
@@ -2003,6 +2092,9 @@ def grad_gaussian_3d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1st component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     ds1 = grad_gaussian_uni(r1, h1)
@@ -2018,6 +2110,9 @@ def grad_gaussian_3d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """2nd component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     s1 = gaussian_uni(r1, h1)
@@ -2033,6 +2128,9 @@ def grad_gaussian_3d_3(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """3rd component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     s1 = gaussian_uni(r1, h1)
@@ -2048,6 +2146,9 @@ def linear_isotropic_3d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """
     Smoothing kernel S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
@@ -2068,6 +2169,9 @@ def grad_linear_isotropic_3d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """
     1st component of gradient of S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
@@ -2090,6 +2194,9 @@ def grad_linear_isotropic_3d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """
     1st component of gradient of S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
@@ -2112,6 +2219,9 @@ def grad_linear_isotropic_3d_3(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """
     1st component of gradient of S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
@@ -2134,6 +2244,9 @@ def linear_3d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -2149,6 +2262,9 @@ def grad_linear_3d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     ds1 = grad_linear_uni(r1, h1)
@@ -2164,6 +2280,9 @@ def grad_linear_3d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -2179,6 +2298,9 @@ def grad_linear_3d_3(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """3rd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -2199,7 +2321,9 @@ def smoothing_kernel_inline(
     h1: "float",
     h2: "float",
     h3: "float",
-    out: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ):
     """Each smoothing kernel is normalized to 1.
 
@@ -2216,19 +2340,19 @@ def smoothing_kernel_inline(
 
     # 1d kernels
     if kernel_type == 100:
-        out = trigonometric_1d(r1, r2, r3, h1, h2, h3)
+        out = trigonometric_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
     elif kernel_type == 101:
-        out = grad_trigonometric_1d(r1, r2, r3, h1, h2, h3)
+        out = grad_trigonometric_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
 
     elif kernel_type == 110:
-        out = gaussian_1d(r1, r2, r3, h1, h2, h3)
+        out = gaussian_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
     elif kernel_type == 111:
-        out = grad_gaussian_1d(r1, r2, r3, h1, h2, h3)
+        out = grad_gaussian_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
 
     elif kernel_type == 120:
-        out = linear_1d(r1, r2, r3, h1, h2, h3)
+        out = linear_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
     elif kernel_type == 121:
-        out = grad_linear_1d(r1, r2, r3, h1, h2, h3)
+        out = grad_linear_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
 
     # 2d kernels
     # elif kernel_type == 340:
@@ -2264,8 +2388,8 @@ def smoothing_kernel_inline(
 
     # TODO: Make this work
     elif kernel_type == 680:
-        # out = out * gaussian_3d(r1, r2, r3, h1, h2, h3)
-        gaussian_uni_noreturn(r1, h1, out)
+        out = gaussian_3d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
+        # gaussian_uni_noreturn(r1, h1, _s1, _s2, _s3)
         # out2 = 0.0
         # gaussian_uni_noreturn(r2, h2,out2)
         # out = out * gaussian_uni(r2, h2)

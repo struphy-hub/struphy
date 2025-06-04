@@ -1813,8 +1813,10 @@ class HasegawaWakatani(StruphyModel):
 
         :meta private:
         """
+        print('before')
         # initialize fields and particles
         super().initialize_from_params()
+        print('after')
 
         if self.rank_world == 0:
             print("\nINITIAL POISSON SOLVE:")

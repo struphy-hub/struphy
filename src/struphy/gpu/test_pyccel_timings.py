@@ -1,8 +1,9 @@
 import time
 
 import numpy as np
-
+import struphy.pic.pushing.pusher_kernels
 from struphy.pic.pushing.pusher_kernels_gpu import matmul_cpu, matmul_gpu
+# from pusher_kernels_gpu import matmul_cpu, matmul_gpu
 
 
 def compare_pyccel_cpu_gpu(N=2000):
@@ -16,7 +17,7 @@ def compare_pyccel_cpu_gpu(N=2000):
 
     # Warm-up GPU offloading (optional)
     # matmul_gpu(A, B, C_gpu)
-    print(f"matrix size: {N}")
+    # print(f"matrix size: {N}")
 
     # ------------------------ CPU --------------------------- #
     print("Start matmul_cpu")
@@ -47,7 +48,7 @@ def compare_pyccel_cpu_gpu(N=2000):
     print(f"{np.allclose(C_cpu, C_gpu) = }")
     print(f"{elapsed_cpu = }")
     print(f"{elapsed_gpu = }")
-    print(f"Speedup: {elapsed_cpu / elapsed_gpu}")
+    print(f"Speedup: {elapsed_cpu / elapsed_gpu} for matrix size: {N}x{N}")
 
 
 if __name__ == "__main__":

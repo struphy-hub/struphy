@@ -638,7 +638,7 @@ class StruphyModel(metaclass=ABCMeta):
                             print(f"{k}: {repr(v)}")
                         else:
                             print(f"{k}: {v}")
-                print(f"{kwargs_i = } {prop = }")
+                # print(f"{kwargs_i = } {prop = }")
                 prop_instance = prop(
                     *[self.pointer[var] for var in variables],
                     **kwargs_i,
@@ -770,6 +770,7 @@ class StruphyModel(metaclass=ABCMeta):
         sq_str = ""
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
+            print(f"{val = }")
             assert not np.isnan(val[0]), f"Scalar {key} is {val[0]}."
             sq_str += key + ": {:14.11f}".format(val[0]) + "   "
         print(sq_str)
