@@ -2344,26 +2344,26 @@ class SplineFunction:
                 mid_points_i[n] = delta * (n + 1 / 2)
             mid_points += [mid_points_i]
 
-            if direction == "e1":
-                tmp_arrays = np.zeros(nprocs[0]).tolist()
-            elif direction == "e2":
-                tmp_arrays = np.zeros(nprocs[1]).tolist()
-            elif direction == "e3":
-                tmp_arrays = np.zeros(nprocs[2]).tolist()
-            elif direction == "e1e2":
-                tmp_arrays = np.zeros((nprocs[0], nprocs[1])).tolist()
-                Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
-            elif direction == "e1e3":
-                tmp_arrays = np.zeros((nprocs[0], nprocs[2])).tolist()
-                Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
-            elif direction == "e2e3":
-                tmp_arrays = np.zeros((nprocs[1], nprocs[2])).tolist()
-                Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
-            elif direction == "e1e2e3":
-                tmp_arrays = np.zeros((nprocs[0], nprocs[1], nprocs[2])).tolist()
-                Warning, f"3d noise in the directions {direction} is not correctly initilaized for MPI !!"
-            else:
-                raise ValueError("Invalid direction for tmp_arrays.")
+        if direction == "e1":
+            tmp_arrays = np.zeros(nprocs[0]).tolist()
+        elif direction == "e2":
+            tmp_arrays = np.zeros(nprocs[1]).tolist()
+        elif direction == "e3":
+            tmp_arrays = np.zeros(nprocs[2]).tolist()
+        elif direction == "e1e2":
+            tmp_arrays = np.zeros((nprocs[0], nprocs[1])).tolist()
+            Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
+        elif direction == "e1e3":
+            tmp_arrays = np.zeros((nprocs[0], nprocs[2])).tolist()
+            Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
+        elif direction == "e2e3":
+            tmp_arrays = np.zeros((nprocs[1], nprocs[2])).tolist()
+            Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
+        elif direction == "e1e2e3":
+            tmp_arrays = np.zeros((nprocs[0], nprocs[1], nprocs[2])).tolist()
+            Warning, f"3d noise in the directions {direction} is not correctly initilaized for MPI !!"
+        else:
+            raise ValueError("Invalid direction for tmp_arrays.")
 
         # 3d index of current process from mid points
         inds_current = []
@@ -2379,78 +2379,78 @@ class SplineFunction:
                 mid_pt = (domain_array[i, 3 * n] + domain_array[i, 3 * n + 1]) / 2.0
                 inds += [np.argmin(np.abs(mid_points[n] - mid_pt))]
 
-                if already_drawn[inds[0], inds[1], inds[2]]:
-                    if direction == "e1":
-                        _amps[:] = tmp_arrays[inds[0]]
-                    elif direction == "e2":
-                        _amps[:] = tmp_arrays[inds[1]]
-                    elif direction == "e3":
-                        _amps[:] = tmp_arrays[inds[2]]
-                    elif direction == "e1e2":
-                        _amps[:] = tmp_arrays[inds[0]][inds[1]]
-                    elif direction == "e1e3":
-                        _amps[:] = tmp_arrays[inds[0]][inds[2]]
-                    elif direction == "e2e3":
-                        _amps[:] = tmp_arrays[inds[1]][inds[2]]
-                    elif direction == "e1e2e3":
-                        _amps[:] = tmp_arrays[inds[0]][inds[1]][inds[2]]
+            if already_drawn[inds[0], inds[1], inds[2]]:
+                if direction == "e1":
+                    _amps[:] = tmp_arrays[inds[0]]
+                elif direction == "e2":
+                    _amps[:] = tmp_arrays[inds[1]]
+                elif direction == "e3":
+                    _amps[:] = tmp_arrays[inds[2]]
+                elif direction == "e1e2":
+                    _amps[:] = tmp_arrays[inds[0]][inds[1]]
+                elif direction == "e1e3":
+                    _amps[:] = tmp_arrays[inds[0]][inds[2]]
+                elif direction == "e2e3":
+                    _amps[:] = tmp_arrays[inds[1]][inds[2]]
+                elif direction == "e1e2e3":
+                    _amps[:] = tmp_arrays[inds[0]][inds[1]][inds[2]]
 
-                else:
-                    if direction == "e1":
-                        tmp_arrays[inds[0]] = (
-                            (
-                                np.random.rand(
-                                    *shapes,
-                                )
-                                - 0.5
+            else:
+                if direction == "e1":
+                    tmp_arrays[inds[0]] = (
+                        (
+                            np.random.rand(
+                                *shapes,
                             )
-                            * 2.0
-                            * amp
+                            - 0.5
                         )
-                        already_drawn[inds[0], :, :] = True
-                        _amps[:] = tmp_arrays[inds[0]]
-                    elif direction == "e2":
-                        tmp_arrays[inds[1]] = (
-                            (
-                                np.random.rand(
-                                    *shapes,
-                                )
-                                - 0.5
+                        * 2.0
+                        * amp
+                    )
+                    already_drawn[inds[0], :, :] = True
+                    _amps[:] = tmp_arrays[inds[0]]
+                elif direction == "e2":
+                    tmp_arrays[inds[1]] = (
+                        (
+                            np.random.rand(
+                                *shapes,
                             )
-                            * 2.0
-                            * amp
+                            - 0.5
                         )
-                        already_drawn[:, inds[1], :] = True
-                        _amps[:] = tmp_arrays[inds[1]]
-                    elif direction == "e3":
-                        tmp_arrays[inds[2]] = (
-                            (
-                                np.random.rand(
-                                    *shapes,
-                                )
-                                - 0.5
+                        * 2.0
+                        * amp
+                    )
+                    already_drawn[:, inds[1], :] = True
+                    _amps[:] = tmp_arrays[inds[1]]
+                elif direction == "e3":
+                    tmp_arrays[inds[2]] = (
+                        (
+                            np.random.rand(
+                                *shapes,
                             )
-                            * 2.0
-                            * amp
+                            - 0.5
                         )
-                        already_drawn[:, :, inds[2]] = True
-                        _amps[:] = tmp_arrays[inds[2]]
-                    elif direction == "e1e2":
-                        tmp_arrays[inds[0]][inds[1]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
-                        already_drawn[inds[0], inds[1], :] = True
-                        _amps[:] = tmp_arrays[inds[0]][inds[1]]
-                    elif direction == "e1e3":
-                        tmp_arrays[inds[0]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
-                        already_drawn[inds[0], :, inds[2]] = True
-                        _amps[:] = tmp_arrays[inds[0]][inds[2]]
-                    elif direction == "e2e3":
-                        tmp_arrays[inds[1]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
-                        already_drawn[:, inds[1], inds[2]] = True
-                        _amps[:] = tmp_arrays[inds[1]][inds[2]]
-                    elif direction == "e1e2e3":
-                        tmp_arrays[inds[0]][inds[1]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
-                        already_drawn[inds[0], inds[1], inds[2]] = True
-                        _amps[:] = tmp_arrays[inds[0]][inds[1]][inds[2]]
+                        * 2.0
+                        * amp
+                    )
+                    already_drawn[:, :, inds[2]] = True
+                    _amps[:] = tmp_arrays[inds[2]]
+                elif direction == "e1e2":
+                    tmp_arrays[inds[0]][inds[1]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
+                    already_drawn[inds[0], inds[1], :] = True
+                    _amps[:] = tmp_arrays[inds[0]][inds[1]]
+                elif direction == "e1e3":
+                    tmp_arrays[inds[0]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
+                    already_drawn[inds[0], :, inds[2]] = True
+                    _amps[:] = tmp_arrays[inds[0]][inds[2]]
+                elif direction == "e2e3":
+                    tmp_arrays[inds[1]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
+                    already_drawn[:, inds[1], inds[2]] = True
+                    _amps[:] = tmp_arrays[inds[1]][inds[2]]
+                elif direction == "e1e2e3":
+                    tmp_arrays[inds[0]][inds[1]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
+                    already_drawn[inds[0], inds[1], inds[2]] = True
+                    _amps[:] = tmp_arrays[inds[0]][inds[1]][inds[2]]
 
             if np.all(np.array([ind_c == ind for ind_c, ind in zip(inds_current, inds)])):
                 return _amps
