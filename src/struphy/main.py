@@ -62,19 +62,8 @@ def main(
     num_clones: int, optional
         Number of domain clones (default=1)
     """
-    
-    try:
-        import cupy as cp
-        # Try running a simple GPU command to make sure GPU is really available
-        _ = cp.random.random(1)  # May raise an error if GPU is not usable
-        gpu_active = True
-        print("GPU active (CuPy)")
-    except Exception:
-        import numpy as cp
-        gpu_active = False
-        print("GPU not active, falling back to NumPy")
-    
-    if gpu and gpu_active:
+    import struphy.gpu.gpu as struphy_gpu
+    if struphy_gpu.gpu_active:
         compare_gpu_cpu()
     print(f"\n\n\nRunning struphy with {gpu = }\n\n\n")
 

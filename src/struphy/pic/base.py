@@ -5,17 +5,7 @@ from abc import ABCMeta, abstractmethod
 
 import h5py
 import numpy as np
-
-try:
-    import cupy as cp
-    # Try running a simple GPU command to make sure GPU is really available
-    _ = cp.random.random(1)  # May raise an error if GPU is not usable
-    gpu_active = True
-    print("GPU active (CuPy)")
-except Exception:
-    import numpy as cp
-    gpu_active = False
-    print("GPU not active, falling back to NumPy")
+import struphy.gpu.gpu as struphy_gpu
 
 import scipy.special as sp
 from mpi4py import MPI
@@ -1592,13 +1582,17 @@ class Particles(metaclass=ABCMeta):
 
         # before sorting, apply kinetic bc
         if apply_bc:
-            self.apply_kinetic_bc(gpu=gpu)
+            if gpu and struphy_gpu.gpu_active:
+                self.apply_kinetic_bc_gpu()
+            else:
+                self.apply_kinetic_bc()
 
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = (alpha, alpha, alpha)
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
-        if gpu and gpu_active:
+        if gpu and struphy_gpu.gpu_active:
+            exit()
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu(alpha=alpha)
             # hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu_pyccel(alpha=alpha)
             
@@ -1917,7 +1911,7 @@ class Particles(metaclass=ABCMeta):
         return cp.asnumpy(outside_inds)
 
     # @line_profiler.profile
-    def apply_kinetic_bc(self, newton=False, gpu=False):
+    def apply_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
 
@@ -1927,13 +1921,9 @@ class Particles(metaclass=ABCMeta):
             Whether the shift due to boundary conditions should be computed
             for a Newton step or for a strandard (explicit or Picard) step.
         """
-
         # apply boundary conditions
         for axis in self._remove_axes:
-            if gpu and gpu_active:
-                outside_inds = self._find_outside_particles_gpu(axis, gpu=gpu)
-            else:
-                outside_inds = self._find_outside_particles(axis)
+            outside_inds = self._find_outside_particles(axis)
 
             if len(outside_inds) == 0:
                 continue
@@ -1945,10 +1935,7 @@ class Particles(metaclass=ABCMeta):
             self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
         for axis in self._periodic_axes:
-            if gpu and gpu_active:
-                outside_inds = self._find_outside_particles_gpu(axis)
-            else:
-                outside_inds = self._find_outside_particles(axis)
+            outside_inds = self._find_outside_particles(axis)
 
             if len(outside_inds) == 0:
                 continue
@@ -1984,11 +1971,88 @@ class Particles(metaclass=ABCMeta):
         # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
         outside_inds_per_axis = {}
         for axis in self._reflect_axes:
-            if gpu and gpu_active:
-                outside_inds = self._find_outside_particles_gpu(axis)
-            else:
-                outside_inds = self._find_outside_particles(axis)
+            outside_inds = self._find_outside_particles(axis)
 
+            self.markers[self._is_outside_left, axis] = 1e-4
+            self.markers[self._is_outside_right, axis] = 1 - 1e-4
+
+            self.markers[self._is_outside, self.first_pusher_idx] = -1.0
+
+            outside_inds_per_axis[axis] = outside_inds
+
+        for axis in self._reflect_axes:
+            if len(outside_inds_per_axis[axis]) == 0:
+                continue
+
+            reflect(
+                self.markers,
+                self.domain.args_domain,
+                outside_inds_per_axis[axis],
+                axis,
+            )
+    
+    def apply_kinetic_bc_gpu(self, newton=False):
+        """
+        Apply boundary conditions to markers that are outside of the logical unit cube.
+
+        Parameters
+        ----------
+        newton : bool
+            Whether the shift due to boundary conditions should be computed
+            for a Newton step or for a strandard (explicit or Picard) step.
+        """
+        # apply boundary conditions
+        for axis in self._remove_axes:
+            outside_inds = self._find_outside_particles_gpu(axis, gpu=gpu)
+            
+            if len(outside_inds) == 0:
+                continue
+
+            if self.bc_refill is not None:
+                self.particle_refilling()
+
+            self._markers[self._is_outside, :-1] = -1.0
+            self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
+
+        for axis in self._periodic_axes:
+            outside_inds = self._find_outside_particles_gpu(axis)
+            
+            if len(outside_inds) == 0:
+                continue
+
+            self.markers[outside_inds, axis] = self.markers[outside_inds, axis] % 1.0
+
+            # set shift for alpha-weighted mid-point computation
+            outside_right_inds = np.nonzero(self._is_outside_right)[0]
+            outside_left_inds = np.nonzero(self._is_outside_left)[0]
+            if newton:
+                self.markers[
+                    outside_right_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] += 1.0
+                self.markers[
+                    outside_left_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] += -1.0
+            else:
+                self.markers[
+                    :,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] = np.float32(0.0)
+                self.markers[
+                    outside_right_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] = 1.0
+                self.markers[
+                    outside_left_inds,
+                    self.first_pusher_idx + 3 + self.vdim + axis,
+                ] = -1.0
+
+        # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
+        outside_inds_per_axis = {}
+        for axis in self._reflect_axes:
+            outside_inds = self._find_outside_particles_gpu(axis)
+            
             self.markers[self._is_outside_left, axis] = 1e-4
             self.markers[self._is_outside_right, axis] = 1 - 1e-4
 

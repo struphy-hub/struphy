@@ -638,7 +638,7 @@ class StruphyModel(metaclass=ABCMeta):
                             print(f"{k}: {repr(v)}")
                         else:
                             print(f"{k}: {v}")
-                print(f"{kwargs_i = } {prop = }")
+                # print(f"{kwargs_i = } {prop = }")
                 prop_instance = prop(
                     *[self.pointer[var] for var in variables],
                     **kwargs_i,

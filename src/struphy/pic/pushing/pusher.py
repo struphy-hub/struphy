@@ -6,10 +6,10 @@ import time
 import numpy as np
 from mpi4py.MPI import IN_PLACE, SUM
 
+import struphy.gpu.gpu as struphy_gpu
 from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments
 from struphy.profiling.profiling import ProfileManager
-
 
 class Pusher:
     r"""
@@ -310,7 +310,10 @@ class Pusher:
                         # print(f"Timing: {t1 - t0}")
 
                     with ProfileManager.profile_region("apply_kinetic_bc"):
-                        self.particles.apply_kinetic_bc(newton=self._newton, gpu=self._gpu)
+                        if self._gpu and struphy_gpu.gpu_active:
+                            self.particles.apply_kinetic_bc_gpu(newton=self._newton)
+                        else:
+                            self.particles.apply_kinetic_bc(newton=self._newton)
                     self.particles.update_holes()
 
                     # update boxes
@@ -359,7 +362,10 @@ class Pusher:
                                 with ProfileManager.profile_region("mpi_sort_markers"):
                                     self.particles.mpi_sort_markers(gpu=self._gpu)
                             else:
-                                self.particles.apply_kinetic_bc(gpu=self._gpu)
+                                if self._gpu and struphy_gpu.gpu_active:
+                                    self.particles.apply_kinetic_bc_gpu()
+                                else:
+                                    self.particles.apply_kinetic_bc()
                         break
 
                     # check for convergence
@@ -370,7 +376,10 @@ class Pusher:
                                 with ProfileManager.profile_region("mpi_sort_markers"):
                                     self.particles.mpi_sort_markers(gpu=self._gpu)
                             else:
-                                self.particles.apply_kinetic_bc(gpu=self._gpu)
+                                if self._gpu and struphy_gpu.gpu_active:
+                                    self.particles.apply_kinetic_bc_gpu()
+                                else:
+                                    self.particles.apply_kinetic_bc()
 
                         break
 
@@ -388,7 +397,10 @@ class Pusher:
                     with ProfileManager.profile_region("mpi_sort_markers"):
                         self.particles.mpi_sort_markers(do_test=True)
                 else:
-                    self.particles.apply_kinetic_bc(gpu=self._gpu)
+                    if self._gpu and struphy_gpu.gpu_active:
+                        self.particles.apply_kinetic_bc_gpu()
+                    else:
+                        self.particles.apply_kinetic_bc()
 
     @property
     def particles(self):
