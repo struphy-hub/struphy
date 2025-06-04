@@ -1630,8 +1630,8 @@ class PushVinSPHpressure(Propagator):
         #         f"For 2d SPH simulations 340 <= {kernel_nr = } <= 660, {particles.sorting_boxes.nz = } != 1 is not allowed."
         #     )
         if gpu:
-            kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu  # TODO: port2gpu
-            # kernel = pusher_kernels.push_v_sph_pressure
+            # kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu  # TODO: port2gpu
+            kernel = pusher_kernels.push_v_sph_pressure
             # print("Using GPU kernel: ", kernel)
         else:
             

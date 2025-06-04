@@ -1132,26 +1132,25 @@ def boxed_based_kernel_inline(
     r1 = 0.0
     r2 = 0.0
     r3 = 0.0
+    _s1 = 0.0
+    _s2 = 0.0
+    _s3 = 0.0
     out = 0.0
-    _tmp = 0.0
+
     for neigh in range(27):
         box_to_search = neighbours[loc_box, neigh]
         c = 0
-        # # loop over all particles in a box
+        # loop over all particles in a box
         while boxes[box_to_search, c] != -1:
             p = boxes[box_to_search, c]
             c = c + 1
             if not holes[p]:
                 marker_p = 0.0 #markers[p, 0]
-                r1 = distance_inline(eta1, marker_p, periodic1)
+                r1 = distance_inline(eta1, markers[p, 0], periodic1)
                 r2 = distance_inline(eta2, markers[p, 1], periodic2)
                 r3 = distance_inline(eta3, markers[p, 2], periodic3)
-
-                # smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3, _tmp)
-                _s1 = gaussian_uni(r3, h3)
-                _s2 = gaussian_uni(r2, h2)
-                _s3 = gaussian_uni(r3, h3)
-                out = out + markers[p, index] * _s1 * _s2 * _s3
+                out = out + markers[p, index] * smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3, _s1, _s2, _s3)
+                # out += markers[p, index] * smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3)
     return out / Np
 
 @inline
@@ -1703,6 +1702,9 @@ def trigonometric_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1d kernel S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = trigonometric_uni(r1, h1)
@@ -1716,6 +1718,9 @@ def grad_trigonometric_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Derivative of S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     ds1 = grad_trigonometric_uni(r1, h1)
@@ -1729,6 +1734,9 @@ def gaussian_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1d kernel S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     s1 = gaussian_uni(r1, h1)
@@ -1742,6 +1750,9 @@ def grad_gaussian_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Derivative of S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     ds1 = grad_gaussian_uni(r1, h1)
@@ -1755,6 +1766,9 @@ def linear_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1d kernel S(x, h) = (1 - x)/h if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -1768,6 +1782,9 @@ def grad_linear_1d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Derivative of S(x, h) = (1 - x)/h if |x|<1, 0 else."""
     ds1 = grad_linear_uni(r1, h1)
@@ -1786,6 +1803,9 @@ def trigonometric_2d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     _temporary =  testfunc()
@@ -1804,6 +1824,9 @@ def grad_trigonometric_2d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     ds1 = grad_trigonometric_uni(r1, h1)
@@ -1818,6 +1841,9 @@ def grad_trigonometric_2d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = trigonometric_uni(r1, h1)
@@ -1832,6 +1858,9 @@ def gaussian_2d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     s1 = gaussian_uni(r1, h1)
@@ -1846,6 +1875,9 @@ def grad_gaussian_2d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1st component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     ds1 = grad_gaussian_uni(r1, h1)
@@ -1860,6 +1892,9 @@ def grad_gaussian_2d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """2nd component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     s1 = gaussian_uni(r1, h1)
@@ -1874,6 +1909,9 @@ def linear_2d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -1888,6 +1926,9 @@ def grad_linear_2d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     ds1 = grad_linear_uni(r1, h1)
@@ -1902,6 +1943,9 @@ def grad_linear_2d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -1920,57 +1964,15 @@ def trigonometric_3d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = trigonometric_uni(r1, h1)
     s2 = trigonometric_uni(r2, h2)
     s3 = trigonometric_uni(r3, h3)
     return s1 * s2 * s3
-
-@inline
-def grad_trigonometric_3d_1(
-    r1: "float",
-    r2: "float",
-    r3: "float",
-    h1: "float",
-    h2: "float",
-    h3: "float",
-) -> float:
-    """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
-    ds1 = grad_trigonometric_uni(r1, h1)
-    s2 = trigonometric_uni(r2, h2)
-    s3 = trigonometric_uni(r3, h3)
-    return ds1 * s2 * s3
-
-@inline
-def grad_trigonometric_3d_2(
-    r1: "float",
-    r2: "float",
-    r3: "float",
-    h1: "float",
-    h2: "float",
-    h3: "float",
-) -> float:
-    """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
-    s1 = trigonometric_uni(r1, h1)
-    ds2 = grad_trigonometric_uni(r2, h2)
-    s3 = trigonometric_uni(r3, h3)
-    return s1 * ds2 * s3
-
-@inline
-def grad_trigonometric_3d_3(
-    r1: "float",
-    r2: "float",
-    r3: "float",
-    h1: "float",
-    h2: "float",
-    h3: "float",
-) -> float:
-    """3rd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
-    s1 = trigonometric_uni(r1, h1)
-    s2 = trigonometric_uni(r2, h2)
-    ds3 = grad_trigonometric_uni(r3, h3)
-    return s1 * s2 * ds3
 
 @inline
 def gaussian_3d(
@@ -1980,20 +1982,16 @@ def gaussian_3d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
     # out: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
-    # _s1 = 1.0
-    # _s2 = 2.0
-    _asdasdasd2 = 2.0
-    _asdasdasd2 = 2.0 * 2.0
-    # _s1 = gaussian_uni(r1, h1)
-    # _s2 = _s1 * 2.0 # gaussian_uni(r2, h2)
-    # _s1 = gaussian_uni(r3, h3)
-    # _s2 = gaussian_uni(r2, h2)
-    # _s3 = gaussian_uni(r3, h3)
-    out = 1.0
-    return 1.0#_s1 * _s2 #s1 * s2 * s3
+    s1 = gaussian_uni(r1, h3)
+    s2 = gaussian_uni(r2, h2)
+    s3 = gaussian_uni(r3, h3)
+    return s1 * s2 * s3
 
 @inline
 def grad_gaussian_3d_1(
@@ -2003,6 +2001,9 @@ def grad_gaussian_3d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1st component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     ds1 = grad_gaussian_uni(r1, h1)
@@ -2018,6 +2019,9 @@ def grad_gaussian_3d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """2nd component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     s1 = gaussian_uni(r1, h1)
@@ -2033,6 +2037,9 @@ def grad_gaussian_3d_3(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """3rd component of gradient of Tensor product of kernels S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     s1 = gaussian_uni(r1, h1)
@@ -2048,6 +2055,9 @@ def linear_isotropic_3d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """
     Smoothing kernel S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
@@ -2068,6 +2078,9 @@ def grad_linear_isotropic_3d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """
     1st component of gradient of S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
@@ -2090,6 +2103,9 @@ def grad_linear_isotropic_3d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """
     1st component of gradient of S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
@@ -2112,6 +2128,9 @@ def grad_linear_isotropic_3d_3(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """
     1st component of gradient of S(r,h) = C(h)F(r/h) with F(x) = 1-x if x<1, 0 else,
@@ -2134,6 +2153,9 @@ def linear_3d(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -2149,6 +2171,9 @@ def grad_linear_3d_1(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """1st component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     ds1 = grad_linear_uni(r1, h1)
@@ -2164,6 +2189,9 @@ def grad_linear_3d_2(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """2nd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -2179,6 +2207,9 @@ def grad_linear_3d_3(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ) -> float:
     """3rd component of gradient of Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
@@ -2199,7 +2230,9 @@ def smoothing_kernel_inline(
     h1: "float",
     h2: "float",
     h3: "float",
-    out: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
 ):
     """Each smoothing kernel is normalized to 1.
 
@@ -2216,19 +2249,19 @@ def smoothing_kernel_inline(
 
     # 1d kernels
     if kernel_type == 100:
-        out = trigonometric_1d(r1, r2, r3, h1, h2, h3)
+        out = trigonometric_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
     elif kernel_type == 101:
-        out = grad_trigonometric_1d(r1, r2, r3, h1, h2, h3)
+        out = grad_trigonometric_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
 
     elif kernel_type == 110:
-        out = gaussian_1d(r1, r2, r3, h1, h2, h3)
+        out = gaussian_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
     elif kernel_type == 111:
-        out = grad_gaussian_1d(r1, r2, r3, h1, h2, h3)
+        out = grad_gaussian_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
 
     elif kernel_type == 120:
-        out = linear_1d(r1, r2, r3, h1, h2, h3)
+        out = linear_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
     elif kernel_type == 121:
-        out = grad_linear_1d(r1, r2, r3, h1, h2, h3)
+        out = grad_linear_1d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
 
     # 2d kernels
     # elif kernel_type == 340:
@@ -2264,8 +2297,8 @@ def smoothing_kernel_inline(
 
     # TODO: Make this work
     elif kernel_type == 680:
-        # out = out * gaussian_3d(r1, r2, r3, h1, h2, h3)
-        gaussian_uni_noreturn(r1, h1, out)
+        out = gaussian_3d(r1, r2, r3, h1, h2, h3, s1, s2, s3)
+        # gaussian_uni_noreturn(r1, h1, _s1, _s2, _s3)
         # out2 = 0.0
         # gaussian_uni_noreturn(r2, h2,out2)
         # out = out * gaussian_uni(r2, h2)
