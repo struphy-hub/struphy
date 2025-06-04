@@ -22,11 +22,11 @@ def test_eval_field(Nel, p, spl_kind):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # fem field objects
-    p0 = derham.create_field("pressure", "H1")
-    E1 = derham.create_field("e_field", "Hcurl")
-    B2 = derham.create_field("b_field", "Hdiv")
-    n3 = derham.create_field("density", "L2")
-    uv = derham.create_field("velocity", "H1vec")
+    p0 = derham.create_spline_function("pressure", "H1")
+    E1 = derham.create_spline_function("e_field", "Hcurl")
+    B2 = derham.create_spline_function("b_field", "Hdiv")
+    n3 = derham.create_spline_function("density", "L2")
+    uv = derham.create_spline_function("velocity", "H1vec")
 
     # initialize fields as forms
     comps = {
