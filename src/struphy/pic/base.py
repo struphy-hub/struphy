@@ -8,9 +8,15 @@ import numpy as np
 
 try:
     import cupy as cp
-except:
-    print(f"cupy not installed, falling back to numpy")
+    # Try running a simple GPU command to make sure GPU is really available
+    _ = cp.random.random(1)  # May raise an error if GPU is not usable
+    gpu_active = True
+    print("GPU active (CuPy)")
+except Exception:
     import numpy as cp
+    gpu_active = False
+    print("GPU not active, falling back to NumPy")
+
 import scipy.special as sp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
@@ -1592,7 +1598,7 @@ class Particles(metaclass=ABCMeta):
             alpha = (alpha, alpha, alpha)
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
-        if gpu:
+        if gpu and gpu_active:
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu(alpha=alpha)
             # hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu_pyccel(alpha=alpha)
             
@@ -1924,7 +1930,7 @@ class Particles(metaclass=ABCMeta):
 
         # apply boundary conditions
         for axis in self._remove_axes:
-            if gpu:
+            if gpu and gpu_active:
                 outside_inds = self._find_outside_particles_gpu(axis, gpu=gpu)
             else:
                 outside_inds = self._find_outside_particles(axis)
@@ -1939,7 +1945,7 @@ class Particles(metaclass=ABCMeta):
             self._n_lost_markers += len(np.nonzero(self._is_outside)[0])
 
         for axis in self._periodic_axes:
-            if gpu:
+            if gpu and gpu_active:
                 outside_inds = self._find_outside_particles_gpu(axis)
             else:
                 outside_inds = self._find_outside_particles(axis)
@@ -1978,7 +1984,7 @@ class Particles(metaclass=ABCMeta):
         # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
         outside_inds_per_axis = {}
         for axis in self._reflect_axes:
-            if gpu:
+            if gpu and gpu_active:
                 outside_inds = self._find_outside_particles_gpu(axis)
             else:
                 outside_inds = self._find_outside_particles(axis)
