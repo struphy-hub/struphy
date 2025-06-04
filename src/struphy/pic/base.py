@@ -1595,6 +1595,7 @@ class Particles(metaclass=ABCMeta):
         if gpu:
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu(alpha=alpha)
             # hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu_pyccel(alpha=alpha)
+            # hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs(alpha=alpha)
             
         else:
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs(alpha=alpha)
@@ -1925,7 +1926,8 @@ class Particles(metaclass=ABCMeta):
         # apply boundary conditions
         for axis in self._remove_axes:
             if gpu:
-                outside_inds = self._find_outside_particles_gpu(axis, gpu=gpu)
+                outside_inds = self._find_outside_particles_gpu(axis)
+                # outside_inds = self._find_outside_particles(axis)
             else:
                 outside_inds = self._find_outside_particles(axis)
 
@@ -1941,6 +1943,7 @@ class Particles(metaclass=ABCMeta):
         for axis in self._periodic_axes:
             if gpu:
                 outside_inds = self._find_outside_particles_gpu(axis)
+                # outside_inds = self._find_outside_particles(axis)
             else:
                 outside_inds = self._find_outside_particles(axis)
 
@@ -1980,6 +1983,7 @@ class Particles(metaclass=ABCMeta):
         for axis in self._reflect_axes:
             if gpu:
                 outside_inds = self._find_outside_particles_gpu(axis)
+                # outside_inds = self._find_outside_particles(axis)
             else:
                 outside_inds = self._find_outside_particles(axis)
 

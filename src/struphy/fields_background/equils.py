@@ -3066,6 +3066,10 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             return self.params["n"]*np.exp(-(x**2 + y**2)/self.params["p0"])
         elif self.params["density_profile"] == "gaussian":
             return self.params["n"]*np.exp(-(x**2 + y**2 + z**2)/self.params["p0"])
+        elif self.params["density_profile"] == "step_function_x":
+            out = self.params["n"] + 0*x
+            out[x>0] = 0.0 
+            return out
 class HomogenSlabITG(CartesianFluidEquilibriumWithB):
     r"""
     Homogenous slab equilibrium with temperature gradient in x, B-field in z:

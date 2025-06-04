@@ -75,6 +75,7 @@ class PushEta(Propagator):
         # get kernel
         if gpu:
             kernel = push_eta_stage_gpu
+            # kernel = pusher_kernels.push_eta_stage
         else:
             kernel = pusher_kernels.push_eta_stage
 
@@ -189,6 +190,7 @@ class PushVxB(Propagator):
                 # kernel = pusher_kernels.push_vxb_analytic
                 # kernel = push_vxb_analytic_gpu
                 kernel = pusher_kernels_gpu.push_vxb_analytic_gpu
+                # pusher_kernels.push_vxb_analytic
             elif algo == "implicit":
                 kernel = pusher_kernels.push_vxb_implicit
                 # kernel = push_vxb_implicit_gpu
@@ -1578,7 +1580,8 @@ class PushVinSPHpressure(Propagator):
 
         # init kernel for evaluating density etc. before each time step.
         if gpu:
-            init_kernel = pusher_kernels_gpu.sph_isotherm_pressure_coeffs_gpu  # TODO: port2gpu
+            # init_kernel = pusher_kernels_gpu.sph_isotherm_pressure_coeffs_gpu  # TODO: port2gpu
+            init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
         else:
             init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
 
@@ -1627,7 +1630,8 @@ class PushVinSPHpressure(Propagator):
         #         f"For 2d SPH simulations 340 <= {kernel_nr = } <= 660, {particles.sorting_boxes.nz = } != 1 is not allowed."
         #     )
         if gpu:
-            kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu  # TODO: port2gpu
+            # kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu  # TODO: port2gpu
+            kernel = pusher_kernels.push_v_sph_pressure
             print("Using GPU kernel: ", kernel)
         else:
             

@@ -282,7 +282,6 @@ def struphy():
         metavar="MODEL",
         help=model_message,
     )
-
     parser_run.add_argument(
         "-i",
         "--inp",
@@ -406,6 +405,12 @@ def struphy():
     parser_run.add_argument(
         "--line-profile",
         help="Launch with kernprof -l",
+        action="store_true",
+    )
+
+    parser_run.add_argument(
+        "--nsys-profile",
+        help="Launch with nsys profile",
         action="store_true",
     )
 
