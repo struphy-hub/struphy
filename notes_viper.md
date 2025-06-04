@@ -9,11 +9,18 @@ source ~/virtual_envs/env_struphy/bin/activate
 
 ## Compile all the kernels
 
+Only this should be needed
+
+```
+pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_kernels_gpu.py
+```
+
 Compile all the kernels the usual way
 
 ```
 struphy compile --language fortran --compiler /u/maxlin/git_repos/struphy/compiler_llvm.json
 ```
+
 
 Compile the GPU kernels with `--verbose` and `--openmp`, then copy the compile commands:
 
