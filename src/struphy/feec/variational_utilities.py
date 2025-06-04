@@ -1,7 +1,5 @@
 from copy import deepcopy
 
-from copy import deepcopy
-
 import numpy as np
 from psydac.linalg.basic import IdentityOperator, Vector
 from psydac.linalg.block import BlockVector

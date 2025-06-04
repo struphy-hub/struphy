@@ -5643,11 +5643,10 @@ class VariationalViscosity(Propagator):
         if self._info:
             print("information on the linear solver : ", self.inv_lop._info)
 
-
         if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
             self.feec_vars_update(sn, un1)
             return
-        
+
         # Energy balance term
         # 1) Pointwize energy change
         energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
@@ -6260,13 +6259,7 @@ class VariationalResistivity(Propagator):
             ],
             "verbose": False,
         }
-        dct["nonlin_solver"] = {
-            "tol": 1e-8,
-            "maxiter": 100,
-            "type": ["Newton"],
-            "info": False,
-            "fast": False
-        }
+        dct["nonlin_solver"] = {"tol": 1e-8, "maxiter": 100, "type": ["Newton"], "info": False, "fast": False}
         dct["physics"] = {
             "eta": 0.0,
             "eta_a": 0.0,
@@ -6361,7 +6354,6 @@ class VariationalResistivity(Propagator):
             print()
             print("Computing the dissipation in VariationalResistivity")
 
-        
         total_resistivity = self._update_artificial_resistivity(bn, dt)
 
         self._scaled_stiffness._scalar = dt * self._eta
