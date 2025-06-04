@@ -1631,12 +1631,8 @@ class PushVinSPHpressure(Propagator):
         #     )
         if gpu:
             kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu  # TODO: port2gpu
-            # kernel = pusher_kernels.push_v_sph_pressure
-            # print("Using GPU kernel: ", kernel)
         else:
-            
             kernel = pusher_kernels.push_v_sph_pressure
-            # print("Using CPU kernel: ", kernel)
         print(f"Loaded {kernel = }")
         # same arguments as init kernel
         args_kernel = args_init

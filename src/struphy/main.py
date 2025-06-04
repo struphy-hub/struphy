@@ -63,7 +63,7 @@ def main(
         Number of domain clones (default=1)
     """
     import struphy.gpu.gpu as struphy_gpu
-    if struphy_gpu.gpu_active:
+    if gpu and struphy_gpu.gpu_active:
         compare_gpu_cpu()
     print(f"\n\n\nRunning struphy with {gpu = }\n\n\n")
 
