@@ -5,37 +5,6 @@ from numpy import abs, exp
 from numpy import copy, empty, floor, log, shape, zeros
 from pyccel.decorators import inline, pure, stack_array
 
-# import struphy.bsplines.bsplines_kernels as bsplines_kernels
-# import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-# import struphy.geometry.evaluation_kernels as evaluation_kernels
-# import struphy.linear_algebra.linalg_kernels as linalg_kernels
-
-# do not remove; needed to identify dependencies
-# # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-# import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
-# from struphy.bsplines.evaluation_kernels_3d import (
-#     # eval_0form_spline_mpi,
-#     # eval_1form_spline_mpi,
-#     # eval_2form_spline_mpi,
-#     # eval_3form_spline_mpi,
-#     # eval_vectorfield_spline_mpi,
-#     get_spans,
-# )
-# import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-# from evaluation_kernels_3d import get_spans
-# import struphy.geometry.mappings_kernels as mappings_kernels
-# import struphy.linear_algebra.linalg_kernels as linalg_kernels
-# from linalg_kernels import det, scalar_dot
-# # do not remove; needed to identify dependencies
-# # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-# import struphy.pic.sph_eval_kernels as sph_eval_kernels
-# from struphy.pic.sph_eval_kernels import boxed_based_kernel
-# from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments, MarkerArguments
-
-# # from struphy.linear_algebra.linalg_kernels import matrix_inv, matrix_vector
-# # from struphy.geometry.evaluation_kernels import df
-
-
 class MarkerArguments:
     """Holds arguments pertaining to :class:`~struphy.pic.base.Particles`
     passed to particle kernels.
@@ -192,6 +161,39 @@ class DomainArguments:
         self.cx = copy(cx)
         self.cy = copy(cy)
         self.cz = copy(cz)
+
+# import struphy.bsplines.bsplines_kernels as bsplines_kernels
+import struphy.geometry.evaluation_kernels as evaluation_kernels
+# import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+# import struphy.geometry.evaluation_kernels as evaluation_kernels
+# import struphy.linear_algebra.linalg_kernels as linalg_kernels
+
+# do not remove; needed to identify dependencies
+# # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+# import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
+# from struphy.bsplines.evaluation_kernels_3d import (
+#     # eval_0form_spline_mpi,
+#     # eval_1form_spline_mpi,
+#     # eval_2form_spline_mpi,
+#     # eval_3form_spline_mpi,
+#     # eval_vectorfield_spline_mpi,
+#     get_spans,
+# )
+# import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+# from evaluation_kernels_3d import get_spans
+# import struphy.geometry.mappings_kernels as mappings_kernels
+# import struphy.linear_algebra.linalg_kernels as linalg_kernels
+# from linalg_kernels import det, scalar_dot
+# # do not remove; needed to identify dependencies
+# # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+import struphy.pic.sph_eval_kernels as sph_eval_kernels
+# from struphy.pic.sph_eval_kernels import boxed_based_kernel
+# from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments, MarkerArguments
+
+# # from struphy.linear_algebra.linalg_kernels import matrix_inv, matrix_vector
+# # from struphy.geometry.evaluation_kernels import df
+
+
 
 def _tmp_floor_division_pusher_kernels(x: int):
     y = zeros(10)
@@ -775,6 +777,30 @@ def push_v_sph_pressure_gpu(
             False,
             dfinv,
         )
+
+        df_inv_inline(
+            eta1,
+            eta2,
+            eta3,
+            # args_domain,
+            # args domain start
+            args_domain_kind_map,
+            args_domain_params,
+            args_domain_p, 
+            args_domain_t1,
+            args_domain_t2,
+            args_domain_t3,
+            args_domain_ind1,
+            args_domain_ind2,
+            args_domain_ind3,
+            args_domain_cx,      
+            args_domain_cy,
+            args_domain_cz,
+            # args domain end
+            tmp1,
+            False,
+            dfinv,
+        )
         # linalg_kernels.transpose(dfinv, dfinvT)
         # transpose_inline(dfinv, dfinvT)
         for _i in range(3):
@@ -898,7 +924,6 @@ def compute_sorting_etas(
             val = alpha[d] * (pos + shift) + (1.0 - alpha[d]) * ppos
             sorting_etas[i, d] = val - floor(val)  # mod(val, 1.0)
 
-
 @inline
 def df_inv_inline(
     eta1: float,
@@ -940,7 +965,6 @@ def df_inv_inline(
     dfinv_out: np.array
         Output array of shape (3, 3).
     """
-
     # TODO: This should be called with args_xyz
     df_inline(
         eta1,
@@ -963,64 +987,64 @@ def df_inv_inline(
         # args domain end
         tmp1,
     )
-    # matrix_inv_inline(tmp1, dfinv_out)
+    matrix_inv_inline(tmp1, dfinv_out)
     
     # TODO: Use args_kind_map here
     # set known (analytical) zero components manually to zero to avoid round-off error remainders!
-    # if avoid_round_off:
-    #     if args.kind_map == 1:
-    #         dfinv_out[0, 2] = 0.0
-    #         dfinv_out[1, 2] = 0.0
-    #         dfinv_out[2, 0] = 0.0
-    #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 2:
-    #         dfinv_out[2, 2] = 0
-    #     elif args.kind_map == 10:
-    #         dfinv_out[0, 1] = 0.0
-    #         dfinv_out[0, 2] = 0.0
-    #         dfinv_out[1, 0] = 0.0
-    #         dfinv_out[1, 2] = 0.0
-    #         dfinv_out[2, 0] = 0.0
-    #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 11:
-    #         dfinv_out[0, 1] = 0.0
-    #         dfinv_out[0, 2] = 0.0
-    #         dfinv_out[1, 0] = 0.0
-    #         dfinv_out[1, 2] = 0.0
-    #         dfinv_out[2, 0] = 0.0
-    #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 12:
-    #         dfinv_out[0, 2] = 0.0
-    #         dfinv_out[1, 2] = 0.0
-    #         dfinv_out[2, 0] = 0.0
-    #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 20:
-    #         dfinv_out[0, 2] = 0.0
-    #         dfinv_out[1, 2] = 0.0
-    #         dfinv_out[2, 0] = 0.0
-    #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 21:
-    #         dfinv_out[0, 2] = 0.0
-    #         dfinv_out[1, 2] = 0.0
-    #         dfinv_out[2, 0] = 0.0
-    #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 22:
-    #         dfinv_out[2, 2] = 0.0
-    #     elif args.kind_map == 30:
-    #         dfinv_out[0, 2] = 0.0
-    #         dfinv_out[1, 2] = 0.0
-    #         dfinv_out[2, 0] = 0.0
-    #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 31:
-    #         dfinv_out[0, 2] = 0.0
-    #         dfinv_out[1, 2] = 0.0
-    #         dfinv_out[2, 0] = 0.0
-    #         dfinv_out[2, 1] = 0.0
-    #     elif args.kind_map == 32:
-    #         dfinv_out[0, 2] = 0.0
-    #         dfinv_out[1, 2] = 0.0
-    #         dfinv_out[2, 0] = 0.0
-    #         dfinv_out[2, 1] = 0.0
+    if avoid_round_off:
+        if args_domain_kind_map == 1:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
+        elif args_domain_kind_map == 2:
+            dfinv_out[2, 2] = 0
+        elif args_domain_kind_map == 10:
+            dfinv_out[0, 1] = 0.0
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 0] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
+        elif args_domain_kind_map == 11:
+            dfinv_out[0, 1] = 0.0
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 0] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
+        elif args_domain_kind_map == 12:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
+        elif args_domain_kind_map == 20:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
+        elif args_domain_kind_map == 21:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
+        elif args_domain_kind_map == 22:
+            dfinv_out[2, 2] = 0.0
+        elif args_domain_kind_map == 30:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
+        elif args_domain_kind_map == 31:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
+        elif args_domain_kind_map == 32:
+            dfinv_out[0, 2] = 0.0
+            dfinv_out[1, 2] = 0.0
+            dfinv_out[2, 0] = 0.0
+            dfinv_out[2, 1] = 0.0
 
 @inline
 def df_inline(
