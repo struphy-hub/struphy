@@ -9,8 +9,9 @@ from struphy.gpu.test_pyccel_timings import compare_pyccel_cpu_gpu
 
 
 def compare_gpu_cpu(N=2000):
-    compare_pyccel_cpu_gpu(N=2000)
-    compare_np_cp()
+    # compare_pyccel_cpu_gpu(N=2000)
+    # compare_np_cp()
+    return
 
 
 def main(
@@ -143,7 +144,6 @@ def main(
 
     with ProfileManager.profile_region("model_class_setup"):
         model = model_class(params=params, comm=comm, clone_config=clone_config, gpu=gpu)
-
     assert isinstance(model, StruphyModel)
 
     # store geometry vtk
@@ -173,7 +173,6 @@ def main(
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     # use MPI.COMM_WORLD as communicator when storing the outputs
     data = DataContainer(path_out, comm=comm)
-
     # time quantities (current time value, value in seconds and index)
     time_state = {}
     time_state["value"] = np.zeros(1, dtype=float)
@@ -188,11 +187,10 @@ def main(
         data.add_data({key_time_restart: val})
 
     time_params = params["time"]
-
+    print('C')
     # set initial conditions for all variables
     if not restart:
         model.initialize_from_params(gpu=gpu)
-
         total_steps = str(int(round(time_params["Tend"] / time_params["dt"])))
 
     else:
@@ -203,13 +201,11 @@ def main(
         time_state["index"][0] = data.file["restart/time/index"][-1]
 
         total_steps = str(int(round((time_params["Tend"] - time_state["value"][0]) / time_params["dt"])))
-
     # compute initial scalars and kinetic data, pass time state to all propagators
     model.update_scalar_quantities()
     model.update_markers_to_be_saved()
     # model.update_distr_functions()
     model.add_time_state(time_state["value"])
-
     # add all variables to be saved to data object
     save_keys_all, save_keys_end = model.initialize_data_output(data, size)
 

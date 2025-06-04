@@ -1,35 +1,10 @@
-# Compile with LLVM
-
-## Load modules
+# Load modules
 
 ```
 module purge
 module load gcc/14 rocm/6.4 openmpi/5.0 python-waterboa/2024.06 cupy/13.4
 module load amd-llvm/6.1
-```
-
-Source the venv if it already exists
-
-```
 source ~/virtual_envs/env_struphy/bin/activate
-```
-
-Otherwise, create a virtual environment and install struphy and pyccel from source
-
-```
-python -m venv ~/virtual_envs/env_struphy
-source ~/virtual_envs/env_struphy/bin/activate
-pip install --upgrade pip
-cd /u/maxlin/git_repos/struphy
-pip install -e .
-cd /u/maxlin/git_repos/pyccel
-pip install -e .
-```
-
-Go back to struphy dir
-
-```
-cd /u/maxlin/git_repos/struphy
 ```
 
 ## Compile all the kernels

@@ -770,6 +770,7 @@ class StruphyModel(metaclass=ABCMeta):
         sq_str = ""
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
+            print(f"{val = }")
             assert not np.isnan(val[0]), f"Scalar {key} is {val[0]}."
             sq_str += key + ": {:14.11f}".format(val[0]) + "   "
         print(sq_str)

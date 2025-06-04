@@ -163,7 +163,7 @@ class DomainArguments:
         self.cz = copy(cz)
 
 # import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.geometry.evaluation_kernels as evaluation_kernels
+# import struphy.geometry.evaluation_kernels as evaluation_kernels
 # import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 # import struphy.geometry.evaluation_kernels as evaluation_kernels
 # import struphy.linear_algebra.linalg_kernels as linalg_kernels
@@ -186,7 +186,7 @@ import struphy.geometry.evaluation_kernels as evaluation_kernels
 # from linalg_kernels import det, scalar_dot
 # # do not remove; needed to identify dependencies
 # # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-import struphy.pic.sph_eval_kernels as sph_eval_kernels
+# import struphy.pic.sph_eval_kernels as sph_eval_kernels
 # from struphy.pic.sph_eval_kernels import boxed_based_kernel
 # from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments, MarkerArguments
 
@@ -562,9 +562,13 @@ def push_v_sph_pressure_gpu(
     """
 
     # Variables
-    # _s1 = 0.0
-    # _s2 = 0.0
-    # _s3 = 0.0
+    s1 = 0.0
+    s2 = 0.0
+    s3 = 0.0
+    out_bbk = 0.0
+    c = 0
+    box_to_search = 0
+    p = 0
 
     # allocate arrays
     grad_u = zeros(3, dtype=float)
@@ -629,6 +633,13 @@ def push_v_sph_pressure_gpu(
             h1,
             h2,
             h3,
+            s1,
+            s2,
+            s3,
+            c,
+            box_to_search,
+            p,
+            out_bbk,
         )
         grad_u[0] *= kappa / n_at_eta
 
@@ -650,6 +661,13 @@ def push_v_sph_pressure_gpu(
             h1,
             h2,
             h3,
+            s1,
+            s2,
+            s3,
+            c,
+            box_to_search,
+            p,
+            out_bbk,
         )
         sum2 *= kappa
         grad_u[0] += sum2
@@ -674,6 +692,13 @@ def push_v_sph_pressure_gpu(
                 h1,
                 h2,
                 h3,
+                s1,
+                s2,
+                s3,
+                c,
+                box_to_search,
+                p,
+                out_bbk,
             )
             grad_u[1] *= kappa / n_at_eta
 
@@ -695,6 +720,13 @@ def push_v_sph_pressure_gpu(
                 h1,
                 h2,
                 h3,
+                s1,
+                s2,
+                s3,
+                c,
+                box_to_search,
+                p,
+                out_bbk,
             )
             sum4 *= kappa
             grad_u[1] += sum4
@@ -719,6 +751,13 @@ def push_v_sph_pressure_gpu(
                 h1,
                 h2,
                 h3,
+                s1,
+                s2,
+                s3,
+                c,
+                box_to_search,
+                p,
+                out_bbk,
             )
             grad_u[2] *= kappa / n_at_eta
 
@@ -740,6 +779,13 @@ def push_v_sph_pressure_gpu(
                 h1,
                 h2,
                 h3,
+                s1,
+                s2,
+                s3,
+                c,
+                box_to_search,
+                p,
+                out_bbk,
             )
             sum6 *= kappa
             grad_u[2] += sum6
@@ -860,6 +906,14 @@ def sph_isotherm_pressure_coeffs_gpu(
     The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
     in markers array for each particle.
     """
+    # Variables
+    out_bbk = 0.0
+    s1 = 0.0
+    s2 = 0.0
+    s3 = 0.0
+    c = 0
+    box_to_search = 0
+    p = 0
 
     # get marker arguments
     markers = args_markers.markers
@@ -898,6 +952,13 @@ def sph_isotherm_pressure_coeffs_gpu(
             h1,
             h2,
             h3,
+            s1,
+            s2,
+            s3,
+            c,
+            box_to_search,
+            p,
+            out_bbk,
         )
         weight = markers[ip, weight_idx]
         # save
@@ -991,60 +1052,60 @@ def df_inv_inline(
     
     # TODO: Use args_kind_map here
     # set known (analytical) zero components manually to zero to avoid round-off error remainders!
-    if avoid_round_off:
-        if args_domain_kind_map == 1:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args_domain_kind_map == 2:
-            dfinv_out[2, 2] = 0
-        elif args_domain_kind_map == 10:
-            dfinv_out[0, 1] = 0.0
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 0] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args_domain_kind_map == 11:
-            dfinv_out[0, 1] = 0.0
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 0] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args_domain_kind_map == 12:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args_domain_kind_map == 20:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args_domain_kind_map == 21:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args_domain_kind_map == 22:
-            dfinv_out[2, 2] = 0.0
-        elif args_domain_kind_map == 30:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args_domain_kind_map == 31:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
-        elif args_domain_kind_map == 32:
-            dfinv_out[0, 2] = 0.0
-            dfinv_out[1, 2] = 0.0
-            dfinv_out[2, 0] = 0.0
-            dfinv_out[2, 1] = 0.0
+    # if avoid_round_off:
+    #     if args_domain_kind_map == 1:
+    #         dfinv_out[0, 2] = 0.0
+    #         dfinv_out[1, 2] = 0.0
+    #         dfinv_out[2, 0] = 0.0
+    #         dfinv_out[2, 1] = 0.0
+    #     elif args_domain_kind_map == 2:
+    #         dfinv_out[2, 2] = 0
+    #     elif args_domain_kind_map == 10:
+    #         dfinv_out[0, 1] = 0.0
+    #         dfinv_out[0, 2] = 0.0
+    #         dfinv_out[1, 0] = 0.0
+    #         dfinv_out[1, 2] = 0.0
+    #         dfinv_out[2, 0] = 0.0
+    #         dfinv_out[2, 1] = 0.0
+    #     elif args_domain_kind_map == 11:
+    #         dfinv_out[0, 1] = 0.0
+    #         dfinv_out[0, 2] = 0.0
+    #         dfinv_out[1, 0] = 0.0
+    #         dfinv_out[1, 2] = 0.0
+    #         dfinv_out[2, 0] = 0.0
+    #         dfinv_out[2, 1] = 0.0
+    #     elif args_domain_kind_map == 12:
+    #         dfinv_out[0, 2] = 0.0
+    #         dfinv_out[1, 2] = 0.0
+    #         dfinv_out[2, 0] = 0.0
+    #         dfinv_out[2, 1] = 0.0
+    #     elif args_domain_kind_map == 20:
+    #         dfinv_out[0, 2] = 0.0
+    #         dfinv_out[1, 2] = 0.0
+    #         dfinv_out[2, 0] = 0.0
+    #         dfinv_out[2, 1] = 0.0
+    #     elif args_domain_kind_map == 21:
+    #         dfinv_out[0, 2] = 0.0
+    #         dfinv_out[1, 2] = 0.0
+    #         dfinv_out[2, 0] = 0.0
+    #         dfinv_out[2, 1] = 0.0
+    #     elif args_domain_kind_map == 22:
+    #         dfinv_out[2, 2] = 0.0
+    #     elif args_domain_kind_map == 30:
+    #         dfinv_out[0, 2] = 0.0
+    #         dfinv_out[1, 2] = 0.0
+    #         dfinv_out[2, 0] = 0.0
+    #         dfinv_out[2, 1] = 0.0
+    #     elif args_domain_kind_map == 31:
+    #         dfinv_out[0, 2] = 0.0
+    #         dfinv_out[1, 2] = 0.0
+    #         dfinv_out[2, 0] = 0.0
+    #         dfinv_out[2, 1] = 0.0
+    #     elif args_domain_kind_map == 32:
+    #         dfinv_out[0, 2] = 0.0
+    #         dfinv_out[1, 2] = 0.0
+    #         dfinv_out[2, 0] = 0.0
+    #         dfinv_out[2, 1] = 0.0
 
 @inline
 def df_inline(
@@ -1113,6 +1174,13 @@ def boxed_based_kernel_inline(
     h1: "float",
     h2: "float",
     h3: "float",
+    s1: "float",
+    s2: "float",
+    s3: "float",
+    c: "int",
+    box_to_search: "int",
+    p: "int",
+    out: "float",
 ) -> float:
     """Box-based single-point sph evaluation.
     The sum is done over the particles that are in the 26 + 1 neighboring boxes
@@ -1153,13 +1221,11 @@ def boxed_based_kernel_inline(
     h1, h2, h3 : float
         Kernel width in respective dimension.
     """
-    r1 = 0.0
-    r2 = 0.0
-    r3 = 0.0
-    _s1 = 0.0
-    _s2 = 0.0
-    _s3 = 0.0
-    out = 0.0
+
+    # s1 = 0.0
+    # s2 = 0.0
+    # s3 = 0.0
+    # out = 0.0
 
     for neigh in range(27):
         box_to_search = neighbours[loc_box, neigh]
@@ -1169,12 +1235,13 @@ def boxed_based_kernel_inline(
             p = boxes[box_to_search, c]
             c = c + 1
             if not holes[p]:
-                marker_p = 0.0 #markers[p, 0]
                 r1 = distance_inline(eta1, markers[p, 0], periodic1)
                 r2 = distance_inline(eta2, markers[p, 1], periodic2)
                 r3 = distance_inline(eta3, markers[p, 2], periodic3)
-                out = out + markers[p, index] * smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3, _s1, _s2, _s3)
+                _tmp = smoothing_kernel_inline(kernel_type,r1,r2,r3,h1, h2, h3, s1, s2, s3)
+                out = out + markers[p, index] * _tmp
                 # out += markers[p, index] * smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3)
+                pass
     return out / Np
 
 @inline

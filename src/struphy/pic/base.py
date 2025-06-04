@@ -7,6 +7,8 @@ import h5py
 import numpy as np
 import struphy.gpu.gpu as struphy_gpu
 
+cp = struphy_gpu.import_xp()
+
 import scipy.special as sp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
@@ -1592,7 +1594,6 @@ class Particles(metaclass=ABCMeta):
 
         # create new markers_to_be_sent array and make corresponding holes in markers array
         if gpu and struphy_gpu.gpu_active:
-            exit()
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu(alpha=alpha)
             # hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu_pyccel(alpha=alpha)
             
