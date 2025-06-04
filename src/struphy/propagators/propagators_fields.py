@@ -2109,8 +2109,8 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._b.update_ghost_regions()
         self._update_weights_TBT()
 
-        #b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
-        #byn2 += b2acc
+        b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
+        byn2 += b2acc
 
         byn2 *= 1 / 2
         byn1 -= byn2
