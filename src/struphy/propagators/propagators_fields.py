@@ -3086,7 +3086,17 @@ class VariationalDensityEvolve(Propagator):
     ):
         super().__init__(rho, u)
 
-        assert model in ["pressureless", "barotropic", "full", "full_p", "full_q", "linear", "deltaf","linear_q", "deltaf_q"]
+        assert model in [
+            "pressureless",
+            "barotropic",
+            "full",
+            "full_p",
+            "full_q",
+            "linear",
+            "deltaf",
+            "linear_q",
+            "deltaf_q",
+        ]
         if model == "full":
             assert s is not None
         assert mass_ops is not None
@@ -4816,7 +4826,7 @@ class VariationalQBEvolve(Propagator):
 
         \begin{align}
         &\mathbb M^v[\hat{\rho}_h^{n}] \frac{ \mathbf u^{n+1}-\mathbf u^n}{\Delta t}
-        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 \mathbf B^{n+\frac{1}{2}}- 
+        - (\mathbb C \hat{\Pi}^{1}[\hat{\mathbf B_h^{n}} \cdot \vec{\boldsymbol \Lambda}^v])^\top \mathbb M^2 \mathbf B^{n+\frac{1}{2}}-
         \Big(\big(\mathbb D \hat{\Pi}^{2}[\hat{q_h^n} \cdot \vec{\boldsymbol \Lambda}^v]]
         + (\gamma/2 - 1)\hat{\Pi}^{3}[\hat{q_h^n} \cdot \vec{\boldsymbol \Lambda}^3] \mathbb D \mathcal{U}^v \big) \mathbf v \Big)^\top \hat{l}^3(\frac{2q^{n+\frac{1}{2}}}{\gamma-1}) = 0 ~ ,
         \\[2mm]
@@ -4998,7 +5008,6 @@ class VariationalQBEvolve(Propagator):
                 advection += self._transop_q0T.dot(self._linear_form_dl_dq, out=self._tmp_advection2)
                 advection += self._transop_qT.dot(self._linear_form_dl_dq0, out=self._tmp_advection2)
 
-
                 b_advection = self.curlPib0.dot(
                     un12,
                     out=self._tmp_b_advection,
@@ -5057,7 +5066,6 @@ class VariationalQBEvolve(Propagator):
 
                 advection += self._transop_qT.dot(self._linear_form_dl_dq, out=self._tmp_advection2)
 
-
                 b_advection = self.curlPib.dot(
                     un12,
                     out=self._tmp_b_advection,
@@ -5077,7 +5085,7 @@ class VariationalQBEvolve(Propagator):
             bn_diff -= bn
             bn_diff += b_advection
 
-            qn_diff = qn1.copy(out= self._tmp_qn_diff)
+            qn_diff = qn1.copy(out=self._tmp_qn_diff)
             qn_diff -= qn
             qn_diff += q_advection
 
@@ -5086,7 +5094,7 @@ class VariationalQBEvolve(Propagator):
             mn_diff += advection
 
             # Get error
-            err = self._get_error(mn_diff, bn_diff , qn_diff)
+            err = self._get_error(mn_diff, bn_diff, qn_diff)
 
             if self._info:
                 print("iteration : ", it, " error : ", err)
@@ -5154,7 +5162,7 @@ class VariationalQBEvolve(Propagator):
 
         self.curlPib = Hdiv0_transport_operator(self.derham)
         self.curlPibT = self.curlPib.T
-        self._transop_q = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma/2.)
+        self._transop_q = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma / 2.0)
         self._transop_qT = self._transop_q.T
 
         integration_grid = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts["3"]]
@@ -5202,7 +5210,7 @@ class VariationalQBEvolve(Propagator):
             self._create_transop0()
 
             self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
-            self._linear_form_dl_dq0 = -2/(self._gamma-1.)*self.mass_ops.M3.dot(self.projected_equil.q3)
+            self._linear_form_dl_dq0 = -2 / (self._gamma - 1.0) * self.mass_ops.M3.dot(self.projected_equil.q3)
 
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0
@@ -5222,7 +5230,7 @@ class VariationalQBEvolve(Propagator):
             self._full_transopT = self._transop_q0T + self._transop_qT
 
             self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
-            self._linear_form_dl_dq0 = -2/(self._gamma-1.)*self.mass_ops.M3.dot(self.projected_equil.q3)
+            self._linear_form_dl_dq0 = -2 / (self._gamma - 1.0) * self.mass_ops.M3.dot(self.projected_equil.q3)
 
             self._mdt2_pc_curlPibT_M = 2 * (self._full_curlPibT @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self._full_curlPib
@@ -5271,7 +5279,7 @@ class VariationalQBEvolve(Propagator):
         #                          tol=self._lin_solver['tol'],
         #                          maxiter=self._lin_solver['maxiter'],
         #                          verbose=self._lin_solver['verbose'],
-        
+
         #                     recycle=True)
 
     def _update_Pib(self, b):
@@ -5297,7 +5305,7 @@ class VariationalQBEvolve(Propagator):
         """Update the weights of the `BasisProjectionOperator`"""
         from struphy.feec.variational_utilities import Pressure_transport_operator
 
-        self._transop_q0 = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma/2.)
+        self._transop_q0 = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma / 2.0)
         self._transop_q0T = self._transop_q0.T
         self._transop_q0.update_coeffs(self.projected_equil.q3)
         self._transop_q0T.update_coeffs(self.projected_equil.q3)
@@ -5322,7 +5330,7 @@ class VariationalQBEvolve(Propagator):
             wq = self.mass_ops.M3.dot(qn12 - self._extracted_q2, out=self._linear_form_dl_dq)
         else:
             wq = self.mass_ops.M3.dot(qn12, out=self._linear_form_dl_dq)
-        wq *= -2/(self._gamma-1)
+        wq *= -2 / (self._gamma - 1)
 
     def _get_error(self, mn_diff, bn_diff, qn_diff):
         weak_un_diff = self._inv_Mv.dot(
@@ -5344,12 +5352,12 @@ class VariationalQBEvolve(Propagator):
         # print("err_p :"+str(err_p))
         # print("err_u :"+str(err_u))
         # return max(err_b, err_u)
-        return max(max(err_b, err_u),err_q)
+        return max(max(err_b, err_u), err_q)
 
     def _get_jacobian(self, dt):
         self._mdt2_pc_curlPibT_M._scalar = -dt / 2
         self._dt2_curlPib._scalar = dt / 2
-        self._mdt2_pc_transopT_M._scalar = -dt / (self._gamma -1.)
+        self._mdt2_pc_transopT_M._scalar = -dt / (self._gamma - 1.0)
         self._dt2_transop._scalar = dt / 2
 
 
@@ -5417,6 +5425,7 @@ class VariationalViscosity(Propagator):
             "maxiter": 100,
             "type": ["Newton"],
             "info": False,
+            "fast": False,
         }
         dct["physics"] = {
             "gamma": 1.66666666667,
@@ -5528,10 +5537,11 @@ class VariationalViscosity(Propagator):
         if self._info:
             print("information on the linear solver : ", self.inv_lop._info)
 
-        if self._model == "linear_p":
+
+        if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
             self.feec_vars_update(sn, un1)
             return
-
+        
         # Energy balance term
         # 1) Pointwize energy change
         energy_change = self._get_energy_change(un, un1, dt, total_viscosity)
@@ -5570,7 +5580,7 @@ class VariationalViscosity(Propagator):
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
-            e_n **=2
+            e_n **= 2
             e_n *= 1.0 / (self._gamma - 1.0)
             e_n *= self._energy_metric
 
@@ -5623,11 +5633,11 @@ class VariationalViscosity(Propagator):
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
-                e_n1 **=2
+                e_n1 **= 2
                 e_n1 *= 1.0 / (self._gamma - 1.0)
                 e_n1 *= self._energy_metric
 
-            elif self._model in ["linear_q", "deltaf_q"]: 
+            elif self._model in ["linear_q", "deltaf_q"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -5666,9 +5676,9 @@ class VariationalViscosity(Propagator):
                     sf1_values = self._q0_values
 
                 deds = self._de_s1_values
-                deds *= 0.
+                deds *= 0.0
                 deds += sf1_values
-                deds *= 2/(self._gamma-1.)
+                deds *= 2 / (self._gamma - 1.0)
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]], verbose=False)
@@ -5923,10 +5933,7 @@ class VariationalViscosity(Propagator):
         if self._model in ["linear_q", "deltaf_q"]:
             self.sf1.vector = self.projected_equil.q3
 
-            self._q0_values = self.sf1.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd
-            )
+            self._q0_values = self.sf1.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd)
 
         metric = self.domain.metric(
             *integration_grid,
@@ -6152,6 +6159,7 @@ class VariationalResistivity(Propagator):
             "maxiter": 100,
             "type": ["Newton"],
             "info": False,
+            "fast": False
         }
         dct["physics"] = {
             "eta": 0.0,
@@ -6247,6 +6255,7 @@ class VariationalResistivity(Propagator):
             print()
             print("Computing the dissipation in VariationalResistivity")
 
+        
         total_resistivity = self._update_artificial_resistivity(bn, dt)
 
         self._scaled_stiffness._scalar = dt * self._eta
@@ -6265,6 +6274,10 @@ class VariationalResistivity(Propagator):
             bn1 = self.evol_op.dot(bn, out=self._tmp_bn1)
         if self._info:
             print("information on the linear solver : ", self.inv_lop._info)
+
+        if self._model == "linear_p" or (self._model == "linear_q" and self._nonlin_solver["fast"]):
+            self.feec_vars_update(sn, bn1)
+            return
 
         # Energy balance term
         # 1) Pointwize energy change
@@ -6309,7 +6322,7 @@ class VariationalResistivity(Propagator):
             e_n = self._e_n
             e_n *= 0.0
             e_n += sf_values
-            e_n **=2
+            e_n **= 2
             e_n *= 1.0 / (self._gamma - 1.0)
             e_n *= self._energy_metric
 
@@ -6362,11 +6375,11 @@ class VariationalResistivity(Propagator):
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
-                e_n1 **=2
+                e_n1 **= 2
                 e_n1 *= 1.0 / (self._gamma - 1.0)
                 e_n1 *= self._energy_metric
 
-            elif self._model in ["linear_q", "deltaf_q"]: 
+            elif self._model in ["linear_q", "deltaf_q"]:
                 e_n1 = self._e_n1
                 e_n1 *= 0.0
                 e_n1 += sf1_values
@@ -6403,9 +6416,9 @@ class VariationalResistivity(Propagator):
                 if self._model in ["deltaf_q", "linear_q"]:
                     sf1_values = self._q0_values
                 deds = self._de_s1_values
-                deds *= 0.
+                deds *= 0.0
                 deds += sf1_values
-                deds *= 2/(self._gamma-1.)
+                deds *= 2 / (self._gamma - 1.0)
                 deds *= self._mass_metric_term
 
                 self.M_de_ds.assemble([[deds]], verbose=False)
@@ -6698,10 +6711,7 @@ class VariationalResistivity(Propagator):
         if self._model in ["linear_q", "deltaf_q"]:
             self.sf1.vector = self.projected_equil.q3
 
-            self._q0_values = self.sf1.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd
-            )
+            self._q0_values = self.sf1.eval_tp_fixed_loc(self.integration_grid_spans, self.integration_grid_bd)
 
         metric = self.domain.metric_inv(
             *integration_grid,

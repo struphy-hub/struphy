@@ -1614,7 +1614,7 @@ class ViscoresistiveMHD_with_q(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
-    
+
     1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
     2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
     3. :class:`~struphy.propagators.propagators_fields.VariationalQBEvolve`
@@ -1775,7 +1775,7 @@ class ViscoresistiveMHD_with_q(StruphyModel):
         self.update_scalar("en_mag", en_mag)
 
         wq3 = self._mass_ops.M3.dot(self.pointer["mhd_q3"], out=self._tmp_wq3)
-        en_thermo = wq3.dot(self.pointer["mhd_q3"]) / (self._gamma-1)
+        en_thermo = wq3.dot(self.pointer["mhd_q3"]) / (self._gamma - 1)
         self.update_scalar("en_thermo", en_thermo)
 
         en_tot = en_U + en_thermo + en_mag
@@ -1798,7 +1798,6 @@ class ViscoresistiveMHD_with_q(StruphyModel):
         return dct
 
     __diagnostics__ = diagnostics_dct()
-
 
 
 class ViscoresistiveLinearMHD_with_q(StruphyModel):
@@ -1947,10 +1946,10 @@ class ViscoresistiveLinearMHD_with_q(StruphyModel):
 
         # Scalar variables to be saved during simulation
         self.add_scalar("en_U")
-        self.add_scalar("en_thermo_1")
-        self.add_scalar("en_thermo_2")
-        self.add_scalar("en_mag_1")
-        self.add_scalar("en_mag_2")
+        # self.add_scalar("en_thermo_1")
+        # self.add_scalar("en_thermo_2")
+        # self.add_scalar("en_mag_1")
+        # self.add_scalar("en_mag_2")
         self.add_scalar("en_tot")
 
         # self.add_scalar("dens_tot")
@@ -1986,19 +1985,19 @@ class ViscoresistiveLinearMHD_with_q(StruphyModel):
 
         wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
         en_mag1 = wb2.dot(self.pointer["b2"]) / 2
-        self.update_scalar("en_mag_1", en_mag1)
+        # self.update_scalar("en_mag_1", en_mag1)
 
         wb2 = self._mass_ops.M2.dot(self.pointer["bt2"], out=self._tmp_wb2)
         en_mag2 = wb2.dot(self.projected_equil.b2)
-        self.update_scalar("en_mag_2", en_mag2)
+        # self.update_scalar("en_mag_2", en_mag2)
 
         wq3 = self._mass_ops.M3.dot(self.pointer["mhd_q3"], out=self._tmp_wq3)
         en_th_1 = wq3.dot(self.pointer["mhd_q3"]) / (self._gamma - 1)
-        self.update_scalar("en_thermo_1", en_th_1)
+        # self.update_scalar("en_thermo_1", en_th_1)
 
         wq3 = self._mass_ops.M3.dot(self.pointer["qt3"], out=self._tmp_wq3)
         en_th_2 = wq3.dot(self.projected_equil.q3) * 2 / (self._gamma - 1)
-        self.update_scalar("en_thermo_2", en_th_2)
+        # self.update_scalar("en_thermo_2", en_th_2)
 
         en_tot = en_U + en_th_1 + en_th_2 + en_mag1 + en_mag2
         self.update_scalar("en_tot", en_tot)
@@ -2033,7 +2032,6 @@ class ViscoresistiveLinearMHD_with_q(StruphyModel):
     __diagnostics__ = diagnostics_dct()
 
 
-
 class ViscoresistiveDeltafMHD_with_q(StruphyModel):
     r"""Linear visco-resistive MHD equations discretized with a variational method.
 
@@ -2051,7 +2049,7 @@ class ViscoresistiveDeltafMHD_with_q(StruphyModel):
         \\[4mm]
         &\partial_t (\rho_0 \tilde{\mathbf u}) + \frac{2 q_0}{\gamma -1} \nabla \tilde{q} +  \frac{2 \tilde{q}}{\gamma -1} \nabla q_0 + \frac{2 \tilde{q}}{\gamma -1} \nabla \tilde{q} + \mathbf B_0 \times \nabla \times \tilde{\mathbf B} + \tilde{\mathbf B} \times \nabla \times \mathbf B_0 - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \tilde{\mathbf u} \right) = 0 \,,
         \\[4mm]
-        &\partial_t \tilde{q} + \cdot(\nabla (q_0 + \tilde{q}) \mathbf u) + (\gamma/2 -1) (q_0 + \tilde{q}) \nabla \cdot u = 0 \,, 
+        &\partial_t \tilde{q} + \cdot(\nabla (q_0 + \tilde{q}) \mathbf u) + (\gamma/2 -1) (q_0 + \tilde{q}) \nabla \cdot u = 0 \,,
         \\[4mm]
         &\partial_t \tilde{\mathbf B} + \nabla \times ( \mathbf (B_0 + \tilde{\mathbf B}) \times \tilde{\mathbf u} ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \tilde{\mathbf B} = 0 \,,
 
