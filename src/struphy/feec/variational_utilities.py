@@ -1470,7 +1470,7 @@ class KineticEnergyEvaluator:
         return self._M_un1
 
     def get_u2_grid(self, un, un1, out):
-        """Values of :math:`u_n \cdot u_{n+1}` represented by the coefficient un and un1, on the integration grid"""
+        r"""Values of :math:`u_n \cdot u_{n+1}` represented by the coefficient un and un1, on the integration grid"""
         self.uf.vector = un
         self.uf1.vector = un1
 
