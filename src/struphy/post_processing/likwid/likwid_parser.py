@@ -191,10 +191,7 @@ def read_likwid_output(
                         table_horizontal_lines = 0
                         table = "".join(lines[table_startline : table_endline + 1])
                         tables.append(asciitable2dict(table))
-    # print(table_dict['raw_file_lines'])
-    # print(table_dict.keys())
 
-    # exit()
     return table_dict
 
 

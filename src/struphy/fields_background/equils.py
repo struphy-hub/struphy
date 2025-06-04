@@ -2159,12 +2159,13 @@ class GVECequilibrium(NumericalMHDequilibrium):
         gvec_spec = importlib.util.find_spec("gvec_to_python")
         if gvec_spec is None:
             import pytest
+
             with pytest.raises(SystemExit) as exc:
                 print("Simulation aborted, gvec-to-python must be installed and compiled!")
                 print("Install and compile with:")
                 print("pip install gvec-to-python; struphy compile")
-                sys.exit()
-            print(f'{exc.value.code = }')
+                sys.exit(1)
+            print(f"{exc.value.code = }")
 
         from gvec_to_python import GVEC
         from gvec_to_python.reader.gvec_reader import create_GVEC_json
@@ -2503,7 +2504,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         if desc_spec is None:
             print("Simulation aborted, desc-opt must be installed!")
             print("Install with:\npip install desc-opt")
-            exit()
+            sys.exit(1)
 
         import desc
 
