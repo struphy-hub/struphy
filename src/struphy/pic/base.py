@@ -688,15 +688,15 @@ class Particles(metaclass=ABCMeta):
             out["vel"] = ["v1", "v2", "v3"]  # velocities
             out["coords"] = ["x", "y", "z", "v1", "v2", "v3"]  # phasespace_coords
             out["com"] = {}
-            out["com"]["6D"] = {}  # constants of motion (Particles6D) TODO (Mati)
-            out["com"]["5D"] = {}  # constants of motion (Particles5D) TODO (Mati)
+            out["com"]["6D"] = ["com_1","com_2","com_3"]  # constants of motion (Particles6D) 
+            out["com"]["5D"] = ["com_1","com_2","com_3"]  # constants of motion (Particles5D) 
             out["pos+energy"] = {}
-            out["pos+energy"]["6D"] = {}  # positions + energy TODO (Mati)
-            out["pos+energy"]["5D"] = {}  # positions + energy TODO (Mati)
+            out["pos+energy"]["6D"] = ["x", "y", "z", "com_1"]  # positions + energy 
+            out["pos+energy"]["5D"] = ["x", "y", "z", "com_1"]  # positions + energy 
             out["weights"] = "weights"  # weights
             out["s0"] = "s0"  # sampling density at t=0
             out["w0"] = "w0"  # weights at t=0
-            out["box"] = "box"  # sorting box index TODO (Mati)
+            out["box"] = "box"  # sorting box index     
             out["ids"] = {}  # marker_inds TODO (Mati)
         else:
             out["pos"] = slice(0, 3)  # positions
@@ -1479,6 +1479,9 @@ class Particles(metaclass=ABCMeta):
         self._markers.add_real_comp("init_v2")
         self._markers.add_real_comp("init_v3")
         self._markers.add_real_comp("box")
+        self._markers.add_real_comp("com_1")
+        self._markers.add_real_comp("com_2")
+        self._markers.add_real_comp("com_3")
 
         # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
         if self.type == "sph":
@@ -1554,7 +1557,7 @@ class Particles(metaclass=ABCMeta):
                         "Inverse transform sampling of given vdim is not implemented!",
                     )
 
-            assert self._markers.num_real_comps == 21
+            assert self._markers.num_real_comps == 24
 
             # inversion method for drawing uniformly on the disc
             self._spatial = self.loading_params["spatial"]
