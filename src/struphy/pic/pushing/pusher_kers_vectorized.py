@@ -273,7 +273,7 @@ def push_v_with_efield(
         )
 
         # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
-        e_cart = matmul(jacobian_inverse_T, e_form)  # TODO (Mati) maybe better to write our own piccelized
+        e_cart = matmul(jacobian_inverse_T, e_form)  
 
         # update velocities
         temp = dt * const * e_cart
@@ -307,9 +307,6 @@ def push_eta_stage(
     else:
         last = 0.0
 
-    # TODO (Mati) preallocate outside of the time loop and pass to the kernel, create slices (particles.velocity_buffer?)
-    # attach to the propagator?
-
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = particles.get_amrex_markers_array(pti.soa())
 
@@ -327,7 +324,7 @@ def push_eta_stage(
         v = array([v1, v2, v3]).T
         v = v[..., newaxis]  # Npx3x1
         # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
-        k = matmul(jacobian_inv, v)  # TODO (Mati) maybe better to write our own piccelized
+        k = matmul(jacobian_inv, v)  
         # accumulation for last stage
         temp = dt * b[stage] * k
         markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0, 0]

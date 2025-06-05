@@ -102,8 +102,6 @@ class PushEta(Propagator):
             self._eval_density = True
             self._density_field = density_field
 
-            # TODO (Mati) allocate vectors for pyamrex velocity calc etc
-
     def __call__(self, dt):
         self._pusher(dt)
 

@@ -1141,4 +1141,9 @@ if __name__ == "__main__":
 
 # git push -o ci.skip
 
- # profile regions
+# profile regions
+ 
+# struphy run Vlasov --time-trace --cprofile --verbose -o sim_3 --mpi 2
+# struphy pproc -d sim_3
+# struphy pproc -d sim_3 --time-trace
+# struphy profile sim_2 sim_3 --replace
