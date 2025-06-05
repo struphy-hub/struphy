@@ -32,6 +32,7 @@ def struphy_run(
     sample_interval=1.0,
     gpu=False,
     line_profile=False,
+    nsys_profile=False,
 ):
     """Run a Struphy model: prepare arguments, output folder and execute main().
 
@@ -165,10 +166,15 @@ def struphy_run(
             likwid_command += ["-marker"]
 
     # command parts
+    cmd_python = ["python3"]
     if line_profile:
-        cmd_python = ["kernprof", "-l"]
-    else:
-        cmd_python = ["python3"]
+        cmd_python = ["kernprof", "-l"] + cmd_python
+    if nsys_profile:
+        cmd_python = ["nsys", "profile", "--stats=true", "--trace=cuda,nvtx,cudnn,osrt,openmp", "--force-overwrite=true",
+                    #   "-o", "nsys_report",
+                      ] + cmd_python
+    # else:
+    #    cmd_python = ["python3"]
     cmd_main = [
         f"{libpath}/main.py",
         model,
@@ -302,6 +308,9 @@ def struphy_run(
                     f.write(" ".join(command) + " > " + os.path.join(output_abs, f"struphy_likwid_{i:03}.out"))
             else:
                 print("Running with srun")
+                nsys = True
+                if nsys:
+                    command = ["nsys", "profile", "--stats", "true"] + command
                 command = ["srun"] + command
                 f.write(" ".join(command) + " > " + os.path.join(output_abs, "struphy.out"))
 

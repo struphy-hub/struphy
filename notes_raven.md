@@ -1,9 +1,3 @@
-# Salloc
-
-```
-salloc --partition=gpudev --ntasks=1 --time=00:15:00 --mem=12500 --gres=gpu:a100:1
-```
-
 # Setup
 
 ```
@@ -49,8 +43,8 @@ struphy run Vlasov --gpu --time-trace -o sim_Vlasov_gpu # GPU
 struphy run IsothermalEulerSPH       --time-trace -i verification/IsothermalEulerSPH_soundwave.yml -o sim_IsothermalEulerSPH_cpu # CPU
 struphy run IsothermalEulerSPH --gpu --time-trace -i verification/IsothermalEulerSPH_soundwave.yml -o sim_IsothermalEulerSPH_gpu # GPU
 
-struphy run IsothermalEulerSPH       --time-trace -i params_IsothermalEulerSPH_amin.yml -o sim_IsothermalEulerSPH_soundwave_cpu # CPU
-struphy run IsothermalEulerSPH --gpu --time-trace -i params_IsothermalEulerSPH_amin.yml -o sim_IsothermalEulerSPH_soundwave_gpu # GPU
+struphy run IsothermalEulerSPH       --time-trace --nsys-profile -i params_IsothermalEulerSPH_amin.yml -o sim_IsothermalEulerSPH_soundwave_cpu # CPU
+struphy run IsothermalEulerSPH --gpu --time-trace --nsys-profile -i params_IsothermalEulerSPH_amin.yml -o sim_IsothermalEulerSPH_soundwave_gpu # GPU
 ```
 
 ## Submit jobs

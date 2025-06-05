@@ -1596,6 +1596,7 @@ class Particles(metaclass=ABCMeta):
         if gpu and struphy_gpu.gpu_active:
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu(alpha=alpha)
             # hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu_pyccel(alpha=alpha)
+            # hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs(alpha=alpha)
             
         else:
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs(alpha=alpha)

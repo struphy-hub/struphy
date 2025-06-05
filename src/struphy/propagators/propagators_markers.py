@@ -76,6 +76,7 @@ class PushEta(Propagator):
         # get kernel
         if gpu and struphy_gpu.gpu_active:
             kernel = push_eta_stage_gpu
+            # kernel = pusher_kernels.push_eta_stage
         else:
             kernel = pusher_kernels.push_eta_stage
 
@@ -190,6 +191,7 @@ class PushVxB(Propagator):
                 # kernel = pusher_kernels.push_vxb_analytic
                 # kernel = push_vxb_analytic_gpu
                 kernel = pusher_kernels_gpu.push_vxb_analytic_gpu
+                # pusher_kernels.push_vxb_analytic
             elif algo == "implicit":
                 kernel = pusher_kernels.push_vxb_implicit
                 # kernel = push_vxb_implicit_gpu
