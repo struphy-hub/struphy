@@ -64,9 +64,12 @@ class SaddlePointSolver:
     preconditioner : bool
         Wheter to use preconditioners given in Apre or not. Only required for the Uzawa algorithm.
 
-    spectralanalysis : str
+    spectralanalysis : bool
         Do the spectralanalyis for the matrices in A and if preconditioner given, compare them to the preconditioned matrices. Only possible if A is given as list.
 
+    dimension : str
+        Which of the predefined manufactured solutions to use ('1D' or '2D')
+    
     tol : float
         Convergence tolerance for the potential residual.
 
@@ -83,6 +86,7 @@ class SaddlePointSolver:
         method_to_solve: str = "DirectNPInverse",
         preconditioner: bool = False,
         spectralanalysis: bool = False,
+        dimension: str = "2D",
         solver_name: str = "GMRES",
         tol: float = 1e-8,
         max_iter: int = 1000,
@@ -130,6 +134,7 @@ class SaddlePointSolver:
         self._tol = tol
         self._max_iter = max_iter
         self._spectralanalysis = spectralanalysis
+        self._dimension = dimension
 
         if self._variant == "Inverse_Solver":
             self._BT = B.transpose()

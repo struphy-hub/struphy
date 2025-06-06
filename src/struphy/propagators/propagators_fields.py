@@ -6740,6 +6740,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
         dct["method_to_solve"] = "DirectNPInverse"
         dct["preconditioner"] = False
         dct["spectralanalysis"] = False
+        dct["dimension"] = "2D"
+        dct["1D_dt"] = 0.001
         if default:
             dct = descend_options_dict(dct, [])
 
@@ -6763,8 +6765,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
         eps: float = options(default=True)["eps"],
         variant: str = options(default=True)["variant"],
         method_to_solve: str = options(default=True)["method_to_solve"],
-        preconditioner: str = options(default=True)["preconditioner"],
-        spectralanalysis: str = options(default=True)["spectralanalysis"],
+        preconditioner: bool = options(default=True)["preconditioner"],
+        spectralanalysis: bool = options(default=True)["spectralanalysis"],
+        dimension: str = options(default=True)["dimension"],
+        D1_dt: float = options(default=True)["1D_dt"],
     ):
         super().__init__(u, ue, phi)
 
@@ -6786,6 +6790,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._variant = variant
         self._method_to_solve = method_to_solve
         self._preconditioner = preconditioner
+        self._dimension = dimension
 
         if self._variant == "GMRES":
             self._M2 = getattr(self.mass_ops, 'M2')
@@ -6814,13 +6819,15 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         ### Manufactured solution ###
         _forceterm_logical = lambda e1, e2, e3: 0 * e1
-        _funx = getattr(callables, "ManufacturedSolutionForceterm")(species="Ions", comp="0", b0=self._B0, nu=self._nu)
-        _funy = getattr(callables, "ManufacturedSolutionForceterm")(species="Ions", comp="1", b0=self._B0, nu=self._nu)
+        _funx = getattr(callables, "ManufacturedSolutionForceterm")(
+            species="Ions", comp="0", b0=self._B0, nu=self._nu, dimension=self._dimension, epsilon = self._eps, dt = D1_dt)
+        _funy = getattr(callables, "ManufacturedSolutionForceterm")(
+            species="Ions", comp="1", b0=self._B0, nu=self._nu, dimension=self._dimension, epsilon = self._eps, dt = D1_dt)
         _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
-            species="Electrons", comp="0", b0=self._B0, nu_e=self._nu_e
+            species="Electrons", comp="0", b0=self._B0, nu_e=self._nu_e, dimension=self._dimension, epsilon = self._eps, dt = D1_dt
         )
         _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(
-            species="Electrons", comp="1", b0=self._B0, nu_e=self._nu_e
+            species="Electrons", comp="1", b0=self._B0, nu_e=self._nu_e, dimension=self._dimension, epsilon = self._eps, dt = D1_dt
         )
 
         # get callable(s) for specified init type
@@ -6981,9 +6988,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
         unfeec = self.feec_vars[0]
         uenfeec = self.feec_vars[1]
         phinfeec = self.feec_vars[2]
-        unfeeccopy = self.feec_vars[0].copy()
-        uenfeeccopy = self.feec_vars[1].copy()
-        phinfeeccopy = self.feec_vars[2].copy()
 
         if self._variant == "GMRES":
             # Define block matrix [[A BT], [B 0]]
@@ -7114,22 +7118,15 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 e = phi_temp.ends
                 phi_temp[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = phin.reshape(*dimphi)
             else:
-                print(f"Stokes is only running on one MPI.")
-
-            # _plot_residual_norms(residual_norms)
-            print(f'Is outcoming a solution?')
-            diffAout = A11np.dot(un) + self._B1np.T.dot(phin) - self._F1np
-            print(f'{max(diffAout)=}')
-            _A11 = (self.mass_ops.M2 / dt)
-            _B1 = self.mass_ops.M3@self.derham.div
+                print(f"TwoFluidQuasiNeutralFull is only running on one MPI.")
 
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
 
         if self._info and self._rank == 0:
-            print("Status     for Stokes:", info["success"])
-            print("Iterations for Stokes:", info["niter"])
-            print("Maxdiff u for Stokes:", max_du)
-            print("Maxdiff u_e for Stokres:", max_due)
-            print("Maxdiff phi for Stokres:", max_dphi)
+            print("Status     for TwoFluidQuasiNeutralFull:", info["success"])
+            print("Iterations for TwoFluidQuasiNeutralFull:", info["niter"])
+            print("Maxdiff u for TwoFluidQuasiNeutralFull:", max_du)
+            print("Maxdiff u_e for TwoFluidQuasiNeutralFull:", max_due)
+            print("Maxdiff phi for TwoFluidQuasiNeutralFull:", max_dphi)
             print()

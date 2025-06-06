@@ -1234,7 +1234,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     :ref:`propagators` (called in sequence):
 
-    1. :class:`~struphy.propagators.propagators_fields.Stokes`
+    1. :class:`~struphy.propagators.propagators_fields.TwoFluidQuasiNeutralFull`
 
     :ref:`Model info <add_model>`:
 
@@ -1275,31 +1275,32 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
+        # extract necessary parameters
+        stokes_solver = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["solver"]
+        stokes_nu = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["nu"]
+        stokes_nu_e = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["nu_e"]
+        stokes_a = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["a"]
+        stokes_R0 = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["R0"]
+        stokes_B0 = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["B0"]
+        stokes_Bp = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["Bp"]
+        stokes_alpha = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["alpha"]
+        stokes_beta = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["beta"]
+        stokes_eps = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["eps"]
+        stokes_variant = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["variant"]
+        stokes_method_to_solve = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["method_to_solve"]
+        stokes_preconditioner = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["preconditioner"]
+        stokes_spectralanalysis = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["spectralanalysis"]
+        stokes_dimension = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
+        stokes_1D_dt = params["time"]["dt"]
+        
         # Check MPI size to ensure only one MPI process
         size = comm.Get_size()
-        if size != 1:
+        if size != 1 and stokes_variant == 'Uzawa':
             if comm.Get_rank() == 0:
                 print(f"Error: TwoFluidQuasiNeutralToy only runs with one MPI process.")
             return  # Early return to stop execution for multiple MPI processes
 
-        # extract necessary parameters
-        stokes_solver = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["solver"]
-        stokes_nu = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["nu"]
-        stokes_nu_e = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["nu_e"]
-        stokes_a = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["a"]
-        stokes_R0 = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["R0"]
-        stokes_B0 = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["B0"]
-        stokes_Bp = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["Bp"]
-        stokes_alpha = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["alpha"]
-        stokes_beta = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["beta"]
-        stokes_eps = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["eps"]
-        stokes_variant = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["variant"]
-        stokes_method_to_solve = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["method_to_solve"]
-        stokes_preconditioner = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["preconditioner"]
-        stokes_spectralanalysis = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralToy"]["spectralanalysis"]
-
+        
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.TwoFluidQuasiNeutralFull] = {
             "solver": stokes_solver,
@@ -1316,23 +1317,12 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             "method_to_solve": stokes_method_to_solve,
             "preconditioner": stokes_preconditioner,
             "spectralanalysis": stokes_spectralanalysis,
+            "dimension": stokes_dimension,
+            "D1_dt": stokes_1D_dt,
         }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
 
-        # # Scalar variables to be saved during simulation
-        self.add_scalar("en_U")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
-        self._tmp = np.empty(1, dtype=float)
-
-        # # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh["2"].zeros()
-
     def update_scalar_quantities(self):
-        # # perturbed fields
-        x = 1
-        y = 2
+        pass
