@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 import struphy
 
@@ -135,7 +136,7 @@ def struphy_run(
                         pass
 
                 params = model_class.generate_default_parameter_file()
-                exit()
+                sys.exit(0)
         else:
             input_abs = os.path.join(i_path, inp)
 
