@@ -1664,12 +1664,12 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         _PB = getattr(self.basis_ops, "PB")
 
         # initialize projection operator TB
-        self._initialize_projection_operator_TBT()
+        self._initialize_projection_operator_TB()
 
         if higher_order:
-            self._B = -1 / 2 * (_T.T + self._TBT) @ self.derham.curl.T @ self.mass_ops.M2
-            self._C = 1 / 2 * self.derham.curl @ _T
-            self._B2 = -1 / 2 * (_T.T + self._TBT) @ self.derham.curl.T @ _PB.T
+            self._B = -1 / 2 * (_T.T + self._TB.T) @ self.derham.curl.T @ self.mass_ops.M2
+            self._C = 1 / 2 * self.derham.curl @ (_T + self._TB)
+            self._B2 = -1 / 2 * (_T.T + self._TB.T) @ self.derham.curl.T @ _PB.T
         else:
             self._B = -1 / 2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
             self._C = 1 / 2 * self.derham.curl @ _T
@@ -1748,7 +1748,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             print()
 
 
-    def _initialize_projection_operator_TBT(self):
+    def _initialize_projection_operator_TB(self):
         r"""Initialize BasisProjectionOperator TB with the time-varying weight.
 
         .. math::
@@ -1766,30 +1766,30 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         # Initialize BasisProjectionOperator
         if self.derham._with_local_projectors == True:
-            self._TBT = BasisProjectionOperatorLocal(P1, 
+            self._TB = BasisProjectionOperatorLocal(P1, 
                                                      Vh, 
                                                      [[None, None, None],
                                                       [None, None, None],
                                                       [None, None, None],], 
-                                                     transposed=True,
+                                                     transposed=False,
                                                      use_cache=True,
                                                      polar_shift=True,
                                                      V_extraction_op=self.derham.extraction_ops[self._u_id],
                                                      V_boundary_op=self.derham.boundary_ops[self._u_id],
                                                      P_boundary_op=self.derham.boundary_ops["1"],)
         else:
-            self._TBT = BasisProjectionOperator(P1, 
+            self._TB = BasisProjectionOperator(P1, 
                                                 Vh, 
                                                 [[None, None, None],
                                                  [None, None, None],
                                                  [None, None, None],], 
-                                                transposed=True,
+                                                transposed=False,
                                                 use_cache=True,
                                                 polar_shift=True,
                                                 V_extraction_op=self.derham.extraction_ops[self._u_id],
                                                 V_boundary_op=self.derham.boundary_ops[self._u_id],
                                                 P_boundary_op=self.derham.boundary_ops["1"],)
-    def _update_weights_TBT(self):
+    def _update_weights_TB(self):
         """Updats time-dependent weights of the BasisProjectionOperator TB"""
 
         # Update Femfield
@@ -1846,7 +1846,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
                     ]
 
         # Initialize BasisProjectionOperator
-        self._TBT.update_weights(fun)
+        self._TB.update_weights(fun)
 
 
 class MagnetosonicCurrentCoupling5D(Propagator):
