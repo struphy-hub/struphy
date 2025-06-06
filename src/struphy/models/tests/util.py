@@ -75,7 +75,7 @@ def wrapper_for_testing(
         # TODO: remove if-clause
         if "LinearExtendedMHD" in model and "HomogenSlab" not in map_and_equil[1]:
             print(f"Model {model} is currently excluded from tests with mhd_equil other than HomogenSlab.")
-            exit()
+            sys.exit(0)
 
         call_test(
             model,
@@ -165,7 +165,7 @@ def call_test(
         except:
             if rank == 0:
                 print(f"A Python script for {model_name} is missing in models/tests/verification.py, exiting ...")
-            exit()
+            sys.exit(1)
     else:
         params = model.generate_default_parameter_file(save=False)
         params["geometry"]["type"] = map_and_equil[0]
