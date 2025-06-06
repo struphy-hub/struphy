@@ -914,23 +914,21 @@ class ManufacturedSolutionVelocity:
         0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
         \nabla \cdot (u-u_e) = 0 \,.
 
-    where :math:`f` is defined as follows: 
-
-    .. math::
-
-        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
-        \\[2mm]
-        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
-
     Can only be defined in Cartesian coordinates. 
-    The solution is given by:
+    The solution in 1D is given by:
 
     .. math::
-        u =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,,
-        u_e =  \left[\begin{array}{c} -sin(y) \\ cos(x) \\ 0 \end{array} \right] \,.
+        u =  \left[\begin{array}{c} sin(2 \pi x) + 1.0 \\ 0 \\ 0 \end{array} \right] \,,
+        u_e =  \left[\begin{array}{c} sin(2 \pi x) \\ 0 \\ 0 \end{array} \right] \,.
+    
+    The solution in 2D is given by:
+
+    .. math::
+        u =  \left[\begin{array}{c} -sin(2 \pi x) sin(2 \pi y) \\ -cos(2 \pi y) cos(2 \pi y) \\ 0 \end{array} \right] \,,
+        u_e =  \left[\begin{array}{c} -sin(4 \pi x) sin(4 \pi y) \\ -cos(4 \pi y) cos(4 \pi y) \\ 0 \end{array} \right] \,.
     """
 
-    def __init__(self, species="Ions", comp="0", b0=1.0):
+    def __init__(self, species="Ions", comp="0", dimension="1D", b0=1.0):
         """
             Parameters
         ----------
@@ -938,6 +936,8 @@ class ManufacturedSolutionVelocity:
             'Ions' or 'Electrons'.
         comp : string
             Which component of the solution ('0', '1' or '2').
+        dimension: string
+            Defines the manufactured solution to be selected ('1D' or '2D').
         b0 : float
             Magnetic field (default: 1.0).
         """
@@ -945,20 +945,23 @@ class ManufacturedSolutionVelocity:
         self._b = b0
         self._species = species
         self._comp = comp
+        self._dimension = dimension
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         if self._species == "Ions":
             """Velocity of ions."""
             """x component"""
-            # ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
-            ux = np.sin(2 * np.pi * x) + 1.0
-            # ux = np.sin(2 * np.pi * x)
+            if self._dimension == '2D':
+                ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+            elif self._dimension == '1D':
+                ux = np.sin(2 * np.pi * x) + 1.0
 
             """y component"""
-            # uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
-            uy = 0.0 * x
-            # uy = np.cos(2 * np.pi * x)
+            if self._dimension == '2D':
+                uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+            elif self._dimension == '1D':
+                uy = np.cos(2 * np.pi * x)
 
             """z component"""
             uz = 0.0 * x
@@ -975,13 +978,16 @@ class ManufacturedSolutionVelocity:
         elif self._species == "Electrons":
             """Velocity of electrons."""
             """x component"""
-            # ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
-            ux = np.sin(2.0 * np.pi * x)
+            if self._dimension == '2D':
+                ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+            elif self._dimension == '1D':
+                ux = np.sin(2.0 * np.pi * x)
 
             """y component"""
-            # uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
-            uy = 0.0 * x
-            # uy = np.cos(2 * np.pi * x)
+            if self._dimension == '2D':
+                uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+            elif self._dimension == '1D':
+                uy = np.cos(2 * np.pi * x)
 
             """z component"""
             uz = 0.0 * x
@@ -1017,26 +1023,136 @@ class ManufacturedSolutionPotential:
         f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
 
     Can only be defined in Cartesian coordinates. 
-    The solution is given by:
+    The solution in 1D is given by:
 
     .. math::
-        \phi =  x+y \,.
+        \phi =  sin(2\pi x) \,.
+        
+    The solution in 2D is given by:
+
+    .. math::
+        \phi =  cos(2\pi x) + sin(2\pi y) \,.
     """
 
-    def __init__(self, b0=1.0):
+    def __init__(self, dimension="1D", b0=1.0):
         """
             Parameters
         ----------
+        dimension: string
+            Defines the manufactured solution to be selected ('1D' or '2D').
         b0 : float
             Magnetic field (default: 1.0).
         """
 
         self._ab = b0
+        self._dimension = dimension
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
-        """Velocity of ions and electrons."""
-        # phi = np.cos(2 * np.pi * x) + np.sin(2 * np.pi * y)
-        phi = np.sin(2.0 * np.pi * x)
+        """Potential."""
+        if self._dimension == '2D':
+            phi = np.cos(2 * np.pi * x) + np.sin(2 * np.pi * y)
+        elif self._dimension == '1D':
+            phi = np.sin(2.0 * np.pi * x)
 
         return phi
+
+
+class ManufacturedSolutionVelocity_2:
+    r"""Analytic solutions :math:`u` and :math:`u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution in 1D is given by:
+
+    .. math::
+        u =  \left[\begin{array}{c} sin(2 \pi x) + 1.0 \\ 0 \\ 0 \end{array} \right] \,,
+        u_e =  \left[\begin{array}{c} sin(2 \pi x) \\ 0 \\ 0 \end{array} \right] \,.
+    
+    The solution in 2D is given by:
+
+    .. math::
+        u =  \left[\begin{array}{c} -sin(2 \pi x) sin(2 \pi y) \\ -cos(2 \pi y) cos(2 \pi y) \\ 0 \end{array} \right] \,,
+        u_e =  \left[\begin{array}{c} -sin(4 \pi x) sin(4 \pi y) \\ -cos(4 \pi y) cos(4 \pi y) \\ 0 \end{array} \right] \,.
+    """
+
+    def __init__(self, species="Ions", comp="0", dimension="1D", b0=1.0):
+        """
+            Parameters
+        ----------
+        species : string
+            'Ions' or 'Electrons'.
+        comp : string
+            Which component of the solution ('0', '1' or '2').
+        dimension: string
+            Defines the manufactured solution to be selected ('1D' or '2D').
+        b0 : float
+            Magnetic field (default: 1.0).
+        """
+
+        self._b = b0
+        self._species = species
+        self._comp = comp
+        self._dimension = dimension
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        if self._species == "Ions":
+            """Velocity of ions."""
+            """x component"""
+            if self._dimension == '2D':
+                ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+            elif self._dimension == '1D':
+                ux = np.sin(2 * np.pi * x) + 1.0
+
+            """y component"""
+            if self._dimension == '2D':
+                uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+            elif self._dimension == '1D':
+                uy = np.cos(2 * np.pi * x)
+
+            """z component"""
+            uz = 0.0 * x
+
+            if self._comp == "0":
+                return ux
+            elif self._comp == "1":
+                return uy
+            elif self._comp == "2":
+                return uz
+            else:
+                raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+        elif self._species == "Electrons":
+            """Velocity of electrons."""
+            """x component"""
+            if self._dimension == '2D':
+                ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+            elif self._dimension == '1D':
+                ux = np.sin(2.0 * np.pi * x)
+
+            """y component"""
+            if self._dimension == '2D':
+                uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+            elif self._dimension == '1D':
+                uy = np.cos(2 * np.pi * x)
+
+            """z component"""
+            uz = 0.0 * x
+
+            if self._comp == "0":
+                return ux
+            if self._comp == "1":
+                return uy
+            if self._comp == "2":
+                return uz
+            else:
+                raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+        else:
+            raise ValueError(f"Invalid species '{self._species}'. Must be 'Ions' or 'Electrons'.")

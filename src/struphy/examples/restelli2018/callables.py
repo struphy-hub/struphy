@@ -28,7 +28,7 @@ class RestelliForcingTerm:
     In the parameter .yml, use the following template in the section ``fluid/<mhd>``::
 
         options:
-            Stokes:
+            TwoFluidQuasiNeutralFull:
                 nu: 1.      # viscosity
                 nu_e: 0.01  # viscosity electrons
                 a: 1.       # minor radius
@@ -91,18 +91,26 @@ class ManufacturedSolutionForceterm:
         0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
         \nabla \cdot (u-u_e) = 0 \,.
 
-    defined as follows: 
+    In 1D it is defined as follows: 
 
     .. math::
 
-        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        f = \left[\begin{array}{c} 2 \pi cos(2 \pi x) + \nu 4 \pi^2 sin(2\pi x) + \frac{sin(2 \pi x) + 1.0}{dt} \\ B_0 (sin(2 \pi x) + 1.9) \\ 0 \end{array} \right] \,,
         \\[2mm]
-        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+        f_e = \left[\begin{array}{c} -2 \pi cos(2 \pi x) + \nu_e 4 \pi^2 sin(2\pi x) - \epsilon sin(2 \pi x) \\ -B_0 sin(2 \pi x) \\ 0 \end{array} \right] \,.
+
+    In 2D it is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} -2\pi sin(2\pi x) + B_0 cos(2\pi x)cos(2\pi y) - \nu 8 \pi^2 sin(2\pi x)sin(2\pi y) \\ 2\pi cos(2\pi y) - B_0 sin(2\pi x)sin(2\pi y) - \nu 8 \pi^2 cos(2\pi x)cos(2\pi y) \\ 0 \end{array} \right] \,,
+        \\[2mm]
+        f_e = \left[\begin{array}{c} 2\pi sin(2\pi x) -B_0 cos(4\pi x)cos(4\pi y) - \nu_e 32 \pi^2 sin(4\pi x)sin(4\pi y) + \epsilon sin(4\pi x) sin(4 \pi y) \\ -2\pi cos(2\pi y) +B_0 sin(4\pi x)sin(4\pi y) - \nu_e 32 \pi^2 cos(4\pi x)cos(4\pi y) + \epsilon cos(4\pi x) cos(4 \pi y) \\ 0 \end{array} \right] \,.
 
     Can only be defined in Cartesian coordinates. 
     """
 
-    def __init__(self, species, comp, b0=1.0, nu=1.0, nu_e=0.01):
+    def __init__(self, species, comp, dimension, epsilon, dt, b0=1.0, nu=1.0, nu_e=0.01):
         """
             Parameters
         ----------
@@ -110,6 +118,12 @@ class ManufacturedSolutionForceterm:
             'Ions' or 'Electrons'.
         comp : string
             Which component of the solution ('0', '1' or '2').
+        dimension: string
+            Defines the manufactured solution to be selected ('1D' or '2D').
+        epsilon : float
+            Stabilization parameter.
+        dt : float
+            Time step.
         b0 : float
             Magnetic field (default: 1.0).
         nu  : float
@@ -123,44 +137,38 @@ class ManufacturedSolutionForceterm:
         self._nu_e = nu_e
         self._comp = comp
         self._species = species
+        self._dimension = dimension
+        self._epsilon = epsilon
+        self._dt = dt
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         if self._species == "Ions":
             """Forceterm for ions on the right hand side."""
             """x component"""
-            # fx = (
-            #     -2.0 * np.pi * np.sin(2 * np.pi * x)
-            #     + np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y) * self._b
-            #     - self._nu * 8.0 * np.pi**2 * np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
-            # )
-            fx = (
-                2.0 * np.pi * np.cos(2 * np.pi * x)
-                + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)  # + (np.sin(2 * np.pi * x)) / 0.1
-            )
-            # fx = (
-            #     2.0 * np.pi * np.cos(2 * np.pi * x)
-            #     - self._b * np.cos(2 * np.pi * x)
-            #     + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
-            # )
+            if self._dimension == '2D':
+                fx = (
+                    -2.0 * np.pi * np.sin(2 * np.pi * x)
+                    + np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y) * self._b
+                    - self._nu * 8.0 * np.pi**2 * np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+                )
+            elif self._dimension == '1D':
+                fx = (
+                    2.0 * np.pi * np.cos(2 * np.pi * x)
+                    + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)  
+                    + (np.sin(2 * np.pi * x)+1.0) / self._dt
+                )
 
-            # fx = 2.0 * np.pi * np.cos(2 * np.pi * x) + (np.sin(2 * np.pi * x) + 1.0) / 0.1
-
+            
             """y component"""
-            # fy = (
-            #     2.0 * np.pi * np.cos(2 * np.pi * y)
-            #     - np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y) * self._b
-            #     - self._nu * 8.0 * np.pi**2 * np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
-            # )
-            fy = (
-                 (np.sin(2 * np.pi * x) + 1.0)  * self._b
-            )
-            # fy = (
-            #     + np.sin(2 * np.pi * x)  * self._b
-            #     + self._nu * 4.0 * np.pi**2 * np.cos(2 * np.pi * x)
-            # )
-
-            # fy = 0.0 * x
+            if self._dimension == '2D':
+                fy = (
+                    2.0 * np.pi * np.cos(2 * np.pi * y)
+                    - np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y) * self._b
+                    - self._nu * 8.0 * np.pi**2 * np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+                )
+            elif self._dimension == '1D':
+                fy = (np.sin(2 * np.pi * x) + 1.0)  * self._b 
 
             """z component"""
             fz = 0.0 * x
@@ -177,38 +185,30 @@ class ManufacturedSolutionForceterm:
         elif self._species == "Electrons":
             """Forceterm for electrons on the right hand side."""
             """x component"""
-            # fx = (
-            #     2.0 * np.pi * np.sin(2 * np.pi * x)
-            #     - np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y) * self._b
-            #     - self._nu_e * 32.0 * np.pi**2 * np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
-            # )
-            fx = (
-                -2.0 * np.pi * np.cos(2 * np.pi * x)
-                + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x) - 0.001*np.sin(2 * np.pi * x)
-            )
-            # fx = (
-            #     -2.0 * np.pi * np.cos(2 * np.pi * x)
-            #     + np.cos(2 * np.pi * x) * self._b
-            #     + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
-            # )
-
-            # fx = -2.0 * np.pi * np.cos(2 * np.pi * x) - 1e-3 * np.sin(2 * np.pi * x)
-
+            if self._dimension == '2D':
+                fx = (
+                    2.0 * np.pi * np.sin(2 * np.pi * x)
+                    - np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y) * self._b
+                    - self._nu_e * 32.0 * np.pi**2 * np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+                    - self._epsilon*(-np.sin(4 * np.pi * x)*np.sin(4 * np.pi * y))
+                )
+            elif self._dimension == '1D':
+                fx = (
+                    -2.0 * np.pi * np.cos(2 * np.pi * x)
+                    + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x) 
+                    - self._epsilon*np.sin(2 * np.pi * x)
+                )
+            
             """y component"""
-            # fy = (
-            #     -2.0 * np.pi * np.cos(2 * np.pi * y)
-            #     + np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y) * self._b
-            #     - self._nu_e * 32.0 * np.pi**2 * np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
-            # )
-            fy = (
-                - np.sin(2 * np.pi * x) * self._b
-            )
-            # fy = (
-            #     - np.sin(2 * np.pi * x) * self._b
-            #     + 4.0 * np.pi**2 * np.cos(2 * np.pi * x) * self._nu_e
-            # )
-
-            # fy = 0.0 * x
+            if self._dimension == '2D':
+                fy = (
+                    -2.0 * np.pi * np.cos(2 * np.pi * y)
+                    + np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y) * self._b
+                    - self._nu_e * 32.0 * np.pi**2 * np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+                    - self._epsilon*(-np.cos(4 * np.pi * x)*np.cos(4 * np.pi * y)) 
+                )
+            elif self._dimension == '1D':
+                fy = - np.sin(2 * np.pi * x) * self._b 
 
             """z component"""
             fz = 0.0 * x
