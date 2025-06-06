@@ -1,5 +1,6 @@
 import glob
 import os
+import sys
 
 from struphy.post_processing.likwid.plot_likwidproject import load_projects, plot_files
 
@@ -14,7 +15,7 @@ def struphy_likwid_profile(dir, title, output, groups, skip, plots):
     projects = load_projects(expanded_dirs)
     if len(projects) == 0:
         print("projects not finished")
-        exit()
+        sys.exit(1)
 
     procs_per_clone = "any"
 
