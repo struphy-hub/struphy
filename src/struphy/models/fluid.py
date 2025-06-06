@@ -91,14 +91,8 @@ class LinearMHD(StruphyModel):
         sonic_solver = params["fluid"]["mhd"]["options"]["Magnetosonic"]["solver"]
 
         # project background magnetic field (2-form) and pressure (3-form)
-        self._b_eq = self.derham.P["2"](
-            [
-                self.equil.b2_1,
-                self.equil.b2_2,
-                self.equil.b2_3,
-            ]
-        )
-        self._p_eq = self.derham.P["3"](self.equil.p3)
+        self._b_eq = self.projected_equil.b2
+        self._p_eq = self.projected_equil.p3
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -131,19 +125,15 @@ class LinearMHD(StruphyModel):
         self.add_scalar("en_B_tot")
         self.add_scalar("en_tot")
 
-        # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh["2"].zeros()
+        # vectors for computing scalar quantities
         self._tmp_b1 = self.derham.Vh["2"].zeros()
         self._tmp_b2 = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
         # perturbed fields
-        self._mass_ops.M2n.dot(self.pointer["mhd_velocity"], out=self._tmp_u1)
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b1)
-
-        en_U = self.pointer["mhd_velocity"].dot(self._tmp_u1) / 2
-        en_B = self.pointer["b_field"].dot(self._tmp_b1) / 2
-        en_p = self.pointer["mhd_pressure"].dot(self._ones) / (5 / 3 - 1)
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_velocity"], self.pointer["mhd_velocity"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
+        en_p = self.pointer["mhd_pressure"].inner(self._ones) / (5 / 3 - 1)
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
@@ -151,10 +141,10 @@ class LinearMHD(StruphyModel):
         self.update_scalar("en_tot", en_U + en_B + en_p)
 
         # background fields
-        self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        self.mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
 
-        en_B0 = self._b_eq.dot(self._tmp_b1) / 2
-        en_p0 = self._p_eq.dot(self._ones) / (5 / 3 - 1)
+        en_B0 = self._b_eq.inner(self._tmp_b1) / 2
+        en_p0 = self._p_eq.inner(self._ones) / (5 / 3 - 1)
 
         self.update_scalar("en_B_eq", en_B0)
         self.update_scalar("en_p_eq", en_p0)
@@ -163,9 +153,9 @@ class LinearMHD(StruphyModel):
         self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += self.pointer["b_field"]
 
-        self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+        self.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
 
-        en_Btot = self._tmp_b1.dot(self._tmp_b2) / 2
+        en_Btot = self._tmp_b1.inner(self._tmp_b2) / 2
 
         self.update_scalar("en_B_tot", en_Btot)
 
@@ -257,23 +247,10 @@ class LinearExtendedMHDuniform(StruphyModel):
         sonic_solver = params["fluid"]["mhd"]["options"]["MagnetosonicUniform"]["solver"]
 
         # project background magnetic field (1-form) and pressure (3-form)
-        self._b_eq = self.derham.P["1"](
-            [
-                self.equil.b1_1,
-                self.equil.b1_2,
-                self.equil.b1_3,
-            ]
-        )
-        self._p_eq = self.derham.P["3"](self.equil.p3)
+        self._b_eq = self.projected_equil.b1
+        self._a_eq = self.projected_equil.a1
+        self._p_eq = self.projected_equil.p3
         self._ones = self.pointer["mhd_p"].space.zeros()
-        # project background vector potential (1-form)
-        self._a_eq = self.derham.P["1"](
-            [
-                self.equil.a1_1,
-                self.equil.a1_2,
-                self.equil.a1_3,
-            ]
-        )
 
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
@@ -313,20 +290,16 @@ class LinearExtendedMHDuniform(StruphyModel):
         self.add_scalar("helicity")
 
         # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh["2"].zeros()
         self._tmp_b1 = self.derham.Vh["1"].zeros()
         self._tmp_b2 = self.derham.Vh["1"].zeros()
 
     def update_scalar_quantities(self):
         # perturbed fields
-        self._mass_ops.M2n.dot(self.pointer["mhd_u"], out=self._tmp_u1)
-
-        self._mass_ops.M1.dot(self.pointer["b_field"], out=self._tmp_b1)
-
-        en_U = self.pointer["mhd_u"].dot(self._tmp_u1) / 2.0
-        en_B = self.pointer["b_field"].dot(self._tmp_b1) / 2.0
-        helicity = self._a_eq.dot(self._tmp_b1) * 2.0
-        en_p_i = self.pointer["mhd_p"].dot(self._ones) / (5.0 / 3.0 - 1.0)
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_u"], self.pointer["mhd_u"])
+        b1 = self.mass_ops.M1.dot(self.pointer["b_field"], out=self._tmp_b1)
+        en_B = 0.5 * self.pointer["b_field"].inner(b1)
+        helicity = 2.0 * self._a_eq.inner(b1)
+        en_p_i = self.pointer["mhd_p"].inner(self._ones) / (5.0 / 3.0 - 1.0)
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
@@ -335,21 +308,19 @@ class LinearExtendedMHDuniform(StruphyModel):
         self.update_scalar("en_tot", en_U + en_B + en_p_i)
 
         # background fields
-        self._mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-
-        en_B0 = self._b_eq.dot(self._tmp_b1) / 2.0
-        en_p0 = self._p_eq.dot(self._ones) / (5.0 / 3.0 - 1.0)
+        b1 = self.mass_ops.M1.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        en_B0 = self._b_eq.inner(b1) / 2.0
+        en_p0 = self._p_eq.inner(self._ones) / (5.0 / 3.0 - 1.0)
 
         self.update_scalar("en_B_eq", en_B0)
         self.update_scalar("en_p_eq", en_p0)
 
         # total magnetic field
-        self._b_eq.copy(out=self._tmp_b1)
+        b1 = self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += self.pointer["b_field"]
 
-        self._mass_ops.M1.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
-
-        en_Btot = self._tmp_b1.dot(self._tmp_b2) / 2.0
+        b2 = self.mass_ops.M1.dot(b1, apply_bc=False, out=self._tmp_b2)
+        en_Btot = b1.inner(b2) / 2.0
 
         self.update_scalar("en_B_tot", en_Btot)
 
@@ -457,18 +428,14 @@ class ColdPlasma(StruphyModel):
         self.add_scalar("kinetic energy")
         self.add_scalar("total energy")
 
-        # temporaries
-        self._tmp1 = self.pointer["e_field"].space.zeros()
-        self._tmp2 = self.pointer["b_field"].space.zeros()
-
     def update_scalar_quantities(self):
-        self._mass_ops.M1.dot(self.pointer["e_field"], out=self._tmp1)
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp2)
-        en_E = 0.5 * self.pointer["e_field"].dot(self._tmp1)
-        en_B = 0.5 * self.pointer["b_field"].dot(self._tmp2)
-
-        self._mass_ops.M1ninv.dot(self.pointer["electrons_j"], out=self._tmp1)
-        en_J = 0.5 * self._alpha**2 * self.pointer["electrons_j"].dot(self._tmp1)
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
+        en_J = (
+            0.5
+            * self._alpha**2
+            * self.mass_ops.M1ninv.dot_inner(self.pointer["electrons_j"], self.pointer["electrons_j"])
+        )
 
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)
@@ -654,8 +621,6 @@ class ViscoresistiveMHD(StruphyModel):
         self.add_scalar("tot_div_B")
 
         # temporary vectors for scalar quantities
-        self._tmp_m1 = self.derham.Vh_pol["v"].zeros()
-        self._tmp_wb2 = self.derham.Vh_pol["2"].zeros()
         self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
         self._tmp_w_div_B = self.derham.Vh_pol["3"].zeros()
         tmp_dof = self.derham.Vh_pol["3"].zeros()
@@ -675,13 +640,10 @@ class ViscoresistiveMHD(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        m1 = self.WMM.massop.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
-
-        en_U = self.pointer["mhd_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["mhd_uv"], self.pointer["mhd_uv"])
         self.update_scalar("en_U", en_U)
 
-        wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
-        en_mag = wb2.dot(self.pointer["b2"]) / 2
+        en_mag = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
         self.update_scalar("en_mag", en_mag)
 
         en_thermo = self.update_thermo_energy()
@@ -689,14 +651,14 @@ class ViscoresistiveMHD(StruphyModel):
         en_tot = en_U + en_thermo + en_mag
         self.update_scalar("en_tot", en_tot)
 
-        dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
+        dens_tot = self._ones.inner(self.pointer["mhd_rho3"])
         self.update_scalar("dens_tot", dens_tot)
-        entr_tot = self._ones.dot(self.pointer["mhd_s3"])
+        entr_tot = self._ones.inner(self.pointer["mhd_s3"])
         self.update_scalar("entr_tot", entr_tot)
 
         div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-        w_div_B = self._mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
-        L2_div_B = np.sqrt(np.abs(div_B.dot(w_div_B)))
+        w_div_B = self.mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
+        L2_div_B = np.sqrt(np.abs(div_B.inner(w_div_B)))
         self.update_scalar("tot_div_B", L2_div_B)
 
     def update_thermo_energy(self):
@@ -720,7 +682,7 @@ class ViscoresistiveMHD(StruphyModel):
         e = self._energy_evaluator.ener
         ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_drho)
-        en_thermo = self._integrator.dot(en_prop._linear_form_dl_drho)
+        en_thermo = self._integrator.inner(en_prop._linear_form_dl_drho)
         self.update_scalar("en_thermo", en_thermo)
         return en_thermo
 
@@ -865,7 +827,6 @@ class ViscousFluid(StruphyModel):
         self.add_scalar("entr_tot")
 
         # temporary vectors for scalar quantities
-        self._tmp_m1 = self.derham.Vh_pol["v"].zeros()
         self._tmp_wb2 = self.derham.Vh_pol["2"].zeros()
         tmp_dof = self.derham.Vh_pol["3"].zeros()
         projV3 = L2Projector("L2", self.mass_ops)
@@ -884,9 +845,7 @@ class ViscousFluid(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        m1 = self.WMM.massop.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
-
-        en_U = self.pointer["fluid_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["fluid_uv"], self.pointer["fluid_uv"])
         self.update_scalar("en_U", en_U)
 
         en_thermo = self.update_thermo_energy()
@@ -894,9 +853,9 @@ class ViscousFluid(StruphyModel):
         en_tot = en_U + en_thermo
         self.update_scalar("en_tot", en_tot)
 
-        dens_tot = self._ones.dot(self.pointer["fluid_rho3"])
+        dens_tot = self._ones.inner(self.pointer["fluid_rho3"])
         self.update_scalar("dens_tot", dens_tot)
-        entr_tot = self._ones.dot(self.pointer["fluid_s3"])
+        entr_tot = self._ones.inner(self.pointer["fluid_s3"])
         self.update_scalar("entr_tot", entr_tot)
 
     def update_thermo_energy(self):
@@ -920,7 +879,7 @@ class ViscousFluid(StruphyModel):
         e = self._energy_evaluator.ener
         ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_drho)
-        en_thermo = self._integrator.dot(en_prop._linear_form_dl_drho)
+        en_thermo = self._integrator.inner(en_prop._linear_form_dl_drho)
         self.update_scalar("en_thermo", en_thermo)
         return en_thermo
 
@@ -1082,8 +1041,6 @@ class ViscoresistiveMHD_with_p(StruphyModel):
         self.add_scalar("tot_div_B")
 
         # temporary vectors for scalar quantities
-        self._tmp_m1 = self.derham.Vh_pol["v"].zeros()
-        self._tmp_wb2 = self.derham.Vh_pol["2"].zeros()
         self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
         self._tmp_w_div_B = self.derham.Vh_pol["3"].zeros()
         tmp_dof = self.derham.Vh_pol["3"].zeros()
@@ -1099,27 +1056,24 @@ class ViscoresistiveMHD_with_p(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        m1 = self.WMM.massop.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
-
-        en_U = self.pointer["mhd_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["mhd_uv"], self.pointer["mhd_uv"])
         self.update_scalar("en_U", en_U)
 
-        wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
-        en_mag = wb2.dot(self.pointer["b2"]) / 2
+        en_mag = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
         self.update_scalar("en_mag", en_mag)
 
-        en_thermo = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
+        en_thermo = self.mass_ops.M3.dot_inner(self.pointer["mhd_p3"], self._integrator) / (self._gamma - 1.0)
         self.update_scalar("en_thermo", en_thermo)
 
         en_tot = en_U + en_thermo + en_mag
         self.update_scalar("en_tot", en_tot)
 
-        dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
+        dens_tot = self._ones.inner(self.pointer["mhd_rho3"])
         self.update_scalar("dens_tot", dens_tot)
 
         div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-        w_div_B = self._mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
-        L2_div_B = np.sqrt(np.abs(div_B.dot(w_div_B)))
+        w_div_B = self.mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
+        L2_div_B = np.sqrt(np.abs(div_B.inner(w_div_B)))
         self.update_scalar("tot_div_B", L2_div_B)
 
     @staticmethod
@@ -1291,8 +1245,6 @@ class ViscoresistiveLinearMHD(StruphyModel):
         self.add_scalar("en_mag_l1")
 
         # temporary vectors for scalar quantities
-        self._tmp_m1 = self.derham.Vh_pol["v"].zeros()
-        self._tmp_wb2 = self.derham.Vh_pol["2"].zeros()
         self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
         self._tmp_w_div_B = self.derham.Vh_pol["3"].zeros()
         tmp_dof = self.derham.Vh_pol["3"].zeros()
@@ -1308,38 +1260,33 @@ class ViscoresistiveLinearMHD(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        m1 = self.WMM.massop.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
-
-        en_U = self.pointer["mhd_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["mhd_uv"], self.pointer["mhd_uv"])
         self.update_scalar("en_U", en_U)
 
-        wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
-        en_mag1 = wb2.dot(self.pointer["b2"]) / 2
+        en_mag1 = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
         self.update_scalar("en_mag_1", en_mag1)
 
-        wb2 = self._mass_ops.M2.dot(self.pointer["bt2"], out=self._tmp_wb2)
-        en_mag2 = wb2.dot(self.projected_equil.b2)
+        en_mag2 = self.mass_ops.M2.dot_inner(self.pointer["bt2"], self.projected_equil.b2)
         self.update_scalar("en_mag_2", en_mag2)
 
-        en_thermo = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["pt3"])) / (self._gamma - 1.0)
+        en_thermo = self.mass_ops.M3.dot_inner(self.pointer["pt3"], self._integrator) / (self._gamma - 1.0)
         self.update_scalar("en_thermo", en_thermo)
 
         en_tot = en_U + en_thermo + en_mag1 + en_mag2
         self.update_scalar("en_tot", en_tot)
 
-        # dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
+        # dens_tot = self._ones.inner(self.pointer["mhd_rho3"])
         # self.update_scalar("dens_tot", dens_tot)
 
         # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-        # w_div_B = self._mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
+        # w_div_B = self.mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
         # L2_div_B = np.sqrt(np.abs(div_B.dot(w_div_B)))
         # self.update_scalar("tot_div_B", L2_div_B)
 
-        en_thermo_l1 = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
+        en_thermo_l1 = self.mass_ops.M3.dot_inner(self.pointer["mhd_p3"], self._integrator) / (self._gamma - 1.0)
         self.update_scalar("en_thermo_l1", en_thermo_l1)
 
-        wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
-        en_mag_l1 = wb2.dot(self.projected_equil.b2)
+        en_mag_l1 = self.mass_ops.M2.dot_inner(self.pointer["b2"], self.projected_equil.b2)
         self.update_scalar("en_mag_l1", en_mag_l1)
 
         en_tot_l1 = en_thermo_l1 + en_mag_l1
@@ -1539,38 +1486,33 @@ class ViscoresistiveDeltafMHD(StruphyModel):
 
     def update_scalar_quantities(self):
         # Update mass matrix
-        m1 = self.WMM.massop.dot(self.pointer["mhd_uv"], out=self._tmp_m1)
-
-        en_U = self.pointer["mhd_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["mhd_uv"], self.pointer["mhd_uv"])
         self.update_scalar("en_U", en_U)
 
-        wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
-        en_mag1 = wb2.dot(self.pointer["b2"]) / 2
+        en_mag1 = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
         self.update_scalar("en_mag_1", en_mag1)
 
-        wb2 = self._mass_ops.M2.dot(self.pointer["bt2"], out=self._tmp_wb2)
-        en_mag2 = wb2.dot(self.projected_equil.b2)
+        en_mag2 = self.mass_ops.M2.dot_inner(self.pointer["bt2"], self.projected_equil.b2)
         self.update_scalar("en_mag_2", en_mag2)
 
-        en_thermo = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["pt3"])) / (self._gamma - 1.0)
+        en_thermo = self.mass_ops.M3.dot_inner(self.pointer["pt3"], self._integrator) / (self._gamma - 1.0)
         self.update_scalar("en_thermo", en_thermo)
 
         en_tot = en_U + en_thermo + en_mag1 + en_mag2
         self.update_scalar("en_tot", en_tot)
 
-        # dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
+        # dens_tot = self._ones.inner(self.pointer["mhd_rho3"])
         # self.update_scalar("dens_tot", dens_tot)
 
         # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-        # w_div_B = self._mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
+        # w_div_B = self.mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
         # L2_div_B = np.sqrt(np.abs(div_B.dot(w_div_B)))
         # self.update_scalar("tot_div_B", L2_div_B)
 
-        en_thermo_l1 = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
+        en_thermo_l1 = self.mass_ops.M3.dot_inner(self.pointer["mhd_p3"], self._integrator) / (self._gamma - 1.0)
         self.update_scalar("en_thermo_l1", en_thermo_l1)
 
-        wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
-        en_mag_l1 = wb2.dot(self.projected_equil.b2)
+        en_mag_l1 = self.mass_ops.M2.dot_inner(self.pointer["b2"], self.projected_equil.b2)
         self.update_scalar("en_mag_l1", en_mag_l1)
 
         en_tot_l1 = en_thermo_l1 + en_mag_l1

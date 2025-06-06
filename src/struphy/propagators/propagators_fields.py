@@ -2945,7 +2945,6 @@ class VariationalMomentumAdvection(Propagator):
         self._tmp_diff = u.space.zeros()
         self._tmp__pc_diff = u.space.zeros()
         self._tmp_update = u.space.zeros()
-        self._tmp_weak_diff = u.space.zeros()
         self._tmp_mn = u.space.zeros()
         self._tmp_mn1 = u.space.zeros()
         self._tmp_advection = u.space.zeros()
@@ -3053,11 +3052,7 @@ class VariationalMomentumAdvection(Propagator):
             diff += advection
 
             # Compute the norm of the difference
-            weak_diff = self._Mrho.inv.dot(
-                self._tmp_diff,
-                out=self._tmp_weak_diff,
-            )
-            err = self._tmp_diff.dot(weak_diff)
+            err = self._Mrho.inv.dot_inner(self._tmp_diff, self._tmp_diff)
 
             # Update : m^{n+1,r+1} = m^n-advection
             mn1 = mn.copy(out=self._tmp_mn1)
@@ -3089,11 +3084,7 @@ class VariationalMomentumAdvection(Propagator):
         )
 
     def _get_error_newton(self, mn_diff):
-        weak_un_diff = self._inv_Mv.dot(
-            self.derham.boundary_ops["v"].dot(mn_diff),
-            out=self._tmp_weak_diff,
-        )
-        err_u = weak_un_diff.dot(mn_diff)
+        err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
         return err_u
 
 
@@ -3233,7 +3224,6 @@ class VariationalDensityEvolve(Propagator):
         self._tmp_rhon_diff = rho.space.zeros()
         self._tmp_un_weak_diff = u.space.zeros()
         self._tmp_mn_diff = u.space.zeros()
-        self._tmp_rhon_weak_diff = rho.space.zeros()
         self._tmp_mn = u.space.zeros()
         self._tmp_mn1 = u.space.zeros()
         self._tmp_advection = u.space.zeros()
@@ -3592,16 +3582,11 @@ class VariationalDensityEvolve(Propagator):
 
     def _get_error_newton(self, mn_diff, rhon_diff):
         """Error for the newton method : max(|f(0)|,|f(1)|) where f is the function we're trying to nullify"""
-        weak_un_diff = self._inv_Mv.dot(
+        err_u = self._inv_Mv.dot_inner(
             self.derham.boundary_ops["v"].dot(mn_diff),
-            out=self._tmp_un_weak_diff,
+            mn_diff,
         )
-        weak_rhon_diff = self.mass_ops.M3.dot(
-            rhon_diff,
-            out=self._tmp_rhon_weak_diff,
-        )
-        err_rho = weak_rhon_diff.dot(rhon_diff)
-        err_u = weak_un_diff.dot(mn_diff)
+        err_rho = self.mass_ops.M3.dot_inner(rhon_diff, rhon_diff)
         return max(err_rho, err_u)
 
 
@@ -3972,16 +3957,8 @@ class VariationalEntropyEvolve(Propagator):
         self._dt2_divPis._scalar = dt / 2
 
     def _get_error_newton(self, mn_diff, sn_diff):
-        weak_un_diff = self._inv_Mv.dot(
-            self.derham.boundary_ops["v"].dot(mn_diff),
-            out=self._tmp_un_weak_diff,
-        )
-        weak_sn_diff = self.mass_ops.M3.dot(
-            sn_diff,
-            out=self._tmp_sn_weak_diff,
-        )
-        err_rho = weak_sn_diff.dot(sn_diff)
-        err_u = weak_un_diff.dot(mn_diff)
+        err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
+        err_rho = self.mass_ops.M3.dot_inner(sn_diff, sn_diff)
         return max(err_rho, err_u)
 
 
@@ -4315,16 +4292,8 @@ class VariationalMagFieldEvolve(Propagator):
         wb *= -1
 
     def _get_error_newton(self, mn_diff, bn_diff):
-        weak_un_diff = self._inv_Mv.dot(
-            self.derham.boundary_ops["v"].dot(mn_diff),
-            out=self._tmp_un_weak_diff,
-        )
-        weak_bn_diff = self.mass_ops.M2.dot(
-            bn_diff,
-            out=self._tmp_bn_weak_diff,
-        )
-        err_b = weak_bn_diff.dot(bn_diff)
-        err_u = weak_un_diff.dot(mn_diff)
+        err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
+        err_b = self.mass_ops.M2.dot_inner(bn_diff, bn_diff)
         return max(err_b, err_u)
 
     def _get_jacobian(self, dt):
@@ -4861,21 +4830,13 @@ class VariationalPBEvolve(Propagator):
         self._get_L2dofs_V3(self._tmp_int_grid, dofs=self._linear_form_dl_dp)
 
     def _get_error(self, mn_diff, bn_diff):  # , pn_diff):
-        weak_un_diff = self._inv_Mv.dot(
-            self.derham.boundary_ops["v"].dot(mn_diff),
-            out=self._tmp_un_weak_diff,
-        )
-        weak_bn_diff = self.mass_ops.M2.dot(
-            bn_diff,
-            out=self._tmp_bn_weak_diff,
-        )
+        err_u = self._inv_Mv.dot_inner(self.derham.boundary_ops["v"].dot(mn_diff), mn_diff)
+        err_b = self.mass_ops.M2.dot_inner(bn_diff, bn_diff)
         # weak_pn_diff = self.mass_ops.M3.dot(
         #     pn_diff,
         #     out=self._tmp_pn_weak_diff,
         # )
-        err_b = weak_bn_diff.dot(bn_diff)
         # err_p = weak_pn_diff.dot(pn_diff)
-        err_u = weak_un_diff.dot(mn_diff)
         # print("err_b :"+str(err_b))
         # print("err_p :"+str(err_p))
         # print("err_u :"+str(err_u))
