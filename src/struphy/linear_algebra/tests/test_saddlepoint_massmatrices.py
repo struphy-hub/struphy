@@ -19,19 +19,17 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from psydac.linalg.basic import IdentityOperator
     from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 
-    from struphy.feec.basis_projection_ops import BasisProjectionOperators, BasisProjectionOperatorLocal
+    from struphy.examples.restelli2018 import callables
+    from struphy.feec.basis_projection_ops import BasisProjectionOperatorLocal, BasisProjectionOperators
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.preconditioner import MassMatrixPreconditioner
-    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.projectors import L2Projector
+    from struphy.feec.psydac_derham import Derham, TransformedPformComponent
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import CircularTokamak, HomogenSlab
     from struphy.geometry import domains
-    from struphy.linear_algebra.saddle_point import SaddlePointSolver
-
     from struphy.initial import perturbations
-    from struphy.feec.projectors import L2Projector
-    from struphy.feec.psydac_derham import TransformedPformComponent
-    from struphy.examples.restelli2018 import callables
+    from struphy.linear_algebra.saddle_point import SaddlePointSolver
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()

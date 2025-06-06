@@ -9,14 +9,16 @@ from numpy import zeros
 from psydac.linalg.basic import IdentityOperator, ZeroOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.solvers import inverse
-from struphy.feec.preconditioner import MassMatrixPreconditioner
 from psydac.linalg.stencil import StencilVector
 
 import struphy.feec.utilities as util
+from struphy.examples.restelli2018 import callables
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.mass import WeightedMassOperator
-from struphy.feec.psydac_derham import SplineFunction
+from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.projectors import L2Projector
+from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.variational_utilities import (
     BracketOperator,
     H1vecMassMatrix_density,
@@ -24,9 +26,12 @@ from struphy.feec.variational_utilities import (
     KineticEnergyEvaluator,
 )
 from struphy.fields_background.equils import set_defaults
+from struphy.geometry.utilities import TransformedPformComponent
+from struphy.initial import perturbations
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
+from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
@@ -36,14 +41,6 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-
-from struphy.initial import perturbations
-from struphy.feec.projectors import L2Projector
-from struphy.feec.psydac_derham import Derham
-
-from struphy.linear_algebra.saddle_point import SaddlePointSolver
-from struphy.examples.restelli2018 import callables
-from struphy.geometry.utilities import TransformedPformComponent
 
 
 class Maxwell(Propagator):
@@ -6754,9 +6751,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._dimension = dimension
 
         if self._variant == "GMRES":
-            self._M2 = getattr(self.mass_ops, 'M2')
-            self._M3 = getattr(self.mass_ops, 'M3')
-            self._M2B = - getattr(self.mass_ops, 'M2B')
+            self._M2 = getattr(self.mass_ops, "M2")
+            self._M3 = getattr(self.mass_ops, "M3")
+            self._M2B = -getattr(self.mass_ops, "M2B")
             # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
             _A11 = (
                 self._M2
@@ -6764,31 +6761,48 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 + self._nu
                 * (
                     self.derham.div.T @ self._M3 @ self.derham.div
-                    + self.basis_ops.S21.T
-                    @ self.derham.curl.T
-                    @ self._M2
-                    @ self.derham.curl
-                    @ self.basis_ops.S21
+                    + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
                 )
             )
             _A12 = None
             _A21 = _A12
-            _A22 = -self._eps * IdentityOperator(_A11.domain) + self._M2B + self._nu_e * (self.derham.div.T @ self._M3 @
-                                                                                          self.derham.div + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21)
+            _A22 = (
+                -self._eps * IdentityOperator(_A11.domain)
+                + self._M2B
+                + self._nu_e
+                * (
+                    self.derham.div.T @ self._M3 @ self.derham.div
+                    + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+                )
+            )
             _B1 = -self._M3 @ self.derham.div
             _B2 = self._M3 @ self.derham.div
 
         ### Manufactured solution ###
         _forceterm_logical = lambda e1, e2, e3: 0 * e1
         _funx = getattr(callables, "ManufacturedSolutionForceterm")(
-            species="Ions", comp="0", b0=self._B0, nu=self._nu, dimension=self._dimension, epsilon = self._eps, dt = D1_dt)
+            species="Ions", comp="0", b0=self._B0, nu=self._nu, dimension=self._dimension, epsilon=self._eps, dt=D1_dt
+        )
         _funy = getattr(callables, "ManufacturedSolutionForceterm")(
-            species="Ions", comp="1", b0=self._B0, nu=self._nu, dimension=self._dimension, epsilon = self._eps, dt = D1_dt)
+            species="Ions", comp="1", b0=self._B0, nu=self._nu, dimension=self._dimension, epsilon=self._eps, dt=D1_dt
+        )
         _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
-            species="Electrons", comp="0", b0=self._B0, nu_e=self._nu_e, dimension=self._dimension, epsilon = self._eps, dt = D1_dt
+            species="Electrons",
+            comp="0",
+            b0=self._B0,
+            nu_e=self._nu_e,
+            dimension=self._dimension,
+            epsilon=self._eps,
+            dt=D1_dt,
         )
         _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(
-            species="Electrons", comp="1", b0=self._B0, nu_e=self._nu_e, dimension=self._dimension, epsilon = self._eps, dt = D1_dt
+            species="Electrons",
+            comp="1",
+            b0=self._B0,
+            nu_e=self._nu_e,
+            dimension=self._dimension,
+            epsilon=self._eps,
+            dt=D1_dt,
         )
 
         # get callable(s) for specified init type
@@ -6860,7 +6874,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     self._Hodgenp = self._S21.toarray
                 else:
                     self._Hodgenp = self.basis_ops.S21.toarray_struphy()  # self.basis_ops.S21.toarray
-                self._M2Bnp = - self.mass_ops.M2B._mat.toarray()
+                self._M2Bnp = -self.mass_ops.M2B._mat.toarray()
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
                 self._M2np = self.mass_ops.M2._mat.tosparse()
                 self._M3np = self.mass_ops.M3._mat.tosparse()
@@ -6870,7 +6884,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     self._Hodgenp = self._S21.tosparse
                 else:
                     self._Hodgenp = self.basis_ops.S21.toarray_struphy(is_sparse=True)
-                self._M2Bnp = - self.mass_ops.M2B._mat.tosparse()
+                self._M2Bnp = -self.mass_ops.M2B._mat.tosparse()
 
             A11np = (
                 self._M2np
@@ -6958,11 +6972,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 + self._nu
                 * (
                     self.derham.div.T @ self._M3 @ self.derham.div
-                    + self.basis_ops.S21.T
-                    @ self.derham.curl.T
-                    @ self._M2
-                    @ self.derham.curl
-                    @ self.basis_ops.S21
+                    + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
                 )
             )
             _A12 = None
@@ -6971,11 +6981,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 self._nu_e
                 * (
                     self.derham.div.T @ self._M3 @ self.derham.div
-                    + self.basis_ops.S21.T
-                    @ self.derham.curl.T
-                    @ self._M2
-                    @ self.derham.curl
-                    @ self.basis_ops.S21
+                    + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
                 )
                 + self._M2B
                 - self._eps * IdentityOperator(_A11.domain)

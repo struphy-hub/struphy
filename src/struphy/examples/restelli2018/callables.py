@@ -146,29 +146,28 @@ class ManufacturedSolutionForceterm:
         if self._species == "Ions":
             """Forceterm for ions on the right hand side."""
             """x component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 fx = (
                     -2.0 * np.pi * np.sin(2 * np.pi * x)
                     + np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y) * self._b
                     - self._nu * 8.0 * np.pi**2 * np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
                 )
-            elif self._dimension == '1D':
+            elif self._dimension == "1D":
                 fx = (
                     2.0 * np.pi * np.cos(2 * np.pi * x)
-                    + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)  
-                    + (np.sin(2 * np.pi * x)+1.0) / self._dt
+                    + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
+                    + (np.sin(2 * np.pi * x) + 1.0) / self._dt
                 )
 
-            
             """y component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 fy = (
                     2.0 * np.pi * np.cos(2 * np.pi * y)
                     - np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y) * self._b
                     - self._nu * 8.0 * np.pi**2 * np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
                 )
-            elif self._dimension == '1D':
-                fy = (np.sin(2 * np.pi * x) + 1.0)  * self._b 
+            elif self._dimension == "1D":
+                fy = (np.sin(2 * np.pi * x) + 1.0) * self._b
 
             """z component"""
             fz = 0.0 * x
@@ -185,30 +184,30 @@ class ManufacturedSolutionForceterm:
         elif self._species == "Electrons":
             """Forceterm for electrons on the right hand side."""
             """x component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 fx = (
                     2.0 * np.pi * np.sin(2 * np.pi * x)
                     - np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y) * self._b
                     - self._nu_e * 32.0 * np.pi**2 * np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
-                    - self._epsilon*(-np.sin(4 * np.pi * x)*np.sin(4 * np.pi * y))
+                    - self._epsilon * (-np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y))
                 )
-            elif self._dimension == '1D':
+            elif self._dimension == "1D":
                 fx = (
                     -2.0 * np.pi * np.cos(2 * np.pi * x)
-                    + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x) 
-                    - self._epsilon*np.sin(2 * np.pi * x)
+                    + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
+                    - self._epsilon * np.sin(2 * np.pi * x)
                 )
-            
+
             """y component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 fy = (
                     -2.0 * np.pi * np.cos(2 * np.pi * y)
                     + np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y) * self._b
                     - self._nu_e * 32.0 * np.pi**2 * np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
-                    - self._epsilon*(-np.cos(4 * np.pi * x)*np.cos(4 * np.pi * y)) 
+                    - self._epsilon * (-np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y))
                 )
-            elif self._dimension == '1D':
-                fy = - np.sin(2 * np.pi * x) * self._b 
+            elif self._dimension == "1D":
+                fy = -np.sin(2 * np.pi * x) * self._b
 
             """z component"""
             fz = 0.0 * x

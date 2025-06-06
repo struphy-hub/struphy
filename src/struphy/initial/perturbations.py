@@ -952,15 +952,15 @@ class ManufacturedSolutionVelocity:
         if self._species == "Ions":
             """Velocity of ions."""
             """x component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
-            elif self._dimension == '1D':
+            elif self._dimension == "1D":
                 ux = np.sin(2 * np.pi * x) + 1.0
 
             """y component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
-            elif self._dimension == '1D':
+            elif self._dimension == "1D":
                 uy = np.cos(2 * np.pi * x)
 
             """z component"""
@@ -978,15 +978,15 @@ class ManufacturedSolutionVelocity:
         elif self._species == "Electrons":
             """Velocity of electrons."""
             """x component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
-            elif self._dimension == '1D':
+            elif self._dimension == "1D":
                 ux = np.sin(2.0 * np.pi * x)
 
             """y component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
-            elif self._dimension == '1D':
+            elif self._dimension == "1D":
                 uy = np.cos(2 * np.pi * x)
 
             """z component"""
@@ -1050,9 +1050,9 @@ class ManufacturedSolutionPotential:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Potential."""
-        if self._dimension == '2D':
+        if self._dimension == "2D":
             phi = np.cos(2 * np.pi * x) + np.sin(2 * np.pi * y)
-        elif self._dimension == '1D':
+        elif self._dimension == "1D":
             phi = np.sin(2.0 * np.pi * x)
 
         return phi
@@ -1105,15 +1105,15 @@ class ManufacturedSolutionVelocity_2:
         if self._species == "Ions":
             """Velocity of ions."""
             """x component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
-            elif self._dimension == '1D':
+            elif self._dimension == "1D":
                 ux = np.sin(2 * np.pi * x) + 1.0
 
             """y component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
-            elif self._dimension == '1D':
+            elif self._dimension == "1D":
                 uy = np.cos(2 * np.pi * x)
 
             """z component"""
@@ -1131,15 +1131,15 @@ class ManufacturedSolutionVelocity_2:
         elif self._species == "Electrons":
             """Velocity of electrons."""
             """x component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
-            elif self._dimension == '1D':
+            elif self._dimension == "1D":
                 ux = np.sin(2.0 * np.pi * x)
 
             """y component"""
-            if self._dimension == '2D':
+            if self._dimension == "2D":
                 uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
-            elif self._dimension == '1D':
+            elif self._dimension == "1D":
                 uy = np.cos(2 * np.pi * x)
 
             """z component"""

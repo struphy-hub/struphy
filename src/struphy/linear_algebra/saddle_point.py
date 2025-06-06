@@ -1,11 +1,11 @@
+from typing import Union
+
 import numpy as np
 import scipy as sc
 from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.solvers import inverse
 from psydac.linalg.direct_solvers import SparseSolver
-from typing import Union
-
+from psydac.linalg.solvers import inverse
 
 
 class SaddlePointSolver:
@@ -69,7 +69,7 @@ class SaddlePointSolver:
 
     dimension : str
         Which of the predefined manufactured solutions to use ('1D' or '2D')
-    
+
     tol : float
         Convergence tolerance for the potential residual.
 
@@ -164,7 +164,6 @@ class SaddlePointSolver:
 
             # Instanciate inverses
             self._setup_inverses()
-
 
             # Solution vectors numpy
             self._Pnp = np.zeros(self._B1np.shape[0])
@@ -300,7 +299,7 @@ class SaddlePointSolver:
 
         elif self._variant == "Uzawa":
             info = {}
-            
+
             if self._spectralanalysis == True:
                 self._spectral_analysis()
 
@@ -453,7 +452,7 @@ class SaddlePointSolver:
         # Spectral analysis
         # A11 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0])  
+            eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0])
         elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
             eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0].toarray())
         maxbeforeA11 = max(eigvalsA11_before)
@@ -471,7 +470,7 @@ class SaddlePointSolver:
 
         # A22 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1])  
+            eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1])
         elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
             eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1].toarray())
         maxbeforeA22 = max(eigvalsA22_before)

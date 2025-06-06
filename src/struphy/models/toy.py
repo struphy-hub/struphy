@@ -1218,7 +1218,11 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
         # dct['em_fields']['b_field'] = 'Hdiv'
         # dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
-        dct["fluid"]["mhd"] = {"u": "Hdiv", "ue": "Hdiv", "potential": "L2", }
+        dct["fluid"]["mhd"] = {
+            "u": "Hdiv",
+            "ue": "Hdiv",
+            "potential": "L2",
+        }
         return dct
 
     @staticmethod
@@ -1260,15 +1264,14 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         stokes_spectralanalysis = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["spectralanalysis"]
         stokes_dimension = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
         stokes_1D_dt = params["time"]["dt"]
-        
+
         # Check MPI size to ensure only one MPI process
         size = comm.Get_size()
-        if size != 1 and stokes_variant == 'Uzawa':
+        if size != 1 and stokes_variant == "Uzawa":
             if comm.Get_rank() == 0:
                 print(f"Error: TwoFluidQuasiNeutralToy only runs with one MPI process.")
             return  # Early return to stop execution for multiple MPI processes
 
-        
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.TwoFluidQuasiNeutralFull] = {
             "solver": stokes_solver,

@@ -12,14 +12,15 @@ import pytest
 def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and p-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver."""
 
-    from struphy.geometry import domains
+    from mpi4py import MPI
+
+    from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
-    from struphy.fields_background.equils import HomogenSlab
-    from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
-    from struphy.feec.basis_projection_ops import BasisProjectionOperators
-    from mpi4py import MPI
     from struphy.feec.utilities import compare_arrays
+    from struphy.fields_background.equils import HomogenSlab
+    from struphy.geometry import domains
+    from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -34,8 +35,19 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
     # derham object
-    derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc, local_projectors=False,
-                    mpi_dims_mask=dims_mask, nquads=nq_el, nq_pr=nq_pr, polar_ck=polar_ck, domain=domain)
+    derham = Derham(
+        Nel,
+        p,
+        spl_kind,
+        comm=mpi_comm,
+        dirichlet_bc=dirichlet_bc,
+        local_projectors=False,
+        mpi_dims_mask=dims_mask,
+        nquads=nq_el,
+        nq_pr=nq_pr,
+        polar_ck=polar_ck,
+        domain=domain,
+    )
     # Mhd equilibirum (slab)
     mhd_equil_params = {"B0x": 0.0, "B0y": 0.0, "B0z": 1.0, "beta": 0.1, "n0": 1.0}
     eq_mhd = HomogenSlab(**mhd_equil_params)
@@ -45,24 +57,33 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     bas_ops = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
     # Manufactured solutions
-    uvec = derham.create_spline_function('u', 'Hdiv')
-    u_evec = derham.create_spline_function('u_e', 'Hdiv')
-    potentialvec = derham.create_spline_function('potential', 'L2')
-    uinitial = derham.create_spline_function('u', 'Hdiv')
+    uvec = derham.create_spline_function("u", "Hdiv")
+    u_evec = derham.create_spline_function("u_e", "Hdiv")
+    potentialvec = derham.create_spline_function("potential", "L2")
+    uinitial = derham.create_spline_function("u", "Hdiv")
 
-    pp_u = {'ManufacturedSolutionVelocity': {'given_in_basis': ['physical', None, None],
-                                             'species': 'Ions',
-                                             'comp': '0',
-                                             'dimension': '1D',
-                                             }}
-    pp_ue = {'ManufacturedSolutionVelocity': {'given_in_basis': ['physical', None, None],
-                                              'species': 'Electrons',
-                                              'comp': '0',
-                                              'dimension': '1D',
-                                              }}
-    pp_potential = {'ManufacturedSolutionPotential': {'given_in_basis' : 'physical',
-                                                      'dimension': '1D',
-                                                      }}
+    pp_u = {
+        "ManufacturedSolutionVelocity": {
+            "given_in_basis": ["physical", None, None],
+            "species": "Ions",
+            "comp": "0",
+            "dimension": "1D",
+        }
+    }
+    pp_ue = {
+        "ManufacturedSolutionVelocity": {
+            "given_in_basis": ["physical", None, None],
+            "species": "Electrons",
+            "comp": "0",
+            "dimension": "1D",
+        }
+    }
+    pp_potential = {
+        "ManufacturedSolutionPotential": {
+            "given_in_basis": "physical",
+            "dimension": "1D",
+        }
+    }
 
     uvec.initialize_coeffs(domain=domain, pert_params=pp_u)
     u_evec.initialize_coeffs(domain=domain, pert_params=pp_ue)
@@ -75,27 +96,38 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
 
     solver = {}
     solver["type"] = ["gmres", None]
-    solver['tol'] = 1.0e-8
-    solver['maxiter'] = 3000
-    solver['info'] = True
-    solver['verbose'] = True
-    solver['recycle'] = True
+    solver["tol"] = 1.0e-8
+    solver["maxiter"] = 3000
+    solver["info"] = True
+    solver["verbose"] = True
+    solver["recycle"] = True
 
     TwoFluidQuasiNeutralFull.derham = derham
     TwoFluidQuasiNeutralFull.domain = domain
     TwoFluidQuasiNeutralFull.mass_ops = mass_ops
     TwoFluidQuasiNeutralFull.basis_ops = bas_ops
 
-    #Starting with initial condition u=0 and ue and phi start with manufactured solution
-    prop = TwoFluidQuasiNeutralFull(uinitial.vector, u_evec.vector, potentialvec.vector,
-                                    eps=epsilon, D1_dt=dt, variant='Uzawa', dimension='1D',
-                                    nu=10., nu_e=1., solver=solver,
-                                    method_to_solve='DirectNPInverse', preconditioner=False,
-                                    spectralanalysis=False, B0=1.,)
+    # Starting with initial condition u=0 and ue and phi start with manufactured solution
+    prop = TwoFluidQuasiNeutralFull(
+        uinitial.vector,
+        u_evec.vector,
+        potentialvec.vector,
+        eps=epsilon,
+        D1_dt=dt,
+        variant="Uzawa",
+        dimension="1D",
+        nu=10.0,
+        nu_e=1.0,
+        solver=solver,
+        method_to_solve="DirectNPInverse",
+        preconditioner=False,
+        spectralanalysis=False,
+        B0=1.0,
+    )
 
     # Only one step in time to compare different Nel and p at dt
     Tend = dt
-    time = 0.
+    time = 0.0
     while time < Tend:
         # advance in time
         prop(dt)
