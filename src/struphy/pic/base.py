@@ -2005,7 +2005,7 @@ class Particles(metaclass=ABCMeta):
         """
         # apply boundary conditions
         for axis in self._remove_axes:
-            outside_inds = self._find_outside_particles_gpu(axis, gpu=gpu)
+            outside_inds = self._find_outside_particles_gpu(axis)
             
             if len(outside_inds) == 0:
                 continue
