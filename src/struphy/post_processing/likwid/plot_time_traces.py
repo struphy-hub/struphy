@@ -46,8 +46,12 @@ def plot_time_vs_duration(
         Path to the file where profiling data is saved.
     """
 
+    if isinstance(paths, str):
+        paths = [paths]
+
     plt.figure(figsize=(10, 6))
     for path in paths:
+        print(f"{path = }")
         with open(path, "rb") as file:
             profiling_data = pickle.load(file)
 
@@ -154,6 +158,10 @@ def plot_gantt_chart(
     path: str
         Path to the file where profiling data is saved.
     """
+
+    if isinstance(paths, str):
+        paths = [paths]
+
     for path in paths:
         # Load the profiling data from the specified path
         with open(path, "rb") as file:
