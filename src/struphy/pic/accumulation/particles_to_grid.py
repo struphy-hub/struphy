@@ -652,8 +652,8 @@ class AccumulatorVector:
                                 np.array(self.derham.Nel),
                                 np.array(self.derham.spl_kind),
                                 np.array(self.derham.p),
-                                np.array(self.derham.Vh[self.form][i].starts),
-                                np.array(self.derham.Vh[self.form][i].ends),
+                                np.array(self.derham.Vh[self.form].starts),
+                                np.array(self.derham.Vh[self.form].ends),
                                 alpha=self.filter_params["alpha"],
                             )
 
