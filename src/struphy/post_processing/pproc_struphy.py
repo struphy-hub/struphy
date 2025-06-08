@@ -62,11 +62,28 @@ def main(
         os.mkdir(path_pproc)
 
     if time_trace:
-        from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart, plot_time_vs_duration
+        from struphy.post_processing.likwid.plot_time_traces import (
+            plot_gantt_chart,
+            plot_gantt_chart_plotly,
+            plot_time_vs_duration,
+        )
 
         path_time_trace = os.path.join(path, "profiling_time_trace.pkl")
-        plot_time_vs_duration(path_time_trace, output_path=path_pproc)
-        plot_gantt_chart(path_time_trace, output_path=path_pproc)
+        # plot_time_vs_duration(path_time_trace, output_path=path_pproc)
+        # plot_gantt_chart(path_time_trace, output_path=path_pproc)
+        import inspect
+
+        import struphy.propagators.propagators_coupling as propagators_coupling
+        import struphy.propagators.propagators_fields as propagators_fields
+        import struphy.propagators.propagators_markers as propagators_markers
+
+        propagators = []
+        for module in [propagators_coupling, propagators_markers, propagators_fields]:
+            propagators += [
+                name for name, obj in inspect.getmembers(module, inspect.isclass) if obj.__module__ == module.__name__
+            ]
+        print(f"{propagators = }")
+        plot_gantt_chart_plotly(path_time_trace, output_path=path_pproc, groups_include=["main"] + propagators)
         return
 
     # check for fields and kinetic data in hdf5 file that need post processing

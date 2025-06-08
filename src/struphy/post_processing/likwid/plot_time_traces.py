@@ -143,11 +143,112 @@ def plot_avg_duration_bar_chart(
     print(f"Saved average duration bar chart to: {figure_path}")
 
 
+import plotly.graph_objects as go
+
+
+def plot_region(region_name, groups_include=["*"], groups_skip=[]):
+    from fnmatch import fnmatch
+
+    for pattern in groups_skip:
+        if fnmatch(region_name, pattern):
+            return False
+    for pattern in groups_include:
+        if fnmatch(region_name, pattern):
+            return True
+    return False
+
+
+def plot_gantt_chart_plotly(
+    paths,
+    output_path,
+    groups_include=["*"],
+    groups_skip=[],
+):
+    if isinstance(paths, str):
+        paths = [paths]
+
+    for path in paths:
+        with open(path, "rb") as file:
+            profiling_data = pickle.load(file)
+
+        region_start_times = {}
+        for rank_data in profiling_data["rank_data"].values():
+            for region_name, info in rank_data.items():
+                first_start_time = np.min(info["start_times"])
+                if region_name not in region_start_times or first_start_time < region_start_times[region_name]:
+                    region_start_times[region_name] = first_start_time
+
+        region_names = sorted(region_start_times, key=region_start_times.get)
+        rank_names = list(profiling_data["rank_data"].keys())
+        num_ranks = len(rank_names)
+
+        bars = []
+
+        for region_idx, region_name in enumerate(region_names):
+            if not plot_region(region_name, groups_include, groups_skip):
+                continue
+
+            for rank_idx, (rank_name, rank_data) in enumerate(profiling_data["rank_data"].items()):
+                if region_name in rank_data:
+                    info = rank_data[region_name]
+                    start_times = info["start_times"]
+                    end_times = info["end_times"]
+                    durations = end_times - start_times
+
+                    for i in range(len(start_times)):
+                        bars.append(
+                            dict(
+                                Task=region_name,
+                                Rank=rank_name,
+                                Start=start_times[i],
+                                Finish=end_times[i],
+                                Duration=durations[i],
+                            )
+                        )
+
+        if not bars:
+            print("No regions matched the filter.")
+            continue
+
+        # Create a color map per rank
+        rank_color_map = {rank: f"hsl({360 * i / max(1, num_ranks)}, 70%, 50%)" for i, rank in enumerate(rank_names)}
+
+        fig = go.Figure()
+
+        for bar in bars:
+            fig.add_trace(
+                go.Bar(
+                    x=[bar["Duration"]],
+                    y=[bar["Task"]],
+                    base=[bar["Start"]],
+                    orientation="h",
+                    name=bar["Rank"],
+                    marker_color=rank_color_map[bar["Rank"]],
+                    hovertemplate=f"Rank: {bar['Rank']}<br>Start: {bar['Start']:.3f}s<br>Duration: {bar['Duration']:.3f}s",
+                )
+            )
+
+        fig.update_layout(
+            barmode="stack",
+            title="Gantt Chart of Profiling Regions (colored by MPI rank)",
+            xaxis_title="Elapsed Time (s)",
+            yaxis_title="Profiling Regions",
+            height=600 + 20 * len(region_names),
+            legend_title="MPI Ranks",
+        )
+
+        # Save the plot as HTML
+        figure_path = os.path.join(output_path, "gantt_chart_plotly.html")
+        fig.write_html(figure_path)
+        print(f"Saved interactive gantt chart to: {figure_path}")
+
+
 def plot_gantt_chart(
     paths,
     output_path,
     groups_include=["*"],
     groups_skip=[],
+    backend="matplotlib",
 ):
     """
     Plot Gantt chart of profiling regions from all MPI ranks using a grouped bar plot,
@@ -158,6 +259,7 @@ def plot_gantt_chart(
     path: str
         Path to the file where profiling data is saved.
     """
+    assert backend in ["matplotlib", "plotly"], "backend must be either matplotlib or plotly"
 
     if isinstance(paths, str):
         paths = [paths]
@@ -168,6 +270,8 @@ def plot_gantt_chart(
             profiling_data = pickle.load(file)
 
         plt.figure(figsize=(12, 8))
+        # color_map = matplotlib.cm.get_cmap('tab10')  # Use 'tab10' colormap
+        color_map = plt.get_cmap("tab10")
 
         # Collect unique region names and their earliest start times
         region_start_times = {}
@@ -183,8 +287,7 @@ def plot_gantt_chart(
         # Generate a color map for each rank
         rank_names = list(profiling_data["rank_data"].keys())
         num_ranks = len(rank_names)
-        # color_map = matplotlib.cm.get_cmap('tab10')  # Use 'tab10' colormap
-        color_map = plt.get_cmap("tab10")
+
         # Parameters for spacing
         bar_height = 0.1  # Height of each bar for a rank
         rank_spacing = 0.1  # Vertical spacing between bars for different ranks
