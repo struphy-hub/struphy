@@ -13,6 +13,13 @@ Only this should be needed
 
 ```
 pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/pic/pushing/pusher_kernels_gpu.py
+pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/linear_algebra/linalg_kernels.py
+pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/bsplines/bsplines_kernels.py
+pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/bsplines/evaluation_kernels_1d.py
+pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/bsplines/evaluation_kernels_2d.py
+pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/bsplines/evaluation_kernels_3d.py
+pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/geometry/mappings_kernels.py
+pyccel --language=fortran --compiler=/u/maxlin/git_repos/struphy/compiler_llvm.json --conda-warnings=off --verbose    /viper/u2/maxlin/git_repos/struphy/src/struphy/geometry/evaluation_kernels.py
 ```
 
 Compile all the kernels the usual way
