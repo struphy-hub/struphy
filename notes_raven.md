@@ -69,3 +69,20 @@ struphy pproc -d sim_IsothermalEulerSPH_gpu --time-trace
 struphy pproc -d sim_IsothermalEulerSPH_soundwave_cpu --time-trace
 struphy pproc -d sim_IsothermalEulerSPH_soundwave_gpu --time-trace
 ```
+
+----------------------------------------
+Region: sph_isotherm_pressure_coeffs_gpu
+  Number of Calls: 400
+  Total Duration: 0.734566 seconds
+  Average Duration: 0.001836 seconds
+  Min Duration: 0.001597 seconds
+  Max Duration: 0.003501 seconds
+  Std Deviation: 0.000294 seconds
+----------------------------------------
+Region: push_v_sph_pressure_gpu
+  Number of Calls: 400
+  Total Duration: 0.865309 seconds
+  Average Duration: 0.002163 seconds
+  Min Duration: 0.001663 seconds
+  Max Duration: 0.003721 seconds
+  Std Deviation: 0.000635 seconds
