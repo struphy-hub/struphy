@@ -5,6 +5,7 @@ import importlib.metadata
 import os
 import site
 import subprocess
+import sys
 from argparse import HelpFormatter, RawTextHelpFormatter, _SubParsersAction
 
 import argcomplete
@@ -952,7 +953,7 @@ def struphy():
 
     if print_help:
         parser.print_help()
-        exit()
+        sys.exit(0)
 
     # display short help and exit
     if args.short_help:
@@ -963,28 +964,28 @@ def struphy():
         print(lines[bool_1[0] + 1])
         for li in lines[bool_2[0] :]:
             print(li)
-        exit()
+        sys.exit(0)
 
     # display subset of models
     if args.fluid:
         print(fluid_message)
         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
+        sys.exit(0)
 
     if args.kinetic:
         print(kinetic_message)
         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
+        sys.exit(0)
 
     if args.hybrid:
         print(hybrid_message)
         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
+        sys.exit(0)
 
     if args.toy:
         print(toy_message)
         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
+        sys.exit(0)
 
     # set default in path
     if args.set_i:
@@ -1005,7 +1006,7 @@ def struphy():
         utils.save_state(state)
 
         print(f"New input path has been set to {state['i_path']}")
-        exit()
+        sys.exit(0)
 
     # set default out path
     if args.set_o:
@@ -1026,7 +1027,7 @@ def struphy():
         utils.save_state(state)
 
         print(f"New output path has been set to {state['o_path']}")
-        exit()
+        sys.exit(0)
 
     # set default out path
     if args.set_b:
@@ -1047,7 +1048,7 @@ def struphy():
         utils.save_state(state)
 
         print(f"New batch path has been set to {state['b_path']}")
-        exit()
+        sys.exit(0)
 
     # set paths for inp, out and batch (with io/inp etc. prefices)
     if args.set_iob:
@@ -1066,7 +1067,7 @@ def struphy():
         subprocess.run(["struphy", "--set-o", o_path])
         subprocess.run(["struphy", "--set-b", b_path])
 
-        exit()
+        sys.exit(0)
 
     if args.refresh_models:
         print("Collecting available models ...")
@@ -1153,7 +1154,7 @@ def struphy():
             )
 
         print("Done.")
-        exit()
+        sys.exit(0)
 
     # load sub-command function
     if args.command == "compile":

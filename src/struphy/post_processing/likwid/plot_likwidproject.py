@@ -5,6 +5,7 @@ import math
 import os
 import random
 import re
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -52,7 +53,7 @@ def get_job_name(project, simulation_name_type):
         job_name = project.get_node_configuration()
     else:
         print("Incorrect simulation_name_type", simulation_name_type)
-        exit()
+        sys.exit(1)
     return job_name
 
 
@@ -893,7 +894,7 @@ if __name__ == "__main__":
     projects = load_projects(expanded_dirs)
     if len(projects) == 0:
         print("projects not finished")
-        exit()
+        sys.exit(1)
 
     procs_per_clone = "any"
 

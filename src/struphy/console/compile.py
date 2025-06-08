@@ -1,3 +1,5 @@
+import sys
+
 from struphy.console.run import subp_run
 
 
@@ -248,10 +250,10 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                     print(
                         f"You have psydac version {psydac_ver}, but version {struphy_ver} is available. Please re-install struphy (e.g. pip install .)\n"
                     )
-                    exit()
+                    sys.exit(1)
             else:
                 print(f"Psydac is not installed. To install it, please re-install struphy (e.g. pip install .)\n")
-                exit()
+                sys.exit(1)
 
         else:
             install_psydac = False
