@@ -6,6 +6,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
+import struphy.post_processing.likwid.maxplotlylib as mply
+
 
 def glob_to_regex(pat: str) -> str:
     # Escape all regex metachars, then convert \* → .* and \? → .
@@ -234,12 +236,21 @@ def plot_gantt_chart_plotly(
             xaxis_title="Elapsed Time (s)",
             yaxis_title="Profiling Regions",
             height=600 + 20 * len(region_names),
-            legend_title="MPI Ranks",
+            # legend_title="MPI Ranks",
+            showlegend=False,
         )
+
+        mply.format_axes(fig)
+        mply.format_font(fig)
+        mply.format_grid(fig)
+        mply.format_size(fig)
 
         # Save the plot as HTML
         figure_path = os.path.join(output_path, "gantt_chart_plotly.html")
+        figure_path_pdf = os.path.join(output_path, "gantt_chart_plotly.pdf")
+
         fig.write_html(figure_path)
+        fig.write_image(figure_path_pdf)
         print(f"Saved interactive gantt chart to: {figure_path}")
 
 

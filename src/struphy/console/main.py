@@ -734,8 +734,10 @@ def struphy():
 
     parser_pproc.add_argument(
         "--time-trace",
-        help="whether to plot the time traces",
-        action="store_true",
+        help="whether to plot the time traces. List of regions to include in time trace plot.",
+        type=str,
+        nargs="+",
+        default=[],
     )
 
     # 7. "test" sub-command
@@ -1180,8 +1182,8 @@ def struphy():
         kwargs.pop(key, None)
 
     # start sub-command function with all parameters of that function
-    # for k, v in kwargs.items():
-    #     print(k, v)
+    for k, v in kwargs.items():
+        print(k, v)
     func(**kwargs)
 
 

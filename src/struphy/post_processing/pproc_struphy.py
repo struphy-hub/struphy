@@ -7,7 +7,7 @@ def main(
     guiding_center: bool = False,
     classify: bool = False,
     no_vtk: bool = False,
-    time_trace: bool = False,
+    time_trace: list = [],
 ):
     """Post-processing of finished Struphy runs.
 
@@ -61,7 +61,7 @@ def main(
         shutil.rmtree(path_pproc)
         os.mkdir(path_pproc)
 
-    if time_trace:
+    if len(time_trace) > 0:
         from struphy.post_processing.likwid.plot_time_traces import (
             plot_gantt_chart,
             plot_gantt_chart_plotly,
@@ -82,8 +82,18 @@ def main(
             propagators += [
                 name for name, obj in inspect.getmembers(module, inspect.isclass) if obj.__module__ == module.__name__
             ]
-        print(f"{propagators = }")
-        plot_gantt_chart_plotly(path_time_trace, output_path=path_pproc, groups_include=["main"] + propagators)
+        # print(f"{propagators = }")
+        groups_include = time_trace
+
+        include_kernels = False
+        # include_propagators = False
+
+        if "kernels" in groups_include:
+            groups_include += ["kernel:*"]
+        if "propagators" in groups_include:
+            groups_include += propagators
+        print(f"{groups_include = }")
+        plot_gantt_chart_plotly(path_time_trace, output_path=path_pproc, groups_include=groups_include)
         return
 
     # check for fields and kinetic data in hdf5 file that need post processing
@@ -299,7 +309,13 @@ if __name__ == "__main__":
 
     parser.add_argument("--no-vtk", help="whether vtk files creation should be skipped", action="store_true")
 
-    parser.add_argument("--time-trace", help="whether to plot the time trace", action="store_true")
+    parser.add_argument(
+        "--time-trace",
+        help="whether to plot the time traces. List of regions to include in time trace plot.",
+        type=str,
+        nargs="+",
+        default=[],
+    )
 
     args = parser.parse_args()
 

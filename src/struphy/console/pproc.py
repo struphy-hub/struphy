@@ -10,7 +10,7 @@ def struphy_pproc(
     guiding_center=False,
     classify=False,
     no_vtk=False,
-    time_trace=False,
+    time_trace=[],
 ):
     """Post process data from finished Struphy runs.
 
@@ -69,7 +69,6 @@ def struphy_pproc(
     if no_vtk:
         command += ["--no-vtk"]
 
-    if time_trace:
-        command += ["--time-trace"]
+    command += ["--time-trace"] + time_trace
 
     subp_run(command)
