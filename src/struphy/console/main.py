@@ -737,7 +737,7 @@ def struphy():
         help="whether to plot the time traces. List of regions to include in time trace plot.",
         type=str,
         nargs="+",
-        default=[],
+        default=["model.integrate", "propagators"],
     )
 
     # 7. "test" sub-command
