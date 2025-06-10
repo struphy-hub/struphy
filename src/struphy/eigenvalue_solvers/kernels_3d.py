@@ -26,8 +26,8 @@ def kernel_mass(
 ):
     mat[:, :, :, :, :, :] = 0.0
 
-    #$ omp parallel private(ie1, ie2, ie3, il1, il2, il3, jl1, jl2, jl3, value1, q1, q2, q3, wvol, bi, bj)
-    #$ omp for reduction ( + : mat)
+    # -- removed omp: #$ omp parallel private(ie1, ie2, ie3, il1, il2, il3, jl1, jl2, jl3, value1, q1, q2, q3, wvol, bi, bj)
+    # -- removed omp: #$ omp for reduction ( + : mat)
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
             for ie3 in range(nel[2]):
@@ -69,7 +69,7 @@ def kernel_mass(
                                             p[1] + jl2 - il2,
                                             p[2] + jl3 - il3,
                                         ] += value1
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
     ierr = 0
 
@@ -93,8 +93,8 @@ def kernel_inner(
 ):
     mat[:, :, :] = 0.0
 
-    #$ omp parallel private(ie1, ie2, ie3, il1, il2, il3, value1, q1, q2, q3, wvol, bi)
-    #$ omp for reduction ( + : mat)
+    # -- removed omp: #$ omp parallel private(ie1, ie2, ie3, il1, il2, il3, value1, q1, q2, q3, wvol, bi)
+    # -- removed omp: #$ omp for reduction ( + : mat)
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
             for ie3 in range(nel[2]):
@@ -114,7 +114,7 @@ def kernel_inner(
                                         value1 += wvol * bi
 
                             mat[ind_base1[ie1, il1], ind_base2[ie2, il2], ind_base3[ie3, il3]] += value1
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
     ierr = 0
 
@@ -147,8 +147,8 @@ def kernel_l2error(
     c2: "float[:,:,:]",
     mat_map: "float[:,:,:,:,:,:]",
 ):
-    #$ omp parallel private(ie1, ie2, ie3, q1, q2, q3, wvol, bi, bj, il1, il2, il3, jl1, jl2, jl3)
-    #$ omp for
+    # -- removed omp: #$ omp parallel private(ie1, ie2, ie3, q1, q2, q3, wvol, bi, bj, il1, il2, il3, jl1, jl2, jl3)
+    # -- removed omp: #$ omp for
 
     # loop over all elements
     for ie1 in range(nel[0]):
@@ -191,7 +191,7 @@ def kernel_l2error(
                                 * (bj - mat_f2[ie1, q1, ie2, q2, ie3, q3])
                             )
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
     ierr = 0
 
@@ -212,8 +212,8 @@ def kernel_evaluate_2form(
 ):
     b_eva[:, :, :, :, :, :] = 0.0
 
-    #$ omp parallel private(ie1, ie2, ie3, q1, q2, q3, il1, il2, il3)
-    #$ omp for
+    # -- removed omp: #$ omp parallel private(ie1, ie2, ie3, q1, q2, q3, il1, il2, il3)
+    # -- removed omp: #$ omp for
     for ie1 in range(nel[0]):
         for ie2 in range(nel[1]):
             for ie3 in range(nel[2]):
@@ -229,6 +229,6 @@ def kernel_evaluate_2form(
                                             * bi2[ie2, il2, 0, q2]
                                             * bi3[ie3, il3, 0, q3]
                                         )
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
     ierr = 0

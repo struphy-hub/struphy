@@ -197,7 +197,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._tmp1 = self.derham.Vh["1"].zeros()
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
@@ -257,8 +256,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     def update_scalar_quantities(self):
         # e*M1*e/2
-        self.mass_ops.M1.dot(self.pointer["e_field"], out=self._tmp1)
-        en_E = self.pointer["e_field"].dot(self._tmp1) / 2.0
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
         self.update_scalar("en_E", en_E)
 
         # alpha^2 / 2 / N * sum_p w_p v_p^2
@@ -483,8 +481,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._tmp1 = self.derham.Vh["1"].zeros()
-        self._tmp2 = self.derham.Vh["2"].zeros()
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
@@ -541,10 +537,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     def update_scalar_quantities(self):
         # e*M1*e and b*M2*b
-        self._mass_ops.M1.dot(self.pointer["e_field"], out=self._tmp1)
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp2)
-        en_E = self.pointer["e_field"].dot(self._tmp1) / 2.0
-        en_B = self.pointer["b_field"].dot(self._tmp2) / 2.0
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
         self.update_scalar("en_E", en_E)
         self.update_scalar("en_B", en_B)
 
@@ -815,7 +809,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._en_e_tmp = self.mass_ops.M1.codomain.zeros()
         self._tmp = np.empty(1, dtype=float)
         self.en_E = 0.0
 
@@ -861,8 +854,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     def update_scalar_quantities(self):
         # 0.5 * e^T * M_1 * e
-        self._mass_ops.M1.dot(self.pointer["e_field"], out=self._en_e_tmp)
-        self.en_E = self.pointer["e_field"].dot(self._en_e_tmp) / 2.0
+        self.en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
         self.update_scalar("en_E", self.en_E)
 
         # evaluate f0
@@ -1027,8 +1019,6 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
         # magnetic energy
         self.add_scalar("en_b")
-        # allocate memory to compute magnetic energy
-        self._en_b_tmp = self.pointer["b_field"].space.zeros()
 
     def initialize_from_params(self):
         super().initialize_from_params()
@@ -1037,9 +1027,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         super().update_scalar_quantities()
 
         # 0.5 * b^T * M_2 * b
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._en_b_tmp)
-        en_B = self.pointer["b_field"].dot(self._en_b_tmp) / 2.0
-
+        en_B = 0.5 * self._mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
         self.update_scalar("en_tot", self._tmp[0] + self.en_E + en_B)
 
 
@@ -1216,22 +1204,16 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
-        self._tmp1 = self.derham.Vh["1"].zeros()
-        self._tmp2 = self.derham.Vh["0"].zeros()
         self._tmp3 = np.empty(1, dtype=float)
         self._e_field = self.derham.Vh["1"].zeros()
 
     def update_scalar_quantities(self):
         # energy from polarization
         e1 = self.derham.grad.dot(-self.pointer["phi"], out=self._e_field)
-        M1_e1 = self.mass_ops.M1gyro.dot(e1, out=self._tmp1)
-        en_phi1 = e1.dot(M1_e1) / 2.0
+        en_phi1 = 0.5 * self.mass_ops.M1gyro.dot_inner(e1, e1)
 
         # energy from adiabatic electrons
-        self.mass_ops.M0ad.dot(self.pointer["phi"], out=self._tmp2)
-        en_phi = self.pointer["phi"].dot(
-            self._tmp2,
-        ) / (2.0 * self.epsilon**2)
+        en_phi = 0.5 / self.epsilon**2 * self.mass_ops.M0ad.dot_inner(self.pointer["phi"], self.pointer["phi"])
 
         # for Landau damping test
         # en_phi = 0.

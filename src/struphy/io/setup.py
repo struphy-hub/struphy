@@ -240,6 +240,8 @@ def setup_derham(
     nq_el = params_grid["nq_el"]
     # C^k smoothness at eta_1=0 for polar domains
     polar_ck = params_grid["polar_ck"]
+    # local commuting projectors
+    local_projectors = params_grid["local_projectors"]
 
     derham = Derham(
         Nel,
@@ -253,6 +255,7 @@ def setup_derham(
         with_projectors=True,
         polar_ck=polar_ck,
         domain=domain,
+        local_projectors=local_projectors,
     )
 
     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
@@ -469,6 +472,7 @@ def descend_options_dict(
     keys: list = None,
     depth: int = 0,
     pop_again: bool = False,
+    verbose: bool = False,
 ):
     """Create all possible parameter dicts from a model options dict,
     by looping through options.
@@ -506,6 +510,9 @@ def descend_options_dict(
 
     pop_again : bool
         Whether to pop one more time from keys; this is automatically set to True when depth is reached during recursion.
+
+    verbose : bool
+        Show some output on screen.
     """
 
     import copy
@@ -520,12 +527,37 @@ def descend_options_dict(
         if d_default is None:
             out = copy.deepcopy(d)
 
+    if verbose:
+        print(f"{d = }")
+        print(f"{out = }")
+        print(f"{d_default = }")
+        print(f"{d_opts = }")
+        print(f"{keys = }")
+        print(f"{depth = }")
+        print(f"{pop_again = }")
+
+    if verbose:
+        print(f"{d = }")
+        print(f"{out = }")
+        print(f"{d_default = }")
+        print(f"{d_opts = }")
+        print(f"{keys = }")
+        print(f"{depth = }")
+        print(f"{pop_again = }")
+
     count = 0
     for key, val in d.items():
         count += 1
 
+        if verbose:
+            print(f"\n{keys = } | {key = }, {type(val) = }, {count = }\n")
+
         if isinstance(val, list):
             # create default parameter dict "out"
+
+            if verbose:
+                print(f"{val = }")
+
             if d_default is None:
                 if len(keys) == 0:
                     out[key] = val[0]
@@ -561,6 +593,12 @@ def descend_options_dict(
                     out_sublist += [d_copy]
                 out += [out_sublist]
 
+            if verbose:
+                print(f"{out = }")
+
+            if verbose:
+                print(f"{out = }")
+
         # recurse if necessary
         elif isinstance(val, dict):
             if count == depth and len(keys) > 0:
@@ -574,6 +612,7 @@ def descend_options_dict(
                 depth=len(val),
                 pop_again=pop_again,
                 d_default=d_default,
+                verbose=verbose,
             )
 
         else:
