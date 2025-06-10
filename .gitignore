@@ -80,6 +80,7 @@ logs
 *env/
 .hostfile*
 .likwidscript*
+core.*.*
 code_analysis_report.html
 
 # I/O
