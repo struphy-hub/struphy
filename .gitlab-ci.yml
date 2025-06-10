@@ -177,9 +177,6 @@ upload_outputs:
       - artifact
     expire_in: 30 days
 
-# python virtual environments into cache
-default_venv:
-  stage: startup 
 # --- images ---
 
 .image_gitlab_mpcdf_struphy:
