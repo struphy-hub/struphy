@@ -779,7 +779,7 @@ mpi_scaling_plot:
   needs:
     - run_jobs_sbatch
   script:
-    - !reference [.scripts, create_venv_raven]source_env_raven
+    - !reference [.scripts, source_env_raven]
     # Plot results
     - for model in "Vlasov" "Maxwell"; do
         struphy likwid_profile
