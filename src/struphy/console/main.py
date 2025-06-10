@@ -560,7 +560,7 @@ def struphy():
         help="Time between samples when measuring time traces with ProfileManager",
         default=1.0,
     )
-    
+
     # 5. "profile" sub-command
     parser_profile = subparsers.add_parser(
         "profile",
@@ -806,7 +806,7 @@ def struphy():
             help="perform verification runs specified in io/inp/verification/",
             action="store_true",
         )
-        
+
         parser_test.add_argument(
             "--nclones",
             type=int,

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pip install git+ssh://git@github.com/max-models/slurm-script-generator.git
 
 import argparse
 import glob
@@ -8,10 +9,10 @@ import subprocess
 import sys
 
 import yaml
+from slurm_script_generator.main import generate_script
 
 import struphy
 import struphy.utils.utils as utils
-from struphy.console.utils import generate_batch_script, save_batch_script
 from struphy.console.parsers import add_likwid_parser
 
 state = utils.read_state()
@@ -110,14 +111,16 @@ def main():
             continue
         model = params["model"]
         # Get setup params
-        projectname = f"{model}_nodes-{args.nodes}_mpi-{args.mpi}_nclones-{args.nclones}_{param_filename.replace('.yml','')}"
+        projectname = (
+            f"{model}_nodes-{args.nodes}_mpi-{args.mpi}_nclones-{args.nclones}_{param_filename.replace('.yml', '')}"
+        )
 
         # Check if directory exists
         output_dir = f"{o_path}/{projectname}"
         if os.path.isdir(output_dir):
             print(f"{YELLOW}Skipping:\t{NC}{output_dir}")
         else:
-            #nodes = (nmpi + 71) // 72  # Calculate the number of nodes required
+            # nodes = (nmpi + 71) // 72  # Calculate the number of nodes required
             job_name = f"{jobname_prefix}_{model}"
             submit_file = f"submit_{projectname}.sh"
 
@@ -125,13 +128,13 @@ def main():
                 "job_name": job_name,
                 "ntasks_per_node": args.tasks_per_node,
                 "nodes": args.nodes,
-                "module_setup": "module load gcc/12 openmpi/4.1 anaconda/3/2023.03 git/2.43 pandoc/3.1 likwid/5.2",
+                "modules": ["gcc/12", "openmpi/4.1", "anaconda/3/2023.03", "git/2.43", "pandoc/3.1", "likwid/5.2"],
                 "likwid": True,
-                "venv_path": venv_path,
-                "memory": "25GB",
+                "venv": venv_path,
+                "mem": "25GB",
                 "time": "00:45:00",
             }
-            save_batch_script(generate_batch_script(**script_params), submit_file)
+            save_batch_script(generate_script(script_params), submit_file)
 
             command = [
                 "struphy",
@@ -150,7 +153,8 @@ def main():
                 "--runtime",
                 "90",
                 "--likwid",
-                "-g", "MEM_DP",
+                "-g",
+                "MEM_DP",
                 "--stats",
                 "--marker",
                 "--hpcmd_suspend",
@@ -175,6 +179,15 @@ def main():
     print(f"Total new simulations: {num_new_simulations}")
     cmd = ["squeue", "-u", "$USER"]
     subprocess.run(cmd)
+
+
+def save_batch_script(batch_script, filename, path=None):
+    if path is None:
+        state = utils.read_state()
+        path = state["b_path"]
+    batch_path = os.path.join(path, filename)
+    with open(batch_path, "w") as f:
+        f.write(batch_script)
 
 
 if __name__ == "__main__":
