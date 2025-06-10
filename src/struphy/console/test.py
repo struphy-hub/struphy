@@ -1,4 +1,15 @@
+import importlib
+import os
+import shutil
+import subprocess
+
+import pyccel
+import yaml
+
+import struphy
+import struphy.utils.utils as utils
 from struphy.console.run import subp_run
+LIBPATH = struphy.__path__[0]
 
 
 def struphy_test(
@@ -11,6 +22,8 @@ def struphy_test(
     vrbose: bool = False,
     verification: bool = False,
     show_plots: bool = False,
+    likwid: bool = False,
+    batch: bool = False,
     nclones: int = 1,
 ):
     """
@@ -42,13 +55,16 @@ def struphy_test(
     show_plots : bool
         Show plots of tests.
     """
-
+    if likwid:
+        cmd_mpirun = ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-stats", "-marker", '-mpi', 'openmpi']
+    else:
+        cmd_mpirun = ["mpirun", "-n", str(mpi)]
     if "unit" in group:
         # first run only tests that require single process
         cmd = [
             "pytest",
             "-k",
-            "not _models and not _tutorial and not pproc",
+            "not _models and not _tutorial and not pproc and not performance",
         ]
         if with_desc:
             cmd += ["--with-desc"]
@@ -59,11 +75,8 @@ def struphy_test(
         subp_run(cmd)
 
         # now run parallel unit tests
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
+        cmd = cmd_mpirun
+        cmd += ["pytest",
             "-k",
             "not _models and not _tutorial and not pproc",
             "--with-mpi",
@@ -77,11 +90,8 @@ def struphy_test(
         subp_run(cmd)
 
     elif "models" in group:
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
+        cmd = cmd_mpirun
+        cmd += ["pytest",
             "-k",
             "_models",
             "-s",
@@ -97,6 +107,7 @@ def struphy_test(
             cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
+
         subp_run(cmd)
 
         # test post processing of models
@@ -110,11 +121,8 @@ def struphy_test(
             subp_run(cmd)
 
     elif group in {"fluid", "kinetic", "hybrid", "toy"}:
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
+        cmd = cmd_mpirun
+        cmd += ["pytest",
             "-k",
             group + "_models",
             "-s",
@@ -135,7 +143,38 @@ def struphy_test(
         if not verification:
             from struphy.models.tests.test_xxpproc import test_pproc_codes
 
-            test_pproc_codes(group=group)
+        test_pproc_codes(group=group)
+    elif "performance" in group:
+        # Make sure likwid-mpirun and pylikwid works
+        if shutil.which("likwid-mpirun") is None:
+            message = """
+Error: 'likwid-mpirun' not found. Please ensure LIKWID is installed and in your PATH."
+
+On Raven/Viper:
+module load gcc/14 likwid/5.3
+LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
+export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib
+"""
+            raise RuntimeError(message)
+
+        try:
+            import pylikwid
+        except ImportError:
+            raise ImportError("Error: 'pylikwid' is not installed.\nPlease install it via pip:\npip install pylikwid\n")
+
+        if batch:
+            i_path, o_path, b_path = utils.get_paths()
+            batch_abs = os.path.join(b_path, batch)
+
+            # TODO: After refactoring struphy_run, we can build the output directory with one line
+            # Run all models
+            command = ["sbatch", batch_abs]
+            subprocess.run(command, check=True)
+
+        else:
+            # Run all the models
+            command = cmd_mpirun + ["python3", f"{LIBPATH}/models/tests/test_performance.py"]
+            subprocess.run(command, check=True)
 
     else:
         import os

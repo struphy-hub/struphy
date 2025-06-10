@@ -332,6 +332,14 @@ def struphy():
     )
 
     parser_run.add_argument(
+        "-ba",
+        "--batch-auto",
+        type=str,
+        choices=["raven", "cobra", "viper"],
+        help="Auto batch script",
+    )
+
+    parser_run.add_argument(
         "--runtime",
         type=int,
         metavar="N",
@@ -552,7 +560,7 @@ def struphy():
         help="Time between samples when measuring time traces with ProfileManager",
         default=1.0,
     )
-
+    
     # 5. "profile" sub-command
     parser_profile = subparsers.add_parser(
         "profile",
@@ -760,11 +768,20 @@ def struphy():
         parser_test.add_argument(
             "group",
             type=str,
-            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
+            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"] + ["performance"],
             metavar="GROUP",
             help='can be either:\na) a model name \
                                     \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                     \nc) "unit" for performing unit tests',
+        )
+        
+        parser_test.add_argument(
+            "-b",
+            "--batch",
+            type=str,
+            choices=batch_files,
+            metavar="FILE",
+            help="batch script in current I/O path",
         )
 
         parser_test.add_argument(
@@ -809,6 +826,12 @@ def struphy():
             action="store_true",
         )
 
+        parser_test.add_argument(
+            "--likwid",
+            help="perform verification runs with LIKWID markers",
+            action="store_true",
+        )
+        
         parser_test.add_argument(
             "--nclones",
             type=int,
