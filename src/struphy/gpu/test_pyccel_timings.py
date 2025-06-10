@@ -20,7 +20,7 @@ def compare_pyccel_cpu_gpu(N=2000):
     # print(f"matrix size: {N}")
 
     # ------------------------ CPU --------------------------- #
-    print("Start matmul_cpu")
+    # print("Start matmul_cpu")
     # Time CPU matrix multiplication.
     start_cpu = time.time()
     matmul_cpu(A, B, C_cpu)
@@ -28,28 +28,30 @@ def compare_pyccel_cpu_gpu(N=2000):
 
     # ------------------------ GPU --------------------------- #
     matmul_gpu(A, B, C_gpu)
-    print("End matmul_cpu")
+    # print("End matmul_cpu")
     # print("warming up gpu")
     # matmul_gpu(A, B, C_gpu)
-    print("Start matmul_gpu")
+    # print("Start matmul_gpu")
     # Time GPU matrix multiplication.
     start_gpu = time.time()
     # for i in range(1000):
     matmul_gpu(A, B, C_gpu)
     elapsed_gpu = time.time() - start_gpu
-    print("End matmul_gpu")
+    # print("End matmul_gpu")
 
     # ------------------------ Output --------------------------- #
-
+    assert np.allclose(C_cpu, C_gpu)
     # print(f"{A = }")
     # print(f"{B = }")
     # print(f"{C_cpu = }")
     # print(f"{C_gpu = }")
-    print(f"{np.allclose(C_cpu, C_gpu) = }")
+    # print(f"{np.allclose(C_cpu, C_gpu) = }")
+    print("\n\n\n#" + "-"*40 + "#")
+    print("Comparing pyccel with and w/o GPU...")
     print(f"{elapsed_cpu = }")
     print(f"{elapsed_gpu = }")
-    print(f"Speedup: {elapsed_cpu / elapsed_gpu} for matrix size: {N}x{N}")
-
+    print(f"pyccel+OpenMP speedup: {elapsed_cpu / elapsed_gpu} for matrix size: {N}x{N}")
+    print("#" + "-"*40 + "#")
 
 if __name__ == "__main__":
     compare_pyccel_cpu_gpu(N=2000)

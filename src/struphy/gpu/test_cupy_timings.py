@@ -10,7 +10,7 @@ import numpy as np
 
 
 def test_xp(xp, N=100_000_000, num_iterations=1):
-    print(f"Running with {xp = }")
+    # print(f"Running with {xp = }")
     elapsed_time = 0.0
 
     # Warm-up (important for CuPy)
@@ -22,19 +22,21 @@ def test_xp(xp, N=100_000_000, num_iterations=1):
 
         t0 = time.time()
         l2 = xp.linalg.norm(x_arr**6.123 - xp.sqrt(x_arr))
+        l2 = xp.sqrt(l2) * xp.sqrt(x_arr) / x_arr
         if xp == cp:
             cp.cuda.Device().synchronize()
         t1 = time.time()
         elapsed_time += t1 - t0
-        print(f"{t1 - t0 = }")
+        # print(f"{t1 - t0 = }")
     elapsed_time /= num_iterations
     return elapsed_time
 
 
 def compare_np_cp(N=100_000_000):
+    print("\n\n\n#" + "-"*40 + "#")
     print("Comparing numpy and cupy...")
     time_cpu = test_xp(np, N=N)
-    time_gpu = test_xp(cp,N=N) # Warmup
+    _ = test_xp(cp,N=N) # Warmup
     time_gpu = test_xp(cp,N=N)
     # time_cpu = test_numpy()
     # time_gpu = test_cupy()
@@ -42,8 +44,8 @@ def compare_np_cp(N=100_000_000):
     # ---- Print output ---- #
     print(f"Time Numpy: {time_cpu}")
     print(f"Time CuPy: {time_gpu}")
-    print(f"Speedup: {time_cpu / time_gpu}")
-
+    print(f"Cupy vs Numpy speedup: {time_cpu / time_gpu}")
+    print("#" + "-"*40 + "#")
 
 if __name__ == "__main__":
     N=100_000_000
