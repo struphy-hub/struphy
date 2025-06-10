@@ -77,16 +77,9 @@ class Maxwell(StruphyModel):
         self.add_scalar("magnetic energy")
         self.add_scalar("total energy")
 
-        # temporary vectors for scalar quantities
-        self._tmp_e = self.derham.Vh["1"].zeros()
-        self._tmp_b = self.derham.Vh["2"].zeros()
-
     def update_scalar_quantities(self):
-        self._mass_ops.M1.dot(self.pointer["e_field"], out=self._tmp_e)
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b)
-
-        en_E = self.pointer["e_field"].dot(self._tmp_e) / 2
-        en_B = self.pointer["b_field"].dot(self._tmp_b) / 2
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
 
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)
@@ -441,36 +434,29 @@ class ShearAlfven(StruphyModel):
         self.add_scalar("en_tot2", summands=["en_U", "en_B", "en_B_eq"])
 
         # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh["2"].zeros()
         self._tmp_b1 = self.derham.Vh["2"].zeros()
         self._tmp_b2 = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
         # perturbed fields
-        self._mass_ops.M2n.dot(self.pointer["mhd_u2"], out=self._tmp_u1)
-        self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_b1)
-
-        en_U = self.pointer["mhd_u2"].dot(self._tmp_u1) / 2
-        en_B = self.pointer["b2"].dot(self._tmp_b1) / 2
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_u2"], self.pointer["mhd_u2"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
         self.update_scalar("en_tot", en_U + en_B)
 
         # background fields
-        self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-
-        en_B0 = self._b_eq.dot(self._tmp_b1) / 2
-
+        self.mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        en_B0 = self._b_eq.inner(self._tmp_b1) / 2
         self.update_scalar("en_B_eq", en_B0)
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += self.pointer["b2"]
 
-        self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
-
-        en_Btot = self._tmp_b1.dot(self._tmp_b2) / 2
+        self.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+        en_Btot = self._tmp_b1.inner(self._tmp_b2) / 2
 
         self.update_scalar("en_B_tot", en_Btot)
 
@@ -530,12 +516,13 @@ class VariationalPressurelessFluid(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -566,14 +553,8 @@ class VariationalPressurelessFluid(StruphyModel):
         # Scalar variables to be saved during simulation
         self.add_scalar("en_U")
 
-        # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh["v"].zeros()
-
     def update_scalar_quantities(self):
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["fluid_uv"], out=self._tmp_u1)
-
-        en_U = self.pointer["fluid_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["fluid_uv"], self.pointer["fluid_uv"])
         self.update_scalar("en_U", en_U)
 
 
@@ -633,13 +614,13 @@ class VariationalBarotropicFluid(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
-        from struphy.feec.mass import WeightedMassOperator
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -672,22 +653,11 @@ class VariationalBarotropicFluid(StruphyModel):
         self.add_scalar("en_thermo")
         self.add_scalar("en_tot")
 
-        # temporary vectors for scalar quantities
-        self._tmp_m1 = self.derham.Vh["v"].zeros()
-        self._tmp_rho1 = self.derham.Vh["3"].zeros()
-
     def update_scalar_quantities(self):
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
-
-        en_U = self.pointer["fluid_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["fluid_uv"], self.pointer["fluid_uv"])
         self.update_scalar("en_U", en_U)
 
-        rho1 = self.mass_ops.M3.dot(
-            self.pointer["fluid_rho3"],
-            out=self._tmp_rho1,
-        )
-        en_thermo = self.pointer["fluid_rho3"].dot(rho1) / 2
+        en_thermo = 0.5 * self.mass_ops.M3.dot_inner(self.pointer["fluid_rho3"], self.pointer["fluid_rho3"])
         self.update_scalar("en_thermo", en_thermo)
 
         en_tot = en_U + en_thermo
@@ -754,14 +724,14 @@ class VariationalCompressibleFluid(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
-        from struphy.feec.mass import WeightedMassOperator
         from struphy.feec.projectors import L2Projector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -774,6 +744,10 @@ class VariationalCompressibleFluid(StruphyModel):
         self._gamma = params["fluid"]["fluid"]["options"]["VariationalDensityEvolve"]["physics"]["gamma"]
         model = "full"
 
+        from struphy.feec.variational_utilities import InternalEnergyEvaluator
+
+        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
+
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.VariationalDensityEvolve] = {
             "model": model,
@@ -782,6 +756,7 @@ class VariationalCompressibleFluid(StruphyModel):
             "mass_ops": self.WMM,
             "lin_solver": lin_solver_density,
             "nonlin_solver": nonlin_solver_density,
+            "energy_evaluator": self._energy_evaluator,
         }
 
         self._kwargs[propagators_fields.VariationalMomentumAdvection] = {
@@ -797,6 +772,7 @@ class VariationalCompressibleFluid(StruphyModel):
             "mass_ops": self.WMM,
             "lin_solver": lin_solver_entropy,
             "nonlin_solver": nonlin_solver_entropy,
+            "energy_evaluator": self._energy_evaluator,
         }
 
         # Initialize propagators used in splitting substeps
@@ -808,7 +784,6 @@ class VariationalCompressibleFluid(StruphyModel):
         self.add_scalar("en_tot")
 
         # temporary vectors for scalar quantities
-        self._tmp_m1 = self.derham.Vh["v"].zeros()
         projV3 = L2Projector("L2", self._mass_ops)
 
         def f(e1, e2, e3):
@@ -818,10 +793,7 @@ class VariationalCompressibleFluid(StruphyModel):
         self._integrator = projV3(f)
 
     def update_scalar_quantities(self):
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
-
-        en_U = self.pointer["fluid_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["fluid_uv"], self.pointer["fluid_uv"])
         self.update_scalar("en_U", en_U)
 
         en_thermo = self.update_thermo_energy()
@@ -835,22 +807,23 @@ class VariationalCompressibleFluid(StruphyModel):
         :meta private:
         """
         en_prop = self._propagators[2]
-        en_prop.sf.vector = self.pointer["fluid_s3"]
-        en_prop.rhof.vector = self.pointer["fluid_rho3"]
-        sf_values = en_prop.sf.eval_tp_fixed_loc(
-            en_prop.integration_grid_spans,
-            en_prop.integration_grid_bd,
-            out=en_prop._sf_values,
+
+        self._energy_evaluator.sf.vector = self.pointer["fluid_s3"]
+        self._energy_evaluator.rhof.vector = self.pointer["fluid_rho3"]
+        sf_values = self._energy_evaluator.sf.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._sf_values,
         )
-        rhof_values = en_prop.rhof.eval_tp_fixed_loc(
-            en_prop.integration_grid_spans,
-            en_prop.integration_grid_bd,
-            out=en_prop._rhof_values,
+        rhof_values = self._energy_evaluator.rhof.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._rhof_values,
         )
         e = self.__ener
         ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
-        en_thermo = self._integrator.dot(en_prop._linear_form_dl_ds)
+        en_thermo = self._integrator.inner(en_prop._linear_form_dl_ds)
         self.update_scalar("en_thermo", en_thermo)
         return en_thermo
 

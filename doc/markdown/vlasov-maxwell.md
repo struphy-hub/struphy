@@ -189,7 +189,7 @@ The connection of differential $p$-forms to the {ref}`Struphy de Rham spaces <ge
 * Elements of $H$(div) are proxy functions of $2$-forms
 * Elements of $L^2$ are proxy functions of $3$-forms.
 
-A proxy function is the representation of a differential form in a particular basis defined by a map $F$. This means nothing else than the above pullbacks have to be applied for the respective spaces. Note that there is no space for vector fields in the de Rham diagram, however [vector fields are implemented in Struphy](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.psydac_derham.Derham.create_field) as elements of $(H^1)^3$ with the correct vector field pullback.  
+A proxy function is the representation of a differential form in a particular basis defined by a map $F$. This means nothing else than the above pullbacks have to be applied for the respective spaces. Note that there is no space for vector fields in the de Rham diagram, however [vector fields are implemented in Struphy](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.psydac_derham.Derham.create_spline_function) as elements of $(H^1)^3$ with the correct vector field pullback.  
 
 The grad-, curl- and div-operators transform as follows:
 

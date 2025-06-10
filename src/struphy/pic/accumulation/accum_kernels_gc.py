@@ -45,8 +45,8 @@ def gc_density_0form(
         B_p^\mu = \frac{w_p}{N} \,.
     """
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, filling)
-    #$ omp for reduction ( + :vec)
+    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
+    # -- removed omp: #$ omp for reduction ( + :vec)
     for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -62,7 +62,7 @@ def gc_density_0form(
 
         particle_to_mat_kernels.vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling)
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
 
 @stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "tmp1", "tmp2", "b", "b_prod", "bstar", "norm_b1", "curl_norm_b")
@@ -139,8 +139,8 @@ def cc_lin_mhd_5d_D(
     # get local number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, weight, span1, span2, span3, b2_1, b2_2, b2_3, b, b_para, curl_norm_b, b_star, norm_b1, b_star_para, density_const, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, filling_m12, filling_m13, filling_m23)
-    #$ omp for reduction ( + : mat12, mat13, mat23)
+    # -- removed omp: #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, weight, span1, span2, span3, b2_1, b2_2, b2_3, b, b_para, curl_norm_b, b_star, norm_b1, b_star_para, density_const, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, filling_m12, filling_m13, filling_m23)
+    # -- removed omp: #$ omp for reduction ( + : mat12, mat13, mat23)
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -235,7 +235,7 @@ def cc_lin_mhd_5d_D(
                 args_derham, span1, span2, span3, mat12, mat13, mat23, filling_m12, filling_m13, filling_m23
             )
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
     mat12 /= n_markers_tot
     mat13 /= n_markers_tot
@@ -345,8 +345,8 @@ def cc_lin_mhd_5d_J1(
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, weight, span1, span2, span3, b1, b2, b3, b, b_star, b_prod_neg, norm_b1, curl_norm_b, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp, tmp1, tmp2, tmp_m, tmp_v, filling_m, filling_v)
-    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    # -- removed omp: #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, weight, span1, span2, span3, b1, b2, b3, b, b_star, b_prod_neg, norm_b1, curl_norm_b, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp, tmp1, tmp2, tmp_m, tmp_v, filling_m, filling_v)
+    # -- removed omp: #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -520,7 +520,7 @@ def cc_lin_mhd_5d_J1(
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
 
 @stack_array("dfm", "norm_b1", "filling_v")
@@ -575,8 +575,8 @@ def cc_lin_mhd_5d_M(
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel private(ip, boundary_cut, eta1, eta2, eta3, mu, weight, norm_b1, dfm, det_df, span1, span2, span3, norm_b11, norm_b12, norm_b13, filling_v)
-    #$ omp for reduction ( + : vec1, vec2, vec3)
+    # -- removed omp: #$ omp parallel private(ip, boundary_cut, eta1, eta2, eta3, mu, weight, norm_b1, dfm, det_df, span1, span2, span3, norm_b11, norm_b12, norm_b13, filling_v)
+    # -- removed omp: #$ omp for reduction ( + : vec1, vec2, vec3)
 
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -616,7 +616,7 @@ def cc_lin_mhd_5d_M(
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
 
 
 @stack_array(
@@ -731,8 +731,8 @@ def cc_lin_mhd_5d_J2(
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, mu, weight, span1, span2, span3, b1, b2, b3, b, b_star, norm_b1, norm_b2, norm_b2_prod, curl_norm_b, grad_PB, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, tmp_v, filling_v)
-    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
+    # -- removed omp: #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, mu, weight, span1, span2, span3, b1, b2, b3, b, b_star, norm_b1, norm_b2, norm_b2_prod, curl_norm_b, grad_PB, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, tmp_v, filling_v)
+    # -- removed omp: #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -847,4 +847,4 @@ def cc_lin_mhd_5d_J2(
     vec2 /= n_markers_tot
     vec3 /= n_markers_tot
 
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
