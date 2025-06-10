@@ -1,34 +1,37 @@
-## Version 2.4.2
+## Version 2.4.3
 
 ### Headlines
 
-* enable Python 3.13 and `mpi4py >= 4.0` !652
-* use new, smaller version of `psydac` from branch `max-model/psydac-for-struphy/devel-tiny` which does not depend on `sympde` !652
-* added regular testing on macOS (with arm M4 chips) !655
+* New explicit s-stage Runge Kutta solvers for FEEC variables; takes ODE vector fields (right-hand sides) as Python callable inputs !677
+* Improved profiling: extended the profiling capabilities by including time traces which can be enabled with `--time-traces`; this generates some nice plots too !681
+* Added model `HasegawaWakatani` for plasma turbulence simulations !682
+
 
 
 ### Other user news
 
-* enable initialization of noise for kinetic backgrounds !644
-* new option `--no-vtk` for `struphy pproc` !648
-* `README.md` has been updated to contain a quick install and quick test, as well as a link to the new mailing list !649
+* Update variational MHD with pressure variable, add linear and delta-f variational MHD models !683
+* Optional install of physics packages (like `gvec` and `desc`) via `[phys]`; this makes for an easier base install with less dependencies !688
+* Clean-up of variational propagators for MHD; readability is much improved !685
+* Include [PSYDAC update #493](https://github.com/pyccel/psydac/pull/493): `LinearOperator` now as the new method `dot_inner`; `Vector` has `dot` replaced by `inner` for the inner product !698
+
 
 
 ### Developer news
 
-* replaced `anaconda` with `waterboa` when loading modules in the mpcdf images of the CI !641
-* added domain cloning to the model verification tests !640
-* pyccelize kernels with OpenMP in Fortran !623
-* added the job compile_timings to the CI pipeline which summarizes the compile time for C and fortran !642
-* added unit test for console commands !570
-* re-factoring of model testing: New function `wrapper_for_testing` in tests/util.py unifies the testing of all four model classes and will simplify refactoring in the future !649 
-* new functions  `init_derham`, `_discretize_derham`, `_discretize_space` and class `DiscreteDerham`. These allow for the use of `devel-tiny` psydac branch. The full (old) psydac-for-struphy is used if `dev0` is absent from the psydac version number !652
-* renamed `vector_space` to `coeff_space` and `ProductFemSpace` to `MultipatchFemSpace` everywhre; this corresponds to PR https://github.com/pyccel/psydac/pull/468 !653
-* re-factoring of `.gitlab-ci.yml`, in particular making more use of templates and `!reference` !655
+* Faster push pipeline !674
+* Adding `local_projectors` to Derham setup !670
+* Make macOS jobs run concurrently in CI !671
+* move `Derham.Field` outside of Derham class; rename `Field` -> `SplineFunction`; rename `Derham.create_field` -> `Derham.create_spline_function` !682
+* allow for 5d array as list entry in weights for `create_weighted_mass` !682
+* added new pre-commit-hook `nbstripout` that checks for clean notebooks !682
+* allow for callable in right-hand-side of new `Poisson` propagator; the callable must return a V0 StencilVector !682
+* `WeightedMassOperators.toarray` now works if extraction and boundary operators are identity !667
+* replace `exit()` with `sys.exit(0)` for expected exit and `sys.exit(1)` for failures !696
 
 
 ### Bug fixes
 
-* a bug in the SPH pressure evaluation kernel has been corrected - the formulas contained an unnecessary multiplication by the weights and the wrong metric coefficient !649
-
+* Resolve error in `reflect` particle boundary condition !672
+* Resolve bug in assembly of basis projection operators !680
 
