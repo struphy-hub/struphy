@@ -2,9 +2,10 @@ import os
 import pickle
 import re
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import plotly.io as pio   
+pio.kaleido.scope.mathjax = None
 
 import struphy.post_processing.likwid.maxplotlylib as mply
 
@@ -232,18 +233,19 @@ def plot_gantt_chart_plotly(
 
         fig.update_layout(
             barmode="stack",
-            title="Gantt Chart of Profiling Regions (colored by MPI rank)",
+            # title="Gantt Chart of Profiling Regions",
             xaxis_title="Elapsed Time (s)",
             yaxis_title="Profiling Regions",
             height=600 + 20 * len(region_names),
             # legend_title="MPI Ranks",
+            margin=dict(t=0, b=0, l=0, r=0),
             showlegend=False,
         )
 
         mply.format_axes(fig)
         mply.format_font(fig)
         mply.format_grid(fig)
-        mply.format_size(fig)
+        mply.format_size(fig, width=1600, height=800)
 
         # Save the plot as HTML
         figure_path = os.path.join(output_path, "gantt_chart_plotly.html")
@@ -251,7 +253,7 @@ def plot_gantt_chart_plotly(
 
         fig.write_html(figure_path)
         fig.write_image(figure_path_pdf)
-        print(f"Saved interactive gantt chart to: {figure_path}")
+        print(f"Saved interactive gantt chart to:\n{figure_path}\n{figure_path_pdf}")
 
 
 def plot_gantt_chart(
@@ -348,7 +350,7 @@ def plot_gantt_chart(
         plt.yticks(y_positions, region_labels)  # Label the y-axis with region names
         plt.xlabel("Elapsed time (s)")
         plt.ylabel("Profiling Regions")
-        plt.title("Gantt chart of profiling regions (colored by MPI rank)")
+        # plt.title("Gantt chart of profiling regions")
         if num_ranks < 10:
             plt.legend(title="MPI Ranks", loc="upper left")  # Add legend for MPI ranks
         plt.grid(visible=True, linestyle="--", alpha=0.5, axis="x")  # Grid only on x-axis
