@@ -766,25 +766,6 @@ def struphy():
         )
 
         parser_test.add_argument(
-            "group",
-            type=str,
-            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"] + ["performance"],
-            metavar="GROUP",
-            help='can be either:\na) a model name \
-                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
-                                    \nc) "unit" for performing unit tests',
-        )
-        
-        parser_test.add_argument(
-            "-b",
-            "--batch",
-            type=str,
-            choices=batch_files,
-            metavar="FILE",
-            help="batch script in current I/O path",
-        )
-
-        parser_test.add_argument(
             "--mpi",
             type=int,
             metavar="N",
@@ -823,12 +804,6 @@ def struphy():
         parser_test.add_argument(
             "--verification",
             help="perform verification runs specified in io/inp/verification/",
-            action="store_true",
-        )
-
-        parser_test.add_argument(
-            "--likwid",
-            help="perform verification runs with LIKWID markers",
             action="store_true",
         )
         
