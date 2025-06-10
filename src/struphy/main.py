@@ -9,8 +9,8 @@ from struphy.gpu.test_pyccel_timings import compare_pyccel_cpu_gpu
 
 
 def compare_gpu_cpu(N=2000):
-    # compare_pyccel_cpu_gpu(N=2000)
-    # compare_np_cp()
+    compare_pyccel_cpu_gpu(N=N)
+    compare_np_cp()
     return
 
 
@@ -65,7 +65,8 @@ def main(
     """
     import struphy.gpu.gpu as struphy_gpu
     if gpu and struphy_gpu.gpu_active:
-        compare_gpu_cpu()
+        compare_gpu_cpu(N=10000)
+        exit()
     print(f"\n\n\nRunning struphy with {gpu = }\n\n\n")
 
     import copy
