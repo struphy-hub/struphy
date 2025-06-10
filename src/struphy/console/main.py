@@ -332,14 +332,6 @@ def struphy():
     )
 
     parser_run.add_argument(
-        "-ba",
-        "--batch-auto",
-        type=str,
-        choices=["raven", "cobra", "viper"],
-        help="Auto batch script",
-    )
-
-    parser_run.add_argument(
         "--runtime",
         type=int,
         metavar="N",
@@ -763,6 +755,16 @@ def struphy():
             ),
             help="run Struphy tests",
             description="Run available unit tests or test Struphy models.",
+        )
+
+        parser_test.add_argument(
+            "group",
+            type=str,
+            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
+            metavar="GROUP",
+            help='can be either:\na) a model name \
+                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
+                                    \nc) "unit" for performing unit tests',
         )
 
         parser_test.add_argument(
