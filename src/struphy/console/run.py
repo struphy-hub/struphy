@@ -12,7 +12,6 @@ def struphy_run(
     output_abs=None,
     batch=None,
     batch_abs=None,
-    batch_auto=None,
     runtime=300,
     save_step=1,
     sort_step=0,
@@ -90,6 +89,7 @@ def struphy_run(
     marker=None,
     hpcmd_suspend=None,
 
+
     likwid_repetitions : int, optional
         Number of repetitions for Likwid profiling. Default is 1.
     """
@@ -102,7 +102,6 @@ def struphy_run(
 
     import struphy
     import struphy.utils.utils as utils
-    from struphy.console.utils import generate_batch_script, save_batch_script
 
     libpath = struphy.__path__[0]
 
@@ -163,6 +162,7 @@ def struphy_run(
             likwid_command += ["-stats"]
         if marker:
             likwid_command += ["-marker"]
+
     # command parts
     cmd_python = ["python3"]
     cmd_main = [
@@ -268,31 +268,7 @@ def struphy_run(
 
         # copy batch script to output folder
         batch_abs_new = os.path.join(output_abs, "batch_script.sh")
-        if batch_auto:
-            batch_auto = "raven"
-            sbatch_params = {
-                "raven": {
-                    "ntasks_per_node": 8,
-                    "module_setup": "module load anaconda/3/2023.03 gcc/12 openmpi/4.1 likwid/5.2",
-                    "likwid": likwid,
-                },
-                "cobra": {
-                    "ntasks_per_node": 72,
-                    "likwid": likwid,
-                },
-                "viper": {
-                    "ntasks_per_node": 4,
-                    "likwid": likwid,
-                },
-            }
-
-            batch_script = generate_batch_script(**sbatch_params[batch_auto])
-            save_batch_script(batch_script, "test_script.sh")
-            exit()
-            with open(batch_abs_new, "w") as f:
-                f.write(batch_script)
-        else:
-            shutil.copy2(batch_abs, batch_abs_new)
+        shutil.copy2(batch_abs, batch_abs_new)
 
         # delete srun command from batch script
         with open(batch_abs_new, "r") as f:
