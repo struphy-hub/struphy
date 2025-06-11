@@ -51,7 +51,7 @@ class CloneConfig:
                     print(
                         f"Total number of ranks ({size}) is not divisible by the number of clones ({num_clones}).",
                     )
-                MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
+                MPI.COMM_WORLD.Abort()  # MPI abort instead of sys.exit(1)
 
             # Determine the color and rank within each clone
             ranks_per_clone = size // num_clones
