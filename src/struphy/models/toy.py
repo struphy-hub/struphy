@@ -185,11 +185,22 @@ class Vlasov(StruphyModel):
         self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
-        self._tmp[0] = self.pointer["ions"].markers_wo_holes[:, 6].dot(
-            self.pointer["ions"].markers_wo_holes[:, 3] ** 2
-            + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
-            + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
-        ) / (2 * self.pointer["ions"].Np)
+        if self.amrex:
+            self._tmp[0] = 0
+            particle_container = self.pointer["ions"].markers
+            for pti in particle_container.iterator(particle_container, 0):
+                markers_array = self.pointer["ions"].get_amrex_markers_array(pti.soa())
+                self._tmp[0] += markers_array["weights"].dot(
+                    markers_array["v1"] ** 2
+                    + markers_array["v2"] ** 2
+                    + markers_array["v3"] ** 2,
+                ) / (2 * self.pointer["ions"].Np)
+        else:
+            self._tmp[0] = self.pointer["ions"].markers_wo_holes[:, 6].dot(
+                self.pointer["ions"].markers_wo_holes[:, 3] ** 2
+                + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
+                + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
+            ) / (2 * self.pointer["ions"].Np)
 
         # self.derham.comm.Allreduce(
         #     self._mpi_in_place, self._tmp, op=self._mpi_sum)

@@ -739,7 +739,7 @@ class StruphyModel(metaclass=ABCMeta):
             if "f" in val["params"]["save_data"]:
                 for slice_i, edges in val["bin_edges"].items():
                     comps = slice_i.split("_")
-                    components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
+                    components = [False] * (3 + obj.vdim + obj.n_cols_diagnostics)
 
                     for comp in comps:
                         components[dim_to_int[comp]] = True

@@ -1018,7 +1018,7 @@ class Particles(metaclass=ABCMeta):
                             equil=self.equil,
                         )
 
-    def _set_background_coordinates(self): # TODO (Mati) look this up!!!
+    def _set_background_coordinates(self):
         if self.type != "sph" and self.f0.coords == "constants_of_motion":
             # Particles6D
             if self.vdim == 3:
@@ -1961,7 +1961,7 @@ class Particles(metaclass=ABCMeta):
                 if self.type == "sph":
                     f_init = self.f_init(np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float))
                 else:
-                    f_init = self.f_init(*self.f_coords.T) # TODO (Mati) look this up
+                    f_init = self.f_init(*(markers_array[i] for i in self.f_coords_index)) 
 
                 # if f_init is vol-form, transform to 0-form
                 if self.pforms[0] == "vol":
@@ -2121,10 +2121,6 @@ class Particles(metaclass=ABCMeta):
         for be in bin_edges:
             bin_vol *= be[1] - be[0]
 
-        # extend components list to number of columns of markers array
-        _n = len(components)
-        slicing = components + [False] * (self.markers.shape[1] - _n)
-
         # compute weights of histogram:
         _weights0 = self.weights0
         _weights = self.weights
@@ -2136,17 +2132,34 @@ class Particles(metaclass=ABCMeta):
             _weights0 /= self.domain.jacobian_det(self.positions, remove_outside=False)
             # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
-        f_slice = np.histogramdd(
-            self.markers_wo_holes_and_ghost[:, slicing],
-            bins=bin_edges,
-            weights=_weights0,
-        )[0]
+        # extend components list to number of columns of markers array
+        if self.amrex:        
+            f_slice = np.histogramdd(
+                self.phasespace_coords[:, components],
+                bins=bin_edges,
+                weights=_weights0,
+            )[0]
 
-        df_slice = np.histogramdd(
-            self.markers_wo_holes_and_ghost[:, slicing],
-            bins=bin_edges,
-            weights=_weights,
-        )[0]
+            df_slice = np.histogramdd(
+                self.phasespace_coords[:, components],
+                bins=bin_edges,
+                weights=_weights,
+            )[0]
+        else:
+            _n = len(components)
+            slicing = components + [False] * (self.markers.shape[1] - _n)
+
+            f_slice = np.histogramdd(
+                self.markers_wo_holes_and_ghost[:, slicing],
+                bins=bin_edges,
+                weights=_weights0,
+            )[0]
+
+            df_slice = np.histogramdd(
+                self.markers_wo_holes_and_ghost[:, slicing],
+                bins=bin_edges,
+                weights=_weights,
+            )[0]
 
         f_slice /= self.Np * bin_vol
         df_slice /= self.Np * bin_vol
@@ -3671,6 +3684,9 @@ class Particles(metaclass=ABCMeta):
         h1, h2, h3 : float
             Radius of the smoothing kernel in each dimension.
         """
+        if self.amrex:
+            return
+        
         _shp = np.shape(eta1)
         assert _shp == np.shape(eta2) == np.shape(eta3)
         if out is not None:
