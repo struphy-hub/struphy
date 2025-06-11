@@ -6781,10 +6781,22 @@ class TwoFluidQuasiNeutralFull(Propagator):
         ### Manufactured solution ###
         _forceterm_logical = lambda e1, e2, e3: 0 * e1
         _funx = getattr(callables, "ManufacturedSolutionForceterm")(
-            species="Ions", comp="0", b0=self._B0, nu=self._nu, dimension=self._dimension, epsilon=self._eps, dt=D1_dt
+            species="Ions",
+            comp="0",
+            b0=self._B0,
+            nu=self._nu,
+            dimension=self._dimension,
+            epsilon=self._eps,
+            dt=D1_dt,
         )
         _funy = getattr(callables, "ManufacturedSolutionForceterm")(
-            species="Ions", comp="1", b0=self._B0, nu=self._nu, dimension=self._dimension, epsilon=self._eps, dt=D1_dt
+            species="Ions",
+            comp="1",
+            b0=self._B0,
+            nu=self._nu,
+            dimension=self._dimension,
+            epsilon=self._eps,
+            dt=D1_dt,
         )
         _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
             species="Electrons",
@@ -6804,7 +6816,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             epsilon=self._eps,
             dt=D1_dt,
         )
-
+        
         # get callable(s) for specified init type
         forceterm_class = [_funx, _funy, _forceterm_logical]
         forcetermelectrons_class = [_funelectronsx, _funelectronsy, _forceterm_logical]
@@ -6826,6 +6838,45 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._F1 = l2_proj.get_dofs([funx, funy, _forceterm_logical])
         self._F2 = l2_proj.get_dofs([fun_electronsx, fun_electronsy, _forceterm_logical])
 
+        
+        # ### Restelli ###
+
+        # _forceterm_logical = lambda e1, e2, e3: 0 * e1
+        # _fun = getattr(callables, "RestelliForcingTerm")(
+        #     B0=self._B0,
+        #     nu=self._nu,
+        #     a=self._a,
+        #     Bp=self._Bp,
+        #     alpha=self._alpha,
+        #     beta=self._beta,
+        # )
+        # _funelectrons = getattr(callables, "RestelliForcingTerm")(
+        #     B0=self._B0,
+        #     nu=self._nu_e,
+        #     a=self._a,
+        #     Bp=self._Bp,
+        #     alpha=self._alpha,
+        #     beta=self._beta,
+        # )
+        
+        # # get callable(s) for specified init type
+        # forceterm_class = [_forceterm_logical, _forceterm_logical, _fun]
+        # forcetermelectrons_class = [_forceterm_logical, _forceterm_logical, _funelectrons]
+
+        # # pullback callable
+        # fun_pb = TransformedPformComponent(
+        #     forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+        # )
+        # fun_electrons_pb = TransformedPformComponent(
+        #     forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+        # )
+        # l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
+        # self._F1 = l2_proj.get_dofs([_forceterm_logical, _forceterm_logical, fun_pb])
+        # self._F2 = l2_proj.get_dofs([_forceterm_logical, _forceterm_logical, fun_electrons_pb])
+
+        # ### End Restelli ###
+
+        
         if self._variant == "GMRES":
             if _A12 is not None:
                 assert _A11.codomain == _A12.codomain
