@@ -32,3 +32,25 @@ def struphy_params(model, file, yes=False, options=False):
     else:
         prompt = not yes
         params = model_class.generate_default_parameter_file(file=file, prompt=prompt)
+
+
+def get_struphy_params(model):
+    """Create and return a model's default parameter dict.
+
+    Parameters
+    ----------
+    model : str
+        The name of the Struphy model.
+    """
+
+    from struphy.models import fluid, hybrid, kinetic, toy
+
+    # load model class
+    objs = [fluid, kinetic, hybrid, toy]
+    for obj in objs:
+        try:
+            model_class = getattr(obj, model)
+        except AttributeError:
+            pass
+
+    return model_class.generate_default_parameter_file(save=False)
