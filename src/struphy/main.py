@@ -7,13 +7,6 @@ from struphy.gpu.test_cupy_timings import compare_np_cp
 from struphy.gpu.test_pyccel_timings import compare_pyccel_cpu_gpu
 # from struphy.pic.pushing.pusher_kernels_gpu import matmul_cpu, matmul_gpu
 
-
-def compare_gpu_cpu(N=2000):
-    compare_pyccel_cpu_gpu(N=N)
-    compare_np_cp()
-    return
-
-
 def main(
     model_name: str,
     parameters: dict | str,
@@ -63,10 +56,12 @@ def main(
     num_clones: int, optional
         Number of domain clones (default=1)
     """
+
     import struphy.gpu.gpu as struphy_gpu
     if gpu and struphy_gpu.gpu_active:
-        compare_gpu_cpu(N=10000)
-        exit()
+        print("\n\n\n#" + "-"*40 + "#")
+        _, _ = compare_pyccel_cpu_gpu(Nvec=[100],iterations=100)
+        print("\n\n\n#" + "-"*40 + "#")
     print(f"\n\n\nRunning struphy with {gpu = }\n\n\n")
 
     import copy

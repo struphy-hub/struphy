@@ -8,4 +8,4 @@ source ~/virtual_envs/env_struphy_gpu/bin/activate
 module load likwid/5.3
 LIKWID_PREFIX=$(realpath $(dirname $(which likwid-topology))/..)
 export LD_LIBRARY_PATH=$LIKWID_PREFIX/lib:$LD_LIBRARY_PATH
-
+export PMIX_MCA_pcompress_base_silence_warning=1
