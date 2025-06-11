@@ -1148,8 +1148,11 @@ class StruphyModel(metaclass=ABCMeta):
 
             key_spec = "kinetic/" + key
             key_spec_restart = "restart/" + key
-
-            data.add_data({key_spec_restart: obj._markers})
+            
+            if self.amrex:
+                data.add_data({key_spec_restart: np.ascontiguousarray(obj._markers.to_df().to_numpy())})
+            else:
+                data.add_data({key_spec_restart: obj._markers})
 
             for key1, val1 in val["kinetic_data"].items():
                 key_dat = key_spec + "/" + key1

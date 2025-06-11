@@ -163,7 +163,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False, same_phasespace_coor
     PushVinEfield.domain = domain
     PushVinEfield.derham = derham
 
-    p_h = derham.create_field("pressure", "H1")
+    p_h = derham.create_spline_function('pressure', 'H1', coeffs=p_coeffs)
     p_h.vector = p_coeffs
 
     grad_p = derham.grad.dot(p_coeffs)

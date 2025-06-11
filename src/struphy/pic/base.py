@@ -634,7 +634,10 @@ class Particles(metaclass=ABCMeta):
     def holes(self):
         """Array of booleans stating if an entry in the markers array is a hole."""
         if not hasattr(self, "_holes"):
-            self._holes = self.markers[:, 0] == -1.0
+            if self.amrex:
+                self._holes = [False] * self.Np
+            else:
+                self._holes = self.markers[:, 0] == -1.0
         return self._holes
 
     @property
@@ -3684,8 +3687,6 @@ class Particles(metaclass=ABCMeta):
         h1, h2, h3 : float
             Radius of the smoothing kernel in each dimension.
         """
-        if self.amrex:
-            return
         
         _shp = np.shape(eta1)
         assert _shp == np.shape(eta2) == np.shape(eta3)
@@ -3702,7 +3703,7 @@ class Particles(metaclass=ABCMeta):
         # for the moment we always assume periodicity for the evaluation near the boundary, TODO: fill ghost boxes with suitable markers for other bcs?
         periodic1, periodic2, periodic3 = [True] * 3  # [bci == "periodic" for bci in self.bc]
 
-        if fast:
+        if fast and not self.amrex:
             self.put_particles_in_boxes()
 
             if len(_shp) == 1:
@@ -3744,11 +3745,18 @@ class Particles(metaclass=ABCMeta):
                 func = naive_evaluation_flat
             elif len(_shp) == 3:
                 func = naive_evaluation_meshgrid
+                
+            if self.amrex:
+                markers = np.ascontiguousarray(self._markers.to_df()[self.index["pos"] + [self.index["weights"]]].to_numpy())
+                index = 3
+            else:
+                markers = self.markers
+                
             func(
                 eta1,
                 eta2,
                 eta3,
-                self.markers,
+                markers,
                 self.Np,
                 self.holes,
                 periodic1,
