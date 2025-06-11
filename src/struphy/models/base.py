@@ -1441,7 +1441,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             print("None.")
 
     @classmethod
-    def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
+    def write_parameters_to_file(cls, parameters=None, file=None, prompt=True):
         import os
 
         import yaml
@@ -1461,19 +1461,18 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             assert ".yml" in file or ".yaml" in file, "File must have a a .yml (.yaml) extension."
             file = os.path.join(i_path, file)
 
-        if save:
-            if not prompt:
-                yn = "Y"
-            else:
-                yn = input(f"Writing to {file}, are you sure (Y/n)? ")
+        if not prompt:
+            yn = "Y"
+        else:
+            yn = input(f"Writing to {file}, are you sure (Y/n)? ")
 
-            if yn in ("", "Y", "y", "yes", "Yes"):
-                dict_to_yaml(parameters, file)
-                print(
-                    f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".',
-                )
-            else:
-                pass
+        if yn in ("", "Y", "y", "yes", "Yes"):
+            dict_to_yaml(parameters, file)
+            print(
+                f'Default parameter file for {cls.__name__} has been created; you can now launch with "struphy run {cls.__name__}".',
+            )
+        else:
+            pass
 
     @classmethod
     def generate_default_parameter_file(
@@ -1635,13 +1634,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             parameters["diagnostics"] = {}
             for name, space in cls.diagnostics_dct().items():
                 parameters["diagnostics"][name] = {"save_data": True}
-
-        cls.write_parameters_to_file(
-            parameters=parameters,
-            file=file,
-            save=save,
-            prompt=prompt,
-        )
+        if save:
+            cls.write_parameters_to_file(
+                parameters=parameters,
+                file=file,
+                prompt=prompt,
+            )
 
         return parameters
 
