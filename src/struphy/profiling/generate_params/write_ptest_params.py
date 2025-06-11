@@ -8,6 +8,7 @@ import yaml
 
 import struphy
 import struphy.utils.utils as utils
+from struphy.console.params import get_struphy_params
 
 # Parameters
 libpath = struphy.__path__[0]
@@ -16,26 +17,10 @@ state = utils.read_state()
 i_path = state["i_path"]
 o_path = state["o_path"]
 
+models = ["Vlasov", "Maxwell"]
+params_dict = {model: get_struphy_params(model) for model in models}
 
-# Read the original YAML files
-def load_yaml_files(file_paths):
-    return {os.path.basename(path).replace(".yml", ""): yaml.safe_load(open(path)) for path in file_paths}
-
-
-standard_params_dir = os.path.join(libpath, "io/inp/standard_parameters")
-longer_examples_params_dir = os.path.join(libpath, "io/inp/longer_examples")
-
-yaml_files = [
-    f"{standard_params_dir}/params_Vlasov.yml",
-    f"{standard_params_dir}/params_Maxwell.yml",
-    f"{standard_params_dir}/params_LinearMHD.yml",
-    f"{standard_params_dir}/params_ShearAlfven.yml",
-    f"{standard_params_dir}/params_LinearMHDVlasovCC.yml",
-    f"{standard_params_dir}/params_LinearMHDDriftkineticCC.yml",
-    f"{standard_params_dir}/params_GuidingCenter.yml",
-]
-
-yaml_data = load_yaml_files(yaml_files)
+# print(params_dict)
 
 
 def save_parameter_file(parameters, filename):
@@ -163,14 +148,8 @@ def generate_ptest_params():
     mpi_values = [72 * _i for _i in [1, 2]]
 
     # Define models and their parameters
-    for model in [
-        # "Maxwell",
-        # "Vlasov",
-        "LinearMHDDriftkineticCC",
-        # "LinearMHDVlasovCC",
-    ]:
-        # base_params = yaml_data[f"params_{model}"]
-        base_params = copy.deepcopy(yaml_data[f"params_{model}"])
+    for model in models:
+        base_params = copy.deepcopy(params_dict[model])
         base_params["setup"] = {}
         base_params["setup"]["model"] = model
         # MPI values to scan
