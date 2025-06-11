@@ -105,11 +105,13 @@ def main():
         # Parse parameter file
         with open(file, "r") as f:
             params = yaml.safe_load(f)
-
-        if not "model" in params:
+        if not "setup" in params:
+            print(f"setup missing in {param_filename}")
+            continue
+        if not "model" in params["setup"]:
             print(f"model missing in {param_filename}")
             continue
-        model = params["model"]
+        model = params["setup"]["model"]
         # Get setup params
         projectname = (
             f"{model}_nodes-{args.nodes}_mpi-{args.mpi}_nclones-{args.nclones}_{param_filename.replace('.yml', '')}"
