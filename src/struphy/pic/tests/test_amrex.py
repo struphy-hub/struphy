@@ -5,18 +5,19 @@ import pytest
 from matplotlib import pyplot as plt
 
 from struphy.feec.psydac_derham import Derham
+from struphy.fields_background.equils import HomogenSlab
 from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
 from struphy.geometry.domains import Cuboid, HollowCylinder
 from struphy.pic.amrex import Amrex
 from struphy.pic.particles import Particles6D, ParticlesSPH
-from struphy.propagators.propagators_markers import PushEta, PushVinEfield
+from struphy.propagators.propagators_markers import PushEta, PushVinEfield, PushVxB
 
 try:
     import amrex.space3d as amr
 except ImportError:
     amr = None
 
-Np = 40
+Np = 10
 seed = None
 
 import cProfile
@@ -62,6 +63,273 @@ def display_top(snapshot, file, key_type="lineno", limit=10):
         print(f"#### big bloc {i + 1} ####\n{stat.count} calls: {stat.size / 1024} KiB", file=file)
         for line in stat.traceback.format():
             print(line, file=file)
+
+
+@pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
+def test_amrex_push_v_x_b(plot=False, verbose=False, same_phasespace_coords=True):
+    # initialize Amrex
+    amrex_obj = Amrex()
+    amrex = True
+
+    # define domain
+    l1 = -0.5
+    r1 = 0.5
+    l2 = -0.5
+    r2 = 0.5
+    l3 = 0.0
+    r3 = 1.0
+    domain = Cuboid(l1=l1, r1=r1, l2=l2, r2=r2, l3=l3, r3=r3)
+
+    # instantiate Particle objects (for random drawing of markers)
+    bc = ["periodic", "periodic", "periodic"]
+    eps = 1.0
+    loading = "pseudo_random"
+    loading_params = {"seed": seed, "spatial": "uniform"}
+    control_variate = False
+    weights_params = {"reject_weights": False, "threshold": 0.0, "from_tesselation": False}
+    pert_params = {"n": {"TorusModesCos": {"given_in_basis": "0", "ms": [1, 3]}}}
+    bckgr_params = {"Maxwellian3D": {"n": 0.05}}
+
+    particles_1_amrex = Particles6D(
+        domain=domain,
+        Np=Np,
+        bc=bc,
+        eps=eps,
+        loading=loading,
+        loading_params=loading_params,
+        control_variate=control_variate,
+        weights_params=weights_params,
+        pert_params=pert_params,
+        bckgr_params=bckgr_params,
+        amrex=amrex,
+    )
+
+    particles_1_struphy = Particles6D(
+        domain=domain,
+        Np=Np,
+        bc=bc,
+        eps=eps,
+        loading=loading,
+        loading_params=loading_params,
+        control_variate=control_variate,
+        weights_params=weights_params,
+        pert_params=pert_params,
+        bckgr_params=bckgr_params,
+    )
+
+    particles_1_struphy.draw_markers(sort=False)
+    particles_1_amrex.draw_markers(sort=False)
+
+    if same_phasespace_coords:
+        pos = particles_1_struphy.positions
+        vel = particles_1_struphy.velocities
+
+        particle_container = particles_1_amrex.markers
+
+        for pti in particle_container.iterator(particle_container, 0):
+            markers_array = particles_1_amrex.get_amrex_markers_array(pti.soa())
+            markers_array["x"][:] = pos[:, 0]
+            markers_array["y"][:] = pos[:, 1]
+            markers_array["z"][:] = pos[:, 2]
+            markers_array["v1"][:] = vel[:, 0]
+            markers_array["v2"][:] = vel[:, 1]
+            markers_array["v3"][:] = vel[:, 2]
+
+    particles_1_struphy.initialize_weights()
+    particles_1_amrex.initialize_weights()
+
+    # pass simulation parameters to Propagator class
+    PushEta.domain = domain
+
+    # instantiate Propagator object
+    prop_eta_1_amrex = PushEta(particles_1_amrex, algo="rk4")
+    prop_eta_1_struphy = PushEta(particles_1_struphy, algo="rk4")
+
+    # instantiate Derham object
+    Nel = [12, 14, 1]
+    p = [2, 3, 1]
+    spl_kind = [False, True, True]
+    dirichlet_bc = None
+    mpi_dims_mask = [True, True, True]
+    nquads = [2, 2, 1]
+    nq_pr = [2, 2, 1]
+    polar_ck = -1
+    local_projectors = False
+
+    derham = Derham(
+        Nel,
+        p,
+        spl_kind,
+        dirichlet_bc=dirichlet_bc,
+        mpi_dims_mask=mpi_dims_mask,
+        nquads=nquads,
+        nq_pr=nq_pr,
+        polar_ck=polar_ck,
+        local_projectors=local_projectors,
+    )
+
+    # instantiate fluid background
+    HomogenSlab.domain = domain
+    equil = HomogenSlab()
+
+    b2 = derham.P["2"](
+        [
+            equil.b2_1,
+            equil.b2_2,
+            equil.b2_3,
+        ]
+    )
+
+    # instantiate Propagator object
+    PushVxB.domain = domain
+    PushVxB.derham = derham
+    prop_v_1_amrex = PushVxB(particles_1_amrex, b2=b2)
+    prop_v_1_struphy = PushVxB(particles_1_struphy, b2=b2)
+
+    if plot:
+        fig = plt.figure(figsize=(15, 8))
+        ax1 = fig.add_subplot(1, 2, 1, projection="3d")
+        pos_1 = domain(particles_1_amrex.positions).T
+        ax1.scatter(pos_1[:, 0], pos_1[:, 1], pos_1[:, 2])
+        ax1.set_title("starting positions Amrex")
+
+        ax2 = fig.add_subplot(1, 2, 2, projection="3d")
+        pos_2 = domain(particles_1_struphy.positions).T
+        ax2.scatter(pos_2[:, 0], pos_2[:, 1], pos_2[:, 2])
+        ax2.set_title("starting positions Struphy")
+
+        plt.savefig("./push_v_x_b_start.jpg")
+
+    # time stepping
+    dt = 0.02
+    Nt = 200
+
+    # random particles
+    pos_1_amrex = np.zeros((Nt + 1, particles_1_amrex.Np, 3), dtype=float)
+    velo_1_amrex = np.zeros((Nt + 1, particles_1_amrex.Np, 3), dtype=float)
+
+    pos_1_struphy = np.zeros((Nt + 1, particles_1_struphy.Np, 3), dtype=float)
+    velo_1_struphy = np.zeros((Nt + 1, particles_1_struphy.Np, 3), dtype=float)
+
+    pos_1_amrex[0] = domain(particles_1_amrex.positions).T
+    velo_1_amrex[0] = particles_1_amrex.velocities
+
+    pos_1_struphy[0] = domain(particles_1_struphy.positions).T
+    velo_1_struphy[0] = particles_1_struphy.velocities
+
+    time = 0.0
+    time_vec = np.zeros(Nt + 1, dtype=float)
+    n = 0
+    while n < Nt:
+        time += dt
+        n += 1
+        time_vec[n] = time
+
+        if verbose:
+            print("*************** BEFORE TIMESTEP ***************")
+            print(f"Amrex positions: \n{particles_1_amrex.positions[:10]}")
+            print(f"Amrex velocities: \n{particles_1_amrex.velocities[:10]}")
+
+            print(f"Struphy positions: \n{particles_1_struphy.positions[:10]}")
+            print(f"Struphy velocities: \n{particles_1_struphy.velocities[:10]}")
+
+        # advance in time
+        prop_eta_1_amrex(dt / 2)
+        prop_eta_1_struphy(dt / 2)
+
+        if same_phasespace_coords:
+            np.testing.assert_allclose(particles_1_amrex.positions, particles_1_struphy.positions)
+            np.testing.assert_allclose(particles_1_amrex.velocities, particles_1_struphy.velocities)
+
+        prop_v_1_amrex(dt)
+        prop_v_1_struphy(dt)
+
+        if same_phasespace_coords:
+            np.testing.assert_allclose(particles_1_amrex.positions, particles_1_struphy.positions)
+            np.testing.assert_allclose(particles_1_amrex.velocities, particles_1_struphy.velocities)
+
+        prop_eta_1_amrex(dt / 2)
+        prop_eta_1_struphy(dt / 2)
+
+        if same_phasespace_coords:
+            np.testing.assert_allclose(particles_1_amrex.positions, particles_1_struphy.positions)
+            np.testing.assert_allclose(particles_1_amrex.velocities, particles_1_struphy.velocities)
+
+        if verbose:
+            print("*************** AFTER TIMESTEP ***************")
+            print(f"Amrex positions: \n{particles_1_amrex.positions[:10]}")
+            print(f"Amrex velocities: \n{particles_1_amrex.velocities[:10]}")
+
+            print(f"Struphy positions: \n{particles_1_struphy.positions[:10]}")
+            print(f"Struphy velocities: \n{particles_1_struphy.velocities[:10]}")
+
+        # positions on the physical domain Omega
+        pos_1_amrex[n] = domain(particles_1_amrex.positions).T
+        velo_1_amrex[n] = particles_1_amrex.velocities
+
+        pos_1_struphy[n] = domain(particles_1_struphy.positions).T
+        velo_1_struphy[n] = particles_1_struphy.velocities
+
+    if plot:
+        plt.figure(figsize=(12, 28))
+
+        coloring = np.select(
+            [pos_1_amrex[0, :, 0] <= -0.2, np.abs(pos_1_amrex[0, :, 0]) < +0.2, pos_1_amrex[0, :, 0] >= 0.2],
+            [-1.0, 0.0, +1.0],
+        )
+
+        interval = Nt / 20
+        plot_ct = 0
+        for i in range(Nt):
+            if i % interval == 0:
+                print(f"{i = }")
+                plot_ct += 1
+                plt.subplot(5, 2, plot_ct)
+                ax = plt.gca()
+                plt.scatter(pos_1_amrex[i, :, 0], pos_1_amrex[i, :, 1], c=coloring)
+                plt.axis("square")
+                plt.title("n0_scatter")
+                plt.xlim(l1, r1)
+                plt.ylim(l2, r2)
+                plt.colorbar()
+                plt.title(f"Gas at t={i * dt}")
+            if plot_ct == 10:
+                break
+
+        plt.suptitle("Amrex")
+
+        plt.savefig("./position_amrex.jpg")
+
+        plt.figure(figsize=(12, 28))
+
+        coloring = np.select(
+            [pos_1_struphy[0, :, 0] <= -0.2, np.abs(pos_1_struphy[0, :, 0]) < +0.2, pos_1_struphy[0, :, 0] >= 0.2],
+            [-1.0, 0.0, +1.0],
+        )
+
+        interval = Nt / 20
+        plot_ct = 0
+        for i in range(Nt):
+            if i % interval == 0:
+                print(f"{i = }")
+                plot_ct += 1
+                plt.subplot(5, 2, plot_ct)
+                ax = plt.gca()
+                plt.scatter(pos_1_struphy[i, :, 0], pos_1_struphy[i, :, 1], c=coloring)
+                plt.axis("square")
+                plt.title("n0_scatter")
+                plt.xlim(l1, r1)
+                plt.ylim(l2, r2)
+                plt.colorbar()
+                plt.title(f"Gas at t={i * dt}")
+            if plot_ct == 10:
+                break
+
+        plt.suptitle("Struphy")
+
+        plt.savefig("./position_struphy.jpg")
+
+    amrex_obj.finalize()
 
 
 @pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
@@ -163,7 +431,7 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False, same_phasespace_coor
     PushVinEfield.domain = domain
     PushVinEfield.derham = derham
 
-    p_h = derham.create_spline_function('pressure', 'H1', coeffs=p_coeffs)
+    p_h = derham.create_spline_function("pressure", "H1", coeffs=p_coeffs)
     p_h.vector = p_coeffs
 
     grad_p = derham.grad.dot(p_coeffs)
@@ -1116,7 +1384,8 @@ def profile_push_v_in_efield(sort="calls"):
     np.testing.assert_allclose(amrex_particles.velocities, struphy_particles.velocities)
 
     amrex_obj.finalize()
-    
+
+
 def test_all():
     test_amrex_box()
     test_amrex_cylinder()
@@ -1124,11 +1393,13 @@ def test_all():
     test_amrex_push_v_in_e_field()
     test_amrex_boundary_conditions_box()
     test_amrex_boundary_conditions_cylinder()
+    test_amrex_push_v_x_b()
 
 
 if __name__ == "__main__":
     # profile_push_v_in_efield("cumtime")  # sort = 'cumtime'
-    test_all()
+    # test_all()
+    test_amrex_push_v_x_b(plot=True, verbose = False, same_phasespace_coords=True)
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE
@@ -1142,7 +1413,7 @@ if __name__ == "__main__":
 # git push -o ci.skip
 
 # profile regions
- 
+
 # struphy run Vlasov --time-trace --cprofile --verbose -o sim_3 --mpi 2
 # struphy pproc -d sim_3
 # struphy pproc -d sim_3 --time-trace

@@ -35,8 +35,8 @@ def push_vxb_analytic(
     """
 
     b_form = empty((particles.Np, 3, 1), dtype=float)
-    b_abs = empty(particles.Np)
-    b_norm = empty(particles.Np)
+    b_abs = empty(particles.Np, dtype=float)
+    b_norm = empty((particles.Np, 3), dtype=float)
 
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = particles.get_amrex_markers_array(pti.soa())
@@ -67,29 +67,29 @@ def push_vxb_analytic(
 
         # magnetic field: Cartesian components
         b_cart = matmul(jacobian, b_form)  # Npx3x1
-        b_cart[:] = b_cart / det_df  # TODO (Mati) look this up
+        b_cart = b_cart / det_df[:, newaxis, newaxis] 
 
         # magnetic field: magnitude
-        b_abs[:] = sqrt(b_cart[:, 0, 1] ** 2 + b_cart[:, 1, 1] ** 2 + b_cart[:, 2, 1] ** 2)
+        b_abs[:] = sqrt(b_cart[:, 0, 0] ** 2 + b_cart[:, 1, 0] ** 2 + b_cart[:, 2, 0] ** 2)
 
         # only push vxb if magnetic field is non-zero
-        non_zero_idx = [b_abs != 0]
+        non_zero_idx = b_abs != 0
 
         # normalized magnetic field direction
-        b_norm[non_zero_idx] = b_cart[non_zero_idx] / b_abs[non_zero_idx]
+        b_norm[non_zero_idx, :] = b_cart[non_zero_idx, :, 0] / b_abs[non_zero_idx, newaxis]
 
         # parallel velocity v.b_norm
-        vpar = scalar_dot_vectorized_flat((v1, v2, v3), b_norm)
+        vpar = scalar_dot_vectorized_flat(v1, v2, v3, b_norm)
 
         # first component of perpendicular velocity
-        vxb_norm = cross_vectorized_flat((v1, v2, v3), b_norm)
-        vperp = cross_vectorized(b_norm, vxb_norm)
+        vxb_norm = cross_vectorized_flat(v1, v2, v3, b_norm)
+        vperp = cross_vectorized(b_norm, vxb_norm) 
 
         # second component of perpendicular velocity
-        b_normxvperp = cross_vectorized(b_norm, vperp)
+        b_normxvperp = cross_vectorized(b_norm, vperp) 
 
         # analytic rotation
-        temp = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
+        temp = vpar[:, newaxis] * b_norm + cos(b_abs * dt)[:, newaxis] * vperp - sin(b_abs * dt)[:, newaxis] * b_normxvperp
         v1[:] = temp[:, 0]
         v2[:] = temp[:, 1]
         v3[:] = temp[:, 2]

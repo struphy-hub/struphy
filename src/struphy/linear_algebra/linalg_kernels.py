@@ -342,7 +342,7 @@ def cross_vectorized_flat(a1: "float[:]", a2: "float[:]", a3: "float[:]", b: "fl
 
 
 def cross_vectorized(a: "float[:,:]", b: "float[:,:]") -> "float[:,:]":
-    np = len(a[0, :])
+    np = len(a[:, 0])
     out = zeros((np, 3), dtype=float)
     c = zeros(3, dtype=float)
     for i in range(np):
