@@ -95,7 +95,7 @@ def push_vxb_analytic(
         v3[:] = temp[:, 2]
 
 
-def push_vxb_implicit(  # TODO (Mati)
+def push_vxb_implicit( 
     dt: float,
     stage: int,
     particles: "Particles",
@@ -118,70 +118,46 @@ def push_vxb_implicit(  # TODO (Mati)
             3d array of FE coeffs of B-field as 2-form.
     """
 
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-
     # allocate for field evaluations (2-form components, Cartesian components and rotation matrix such that vxB = B_prod.v)
-    b_form = empty(3, dtype=float)
-    b_cart = empty(3, dtype=float)
-    b_prod = empty((3, 3), dtype=float)
-
-    # particle position and velocity
-    v = empty(3, dtype=float)
+    b_form = empty((particles.Np, 3, 1), dtype=float)
+    b_prod = empty((particles.Np,3, 3), dtype=float)
 
     # identity matrix
-    identity = empty((3, 3), dtype=float)
+    identity = empty((particles.Np, 3, 3), dtype=float)
 
-    identity[0, 0] = 1.0
-    identity[1, 1] = 1.0
-    identity[2, 2] = 1.0
+    identity[:, 0, 0] = 1.0
+    identity[:, 1, 1] = 1.0
+    identity[:, 2, 2] = 1.0
 
     # right-hand side and left-hand side of Crank-Nicolson scheme
-    rhs = empty((3, 3), dtype=float)
-    lhs = empty((3, 3), dtype=float)
+    rhs = empty((particles.Np,3, 3), dtype=float)
+    lhs = empty((particles.Np,3, 3), dtype=float)
 
-    lhs_inv = empty((3, 3), dtype=float)
+    lhs_inv = empty((particles.Np,3, 3), dtype=float)
 
-    vec = empty(3, dtype=float)
-    res = empty(3, dtype=float)
+    vec = empty((particles.Np,3), dtype=float)
+    res = empty((particles.Np,3), dtype=float)
 
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
+    for pti in particles.markers.iterator(particles.markers, 0):
+        markers_array = particles.get_amrex_markers_array(pti.soa())
+        e1 = markers_array["x"]
+        e2 = markers_array["y"]
+        e3 = markers_array["z"]
+        v1 = markers_array["v1"]
+        v2 = markers_array["v2"]
+        v3 = markers_array["v3"]
 
-    #$ omp parallel firstprivate(b_prod) private (ip, v, dfm, det_df, span1, span2, span3, b_form, b_cart, rhs, lhs, lhs_inv, vec, res)
-    #$ omp for
-    for ip in range(n_markers):
-        # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0:
-            continue
+        # evaluate Jacobian
+        jacobian = particles.domain.jacobian(e1, e2, e3, change_out_order=True, flat_eval=True)  # Npx3x3
 
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
+        # metric coeffs
+        det_df = det(jacobian)
 
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        # spline evaluation and magnetic field 2-form
+        get_spans_and_eval_2form_spline_vectorized(
             e1,
             e2,
             e3,
-            args_domain,
-            dfm,
-        )
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
-
-        # magnetic field 2-form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
             args_derham,
             b2_1,
             b2_2,
@@ -190,31 +166,34 @@ def push_vxb_implicit(  # TODO (Mati)
         )
 
         # magnetic field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
-        b_cart[:] = b_cart / det_df
+        b_cart = matmul(jacobian, b_form)  # Npx3x1
+        b_cart = b_cart / det_df[:, newaxis, newaxis] 
 
         # magnetic field: rotation matrix
-        b_prod[0, 1] = b_cart[2]
-        b_prod[0, 2] = -b_cart[1]
+        b_prod[:,0, 1] = b_cart[:,2, 0]
+        b_prod[:,0, 2] = -b_cart[:,1, 0]
 
-        b_prod[1, 0] = -b_cart[2]
-        b_prod[1, 2] = b_cart[0]
+        b_prod[:,1, 0] = -b_cart[:,2,0]
+        b_prod[:,1, 2] = b_cart[:,0,0]
 
-        b_prod[2, 0] = b_cart[1]
-        b_prod[2, 1] = -b_cart[0]
+        b_prod[:,2, 0] = b_cart[:,1,0]
+        b_prod[:,2, 1] = -b_cart[:,0,0]
 
         # solve 3x3 system
-        rhs[:, :] = identity + dt / 2 * b_prod
-        lhs[:, :] = identity - dt / 2 * b_prod
+        rhs[:, :, :] = identity + dt / 2 * b_prod
+        lhs[:, :, :] = identity - dt / 2 * b_prod
 
-        linalg_kernels.matrix_inv(lhs, lhs_inv)
+        lhs_inv = inv(lhs)
 
-        linalg_kernels.matrix_vector(rhs, v, vec)
-        linalg_kernels.matrix_vector(lhs_inv, vec, res)
+        v = array([v1, v2, v3]).T
+        v = v[..., newaxis]  # Npx3x1
+        
+        vec = matmul(rhs,v)
+        res = matmul(lhs_inv,vec)
 
-        markers[ip, 3:6] = res
-
-    #$ omp end parallel
+        v1[:] = res[:,0,0]
+        v2[:] = res[:,1,0]
+        v3[:] = res[:,2,0]
 
 
 def push_v_with_efield(

@@ -635,7 +635,7 @@ class Particles(metaclass=ABCMeta):
         """Array of booleans stating if an entry in the markers array is a hole."""
         if not hasattr(self, "_holes"):
             if self.amrex:
-                self._holes = [False] * self.Np
+                self._holes = np.array([False] * self.Np)
             else:
                 self._holes = self.markers[:, 0] == -1.0
         return self._holes
@@ -3687,7 +3687,6 @@ class Particles(metaclass=ABCMeta):
         h1, h2, h3 : float
             Radius of the smoothing kernel in each dimension.
         """
-        
         _shp = np.shape(eta1)
         assert _shp == np.shape(eta2) == np.shape(eta3)
         if out is not None:
