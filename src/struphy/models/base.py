@@ -1167,7 +1167,13 @@ class StruphyModel(metaclass=ABCMeta):
                     for i, v1 in enumerate(val1):
                         key_n = key_dat + "/view_" + str(i)
                         data.add_data({key_n: v1})
-                        data.file[key_n].attrs["plot_pts"] = val["plot_pts"][i]
+                        # save 1d point values, not meshgrids, because attrs size is limited
+                        eta1 = val["plot_pts"][i][0][:, 0, 0]
+                        eta2 = val["plot_pts"][i][1][0, :, 0]
+                        eta3 = val["plot_pts"][i][2][0, 0, :]
+                        data.file[key_n].attrs["eta1"] = eta1
+                        data.file[key_n].attrs["eta2"] = eta2
+                        data.file[key_n].attrs["eta3"] = eta3
                 else:
                     data.add_data({key_dat: val1})
 

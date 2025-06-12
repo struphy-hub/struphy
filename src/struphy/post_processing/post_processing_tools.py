@@ -757,13 +757,23 @@ def post_process_n_sph(path_in, path_out, species, step=1, compute_bckgr=False):
         path_view = os.path.join(path_n_sph, view)
         os.mkdir(path_view)
 
-        # save grid
-        for _, grid in files[0]["kinetic/" + species + "/n_sph/" + view].attrs.items():
-            grid_path = os.path.join(
-                path_view,
-                "grid_n_sph.npy",
-            )
-            np.save(grid_path, grid[:])
+        # build meshgrid and save
+        eta1 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta1"]
+        eta2 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta2"]
+        eta3 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta3"]
+        
+        ee1, ee2, ee3 = np.meshgrid(
+                            eta1,
+                            eta2,
+                            eta3,
+                            indexing="ij",
+                        )
+        
+        grid_path = os.path.join(
+            path_view,
+            "grid_n_sph.npy",
+        )
+        np.save(grid_path, (ee1, ee2, ee3))
 
         # load n_sph data
         data = files[0]["kinetic/" + species + "/n_sph/" + view][::step].copy()
