@@ -9,6 +9,8 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.geometry.base import Domain
 from struphy.linear_algebra.linalg_kernels import cross_vectorized, cross_vectorized_flat, scalar_dot_vectorized_flat
+# from struphy.pic.base import Particles
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
 
 
 def push_vxb_analytic(
@@ -34,10 +36,6 @@ def push_vxb_analytic(
             3d array of FE coeffs of B-field as 2-form.
     """
 
-    b_form = empty((particles.Np, 3, 1), dtype=float)
-    b_abs = empty(particles.Np, dtype=float)
-    b_norm = empty((particles.Np, 3), dtype=float)
-
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = particles.get_amrex_markers_array(pti.soa())
         e1 = markers_array["x"]
@@ -46,6 +44,11 @@ def push_vxb_analytic(
         v1 = markers_array["v1"]
         v2 = markers_array["v2"]
         v3 = markers_array["v3"]
+        
+        n_p = len(e1)
+        b_form = empty((n_p, 3, 1), dtype=float)
+        b_abs = empty(n_p, dtype=float)
+        b_norm = empty((n_p, 3), dtype=float)
 
         # evaluate Jacobian
         jacobian = particles.domain.jacobian(e1, e2, e3, change_out_order=True, flat_eval=True)  # Npx3x3
@@ -118,25 +121,6 @@ def push_vxb_implicit(
             3d array of FE coeffs of B-field as 2-form.
     """
 
-    # allocate for field evaluations (2-form components, Cartesian components and rotation matrix such that vxB = B_prod.v)
-    b_form = empty((particles.Np, 3, 1), dtype=float)
-    b_prod = empty((particles.Np,3, 3), dtype=float)
-
-    # identity matrix
-    identity = empty((particles.Np, 3, 3), dtype=float)
-
-    identity[:, 0, 0] = 1.0
-    identity[:, 1, 1] = 1.0
-    identity[:, 2, 2] = 1.0
-
-    # right-hand side and left-hand side of Crank-Nicolson scheme
-    rhs = empty((particles.Np,3, 3), dtype=float)
-    lhs = empty((particles.Np,3, 3), dtype=float)
-
-    lhs_inv = empty((particles.Np,3, 3), dtype=float)
-
-    vec = empty((particles.Np,3), dtype=float)
-    res = empty((particles.Np,3), dtype=float)
 
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = particles.get_amrex_markers_array(pti.soa())
@@ -146,6 +130,27 @@ def push_vxb_implicit(
         v1 = markers_array["v1"]
         v2 = markers_array["v2"]
         v3 = markers_array["v3"]
+        
+        n_p = len(e1)
+        # allocate for field evaluations (2-form components, Cartesian components and rotation matrix such that vxB = B_prod.v)
+        b_form = empty((n_p, 3, 1), dtype=float)
+        b_prod = empty((n_p,3, 3), dtype=float)
+
+        # identity matrix
+        identity = empty((n_p, 3, 3), dtype=float)
+
+        identity[:, 0, 0] = 1.0
+        identity[:, 1, 1] = 1.0
+        identity[:, 2, 2] = 1.0
+
+        # right-hand side and left-hand side of Crank-Nicolson scheme
+        rhs = empty((n_p,3, 3), dtype=float)
+        lhs = empty((n_p,3, 3), dtype=float)
+
+        lhs_inv = empty((n_p,3, 3), dtype=float)
+
+        vec = empty((n_p,3), dtype=float)
+        res = empty((n_p,3), dtype=float)
 
         # evaluate Jacobian
         jacobian = particles.domain.jacobian(e1, e2, e3, change_out_order=True, flat_eval=True)  # Npx3x3
@@ -224,7 +229,6 @@ def push_v_with_efield(
             A constant (usually related to the charge-to-mass ratio).
     """
 
-    e_form = empty((particles.Np, 3, 1), dtype=float)
 
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = particles.get_amrex_markers_array(pti.soa())
@@ -232,6 +236,9 @@ def push_v_with_efield(
         e2 = markers_array["y"]
         e3 = markers_array["z"]
 
+        n_p = len(e1)
+        e_form = empty((n_p, 3, 1), dtype=float)
+    
         # evaluate Jacobian
         jacobian = particles.domain.jacobian(e1, e2, e3, change_out_order=True, flat_eval=True)  # Npx3x3
 

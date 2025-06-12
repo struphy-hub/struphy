@@ -1397,9 +1397,8 @@ def test_all():
 
 
 if __name__ == "__main__":
-    # profile_push_v_in_efield("cumtime")  # sort = 'cumtime'
-    # test_all()
-    test_amrex_push_v_x_b(plot=True, verbose = False, same_phasespace_coords=True)
+    test_all()
+    
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE
@@ -1418,3 +1417,8 @@ if __name__ == "__main__":
 # struphy pproc -d sim_3
 # struphy pproc -d sim_3 --time-trace
 # struphy profile sim_2 sim_3 --replace
+
+# import debugpy
+# debugpy.listen(("localhost", 5678))
+# print("waiting for debugpy client")
+# debugpy.wait_for_client()
