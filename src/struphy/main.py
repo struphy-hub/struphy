@@ -61,7 +61,7 @@ def main(
     if gpu and struphy_gpu.gpu_active:
         print("\n\n\n#" + "-"*40 + "#")
         _, _ = compare_pyccel_cpu_gpu(Nvec=[100],iterations=100)
-        print("\n\n\n#" + "-"*40 + "#")
+        print("#" + "-"*40 + "#")
     print(f"\n\n\nRunning struphy with {gpu = }\n\n\n")
 
     import copy
