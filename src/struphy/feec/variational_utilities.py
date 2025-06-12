@@ -310,21 +310,26 @@ class L2_transport_operator(LinOpWithTransp):
         Assemble the transposed operator
     """
 
-    def __init__(self, derham, transposed=False, weights=None):
+    def __init__(self, derham, phys_domain, u_space, transposed=False, weights=None):
         # Get the projector and the spaces
+        assert u_space in ["H1vec", "Hdiv"]
+
         self._derham = derham
+        self._phys_domain = phys_domain
+        self._u_space = u_space
+        space_id = derham.space_to_form[u_space]
         self._transposed = transposed
         if weights == None:
             weights = [[None] * 3] * 3
         self._weights = weights
         if self._transposed:
-            self._codomain = self._derham.Vh_pol["v"]
+            self._codomain = self._derham.Vh_pol[space_id]
             self._domain = self._derham.Vh_pol["3"]
         else:
-            self._domain = self._derham.Vh_pol["v"]
+            self._domain = self._derham.Vh_pol[space_id]
             self._codomain = self._derham.Vh_pol["3"]
         P2 = self._derham.P["2"]
-        Xh = self._derham.Vh_fem["v"]
+        Xh = self._derham.Vh_fem[space_id]
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("rhof", "L2")
 
@@ -335,8 +340,8 @@ class L2_transport_operator(LinOpWithTransp):
                 Xh,
                 self._weights,
                 transposed=transposed,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[space_id],
+                V_boundary_op=self._derham.boundary_ops[space_id],
                 P_boundary_op=IdentityOperator(self._derham.Vh_pol["2"]),
             )
 
@@ -347,8 +352,8 @@ class L2_transport_operator(LinOpWithTransp):
                 self._weights,
                 transposed=transposed,
                 use_cache=True,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[space_id],
+                V_boundary_op=self._derham.boundary_ops[space_id],
                 P_boundary_op=IdentityOperator(self._derham.Vh_pol["2"]),
             )
 
@@ -386,6 +391,11 @@ class L2_transport_operator(LinOpWithTransp):
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
         self._f_2_values = np.zeros(grid_shape, dtype=float)
 
+        if self._u_space == "Hdiv":
+            self._metric_0 = deepcopy(1./self._phys_domain.jacobian_det(*hist_grid_0))
+            self._metric_1 = deepcopy(1./self._phys_domain.jacobian_det(*hist_grid_1))
+            self._metric_2 = deepcopy(1./self._phys_domain.jacobian_det(*hist_grid_2))
+
     @property
     def domain(self):
         return self._domain
@@ -407,7 +417,7 @@ class L2_transport_operator(LinOpWithTransp):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return L2_transport_operator(self._derham, not self._transposed, weights=self._weights)
+        return L2_transport_operator(self._derham, self._phys_domain, self._u_space, not self._transposed, weights=self._weights)
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -439,6 +449,11 @@ class L2_transport_operator(LinOpWithTransp):
             out=self._f_2_values,
         )
 
+        if self._u_space == "Hdiv":
+            f0_values *= self._metric_0
+            f1_values *= self._metric_1
+            f2_values *= self._metric_2
+
         self._weights = [
             [f0_values, None, None],
             [None, f1_values, None],
@@ -465,21 +480,25 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         Assemble the transposed operator
     """
 
-    def __init__(self, derham, transposed=False, weights=None):
+    def __init__(self, derham, phys_domain, u_space, transposed=False, weights=None):
         # Get the projector and the spaces
+        assert u_space in ["H1vec", "Hdiv"]
         self._derham = derham
+        self._phys_domain = phys_domain
+        self._u_space = u_space
+        space_id = derham.space_to_form[u_space]
         self._transposed = transposed
         if weights == None:
             weights = [[None] * 3] * 3
         self._weights = weights
         if self._transposed:
-            self._codomain = self._derham.Vh_pol["v"]
+            self._codomain = self._derham.Vh_pol[space_id]
             self._domain = self._derham.Vh_pol["2"]
         else:
-            self._domain = self._derham.Vh_pol["v"]
+            self._domain = self._derham.Vh_pol[space_id]
             self._codomain = self._derham.Vh_pol["2"]
         P1 = self._derham.P["1"]
-        Xh = self._derham.Vh_fem["v"]
+        Xh = self._derham.Vh_fem[space_id]
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("Bf", "Hdiv")
 
@@ -490,8 +509,8 @@ class Hdiv0_transport_operator(LinOpWithTransp):
                 Xh,
                 self._weights,
                 transposed=transposed,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[space_id],
+                V_boundary_op=self._derham.boundary_ops[space_id],
                 P_boundary_op=IdentityOperator(self._derham.Vh_pol["1"]),
             )
 
@@ -502,8 +521,8 @@ class Hdiv0_transport_operator(LinOpWithTransp):
                 self._weights,
                 transposed=transposed,
                 use_cache=True,
-                V_extraction_op=self._derham.extraction_ops["v"],
-                V_boundary_op=self._derham.boundary_ops["v"],
+                V_extraction_op=self._derham.extraction_ops[space_id],
+                V_boundary_op=self._derham.boundary_ops[space_id],
                 P_boundary_op=IdentityOperator(self._derham.Vh_pol["1"]),
             )
 
@@ -567,6 +586,11 @@ class Hdiv0_transport_operator(LinOpWithTransp):
             [self.hist_grid_2_bd[0], self.hist_grid_2_bd[1], self.hist_grid_2_bn[2]],
         ]
 
+        if self._u_space == "Hdiv":
+            self._metric_term_0 = deepcopy(1/self._phys_domain.jacobian_det(*hist_grid_0))
+            self._metric_term_1 = deepcopy(1/self._phys_domain.jacobian_det(*hist_grid_1))
+            self._metric_term_2 = deepcopy(1/self._phys_domain.jacobian_det(*hist_grid_2))
+
     @property
     def domain(self):
         return self._domain
@@ -588,7 +612,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         raise NotImplementedError()
 
     def transpose(self, conjugate=False):
-        return Hdiv0_transport_operator(self._derham, not self._transposed, weights=self._weights)
+        return Hdiv0_transport_operator(self._derham, self._phys_domain, self._u_space, not self._transposed, weights=self._weights)
 
     def dot(self, v, out=None):
         out = self._op.dot(v, out=out)
@@ -620,6 +644,14 @@ class Hdiv0_transport_operator(LinOpWithTransp):
             self.hist_grid_2_b,
             out=self._bf2_values,
         )
+
+        if self._u_space == "Hdiv":
+            bf0_values[2] *= self._metric_term_0
+            bf0_values[1] *= self._metric_term_0
+            bf1_values[2] *= self._metric_term_1
+            bf1_values[0] *= self._metric_term_1
+            bf2_values[1] *= self._metric_term_2
+            bf2_values[0] *= self._metric_term_2
 
         self._weights = [
             [None, -bf0_values[2], bf0_values[1]],
@@ -656,11 +688,14 @@ class Pressure_transport_operator(LinOpWithTransp):
         Assemble the transposed operator
     """
 
-    def __init__(self, derham, phys_domain, Uv, gamma, transposed=False, weights1=None, weights2=None):
+    def __init__(self, derham, phys_domain, U, gamma, u_space, transposed=False, weights1=None, weights2=None):
         # Get the projector and the spaces
+        assert u_space in ["H1vec", "Hdiv"]
         self._derham = derham
         self._phys_domain = phys_domain
-        self._Uv = Uv
+        self._u_space = u_space
+        space_id = derham.space_to_form[u_space]
+        self._U = U
         self._transposed = transposed
         self._gamma = gamma
         if weights1 is None:
@@ -670,14 +705,14 @@ class Pressure_transport_operator(LinOpWithTransp):
             weights2 = [[lambda eta1, eta2, eta3: 0 * eta1]]
         self._weights2 = weights2
         if self._transposed:
-            self._codomain = self._derham.Vh_pol["v"]
+            self._codomain = self._derham.Vh_pol[space_id]
             self._domain = self._derham.Vh_pol["3"]
         else:
-            self._domain = self._derham.Vh_pol["v"]
+            self._domain = self._derham.Vh_pol[space_id]
             self._codomain = self._derham.Vh_pol["3"]
         P2 = self._derham.P["2"]
         P3 = self._derham.P["3"]
-        Xh = self._derham.Vh_fem["v"]
+        Xh = self._derham.Vh_fem[space_id]
         V3h = self._derham.Vh_fem["3"]
         self._dtype = Xh.coeff_space.dtype
         self.field = self._derham.create_spline_function("pf", "L2")
@@ -688,8 +723,8 @@ class Pressure_transport_operator(LinOpWithTransp):
             self._weights1,
             transposed=transposed,
             use_cache=True,
-            V_extraction_op=self._derham.extraction_ops["v"],
-            V_boundary_op=self._derham.boundary_ops["v"],
+            V_extraction_op=self._derham.extraction_ops[space_id],
+            V_boundary_op=self._derham.boundary_ops[space_id],
             P_boundary_op=IdentityOperator(self._derham.Vh_pol["2"]),
         )
 
@@ -707,8 +742,10 @@ class Pressure_transport_operator(LinOpWithTransp):
         # BC?
 
         div = self._derham.div
-
-        self.div = div @ Uv
+        if u_space == "H1vec":
+            self.div = div @ U
+        elif u_space == "Hdiv":
+            self.div = div
 
         # Initialize the transport operator and transposed
         if self._transposed:
@@ -757,6 +794,11 @@ class Pressure_transport_operator(LinOpWithTransp):
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_22])
         self._pf_2_values = np.zeros(grid_shape, dtype=float)
 
+        if self._u_space == "Hdiv":
+            self._metric_p0 = deepcopy(1.0 / phys_domain.jacobian_det(*hist_grid_20))
+            self._metric_p1 = deepcopy(1.0 / phys_domain.jacobian_det(*hist_grid_21))
+            self._metric_p2 = deepcopy(1.0 / phys_domain.jacobian_det(*hist_grid_22))
+
     @property
     def domain(self):
         return self._domain
@@ -781,8 +823,9 @@ class Pressure_transport_operator(LinOpWithTransp):
         return Pressure_transport_operator(
             self._derham,
             self._phys_domain,
-            self._Uv,
+            self._U,
             self._gamma,
+            self._u_space,
             not self._transposed,
             weights1=self._weights1,
             weights2=self._weights2,
@@ -817,8 +860,6 @@ class Pressure_transport_operator(LinOpWithTransp):
 
         self.Pip_div.update_weights(self._weights2)
 
-        # print(self.Pip_divT._dof_mat._data)
-
         pf0_values = self.field.eval_tp_fixed_loc(
             self.hist_grid_20_spans,
             self.hist_grid_20_bd,
@@ -834,6 +875,12 @@ class Pressure_transport_operator(LinOpWithTransp):
             self.hist_grid_22_bd,
             out=self._pf_2_values,
         )
+
+        if self._u_space == "Hdiv":
+            pf0_values *= self._metric_p0
+            pf1_values *= self._metric_p1
+            pf2_values *= self._metric_p2
+
 
         self._weights1 = [
             [pf0_values, None, None],
@@ -1314,11 +1361,14 @@ class InternalEnergyEvaluator:
         return f_values
 
 
-class H1vecMassMatrix_density:
-    """Wrapper around a Weighted mass operator from H1vec to H1vec whose weights are given by a 3 form"""
+class MassMatrix_density:
+    """Wrapper around a Weighted mass operator whose weights are given by a 3 form.
+    The domain and codomain of the operator can be H1vec or Hdiv"""
 
-    def __init__(self, derham, mass_ops, domain):
-        self._massop = mass_ops.create_weighted_mass("H1vec", "H1vec")
+    def __init__(self, derham, mass_ops, domain, u_space):
+        assert u_space in ["H1vec", "Hdiv"]
+        self._u_space = u_space
+        self._massop = mass_ops.create_weighted_mass(u_space, u_space)
         self.field = derham.create_spline_function("field", "L2")
 
         integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
@@ -1330,7 +1380,10 @@ class H1vecMassMatrix_density:
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
         self._f_values = np.zeros(grid_shape, dtype=float)
 
-        metric = domain.metric(*integration_grid)
+        if u_space == "H1vec":
+            metric = domain.metric(*integration_grid)
+        elif u_space == "Hdiv":
+            metric = domain.metric(*integration_grid)/(domain.jacobian_det(*integration_grid)**2)
         self._mass_metric_term = deepcopy(metric)
         self._full_term_mass = deepcopy(metric)
 
@@ -1359,6 +1412,8 @@ class H1vecMassMatrix_density:
             self.integration_grid_bd,
             out=self._f_values,
         )
+
+
         for i in range(3):
             for j in range(3):
                 self._full_term_mass[i, j] = f_values * self._mass_metric_term[i, j]

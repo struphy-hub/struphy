@@ -17,7 +17,7 @@ from struphy.feec.mass import WeightedMassOperator
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.feec.variational_utilities import (
     BracketOperator,
-    H1vecMassMatrix_density,
+    MassMatrix_density,
     InternalEnergyEvaluator,
     KineticEnergyEvaluator,
 )
@@ -2922,7 +2922,7 @@ class VariationalMomentumAdvection(Propagator):
         self,
         u: BlockVector,
         *,
-        mass_ops: H1vecMassMatrix_density,
+        mass_ops: MassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
     ):
@@ -3181,8 +3181,9 @@ class VariationalDensityEvolve(Propagator):
         *,
         model: str = "barotropic",
         gamma: float = options()["physics"]["gamma"],
+        u_space: str,
         s: StencilVector = None,
-        mass_ops: H1vecMassMatrix_density,
+        mass_ops: MassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         energy_evaluator: InternalEnergyEvaluator = None,
@@ -3204,7 +3205,11 @@ class VariationalDensityEvolve(Propagator):
             assert s is not None
         assert mass_ops is not None
 
+        assert u_space in ["H1vec", "Hdiv"]
         self._model = model
+        self._u_space = u_space
+        self._u_space_id = self.derham.space_to_form[self._u_space]
+
         self._gamma = gamma
         self._s = s
         self._lin_solver = lin_solver
@@ -3224,7 +3229,7 @@ class VariationalDensityEvolve(Propagator):
         self._kinetic_evaluator = KineticEnergyEvaluator(self.derham, self.domain, self.mass_ops)
         self._initialize_projectors_and_mass()
         if self._model in ["linear", "linear_q"]:
-            rhotmp = self.projected_equil.n3
+            rhotmp = self.derham.extraction_ops['3'].dot(self.projected_equil.n3)
         elif self._model in ["deltaf", "deltaf_q"]:
             self._tmp_rho_deltaf = rho.space.zeros()
             rhotmp = rho.copy(out=self._tmp_rho_deltaf)
@@ -3255,7 +3260,7 @@ class VariationalDensityEvolve(Propagator):
             self._compute_init_linear_form()
 
         if self._model in ["linear", "linear_q"]:
-            self._update_Pirho(self.projected_equil.n3)
+            self._update_Pirho(self.derham.extraction_ops['3'].dot(self.projected_equil.n3))
 
     def __call__(self, dt):
         self.__call_newton(dt)
@@ -3406,21 +3411,25 @@ class VariationalDensityEvolve(Propagator):
         from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
-        self.divPirho = L2_transport_operator(self.derham)
+        self.divPirho = L2_transport_operator(self.derham, self.domain, self._u_space)
         self.divPirhoT = self.divPirho.T
 
+        """Initialization of the mass matrix solver"""
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.Mv,
+        if self._u_space == "H1vec":
+            Mu = self.mass_ops.Mv
+        elif self._u_space == "Hdiv":
+            Mu = self.mass_ops.M2
+        self.pc_Mu = preconditioner.MassMatrixDiagonalPreconditioner(
+            Mu,
         )
-        self._inv_Mv = inverse(
-            self.mass_ops.Mv,
+        self._inv_Mu = inverse(
+            Mu,
             "pcg",
-            pc=self.pc_Mv,
+            pc=self.pc_Mu,
             tol=1e-16,
             maxiter=1000,
             verbose=False,
-            recycle=True,
         )
 
         integration_grid = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts["0"]]
@@ -3439,7 +3448,7 @@ class VariationalDensityEvolve(Propagator):
         self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
 
         Jacs = BlockVectorSpace(
-            self.derham.Vh_pol["v"],
+            self.derham.Vh_pol[self._u_space_id],
             self.derham.Vh_pol["3"],
         )
 
@@ -3455,8 +3464,8 @@ class VariationalDensityEvolve(Propagator):
         self._dt2_pc_divPirhoT = 2 * (self.divPirhoT)
         self._dt2_divPirho = 2 * self.divPirho
 
-        self._Jacobian[0, 0] = self._Mrho.massop + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un
-        self._Jacobian[0, 1] = self._kinetic_evaluator.M_un1 + self._dt_pc_divPirhoT @ self._M_drho
+        self._Jacobian[0, 0] = self._Mrho.massop # + self._dt2_pc_divPirhoT @ self._kinetic_evaluator.M_un
+        self._Jacobian[0, 1] = self._dt_pc_divPirhoT @ self._M_drho # + self._kinetic_evaluator.M_un1
         self._Jacobian[1, 0] = self._dt2_divPirho
         self._Jacobian[1, 1] = self._I3
 
@@ -3602,7 +3611,7 @@ class VariationalDensityEvolve(Propagator):
 
     def _get_error_newton(self, mn_diff, rhon_diff):
         """Error for the newton method : max(|f(0)|,|f(1)|) where f is the function we're trying to nullify"""
-        weak_un_diff = self._inv_Mv.dot(
+        weak_un_diff = self._inv_Mu.dot(
             self.derham.boundary_ops["v"].dot(mn_diff),
             out=self._tmp_un_weak_diff,
         )
@@ -3693,7 +3702,7 @@ class VariationalEntropyEvolve(Propagator):
         model: str = "full",
         gamma: float = options()["physics"]["gamma"],
         rho: StencilVector,
-        mass_ops: H1vecMassMatrix_density,
+        mass_ops: MassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         energy_evaluator: InternalEnergyEvaluator = None,
@@ -3840,7 +3849,7 @@ class VariationalEntropyEvolve(Propagator):
         from struphy.feec.variational_utilities import L2_transport_operator
 
         # Initialize the transport operator and transposed
-        self.divPis = L2_transport_operator(self.derham)
+        self.divPis = L2_transport_operator(self.derham, self.domain, "H1vec")
         self.divPisT = self.divPis.T
 
         # Inverse mass matrix needed to compute the error
@@ -4069,7 +4078,7 @@ class VariationalMagFieldEvolve(Propagator):
         u: BlockVector,
         *,
         model: str = "full",
-        mass_ops: H1vecMassMatrix_density,
+        mass_ops: MassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
     ):
@@ -4234,7 +4243,7 @@ class VariationalMagFieldEvolve(Propagator):
 
         from struphy.feec.variational_utilities import Hdiv0_transport_operator
 
-        self.curlPib = Hdiv0_transport_operator(self.derham)
+        self.curlPib = Hdiv0_transport_operator(self.derham, self.domain, "H1vec")
         self.curlPibT = self.curlPib.T
 
         # Inverse mass matrix needed to compute the error
@@ -4310,7 +4319,7 @@ class VariationalMagFieldEvolve(Propagator):
     def _create_Pib0(self):
         from struphy.feec.variational_utilities import Hdiv0_transport_operator
 
-        self.curlPib0 = Hdiv0_transport_operator(self.derham)
+        self.curlPib0 = Hdiv0_transport_operator(self.derham, self.domain, "H1vec")
         self.curlPibT0 = self.curlPib0.T
 
         self.curlPib0.update_coeffs(self.projected_equil.b2)
@@ -4438,7 +4447,7 @@ class VariationalPBEvolve(Propagator):
         *,
         model: str = "full",
         gamma: float = options()["physics"]["gamma"],
-        mass_ops: H1vecMassMatrix_density,
+        mass_ops: MassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         div_u: StencilVector | None = None,
@@ -4716,7 +4725,7 @@ class VariationalPBEvolve(Propagator):
         from struphy.feec.projectors import L2Projector
         from struphy.feec.variational_utilities import Hdiv0_transport_operator, Pressure_transport_operator
 
-        self.curlPib = Hdiv0_transport_operator(self.derham)
+        self.curlPib = Hdiv0_transport_operator(self.derham, self.domain, "H1vec")
         self.curlPibT = self.curlPib.T
         self._transop_p = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma)
         self._transop_pT = self._transop_p.T
@@ -4828,7 +4837,7 @@ class VariationalPBEvolve(Propagator):
     def _create_Pib0(self):
         from struphy.feec.variational_utilities import Hdiv0_transport_operator
 
-        self.curlPib0 = Hdiv0_transport_operator(self.derham)
+        self.curlPib0 = Hdiv0_transport_operator(self.derham, self.domain, "H1vec")
         self.curlPibT0 = self.curlPib.T
         self.curlPib0.update_coeffs(self.projected_equil.b2)
         self.curlPibT0.update_coeffs(self.projected_equil.b2)
@@ -4992,7 +5001,8 @@ class VariationalQBEvolve(Propagator):
         *,
         model: str = "full",
         gamma: float = options()["physics"]["gamma"],
-        mass_ops: H1vecMassMatrix_density,
+        mass_ops: MassMatrix_density,
+        u_space: str,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         div_u: StencilVector | None = None,
@@ -5003,7 +5013,11 @@ class VariationalQBEvolve(Propagator):
         super().__init__(q, b, u)
 
         assert model in ["full_q", "linear_q", "deltaf_q"]
+        assert u_space in ["H1vec", "Hdiv"]
         self._model = model
+        self._u_space = u_space
+        self._u_space_id = self.derham.space_to_form[self._u_space]
+
         self._mass_ops = mass_ops
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
@@ -5236,8 +5250,10 @@ class VariationalQBEvolve(Propagator):
         self._tmp_qn_diff = qn1 - qn
         self.feec_vars_update(qn1, bn1, un1)
 
-        self._transop_q.div.dot(un12, out=self._divu)
-        self._transop_q._Uv.dot(un1, out=self._u2)
+        if self._divu is not None:
+            self._transop_q.div.dot(un12, out=self._divu)
+        if self._u2 is not None:
+            self._transop_q._Uv.dot(un1, out=self._u2)
 
         # Update the 2nd order variables
 
@@ -5258,14 +5274,18 @@ class VariationalQBEvolve(Propagator):
             self._bt2 -= b_advection
 
     def _initialize_projectors_and_mass(self):
-        """Initialization of all the `BasisProjectionOperator` and needed to compute the bracket term"""
+        """Initialization of all the `BasisProjectionOperator`"""
 
         from struphy.feec.projectors import L2Projector
         from struphy.feec.variational_utilities import Hdiv0_transport_operator, Pressure_transport_operator
 
-        self.curlPib = Hdiv0_transport_operator(self.derham)
+        self.curlPib = Hdiv0_transport_operator(self.derham, self.domain, self._u_space)
         self.curlPibT = self.curlPib.T
-        self._transop_q = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma / 2.0)
+        if self._u_space == "H1vec":
+            U = self.basis_ops.Uv
+        elif self._u_space == "Hdiv":
+            U = None
+        self._transop_q = Pressure_transport_operator(self.derham, self.domain, U, self._gamma / 2.0, self._u_space)
         self._transop_qT = self._transop_q.T
 
         integration_grid = [grid_1d.flatten() for grid_1d in self.derham.quad_grid_pts["3"]]
@@ -5280,14 +5300,19 @@ class VariationalQBEvolve(Propagator):
 
         self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
 
+        """Initialization of the mass matrix solver"""
         # Inverse mass matrix needed to compute the error
-        self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
-            self.mass_ops.Mv,
+        if self._u_space == "H1vec":
+            Mu = self.mass_ops.Mv
+        elif self._u_space == "Hdiv":
+            Mu = self.mass_ops.M2
+        self.pc_Mu = preconditioner.MassMatrixDiagonalPreconditioner(
+            Mu,
         )
-        self._inv_Mv = inverse(
-            self.mass_ops.Mv,
+        self._inv_Mu = inverse(
+            Mu,
             "pcg",
-            pc=self.pc_Mv,
+            pc=self.pc_Mu,
             tol=1e-16,
             maxiter=1000,
             verbose=False,
@@ -5295,9 +5320,8 @@ class VariationalQBEvolve(Propagator):
 
         self._I2 = IdentityOperator(self.derham.Vh_pol["2"])
         self._I3 = IdentityOperator(self.derham.Vh_pol["3"])
-
         Jacs = BlockVectorSpace(
-            self.derham.Vh_pol["v"],
+            self.derham.Vh_pol[self._u_space_id],
             self.derham.Vh_pol["2"],
             self.derham.Vh_pol["3"],
         )
@@ -5312,8 +5336,8 @@ class VariationalQBEvolve(Propagator):
             self._create_Pib0()
             self._create_transop0()
 
-            self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
-            self._linear_form_dl_dq0 = -2 / (self._gamma - 1.0) * self.mass_ops.M3.dot(self.projected_equil.q3)
+            self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.derham.extraction_ops['2'].dot(self.projected_equil.b2))
+            self._linear_form_dl_dq0 = -2 / (self._gamma - 1.0) * self.mass_ops.M3.dot(self.derham.extraction_ops['3'].dot(self.projected_equil.q3))
 
             self._mdt2_pc_curlPibT_M = 2 * (self.curlPibT0 @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self.curlPib0
@@ -5332,8 +5356,8 @@ class VariationalQBEvolve(Propagator):
             self._full_transop = self._transop_q0 + self._transop_q
             self._full_transopT = self._transop_q0T + self._transop_qT
 
-            self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.projected_equil.b2)
-            self._linear_form_dl_dq0 = -2 / (self._gamma - 1.0) * self.mass_ops.M3.dot(self.projected_equil.q3)
+            self._linear_form_dl_db0 = -self.mass_ops.M2.dot(self.derham.extraction_ops['2'].dot(self.projected_equil.b2))
+            self._linear_form_dl_dq0 = -2 / (self._gamma - 1.0) * self.mass_ops.M3.dot(self.derham.extraction_ops['3'].dot(self.projected_equil.q3))
 
             self._mdt2_pc_curlPibT_M = 2 * (self._full_curlPibT @ self.mass_ops.M2)
             self._dt2_curlPib = 2 * self._full_curlPib
@@ -5349,12 +5373,7 @@ class VariationalQBEvolve(Propagator):
             self._dt2_transop = 2 * self._transop_q
 
         self._get_L2dofs_V3 = L2Projector("L2", self.mass_ops).get_dofs
-        metric = self.domain.jacobian_det(
-            *integration_grid,
-        )
-
-        self._energy_metric_term = deepcopy(metric)
-
+        
         # local version to avoid creating new version of LinearOperator every time
 
         self._Jacobian[0, 0] = self._Mrho.massop
@@ -5394,10 +5413,10 @@ class VariationalQBEvolve(Propagator):
     def _create_Pib0(self):
         from struphy.feec.variational_utilities import Hdiv0_transport_operator
 
-        self.curlPib0 = Hdiv0_transport_operator(self.derham)
+        self.curlPib0 = Hdiv0_transport_operator(self.derham, self.domain, self._u_space)
         self.curlPibT0 = self.curlPib.T
-        self.curlPib0.update_coeffs(self.projected_equil.b2)
-        self.curlPibT0.update_coeffs(self.projected_equil.b2)
+        self.curlPib0.update_coeffs(self.derham.extraction_ops['2'].dot(self.projected_equil.b2))
+        self.curlPibT0.update_coeffs(self.derham.extraction_ops['2'].dot(self.projected_equil.b2))
 
     def _update_Projq(self, q):
         """Update the weights of the `BasisProjectionOperator`"""
@@ -5407,17 +5426,17 @@ class VariationalQBEvolve(Propagator):
     def _create_transop0(self):
         """Update the weights of the `BasisProjectionOperator`"""
         from struphy.feec.variational_utilities import Pressure_transport_operator
-
-        self._transop_q0 = Pressure_transport_operator(self.derham, self.domain, self.basis_ops.Uv, self._gamma / 2.0)
+        if self._u_space == "H1vec":
+            U = self.basis_ops.Uv
+        elif self._u_space == "Hdiv":
+            U = None
+        self._transop_q0 = Pressure_transport_operator(self.derham, self.domain, U, self._gamma / 2.0, self._u_space)
         self._transop_q0T = self._transop_q0.T
-        self._transop_q0.update_coeffs(self.projected_equil.q3)
-        self._transop_q0T.update_coeffs(self.projected_equil.q3)
+        self._transop_q0.update_coeffs(self.derham.extraction_ops['3'].dot(self.projected_equil.q3))
+        self._transop_q0T.update_coeffs(self.derham.extraction_ops['3'].dot(self.projected_equil.q3))
 
     def _update_linear_form_dl_db(self, bn, bn1):
         """Update the linearform representing integration in V2 derivative of the lagrangian"""
-        bn12 = bn.copy(out=self._tmp_bn12)
-        bn12 += bn1
-        bn12 *= 0.5
         bn12 = bn.copy(out=self._tmp_bn12)
         bn12 += bn1
         bn12 *= 0.5
@@ -5439,8 +5458,8 @@ class VariationalQBEvolve(Propagator):
         wq *= -2 / (self._gamma - 1)
 
     def _get_error(self, mn_diff, bn_diff, qn_diff):
-        weak_un_diff = self._inv_Mv.dot(
-            self.derham.boundary_ops["v"].dot(mn_diff),
+        weak_un_diff = self._inv_Mu.dot(
+            self.derham.boundary_ops[self._u_space_id].dot(mn_diff),
             out=self._tmp_un_weak_diff,
         )
         weak_bn_diff = self.mass_ops.M2.dot(
@@ -5556,7 +5575,7 @@ class VariationalViscosity(Propagator):
         mu: float = options()["physics"]["mu"],
         mu_a: float = options()["physics"]["mu_a"],
         alpha: float = options()["physics"]["alpha"],
-        mass_ops: H1vecMassMatrix_density,
+        mass_ops: MassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         energy_evaluator: InternalEnergyEvaluator = None,
