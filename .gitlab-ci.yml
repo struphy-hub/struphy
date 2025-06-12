@@ -257,8 +257,11 @@ inspect_repo:
 build_docker_images:
   image: docker:latest
   stage: startup
+  services:
+    - name: docker:dind
+      # NOTE: The alias is key to resolving the DNS issue.
+      alias: docker
   before_script:
-    - unset DOCKER_HOST
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - docker info
   script:
