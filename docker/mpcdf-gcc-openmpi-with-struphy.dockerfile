@@ -16,7 +16,7 @@ RUN source ./mpcdf/soft/SLE_15/packages/x86_64/Modules/5.4.0/etc/profile.d/modul
     && python3 -m venv env_c_ \
     && source env_c_/bin/activate \
     && pip install -U pip \
-    && pip install -e . --no-cache-dir \
+    && pip install -e .[phys] --no-cache-dir \
     && struphy compile \
     && deactivate
     
@@ -27,7 +27,7 @@ RUN source ./mpcdf/soft/SLE_15/packages/x86_64/Modules/5.4.0/etc/profile.d/modul
     && python3 -m venv env_fortran_ \
     && source env_fortran_/bin/activate \
     && pip install -U pip \
-    && pip install -e . --no-cache-dir \
+    && pip install -e .[phys] --no-cache-dir \
     && struphy compile --language fortran -y \
     && deactivate 
 
@@ -38,6 +38,6 @@ RUN source ./mpcdf/soft/SLE_15/packages/x86_64/Modules/5.4.0/etc/profile.d/modul
     && python3 -m venv env_fortran_--omp-pic \
     && source env_fortran_--omp-pic/bin/activate \
     && pip install -U pip \
-    && pip install -e . --no-cache-dir \
+    && pip install -e .[phys] --no-cache-dir \
     && struphy compile --language fortran --omp-pic -y \
     && deactivate 
