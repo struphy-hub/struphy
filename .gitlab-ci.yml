@@ -259,6 +259,7 @@ build_docker_images:
   stage: startup
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker info
   script:
     - ls -1a
     - cat docker/ubuntu.dockerfile
