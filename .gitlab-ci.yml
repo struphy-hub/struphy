@@ -260,6 +260,8 @@ build_docker_images:
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
+    - ls -1a
+    - cat docker/ubuntu.dockerfile
     - docker build -t "$CI_REGISTRY_IMAGE:ubuntu-latest-test" -f docker/ubuntu.dockerfile .
     - docker push "$CI_REGISTRY_IMAGE:ubuntu-latest-test"
 
