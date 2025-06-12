@@ -9,6 +9,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.geometry.base import Domain
 from struphy.linear_algebra.linalg_kernels import cross_vectorized, cross_vectorized_flat, scalar_dot_vectorized_flat
+
 # from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
 
@@ -44,7 +45,7 @@ def push_vxb_analytic(
         v1 = markers_array["v1"]
         v2 = markers_array["v2"]
         v3 = markers_array["v3"]
-        
+
         n_p = len(e1)
         b_form = empty((n_p, 3, 1), dtype=float)
         b_abs = empty(n_p, dtype=float)
@@ -70,7 +71,7 @@ def push_vxb_analytic(
 
         # magnetic field: Cartesian components
         b_cart = matmul(jacobian, b_form)  # Npx3x1
-        b_cart = b_cart / det_df[:, newaxis, newaxis] 
+        b_cart = b_cart / det_df[:, newaxis, newaxis]
 
         # magnetic field: magnitude
         b_abs[:] = sqrt(b_cart[:, 0, 0] ** 2 + b_cart[:, 1, 0] ** 2 + b_cart[:, 2, 0] ** 2)
@@ -86,19 +87,21 @@ def push_vxb_analytic(
 
         # first component of perpendicular velocity
         vxb_norm = cross_vectorized_flat(v1, v2, v3, b_norm)
-        vperp = cross_vectorized(b_norm, vxb_norm) 
+        vperp = cross_vectorized(b_norm, vxb_norm)
 
         # second component of perpendicular velocity
-        b_normxvperp = cross_vectorized(b_norm, vperp) 
+        b_normxvperp = cross_vectorized(b_norm, vperp)
 
         # analytic rotation
-        temp = vpar[:, newaxis] * b_norm + cos(b_abs * dt)[:, newaxis] * vperp - sin(b_abs * dt)[:, newaxis] * b_normxvperp
+        temp = (
+            vpar[:, newaxis] * b_norm + cos(b_abs * dt)[:, newaxis] * vperp - sin(b_abs * dt)[:, newaxis] * b_normxvperp
+        )
         v1[:] = temp[:, 0]
         v2[:] = temp[:, 1]
         v3[:] = temp[:, 2]
 
 
-def push_vxb_implicit( 
+def push_vxb_implicit(
     dt: float,
     stage: int,
     particles: "Particles",
@@ -121,7 +124,6 @@ def push_vxb_implicit(
             3d array of FE coeffs of B-field as 2-form.
     """
 
-
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = particles.get_amrex_markers_array(pti.soa())
         e1 = markers_array["x"]
@@ -130,11 +132,11 @@ def push_vxb_implicit(
         v1 = markers_array["v1"]
         v2 = markers_array["v2"]
         v3 = markers_array["v3"]
-        
+
         n_p = len(e1)
         # allocate for field evaluations (2-form components, Cartesian components and rotation matrix such that vxB = B_prod.v)
         b_form = empty((n_p, 3, 1), dtype=float)
-        b_prod = empty((n_p,3, 3), dtype=float)
+        b_prod = empty((n_p, 3, 3), dtype=float)
 
         # identity matrix
         identity = empty((n_p, 3, 3), dtype=float)
@@ -144,13 +146,13 @@ def push_vxb_implicit(
         identity[:, 2, 2] = 1.0
 
         # right-hand side and left-hand side of Crank-Nicolson scheme
-        rhs = empty((n_p,3, 3), dtype=float)
-        lhs = empty((n_p,3, 3), dtype=float)
+        rhs = empty((n_p, 3, 3), dtype=float)
+        lhs = empty((n_p, 3, 3), dtype=float)
 
-        lhs_inv = empty((n_p,3, 3), dtype=float)
+        lhs_inv = empty((n_p, 3, 3), dtype=float)
 
-        vec = empty((n_p,3), dtype=float)
-        res = empty((n_p,3), dtype=float)
+        vec = empty((n_p, 3), dtype=float)
+        res = empty((n_p, 3), dtype=float)
 
         # evaluate Jacobian
         jacobian = particles.domain.jacobian(e1, e2, e3, change_out_order=True, flat_eval=True)  # Npx3x3
@@ -172,17 +174,17 @@ def push_vxb_implicit(
 
         # magnetic field: Cartesian components
         b_cart = matmul(jacobian, b_form)  # Npx3x1
-        b_cart = b_cart / det_df[:, newaxis, newaxis] 
+        b_cart = b_cart / det_df[:, newaxis, newaxis]
 
         # magnetic field: rotation matrix
-        b_prod[:,0, 1] = b_cart[:,2, 0]
-        b_prod[:,0, 2] = -b_cart[:,1, 0]
+        b_prod[:, 0, 1] = b_cart[:, 2, 0]
+        b_prod[:, 0, 2] = -b_cart[:, 1, 0]
 
-        b_prod[:,1, 0] = -b_cart[:,2,0]
-        b_prod[:,1, 2] = b_cart[:,0,0]
+        b_prod[:, 1, 0] = -b_cart[:, 2, 0]
+        b_prod[:, 1, 2] = b_cart[:, 0, 0]
 
-        b_prod[:,2, 0] = b_cart[:,1,0]
-        b_prod[:,2, 1] = -b_cart[:,0,0]
+        b_prod[:, 2, 0] = b_cart[:, 1, 0]
+        b_prod[:, 2, 1] = -b_cart[:, 0, 0]
 
         # solve 3x3 system
         rhs[:, :, :] = identity + dt / 2 * b_prod
@@ -192,13 +194,13 @@ def push_vxb_implicit(
 
         v = array([v1, v2, v3]).T
         v = v[..., newaxis]  # Npx3x1
-        
-        vec = matmul(rhs,v)
-        res = matmul(lhs_inv,vec)
 
-        v1[:] = res[:,0,0]
-        v2[:] = res[:,1,0]
-        v3[:] = res[:,2,0]
+        vec = matmul(rhs, v)
+        res = matmul(lhs_inv, vec)
+
+        v1[:] = res[:, 0, 0]
+        v2[:] = res[:, 1, 0]
+        v3[:] = res[:, 2, 0]
 
 
 def push_v_with_efield(
@@ -229,7 +231,6 @@ def push_v_with_efield(
             A constant (usually related to the charge-to-mass ratio).
     """
 
-
     for pti in particles.markers.iterator(particles.markers, 0):
         markers_array = particles.get_amrex_markers_array(pti.soa())
         e1 = markers_array["x"]
@@ -238,7 +239,7 @@ def push_v_with_efield(
 
         n_p = len(e1)
         e_form = empty((n_p, 3, 1), dtype=float)
-    
+
         # evaluate Jacobian
         jacobian = particles.domain.jacobian(e1, e2, e3, change_out_order=True, flat_eval=True)  # Npx3x3
 
@@ -259,7 +260,7 @@ def push_v_with_efield(
         )
 
         # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
-        e_cart = matmul(jacobian_inverse_T, e_form)  
+        e_cart = matmul(jacobian_inverse_T, e_form)
 
         # update velocities
         temp = dt * const * e_cart
@@ -310,7 +311,7 @@ def push_eta_stage(
         v = array([v1, v2, v3]).T
         v = v[..., newaxis]  # Npx3x1
         # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
-        k = matmul(jacobian_inv, v)  
+        k = matmul(jacobian_inv, v)
         # accumulation for last stage
         temp = dt * b[stage] * k
         markers_array["real_comp0"][:] = markers_array["real_comp0"][:] + temp[:, 0, 0]

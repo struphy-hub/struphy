@@ -184,9 +184,7 @@ class Vlasov(StruphyModel):
             for pti in particle_container.iterator(particle_container, 0):
                 markers_array = self.pointer["ions"].get_amrex_markers_array(pti.soa())
                 self._tmp[0] += markers_array["weights"].dot(
-                    markers_array["v1"] ** 2
-                    + markers_array["v2"] ** 2
-                    + markers_array["v3"] ** 2,
+                    markers_array["v1"] ** 2 + markers_array["v2"] ** 2 + markers_array["v3"] ** 2,
                 ) / (2 * self.pointer["ions"].Np)
         else:
             self._tmp[0] = self.pointer["ions"].markers_wo_holes[:, 6].dot(

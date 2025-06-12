@@ -1398,7 +1398,6 @@ def test_all():
 
 if __name__ == "__main__":
     test_all()
-    
 
 
 # add flat_eval option for jacobians (evaluate metric coef) DONE

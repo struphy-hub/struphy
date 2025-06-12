@@ -691,15 +691,15 @@ class Particles(metaclass=ABCMeta):
             out["vel"] = ["v1", "v2", "v3"]  # velocities
             out["coords"] = ["x", "y", "z", "v1", "v2", "v3"]  # phasespace_coords
             out["com"] = {}
-            out["com"]["6D"] = ["com_1","com_2","com_3"]  # constants of motion (Particles6D) 
-            out["com"]["5D"] = ["com_1","com_2","com_3"]  # constants of motion (Particles5D) 
+            out["com"]["6D"] = ["com_1", "com_2", "com_3"]  # constants of motion (Particles6D)
+            out["com"]["5D"] = ["com_1", "com_2", "com_3"]  # constants of motion (Particles5D)
             out["pos+energy"] = {}
-            out["pos+energy"]["6D"] = ["x", "y", "z", "com_1"]  # positions + energy 
-            out["pos+energy"]["5D"] = ["x", "y", "z", "com_1"]  # positions + energy 
+            out["pos+energy"]["6D"] = ["x", "y", "z", "com_1"]  # positions + energy
+            out["pos+energy"]["5D"] = ["x", "y", "z", "com_1"]  # positions + energy
             out["weights"] = "weights"  # weights
             out["s0"] = "s0"  # sampling density at t=0
             out["w0"] = "w0"  # weights at t=0
-            out["box"] = "box"  # sorting box index     
+            out["box"] = "box"  # sorting box index
             out["ids"] = {}  # marker_inds TODO (Mati)
         else:
             out["pos"] = slice(0, 3)  # positions
@@ -1962,9 +1962,11 @@ class Particles(metaclass=ABCMeta):
 
                 # evaluate initial distribution function
                 if self.type == "sph":
-                    f_init = self.f_init(np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float))
+                    f_init = self.f_init(
+                        np.stack([markers_array["x"], markers_array["y"], markers_array["z"]], axis=1).astype(float)
+                    )
                 else:
-                    f_init = self.f_init(*(markers_array[i] for i in self.f_coords_index)) 
+                    f_init = self.f_init(*(markers_array[i] for i in self.f_coords_index))
 
                 # if f_init is vol-form, transform to 0-form
                 if self.pforms[0] == "vol":
@@ -1986,10 +1988,7 @@ class Particles(metaclass=ABCMeta):
                     flat_eval=True,
                 )[:]
                 # compute w0
-                markers_array["w0"][:] = (
-                    f_init
-                    / markers_array["s0"]
-                )[:]
+                markers_array["w0"][:] = (f_init / markers_array["s0"])[:]
 
             if reject_weights:
                 reject = self.markers[:, self.index["w0"]] < threshold
@@ -2136,7 +2135,7 @@ class Particles(metaclass=ABCMeta):
             # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
         # extend components list to number of columns of markers array
-        if self.amrex:        
+        if self.amrex:
             f_slice = np.histogramdd(
                 self.phasespace_coords[:, components],
                 bins=bin_edges,
@@ -2361,7 +2360,7 @@ class Particles(metaclass=ABCMeta):
         """
 
         for pti in self._markers.iterator(self._markers, 0):
-            markers_array=self.get_amrex_markers_array(pti.soa())
+            markers_array = self.get_amrex_markers_array(pti.soa())
 
             # remove feature not yet implemented
             for axis in self._remove_axes:
@@ -3744,13 +3743,15 @@ class Particles(metaclass=ABCMeta):
                 func = naive_evaluation_flat
             elif len(_shp) == 3:
                 func = naive_evaluation_meshgrid
-                
+
             if self.amrex:
-                markers = np.ascontiguousarray(self._markers.to_df()[self.index["pos"] + [self.index["weights"]]].to_numpy())
+                markers = np.ascontiguousarray(
+                    self._markers.to_df()[self.index["pos"] + [self.index["weights"]]].to_numpy()
+                )
                 index = 3
             else:
                 markers = self.markers
-                
+
             func(
                 eta1,
                 eta2,
