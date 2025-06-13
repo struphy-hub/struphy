@@ -1221,26 +1221,26 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     def species():
         dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
 
-        # dct['em_fields']['b_field'] = 'Hdiv'
-        # dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
-        dct["fluid"]["mhd"] = {
+        dct['em_fields']['potential'] = 'L2'
+        dct["fluid"]["ions"] = {
             "u": "Hdiv",
-            "ue": "Hdiv",
-            "potential": "L2",
+        }
+        dct["fluid"]["electrons"] = {
+            "u": "Hdiv",
         }
         return dct
 
     @staticmethod
     def bulk_species():
-        return "mhd"
+        return "ions"
 
     @staticmethod
     def velocity_scale():
-        return "alfvén"
+        return "thermal"
 
     @staticmethod
     def propagators_dct():
-        return {propagators_fields.TwoFluidQuasiNeutralFull: ["mhd_u", "mhd_ue", "mhd_potential"]}
+        return {propagators_fields.TwoFluidQuasiNeutralFull: ["ions_u", "electrons_u", "potential"]}
 
     __em_fields__ = species()["em_fields"]
     __fluid_species__ = species()["fluid"]
@@ -1248,26 +1248,51 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
+    
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["fluid", "electrons"],
+            key="override_eq_params",
+            option=[False, {"epsilon": 1.0}],
+            dct=dct,
+        )
+        return dct
 
     def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
+        
+        # get species paramaters
+        electrons_params = params["fluid"]["electrons"]
+
+        # Get coupling strength
+        if electrons_params["options"]["override_eq_params"]:
+            self._epsilon = electrons_params["options"]["override_eq_params"]["epsilon"]
+            print(
+                f"\n!!! Override equation parameters: {self._epsilon = }.",
+            )
+        else:
+            self._epsilon = self.equation_params["electrons"]["epsilon"]
+
 
         # extract necessary parameters
-        stokes_solver = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["solver"]
-        stokes_nu = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["nu"]
-        stokes_nu_e = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["nu_e"]
-        stokes_a = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["a"]
-        stokes_R0 = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["R0"]
-        stokes_B0 = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["B0"]
-        stokes_Bp = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["Bp"]
-        stokes_alpha = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["alpha"]
-        stokes_beta = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["beta"]
-        stokes_eps = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["eps"]
-        stokes_variant = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["variant"]
-        stokes_method_to_solve = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["method_to_solve"]
-        stokes_preconditioner = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["preconditioner"]
-        stokes_spectralanalysis = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["spectralanalysis"]
-        stokes_dimension = params["fluid"]["mhd"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
+        stokes_solver = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["solver"]
+        stokes_nu = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu"]
+        stokes_nu_e = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu_e"]
+        stokes_a = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["a"]
+        stokes_R0 = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["R0"]
+        stokes_B0 = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["B0"]
+        stokes_Bp = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["Bp"]
+        stokes_alpha = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["alpha"]
+        stokes_beta = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["beta"]
+        stokes_sigma = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["sigma"]
+        stokes_variant = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["variant"]
+        stokes_method_to_solve = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["method_to_solve"]
+        stokes_preconditioner = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["preconditioner"]
+        stokes_spectralanalysis = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["spectralanalysis"]
+        stokes_dimension = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
         stokes_1D_dt = params["time"]["dt"]
 
         # Check MPI size to ensure only one MPI process
@@ -1288,7 +1313,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             "Bp": stokes_Bp,
             "alpha": stokes_alpha,
             "beta": stokes_beta,
-            "eps": stokes_eps,
+            "stab_sigma": stokes_sigma,
             "variant": stokes_variant,
             "method_to_solve": stokes_method_to_solve,
             "preconditioner": stokes_preconditioner,

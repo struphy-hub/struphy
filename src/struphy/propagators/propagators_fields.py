@@ -6687,13 +6687,14 @@ class TwoFluidQuasiNeutralFull(Propagator):
         }
         dct["nu"] = 1.0
         dct["nu_e"] = 0.01
+        dct["eps_norm"] = 1.0
         dct["a"] = 1.0
         dct["R0"] = 1.0
         dct["B0"] = 10.0
         dct["Bp"] = 12.5
         dct["alpha"] = 0.1
         dct["beta"] = 1.0
-        dct["eps"] = 0.00001
+        dct["stab_sigma"] = 0.00001
         dct["variant"] = "Uzawa"
         dct["method_to_solve"] = "DirectNPInverse"
         dct["preconditioner"] = False
@@ -6713,6 +6714,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         *,
         nu: float = options(default=True)["nu"],
         nu_e: float = options(default=True)["nu_e"],
+        eps_norm: float = options(default=True)["eps_norm"],
         solver: dict = options(default=True)["solver"],
         a: float = options(default=True)["a"],
         R0: float = options(default=True)["R0"],
@@ -6720,7 +6722,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         Bp: float = options(default=True)["Bp"],
         alpha: float = options(default=True)["alpha"],
         beta: float = options(default=True)["beta"],
-        eps: float = options(default=True)["eps"],
+        stab_sigma: float = options(default=True)["stab_sigma"],
         variant: str = options(default=True)["variant"],
         method_to_solve: str = options(default=True)["method_to_solve"],
         preconditioner: bool = options(default=True)["preconditioner"],
@@ -6738,13 +6740,14 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         self._nu = nu
         self._nu_e = nu_e
+        self._eps_norm = eps_norm
         self._a = a
         self._R0 = R0
         self._B0 = B0
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
-        self._eps = eps
+        self._stab_sigma = stab_sigma
         self._variant = variant
         self._method_to_solve = method_to_solve
         self._preconditioner = preconditioner
@@ -6757,7 +6760,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
             _A11 = (
                 self._M2
-                - self._M2B
+                - self._M2B/self._eps_norm
                 + self._nu
                 * (
                     self.derham.div.T @ self._M3 @ self.derham.div
@@ -6767,8 +6770,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _A12 = None
             _A21 = _A12
             _A22 = (
-                -self._eps * IdentityOperator(_A11.domain)
-                + self._M2B
+                -self._stab_sigma * IdentityOperator(_A11.domain)
+                + self._M2B/self._eps_norm
                 + self._nu_e
                 * (
                     self.derham.div.T @ self._M3 @ self.derham.div
@@ -6786,7 +6789,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             b0=self._B0,
             nu=self._nu,
             dimension=self._dimension,
-            epsilon=self._eps,
+            epsilon=self._stab_sigma,
             dt=D1_dt,
         )
         _funy = getattr(callables, "ManufacturedSolutionForceterm")(
@@ -6795,7 +6798,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             b0=self._B0,
             nu=self._nu,
             dimension=self._dimension,
-            epsilon=self._eps,
+            epsilon=self._stab_sigma,
             dt=D1_dt,
         )
         _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
@@ -6804,7 +6807,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             b0=self._B0,
             nu_e=self._nu_e,
             dimension=self._dimension,
-            epsilon=self._eps,
+            epsilon=self._stab_sigma,
             dt=D1_dt,
         )
         _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(
@@ -6813,7 +6816,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             b0=self._B0,
             nu_e=self._nu_e,
             dimension=self._dimension,
-            epsilon=self._eps,
+            epsilon=self._stab_sigma,
             dt=D1_dt,
         )
         
@@ -6944,30 +6947,30 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     self._Dnp.T @ self._M3np @ self._Dnp
                     + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                 )
-                - 1.0 * self._M2Bnp
+                - 1.0 * self._M2Bnp/self._eps_norm
             )
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
                 self.A22np = (
-                    self._eps * np.identity(A11np.shape[0])
+                    self._stab_sigma * np.identity(A11np.shape[0])
                     + self._nu_e
                     * (
                         self._Dnp.T @ self._M3np @ self._Dnp
                         + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                     )
-                    + self._M2Bnp
+                    + self._M2Bnp/self._eps_norm
                 )
-                self._A22prenp = np.identity(self.A22np.shape[0]) * self._eps + self._nu_e * (
+                self._A22prenp = np.identity(self.A22np.shape[0]) * self._stab_sigma + self._nu_e * (
                     self._Dnp.T @ self._M3np @ self._Dnp
                 )
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
                 self.A22np = (
-                    self._eps * sc.sparse.eye(A11np.shape[0], format="csr")
+                    self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
                     + self._nu_e
                     * (
                         self._Dnp.T @ self._M3np @ self._Dnp
                         + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                     )
-                    + self._M2Bnp
+                    + self._M2Bnp/self._eps_norm
                 )
                 self._A22prenp = sc.sparse.eye(self.A22np.shape[0], format="csr")
 
@@ -7019,7 +7022,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # Define block matrix [[A BT], [B 0]]
             _A11 = (
                 self._M2 / dt
-                - self._M2B
+                - self._M2B/self._eps_norm
                 + self._nu
                 * (
                     self.derham.div.T @ self._M3 @ self.derham.div
@@ -7034,8 +7037,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     self.derham.div.T @ self._M3 @ self.derham.div
                     + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
                 )
-                + self._M2B
-                - self._eps * IdentityOperator(_A11.domain)
+                + self._M2B/self._eps_norm
+                - self._stab_sigma * IdentityOperator(_A11.domain)
             )
             _B1 = -self._M3 @ self.derham.div
             _B2 = self._M3 @ self.derham.div
@@ -7085,7 +7088,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     self._Dnp.T @ self._M3np @ self._Dnp
                     + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                 )
-                - self._M2Bnp
+                - self._M2Bnp/self._eps_norm
             )
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
                 _A22prenp = self._A22prenp
@@ -7141,6 +7144,48 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
 
+        import os
+        import pickle
+        from collections import defaultdict, namedtuple
+
+        def load_iteration_log(filename="iteration_log.pkl"):
+            if os.path.exists(filename) and os.path.getsize(filename) > 0:
+                with open(filename, "rb") as f:
+                    data = pickle.load(f)
+                # Ensure it's a defaultdict for new keys
+                if not isinstance(data, defaultdict):
+                    data = defaultdict(default_entry, data)
+                return data
+            else:
+                return defaultdict(default_entry)
+
+        def save_iteration_log(data, filename="iteration_log.pkl"):
+            with open(filename, "wb") as f:
+                pickle.dump(data, f)
+        
+        # from struphy.params_2D_variation_run import load_iteration_log, save_iteration_log, default_entry
+        
+        # 1. Load existing data
+        iteration_log = load_iteration_log()
+        
+        # 2. Define the key tuple using your parameters
+        key = (
+            self._variant,
+            tuple(self.derham.Nel),
+            tuple(self.derham.p),
+            self._stab_sigma,
+            self._nu,
+            self._nu_e,
+            self._method_to_solve,
+            self._preconditioner
+        )
+
+        # 3. Append your iteration number
+        iteration_log[key]["niter"].append(info["niter"])
+
+        # 4. Save the updated data
+        save_iteration_log(iteration_log)
+
         if self._info and self._rank == 0:
             print("Status     for TwoFluidQuasiNeutralFull:", info["success"])
             print("Iterations for TwoFluidQuasiNeutralFull:", info["niter"])
@@ -7148,3 +7193,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
             print("Maxdiff u_e for TwoFluidQuasiNeutralFull:", max_due)
             print("Maxdiff phi for TwoFluidQuasiNeutralFull:", max_dphi)
             print()
+
+
+def default_entry():
+    return {
+        "niter": [],
+        "timestep": []
+    }

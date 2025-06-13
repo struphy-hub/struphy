@@ -295,6 +295,37 @@ def main(
                 message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
                     run_time_now * 60, t1 - t0
                 )
+                
+                
+                import os
+                import pickle
+                from collections import defaultdict
+                with open("iteration_log.pkl", "rb") as f:
+                    iteration_log = pickle.load(f)
+                    
+
+                def save_iteration_log(data, filename="iteration_log.pkl"):
+                    with open(filename, "wb") as f:
+                        pickle.dump(data, f)
+                
+
+                # 2. Define the key tuple using your parameters
+                key = (
+                    params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["variant"],
+                    tuple(params["grid"]["Nel"]),
+                    tuple(params["grid"]["p"]),
+                    params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["sigma"],
+                    params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu"],
+                    params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu_e"],
+                    params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["method_to_solve"],
+                    params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["preconditioner"],
+                )
+
+                # 3. Append your iteration number
+                iteration_log[key]["timestep"].append(t1 - t0)
+
+                # 4. Save the updated data
+                save_iteration_log(iteration_log)
 
                 print(message, end="\n")
                 model.print_scalar_quantities()
