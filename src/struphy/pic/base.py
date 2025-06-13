@@ -2122,8 +2122,6 @@ class Particles(metaclass=ABCMeta):
 
         # extend components list to number of columns of markers array
         if self.amrex:
-            f_slice = []
-            df_slice = []
             axes = ["x", "y", "z", "v1", "v2", "v3"]
             components_labels = [axes[axis] for axis, b in enumerate(components) if b]
             for pti in self.markers.iterator(self.markers, 0):
@@ -2146,22 +2144,18 @@ class Particles(metaclass=ABCMeta):
 
                 phasespace_coords = xp.array([markers_array[label] for label in components_labels]).T
 
-                f_slice_loc = xp.histogramdd(
+                f_slice = xp.histogramdd(
                     phasespace_coords,
                     bins=bin_edges,
                     weights=_weights0,
                 )[0]
 
-                df_slice_loc = xp.histogramdd(
+                df_slice = xp.histogramdd(
                     phasespace_coords,
                     bins=bin_edges,
                     weights=_weights,
                 )[0]
 
-                f_slice_loc /= self.Np * bin_vol
-                df_slice_loc /= self.Np * bin_vol
-
-            return f_slice_loc, df_slice_loc
         else:
             _n = len(components)
             slicing = components + [False] * (self.markers.shape[1] - _n)
@@ -2189,8 +2183,8 @@ class Particles(metaclass=ABCMeta):
                 weights=_weights,
             )[0]
 
-            f_slice /= self.Np * bin_vol
-            df_slice /= self.Np * bin_vol
+        f_slice /= self.Np * bin_vol
+        df_slice /= self.Np * bin_vol
 
         return f_slice, df_slice
 
@@ -3771,30 +3765,47 @@ class Particles(metaclass=ABCMeta):
                 func = naive_evaluation_meshgrid
 
             if self.amrex:
-                markers = np.ascontiguousarray(
-                    self._markers.to_df()[self.index["pos"] + [self.index["weights"]]].to_numpy()
-                )
                 index = 3
+                for pti in self.markers.iterator(self.markers, 0):
+                    markers_array = self.get_amrex_markers_array(pti.soa())
+                    markers = np.ascontiguousarray([markers_array[i] for i in ["x", "y", "z", "weights"]])
+                    func(
+                        eta1,
+                        eta2,
+                        eta3,
+                        markers,
+                        self.Np,
+                        self.holes,
+                        periodic1,
+                        periodic2,
+                        periodic3,
+                        index,
+                        ker_id,
+                        h1,
+                        h2,
+                        h3,
+                        out,
+                    )
             else:
                 markers = self.markers
 
-            func(
-                eta1,
-                eta2,
-                eta3,
-                markers,
-                self.Np,
-                self.holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                index,
-                ker_id,
-                h1,
-                h2,
-                h3,
-                out,
-            )
+                func(
+                    eta1,
+                    eta2,
+                    eta3,
+                    markers,
+                    self.Np,
+                    self.holes,
+                    periodic1,
+                    periodic2,
+                    periodic3,
+                    index,
+                    ker_id,
+                    h1,
+                    h2,
+                    h3,
+                    out,
+                )
         return out
 
     def update_holes(self):
