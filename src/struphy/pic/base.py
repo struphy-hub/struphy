@@ -2131,13 +2131,15 @@ class Particles(metaclass=ABCMeta):
                 # compute weights of histogram:
                 _weights0 = markers_array["w0"]
                 _weights = markers_array["weights"]
-                
+
                 e1 = markers_array["x"]
                 e2 = markers_array["y"]
                 e3 = markers_array["z"]
 
                 if divide_by_jac:
-                    jacobian = self.domain.jacobian(e1, e2, e3, change_out_order=True, flat_eval=True, remove_outside=False)
+                    jacobian = self.domain.jacobian(
+                        e1, e2, e3, change_out_order=True, flat_eval=True, remove_outside=False
+                    )
                     det_jacobian = xp.linalg.det(jacobian)
                     _weights /= det_jacobian
                     _weights0 /= det_jacobian
@@ -2151,11 +2153,11 @@ class Particles(metaclass=ABCMeta):
                 )[0]
 
                 df_slice_loc = xp.histogramdd(
-                   phasespace_coords,
+                    phasespace_coords,
                     bins=bin_edges,
                     weights=_weights,
                 )[0]
-                
+
                 f_slice_loc /= self.Np * bin_vol
                 df_slice_loc /= self.Np * bin_vol
 
@@ -2163,18 +2165,18 @@ class Particles(metaclass=ABCMeta):
         else:
             _n = len(components)
             slicing = components + [False] * (self.markers.shape[1] - _n)
-            
+
             # compute weights of histogram:
             _weights0 = self.weights0
             _weights = self.weights
-            
+
             if divide_by_jac:
                 _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
                 # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
                 _weights0 /= self.domain.jacobian_det(self.positions, remove_outside=False)
                 # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
-            
+
             f_slice = np.histogramdd(
                 self.markers_wo_holes_and_ghost[:, slicing],
                 bins=bin_edges,
