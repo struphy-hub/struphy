@@ -168,10 +168,12 @@ class Particles(metaclass=ABCMeta):
         self._clone_config = clone_config
         if self.clone_config is None:
             self._mpi_comm = comm_world
-            num_clones = 1
+            self._num_clones = 1
+            self._clone_id = 0
         else:
             self._mpi_comm = self.clone_config.sub_comm
-            num_clones = self.clone_config.num_clones
+            self._num_clones = self.clone_config.num_clones
+            self._clone_id = self.clone_config.clone_id
 
         # other parameters
         self._name = name
@@ -180,7 +182,7 @@ class Particles(metaclass=ABCMeta):
         self._projected_equil = projected_equil
         self._equation_params = equation_params
 
-        # check for mpi communicator
+        # check for mpi communicator (i.e. sub_comm of clone)
         if self.mpi_comm is None:
             self._mpi_size = 1
             self._mpi_rank = 0
@@ -197,13 +199,13 @@ class Particles(metaclass=ABCMeta):
             self._nprocs = domain_decomp[1]
 
         # total number of cells (equal to mpi_size if no grid)
-        n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * num_clones
+        n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * self.num_clones
         if verbose:
             print(f"{self.mpi_rank = }, {n_cells = }")
 
         # total number of boxes
         if self.boxes_per_dim is None:
-            n_boxes = self.mpi_size * num_clones
+            n_boxes = self.mpi_size * self.num_clones
         else:
             assert all([nboxes >= nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"There must be at least one box {self.boxes_per_dim = } on each process {self.nprocs = } in each direction."
@@ -211,7 +213,7 @@ class Particles(metaclass=ABCMeta):
             assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"Number of boxes {self.boxes_per_dim = } must be divisible by number of processes {self.nprocs = } in each direction."
             )
-            n_boxes = np.prod(self.boxes_per_dim, dtype=int) * num_clones
+            n_boxes = np.prod(self.boxes_per_dim, dtype=int) * self.num_clones
 
         if verbose:
             print(f"{self.mpi_rank = }, {n_boxes = }")
@@ -451,6 +453,11 @@ class Particles(metaclass=ABCMeta):
     def Np(self):
         """Total number of markers/particles, from user input."""
         return self._Np
+    
+    @property
+    def Np_per_clone(self):
+        """Array where i-th entry corresponds to the number of particles on clone i."""
+        return self._Np_per_clone
 
     @property
     def ppc(self):
@@ -484,7 +491,18 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def clone_config(self):
+        """Manages the configuration for clone-based (copied grids) parallel processing using MPI."""
         return self._clone_config
+    
+    @property
+    def num_clones(self):
+        """Total number of clones."""
+        return self._num_clones
+    
+    @property
+    def clone_id(self):
+        """Clone id of current process."""
+        return self._clone_id
 
     @property
     def bckgr_params(self):
@@ -983,8 +1001,9 @@ class Particles(metaclass=ABCMeta):
                 self._f_coords_index = self.index["coords"]
                 self._f_jacobian_coords_index = self.index["coords"]
 
-    def _compute_n_mks_load(self):
-        '''Return an array of MPI.size where the i-th entry corresponds to the number of markers drawn on the i-th process.'''
+    def _n_mks_load_and_Np_per_clone(self):
+        '''Return two arrays: 1) an array of sub_comm.size where the i-th entry corresponds to the number of markers drawn on process i, 
+        and 2) an array of size num_clones where the i-th entry corresponds to the number of markers on clone i.'''
         # number of cells on current process
         n_cells_loc = np.prod(
             self.domain_array[self.mpi_rank, 2::3],
@@ -993,6 +1012,7 @@ class Particles(metaclass=ABCMeta):
 
         # array of number of markers on each process at loading stage
         n_mks_load = np.zeros(self.mpi_size, dtype=int)
+        Np_per_clone = np.zeros(self.num_clones, dtype=int)
 
         if self.mpi_comm is not None:
             if self.clone_config is None:
@@ -1018,12 +1038,18 @@ class Particles(metaclass=ABCMeta):
         # check if all markers are there
         assert np.sum(n_mks_load) == _n_mks_load_tot
         
-        return n_mks_load
+        # Np on each clone
+        Np_per_clone[self.clone_id] = _n_mks_load_tot
+        if self.clone_config is not None:
+            self.clone_config.inter_comm.Allgather(Np_per_clone[self.clone_id], Np_per_clone,)
+        assert np.sum(Np_per_clone) == self.Np
+        
+        return n_mks_load, Np_per_clone
 
     def _allocate_marker_array(self):
         """Create marker array :attr:`~struphy.pic.base.Particles.markers`."""
         if not hasattr(self, '_n_mks_load'):
-            self._n_mks_load = self._compute_n_mks_load()
+            self._n_mks_load, self._Np_per_clone = self._n_mks_load_and_Np_per_clone()
         
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self._mpi_rank]
@@ -1338,6 +1364,7 @@ class Particles(metaclass=ABCMeta):
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self.mpi_rank]
+        #Np_per_clone_loc = self.Np_per_clone[self.clone_id]
 
         # fill holes in markers array with -1 (all holes are at end of array at loading stage)
         self._markers[n_mks_load_loc:] = -1.0
@@ -1348,6 +1375,8 @@ class Particles(metaclass=ABCMeta):
 
         # cumulative sum of number of markers on each process at loading stage.
         n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
+        Np_per_clone_cum_sum = np.cumsum(self.Np_per_clone)
+        _first_marker_id = (Np_per_clone_cum_sum - self.Np_per_clone)[self.clone_id] + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]
 
         if self.mpi_rank == 0 and verbose:
             print("\nMARKERS:")
@@ -1373,9 +1402,7 @@ class Particles(metaclass=ABCMeta):
                 self._set_initial_condition()
                 self.velocities = np.array(self.u_init(self.positions)[0]).T
             # set markers ID in last column
-            self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] + np.arange(
-                n_mks_load_loc, dtype=float
-            )
+            self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
         else:
             if self.mpi_rank == 0 and verbose:
                 print("\nLoading fresh markers:")
@@ -1389,12 +1416,6 @@ class Particles(metaclass=ABCMeta):
                 if _seed is not None:
                     np.random.seed(_seed)
 
-                if self.clone_config is None:
-                    clone_id = 0
-                    num_clones = 1
-                else:
-                    clone_id = self.clone_config.clone_id
-                    num_clones = self.clone_config.num_clones
                 # counting integers
                 num_loaded_particles_loc = 0  # number of particles alreday loaded (local)
                 num_loaded_particles_glob = 0  # number of particles already loaded (each clone)
@@ -1412,7 +1433,7 @@ class Particles(metaclass=ABCMeta):
                     )
                     valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
                     valid_particles = temp[valid_idx]
-                    valid_particles = np.array_split(valid_particles, num_clones)[clone_id]
+                    valid_particles = np.array_split(valid_particles, self.num_clones)[self.clone_id]
                     num_valid = valid_particles.shape[0]
 
                     # Add the valid particles to the phasespace_coords array
@@ -1432,7 +1453,7 @@ class Particles(metaclass=ABCMeta):
                 n_mks_load_loc = self.n_mks_load[self.mpi_rank]
 
                 if self.mpi_comm is not None:
-                    self.mpi_comm.Allgather(self._n_mks_load[self.mpi_rank], self._n_mks_load)
+                    self.mpi_comm.Allgather(self.n_mks_load[self.mpi_rank], self.n_mks_load)
                 n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
 
                 # set new holes in markers array to -1
@@ -1523,9 +1544,7 @@ class Particles(metaclass=ABCMeta):
             else:
                 assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
 
-            self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] + np.arange(
-                n_mks_load_loc, dtype=float
-            )
+            self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
             if self.loading_params["initial"] is not None:
@@ -1544,7 +1563,7 @@ class Particles(metaclass=ABCMeta):
                         counter += 1
 
             # check if all particle positions are inside the unit cube [0, 1]^3
-            n_mks_load_loc = self._n_mks_load[self._mpi_rank]
+            n_mks_load_loc = self.n_mks_load[self._mpi_rank]
 
             assert np.all(~self.holes[:n_mks_load_loc])
             assert np.all(self.holes[n_mks_load_loc:])
