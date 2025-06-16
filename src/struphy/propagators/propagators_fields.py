@@ -6918,7 +6918,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 self._S21 = BasisProjectionOperatorLocal(
                     self.derham._Ploc["1"], self.derham.Vh_fem["2"], fun, transposed=False
                 )
-            self.derhamnumpy = Derham(self.derham.Nel, self.derham.p, self.derham.spl_kind, domain=self.domain)
+            self.derhamnumpy = Derham(self.derham.Nel,
+                                      self.derham.p,
+                                      self.derham.spl_kind,
+                                      domain=self.domain,)
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
                 self._M2np = self.mass_ops.M2._mat.toarray()
                 self._M3np = self.mass_ops.M3._mat.toarray()
@@ -7148,7 +7151,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         import pickle
         from collections import defaultdict, namedtuple
 
-        def load_iteration_log(filename="iteration_log.pkl"):
+        def load_iteration_log(filename="iteration_log_nu.pkl"):
             if os.path.exists(filename) and os.path.getsize(filename) > 0:
                 with open(filename, "rb") as f:
                     data = pickle.load(f)
@@ -7159,7 +7162,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             else:
                 return defaultdict(default_entry)
 
-        def save_iteration_log(data, filename="iteration_log.pkl"):
+        def save_iteration_log(data, filename="iteration_log_nu.pkl"):
             with open(filename, "wb") as f:
                 pickle.dump(data, f)
         
