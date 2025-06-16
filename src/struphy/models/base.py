@@ -702,14 +702,35 @@ class StruphyModel(metaclass=ABCMeta):
         from struphy.pic.base import Particles
 
         for val in self.kinetic.values():
+            
             obj = val["obj"]
             assert isinstance(obj, Particles)
+            
+            # allocate array for saving markers if not present 
+            if not hasattr(self, '_n_markers_saved'):
+                n_markers = val["params"]["save_data"].get("n_markers", 0)
+                
+                if isinstance(n_markers, float):
+                    if n_markers > 1.0:
+                        self._n_markers_saved = int(n_markers)
+                    else:
+                        self._n_markers_saved = int(obj.n_mks_global * n_markers)
+                else:
+                    self._n_markers_saved = n_markers
 
-            n_mks_save = val["params"]["save_data"].get("n_markers", 0)
-            if n_mks_save > 0:
+                assert n_markers <= obj.Np, (
+                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.Np})"
+                )
+                if n_markers > 0:
+                    val["kinetic_data"]["markers"] = np.zeros(
+                        (self._n_markers_saved, obj.markers.shape[1]),
+                        dtype=float,
+                    )
+
+            if self._n_markers_saved > 0:
                 markers_on_proc = np.logical_and(
                     obj.markers[:, -1] >= 0.0,
-                    obj.markers[:, -1] < n_mks_save,
+                    obj.markers[:, -1] < self._n_markers_saved,
                 )
                 n_markers_on_proc = np.count_nonzero(markers_on_proc)
                 val["kinetic_data"]["markers"][:] = -1.0
@@ -750,8 +771,13 @@ class StruphyModel(metaclass=ABCMeta):
                 h1 = 1 / obj.boxes_per_dim[0]
                 h2 = 1 / obj.boxes_per_dim[1]
                 h3 = 1 / obj.boxes_per_dim[2]
+                
                 ndim = np.count_nonzero([d > 1 for d in obj.boxes_per_dim])
-                kernel_type = "gaussian_" + str(ndim) + "d"
+                if ndim == 0:
+                    kernel_type = "gaussian_3d"
+                else:
+                    kernel_type = "gaussian_" + str(ndim) + "d"
+                    
                 for i, pts in enumerate(val["plot_pts"]):
                     n_sph = obj.eval_density(
                         *pts,
@@ -1847,16 +1873,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # for storing markers
                 val["kinetic_data"] = {}
-
-                n_markers = val["params"]["save_data"].get("n_markers", 0)
-                assert n_markers <= obj.Np, (
-                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.Np})"
-                )
-                if n_markers > 0:
-                    val["kinetic_data"]["markers"] = np.zeros(
-                        (n_markers, obj.markers.shape[1]),
-                        dtype=float,
-                    )
 
                 # for storing the distribution function
                 if "f" in val["params"]["save_data"]:

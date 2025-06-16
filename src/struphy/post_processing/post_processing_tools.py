@@ -467,7 +467,7 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
     temp = np.empty((n_markers, len(save_index)), order="C")
     lost_particles_mask = np.empty(n_markers, dtype=bool)
 
-    print("Evaluation of marker orbits for " + str(species))
+    print(f"Evaluation of {n_markers} marker orbits for {species}")
 
     # loop over time grid
     for n in tqdm(range(int((nt - 1) / step) + 1)):

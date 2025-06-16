@@ -1722,7 +1722,7 @@ class Particles(metaclass=ABCMeta):
             self.update_holes()
             self.reset_marker_ids()
             print(
-                f"\nWeights < {threshold} have been rejected, number of valid markers on current process is {self.n_mks_loc}."
+                f"\nWeights < {threshold} have been rejected, number of valid markers on process {self.mpi_rank} is {self.n_mks_loc}."
             )
 
         # compute (time-dependent) weights at vdim + 3
@@ -1758,9 +1758,10 @@ class Particles(metaclass=ABCMeta):
     def reset_marker_ids(self):
         """Reset the marker ids (last column in marker array) according to the current distribution of particles.
         The first marker on rank 0 gets the id '0', the last marker on the last rank gets the id 'n_mks_global - 1'."""
-        print(f'{self.n_mks_on_each_proc = }')
-        print(f'{self.n_mks_on_each_clone = }')
-        #self.markers[self.valid_mks, -1] = np.arange(self.n_mks_loc, dtype=int)
+        n_mks_proc_cumsum = np.cumsum(self.n_mks_on_each_proc)
+        n_mks_clone_cumsum = np.cumsum(self.n_mks_on_each_clone)
+        first_marker_id = (n_mks_clone_cumsum - self.n_mks_on_each_clone)[self.clone_id] + (n_mks_proc_cumsum - self.n_mks_on_each_proc)[self.mpi_rank]
+        self.marker_ids = first_marker_id + np.arange(self.n_mks_loc, dtype=int)
 
     def binning(self, components, bin_edges, divide_by_jac=True):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
