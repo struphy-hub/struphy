@@ -693,20 +693,24 @@ class Particles(metaclass=ABCMeta):
         return np.count_nonzero(self.valid_mks)
     
     @property
+    def n_mks_on_each_proc(self):
+        """Array where i-th entry corresponds to the number of valid markers on i-th process (without holes and ghosts)."""
+        return self._gather_scalar_in_subcomm_array(self.n_mks_loc)
+    
+    @property
+    def n_mks_on_clone(self):
+        """Number of valid markers on current clone (without holes and ghosts)."""
+        return np.sum(self.n_mks_on_each_proc)
+    
+    @property
+    def n_mks_on_each_clone(self):
+        """Number of valid markers on current clone (without holes and ghosts)."""
+        return self._gather_scalar_in_intercomm_array(self.n_mks_on_clone)
+    
+    @property
     def n_mks_global(self):
-        """Number of valid markers in simulation (without holes and ghosts)."""
-        if not hasattr(self, "_n_mks_global"):
-            self._n_mks_global = np.zeros(1, dtype=int)
-        
-        self._n_mks_global[0] = self.n_mks_loc
-        
-        if self.mpi_comm is not None:
-            self.mpi_comm.Allreduce(
-                MPI.IN_PLACE,
-                self._n_mks_global,
-                op=MPI.SUM,
-            )
-        return self._n_mks_global
+        """Number of valid markers on current clone (without holes and ghosts)."""
+        return np.sum(self.n_mks_on_each_clone)
 
     @property
     def positions(self):
@@ -1011,26 +1015,15 @@ class Particles(metaclass=ABCMeta):
         )
 
         # array of number of markers on each process at loading stage
-        n_mks_load = np.zeros(self.mpi_size, dtype=int)
-        Np_per_clone = np.zeros(self.num_clones, dtype=int)
-
-        if self.mpi_comm is not None:
-            if self.clone_config is None:
-                _ppc = self.ppc
-                _n_mks_load_tot = self.Np
-            else:
-                _n_cells_clone = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int))
-                _n_mks_load_tot = self.clone_config.get_Np_clone(self.Np)
-                _ppc = _n_mks_load_tot / _n_cells_clone
-
-            self.mpi_comm.Allgather(
-                np.array([int(_ppc * n_cells_loc)]),
-                n_mks_load,
-            )
+        if self.clone_config is not None:
+            _n_cells_clone = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int))
+            _n_mks_load_tot = self.clone_config.get_Np_clone(self.Np)
+            _ppc = _n_mks_load_tot / _n_cells_clone
         else:
-            n_mks_load[0] = int(self.ppc * n_cells_loc)
             _n_mks_load_tot = self.Np
-            assert _n_mks_load_tot == n_mks_load[0]
+            _ppc = self.ppc
+            
+        n_mks_load = self._gather_scalar_in_subcomm_array(int(_ppc * n_cells_loc))
 
         # add deviation from Np to rank 0
         n_mks_load[0] += _n_mks_load_tot - np.sum(n_mks_load)
@@ -1039,9 +1032,7 @@ class Particles(metaclass=ABCMeta):
         assert np.sum(n_mks_load) == _n_mks_load_tot
         
         # Np on each clone
-        Np_per_clone[self.clone_id] = _n_mks_load_tot
-        if self.clone_config is not None:
-            self.clone_config.inter_comm.Allgather(Np_per_clone[self.clone_id], Np_per_clone,)
+        Np_per_clone = self._gather_scalar_in_intercomm_array(_n_mks_load_tot)
         assert np.sum(Np_per_clone) == self.Np
         
         return n_mks_load, Np_per_clone
@@ -1448,12 +1439,8 @@ class Particles(metaclass=ABCMeta):
                 assert self.Np == int(num_loaded_particles_glob), f"{self.Np = }, {int(num_loaded_particles_glob) = }"
 
                 # set new n_mks_load
-                self.n_mks_load[self.mpi_rank] = num_loaded_particles_loc
-                # n_mks_load_loc = num_loaded_particles_loc
+                self._gather_scalar_in_subcomm_array(num_loaded_particles_loc, out=self.n_mks_load)
                 n_mks_load_loc = self.n_mks_load[self.mpi_rank]
-
-                if self.mpi_comm is not None:
-                    self.mpi_comm.Allgather(self.n_mks_load[self.mpi_rank], self.n_mks_load)
                 n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
 
                 # set new holes in markers array to -1
@@ -1733,6 +1720,7 @@ class Particles(metaclass=ABCMeta):
             reject = self.markers[:, self.index["w0"]] < threshold
             self._markers[reject] = -1.0
             self.update_holes()
+            self.reset_marker_ids()
             print(
                 f"\nWeights < {threshold} have been rejected, number of valid markers on current process is {self.n_mks_loc}."
             )
@@ -1766,6 +1754,13 @@ class Particles(metaclass=ABCMeta):
             f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
         self.weights = self.weights0 - f0 / self.sampling_density
+
+    def reset_marker_ids(self):
+        """Reset the marker ids (last column in marker array) according to the current distribution of particles.
+        The first marker on rank 0 gets the id '0', the last marker on the last rank gets the id 'n_mks_global - 1'."""
+        print(f'{self.n_mks_on_each_proc = }')
+        print(f'{self.n_mks_on_each_clone = }')
+        #self.markers[self.valid_mks, -1] = np.arange(self.n_mks_loc, dtype=int)
 
     def binning(self, components, bin_edges, divide_by_jac=True):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
@@ -3337,6 +3332,8 @@ Consider increasing the value of "bufsize" in the markers parameters for the nex
         self._ghost_particles[:] = self.markers[:, -1] == -2.0
         self.update_valid_mks()
 
+    ### MPI comm for domain decomposition ###
+    
     def sendrecv_determine_mtbs(
         self,
         alpha: list | tuple | np.ndarray = (1.0, 1.0, 1.0),
@@ -3486,6 +3483,61 @@ Consider increasing the value of "bufsize" in the markers parameters for the nex
                         test_reqs.pop()
                         self._reqs[i] = None
 
+    def _gather_scalar_in_subcomm_array(self, scalar: int, out: np.ndarray = None):
+        """Return an array of length sub_comm.size, where the i-th entry corresponds to the value
+        of the scalar on process i.
+        
+        Parameters
+        ----------
+        scalar : int
+            The scalar value on each process.
+            
+        out : np.ndarray
+            The returned array (optional).
+        """
+        if out is None:
+            _tmp = np.zeros(self.mpi_size, dtype=int)
+        else:
+            assert out.size == self.mpi_size
+            _tmp = out
+            
+        _tmp[self.mpi_rank] = scalar  
+        
+        if self.mpi_comm is not None:
+            self.mpi_comm.Allgather(
+                _tmp[self.mpi_rank],
+                _tmp,
+            )
+                
+        return _tmp
+    
+    def _gather_scalar_in_intercomm_array(self, scalar: int, out: np.ndarray = None):
+        """Return an array of length inter_comm.size, where the i-th entry corresponds to the value
+        of the scalar on clone i.
+        
+        Parameters
+        ----------
+        scalar : int
+            The scalar value on each clone.
+            
+        out : np.ndarray
+            The returned array (optional).
+        """
+        if out is None:
+            _tmp = np.zeros(self.num_clones, dtype=int)
+        else:
+            assert out.size == self.num_clones
+            _tmp = out
+            
+        _tmp[self.clone_id] = scalar  
+        
+        if self.clone_config is not None:
+            self.clone_config.inter_comm.Allgather(
+                _tmp[self.clone_id],
+                _tmp,
+            )
+                
+        return _tmp
 
 class Tesselation:
     """
