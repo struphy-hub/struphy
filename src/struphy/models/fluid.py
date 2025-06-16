@@ -78,7 +78,7 @@ class LinearMHD(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex: bool = False):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -234,7 +234,7 @@ class LinearExtendedMHDuniform(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -392,7 +392,7 @@ class ColdPlasma(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -512,7 +512,7 @@ class ViscoresistiveMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         from struphy.feec.projectors import L2Projector
         from struphy.feec.variational_utilities import H1vecMassMatrix_density, InternalEnergyEvaluator
         from struphy.polar.basic import PolarVector
@@ -749,7 +749,7 @@ class ViscousFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         from struphy.feec.projectors import L2Projector
         from struphy.polar.basic import PolarVector
 
@@ -950,7 +950,7 @@ class ViscoresistiveMHD_with_p(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         from struphy.feec.projectors import L2Projector
         from struphy.feec.variational_utilities import H1vecMassMatrix_density
         from struphy.polar.basic import PolarVector
@@ -1151,7 +1151,7 @@ class ViscoresistiveLinearMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         from struphy.feec.projectors import L2Projector
         from struphy.feec.variational_utilities import H1vecMassMatrix_density
         from struphy.polar.basic import PolarVector
@@ -1370,7 +1370,7 @@ class ViscoresistiveDeltafMHD(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         from struphy.feec.projectors import L2Projector
         from struphy.feec.variational_utilities import H1vecMassMatrix_density
         from struphy.polar.basic import PolarVector
@@ -1600,7 +1600,7 @@ class IsothermalEulerSPH(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # prelim
@@ -1703,7 +1703,7 @@ class HasegawaWakatani(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 

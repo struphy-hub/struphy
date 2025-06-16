@@ -125,7 +125,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -411,7 +411,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
@@ -680,7 +680,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config=None, baseclass=False):
+    def __init__(self, params, comm, clone_config=None, baseclass=False, amrex=False):
         """Initializes the model either as the full model or as a baseclass to inherit from.
         In case of being a baseclass, the propagators will not be initialized in the __init__ which allows other propagators to be added.
 
@@ -1005,7 +1005,7 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         super().__init__(params=params, comm=comm, clone_config=clone_config, baseclass=True)
 
         # propagator parameters
@@ -1123,7 +1123,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
