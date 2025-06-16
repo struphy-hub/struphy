@@ -12,7 +12,7 @@ kinetic:
         markers:
             ppb: 8
             bc: [periodic, periodic, periodic]
-            eps: 1.0
+            bufsize: 1.0
             loading: tesselation
             loading_params: {n_quad: 1}
             control_variate: false

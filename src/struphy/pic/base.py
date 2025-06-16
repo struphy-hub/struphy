@@ -1,6 +1,7 @@
 import copy
 import os
 from abc import ABCMeta, abstractmethod
+import warnings
 
 import h5py
 import numpy as np
@@ -84,7 +85,7 @@ class Particles(metaclass=ABCMeta):
     boxes_per_dim : tuple
         Number of boxes in each logical direction (n_eta1, n_eta2, n_eta3).
 
-    box_buff_size : float
+    box_bufsize : float
         Between 0 and 1, relative buffer size for box array (default = 0.25).
 
     bc : list
@@ -112,8 +113,8 @@ class Particles(metaclass=ABCMeta):
     weights_params : dict
         Parameterts for initializing weights, see defaults below.
 
-    eps : float
-        Size of buffer (as fraction of total size, default=.25) in markers array.
+    bufsize : float
+        Size of buffer (as multiple of total size, default=.25) in markers array.
 
     domain : Domain
         Struphy domain object.
@@ -146,7 +147,7 @@ class Particles(metaclass=ABCMeta):
         domain_decomp: tuple = None,
         ppb: int = 10,
         boxes_per_dim: tuple | list = None,
-        box_buff_size: float = 0.25,
+        box_bufsize: float = 0.25,
         bc: list = None,
         bc_refill: str = None,
         type: str = "full_f",
@@ -155,7 +156,7 @@ class Particles(metaclass=ABCMeta):
         loading: str = "pseudo_random",
         loading_params: dict = None,
         weights_params: dict = None,
-        eps: float = 0.25,
+        bufsize: float = 0.25,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
@@ -180,7 +181,6 @@ class Particles(metaclass=ABCMeta):
         self._equation_params = equation_params
 
         # check for mpi communicator
-
         if self.mpi_comm is None:
             self._mpi_size = 1
             self._mpi_rank = 0
@@ -233,8 +233,8 @@ class Particles(metaclass=ABCMeta):
         assert self.Np >= self.mpi_size
 
         # create marker array
-        self._eps = eps
-        self._create_marker_array()
+        self._bufsize = bufsize
+        self._allocate_marker_array()
 
         # boundary conditions
         if bc is None:
@@ -414,7 +414,7 @@ class Particles(metaclass=ABCMeta):
         """Total number of rows in markers array."""
         if not hasattr(self, "_n_rows"):
             input("\nWarning: marker array not yet created, creating now ...")
-            self._create_marker_array()
+            self._allocate_marker_array()
         return self._n_rows
 
     @property
@@ -449,7 +449,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def Np(self):
-        """Total number of markers/particles."""
+        """Total number of markers/particles, from user input."""
         return self._Np
 
     @property
@@ -463,9 +463,9 @@ class Particles(metaclass=ABCMeta):
         return self._ppb
 
     @property
-    def eps(self):
+    def bufsize(self):
         """Relative size of buffer in markers array."""
-        return self._eps
+        return self._bufsize
 
     @property
     def mpi_comm(self):
@@ -671,8 +671,24 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def n_mks_loc(self):
-        """Number of markers on process (without holes and ghosts)."""
+        """Number of valid markers on process (without holes and ghosts)."""
         return np.count_nonzero(self.valid_mks)
+    
+    @property
+    def n_mks_global(self):
+        """Number of valid markers in simulation (without holes and ghosts)."""
+        if not hasattr(self, "_n_mks_global"):
+            self._n_mks_global = np.zeros(1, dtype=int)
+        
+        self._n_mks_global[0] = self.n_mks_loc
+        
+        if self.mpi_comm is not None:
+            self.mpi_comm.Allreduce(
+                MPI.IN_PLACE,
+                self._n_mks_global,
+                op=MPI.SUM,
+            )
+        return self._n_mks_global
 
     @property
     def positions(self):
@@ -967,9 +983,8 @@ class Particles(metaclass=ABCMeta):
                 self._f_coords_index = self.index["coords"]
                 self._f_jacobian_coords_index = self.index["coords"]
 
-    def _create_marker_array(self):
-        """Create marker array :attr:`~struphy.pic.base.Particles.markers`."""
-
+    def _compute_n_mks_load(self):
+        '''Return an array of MPI.size where the i-th entry corresponds to the number of markers drawn on the i-th process.'''
         # number of cells on current process
         n_cells_loc = np.prod(
             self.domain_array[self.mpi_rank, 2::3],
@@ -977,7 +992,7 @@ class Particles(metaclass=ABCMeta):
         )
 
         # array of number of markers on each process at loading stage
-        self._n_mks_load = np.zeros(self.mpi_size, dtype=int)
+        n_mks_load = np.zeros(self.mpi_size, dtype=int)
 
         if self.mpi_comm is not None:
             if self.clone_config is None:
@@ -990,27 +1005,41 @@ class Particles(metaclass=ABCMeta):
 
             self.mpi_comm.Allgather(
                 np.array([int(_ppc * n_cells_loc)]),
-                self._n_mks_load,
+                n_mks_load,
             )
         else:
-            self._n_mks_load[0] = int(self.ppc * n_cells_loc)
+            n_mks_load[0] = int(self.ppc * n_cells_loc)
             _n_mks_load_tot = self.Np
-            assert _n_mks_load_tot == self._n_mks_load[0]
+            assert _n_mks_load_tot == n_mks_load[0]
 
         # add deviation from Np to rank 0
-        self._n_mks_load[0] += _n_mks_load_tot - np.sum(self._n_mks_load)
+        n_mks_load[0] += _n_mks_load_tot - np.sum(n_mks_load)
 
         # check if all markers are there
-        assert np.sum(self._n_mks_load) == _n_mks_load_tot
+        assert np.sum(n_mks_load) == _n_mks_load_tot
+        
+        return n_mks_load
 
+    def _allocate_marker_array(self):
+        """Create marker array :attr:`~struphy.pic.base.Particles.markers`."""
+        if not hasattr(self, '_n_mks_load'):
+            self._n_mks_load = self._compute_n_mks_load()
+        
         # number of markers on the local process at loading stage
-        n_mks_load_loc = self._n_mks_load[self._mpi_rank]
+        n_mks_load_loc = self.n_mks_load[self._mpi_rank]
+        bufsize = self.bufsize + 1.0 / np.sqrt(n_mks_load_loc)
 
-        # create markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with eps send/receive buffer
-        self._n_rows = round(
-            n_mks_load_loc * (1 + 1 / np.sqrt(n_mks_load_loc) + self.eps),
-        )
+        # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
+        self._n_rows = round(n_mks_load_loc * (1 + bufsize))
         self._markers = np.zeros((self.n_rows, self.n_cols), dtype=float)
+        
+        # allocate auxiliary arrays
+        self._holes = np.zeros(self.n_rows, dtype=bool)
+        self._ghost_particles = np.zeros(self.n_rows, dtype=bool)
+        self._valid_mks = np.zeros(self.n_rows, dtype=bool)
+        self._is_outside_right = np.zeros(self.n_rows, dtype=bool)
+        self._is_outside_left = np.zeros(self.n_rows, dtype=bool)
+        self._is_outside = np.zeros(self.n_rows, dtype=bool)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
@@ -1056,10 +1085,6 @@ class Particles(metaclass=ABCMeta):
             self._argsort_array = np.zeros(self.markers.shape[0], dtype=int)
         else:
             self._sorting_boxes = None
-
-        self._is_outside_right = np.zeros(self.n_rows, dtype=bool)
-        self._is_outside_left = np.zeros(self.n_rows, dtype=bool)
-        self._is_outside = np.zeros(self.n_rows, dtype=bool)
 
     def _auto_sampling_params(self):
         """Automatically determine sampling parameters from the background given"""
@@ -2743,13 +2768,31 @@ class Particles(metaclass=ABCMeta):
 
     def self_communication_boxes(self):
         """Communicate the particles in case a process is it's own neighbour
-        (in case of periodicity with low number of procs)"""
+        (in case of periodicity with low number of procs/boxes)"""
 
         if self._send_info_box[self.mpi_rank] > 0:
             self.update_holes()
             holes_inds = np.nonzero(self.holes)[0]
-            # print(f'{self.mpi_rank = }, {holes_inds.shape = }')
-            # print(f'{self.mpi_rank = }, {self._send_info_box = }')
+
+            if holes_inds.size < self._send_info_box[self.mpi_rank]:
+                warnings.warn(f'Strong load imbalance detected: \
+number of holes ({holes_inds.size}) on rank {self.mpi_rank} \
+is smaller than number of incoming particles ({self._send_info_box[self.mpi_rank]}). \
+Marker array will be re-allocated with twice the buffer size. \
+Consider increasing the value of "bufsize" in the markers parameters for the next run.') 
+                _tmp = self.markers.copy()
+                _n_rows_old = _tmp.shape[0]
+                print(f'old: {self.markers.shape = }')
+                self._bufsize *= 2.0
+                self._allocate_marker_array()
+                print(f'new: {self.markers.shape = }\n')
+                self.markers[:] = -1.0
+                self.markers[:_n_rows_old] = _tmp
+                self.update_holes()
+                self.update_ghost_particles()
+                self.update_valid_mks()
+                holes_inds = np.nonzero(self.holes)[0]
+                
             self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
     def communicate_boxes(self, verbose=False):

@@ -86,7 +86,7 @@ kinetic :
             ppc     : null  # number of markers per 3d grid cell
             ppb     : null  # number of markers per sorting box
             bc      : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
-            eps     : 1. # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            bufsize : 1. # MPI send/receive buffer 
             loading : pseudo_random # particle loading mechanism 
             loading_params :
                 seed          : 1234 # seed for random number generator

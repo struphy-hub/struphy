@@ -27,7 +27,7 @@ def test_draw(ppb, nx, ny, nz):
     boxes_per_dim = (nx, ny, nz)
     bc = ["periodic"] * 3
     loading = "tesselation"
-    eps = 0.5
+    bufsize = 0.5
 
     # instantiate Particle object
     particles = ParticlesSPH(
@@ -38,7 +38,7 @@ def test_draw(ppb, nx, ny, nz):
         loading=loading,
         domain=domain,
         verbose=False,
-        eps=eps,
+        bufsize=bufsize,
     )
     particles.draw_markers(sort=False)
 
@@ -92,7 +92,7 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
     bc = ["periodic"] * 3
     loading = "tesselation"
     loading_params = {"n_quad": n_quad}
-    eps = 0.5
+    bufsize = 0.5
 
     cst_vel = {"ux": 0.0, "uy": 0.0, "uz": 0.0, "density_profile": "constant"}
     bckgr_params = {"ConstantVelocity": cst_vel}
@@ -111,7 +111,7 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
         loading_params=loading_params,
         domain=domain,
         verbose=False,
-        eps=eps,
+        bufsize=bufsize,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
     )
