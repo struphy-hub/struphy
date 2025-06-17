@@ -1529,7 +1529,7 @@ class PushVinSPHpressure(Propagator):
         dct["algo"] = [
             "forward_euler",
         ]  # "heun2", "rk2", "heun3", "rk4"]
-        dct["gravity"] = 0.0,
+        dct["gravity"] = (0.0, 0.0, 0.0)
         if default:
             dct = descend_options_dict(dct, [])
         return dct
@@ -1541,7 +1541,7 @@ class PushVinSPHpressure(Propagator):
         kernel_type: str = "gaussian_2d",
         kernel_width: tuple = None,
         algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
-        gravity: float = 0.0,
+        gravity: tuple = options(default=True)["gravity"],
     ):
         # base class constructor call
         super().__init__(particles)
@@ -1563,7 +1563,7 @@ class PushVinSPHpressure(Propagator):
         else:
             assert all([hi <= 1 / ni for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)])
 
-        # collect arguments for init kernel
+        # init kernel
         args_init = (
             boxes,
             neighbours,
@@ -1580,23 +1580,10 @@ class PushVinSPHpressure(Propagator):
             args_init,
         )
 
-        # kernel for velocity update
-        # if kernel_nr <= 330:
-        #     assert particles.sorting_boxes.ny == 1, (
-        #         f"For 1d SPH simulations {kernel_nr = } <= 330, {particles.sorting_boxes.ny = } != 1 is not allowed."
-        #     )
-        #     assert particles.sorting_boxes.nz == 1, (
-        #         f"For 1d SPH simulations {kernel_nr = } <= 330, {particles.sorting_boxes.nz = } != 1 is not allowed."
-        #     )
-        # elif kernel_nr <= 660:
-        #     assert particles.sorting_boxes.nz == 1, (
-        #         f"For 2d SPH simulations 340 <= {kernel_nr = } <= 660, {particles.sorting_boxes.nz = } != 1 is not allowed."
-        #     )
-
+        # pusher kernel
         kernel = pusher_kernels.push_v_sph_pressure
 
-        # same arguments as init kernel plus gravity
-        g = np.array([0.0, gravity, 0.0], dtype=float)
+        gravity = np.array(gravity, dtype=float)
         
         args_kernel = (
             boxes,
@@ -1605,7 +1592,7 @@ class PushVinSPHpressure(Propagator):
             *periodic,
             kernel_nr,
             *kernel_width,
-            g,
+            gravity,
         )
         
         # the Pusher class wraps around all kernels

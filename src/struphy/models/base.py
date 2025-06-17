@@ -718,10 +718,10 @@ class StruphyModel(metaclass=ABCMeta):
                 else:
                     self._n_markers_saved = n_markers
 
-                assert n_markers <= obj.Np, (
+                assert self._n_markers_saved <= obj.Np, (
                     f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.Np})"
                 )
-                if n_markers > 0:
+                if self._n_markers_saved > 0:
                     val["kinetic_data"]["markers"] = np.zeros(
                         (self._n_markers_saved, obj.markers.shape[1]),
                         dtype=float,
