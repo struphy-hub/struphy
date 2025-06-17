@@ -1,5 +1,6 @@
 "Only particle variables are updated."
 
+import numpy as np
 from numpy import array, polynomial, random
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -16,7 +17,7 @@ from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-import numpy as np
+
 
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
@@ -1584,7 +1585,7 @@ class PushVinSPHpressure(Propagator):
         kernel = pusher_kernels.push_v_sph_pressure
 
         gravity = np.array(gravity, dtype=float)
-        
+
         args_kernel = (
             boxes,
             neighbours,
@@ -1594,7 +1595,7 @@ class PushVinSPHpressure(Propagator):
             *kernel_width,
             gravity,
         )
-        
+
         # the Pusher class wraps around all kernels
         self._pusher = Pusher(
             particles,

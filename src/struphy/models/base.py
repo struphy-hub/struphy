@@ -702,14 +702,13 @@ class StruphyModel(metaclass=ABCMeta):
         from struphy.pic.base import Particles
 
         for val in self.kinetic.values():
-            
             obj = val["obj"]
             assert isinstance(obj, Particles)
-            
-            # allocate array for saving markers if not present 
-            if not hasattr(self, '_n_markers_saved'):
+
+            # allocate array for saving markers if not present
+            if not hasattr(self, "_n_markers_saved"):
                 n_markers = val["params"]["save_data"].get("n_markers", 0)
-                
+
                 if isinstance(n_markers, float):
                     if n_markers > 1.0:
                         self._n_markers_saved = int(n_markers)
@@ -771,13 +770,13 @@ class StruphyModel(metaclass=ABCMeta):
                 h1 = 1 / obj.boxes_per_dim[0]
                 h2 = 1 / obj.boxes_per_dim[1]
                 h3 = 1 / obj.boxes_per_dim[2]
-                
+
                 ndim = np.count_nonzero([d > 1 for d in obj.boxes_per_dim])
                 if ndim == 0:
                     kernel_type = "gaussian_3d"
                 else:
                     kernel_type = "gaussian_" + str(ndim) + "d"
-                    
+
                 for i, pts in enumerate(val["plot_pts"]):
                     n_sph = obj.eval_density(
                         *pts,

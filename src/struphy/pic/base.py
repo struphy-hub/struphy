@@ -1,7 +1,7 @@
 import copy
 import os
-from abc import ABCMeta, abstractmethod
 import warnings
+from abc import ABCMeta, abstractmethod
 
 import h5py
 import numpy as np
@@ -453,7 +453,7 @@ class Particles(metaclass=ABCMeta):
     def Np(self):
         """Total number of markers/particles, from user input."""
         return self._Np
-    
+
     @property
     def Np_per_clone(self):
         """Array where i-th entry corresponds to the number of loaded particles on clone i.
@@ -494,12 +494,12 @@ class Particles(metaclass=ABCMeta):
     def clone_config(self):
         """Manages the configuration for clone-based (copied grids) parallel processing using MPI."""
         return self._clone_config
-    
+
     @property
     def num_clones(self):
         """Total number of clones."""
         return self._num_clones
-    
+
     @property
     def clone_id(self):
         """Clone id of current process."""
@@ -692,22 +692,22 @@ class Particles(metaclass=ABCMeta):
     def n_mks_loc(self):
         """Number of valid markers on process (without holes and ghosts)."""
         return np.count_nonzero(self.valid_mks)
-    
+
     @property
     def n_mks_on_each_proc(self):
         """Array where i-th entry corresponds to the number of valid markers on i-th process (without holes and ghosts)."""
         return self._gather_scalar_in_subcomm_array(self.n_mks_loc)
-    
+
     @property
     def n_mks_on_clone(self):
         """Number of valid markers on current clone (without holes and ghosts)."""
         return np.sum(self.n_mks_on_each_proc)
-    
+
     @property
     def n_mks_on_each_clone(self):
         """Number of valid markers on current clone (without holes and ghosts)."""
         return self._gather_scalar_in_intercomm_array(self.n_mks_on_clone)
-    
+
     @property
     def n_mks_global(self):
         """Number of valid markers on current clone (without holes and ghosts)."""
@@ -1007,8 +1007,8 @@ class Particles(metaclass=ABCMeta):
                 self._f_jacobian_coords_index = self.index["coords"]
 
     def _n_mks_load_and_Np_per_clone(self):
-        '''Return two arrays: 1) an array of sub_comm.size where the i-th entry corresponds to the number of markers drawn on process i, 
-        and 2) an array of size num_clones where the i-th entry corresponds to the number of markers on clone i.'''
+        """Return two arrays: 1) an array of sub_comm.size where the i-th entry corresponds to the number of markers drawn on process i,
+        and 2) an array of size num_clones where the i-th entry corresponds to the number of markers on clone i."""
         # number of cells on current process
         n_cells_loc = np.prod(
             self.domain_array[self.mpi_rank, 2::3],
@@ -1023,7 +1023,7 @@ class Particles(metaclass=ABCMeta):
         else:
             _n_mks_load_tot = self.Np
             _ppc = self.ppc
-            
+
         n_mks_load = self._gather_scalar_in_subcomm_array(int(_ppc * n_cells_loc))
 
         # add deviation from Np to rank 0
@@ -1031,18 +1031,18 @@ class Particles(metaclass=ABCMeta):
 
         # check if all markers are there
         assert np.sum(n_mks_load) == _n_mks_load_tot
-        
+
         # Np on each clone
         Np_per_clone = self._gather_scalar_in_intercomm_array(_n_mks_load_tot)
         assert np.sum(Np_per_clone) == self.Np
-        
+
         return n_mks_load, Np_per_clone
 
     def _allocate_marker_array(self):
         """Create marker array :attr:`~struphy.pic.base.Particles.markers`."""
-        if not hasattr(self, '_n_mks_load'):
+        if not hasattr(self, "_n_mks_load"):
             self._n_mks_load, self._Np_per_clone = self._n_mks_load_and_Np_per_clone()
-        
+
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self._mpi_rank]
         bufsize = self.bufsize + 1.0 / np.sqrt(n_mks_load_loc)
@@ -1050,7 +1050,7 @@ class Particles(metaclass=ABCMeta):
         # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
         self._n_rows = round(n_mks_load_loc * (1 + bufsize))
         self._markers = np.zeros((self.n_rows, self.n_cols), dtype=float)
-        
+
         # allocate auxiliary arrays
         self._holes = np.zeros(self.n_rows, dtype=bool)
         self._ghost_particles = np.zeros(self.n_rows, dtype=bool)
@@ -1356,7 +1356,7 @@ class Particles(metaclass=ABCMeta):
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self.mpi_rank]
-        #Np_per_clone_loc = self.Np_per_clone[self.clone_id]
+        # Np_per_clone_loc = self.Np_per_clone[self.clone_id]
 
         # fill holes in markers array with -1 (all holes are at end of array at loading stage)
         self._markers[n_mks_load_loc:] = -1.0
@@ -1368,7 +1368,9 @@ class Particles(metaclass=ABCMeta):
         # cumulative sum of number of markers on each process at loading stage.
         n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
         Np_per_clone_cum_sum = np.cumsum(self.Np_per_clone)
-        _first_marker_id = (Np_per_clone_cum_sum - self.Np_per_clone)[self.clone_id] + (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank]
+        _first_marker_id = (Np_per_clone_cum_sum - self.Np_per_clone)[self.clone_id] + (
+            n_mks_load_cum_sum - self.n_mks_load
+        )[self._mpi_rank]
 
         if self.mpi_rank == 0 and verbose:
             print("\nMARKERS:")
@@ -1761,7 +1763,9 @@ class Particles(metaclass=ABCMeta):
         The first marker on rank 0 gets the id '0', the last marker on the last rank gets the id 'n_mks_global - 1'."""
         n_mks_proc_cumsum = np.cumsum(self.n_mks_on_each_proc)
         n_mks_clone_cumsum = np.cumsum(self.n_mks_on_each_clone)
-        first_marker_id = (n_mks_clone_cumsum - self.n_mks_on_each_clone)[self.clone_id] + (n_mks_proc_cumsum - self.n_mks_on_each_proc)[self.mpi_rank]
+        first_marker_id = (n_mks_clone_cumsum - self.n_mks_on_each_clone)[self.clone_id] + (
+            n_mks_proc_cumsum - self.n_mks_on_each_proc
+        )[self.mpi_rank]
         self.marker_ids = first_marker_id + np.arange(self.n_mks_loc, dtype=int)
 
     def binning(self, components, bin_edges, divide_by_jac=True):
@@ -2791,24 +2795,26 @@ class Particles(metaclass=ABCMeta):
             holes_inds = np.nonzero(self.holes)[0]
 
             if holes_inds.size < self._send_info_box[self.mpi_rank]:
-                warnings.warn(f'Strong load imbalance detected: \
+                warnings.warn(
+                    f'Strong load imbalance detected: \
 number of holes ({holes_inds.size}) on rank {self.mpi_rank} \
 is smaller than number of incoming particles ({self._send_info_box[self.mpi_rank]}). \
 Marker array will be re-allocated with twice the buffer size. \
-Consider increasing the value of "bufsize" in the markers parameters for the next run.') 
+Consider increasing the value of "bufsize" in the markers parameters for the next run.'
+                )
                 _tmp = self.markers.copy()
                 _n_rows_old = _tmp.shape[0]
-                print(f'old: {self.markers.shape = }')
+                print(f"old: {self.markers.shape = }")
                 self._bufsize *= 2.0
                 self._allocate_marker_array()
-                print(f'new: {self.markers.shape = }\n')
+                print(f"new: {self.markers.shape = }\n")
                 self.markers[:] = -1.0
                 self.markers[:_n_rows_old] = _tmp
                 self.update_holes()
                 self.update_ghost_particles()
                 self.update_valid_mks()
                 holes_inds = np.nonzero(self.holes)[0]
-                
+
             self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
     def communicate_boxes(self, verbose=False):
@@ -3335,7 +3341,7 @@ Consider increasing the value of "bufsize" in the markers parameters for the nex
         self.update_valid_mks()
 
     ### MPI comm for domain decomposition ###
-    
+
     def sendrecv_determine_mtbs(
         self,
         alpha: list | tuple | np.ndarray = (1.0, 1.0, 1.0),
@@ -3488,12 +3494,12 @@ Consider increasing the value of "bufsize" in the markers parameters for the nex
     def _gather_scalar_in_subcomm_array(self, scalar: int, out: np.ndarray = None):
         """Return an array of length sub_comm.size, where the i-th entry corresponds to the value
         of the scalar on process i.
-        
+
         Parameters
         ----------
         scalar : int
             The scalar value on each process.
-            
+
         out : np.ndarray
             The returned array (optional).
         """
@@ -3502,26 +3508,26 @@ Consider increasing the value of "bufsize" in the markers parameters for the nex
         else:
             assert out.size == self.mpi_size
             _tmp = out
-            
-        _tmp[self.mpi_rank] = scalar  
-        
+
+        _tmp[self.mpi_rank] = scalar
+
         if self.mpi_comm is not None:
             self.mpi_comm.Allgather(
                 _tmp[self.mpi_rank],
                 _tmp,
             )
-                
+
         return _tmp
-    
+
     def _gather_scalar_in_intercomm_array(self, scalar: int, out: np.ndarray = None):
         """Return an array of length inter_comm.size, where the i-th entry corresponds to the value
         of the scalar on clone i.
-        
+
         Parameters
         ----------
         scalar : int
             The scalar value on each clone.
-            
+
         out : np.ndarray
             The returned array (optional).
         """
@@ -3530,16 +3536,17 @@ Consider increasing the value of "bufsize" in the markers parameters for the nex
         else:
             assert out.size == self.num_clones
             _tmp = out
-            
-        _tmp[self.clone_id] = scalar  
-        
+
+        _tmp[self.clone_id] = scalar
+
         if self.clone_config is not None:
             self.clone_config.inter_comm.Allgather(
                 _tmp[self.clone_id],
                 _tmp,
             )
-                
+
         return _tmp
+
 
 class Tesselation:
     """

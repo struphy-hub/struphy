@@ -358,7 +358,7 @@ def create_vtk(
 
 
 def post_process_markers(path_in, path_out, species, kind, step=1):
-    """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation 
+    """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation
     and writes them to a .npy files and to .txt files.
     Also saves the weights.
 
@@ -390,11 +390,11 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
 
     * ``.txt`` files :
 
-      ===== ===== ============== ====== 
+      ===== ===== ============== ======
       index | 0 | | 1 | 2 | 3 |  | 4 |
-      ===== ===== ============== ====== 
-      value  ID   position (xyz) weight 
-      ===== ===== ============== ====== 
+      ===== ===== ============== ======
+      value  ID   position (xyz) weight
+      ===== ===== ============== ======
 
     ``.txt`` files can be imported to e.g. Paraview, see `08 - Kinetic data <file:///home/spossann/git_repos/struphy/doc/_build/html/tutorials/tutorial_08_struphy_data_pproc.html#Kinetic-data>`_ for details.
 
@@ -488,7 +488,7 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
             markers = file["kinetic/" + species + "/markers"]
             ids = markers[n * step, :, -1].astype("int")
             ids = ids[ids != -1]  # exclude holes
-            temp[ids] = markers[n * step, :ids.size, save_index]
+            temp[ids] = markers[n * step, : ids.size, save_index]
 
         # sorting out lost particles
         ids = temp[:, -1].astype("int")
@@ -761,14 +761,14 @@ def post_process_n_sph(path_in, path_out, species, step=1, compute_bckgr=False):
         eta1 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta1"]
         eta2 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta2"]
         eta3 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta3"]
-        
+
         ee1, ee2, ee3 = np.meshgrid(
-                            eta1,
-                            eta2,
-                            eta3,
-                            indexing="ij",
-                        )
-        
+            eta1,
+            eta2,
+            eta3,
+            indexing="ij",
+        )
+
         grid_path = os.path.join(
             path_view,
             "grid_n_sph.npy",
