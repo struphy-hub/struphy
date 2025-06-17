@@ -30,10 +30,6 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArgum
 ### Single process evaluation ###
 #################################
 
-def _tmp_floor_division_evaluation_kernels_3d(x: int):
-    return x // 2
-
-
 def evaluation_kernel_3d(
     p1: int,
     p2: int,
