@@ -456,7 +456,8 @@ class Particles(metaclass=ABCMeta):
     
     @property
     def Np_per_clone(self):
-        """Array where i-th entry corresponds to the number of particles on clone i."""
+        """Array where i-th entry corresponds to the number of loaded particles on clone i.
+        (This is not necessarily the number of valid markers per clone, see self.n_mks_on_each_clone)."""
         return self._Np_per_clone
 
     @property
