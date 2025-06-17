@@ -591,7 +591,7 @@ class Particles5D(Particles):
 
     def save_magnetic_moment(self):
         r"""
-        Calculate magnetic moment of each particles and assign it into markers[:,self.first_diagnostics_idx,+1].
+        Calculate magnetic moment of each particles and assign it into markers[:,self.first_diagnostics_idx+1].
         """
 
         utilities_kernels.eval_magnetic_moment_5d(
@@ -601,6 +601,31 @@ class Particles5D(Particles):
             self.absB0_h._data,
         )
 
+    def save_energy_diff(self, PBb, init=False):
+        """
+        Save each markers' initial particle energy and calculate energy difference :math:`\Delta \epsilon(t) = \epsilon(t) - \epsilon(t=0)`
+        and assign them into markers[:, self.first_diagnostics_idx+3] and markers[:, self.first_diagnostics_idx+4].
+
+        Parameters
+        ----------
+
+        PBb : StencilVEctor
+            Finite element coefficients of the time-dependent magnetic field.
+        """
+
+        E0T = self.derham.extraction_ops["0"].transpose()
+        PBbt = E0T.dot(PBb, out=self._tmp0)
+        PBbt.update_ghost_regions()
+
+        utilities_kernels.eval_energy_diff(
+            self.markers,
+            self.derham.args_derham,
+            self.domain.args_domain,
+            self.first_diagnostics_idx,
+            self.absB0_h._data,
+            PBbt._data,
+            init,
+        )
 
 class Particles3D(Particles):
     """

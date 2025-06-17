@@ -1949,7 +1949,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         coupling_params: dict,
         boundary_cut: dict = options(default=True)["boundary_cut"],
         MJb_on: bool = options(default=True)["MJb_on"],
-        include_feq_b: bool,
     ):
         super().__init__(n, u, p)
 
@@ -1974,19 +1973,19 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._boundary_cut_e1 = boundary_cut["e1"]
         self._MJb_on = MJb_on
 
-        self._ACC = AccumulatorVector(
-            particles,
-            'H1',
-            accum_kernels_gc.cc_lin_mhd_5d_M_scalar,
-            self.mass_ops,
-            self.domain.args_domain,
-            filter_params=filter,
-        )
+        # self._ACC = AccumulatorVector(
+        #     particles,
+        #     'H1',
+        #     accum_kernels_gc.cc_lin_mhd_5d_M_scalar,
+        #     self.mass_ops,
+        #     self.domain.args_domain,
+        #     filter_params=filter,
+        # )
 
-        self._args_accum_kernel= (
-            self._scale_vec,
-            include_feq_b,
-        )
+        # self._args_accum_kernel= (
+        #     self._scale_vec,
+        #     include_feq_b,
+        # )
         # if self._particles.control_variate:
 
         #     # control variate method is only valid with Maxwellian distributions with "zero perp mean velocity".
@@ -2030,7 +2029,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         _K = getattr(self.basis_ops, id_K)
 
         # initialize projection operator TB
-        self._initialize_projection_operator_TBT()
+        # self._initialize_projection_operator_TBT()
 
         if id_U is None:
             _U, _UT = IdentityOperator(u.space), IdentityOperator(u.space)
@@ -2038,7 +2037,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             _U = getattr(self.basis_ops, id_U)
             _UT = _U.T
 
-        _PB = getattr(self.basis_ops, "PB")
+        # _PB = getattr(self.basis_ops, "PB")
 
         self._B = -1 / 2.0 * _UT @ self.derham.div.T @ self.mass_ops.M3
         self._C = 1 / 2.0 * (self.derham.div @ _S + 2 / 3.0 * _K @ self.derham.div @ _U)
@@ -2046,7 +2045,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
-        self._TC = self._TBT @ self.derham.curl.T @ _PB.T
+        # self._TC = self._TBT @ self.derham.curl.T @ _PB.T
 
         # preconditioner
         if solver["type"][1] is None:
@@ -2076,7 +2075,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._n_tmp1 = n.space.zeros()
         self._byn1 = self._B.codomain.zeros()
         self._byn2 = self._B.codomain.zeros()
-        self._tmp_acc = self._TC.codomain.zeros()
+        #self._tmp_acc = self._TC.codomain.zeros()
 
     def __call__(self, dt):
         # current variables
@@ -2097,13 +2096,15 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         #                          self._scale_vec, 0.)
         
         # solve for new u coeffs (no tmps created here)
+        self._b.update_ghost_regions()
+        
         byn1 = self._B.dot(pn, out=self._byn1)
         byn2 = self._MJ.dot(self._b, out=self._byn2)
 
         if not self._MJb_on:
             byn2 *= 0.
             
-        self._ACC(*self._args_accum_kernel)
+        # self._ACC(*self._args_accum_kernel)
 
         # # update time-dependent operator
         # self._b.update_ghost_regions()
@@ -2142,106 +2143,6 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             print("Maxdiff up for Magnetosonic:", max_du)
             print("Maxdiff p3 for Magnetosonic:", max_dp)
             print()
-
-    def _initialize_projection_operator_TBT(self):
-        r"""Initialize BasisProjectionOperator TB with the time-varying weight.
-
-        .. math::
-
-            \mathcal{T}^B_{(\mu,ijk),(\nu,mno)} := \hat \Pi¹_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu} \frac{\tilde{B}²_\alpha}{\sqrt{g}} \Lambda²_{\nu,mno} \right] \,.
-
-        """
-
-        # Call the projector and the space
-        P1 = self.derham.P["1"]
-        Vh = self.derham.Vh_fem[self._u_id]
-
-        # Femfield for the field evaluation
-        self._bf = self.derham.create_field("bf", "Hdiv")
-
-        # Initialize BasisProjectionOperator
-        if self.derham._with_local_projectors == True:
-            self._TBT = BasisProjectionOperatorLocal(P1, 
-                                                     Vh, 
-                                                     [[None, None, None],
-                                                      [None, None, None],
-                                                      [None, None, None],], 
-                                                     transposed=True,
-                                                     use_cache=True,
-                                                     polar_shift=True,
-                                                     V_extraction_op=self.derham.extraction_ops[self._u_id],
-                                                     V_boundary_op=self.derham.boundary_ops[self._u_id],
-                                                     P_boundary_op=self.derham.boundary_ops["1"],)
-        else:
-            self._TBT = BasisProjectionOperator(P1, 
-                                                Vh, 
-                                                [[None, None, None],
-                                                 [None, None, None],
-                                                 [None, None, None],], 
-                                                transposed=True,
-                                                use_cache=True,
-                                                polar_shift=True,
-                                                V_extraction_op=self.derham.extraction_ops[self._u_id],
-                                                V_boundary_op=self.derham.boundary_ops[self._u_id],
-                                                P_boundary_op=self.derham.boundary_ops["1"],)
-    def _update_weights_TBT(self):
-        """Updats time-dependent weights of the BasisProjectionOperator TB"""
-
-        # Update Femfield
-        self._bf.vector = self._b
-
-        # define callable weights
-        def bf1(x, y, z):
-            return self._bf(x, y, z, local=True)[0]
-
-        def bf2(x, y, z):
-            return self._bf(x, y, z, local=True)[1]
-
-        def bf3(x, y, z):
-            return self._bf(x, y, z, local=True)[2]
-
-        from struphy.feec.utilities import RotationMatrix
-
-        rot_B =RotationMatrix(bf1, bf2, bf3)
-
-        fun = []
-
-        if self._u_id == "v":
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n],
-                    ]
-
-        elif self._u_id == "1":
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: (
-                            rot_B(e1, e2, e3)
-                            @ self.domain.metric_inv(
-                                e1,
-                                e2,
-                                e3,
-                                change_out_order=True,
-                                squeeze_out=False,
-                            )
-                        )[:, :, :, m, n],
-                    ]
-
-        else:
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n]
-                        / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False)),
-                    ]
-
-        # Initialize BasisProjectionOperator
-        self._TBT.update_weights(fun)
 
 
 class CurrentCoupling5DDensity(Propagator):

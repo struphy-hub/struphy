@@ -397,6 +397,66 @@ def eval_magnetic_energy_PBb(
         markers[ip, first_diagnostics_idx] = mu * (dweight * abs_B + weight * PB_b)
 
 
+@stack_array("eta")
+def eval_energy_diff(
+    markers: "float[:,:]",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    first_diagnostics_idx: int,
+    abs_B0: "float[:,:,:]",
+    PBb: "float[:,:,:]",
+    init: bool,
+):
+    r"""TODO
+    """
+    eta = empty(3, dtype=float)
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        eta[:] = mod(markers[ip, 0:3], 1.)
+
+        weight = markers[ip, 7]
+        dweight = markers[ip, 5]
+
+        vp = markers[ip, 3]
+        mu = markers[ip, first_diagnostics_idx + 1]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
+
+        # abs_B0; 0form
+        abs_B = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            abs_B0,
+        )
+
+        # PBb; 0form
+        PB_b = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            PBb,
+        )
+
+        energy = mu * (weight * abs_B + weight * PB_b) + 1 / 2 * vp**2
+
+        if init:
+            markers[ip, first_diagnostics_idx+3] = energy
+            markers[ip, first_diagnostics_idx+4] = 0.
+
+        else: 
+            markers[ip, first_diagnostics_idx+4] = energy - markers[ip, first_diagnostics_idx+3]
+
+
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")
 def eval_guiding_center_from_6d(
     markers: "float[:,:]",

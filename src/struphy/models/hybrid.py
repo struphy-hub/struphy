@@ -902,7 +902,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "boundary_cut": params_sonic["boundary_cut"],
                 "MJb_on": params_sonic["MJb_on"],
-                "include_feq_b": self._include_feq_b,
             }
 
         # Initialize propagators used in splitting substeps

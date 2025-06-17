@@ -1409,7 +1409,7 @@ class Particles(metaclass=ABCMeta):
 
         self.weights = self.weights0 - f0 / self.sampling_density
 
-    def binning(self, components, bin_edges):
+    def binning(self, components, bin_edges, diagnostics=None):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
         Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
 
@@ -1440,41 +1440,61 @@ class Particles(metaclass=ABCMeta):
         # extend components list to number of columns of markers array
         _n = len(components)
         slicing = components + [False] * (self.markers.shape[1] - _n)
+        if diagnostics is None:
+            # compute weights of histogram:
+            _weights0 = self.weights0
+            _weights = self.weights
 
-        # compute weights of histogram:
-        _weights0 = self.weights0
-        _weights = self.weights
+            _weights /= self.domain.jacobian_det(self.markers_wo_holes, remove_outside=False)
+            # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
 
-        _weights /= self.domain.jacobian_det(self.markers_wo_holes, remove_outside=False)
-        # _weights /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+            _weights0 /= self.domain.jacobian_det(self.markers_wo_holes, remove_outside=False)
+            # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)#
 
-        _weights0 /= self.domain.jacobian_det(self.markers_wo_holes, remove_outside=False)
-        # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
+            f_slice = np.histogramdd(
+                self.markers_wo_holes[:, slicing],
+                bins=bin_edges,
+                weights=_weights0,
+            )[0]
 
-        f_slice = np.histogramdd(
-            self.markers_wo_holes[:, slicing],
-            bins=bin_edges,
-            weights=_weights0,
-        )[0]
+            df_slice = np.histogramdd(
+                self.markers_wo_holes[:, slicing],
+                bins=bin_edges,
+                weights=_weights,
+            )[0]
 
-        df_slice = np.histogramdd(
-            self.markers_wo_holes[:, slicing],
-            bins=bin_edges,
-            weights=_weights,
-        )[0]
+            # Initialize the total number of markers
+            n_mks_tot = np.array([self.n_mks])
 
-        # Initialize the total number of markers
-        n_mks_tot = np.array([self.n_mks])
+            if self.Nclones > 1:
+                self.inter_comm.Allreduce(
+                    MPI.IN_PLACE,
+                    n_mks_tot,
+                    op=MPI.SUM,
+                )
 
-        if self.Nclones > 1:
-            self.inter_comm.Allreduce(
-                MPI.IN_PLACE,
-                n_mks_tot,
-                op=MPI.SUM,
-            )
+            f_slice /= n_mks_tot * bin_vol
+            df_slice /= n_mks_tot * bin_vol
 
-        f_slice /= n_mks_tot * bin_vol
-        df_slice /= n_mks_tot * bin_vol
+        else:
+            diagnostics <= self.n_cols_diagnostics
+            _weights0 = self.markers[~self.holes, self.first_diagnostics_idx + diagnostics]
+            _weights = self.markers[~self.holes, self.first_diagnostics_idx + diagnostics]
+
+            f_slice = np.histogramdd(
+                self.markers_wo_holes[:, slicing],
+                bins=bin_edges,
+                weights=_weights0,
+            )[0]
+
+            df_slice = np.histogramdd(
+                self.markers_wo_holes[:, slicing],
+                bins=bin_edges,
+                weights=_weights,
+            )[0]
+
+            f_slice /=  bin_vol
+            df_slice /= bin_vol
 
         return f_slice, df_slice
 
