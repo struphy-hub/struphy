@@ -38,7 +38,7 @@ kinetic:
                     amps: [1.0e-2]
         options:
             PushEta: {algo: forward_euler}
-            PushVinSPHpressure: {kernel_type: gaussian_1d, algo: forward_euler}
+            PushVinSPHpressure: {kernel_type: gaussian_1d, algo: forward_euler, gravity: [0.0]}
         background:
             ConstantVelocity: 
                 ux: 0.0 
