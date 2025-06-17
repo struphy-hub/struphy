@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.4.2"
+version = "2.4.3"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
@@ -23,25 +23,24 @@ dependencies = [
     #'pyccel>=1.11.1',
     'pyccel @ git+https://github.com/pyccel/pyccel.git@devel',
     'mpi4py',
+    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'scipy',
     'h5py',
     'matplotlib',
     'pyyaml',
-    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'vtk',
     'tqdm',
     'argcomplete',
-    'gvec-to-python @ git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python.git@add-floor-divs-in-kernels',
-    'desc-opt',
-]
-
-[project.optional-dependencies]
-test = [
     'pytest',
     'pytest-mpi',
 ]
+
+[project.optional-dependencies]
+phys = [
+    'gvec-to-python',
+    'desc-opt',
+]
 dev = [
-    'struphy[test]',
     'notebook',
     'autopep8',
     'isort',
@@ -50,8 +49,11 @@ dev = [
     'add-trailing-comma',
     'ruff>=0.9.1',
     'pre-commit',
+    'nbstripout',
+    'tabulate',
 ]
 doc = [
+    'struphy[phys]',
     'sphinx',
     'sphinx-design',
     'lxml_html_clean',
@@ -63,6 +65,13 @@ doc = [
     'mistune',
     'docutils',
     'ipyparallel',
+]
+likwid = [
+    'struphy[dev]',
+    'kaleido',
+    'pylikwid',
+    'pandas',
+    'plotly',
 ]
 
 
@@ -101,7 +110,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-2.4.2.dev0-py3-none-any.whl',]
+           'psydac-2.4.3.dev0-py3-none-any.whl',]
 
 [tool.autopep8]
 # Add specific settings for autopep8

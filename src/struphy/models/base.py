@@ -8,7 +8,17 @@ import yaml
 from mpi4py import MPI
 from psydac.linalg.stencil import StencilVector
 
-from struphy.profiling.profiling import ProfileRegion
+from struphy.feec.basis_projection_ops import BasisProjectionOperators
+from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.psydac_derham import SplineFunction
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
+from struphy.fields_background.projected_equils import (
+    ProjectedFluidEquilibrium,
+    ProjectedFluidEquilibriumWithB,
+    ProjectedMHDequilibrium,
+)
+from struphy.io.setup import setup_derham, setup_domain_and_equil
+from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
@@ -41,16 +51,6 @@ class StruphyModel(metaclass=ABCMeta):
         comm: MPI.Intracomm = None,
         clone_config: CloneConfig = None,
     ):
-        from struphy.feec.basis_projection_ops import BasisProjectionOperators
-        from struphy.feec.mass import WeightedMassOperators
-        from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
-        from struphy.fields_background.projected_equils import (
-            ProjectedFluidEquilibrium,
-            ProjectedFluidEquilibriumWithB,
-            ProjectedMHDequilibrium,
-        )
-        from struphy.io.setup import setup_derham, setup_domain_and_equil
-
         assert "em_fields" in self.species()
         assert "fluid" in self.species()
         assert "kinetic" in self.species()
@@ -667,7 +667,7 @@ class StruphyModel(metaclass=ABCMeta):
             for propagator in self.propagators:
                 prop_name = type(propagator).__name__
 
-                with ProfileRegion(prop_name):
+                with ProfileManager.profile_region(prop_name):
                     propagator(dt)
 
         # second order in time
@@ -676,17 +676,17 @@ class StruphyModel(metaclass=ABCMeta):
 
             for propagator in self.propagators[:-1]:
                 prop_name = type(propagator).__name__
-                with ProfileRegion(prop_name):
+                with ProfileManager.profile_region(prop_name):
                     propagator(dt / 2)
 
             propagator = self.propagators[-1]
             prop_name = type(propagator).__name__
-            with ProfileRegion(prop_name):
+            with ProfileManager.profile_region(prop_name):
                 propagator(dt)
 
             for propagator in self.propagators[:-1][::-1]:
                 prop_name = type(propagator).__name__
-                with ProfileRegion(prop_name):
+                with ProfileManager.profile_region(prop_name):
                     propagator(dt / 2)
 
         else:
@@ -788,13 +788,13 @@ class StruphyModel(metaclass=ABCMeta):
 
         # initialize em fields
         if len(self.em_fields) > 0:
-            with ProfileRegion("initialize_em_fields"):
+            with ProfileManager.profile_region("initialize_em_fields"):
                 for key, val in self.em_fields.items():
                     if "params" in key:
                         continue
                     else:
                         obj = val["obj"]
-                        assert isinstance(obj, Derham.Field)
+                        assert isinstance(obj, SplineFunction)
 
                         obj.initialize_coeffs(
                             domain=self.domain,
@@ -839,14 +839,14 @@ class StruphyModel(metaclass=ABCMeta):
                                 print("No perturbation.")
 
         if len(self.fluid) > 0:
-            with ProfileRegion("initialize_fluids"):
+            with ProfileManager.profile_region("initialize_fluids"):
                 for species, val in self.fluid.items():
                     for variable, subval in val.items():
                         if "params" in variable:
                             continue
                         else:
                             obj = subval["obj"]
-                            assert isinstance(obj, Derham.Field)
+                            assert isinstance(obj, SplineFunction)
                             obj.initialize_coeffs(
                                 domain=self.domain,
                                 bckgr_obj=self.equil,
@@ -900,7 +900,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         # initialize particles
         if len(self.kinetic) > 0:
-            with ProfileRegion("initialize_particles"):
+            with ProfileManager.profile_region("initialize_particles"):
                 for species, val in self.kinetic.items():
                     obj = val["obj"]
                     assert isinstance(obj, Particles)
@@ -967,7 +967,7 @@ class StruphyModel(metaclass=ABCMeta):
                     continue
                 else:
                     obj = val["obj"]
-                    assert isinstance(obj, Derham.Field)
+                    assert isinstance(obj, SplineFunction)
                     obj.initialize_coeffs_from_restart_file(data.file)
 
         # initialize fields
@@ -978,7 +978,7 @@ class StruphyModel(metaclass=ABCMeta):
                         continue
                     else:
                         obj = subval["obj"]
-                        assert isinstance(obj, Derham.Field)
+                        assert isinstance(obj, SplineFunction)
                         obj.initialize_coeffs_from_restart_file(
                             data.file,
                             species,
@@ -1045,7 +1045,7 @@ class StruphyModel(metaclass=ABCMeta):
                 continue
             else:
                 obj = val["obj"]
-                assert isinstance(obj, Derham.Field)
+                assert isinstance(obj, SplineFunction)
 
                 # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                 obj.extract_coeffs(update_ghost_regions=False)
@@ -1096,7 +1096,7 @@ class StruphyModel(metaclass=ABCMeta):
                     continue
                 else:
                     obj = subval["obj"]
-                    assert isinstance(obj, Derham.Field)
+                    assert isinstance(obj, SplineFunction)
 
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                     obj.extract_coeffs(update_ghost_regions=False)
@@ -1177,7 +1177,7 @@ class StruphyModel(metaclass=ABCMeta):
                 continue
             else:
                 obj = val["obj"]
-                assert isinstance(obj, Derham.Field)
+                assert isinstance(obj, SplineFunction)
 
                 # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                 obj.extract_coeffs(update_ghost_regions=False)
@@ -1774,7 +1774,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if "params" in variable:
                     continue
                 else:
-                    dct["obj"] = self.derham.create_field(
+                    dct["obj"] = self.derham.create_spline_function(
                         variable,
                         dct["space"],
                         bckgr_params=dct.get("background"),
@@ -1790,7 +1790,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     if "params" in variable:
                         continue
                     else:
-                        subdct["obj"] = self.derham.create_field(
+                        subdct["obj"] = self.derham.create_spline_function(
                             variable,
                             subdct["space"],
                             bckgr_params=subdct.get("background"),
@@ -1915,7 +1915,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if "params" in key:
                     continue
                 else:
-                    val["obj"] = self.derham.create_field(
+                    val["obj"] = self.derham.create_spline_function(
                         key,
                         val["space"],
                         bckgr_params=None,

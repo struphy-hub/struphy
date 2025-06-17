@@ -1,10 +1,14 @@
 "Available fluid backgrounds:"
 
+import importlib.util
+import os
+import sys
 import warnings
 from time import time
 
 import numpy as np
 
+from struphy.console.run import subp_run
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -20,6 +24,7 @@ from struphy.fields_background.base import (
     NumericalFluidEquilibriumWithB,
     NumericalMHDequilibrium,
 )
+from struphy.utils.utils import read_state
 
 
 class HomogenSlab(CartesianMHDequilibrium):
@@ -2150,7 +2155,17 @@ class GVECequilibrium(NumericalMHDequilibrium):
     """
 
     def __init__(self, units=None, **params):
-        import os
+        # install if necessary
+        gvec_spec = importlib.util.find_spec("gvec_to_python")
+        if gvec_spec is None:
+            import pytest
+
+            with pytest.raises(SystemExit) as exc:
+                print("Simulation aborted, gvec-to-python must be installed and compiled!")
+                print("Install and compile with:")
+                print("pip install gvec-to-python; struphy compile")
+                sys.exit(1)
+            print(f"{exc.value.code = }")
 
         from gvec_to_python import GVEC
         from gvec_to_python.reader.gvec_reader import create_GVEC_json
@@ -2483,6 +2498,14 @@ class DESCequilibrium(NumericalMHDequilibrium):
         import os
 
         t = time()
+        # install if necessary
+        desc_spec = importlib.util.find_spec("desc")
+
+        if desc_spec is None:
+            print("Simulation aborted, desc-opt must be installed!")
+            print("Install with:\npip install desc-opt")
+            sys.exit(1)
+
         import desc
 
         print(f"DESC import: {time() - t} seconds")
@@ -3175,3 +3198,128 @@ def set_defaults(params_in, params_default):
         params.setdefault(key, val)
 
     return params
+
+
+class CurrentSheet(CartesianMHDequilibrium):
+    r"""
+    Current sheet equilibrium
+
+    .. math::
+
+        B_y &= \text{tanh}(z / \delta) \,,
+
+        B_x &= \sqrt{(1 - B_y^2)} \,,
+
+        p &= p_0 = 5/2\,,
+
+        n &= n_0 = 1 \,.
+
+    Units are those defned in the parameter file (:code:`struphy units -h`).
+
+    Parameters
+    ----------
+    delta : characteristic size of the current sheet
+    amp : amplitude of the current sheet
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid_background``::
+        CurrentSheet :
+            amp : 1.
+            delta : 0.1
+
+
+    """
+
+    def __init__(self, **params):
+        params_default = {"delta": 0.1, "amp": 1.0}
+
+        self._params = set_defaults(params, params_default)
+
+    @property
+    def params(self):
+        """Parameters dictionary."""
+        return self._params
+
+    # ===============================================================
+    #           profiles for a straight tokamak equilibrium
+    # ===============================================================
+
+    def plot_profiles(self, n_pts=501):
+        """Plots radial profiles."""
+
+        import matplotlib.pyplot as plt
+
+        r = np.linspace(0.0, self.params["a"], n_pts)
+
+        fig, ax = plt.subplots(1, 3)
+
+        fig.set_figheight(3)
+        fig.set_figwidth(12)
+
+        ax[0].plot(r, self.q_r(r))
+        ax[0].set_xlabel("r")
+        ax[0].set_ylabel("q")
+
+        ax[0].plot(r, np.ones(r.size), "k--")
+
+        ax[1].plot(r, self.p_r(r))
+        ax[1].set_xlabel("r")
+        ax[1].set_ylabel("p")
+
+        ax[2].plot(r, self.n_r(r))
+        ax[2].set_xlabel("r")
+        ax[2].set_ylabel("n")
+
+        plt.subplots_adjust(wspace=0.4)
+
+        plt.show()
+
+    # ===============================================================
+    #                  profiles on physical domain
+    # ===============================================================
+
+    # equilibrium magnetic field
+    def b_xyz(self, x, y, z):
+        """Magnetic field."""
+
+        bz = 0 * x
+        by = np.tanh(z / self._params["delta"])
+        bx = np.sqrt(1 - by**2)
+
+        bxs = self._params["amp"] * bx
+        bys = self._params["amp"] * by
+
+        return bxs, bys, bz
+
+    # equilibrium current, set to 0
+    def j_xyz(self, x, y, z):
+        """Current density."""
+
+        jx = 0 * x
+        jy = 0 * x
+        jz = 0 * x
+
+        return jx, jy, jz
+
+    # equilibrium pressure
+    def p_xyz(self, x, y, z):
+        """Pressure."""
+
+        return 0 * x + 5 / 2
+
+    # equilibrium number density
+    def n_xyz(self, x, y, z):
+        """Number density."""
+
+        return 1.0 + 0.0 * x
+
+    # gradient of equilibrium magnetic field (not set)
+    def gradB_xyz(self, x, y, z):
+        """Gradient of magnetic field."""
+
+        gradBx = 0 * x
+        gradBy = 0 * x
+        gradBz = 0 * x
+
+        return gradBx, gradBy, gradBz
