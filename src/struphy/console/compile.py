@@ -197,7 +197,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
         # pyccel flags
         flags = "--language=" + language
-        flags += " --compiler=" + compiler
+        flags += " --compiler-family=" + compiler
         if time_execution:
             flags += " --time_execution"
 
