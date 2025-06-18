@@ -70,7 +70,10 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
         with open(os.path.join(path, 'parameters.yml'), 'r') as f:
             params = yaml.load(f, Loader=yaml.FullLoader)
 
-        Nel += [params['grid']['Nel']]
+        if "grid" in params:
+            Nel += [params['grid']['Nel']]
+        else:
+            Nel += [0]
 
     # Nicer key names for output:
     dicts = []
