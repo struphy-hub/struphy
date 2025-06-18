@@ -124,7 +124,10 @@ stages:
     - module list
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
-    - module load cmake netcdf-serial mkl hdf5-serial
+    - module load cmake netcdf-serial mkl hdf5-serial # for gvec
+    - export FC=`which gfortran` # for gvec
+    - export CC=`which gcc` # for gvec
+    - export CXX=`which g++` # for gvec
     - module list
     - make -v
     - python3 --version
