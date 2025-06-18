@@ -208,8 +208,16 @@ def struphy():
         "--compiler",
         type=str,
         metavar="COMPILER",
-        help='either "GNU" (default), "intel", "PGI", "nvidia" or the path to a JSON compiler file.',
+        help='either "GNU" (default), "intel", "PGI", "nvidia" or "LLVM"',
         default="GNU",
+    )
+
+    parser_compile.add_argument(
+        "--compiler-config",
+        type=str,
+        metavar="COMPILER_CONFIG",
+        help='Path to a JSON compiler file.',
+        default=None,
     )
 
     parser_compile.add_argument(

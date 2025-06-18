@@ -3,7 +3,7 @@ import sys
 from struphy.console.run import subp_run
 
 
-def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbose, dependencies, time_execution, yes):
+def struphy_compile(language, compiler, compiler_config, omp_pic, omp_feec, delete, status, verbose, dependencies, time_execution, yes):
     """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
     Parameters
@@ -12,8 +12,11 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         Either "c" (default) or "fortran".
 
     compiler : str
-        Either "GNU" (default), "intel", "PGI", "nvidia" or the path to a JSON compiler file.
+        Either "GNU" (default), "intel", "PGI", "nvidia", or "LLVM"
         Only "GNU" is regularly tested at the moment.
+
+    compiler_config : str
+        Path to a JSON compiler file.
 
     omp_pic : bool
         Whether to compile PIC kernels with OpenMP (default=False).
@@ -197,7 +200,12 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
 
         # pyccel flags
         flags = "--language=" + language
-        flags += " --compiler-family=" + compiler
+
+        if compiler_config:
+            flags += " --compiler-config=" + compiler_config
+        else:
+            flags += " --compiler-family=" + compiler
+
         if time_execution:
             flags += " --time_execution"
 
@@ -288,8 +296,12 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         cmd = [
             "psydac-accelerate",
             "--language=" + language,
-            "--compiler=" + compiler,
         ]
+        if compiler_config:
+            cmd += "--compiler-config=" + compiler_config
+        else:
+            cmd += "--compiler-family=" + compiler
+
         subp_run(cmd)
 
         # Compile struphy kernels
