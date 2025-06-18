@@ -297,7 +297,7 @@ unit_tests:
 tests_pyccel_devel:
   stage: test
   extends:
-    - .rules_push
+    - .rules_scheduled
     - .image_gitlab_mpcdf_struphy
     - .before_script_load_modules
     - .variables_push
