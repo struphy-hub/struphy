@@ -276,6 +276,7 @@ install_gvec_test:
     - .artifacts_scheduled
   script:
     - !reference [.scripts, create_venv_matrix]
+    - pip install gvec
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
 
