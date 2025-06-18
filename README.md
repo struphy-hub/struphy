@@ -11,13 +11,13 @@ See the [Struphy pages](https://struphy.pages.mpcdf.de/struphy/index.html) for d
 
 Use a virtual environment:
 
-    python3 -m pip install -U virtualenv
+    python3 -m pip install --upgrade virtualenv
     python3 -m venv struphy_env
     source struphy_env/bin/activate
 
-Install latest release (with test packages):
+Install latest release:
 
-    pip install --no-cache-dir -U struphy[test]
+    pip install --no-cache-dir --upgrade struphy
 
 Compile kernels:
 

@@ -5,6 +5,7 @@ import importlib.metadata
 import os
 import site
 import subprocess
+import sys
 from argparse import HelpFormatter, RawTextHelpFormatter, _SubParsersAction
 
 import argcomplete
@@ -23,14 +24,6 @@ def struphy():
     # struphy path
     import struphy
     import struphy.utils.utils as utils
-    from struphy.console.compile import struphy_compile
-    from struphy.console.format import struphy_format, struphy_lint
-    from struphy.console.params import struphy_params
-    from struphy.console.pproc import struphy_pproc
-    from struphy.console.profile import struphy_profile
-    from struphy.console.run import struphy_run
-    from struphy.console.test import struphy_test
-    from struphy.console.units import struphy_units
 
     libpath = struphy.__path__[0]
 
@@ -331,7 +324,6 @@ def struphy():
         metavar="FILE",
         help="batch script in current I/O path",
     )
-
     parser_run.add_argument(
         "--batch-abs",
         type=str,
@@ -483,32 +475,82 @@ def struphy():
         action="store_true",
     )
 
-    parser_run.add_argument(
-        "--likwid",
-        help="run with Likwid",
+    parser_performance = parser_run.add_argument_group(
+        "Performance profiling options",
+        "Arguments related to performance measurement. Note that hardware metrics requires a likwid installation.",
+    )
+
+    try:
+        import pylikwid
+
+        add_likwid_parser = True
+    except ModuleNotFoundError:
+        add_likwid_parser = False
+
+    if add_likwid_parser:
+        # Add Likwid-related arguments to the likwid group
+        parser_performance.add_argument(
+            "--likwid",
+            help="run with Likwid",
+            action="store_true",
+        )
+
+        parser_performance.add_argument(
+            "-g",
+            "--group",
+            default="MEM_DP",
+            type=str,
+            help="likwid measurement group",
+        )
+        parser_performance.add_argument(
+            "--nperdomain",
+            default=None,  # Example: S:36 means 36 cores/socket
+            type=str,
+            help="Set the number of processes per node by giving an affinity domain and count",
+        )
+
+        parser_performance.add_argument(
+            "--stats",
+            help="Print Likwid statistics",
+            action="store_true",
+        )
+
+        parser_performance.add_argument(
+            "--marker",
+            help="Activate Likwid marker API",
+            action="store_true",
+        )
+
+        parser_performance.add_argument(
+            "--hpcmd_suspend",
+            help="Suspend the HPCMD daemon",
+            action="store_true",
+        )
+
+        parser_performance.add_argument(
+            "-lr",
+            "--likwid-repetitions",
+            type=int,
+            help="Number of repetitions of the same simulation",
+            default=1,
+        )
+
+    parser_performance.add_argument(
+        "--time-trace",
+        help="Measure time traces for each call of the regions measured with ProfileManager",
         action="store_true",
     )
 
-    parser_run.add_argument(
-        "-li",
-        "--likwid-inp",
-        type=str,
-        metavar="FILE",
-        help="likwid parameter file (.yml) in current I/O path",
+    parser_performance.add_argument(
+        "--sample-duration",
+        help="Duration of samples when measuring time traces with ProfileManager",
+        default=1.0,
     )
 
-    parser_run.add_argument(
-        "--likwid-input-abs",
-        type=str,
-        metavar="FILE",
-        help="likwid parameter file (.yml), absolute path",
-    )
-    parser_run.add_argument(
-        "-lr",
-        "--likwid-repetitions",
-        type=int,
-        help="number of repetitions of the same simulation",
-        default=1,
+    parser_performance.add_argument(
+        "--sample-interval",
+        help="Time between samples when measuring time traces with ProfileManager",
+        default=1.0,
     )
 
     # 5. "profile" sub-command
@@ -560,6 +602,70 @@ def struphy():
         metavar="NAME",
         help="save (and dont display) the profile figure under NAME, relative to current output path.",
     )
+
+    try:
+        import pylikwid
+
+        add_likwid_parser = True
+    except ModuleNotFoundError:
+        add_likwid_parser = False
+
+    if add_likwid_parser:
+        parser_likwid_profile = subparsers.add_parser(
+            "likwid_profile",
+            help="Profile finished Struphy runs with likwid",
+            description="Compare profiling data of finished Struphy runs. Run the plot files script with a given directory.",
+        )
+
+        parser_likwid_profile.add_argument(
+            "--dir",
+            type=str,
+            nargs="+",
+            required=True,
+            help="Paths to the data directories (space-separated, supports wildcards)",
+        )
+        parser_likwid_profile.add_argument(
+            "--title",
+            type=str,
+            default="Testing",
+            help="Name of the project",
+        )
+        parser_likwid_profile.add_argument(
+            "--output",
+            type=str,
+            default=".",
+            help="Output directory",
+        )
+        parser_likwid_profile.add_argument(
+            "--groups",
+            type=str,
+            default=["*"],
+            nargs="+",
+            required=False,
+            help="Likwid groups to include (space-separated, supports wildcards). Default: ['*'].",
+        )
+        parser_likwid_profile.add_argument(
+            "--skip",
+            type=str,
+            default=[],
+            nargs="+",
+            required=False,
+            help="Likwid groups to skip (space-separated, supports wildcards). Default: [].",
+        )
+        parser_likwid_profile.add_argument(
+            "--plots",
+            type=str,
+            default=[
+                "pinning",
+                "speedup",
+                "barplots",
+                "loadbalance",
+                "roofline",
+            ],
+            nargs="+",
+            required=False,
+            help="Types of plots to plot (space-separated). Default: [pinning, speedup. barplots, loadbalance, roofline]",
+        )
 
     # 6. "pproc" sub-command
     parser_pproc = subparsers.add_parser(
@@ -623,6 +729,12 @@ def struphy():
     parser_pproc.add_argument(
         "--no-vtk",
         help="whether vtk files creation should be skipped",
+        action="store_true",
+    )
+
+    parser_pproc.add_argument(
+        "--time-trace",
+        help="whether to plot the time traces",
         action="store_true",
     )
 
@@ -824,7 +936,7 @@ def struphy():
 
     if print_help:
         parser.print_help()
-        exit()
+        sys.exit(0)
 
     # display short help and exit
     if args.short_help:
@@ -835,28 +947,28 @@ def struphy():
         print(lines[bool_1[0] + 1])
         for li in lines[bool_2[0] :]:
             print(li)
-        exit()
+        sys.exit(0)
 
     # display subset of models
     if args.fluid:
         print(fluid_message)
         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
+        sys.exit(0)
 
     if args.kinetic:
         print(kinetic_message)
         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
+        sys.exit(0)
 
     if args.hybrid:
         print(hybrid_message)
         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
+        sys.exit(0)
 
     if args.toy:
         print(toy_message)
         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
+        sys.exit(0)
 
     # set default in path
     if args.set_i:
@@ -877,7 +989,7 @@ def struphy():
         utils.save_state(state)
 
         print(f"New input path has been set to {state['i_path']}")
-        exit()
+        sys.exit(0)
 
     # set default out path
     if args.set_o:
@@ -898,7 +1010,7 @@ def struphy():
         utils.save_state(state)
 
         print(f"New output path has been set to {state['o_path']}")
-        exit()
+        sys.exit(0)
 
     # set default out path
     if args.set_b:
@@ -919,7 +1031,7 @@ def struphy():
         utils.save_state(state)
 
         print(f"New batch path has been set to {state['b_path']}")
-        exit()
+        sys.exit(0)
 
     # set paths for inp, out and batch (with io/inp etc. prefices)
     if args.set_iob:
@@ -938,7 +1050,7 @@ def struphy():
         subprocess.run(["struphy", "--set-o", o_path])
         subprocess.run(["struphy", "--set-b", b_path])
 
-        exit()
+        sys.exit(0)
 
     if args.refresh_models:
         print("Collecting available models ...")
@@ -1025,10 +1137,29 @@ def struphy():
             )
 
         print("Done.")
-        exit()
+        sys.exit(0)
 
-    # load sub-command function (see functions below)
-    func = locals()["struphy_" + args.command]
+    # load sub-command function
+    if args.command == "compile":
+        from struphy.console.compile import struphy_compile as func
+    elif args.command == "lint":
+        from struphy.console.format import struphy_lint as func
+    elif args.command == "format":
+        from struphy.console.format import struphy_format as func
+    elif args.command == "likwid_profile":
+        from struphy.console.likwid import struphy_likwid_profile as func
+    elif args.command == "params":
+        from struphy.console.params import struphy_params as func
+    elif args.command == "pproc":
+        from struphy.console.pproc import struphy_pproc as func
+    elif args.command == "profile":
+        from struphy.console.profile import struphy_profile as func
+    elif args.command == "run":
+        from struphy.console.run import struphy_run as func
+    elif args.command == "test":
+        from struphy.console.test import struphy_test as func
+    elif args.command == "units":
+        from struphy.console.units import struphy_units as func
 
     # transform parser Namespace object to dictionary and remove "command" key
     kwargs = vars(args)
@@ -1051,7 +1182,6 @@ def struphy():
     # start sub-command function with all parameters of that function
     # for k, v in kwargs.items():
     #     print(k, v)
-    # exit()
     func(**kwargs)
 
 

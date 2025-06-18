@@ -1733,7 +1733,7 @@ class CurrentCoupling5DGradB(Propagator):
     ):
         from psydac.linalg.solvers import inverse
 
-        from struphy.pic.pushing.pusher import ButcherTableau
+        from struphy.ode.utils import ButcherTableau
 
         super().__init__(particles, u)
 
@@ -1897,6 +1897,9 @@ class CurrentCoupling5DGradB(Propagator):
 
         # choose algorithm
         self._butcher = ButcherTableau(algo)
+        # temp fix due to refactoring of ButcherTableau:
+        self._butcher._a = np.diag(self._butcher.a, k=-1)
+        self._butcher._a = np.array(list(self._butcher.a) + [0.0])
 
         # instantiate Pusher
         if u_space == "Hdiv":

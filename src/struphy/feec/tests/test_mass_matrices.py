@@ -174,6 +174,15 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     x3_str0 = space.B3.dot(x3_str)
     xv_str0 = space.Bv.dot(xv_str)
 
+    # Test toarray and tosparse
+    all_false = all(not bc for bl in dirichlet_bc for bc in bl)
+    if all_false:
+        r2str_toarray = mass_mats.M2.toarray.dot(x2_str)
+        r2psy_compare = mass_mats.M2.dot(x2_psy)
+        r2str_tosparse = mass_mats.M2.tosparse.dot(x2_str)
+        compare_arrays(r2psy_compare, r2str_toarray, mpi_rank, atol=1e-14)
+        compare_arrays(r2psy_compare, r2str_tosparse, mpi_rank, atol=1e-14)
+
     # perfrom matrix-vector products (with boundary conditions)
     r0_str = space.B0.T.dot(space.M0_0(x0_str0))
     r1_str = space.B1.T.dot(space.M1_0(x1_str0))
@@ -1142,7 +1151,15 @@ if __name__ == "__main__":
         ["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}],
         False,
     )
-    # test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
+    test_mass(
+        [5, 6, 7],
+        [2, 2, 3],
+        [True, False, True],
+        [[False, False], [False, False], [False, False]],
+        ["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}],
+        False,
+    )
+    # # test_mass([8, 6, 4], [2, 3, 2], [False, True, False], [['d', 'd'], [None, None], [None, 'd']], ['Colella', {'Lx' : 1., 'Ly' : 6., 'alpha' : .1, 'Lz' : 10.}], False)
     # test_mass([8, 6, 4], [2, 2, 2], [False, True, True], [['d', 'd'], [None, None], [None, None]], ['HollowCylinder', {'a1': .1, 'a2': 1., 'Lz': 10.}], False)
 
     # test_mass_polar([8, 12, 6], [4, 3, 2], [False, True, False], [[False,  True], [False, False], [False, True]], ['IGAPolarCylinder', {'a': 1., 'Lz': 3.}], False)
