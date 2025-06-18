@@ -301,7 +301,9 @@ class SaddlePointSolver:
             info = {}
 
             if self._spectralanalysis == True:
-                self._spectral_analysis()
+                self._spectralresult = self._spectral_analysis()
+            else:
+                self._spectralresult = []
 
             # Initialize P to zero or given initial guess
             if isinstance(U_init, np.ndarray) or isinstance(U_init, sc.sparse.csr.csr_matrix):
@@ -347,7 +349,7 @@ class SaddlePointSolver:
                 if residual_norm < self._tol:
                     info["success"] = True
                     info["niter"] = iteration + 1
-                    return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms
+                    return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
                 alpha = (R.dot(R)) / (R.dot(self._Precnp.dot(R)))
                 self._Pnp += alpha.real * R.real
@@ -355,7 +357,7 @@ class SaddlePointSolver:
             # Return with info if maximum iterations reached
             info["success"] = False
             info["niter"] = iteration + 1
-            return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms
+            return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
     def _setup_inverses(self):
         A0 = self._A[0]
@@ -522,3 +524,8 @@ class SaddlePointSolver:
             # print(f'{minafterA22_prec = }')
             # print(f'{specA22_aft_prec = }')
             print(f"{specA22_aft_abs_prec = }")
+            
+            return specA11_bef_abs, specA22_bef_abs, specA11_aft_abs_prec, specA22_aft_abs_prec
+        
+        else:
+            return specA11_bef_abs, specA22_bef_abs

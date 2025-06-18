@@ -6752,6 +6752,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._method_to_solve = method_to_solve
         self._preconditioner = preconditioner
         self._dimension = dimension
+        self._spectralanalysis = spectralanalysis
 
         if self._variant == "GMRES":
             self._M2 = getattr(self.mass_ops, "M2")
@@ -6962,9 +6963,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     )
                     + self._M2Bnp/self._eps_norm
                 )
-                self._A22prenp = np.identity(self.A22np.shape[0]) * self._stab_sigma + self._nu_e * (
-                    self._Dnp.T @ self._M3np @ self._Dnp
-                )
+                self._A22prenp = np.identity(self.A22np.shape[0]) #* self._stab_sigma 
+                # + self._nu_e * (
+                #     self._Dnp.T @ self._M3np @ self._Dnp
+                # )
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
                 self.A22np = (
                     self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
@@ -7102,9 +7104,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # _Anp[1] and _Anppre[1] remain unchanged
             _Anp = [A11np, A22np]
-            _A11prenp = self._M2np / dt  # + self._nu * (
-            #     self._Dnp.T @ self._M3np @ self._Dnp
-            # )
+            _A11prenp = self._M2np / dt   + self._nu * (
+                self._Dnp.T @ self._M3np @ self._Dnp
+            )
             _Anppre = [_A11prenp, _A22prenp]
             _F1np = self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
             _Fnp = [_F1np, self._F2np]
@@ -7113,7 +7115,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 self._solver_UzawaNumpy.A = _Anp
                 self._solver_UzawaNumpy.Apre = _Anppre
                 self._solver_UzawaNumpy.F = _Fnp
-                un, uen, phin, info, residual_norms = self._solver_UzawaNumpy(unfeec, uenfeec, phinfeec)
+                un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(unfeec, uenfeec, phinfeec)
 
                 dimlist = [[shp - 2 * pi for shp, pi in zip(unfeec[i][:].shape, self.derham.p)] for i in range(3)]
                 dimphi = [shp - 2 * pi for shp, pi in zip(phinfeec[:].shape, self.derham.p)]
@@ -7151,7 +7153,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         import pickle
         from collections import defaultdict, namedtuple
 
-        def load_iteration_log(filename="iteration_log_nu.pkl"):
+        def load_iteration_log(filename="iteration_log_sigma.pkl"):
             if os.path.exists(filename) and os.path.getsize(filename) > 0:
                 with open(filename, "rb") as f:
                     data = pickle.load(f)
@@ -7162,7 +7164,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             else:
                 return defaultdict(default_entry)
 
-        def save_iteration_log(data, filename="iteration_log_nu.pkl"):
+        def save_iteration_log(data, filename="iteration_log_sigma.pkl"):
             with open(filename, "wb") as f:
                 pickle.dump(data, f)
         
@@ -7185,6 +7187,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         # 3. Append your iteration number
         iteration_log[key]["niter"].append(info["niter"])
+        if self._spectralanalysis == True and self._variant == "Uzawa":
+            iteration_log[key]["A11_specnr"].append(spectralresult[0])
+            iteration_log[key]["A22_specnr"].append(spectralresult[1])
+            if self._preconditioner == True:
+                iteration_log[key]["A11_specnr_PC"].append(spectralresult[2])
+                iteration_log[key]["A22_specnr_PC"].append(spectralresult[3])
+        
 
         # 4. Save the updated data
         save_iteration_log(iteration_log)
@@ -7201,5 +7210,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
 def default_entry():
     return {
         "niter": [],
-        "timestep": []
+        "timestep": [],
+        "A11_specnr": [],
+        "A22_specnr": [],
+        "A11_specnr_PC": [],
+        "A22_specnr_PC": [],
     }

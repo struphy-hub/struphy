@@ -74,8 +74,8 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     eps = 1e-5
     eps2 = eps  # 1e-5#1. #Preconditioner Ae
     method_to_solve = "DirectNPInverse"  # 'ScipySparse', 'DirectNPInverse', 'InexactNPInverse', , 'SparseSolver'
-    preconditioner = False
-    spectralanalysis = False
+    preconditioner = True
+    spectralanalysis = True
 
     # Create the solver
     rho = 0.0005  # Example descent parameter
@@ -258,7 +258,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         solver.B = Bnp
         solver.F = Fnp
         solver.Apre = Anppre
-        x_u, x_ue, y_uzawa, info, residual_norms = solver(0.9 * x1, 0.9 * x2, 1.1 * y1_rdm)
+        x_u, x_ue, y_uzawa, info, residual_norms, spectral_result = solver(0.9 * x1, 0.9 * x2, 1.1 * y1_rdm)
         x_uzawa = {}
         x_uzawa[0] = x_u
         x_uzawa[1] = x_ue
