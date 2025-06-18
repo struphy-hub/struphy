@@ -146,8 +146,8 @@ class Tokamak(PoloidalSplineTorus):
         self._params_map["r0"] = r0
         self._params_map["Nel_pre"] = Nel_pre
         self._params_map["p_pre"] = p_pre
-
-
+        
+        
 class GVECunit(Spline):
     """The mapping ``f_unit`` from `gvec_to_python <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_, computed by the GVEC MHD equilibrium code.
 
@@ -167,13 +167,14 @@ class GVECunit(Spline):
     """
 
     def __init__(self, gvec_equil=None):
-        from struphy.fields_background.equils import GVECequilibrium
+        import gvec
+        from struphy.fields_background.equils import GVECequilibriumNew
         from struphy.geometry.base import interp_mapping
 
         if gvec_equil is None:
-            gvec_equil = GVECequilibrium()
+            gvec_equil = GVECequilibriumNew()
         else:
-            assert isinstance(gvec_equil, GVECequilibrium)
+            assert isinstance(gvec_equil, GVECequilibriumNew)
 
         params_map = {
             "Nel": gvec_equil.params["Nel"],
@@ -188,14 +189,25 @@ class GVECunit(Spline):
         # project mapping to splines
         _rmin = gvec_equil.params["rmin"]
 
+        def XYZ(e1, e2, e3):
+            rho = _rmin + e1 * (1.0 - _rmin)
+            theta = 2*np.pi * e2
+            zeta = 2*np.pi * e3
+            ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=gvec_equil.state)
+            gvec_equil.state.compute(ev, "xyz", "pos")
+            x = ev.pos.data[0]
+            y = ev.pos.data[1]
+            z = ev.pos.data[2]
+            return x, y, z
+
         def X(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[0]
+            return XYZ(e1, e2, e3)[0]
 
         def Y(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[1]
+            return XYZ(e1, e2, e3)[1]
 
         def Z(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[2]
+            return XYZ(e1, e2, e3)[2]
 
         cx, cy, cz = interp_mapping(
             params_map["Nel"],
