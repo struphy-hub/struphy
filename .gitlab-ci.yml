@@ -123,12 +123,13 @@ stages:
     - uname -a
     - module list
     - module avail
-    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git # graphviz/8
-    - module unload python-waterboa/2024.06 # for gvec
-    - module load cmake netcdf-serial mkl hdf5-serial anaconda # for gvec
+    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
+    #- module unload python-waterboa/2024.06 # for gvec
+    - module load cmake netcdf-serial mkl hdf5-serial # for gvec
     - export FC=`which gfortran` # for gvec
     - export CC=`which gcc` # for gvec
     - export CXX=`which g++` # for gvec
+    - export CMAKE_HOSTNAME=mpcdfcirunner # for current gvec 1.0, can be removed for future versions
     - module list
     - echo "Fortran compiler is ${FC}"
     - make -v
@@ -263,23 +264,6 @@ inspect_repo:
 #####################
 ### PUSH PIPELINE ###
 #####################
-
-install_gvec_test:
-  stage: install
-  needs: []
-  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc-openmpi:latest
-  extends:
-    - .rules_push
-    #- .image_gitlab_mpcdf_gcc_openmp
-    - .before_script_load_modules
-    - .parallel_matrix_scheduled
-    - .artifacts_scheduled
-  script:
-    - !reference [.scripts, create_venv_matrix]
-    - export CMAKE_HOSTNAME=mpcdfcirunner
-    - pip install gvec
-    - !reference [.scripts, install]
-    - !reference [.scripts, compile_matrix]
 
 install_tests:
   stage: test
