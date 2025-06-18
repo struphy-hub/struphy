@@ -2166,7 +2166,6 @@ class GVECequilibrium(NumericalMHDequilibrium):
             print(f"{exc.value.code = }")
 
         import gvec
-        from gvec_to_python.reader.gvec_reader import create_GVEC_json
         from mpi4py import MPI
 
         import struphy
@@ -2334,9 +2333,13 @@ class GVECequilibrium(NumericalMHDequilibrium):
         theta = 2*np.pi * eta2
         zeta = 2*np.pi * eta3
         ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
-        self.state.compute(ev, "B")
-        B = ev.B.data
-        out = (B[:, :, :, 0], B[:, :, :, 1], B[:, :, :, 2],)
+        #self.state.compute(ev, "B")
+        # B = ev.B.data
+        self.state.compute(ev, "B_contra_t", "B_contra_z")
+        print(f'{ev.B_contra_t.data.shape = }, {ev.B_contra_z.data.shape = }')
+        bv_2 = ev.B_contra_t.data / 2*np.pi
+        bv_3 = ev.B_contra_z.data / 2*np.pi
+        out = (np.zeros_like(bv_2) , bv_2, bv_3)
         #out = self.gvec.bv(rmin + eta1 * (1.0 - rmin), eta2, eta3, flat_eval=flat_eval)
         for o in out:
             o /= self.units["B"] / self.units["x"]
@@ -2398,9 +2401,15 @@ class GVECequilibrium(NumericalMHDequilibrium):
         theta = 2*np.pi * eta2
         zeta = 2*np.pi * eta3
         ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
-        self.state.compute(ev, "J")
-        J = ev.J.data
-        out = (J[:, :, :, 0], J[:, :, :, 1], J[:, :, :, 2],)
+        # self.state.compute(ev, "J")
+        # J = ev.J.data
+        self.state.compute(ev, "J_contra_r", "J_contra_t", "J_contra_z")
+        print(f'{ev.J_contra_r.data.shape = }')
+        jv_1 = ev.J_contra_r.data / (1.0 - rmin)
+        jv_2 = ev.J_contra_t.data / 2*np.pi
+        jv_3 = ev.J_contra_z.data / 2*np.pi
+        out = (jv_1 , jv_2, jv_3)
+        # out = (J[:, :, :, 0] / (1.0 - rmin), J[:, :, :, 1] / 2*np.pi, J[:, :, :, 2] / 2*np.pi,)
         #out = self.gvec.jv(rmin + eta1 * (1.0 - rmin), eta2, eta3, flat_eval=flat_eval)
         for o in out:
             o /= self.units["j"] / self.units["x"]

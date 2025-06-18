@@ -149,7 +149,7 @@ class Tokamak(PoloidalSplineTorus):
         
         
 class GVECunit(Spline):
-    """The mapping ``f_unit`` from `gvec_to_python <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_, computed by the GVEC MHD equilibrium code.
+    """The mapping from `pygvec <https://gvec.readthedocs.io/latest/index.html>`_, computed by the GVEC MHD equilibrium code.
 
     .. image:: ../../pics/mappings/gvec.png
 

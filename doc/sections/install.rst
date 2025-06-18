@@ -510,12 +510,11 @@ You can nevertheless install vtk on your VM via::
 
     sudo apt install python3-vtk9
 
-This will give you all functionality, however it will not be recognized by ``pip``. You therefore have to install ``gvec_to_python`` from source,
-commenting out ``vtk`` under ``install_requires``. Then do::
+This will give you all functionality, however it will not be recognized by ``pip``. Then do::
 
     python3 -m pip install .
 
-You will further have to comment out ``vtk`` and ``gvec_to_python`` from the ``pyproject.toml`` file in the struphy repository. You then proceed with::
+You will further have to comment out ``vtk`` from the ``pyproject.toml`` file in the struphy repository. You then proceed with::
 
     python3 -m pip install <option> .
 
