@@ -13,6 +13,7 @@ import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
+
 def f(
     eta1: float,
     eta2: float,

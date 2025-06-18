@@ -12,6 +12,7 @@ import struphy.geometry.evaluation_kernels as evaluation_kernels
 # import module for matrix-matrix and matrix-vector multiplications
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
+
 @stack_array("e", "v")
 def set_particles_symmetric_3d_3v(numbers: "float[:,:]", markers: "float[:,:]"):
     e = zeros(3, dtype=float)

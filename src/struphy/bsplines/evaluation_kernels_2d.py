@@ -21,6 +21,7 @@ from numpy import empty, zeros
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
+
 @pure
 def evaluation_kernel_2d(p1: int, p2: int, basis1: 'float[:]', basis2: 'float[:]', ind1: 'int[:]', ind2: 'int[:]', coeff: 'float[:,:]') -> float:
     """

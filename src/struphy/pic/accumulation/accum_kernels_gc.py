@@ -29,6 +29,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
+
 def gc_density_0form(
     markers: "float[:,:]",
     n_markers_tot: "int",
