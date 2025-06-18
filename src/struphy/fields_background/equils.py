@@ -2114,9 +2114,9 @@ class GVECequilibrium(NumericalMHDequilibrium):
     rel_path : bool
         Whether dat_file (json_file) are relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or are absolute paths (default: True).
     dat_file : str
-        Path to .dat file (default: "/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat").
-    json_file : str
-        Path to .json file (default: None).
+        Path to .dat file (default: "/run_01/CIRCTOK_State_0000_00000000.dat").
+    param_file : str
+        Path to Gvec parameter.ini file (default: /run_01/parameter.ini).
     use_pest : bool
         Whether to use straigh-field line coordinates (PEST) (default: False).
     use_nfp : bool
@@ -2142,7 +2142,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         GVECequilibrium :
             rel_path : True # whether file path is relative to "<struphy_path>/fields_background/mhd_equil/gvec/", or the absolute path
             dat_file : '/ellipstell_v2/newBC_E1D6_M6N6/GVEC_ELLIPSTELL_V2_State_0000_00200000.dat' # path to gvec .dat output file
-            json_file : null # give directly the parsed json file, if it exists (then dat_file is not used)
+            param_file : null # give directly the parsed json file, if it exists (then dat_file is not used)
             use_pest : False # whether to use straight-field line coordinates (PEST)
             use_nfp : True # whether to use the field periods of the stellarator in the mapping, i.e. phi = 2*pi*eta3 / nfp (piece of cake).
             rmin : 0.0 # radius of domain hole around magnetic axis.
@@ -2170,9 +2170,6 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         import struphy
         from struphy.geometry.domains import GVECunit
-
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
 
         # no rescaling if units are not provided
         if units is None:
@@ -2206,6 +2203,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
         self._params = set_defaults(params, params_default)
 
         assert self._params["dat_file"][-4:] == ".dat"
+        assert self._params["param_file"][-4:] == ".ini"
 
         if self._params["rel_path"]:
             gvec_path = os.path.join(
@@ -2224,12 +2222,6 @@ class GVECequilibrium(NumericalMHDequilibrium):
         else:
             dat_file = params["dat_file"]
             param_file = params["param_file"]
-
-        # json_file = dat_file[:-4] + ".json"
-        # # TODO: better read/write for MPI
-        # if rank == 0:
-        #     create_GVEC_json(dat_file, json_file)
-        # comm.Barrier()
 
         if self._params["use_pest"]:
             mapping = "unit_pest"
@@ -2253,12 +2245,6 @@ class GVECequilibrium(NumericalMHDequilibrium):
         # struphy domain object
         self._domain = GVECunit(self)
 
-        # create cache
-        self._cache = {
-            "bv": {"grids": [], "outs": []},
-            "jv": {"grids": [], "outs": []},
-        }
-
     @property
     def numerical_domain(self):
         """Domain object that characterizes the mapping from the logical to the physical domain."""
@@ -2281,66 +2267,14 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
-        # # check if already cached
-        # cached = False
-        # if len(self._cache["bv"]["grids"]) > 0:
-        #     for i, grid in enumerate(self._cache["bv"]["grids"]):
-        #         if len(grid) == len(etas):
-        #             li = []
-        #             for gi, ei in zip(grid, etas):
-        #                 if gi.shape == ei.shape:
-        #                     li += [np.allclose(gi, ei)]
-        #                 else:
-        #                     li += [False]
-        #             if all(li):
-        #                 cached = True
-        #                 break
-
-        #     if cached:
-        #         out = self._cache["bv"]["outs"][i]
-        #         # print(f'Used cached bv at {i = }.')
-        #     else:
-        #         out = self._eval_bv(*etas, squeeze_out=squeeze_out)
-        #         self._cache["bv"]["grids"] += [etas]
-        #         self._cache["bv"]["outs"] += [out]
-        # else:
-        #     # print('No bv grids yet.')
-        #     out = self._eval_bv(*etas, squeeze_out=squeeze_out)
-        #     self._cache["bv"]["grids"] += [etas]
-        #     self._cache["bv"]["outs"] += [out]
-        return self._eval_bv(*etas, squeeze_out=squeeze_out)
-
-    def _eval_bv(self, *etas, squeeze_out=False):
-        import gvec
-        # flat (marker) evaluation
-        if len(etas) == 1:
-            assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
-            flat_eval = True
-        # meshgrid evaluation
-        else:
-            assert len(etas) == 3
-            eta1 = etas[0]
-            eta2 = etas[1]
-            eta3 = etas[2]
-            flat_eval = False
-
-        rmin = self._params["rmin"]
-        
-        rho = rmin + eta1 * (1.0 - rmin)
-        theta = 2*np.pi * eta2
-        zeta = 2*np.pi * eta3
-        ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
-        #self.state.compute(ev, "B")
-        # B = ev.B.data
+        # evaluate
+        ev, flat_eval = self._gvec_evaluations(*etas)
         self.state.compute(ev, "B_contra_t", "B_contra_z")
-        print(f'{ev.B_contra_t.data.shape = }, {ev.B_contra_z.data.shape = }')
         bv_2 = ev.B_contra_t.data / 2*np.pi
         bv_3 = ev.B_contra_z.data / 2*np.pi
         out = (np.zeros_like(bv_2) , bv_2, bv_3)
-        #out = self.gvec.bv(rmin + eta1 * (1.0 - rmin), eta2, eta3, flat_eval=flat_eval)
+
+        # apply struphy units
         for o in out:
             o /= self.units["B"] / self.units["x"]
 
@@ -2348,109 +2282,37 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter^3."""
-        # check if already cached
-        # cached = False
-        # if len(self._cache["jv"]["grids"]) > 0:
-        #     for i, grid in enumerate(self._cache["jv"]["grids"]):
-        #         if len(grid) == len(etas):
-        #             li = []
-        #             for gi, ei in zip(grid, etas):
-        #                 if gi.shape == ei.shape:
-        #                     li += [np.allclose(gi, ei)]
-        #                 else:
-        #                     li += [False]
-        #             if all(li):
-        #                 cached = True
-        #                 break
-
-        #     if cached:
-        #         out = self._cache["jv"]["outs"][i]
-        #         # print(f'Used cached jv at {i = }.')
-        #     else:
-        #         out = self._eval_jv(*etas, squeeze_out=squeeze_out)
-        #         self._cache["jv"]["grids"] += [etas]
-        #         self._cache["jv"]["outs"] += [out]
-        # else:
-        #     # print('No jv grids yet.')
-        #     out = self._eval_jv(*etas, squeeze_out=squeeze_out)
-        #     self._cache["jv"]["grids"] += [etas]
-        #     self._cache["jv"]["outs"] += [out]
-
-        return self._eval_jv(*etas, squeeze_out=squeeze_out)
-
-    def _eval_jv(self, *etas, squeeze_out=False):
-        import gvec
-        # flat (marker) evaluation
-        if len(etas) == 1:
-            assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
-            flat_eval = True
-        # meshgrid evaluation
-        else:
-            assert len(etas) == 3
-            eta1 = etas[0]
-            eta2 = etas[1]
-            eta3 = etas[2]
-            flat_eval = False
-
-        rmin = self._params["rmin"]
         
-        rho = rmin + eta1 * (1.0 - rmin)
-        theta = 2*np.pi * eta2
-        zeta = 2*np.pi * eta3
-        ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
-        # self.state.compute(ev, "J")
-        # J = ev.J.data
+        # evaluate
+        ev, flat_eval = self._gvec_evaluations(*etas)
         self.state.compute(ev, "J_contra_r", "J_contra_t", "J_contra_z")
-        print(f'{ev.J_contra_r.data.shape = }')
+        rmin = self._params["rmin"]
         jv_1 = ev.J_contra_r.data / (1.0 - rmin)
         jv_2 = ev.J_contra_t.data / 2*np.pi
         jv_3 = ev.J_contra_z.data / 2*np.pi
         out = (jv_1 , jv_2, jv_3)
-        # out = (J[:, :, :, 0] / (1.0 - rmin), J[:, :, :, 1] / 2*np.pi, J[:, :, :, 2] / 2*np.pi,)
-        #out = self.gvec.jv(rmin + eta1 * (1.0 - rmin), eta2, eta3, flat_eval=flat_eval)
+
+        # apply struphy units
         for o in out:
             o /= self.units["j"] / self.units["x"]
 
         return out
 
     def p0(self, *etas, squeeze_out=False):
-        import gvec
         """0-form equilibrium pressure on logical cube [0, 1]^3."""
-        # flat (marker) evaluation
-        if len(etas) == 1:
-            assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
-            flat_eval = True
-        # meshgrid evaluation
-        else:
-            assert len(etas) == 3
-            eta1 = etas[0]
-            eta2 = etas[1]
-            eta3 = etas[2]
-            flat_eval = False
-
-        rmin = self._params["rmin"]
-        
-        rho = rmin + eta1 * (1.0 - rmin)
-        theta = 2*np.pi * eta2
-        zeta = 2*np.pi * eta3
-        ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
+        # evaluate
+        ev, flat_eval = self._gvec_evaluations(*etas)
         self.state.compute(ev, "p")
         if not flat_eval:
-            tmp, _1, _2 = np.meshgrid(ev.p.data, eta2, eta3, indexing='ij')
+            tmp, _1, _2 = np.meshgrid(ev.p.data, etas[1], etas[2], indexing='ij')
         else:
             tmp = ev.p.data
-        print(f'{tmp.shape = }')
         
         return self._params["p0"] + tmp / self.units["p"]
 
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
+        
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
@@ -2482,6 +2344,37 @@ class GVECequilibrium(NumericalMHDequilibrium):
         raise NotImplementedError(
             "1-form gradient of magnetic field of GVECequilibrium is not implemented",
         )
+        
+    def _gvec_evaluations(self, *etas):
+        """Call gvec.Evaluations with Struphy coordinates."""
+        import gvec
+        
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
+            eta1 = etas[0]
+            eta2 = etas[1]
+            eta3 = etas[2]
+            flat_eval = False
+
+        rmin = self._params["rmin"]
+        
+        # gvec coordinates
+        rho = rmin + eta1 * (1.0 - rmin)
+        theta = 2*np.pi * eta2
+        zeta = 2*np.pi * eta3
+        
+        # evaluate
+        ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
+        
+        return ev, flat_eval
 
 
 class DESCequilibrium(NumericalMHDequilibrium):

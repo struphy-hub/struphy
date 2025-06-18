@@ -1,0 +1,176 @@
+====================================================================================================================================
+%%% Sys date : 2025-06-18 08:28:22
+====================================================================================================================================
+*    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -   *
+*   - - - - - - - - - - - - GGGGGGGGGGGGGGG - VVVVVVVV  - - - -  VVVVVVVV - EEEEEEEEEEEEEEEEEEEEEE  - - - - CCCCCCCCCCCCCCC - -    *
+*    - - - - - - - - - - GGGG::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - - CCCC::::::::::::C - - -   *
+*   - - - - - - - - - GGG:::::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - CCC:::::::::::::::C - - -    *
+*    - - - - - - -  GG:::::GGGGGGGG::::G - V::::::V  - - - -  V::::::V - EEE:::::EEEEEEEEE::::E  -  CC:::::CCCCCCCC::::C - - - -   *
+*   - - - - - - - GG:::::GG  - - GGGGGG -  V:::::V  - - - -  V:::::V  - - E:::::E - - - EEEEEE  - CC:::::CC - -  CCCCCC - - - -    *
+*    - - - - - - G:::::GG  - - - - - - - - V:::::V - - - - V:::::V - - - E:::::E - - - - - - - - C:::::CC  - - - - - - - - - - -   *
+*   - - - - - - G:::::G - - - - - - - - -  V:::::V  - -  V:::::V  - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - -    *
+*    - - - - - G:::::G -  GGGGGGGGGG - - - V:::::V - - V:::::V - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - -   *
+*   - - - - - G:::::G -  G::::::::G - - -  V:::::V   V:::::V  - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - -    *
+*    - - - - G:::::G -  GGGGG::::G - - - - V:::::V V:::::V - - - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - - - -   *
+*   - - - - G:::::G - - -  G::::G - - - -  V:::::V:::::V  - - - - - E:::::E - - - - - - - - C:::::C - - - - - - - - - - - - - -    *
+*    - - -  G:::::G  - -  G::::G - - - - - V:::::::::V - - - - - - E:::::E - - - EEEEEE  -  C:::::C  - -  CCCCCC - - - - - - - -   *
+*   - - - - G::::::GGGGGGG::::G - - - - -  V:::::::V  - - - - - EEE:::::EEEEEEEEE::::E  - - C::::::CCCCCCC::::C - - - - - - - -    *
+*    - - - - G:::::::::::::::G - - - - - - V:::::V - - - - - - E::::::::::::::::::::E  - - - C:::::::::::::::C - - - - - - - - -   *
+*   - - - - - GG::::GGGG::::G - - - - - -  V:::V  - - - - - - E::::::::::::::::::::E  - - - - CC::::::::::::C - - - - - - - - -    *
+*    - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - -   *
+*   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -    *
+====================================================================================================================================
+   Number of OpenMP threads :      4
+====================================================================================================================================
+GIT_BRANCH: '' ,GIT_HASH: ''
+ THIS IS AN OUTPUT OF THE GVEC OPTIONS USED IN CMAKE:
+   CMAKE-OPTION :                CMAKE_HOSTNAME  :                            nb-spossann-1
+   CMAKE-OPTION :              CMAKE_BUILD_TYPE  :                                  Release
+   CMAKE-OPTION :        CMAKE_Fortran_COMPILER  :                        /usr/bin/gfortran
+   CMAKE-OPTION :              CMAKE_C_COMPILER  :            /usr/bin/x86_64-linux-gnu-gcc
+   CMAKE-OPTION :            CMAKE_CXX_COMPILER  :            /usr/bin/x86_64-linux-gnu-g++
+   CMAKE-OPTION :                  COMPILE_GVEC  :                                       On
+   CMAKE-OPTION :    COMPILE_GVEC_AS_STATIC_LIB  :                                       On
+   CMAKE-OPTION :      COMPILE_GVEC_TO_CASTOR3D  :                                       On
+   CMAKE-OPTION :          COMPILE_GVEC_TO_GENE  :                                       On
+   CMAKE-OPTION :          COMPILE_GVEC_TO_HOPR  :                                       On
+   CMAKE-OPTION :         COMPILE_GVEC_TO_JOREK  :                                       On
+   CMAKE-OPTION :                COMPILE_PYGVEC  :                                       On
+   CMAKE-OPTION :               GVEC_BINARY_DIR  : /tmp/pip-install-u0172le6/gvec_b27afd05f
+   CMAKE-OPTION :             GVEC_IS_TOP_LEVEL  :                                       ON
+   CMAKE-OPTION :               GVEC_SOURCE_DIR  : /tmp/pip-install-u0172le6/gvec_b27afd05f
+   CMAKE-OPTION :           LINK_GVEC_TO_NETCDF  :                                       On
+   CMAKE-OPTION :                  USE_FTIMINGS  :                                      Off
+   CMAKE-OPTION :                       USE_MPI  :                                      Off
+   CMAKE-OPTION :                    USE_OPENMP  :                                       On
+   CMAKE-OPTION :                    USE_VISU_J  :                                      off
+====================================================================================================================================
+ | Reading from file "parameter.ini":
+ |                        testdbg |                                 F | DEFAULT | 
+ |                      testlevel |                                -1 | DEFAULT | 
+INIT OUTPUT ...
+ |                    ProjectName |                           CIRCTOK | *CUSTOM | 
+... DONE
+====================================================================================================================================
+INIT ANALYZE ...
+ |                         visu1D |                                -1 | DEFAULT | 
+ |                         visu2D |                                -1 | DEFAULT | 
+ |                         visu3D |                                -1 | DEFAULT | 
+ |                    outfileType |                                 1 | DEFAULT | 
+ |                       visu_min |         Real array of size (   3) | DEFAULT |  0.00 0.00 0.00
+ |                       visu_max |         Real array of size (   3) | DEFAULT |  1.00 1.00 1.00
+ |                         SFLout |                                -1 | DEFAULT | 
+... DONE
+====================================================================================================================================
+ |               which_functional |                                 1 | DEFAULT | 
+INIT MHD3D ...
+ |           whichInitEquilibrium |                                 0 | *CUSTOM | 
+ |                  MinimizerType |                                10 | *CUSTOM | 
+ |                    PrecondType |                                 1 | *CUSTOM | 
+ |                     dW_allowed |                       0.10000E-09 | DEFAULT | 
+ |                        maxIter |                              1000 | *CUSTOM | 
+ |                     outputIter |                              1000 | DEFAULT | 
+ |                        logIter |                              1000 | DEFAULT | 
+ |                     nLogScreen |                                 1 | DEFAULT | 
+ |                   minimize_tol |                       0.10000E-07 | *CUSTOM | 
+ |                       start_dt |                       0.50000E+00 | *CUSTOM | 
+ |                doCheckDistance |                                 F | DEFAULT | 
+ |                    doCheckAxis |                                 T | DEFAULT | 
+ |                        fac_nyq |                                 4 | DEFAULT | 
+ |                        init_LA |                                 T | *CUSTOM | 
+ |                            nfp |                                 1 | *CUSTOM | 
+ |                     which_hmap |                                 1 | DEFAULT | 
+ |                        PHIEDGE |                       0.10000E+01 | DEFAULT | 
+ |                     iota_scale |                       0.10000E+01 | *CUSTOM | 
+ |                      iota_type |                        polynomial | *CUSTOM | 
+ |                     iota_coefs |         Real array of size (   2) | *CUSTOM |  0.62 0.52
+ |                     pres_scale |                       0.10000E+01 | *CUSTOM | 
+ |                      pres_type |                        polynomial | *CUSTOM | 
+ |                     pres_coefs |         Real array of size (   2) | *CUSTOM |  0.02-0.01
+ |            getBoundaryFromFile |                                -1 | DEFAULT | 
+    INIT HMAP :: TORUS WITH X1:=R, X2:=Z, zeta := toroidal angle  ...
+    ...DONE.
+ |                       X1X2_deg |                                 5 | *CUSTOM | 
+ |                X1X2_continuity |                                 4 | DEFAULT | 
+ |                      X1_mn_max |      Integer array of size (   2) | *CUSTOM |     2    0
+ |                      X2_mn_max |      Integer array of size (   2) | *CUSTOM |     2    0
+ |                     X1_sin_cos |                             _cos_ | *CUSTOM | 
+ |                     X2_sin_cos |                             _sin_ | *CUSTOM | 
+ |                         LA_deg |                                 5 | *CUSTOM | 
+ |                  LA_continuity |                                 4 | DEFAULT | 
+ |                      LA_mn_max |      Integer array of size (   2) | *CUSTOM |     2    0
+ |                     LA_sin_cos |                             _sin_ | *CUSTOM | 
+
+    fac_nyq =    4  ==> interpolation points mn_nyq=(      9 ,      1 )
+
+ |                   sgrid_nElems |                                 5 | *CUSTOM | 
+ |                sgrid_grid_type |                                 0 | *CUSTOM | 
+ |                          degGP |                                 8 | *CUSTOM | 
+    INIT sGrid type nElems=      5 grid_type=   0 ...
+    ... DONE
+    INIT sBase type: degree=   5 gauss points per elem =   8 continuity=   4 ...
+    ... DONE
+    INIT fBase type: mn_max= (     2 ,      0 ), mn_nyq =      9 ,      1 )
+      nfp    =    1 exclude_mn_zero =  F ,  sin/cos : _cos_ ...
+    ... DONE
+ |              init_average_axis |                                 F | DEFAULT | 
+    ... read axis data for X1:
+ |                  X1_a_cos(0;0) |                       0.50000E+01 | *CUSTOM | 
+    ... read axis data for X2:
+    ... read edge boundary data for X1:
+ |                  X1_b_cos(0;0) |                       0.50000E+01 | *CUSTOM | 
+ |                  X1_b_cos(1;0) |                       0.90000E+00 | *CUSTOM | 
+    ... read edge boundary data for X2:
+ |                  X2_b_sin(1;0) |                       0.11000E+01 | *CUSTOM | 
+ |               boundary_perturb |                                 F | DEFAULT | 
+INIT MHD3D_EVALFUNC...
+... DONE
+====================================================================================================================================
+...DONE
+====================================================================================================================================
+------------------------------------------------------------------------------------------------------------------------------------
+ THE FOLLOWING INI-FILE PARAMETERS WERE IGNORED:
+ |- psiedge=1.0
+------------------------------------------------------------------------------------------------------------------------------------
+    INITIALIZE SOLUTION...
+                           ...
+    ... Initialize lambda from mapping ...
+    |       10%       20%       30%       40%       50%       60%       70%       80%       90%      100%| ... of       10
+    |....................................................................................................| [    0.00 sec ]
+     init lambda took [      0.00 sec]
+   WRITE SOLUTION VARIABLE TO FILE    "CIRCTOK_State_0000_00000000.dat" ... ......DONE.
+        |Force|=  0.8619E-02 0.9439E-02 0.6123E-05
+    ...DONE
+====================================================================================================================================
+ INITIALIZATION FINISHED! [    0.01 sec ]
+====================================================================================================================================
+MINIMIZE MHD3D FUNCTIONAL...
+%%%%%%%%%%  START ITERATION, dt=  0.5000E+00  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Sys date : 2025-06-18 08:28:22
+%%% dU = |Force|=  0.86189638660841E-02 0.94392449947811E-02 0.61232292001505E-05
+%%% accel.GD: tau=  0.7500E-01 |vel|=  0.0000E+00 0.0000E+00 0.0000E+00
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+               2...deltaW> 0.1E-09*W_MHD3D_0, skip step and decrease stepsize to dt= 0.4500E+00
+               4...deltaW> 0.1E-09*W_MHD3D_0, skip step and decrease stepsize to dt= 0.4050E+00
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Sys date : 2025-06-18 08:28:22
+%%% #ITERATIONS=     1000, #skippedIter (Jac/dW)=        0       0
+%%% t_pseudo=  0.4053E+03, min/max dt=  0.4050E+00 0.4050E+00
+%%% W_MHD3D=  0.51085147490385E+01, min/max/sum deltaW=  -0.2663E-05 -0.2051E-10 -0.8501E-04
+%%% dU = |Force|=  0.24127625783090E-06 0.19907215026857E-06 0.52145389853290E-06
+%%% accel.GD: tau=  0.1339E-02 |vel|=  0.2193E-04 0.1867E-04 0.4533E-04
+%%% axis position (X1,X2,zeta=0     ):   0.50187365453680E+01  0.00000000000000E+00
+%%% axis position (X1,X2,zeta=pi/nfp):   0.50187365453680E+01  0.00000000000000E+00
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+##########################  OUTPUT ##################################
+   WRITE SOLUTION VARIABLE TO FILE    "CIRCTOK_State_0000_00001000.dat" ... ......DONE.
+#####################################################################
+maximum iteration count exceeded
+... DONE.
+====================================================================================================================================
+ FUNCTIONAL MINIMISATION FINISHED! [    0.18 sec ], corresponding to [    0.18 msec/iteration ]
+====================================================================================================================================
+%%% Sys date : 2025-06-18 08:28:22
+====================================================================================================================================
+ GVEC SUCESSFULLY FINISHED! [    0.19 sec ]
+====================================================================================================================================
