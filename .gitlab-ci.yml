@@ -123,7 +123,7 @@ stages:
     - uname -a
     - module list
     - module avail
-    - module load gcc/14 python-waterboa/2024.06 git graphviz/8
+    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git # graphviz/8
     - module unload python-waterboa/2024.06 # for gvec
     - module load cmake netcdf-serial mkl hdf5-serial anaconda # for gvec
     - export FC=`which gfortran` # for gvec
@@ -265,11 +265,12 @@ inspect_repo:
 #####################
 
 install_gvec_test:
-  stage: test
+  stage: install
   needs: []
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc-openmpi:latest
   extends:
     - .rules_push
-    - .image_gitlab_mpcdf_gcc_openmp
+    #- .image_gitlab_mpcdf_gcc_openmp
     - .before_script_load_modules
     - .parallel_matrix_scheduled
     - .artifacts_scheduled
