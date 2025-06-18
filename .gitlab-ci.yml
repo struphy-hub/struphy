@@ -264,6 +264,20 @@ inspect_repo:
 ### PUSH PIPELINE ###
 #####################
 
+install_gvec_test:
+  stage: install
+  needs: []
+  extends:
+    - .rules_push
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_load_modules
+    - .parallel_matrix_scheduled
+    - .artifacts_scheduled
+  script:
+    - !reference [.scripts, create_venv_matrix]
+    - !reference [.scripts, install]
+    - !reference [.scripts, compile_matrix]
+
 install_tests:
   stage: test
   extends:
