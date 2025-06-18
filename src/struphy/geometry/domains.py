@@ -168,13 +168,13 @@ class GVECunit(Spline):
 
     def __init__(self, gvec_equil=None):
         import gvec
-        from struphy.fields_background.equils import GVECequilibriumNew
+        from struphy.fields_background.equils import GVECequilibrium
         from struphy.geometry.base import interp_mapping
 
         if gvec_equil is None:
-            gvec_equil = GVECequilibriumNew()
+            gvec_equil = GVECequilibrium()
         else:
-            assert isinstance(gvec_equil, GVECequilibriumNew)
+            assert isinstance(gvec_equil, GVECequilibrium)
 
         params_map = {
             "Nel": gvec_equil.params["Nel"],
