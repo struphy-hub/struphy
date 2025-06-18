@@ -97,6 +97,8 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
             'ellipstell_v2/newBC_E4D6_M6N6/*.ini',
             'ellipstell_v2/oldBC_E40D5M6N6/*.dat',
             'ellipstell_v2/oldBC_E40D5M6N6/*.ini',
+            'run_01/*.dat',
+            'run_01/parameter.ini',
         ]
 
 'struphy.io' = ['batch/*.sh']
