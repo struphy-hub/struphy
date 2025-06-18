@@ -1182,6 +1182,8 @@ class MHDequilibrium(FluidEquilibriumWithB):
                 r"Current density (abs) at $\eta_3$={0:4.3f}".format(e3[int(n * jump)]),
             )
             fig.colorbar(map, ax=ax, location="right")
+            
+        plt.show()
 
 
 class CartesianMHDequilibrium(MHDequilibrium):
