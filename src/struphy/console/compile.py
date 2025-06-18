@@ -202,9 +202,9 @@ def struphy_compile(language, compiler, compiler_config, omp_pic, omp_feec, dele
         flags = "--language=" + language
 
         if compiler_config:
-            flags += " --compiler-config=" + compiler_config
+            flags += [" --compiler-config=" + compiler_config]
         else:
-            flags += " --compiler-family=" + compiler
+            flags += [" --compiler-family=" + compiler]
 
         if time_execution:
             flags += " --time_execution"
@@ -298,9 +298,9 @@ def struphy_compile(language, compiler, compiler_config, omp_pic, omp_feec, dele
             "--language=" + language,
         ]
         if compiler_config:
-            cmd += "--compiler-config=" + compiler_config
+            cmd += ["--compiler-config=" + compiler_config]
         else:
-            cmd += "--compiler-family=" + compiler
+            cmd += ["--compiler-family=" + compiler]
 
         subp_run(cmd)
 
