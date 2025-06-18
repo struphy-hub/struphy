@@ -194,7 +194,7 @@ class GVECunit(Spline):
             theta = 2*np.pi * e2
             zeta = 2*np.pi * e3
             ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=gvec_equil.state)
-            gvec_equil.state.compute(ev, "xyz", "pos")
+            gvec_equil.state.compute(ev, "pos")
             x = ev.pos.data[0]
             y = ev.pos.data[1]
             z = ev.pos.data[2]

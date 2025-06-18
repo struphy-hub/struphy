@@ -124,6 +124,7 @@ stages:
     - module list
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
+    - module load cmake/3.26 netcdf-serial
     - module list
     - make -v
     - python3 --version
