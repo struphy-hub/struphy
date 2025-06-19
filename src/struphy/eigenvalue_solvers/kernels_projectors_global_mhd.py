@@ -1,6 +1,6 @@
 from numpy import shape
 from pyccel.decorators import pure
-
+from typing import Final
 
 @pure
 def matmul(a: "float[:,:]", b: "float[:,:]", c: "float[:,:]"):
@@ -33,7 +33,7 @@ def matmul(a: "float[:,:]", b: "float[:,:]", c: "float[:,:]"):
 
 
 @pure
-def sum_vec(a: "float[:]") -> float:
+def sum_vec(a: "Final[float[:]]") -> float:
     """
     Sum the elements of a 1D vector.
 
@@ -54,7 +54,7 @@ def sum_vec(a: "float[:]") -> float:
 
 
 @pure
-def min_vec(a: "float[:]") -> float:
+def min_vec(a: "Final[float[:]]") -> float:
     """
     Compute the minimum a 1D vector.
 
@@ -76,7 +76,7 @@ def min_vec(a: "float[:]") -> float:
 
 
 @pure
-def max_vec(a: "float[:]") -> float:
+def max_vec(a: "Final[float[:]]") -> float:
     """
     Compute the maximum a 1D vector.
 
@@ -98,7 +98,7 @@ def max_vec(a: "float[:]") -> float:
 
 
 @pure
-def max_vec_int(a: "int[:]") -> int:
+def max_vec_int(a: "Final[int[:]]") -> int:
     """
     Compute the maximum a 1D vector.
 

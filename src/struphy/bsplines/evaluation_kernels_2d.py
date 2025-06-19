@@ -20,10 +20,10 @@ from pyccel.decorators import pure, stack_array
 from numpy import empty, zeros
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
-
+from typing import Final
 
 @pure
-def evaluation_kernel_2d(p1: int, p2: int, basis1: 'float[:]', basis2: 'float[:]', ind1: 'int[:]', ind2: 'int[:]', coeff: 'float[:,:]') -> float:
+def evaluation_kernel_2d(p1: int, p2: int, basis1: 'Final[float[:]]', basis2: 'Final[float[:]]', ind1: 'Final[int[:]]', ind2: 'Final[int[:]]', coeff: 'Final[float[:,:]]') -> float:
     """
     Summing non-zero contributions of a spline function.
 
@@ -61,7 +61,7 @@ def evaluation_kernel_2d(p1: int, p2: int, basis1: 'float[:]', basis2: 'float[:]
 
 @pure
 @stack_array('tmp1', 'tmp2', 'tmp3', 'tmp4')
-def evaluate_2d(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: float, eta2: float) -> float:
+def evaluate_2d(kind1: int, kind2: int, t1: 'Final[float[:]]', t2: 'Final[float[:]]', p1: int, p2: int, ind1: 'Final[int[:,:]]', ind2: 'Final[int[:,:]]', coeff: 'Final[float[:,:]]', eta1: float, eta2: float) -> float:
     """
     Point-wise evaluation of a tensor-product spline. 
 
@@ -145,7 +145,7 @@ def evaluate_2d(kind1: int, kind2: int, t1: 'float[:]', t2: 'float[:]', p1: int,
 
 
 @pure
-def evaluate_tensor_product_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:]', eta2: 'float[:]', spline_values: 'float[:,:]', kind: int):
+def evaluate_tensor_product_2d(t1: 'Final[float[:]]', t2: 'Final[float[:]]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'Final[float[:,:]]', eta1: 'Final[float[:]]', eta2: 'Final[float[:]]', spline_values: 'float[:,:]', kind: int):
     """
     Tensor-product evaluation of a tensor-product spline. 
 
@@ -215,7 +215,7 @@ def evaluate_tensor_product_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int,
 
 
 @pure
-def evaluate_matrix_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
+def evaluate_matrix_2d(t1: 'Final[float[:]]', t2: 'Final[float[:]]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'Final[float[:,:]]', eta1: 'Final[float[:,:]]', eta2: 'Final[float[:,:]]', spline_values: 'float[:,:]', kind: int):
     """
     General evaluation of a tensor-product spline. 
 
@@ -290,7 +290,7 @@ def evaluate_matrix_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: '
 
 
 @pure
-def evaluate_sparse_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'float[:,:]', eta1: 'float[:,:]', eta2: 'float[:,:]', spline_values: 'float[:,:]', kind: int):
+def evaluate_sparse_2d(t1: 'Final[float[:]]', t2: 'Final[float[:]]', p1: int, p2: int, ind1: 'int[:,:]', ind2: 'int[:,:]', coeff: 'Final[float[:,:]]', eta1: 'Final[float[:,:]]', eta2: 'Final[float[:,:]]', spline_values: 'float[:,:]', kind: int):
     """
     Evaluation of a tensor-product spline using sparse meshgrids. 
 
@@ -365,7 +365,7 @@ def evaluate_sparse_2d(t1: 'float[:]', t2: 'float[:]', p1: int, p2: int, ind1: '
 
 
 @pure
-def eval_spline_mpi_2d(p1: 'int', p2: 'int', basis1: 'float[:]', basis2: 'float[:]', span1: 'int', span2: 'int', coeff: 'float[:,:]', starts: 'int[:]', pn: 'int[:]') -> float:
+def eval_spline_mpi_2d(p1: 'int', p2: 'int', basis1: 'Final[float[:]]', basis2: 'Final[float[:]]', span1: 'int', span2: 'int', coeff: 'Final[float[:,:]]', starts: 'Final[int[:]]', pn: 'Final[int[:]]') -> float:
     """
     Evaluate a spline function on the current process.
 

@@ -5,9 +5,11 @@ Basic functions for point-wise B-spline evaluation
 """
 from numpy import empty, zeros
 from pyccel.decorators import pure, stack_array
+from typing import Final
+
 
 @pure
-def scaling(t_d: 'float[:]', p_d: 'int', span_d: 'int', values: 'float[:]'):
+def scaling(t_d: 'Final[float[:]]', p_d: 'int', span_d: 'int', values: 'float[:]'):
     """
     Scaling coefficients for M-splines.
 
@@ -32,7 +34,7 @@ def scaling(t_d: 'float[:]', p_d: 'int', span_d: 'int', values: 'float[:]'):
 
 
 @pure
-def find_span(t: 'float[:]', p: 'int', eta: 'float') -> 'int':
+def find_span(t: 'Final[float[:]]', p: 'int', eta: 'float') -> 'int':
     """
     Computes the knot span index i for which the B-splines i-p until i are non-vanishing at point eta.
 
@@ -79,7 +81,7 @@ def find_span(t: 'float[:]', p: 'int', eta: 'float') -> 'int':
 
 
 @pure
-def basis_funs(t: 'float[:]', p: 'int', eta: 'float', span: 'int', left: 'float[:]', right: 'float[:]', values: 'float[:]'):
+def basis_funs(t: 'Final[float[:]]', p: 'int', eta: 'float', span: 'int', left: 'float[:]', right: 'float[:]', values: 'float[:]'):
     """
     Parameters
     ----------
@@ -172,7 +174,7 @@ def basis_funs_all(t: 'float[:]', p: 'int', eta: 'float', span: 'int', left: 'fl
 
 
 @pure
-def basis_funs_all_ders(knots: 'float[:]', degree: int, eta: float, span: int, left: 'float[:]', right: 'float[:]', n: int, ders: 'float[:, :]'):
+def basis_funs_all_ders(knots: 'Final[float[:]]', degree: int, eta: float, span: int, left: 'float[:]', right: 'float[:]', n: int, ders: 'float[:, :]'):
     """
     Copied from gvec_to_python, where it is tested.
 
@@ -569,7 +571,7 @@ def basis_funs_and_der(t: 'float[:]', p: 'int', eta: 'float', span: 'int', left:
 
 @pure
 @stack_array('values_b')
-def basis_funs_1st_der(t: 'float[:]', p: 'int', eta: 'float', span: 'int', left: 'float[:]', right: 'float[:]', values: 'float[:]'):
+def basis_funs_1st_der(t: 'Final[float[:]]', p: 'int', eta: 'float', span: 'int', left: 'float[:]', right: 'float[:]', values: 'float[:]'):
     """
     Parameters
     ----------
@@ -753,7 +755,7 @@ def piecewise_der(p: 'int', delta: 'float', eta: 'float') -> 'float':
 
 @pure
 @stack_array('values_stored', 'values_temp', 'w')
-def convolution(p: 'int', grids: 'float[:]', eta: 'float') -> 'float':
+def convolution(p: 'int', grids: 'Final[float[:]]', eta: 'float') -> 'float':
     r"""
     evaluate a hat function (B-spline) at eta, i.e. 
 
@@ -808,7 +810,7 @@ def convolution(p: 'int', grids: 'float[:]', eta: 'float') -> 'float':
 
 @pure
 @stack_array('values_stored', 'values_temp', 'w')
-def convolution_der(p: 'int', grids: 'float[:]', eta: 'float') -> 'float':
+def convolution_der(p: 'int', grids: 'Final[float[:]]', eta: 'float') -> 'float':
     r"""
     evaluate the derivative of a hat function (B-spline) at eta, i.e. 
 

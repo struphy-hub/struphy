@@ -17,11 +17,11 @@ from pyccel.decorators import pure, stack_array
 from numpy import empty, zeros
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
-
+from typing import Final
 
 # =============================================================================
 @pure
-def evaluation_kernel_1d(p1: int, basis1: 'float[:]', ind1: 'int[:]', coeff: 'float[:]') -> float:
+def evaluation_kernel_1d(p1: int, basis1: 'Final[float[:]]', ind1: 'Final[int[:]]', coeff: 'Final[float[:]]') -> float:
     """
     Summing non-zero contributions.
 
@@ -58,7 +58,7 @@ def evaluation_kernel_1d(p1: int, basis1: 'float[:]', ind1: 'int[:]', coeff: 'fl
 # =============================================================================
 @pure
 @stack_array('tmp1', 'tmp2')
-def evaluate(kind1: int, t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'float[:]', eta1: float) -> float:
+def evaluate(kind1: int, t1: 'Final[float[:]]', p1: int, ind1: 'Final[int[:,:]]', coeff: 'Final[float[:]]', eta1: float) -> float:
     """
     Point-wise evaluation of a spline. 
 
@@ -122,7 +122,7 @@ def evaluate(kind1: int, t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'floa
 
 # =============================================================================
 @pure
-def evaluate_vector(t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'float[:]', eta1: 'float[:]', spline_values: 'float[:]', kind: int):
+def evaluate_vector(t1: 'Final[float[:]]', p1: int, ind1: 'Final[int[:,:]]', coeff: 'Final[float[:]]', eta1: 'float[:]', spline_values: 'float[:]', kind: int):
     """
     Vector evaluation of a uni-variate spline. 
 
