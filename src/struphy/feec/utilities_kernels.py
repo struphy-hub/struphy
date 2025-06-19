@@ -1,9 +1,9 @@
 from numpy import empty
 from pyccel.decorators import pure, stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
-import struphy.geometry.evaluation_kernels as evaluation_kernels_mod
-import struphy.pic.accumulation.filler_kernels as filler_kernels_mod
+import struphy.bsplines.bsplines_kernels as bsplines_kernels
+import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.pic.accumulation.filler_kernels as filler_kernels
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
@@ -69,22 +69,22 @@ def l2_projection_V0(
 
     for i in range(nr_points_1):
         eta1 = quad_locs_1[i]
-        span1 = bsplines_kernels_mod.find_span(tn1, pn1, eta1)
-        bsplines_kernels_mod.b_splines_slim(tn1, pn1, eta1, span1, bn1)
+        span1 = bsplines_kernels.find_span(tn1, pn1, eta1)
+        bsplines_kernels.b_splines_slim(tn1, pn1, eta1, span1, bn1)
 
         for j in range(nr_points_2):
             eta2 = quad_locs_2[j]
-            span2 = bsplines_kernels_mod.find_span(tn2, pn2, eta2)
-            bsplines_kernels_mod.b_splines_slim(tn2, pn2, eta2, span2, bn2)
+            span2 = bsplines_kernels.find_span(tn2, pn2, eta2)
+            bsplines_kernels.b_splines_slim(tn2, pn2, eta2, span2, bn2)
 
             for k in range(nr_points_3):
                 eta3 = quad_locs_3[k]
-                span3 = bsplines_kernels_mod.find_span(tn3, pn3, eta3)
-                bsplines_kernels_mod.b_splines_slim(tn3, pn3, eta3, span3, bn3)
+                span3 = bsplines_kernels.find_span(tn3, pn3, eta3)
+                bsplines_kernels.b_splines_slim(tn3, pn3, eta3, span3, bn3)
 
                 fill = fun_vals[i, j, k] * scaled_wts_1[i] * scaled_wts_2[j] * scaled_wts_3[k]
 
-                filler_kernels_mod.fill_vec(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, starts0, vec, fill)
+                filler_kernels.fill_vec(pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, starts0, vec, fill)
 
 
 # # ================= 3d =================================
@@ -169,8 +169,8 @@ def hybrid_weight(
                             eta2 = pts2[iel2, q2]
                             eta3 = pts3[iel3, q3]
 
-                            evaluation_kernels_mod.df(eta1, eta2, eta3, args_domain, df_out)
-                            # sqrtg = evaluation_kernels_mod.det_df(eta1, eta2, eta3, kind_map, params_map, t1, t2, t3, p_map, ind1, ind2, ind3, cx, cy, cz)
+                            evaluation_kernels.df(eta1, eta2, eta3, args_domain, df_out)
+                            # sqrtg = evaluation_kernels.det_df(eta1, eta2, eta3, kind_map, params_map, t1, t2, t3, p_map, ind1, ind2, ind3, cx, cy, cz)
 
                             G[0, 0] = (
                                 df_out[0, 0] * df_out[0, 0] + df_out[1, 0] * df_out[1, 0] + df_out[2, 0] * df_out[2, 0]

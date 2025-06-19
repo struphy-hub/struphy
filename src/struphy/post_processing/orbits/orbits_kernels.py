@@ -1,6 +1,6 @@
 from pyccel.decorators import stack_array
 
-import struphy.linear_algebra.linalg_kernels as linalg_kernels_mod
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
 from numpy import empty, shape, zeros, sqrt, log, abs, sign, pi
 
 
@@ -49,11 +49,11 @@ def calculate_guiding_center_from_6d(markers: 'float[:,:]',
         unit_B = B/absB
 
         # calculate parallel velocity
-        markers[ip, 3] = linalg_kernels_mod.scalar_dot(v, unit_B)
+        markers[ip, 3] = linalg_kernels.scalar_dot(v, unit_B)
 
         # calculate perpendicular velocity and magnetic moment
-        linalg_kernels_mod.cross(v, unit_B, temp)
-        linalg_kernels_mod.cross(unit_B, temp, vperp)
+        linalg_kernels.cross(v, unit_B, temp)
+        linalg_kernels.cross(unit_B, temp, vperp)
 
         vperp_square = sqrt(vperp[0]**2 + vperp[1]**2 + vperp[2]**2)
 
@@ -61,7 +61,7 @@ def calculate_guiding_center_from_6d(markers: 'float[:,:]',
         markers[ip, 5] = vperp_square**2/(2*absB)
 
         # calculate unit Larmor radius vector
-        linalg_kernels_mod.cross(unit_B, vperp, Larmor_r)
+        linalg_kernels.cross(unit_B, vperp, Larmor_r)
         Larmor_r /= absB
 
         # calculate guiding center positions

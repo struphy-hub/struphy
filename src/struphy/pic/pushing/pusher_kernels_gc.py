@@ -3,10 +3,10 @@
 from numpy import empty, mod, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
-import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d_mod
-import struphy.geometry.evaluation_kernels as evaluation_kernels_mod
-import struphy.linear_algebra.linalg_kernels as linalg_kernels_mod
+import struphy.bsplines.bsplines_kernels as bsplines_kernels
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
@@ -99,7 +99,7 @@ def push_gc_bxEstar_explicit_multistage(
         mu = markers[ip, mu_idx]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels_mod.df(
+        evaluation_kernels.df(
             eta1,
             eta2,
             eta3,
@@ -107,7 +107,7 @@ def push_gc_bxEstar_explicit_multistage(
             dfm,
         )
 
-        det_df = linalg_kernels_mod.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -172,7 +172,7 @@ def push_gc_bxEstar_explicit_multistage(
         b_star_parallel *= det_df
 
         # calculate k
-        linalg_kernels_mod.cross(e_star, unit_b1, Exb)
+        linalg_kernels.cross(e_star, unit_b1, Exb)
 
         k[:] = Exb / b_star_parallel
 
@@ -319,8 +319,8 @@ def push_gc_bxEstar_discrete_gradient_1st_order(
             grad_H += e_field
 
         # compute grad_I
-        dZ_dot_grad_H = linalg_kernels_mod.scalar_dot(eta_diff, grad_H)
-        dZ_squared = linalg_kernels_mod.scalar_dot(eta_diff, eta_diff)
+        dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H)
+        dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff)
 
         if dZ_squared == 0.0:
             grad_I[:] = grad_H
@@ -328,7 +328,7 @@ def push_gc_bxEstar_discrete_gradient_1st_order(
             grad_I[:] = grad_H + eta_diff * (H_k - H_n - dZ_dot_grad_H) / dZ_squared
 
         # calculate k
-        linalg_kernels_mod.cross(unit_b1, grad_I, Exb)
+        linalg_kernels.cross(unit_b1, grad_I, Exb)
 
         k[:] = Exb / b_star_parallel
 
@@ -448,7 +448,7 @@ def push_gc_bxEstar_discrete_gradient_2nd_order(
         H_k = markers[ip, first_free_idx + 1]
 
         # mid-point evaluate Jacobian, result in dfm
-        evaluation_kernels_mod.df(
+        evaluation_kernels.df(
             eta_mid[0],
             eta_mid[1],
             eta_mid[2],
@@ -456,7 +456,7 @@ def push_gc_bxEstar_discrete_gradient_2nd_order(
             dfm,
         )
 
-        det_df = linalg_kernels_mod.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # mid-point spline evaluation
         span1, span2, span3 = get_spans(
@@ -507,8 +507,8 @@ def push_gc_bxEstar_discrete_gradient_2nd_order(
             grad_H += e_field
 
         # compute grad_I
-        dZ_dot_grad_H = linalg_kernels_mod.scalar_dot(eta_diff, grad_H)
-        dZ_squared = linalg_kernels_mod.scalar_dot(eta_diff, eta_diff)
+        dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H)
+        dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff)
 
         if dZ_squared == 0.0:
             grad_I[:] = grad_H
@@ -537,7 +537,7 @@ def push_gc_bxEstar_discrete_gradient_2nd_order(
         b_star_parallel *= det_df
 
         # calculate k
-        linalg_kernels_mod.cross(unit_b1, grad_I, Exb)
+        linalg_kernels.cross(unit_b1, grad_I, Exb)
 
         k[:] = Exb / b_star_parallel
 
@@ -785,7 +785,7 @@ def push_gc_bxEstar_discrete_gradient_1st_order_newton(
         bcross_mat /= b_star_parallel
 
         # compute F
-        linalg_kernels_mod.matrix_vector(bcross_mat, grad_I, func)
+        linalg_kernels.matrix_vector(bcross_mat, grad_I, func)
         func *= -dt
         func += eta_diff
 
@@ -812,15 +812,15 @@ def push_gc_bxEstar_discrete_gradient_1st_order_newton(
             Ddg[2, 1] = (grad_H[1] - grad_H_12[1]) / eta_diff[2]
 
         # compute Jacobian matrix DF
-        linalg_kernels_mod.matrix_matrix(bcross_mat, Ddg, Dfunc)
+        linalg_kernels.matrix_matrix(bcross_mat, Ddg, Dfunc)
         Dfunc *= -dt
         Dfunc[0, 0] += 1.0
         Dfunc[1, 1] += 1.0
         Dfunc[2, 2] += 1.0
 
         # comute inverse and update
-        linalg_kernels_mod.matrix_inv(Dfunc, Dfunc_inv)
-        linalg_kernels_mod.matrix_vector(Dfunc_inv, func, k)
+        linalg_kernels.matrix_inv(Dfunc, Dfunc_inv)
+        linalg_kernels.matrix_vector(Dfunc_inv, func, k)
 
         markers[ip, 0:3] -= k
 
@@ -919,7 +919,7 @@ def push_gc_Bstar_explicit_multistage(
         mu = markers[ip, mu_idx]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels_mod.df(
+        evaluation_kernels.df(
             eta1,
             eta2,
             eta3,
@@ -927,7 +927,7 @@ def push_gc_Bstar_explicit_multistage(
             dfm,
         )
 
-        det_df = linalg_kernels_mod.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -1010,7 +1010,7 @@ def push_gc_Bstar_explicit_multistage(
         k[:] = b_star / b_star_parallel * v
 
         # calculate k_v for v
-        k_v = linalg_kernels_mod.scalar_dot(b_star, e_star)
+        k_v = linalg_kernels.scalar_dot(b_star, e_star)
         k_v /= b_star_parallel * epsilon
 
         # accumulation for last stage
@@ -1172,8 +1172,8 @@ def push_gc_Bstar_discrete_gradient_1st_order(
         # compute grad_I
         grad_H_v = epsilon * v_mid
 
-        dZ_dot_grad_H = linalg_kernels_mod.scalar_dot(eta_diff, grad_H) + v_diff * grad_H_v
-        dZ_squared = linalg_kernels_mod.scalar_dot(eta_diff, eta_diff) + v_diff * v_diff
+        dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H) + v_diff * grad_H_v
+        dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff) + v_diff * v_diff
 
         if dZ_squared == 0.0:
             grad_I[:] = grad_H
@@ -1186,7 +1186,7 @@ def push_gc_Bstar_discrete_gradient_1st_order(
         k[:] = b_star / b_star_parallel * grad_I_v
 
         # calculate k_v for v
-        k_v = linalg_kernels_mod.scalar_dot(b_star, grad_I)
+        k_v = linalg_kernels.scalar_dot(b_star, grad_I)
         k_v /= -b_star_parallel
 
         # compute values at (n+1, k+1)
@@ -1325,7 +1325,7 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
         H_k = markers[ip, first_free_idx + 1]
 
         # mid-point evaluate Jacobian, result in dfm
-        evaluation_kernels_mod.df(
+        evaluation_kernels.df(
             eta_mid[0],
             eta_mid[1],
             eta_mid[2],
@@ -1333,7 +1333,7 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
             dfm,
         )
 
-        det_df = linalg_kernels_mod.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # mid-point spline evaluation
         span1, span2, span3 = get_spans(
@@ -1375,8 +1375,8 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
         # compute grad_I
         grad_H_v = epsilon * v_mid
 
-        dZ_dot_grad_H = linalg_kernels_mod.scalar_dot(eta_diff, grad_H) + v_diff * grad_H_v
-        dZ_squared = linalg_kernels_mod.scalar_dot(eta_diff, eta_diff) + v_diff * v_diff
+        dZ_dot_grad_H = linalg_kernels.scalar_dot(eta_diff, grad_H) + v_diff * grad_H_v
+        dZ_squared = linalg_kernels.scalar_dot(eta_diff, eta_diff) + v_diff * v_diff
 
         if dZ_squared == 0.0:
             grad_I[:] = grad_H
@@ -1436,7 +1436,7 @@ def push_gc_Bstar_discrete_gradient_2nd_order(
         k[:] = b_star / b_star_parallel * grad_I_v
 
         # calculate k_v for v
-        k_v = linalg_kernels_mod.scalar_dot(b_star, grad_I)
+        k_v = linalg_kernels.scalar_dot(b_star, grad_I)
         k_v /= -b_star_parallel
 
         # compute values at (n+1, k+1)
@@ -1708,7 +1708,7 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         func *= -dt
         func += eta_diff
 
-        func_v = linalg_kernels_mod.scalar_dot(J_vec, grad_I)
+        func_v = linalg_kernels.scalar_dot(J_vec, grad_I)
         func_v *= -1.0
         func_v *= -dt
         func_v += v_diff
@@ -1747,13 +1747,13 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         B *= Ddg_v
         B *= -dt
         # block matrix C
-        linalg_kernels_mod.transpose(Ddg, DdgT)
-        linalg_kernels_mod.matrix_vector(DdgT, J_vec, C)
+        linalg_kernels.transpose(Ddg, DdgT)
+        linalg_kernels.matrix_vector(DdgT, J_vec, C)
         C *= dt
         # Schur complement M/A
-        schur_comp = 1.0 - linalg_kernels_mod.scalar_dot(C, B)
+        schur_comp = 1.0 - linalg_kernels.scalar_dot(C, B)
         # inverse blocks
-        linalg_kernels_mod.outer(B, C, A_inv)
+        linalg_kernels.outer(B, C, A_inv)
         A_inv /= schur_comp
         A_inv[0, 0] += 1.0
         A_inv[1, 1] += 1.0
@@ -1763,9 +1763,9 @@ def push_gc_Bstar_discrete_gradient_1st_order_newton(
         C /= -schur_comp
 
         # update
-        linalg_kernels_mod.matrix_vector(A_inv, func, k)
+        linalg_kernels.matrix_vector(A_inv, func, k)
         k += B * func_v
-        k_v = linalg_kernels_mod.scalar_dot(C, func)
+        k_v = linalg_kernels.scalar_dot(C, func)
         k_v += func_v / schur_comp
 
         markers[ip, 0:3] -= k
@@ -1833,7 +1833,7 @@ def push_gc_cc_J1_H1vec(
         v = markers[ip, 3]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels_mod.df(
+        evaluation_kernels.df(
             eta1,
             eta2,
             eta3,
@@ -1842,7 +1842,7 @@ def push_gc_cc_J1_H1vec(
         )
 
         # metric coeffs
-        det_df = linalg_kernels_mod.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -1899,13 +1899,13 @@ def push_gc_cc_J1_H1vec(
         b_star[:] = (b + curl_norm_b * v * epsilon) / det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels_mod.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # electric field E(1) = B(2) X U(0)
-        linalg_kernels_mod.cross(b, u, e)
+        linalg_kernels.cross(b, u, e)
 
         # curl_norm_b dot electric field
-        temp = linalg_kernels_mod.scalar_dot(e, curl_norm_b) / det_df
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
 
         markers[ip, 3] += temp / abs_b_star_para * v * dt
 
@@ -1972,7 +1972,7 @@ def push_gc_cc_J1_Hcurl(
         v = markers[ip, 3]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels_mod.df(
+        evaluation_kernels.df(
             eta1,
             eta2,
             eta3,
@@ -1981,12 +1981,12 @@ def push_gc_cc_J1_Hcurl(
         )
 
         # evaluate inverse of G
-        linalg_kernels_mod.transpose(dfm, df_t)
-        linalg_kernels_mod.matrix_matrix(df_t, dfm, g)
-        linalg_kernels_mod.matrix_inv(g, g_inv)
+        linalg_kernels.transpose(dfm, df_t)
+        linalg_kernels.matrix_matrix(df_t, dfm, g)
+        linalg_kernels.matrix_inv(g, g_inv)
 
         # metric coeffs
-        det_df = linalg_kernels_mod.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -2043,16 +2043,16 @@ def push_gc_cc_J1_Hcurl(
         b_star[:] = (b + curl_norm_b * v * epsilon) / det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels_mod.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # transform u into H1vec
-        linalg_kernels_mod.matrix_vector(g_inv, u, u0)
+        linalg_kernels.matrix_vector(g_inv, u, u0)
 
         # electric field E(1) = B(2) X U(0)
-        linalg_kernels_mod.cross(b, u0, e)
+        linalg_kernels.cross(b, u0, e)
 
         # curl_norm_b dot electric field
-        temp = linalg_kernels_mod.scalar_dot(e, curl_norm_b) / det_df
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
 
         markers[ip, 3] += temp / abs_b_star_para * v * dt
 
@@ -2121,7 +2121,7 @@ def push_gc_cc_J1_Hdiv(
             continue
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels_mod.df(
+        evaluation_kernels.df(
             eta1,
             eta2,
             eta3,
@@ -2130,7 +2130,7 @@ def push_gc_cc_J1_Hdiv(
         )
 
         # metric coeffs
-        det_df = linalg_kernels_mod.det(dfm)
+        det_df = linalg_kernels.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -2187,16 +2187,16 @@ def push_gc_cc_J1_Hdiv(
         b_star[:] = (b + curl_norm_b * v * epsilon) / det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels_mod.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # transform u into H1vec
         u = u / det_df
 
         # electric field E(1) = B(2) X U(0)
-        linalg_kernels_mod.cross(b, u, e)
+        linalg_kernels.cross(b, u, e)
 
         # curl_norm_b dot electric field
-        temp = linalg_kernels_mod.scalar_dot(e, curl_norm_b) / det_df
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
 
         markers[ip, 3] += temp / abs_b_star_para * v * dt
 
@@ -2301,7 +2301,7 @@ def push_gc_cc_J2_stage_H1vec(
         v = markers[ip, 3]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels_mod.df(
+        evaluation_kernels.df(
             eta1,
             eta2,
             eta3,
@@ -2310,10 +2310,10 @@ def push_gc_cc_J2_stage_H1vec(
         )
 
         # metric coeffs
-        det_df = linalg_kernels_mod.det(dfm)
-        linalg_kernels_mod.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg_kernels_mod.transpose(df_inv, df_inv_t)
-        linalg_kernels_mod.matrix_matrix(df_inv, df_inv_t, g_inv)
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -2397,13 +2397,13 @@ def push_gc_cc_J2_stage_H1vec(
         b_star[:] = (bb + curl_norm_b * v * epsilon) / det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels_mod.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
-        linalg_kernels_mod.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-        linalg_kernels_mod.matrix_matrix(tmp1, g_inv, tmp2)
-        linalg_kernels_mod.matrix_matrix(tmp2, b_prod, tmp1)
+        linalg_kernels.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+        linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+        linalg_kernels.matrix_matrix(tmp2, b_prod, tmp1)
 
-        linalg_kernels_mod.matrix_vector(tmp1, u, e)
+        linalg_kernels.matrix_vector(tmp1, u, e)
 
         e /= abs_b_star_para
 
@@ -2523,7 +2523,7 @@ def push_gc_cc_J2_stage_Hdiv(
             continue
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels_mod.df(
+        evaluation_kernels.df(
             eta1,
             eta2,
             eta3,
@@ -2532,10 +2532,10 @@ def push_gc_cc_J2_stage_Hdiv(
         )
 
         # metric coeffs
-        det_df = linalg_kernels_mod.det(dfm)
-        linalg_kernels_mod.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg_kernels_mod.transpose(df_inv, df_inv_t)
-        linalg_kernels_mod.matrix_matrix(df_inv, df_inv_t, g_inv)
+        det_df = linalg_kernels.det(dfm)
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -2619,13 +2619,13 @@ def push_gc_cc_J2_stage_Hdiv(
         b_star[:] = (bb + curl_norm_b * v * epsilon) / det_df
 
         # calculate abs_b_star_para
-        abs_b_star_para = linalg_kernels_mod.scalar_dot(norm_b1, b_star)
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
-        linalg_kernels_mod.matrix_matrix(g_inv, norm_b2_prod, tmp1)
-        linalg_kernels_mod.matrix_matrix(tmp1, g_inv, tmp2)
-        linalg_kernels_mod.matrix_matrix(tmp2, b_prod, tmp1)
+        linalg_kernels.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+        linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+        linalg_kernels.matrix_matrix(tmp2, b_prod, tmp1)
 
-        linalg_kernels_mod.matrix_vector(tmp1, u, e)
+        linalg_kernels.matrix_vector(tmp1, u, e)
 
         e /= abs_b_star_para
         e /= det_df
