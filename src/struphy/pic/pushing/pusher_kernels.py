@@ -3,15 +3,15 @@
 from numpy import cos, empty, floor, log, shape, sin, sqrt, zeros
 from pyccel.decorators import stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d_mod
+import struphy.geometry.evaluation_kernels as evaluation_kernels_mod
+import struphy.linear_algebra.linalg_kernels as linalg_kernels_mod
 
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
-import struphy.pic.sph_eval_kernels as sph_eval_kernels
+import struphy.pic.sph_eval_kernels as sph_eval_kernels_mod
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -78,7 +78,7 @@ def push_v_with_efield(
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -87,8 +87,8 @@ def push_v_with_efield(
         )
 
         # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinvt)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinvt)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -106,7 +106,7 @@ def push_v_with_efield(
         )
 
         # electric field: Cartesian components
-        linalg_kernels.matrix_vector(dfinvt, e_form, e_cart)
+        linalg_kernels_mod.matrix_vector(dfinvt, e_form, e_cart)
 
         # update velocities
         markers[ip, 3:6] += dt * const * e_cart
@@ -173,7 +173,7 @@ def push_vxb_analytic(
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -182,7 +182,7 @@ def push_vxb_analytic(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
@@ -200,7 +200,7 @@ def push_vxb_analytic(
         )
 
         # magnetic field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels_mod.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart / det_df
 
         # magnetic field: magnitude
@@ -212,14 +212,14 @@ def push_vxb_analytic(
             b_norm[:] = b_cart / b_abs
 
             # parallel velocity v.b_norm
-            vpar = linalg_kernels.scalar_dot(v, b_norm)
+            vpar = linalg_kernels_mod.scalar_dot(v, b_norm)
 
             # first component of perpendicular velocity
-            linalg_kernels.cross(v, b_norm, vxb_norm)
-            linalg_kernels.cross(b_norm, vxb_norm, vperp)
+            linalg_kernels_mod.cross(v, b_norm, vxb_norm)
+            linalg_kernels_mod.cross(b_norm, vxb_norm, vperp)
 
             # second component of perpendicular velocity
-            linalg_kernels.cross(b_norm, vperp, b_normxvperp)
+            linalg_kernels_mod.cross(b_norm, vperp, b_normxvperp)
 
             # analytic rotation
             markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp
@@ -297,7 +297,7 @@ def push_vxb_implicit(
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -306,7 +306,7 @@ def push_vxb_implicit(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
@@ -324,7 +324,7 @@ def push_vxb_implicit(
         )
 
         # magnetic field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels_mod.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart / det_df
 
         # magnetic field: rotation matrix
@@ -341,10 +341,10 @@ def push_vxb_implicit(
         rhs[:, :] = identity + dt / 2 * b_prod
         lhs[:, :] = identity - dt / 2 * b_prod
 
-        linalg_kernels.matrix_inv(lhs, lhs_inv)
+        linalg_kernels_mod.matrix_inv(lhs, lhs_inv)
 
-        linalg_kernels.matrix_vector(rhs, v, vec)
-        linalg_kernels.matrix_vector(lhs_inv, vec, res)
+        linalg_kernels_mod.matrix_vector(rhs, v, vec)
+        linalg_kernels_mod.matrix_vector(lhs_inv, vec, res)
 
         markers[ip, 3:6] = res
 
@@ -436,7 +436,7 @@ def push_pxb_analytic(
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -444,10 +444,10 @@ def push_pxb_analytic(
             dfm,
         )
 
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
@@ -485,7 +485,7 @@ def push_pxb_analytic(
         v[2] = v[2] - rot_temp[2]
 
         # magnetic field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels_mod.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart / det_df
 
         # normalized magnetic field direction
@@ -497,14 +497,14 @@ def push_pxb_analytic(
             b_norm[:] = b_cart
 
         # parallel velocity v.b_norm
-        vpar = linalg_kernels.scalar_dot(v, b_norm)
+        vpar = linalg_kernels_mod.scalar_dot(v, b_norm)
 
         # first component of perpendicular velocity
-        linalg_kernels.cross(v, b_norm, vxb_norm)
-        linalg_kernels.cross(b_norm, vxb_norm, vperp)
+        linalg_kernels_mod.cross(v, b_norm, vxb_norm)
+        linalg_kernels_mod.cross(b_norm, vxb_norm, vperp)
 
         # second component of perpendicular velocity
-        linalg_kernels.cross(b_norm, vperp, b_normxvperp)
+        linalg_kernels_mod.cross(b_norm, vperp, b_normxvperp)
 
         # analytic rotation
         markers[ip, 3:6] = vpar * b_norm + cos(b_abs * dt) * vperp - sin(b_abs * dt) * b_normxvperp + rot_temp
@@ -586,7 +586,7 @@ def push_hybrid_xp_lnn(
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -594,10 +594,10 @@ def push_hybrid_xp_lnn(
             dfm,
         )
 
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         point_left[0] = eta1 - 0.5 * compact[0]
         point_right[0] = eta1 + 0.5 * compact[0]
@@ -652,34 +652,34 @@ def push_hybrid_xp_lnn(
                                 temp4[2] = abs(temp1[2] - eta3) - compact[2] / 2
 
                                 if temp4[0] < 0 and temp4[1] < 0 and temp4[2] < 0:
-                                    valuexyz[0] = bsplines_kernels.convolution(
+                                    valuexyz[0] = bsplines_kernels_mod.convolution(
                                         p_shape[0],
                                         grids_shapex,
                                         temp1[0],
                                     )
-                                    dvaluexyz[0] = bsplines_kernels.convolution_der(
+                                    dvaluexyz[0] = bsplines_kernels_mod.convolution_der(
                                         p_shape[0],
                                         grids_shapex,
                                         temp1[0],
                                     )
 
-                                    valuexyz[1] = bsplines_kernels.piecewise(
+                                    valuexyz[1] = bsplines_kernels_mod.piecewise(
                                         p_shape[1],
                                         p_size[1],
                                         temp1[1] - eta2,
                                     )
-                                    dvaluexyz[1] = bsplines_kernels.piecewise(
+                                    dvaluexyz[1] = bsplines_kernels_mod.piecewise(
                                         p_shape[2],
                                         p_size[2],
                                         temp1[2] - eta3,
                                     )
 
-                                    valuexyz[2] = bsplines_kernels.piecewise_der(
+                                    valuexyz[2] = bsplines_kernels_mod.piecewise_der(
                                         p_shape[1],
                                         p_size[1],
                                         temp1[1] - eta2,
                                     )
-                                    dvaluexyz[2] = bsplines_kernels.piecewise_der(
+                                    dvaluexyz[2] = bsplines_kernels_mod.piecewise_der(
                                         p_shape[2],
                                         p_size[2],
                                         temp1[2] - eta3,
@@ -805,7 +805,7 @@ def push_hybrid_xp_ap(
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -813,8 +813,8 @@ def push_hybrid_xp_ap(
             dfm,
         )
 
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
 
         for il1 in range(pd1):
             bdd1[il1] = b1[pd1 - 1, il1] * d1[il1] * d1[il1]
@@ -828,7 +828,7 @@ def push_hybrid_xp_ap(
         # spline evaluation
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
 
-        bsplines_kernels.basis_funs_all(
+        bsplines_kernels_mod.basis_funs_all(
             args_derham.tn1,
             pn1,
             e1,
@@ -838,7 +838,7 @@ def push_hybrid_xp_ap(
             b1,
             d1,
         )
-        bsplines_kernels.basis_funs_all(
+        bsplines_kernels_mod.basis_funs_all(
             args_derham.tn2,
             pn2,
             e2,
@@ -848,7 +848,7 @@ def push_hybrid_xp_ap(
             b2,
             d2,
         )
-        bsplines_kernels.basis_funs_all(
+        bsplines_kernels_mod.basis_funs_all(
             args_derham.tn3,
             pn3,
             e3,
@@ -871,7 +871,7 @@ def push_hybrid_xp_ap(
             a_form,
         )
 
-        a_xx[0, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[0, 0] = evaluation_kernels_3d_mod.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] - 2,
             args_derham.pn[1],
             args_derham.pn[2],
@@ -887,7 +887,7 @@ def push_hybrid_xp_ap(
                 1,
             ),
         )
-        a_xx[0, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[0, 1] = evaluation_kernels_3d_mod.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] - 1,
             args_derham.pn[1] - 1,
             args_derham.pn[2],
@@ -903,7 +903,7 @@ def push_hybrid_xp_ap(
                 2,
             ),
         )
-        a_xx[0, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[0, 2] = evaluation_kernels_3d_mod.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] - 1,
             args_derham.pn[1],
             args_derham.pn[2] - 1,
@@ -918,7 +918,7 @@ def push_hybrid_xp_ap(
             int(3),
         )
 
-        a_xx[1, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[1, 0] = evaluation_kernels_3d_mod.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] - 1,
             args_derham.pn[1] - 1,
             args_derham.pn[2],
@@ -934,7 +934,7 @@ def push_hybrid_xp_ap(
                 1,
             ),
         )
-        a_xx[1, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[1, 1] = evaluation_kernels_3d_mod.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0],
             args_derham.pn[1] - 2,
             args_derham.pn[2],
@@ -950,7 +950,7 @@ def push_hybrid_xp_ap(
                 2,
             ),
         )
-        a_xx[1, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[1, 2] = evaluation_kernels_3d_mod.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0],
             args_derham.pn[1] - 1,
             args_derham.pn[2] - 1,
@@ -965,7 +965,7 @@ def push_hybrid_xp_ap(
             int(3),
         )
 
-        a_xx[2, 0] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[2, 0] = evaluation_kernels_3d_mod.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0] - 1,
             args_derham.pn[1],
             args_derham.pn[2] - 1,
@@ -979,7 +979,7 @@ def push_hybrid_xp_ap(
             args_derham.starts,
             int(1),
         )
-        a_xx[2, 1] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[2, 1] = evaluation_kernels_3d_mod.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0],
             args_derham.pn[1] - 1,
             args_derham.pn[2] - 1,
@@ -993,7 +993,7 @@ def push_hybrid_xp_ap(
             args_derham.starts,
             int(2),
         )
-        a_xx[2, 2] = evaluation_kernels_3d.eval_spline_derivative_mpi_kernel(
+        a_xx[2, 2] = evaluation_kernels_3d_mod.eval_spline_derivative_mpi_kernel(
             args_derham.pn[0],
             args_derham.pn[1],
             args_derham.pn[2] - 2,
@@ -1008,10 +1008,10 @@ def push_hybrid_xp_ap(
             int(3),
         )
 
-        linalg_kernels.transpose(a_xx, a_xxtrans)
-        linalg_kernels.matrix_matrix(a_xxtrans, dfinv, matrixp)
-        linalg_kernels.matrix_matrix(dfinv_t, matrixp, matrixpp)  # left matrix
-        linalg_kernels.matrix_matrix(
+        linalg_kernels_mod.transpose(a_xx, a_xxtrans)
+        linalg_kernels_mod.matrix_matrix(a_xxtrans, dfinv, matrixp)
+        linalg_kernels_mod.matrix_matrix(dfinv_t, matrixp, matrixpp)  # left matrix
+        linalg_kernels_mod.matrix_matrix(
             matrixpp,
             dfinv_t,
             matrixppp,
@@ -1029,19 +1029,19 @@ def push_hybrid_xp_ap(
         lhs[2, 1] = -dt * matrixpp[2, 1]
         lhs[2, 2] = 1.0 - dt * matrixpp[2, 2]
 
-        linalg_kernels.matrix_vector(matrixppp, a_form, rhs)
+        linalg_kernels_mod.matrix_vector(matrixppp, a_form, rhs)
         rhs[0] = v[0] - dt * rhs[0]
         rhs[1] = v[1] - dt * rhs[1]
         rhs[2] = v[2] - dt * rhs[2]
 
-        linalg_kernels.matrix_inv(lhs, lhsinv)
+        linalg_kernels_mod.matrix_inv(lhs, lhsinv)
         # update velocity
         markers[ip, 3] = lhsinv[0, 0] * rhs[0] + lhsinv[0, 1] * rhs[1] + lhsinv[0, 2] * rhs[2]
         markers[ip, 4] = lhsinv[1, 0] * rhs[0] + lhsinv[1, 1] * rhs[1] + lhsinv[1, 2] * rhs[2]
         markers[ip, 5] = lhsinv[2, 0] * rhs[0] + lhsinv[2, 1] * rhs[1] + lhsinv[2, 2] * rhs[2]
 
         # update position
-        linalg_kernels.matrix_vector(dfinv_t, a_form, rhs)
+        linalg_kernels_mod.matrix_vector(dfinv_t, a_form, rhs)
         rhs[0] = markers[ip, 3] - rhs[0]
         rhs[1] = markers[ip, 4] - rhs[1]
         rhs[2] = markers[ip, 5] - rhs[2]
@@ -1118,7 +1118,7 @@ def push_bxu_Hdiv(
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -1127,7 +1127,7 @@ def push_bxu_Hdiv(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -1145,7 +1145,7 @@ def push_bxu_Hdiv(
         )
 
         # magnetic field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels_mod.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart / det_df
 
         # velocity field: 2-form components
@@ -1160,11 +1160,11 @@ def push_bxu_Hdiv(
             u_form,
         )
 
-        linalg_kernels.matrix_vector(dfm, u_form, u_cart)
+        linalg_kernels_mod.matrix_vector(dfm, u_form, u_cart)
         u_cart[:] = u_cart / det_df
 
         # electric field E = B x U
-        linalg_kernels.cross(b_cart, u_cart, e_cart)
+        linalg_kernels_mod.cross(b_cart, u_cart, e_cart)
 
         # update velocities
         markers[ip, 3:6] += dt * e_cart
@@ -1239,7 +1239,7 @@ def push_bxu_Hcurl(
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -1248,9 +1248,9 @@ def push_bxu_Hcurl(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-        linalg_kernels.matrix_inv_with_det(dfm, det_df, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
+        det_df = linalg_kernels_mod.det(dfm)
+        linalg_kernels_mod.matrix_inv_with_det(dfm, det_df, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -1268,7 +1268,7 @@ def push_bxu_Hcurl(
         )
 
         # magnetic field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels_mod.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart / det_df
 
         # velocity field: 1-form components
@@ -1284,10 +1284,10 @@ def push_bxu_Hcurl(
         )
 
         # velocity field: Cartesian components
-        linalg_kernels.matrix_vector(dfinv_t, u_form, u_cart)
+        linalg_kernels_mod.matrix_vector(dfinv_t, u_form, u_cart)
 
         # electric field E = B x U
-        linalg_kernels.cross(b_cart, u_cart, e_cart)
+        linalg_kernels_mod.cross(b_cart, u_cart, e_cart)
 
         # update velocities
         markers[ip, 3:6] += dt * e_cart
@@ -1360,7 +1360,7 @@ def push_bxu_H1vec(
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -1369,7 +1369,7 @@ def push_bxu_H1vec(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -1387,7 +1387,7 @@ def push_bxu_H1vec(
         )
 
         # magnetic field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels_mod.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart / det_df
 
         # velocity field: vector field components
@@ -1403,10 +1403,10 @@ def push_bxu_H1vec(
         )
 
         # velocity field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, u_form, u_cart)
+        linalg_kernels_mod.matrix_vector(dfm, u_form, u_cart)
 
         # electric field E = B x U
-        linalg_kernels.cross(b_cart, u_cart, e_cart)
+        linalg_kernels_mod.cross(b_cart, u_cart, e_cart)
 
         # update velocities
         markers[ip, 3:6] += dt * e_cart
@@ -1508,7 +1508,7 @@ def push_bxu_Hdiv_pauli(
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -1517,16 +1517,16 @@ def push_bxu_Hdiv_pauli(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-        linalg_kernels.matrix_inv_with_det(dfm, det_df, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
+        det_df = linalg_kernels_mod.det(dfm)
+        linalg_kernels_mod.matrix_inv_with_det(dfm, det_df, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-        bsplines_kernels.b_der_splines_slim(args_derham.tn1, args_derham.pn[0], eta1, span1, args_derham.bn1, der1)
-        bsplines_kernels.b_der_splines_slim(args_derham.tn2, args_derham.pn[1], eta2, span2, args_derham.bn2, der2)
-        bsplines_kernels.b_der_splines_slim(args_derham.tn3, args_derham.pn[2], eta3, span3, args_derham.bn3, der3)
+        bsplines_kernels_mod.b_der_splines_slim(args_derham.tn1, args_derham.pn[0], eta1, span1, args_derham.bn1, der1)
+        bsplines_kernels_mod.b_der_splines_slim(args_derham.tn2, args_derham.pn[1], eta2, span2, args_derham.bn2, der2)
+        bsplines_kernels_mod.b_der_splines_slim(args_derham.tn3, args_derham.pn[2], eta3, span3, args_derham.bn3, der3)
 
         # magnetic field: 2-form components
         eval_2form_spline_mpi(
@@ -1541,11 +1541,11 @@ def push_bxu_Hdiv_pauli(
         )
 
         # magnetic field: Cartesian components
-        linalg_kernels.matrix_vector(dfm, b_form, b_cart)
+        linalg_kernels_mod.matrix_vector(dfm, b_form, b_cart)
         b_cart[:] = b_cart / det_df
 
         # magnetic field: evaluation of gradient (vector field)
-        b_diff[0] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        b_diff[0] = evaluation_kernels_3d_mod.eval_spline_mpi_kernel(
             args_derham.pn[0],
             args_derham.pn[1],
             args_derham.pn[2],
@@ -1558,7 +1558,7 @@ def push_bxu_Hdiv_pauli(
             b0,
             args_derham.starts,
         )
-        b_diff[1] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        b_diff[1] = evaluation_kernels_3d_mod.eval_spline_mpi_kernel(
             args_derham.pn[0],
             args_derham.pn[1],
             args_derham.pn[2],
@@ -1571,7 +1571,7 @@ def push_bxu_Hdiv_pauli(
             b0,
             args_derham.starts,
         )
-        b_diff[2] = evaluation_kernels_3d.eval_spline_mpi_kernel(
+        b_diff[2] = evaluation_kernels_3d_mod.eval_spline_mpi_kernel(
             args_derham.pn[0],
             args_derham.pn[1],
             args_derham.pn[2],
@@ -1586,7 +1586,7 @@ def push_bxu_Hdiv_pauli(
         )
 
         # magnetic field: evaluation of gradient (Cartesian components)
-        linalg_kernels.matrix_vector(dfinv_t, b_diff, b_grad)
+        linalg_kernels_mod.matrix_vector(dfinv_t, b_diff, b_grad)
 
         # velocity field: 2-form components
         eval_2form_spline_mpi(
@@ -1600,11 +1600,11 @@ def push_bxu_Hdiv_pauli(
             u_form,
         )
 
-        linalg_kernels.matrix_vector(dfm, u_form, u_cart)
+        linalg_kernels_mod.matrix_vector(dfm, u_form, u_cart)
         u_cart[:] = u_cart / det_df
 
         # electric field E = B x U
-        linalg_kernels.cross(b_cart, u_cart, e_cart)
+        linalg_kernels_mod.cross(b_cart, u_cart, e_cart)
 
         # additional artificial electric field of Pauli markers
         e_cart[:] = e_cart - mu[ip] * b_grad
@@ -1681,7 +1681,7 @@ def push_pc_GXu_full(
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -1690,8 +1690,8 @@ def push_pc_GXu_full(
         )
 
         # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -1734,7 +1734,7 @@ def push_pc_GXu_full(
         e[1] = GXu[0, 1] * v[0] + GXu[1, 1] * v[1] + GXu[2, 1] * v[2]
         e[2] = GXu[0, 2] * v[0] + GXu[1, 2] * v[1] + GXu[2, 2] * v[2]
 
-        linalg_kernels.matrix_vector(dfinv_t, e, e_cart)
+        linalg_kernels_mod.matrix_vector(dfinv_t, e, e_cart)
 
         # update velocities
         markers[ip, 3:6] -= dt * e_cart / 2.0
@@ -1807,7 +1807,7 @@ def push_pc_GXu(
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -1816,8 +1816,8 @@ def push_pc_GXu(
         )
 
         # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -1849,7 +1849,7 @@ def push_pc_GXu(
         e[1] = GXu[0, 1] * v[0] + GXu[1, 1] * v[1]
         e[2] = GXu[0, 2] * v[0] + GXu[1, 2] * v[1]
 
-        linalg_kernels.matrix_vector(dfinv_t, e, e_cart)
+        linalg_kernels_mod.matrix_vector(dfinv_t, e, e_cart)
 
         # update velocities
         markers[ip, 3:6] -= dt * e_cart / 2.0
@@ -1911,7 +1911,7 @@ def push_eta_stage(
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -1920,10 +1920,10 @@ def push_eta_stage(
         )
 
         # evaluate inverse Jacobian matrix
-        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
 
         # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k)
+        linalg_kernels_mod.matrix_vector(dfinv, v, k)
 
         # accumulation for last stage
         markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
@@ -2022,7 +2022,7 @@ def push_pc_eta_rk4_Hcurl_full(
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -2031,12 +2031,12 @@ def push_pc_eta_rk4_Hcurl_full(
         )
 
         # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
-        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k_v)
+        linalg_kernels_mod.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
@@ -2054,7 +2054,7 @@ def push_pc_eta_rk4_Hcurl_full(
         )
 
         # transform to vector field
-        linalg_kernels.matrix_vector(ginv, u, k_u)
+        linalg_kernels_mod.matrix_vector(ginv, u, k_u)
 
         # sum contribs
         k[:] = k_v + k_u
@@ -2151,7 +2151,7 @@ def push_pc_eta_rk4_Hdiv_full(
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -2160,13 +2160,13 @@ def push_pc_eta_rk4_Hdiv_full(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
-        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
+        det_df = linalg_kernels_mod.det(dfm)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k_v)
+        linalg_kernels_mod.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
@@ -2283,7 +2283,7 @@ def push_pc_eta_rk4_H1vec_full(
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -2292,12 +2292,12 @@ def push_pc_eta_rk4_H1vec_full(
         )
 
         # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
-        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k_v)
+        linalg_kernels_mod.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
@@ -2412,7 +2412,7 @@ def push_pc_eta_rk4_Hcurl(
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -2421,12 +2421,12 @@ def push_pc_eta_rk4_Hcurl(
         )
 
         # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
-        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k_v)
+        linalg_kernels_mod.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
@@ -2445,7 +2445,7 @@ def push_pc_eta_rk4_Hcurl(
         u[2] = 0.0
 
         # transform to vector field
-        linalg_kernels.matrix_vector(ginv, u, k_u)
+        linalg_kernels_mod.matrix_vector(ginv, u, k_u)
 
         # sum contribs
         k[:] = k_v + k_u
@@ -2542,7 +2542,7 @@ def push_pc_eta_rk4_Hdiv(
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -2551,13 +2551,13 @@ def push_pc_eta_rk4_Hdiv(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
-        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
+        det_df = linalg_kernels_mod.det(dfm)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k_v)
+        linalg_kernels_mod.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
@@ -2675,7 +2675,7 @@ def push_pc_eta_rk4_H1vec(
 
         # ----------------- stage n in Runge-Kutta method -------------------
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             e1,
             e2,
             e3,
@@ -2684,12 +2684,12 @@ def push_pc_eta_rk4_H1vec(
         )
 
         # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
-        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_matrix(dfinv, dfinv_t, ginv)
 
         # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k_v)
+        linalg_kernels_mod.matrix_vector(dfinv, v, k_v)
 
         # spline evaluation
         span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
@@ -2783,7 +2783,7 @@ def push_weights_with_efield_lin_va(
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # Compute Jacobian matrix
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -2792,10 +2792,10 @@ def push_weights_with_efield_lin_va(
         )
 
         # invert Jacobian matrix
-        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels_mod.matrix_inv(dfm, df_inv)
 
         # compute DF^{-1} v
-        linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
+        linalg_kernels_mod.matrix_vector(df_inv, v, df_inv_v)
 
         # E-field (1-form)
         eval_1form_spline_mpi(
@@ -2909,7 +2909,7 @@ def push_deterministic_diffusion_stage(
         )
 
         # evaluate Metric tensor, result in gm
-        evaluation_kernels.g_inv(
+        evaluation_kernels_mod.g_inv(
             e1,
             e2,
             e3,
@@ -2923,7 +2923,7 @@ def push_deterministic_diffusion_stage(
 
         # updating k
         tmp = -diffusion_coeff * pi_du_value / pi_u_value
-        linalg_kernels.matrix_vector(ginv, tmp, k)
+        linalg_kernels_mod.matrix_vector(ginv, tmp, k)
 
         # accumulation for last stage
         markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
@@ -3064,7 +3064,7 @@ def push_v_sph_pressure(
         loc_box = int(markers[ip, -2])
 
         # first component
-        grad_u[0] = sph_eval_kernels.boxed_based_kernel(
+        grad_u[0] = sph_eval_kernels_mod.boxed_based_kernel(
             eta1,
             eta2,
             eta3,
@@ -3085,7 +3085,7 @@ def push_v_sph_pressure(
         )
         grad_u[0] *= kappa / n_at_eta
 
-        sum2 = sph_eval_kernels.boxed_based_kernel(
+        sum2 = sph_eval_kernels_mod.boxed_based_kernel(
             eta1,
             eta2,
             eta3,
@@ -3109,7 +3109,7 @@ def push_v_sph_pressure(
 
         if kernel_type >= 340:
             # second component
-            grad_u[1] = sph_eval_kernels.boxed_based_kernel(
+            grad_u[1] = sph_eval_kernels_mod.boxed_based_kernel(
                 eta1,
                 eta2,
                 eta3,
@@ -3130,7 +3130,7 @@ def push_v_sph_pressure(
             )
             grad_u[1] *= kappa / n_at_eta
 
-            sum4 = sph_eval_kernels.boxed_based_kernel(
+            sum4 = sph_eval_kernels_mod.boxed_based_kernel(
                 eta1,
                 eta2,
                 eta3,
@@ -3154,7 +3154,7 @@ def push_v_sph_pressure(
 
         if kernel_type >= 670:
             # third component
-            grad_u[2] = sph_eval_kernels.boxed_based_kernel(
+            grad_u[2] = sph_eval_kernels_mod.boxed_based_kernel(
                 eta1,
                 eta2,
                 eta3,
@@ -3175,7 +3175,7 @@ def push_v_sph_pressure(
             )
             grad_u[2] *= kappa / n_at_eta
 
-            sum6 = sph_eval_kernels.boxed_based_kernel(
+            sum6 = sph_eval_kernels_mod.boxed_based_kernel(
                 eta1,
                 eta2,
                 eta3,
@@ -3198,7 +3198,7 @@ def push_v_sph_pressure(
             grad_u[2] += sum6
 
         # push to Cartesian coordinates
-        evaluation_kernels.df_inv(
+        evaluation_kernels_mod.df_inv(
             eta1,
             eta2,
             eta3,
@@ -3207,8 +3207,8 @@ def push_v_sph_pressure(
             False,
             dfinv,
         )
-        linalg_kernels.transpose(dfinv, dfinvT)
-        linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
+        linalg_kernels_mod.transpose(dfinv, dfinvT)
+        linalg_kernels_mod.matrix_vector(dfinvT, grad_u, grad_u_cart)
 
         # update velocities
         markers[ip, 3:6] -= dt * grad_u_cart

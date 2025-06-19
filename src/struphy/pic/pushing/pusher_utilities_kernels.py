@@ -1,9 +1,9 @@
 from numpy import empty, floor, sqrt, zeros
 from pyccel.decorators import pure, stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
+import struphy.geometry.evaluation_kernels as evaluation_kernels_mod
+import struphy.linear_algebra.linalg_kernels as linalg_kernels_mod
 
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
@@ -57,22 +57,22 @@ def reflect(
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta[0], eta[1], eta[2],
             args_domain,
             dfm,
         )
 
-        linalg_kernels.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
 
         # pull back of the velocity
-        linalg_kernels.matrix_vector(dfinv, v, v_logical)
+        linalg_kernels_mod.matrix_vector(dfinv, v, v_logical)
 
         # reverse the velocity
         v_logical[axis] *= -1
 
         # push forwward of the velocity
-        linalg_kernels.matrix_vector(dfm, v_logical, v)
+        linalg_kernels_mod.matrix_vector(dfm, v_logical, v)
 
         # update the particle velocities
         markers[ip, 3:6] = v[:]
@@ -243,13 +243,13 @@ def aux_fun_x_v_stat_e(
     v3_curr = v3
 
     # Use Euler method as a predictor for positions
-    evaluation_kernels.df(
+    evaluation_kernels_mod.df(
         eta1, eta2, eta3,
         args_domain,
         dfm,
     )
 
-    linalg_kernels.matrix_inv(dfm, df_inv)
+    linalg_kernels_mod.matrix_inv(dfm, df_inv)
 
     v1_curv = kappa * (
         df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
@@ -288,7 +288,7 @@ def aux_fun_x_v_stat_e(
         v3_curr = v3_next
 
         # find Jacobian matrix
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             (eta1_curr + eta1)/2,
             (eta2_curr + eta2)/2,
             (eta3_curr + eta3)/2,
@@ -297,7 +297,7 @@ def aux_fun_x_v_stat_e(
         )
 
         # evaluate inverse Jacobian matrix
-        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels_mod.matrix_inv(dfm, df_inv)
 
         # ======================================================================================
         # update the positions and place them back into the computational domain

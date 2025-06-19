@@ -2,15 +2,15 @@ from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
 # import modules for B-spline evaluation
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.bsplines.evaluation_kernels_2d as evaluation_kernels_2d
-import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
+import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
+import struphy.bsplines.evaluation_kernels_2d as evaluation_kernels_2d_mod
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d_mod
 
 # import module for mapping evaluation
-import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.geometry.evaluation_kernels as evaluation_kernels_mod
 
 # import module for matrix-matrix and matrix-vector multiplications
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.linear_algebra.linalg_kernels as linalg_kernels_mod
 
 
 @stack_array("e", "v")

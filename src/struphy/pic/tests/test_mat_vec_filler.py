@@ -10,7 +10,7 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     '''This test assumes a single particle and verifies
         a) if the correct indices are non-zero in _data
         b) if there are no NaNs
-    for all routines in particle_to_mat_kernels.py
+    for all routines in particle_to_mat_kernels_mod.py
     '''
 
     from mpi4py import MPI

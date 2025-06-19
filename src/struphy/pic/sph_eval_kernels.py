@@ -1,7 +1,7 @@
 from numpy import sqrt
 
-import struphy.pic.sorting_kernels as sorting_kernels
-import struphy.pic.sph_smoothing_kernels as sph_smoothing_kernels
+import struphy.pic.sorting_kernels as sorting_kernels_mod
+import struphy.pic.sph_smoothing_kernels as sph_smoothing_kernels_mod
 
 
 def distance(x: "float", y: "float", periodic: "bool") -> float:
@@ -72,7 +72,7 @@ def naive_evaluation_kernel(
             r1 = distance(eta1, markers[p, 0], periodic1)
             r2 = distance(eta2, markers[p, 1], periodic2)
             r3 = distance(eta3, markers[p, 2], periodic3)
-            out += markers[p, index] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
+            out += markers[p, index] * sph_smoothing_kernels_mod.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
     return out / Np
 
 
@@ -146,7 +146,7 @@ def boxed_based_kernel(
                 r1 = distance(eta1, markers[p, 0], periodic1)
                 r2 = distance(eta2, markers[p, 1], periodic2)
                 r3 = distance(eta3, markers[p, 2], periodic3)
-                out += markers[p, index] * sph_smoothing_kernels.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
+                out += markers[p, index] * sph_smoothing_kernels_mod.smoothing_kernel(kernel_type, r1, r2, r3, h1, h2, h3)
     return out / Np
 
 
@@ -368,7 +368,7 @@ def box_based_evaluation_flat(
         e1 = eta1[i]
         e2 = eta2[i]
         e3 = eta3[i]
-        loc_box = sorting_kernels.find_box(
+        loc_box = sorting_kernels_mod.find_box(
             e1,
             e2,
             e3,
@@ -485,7 +485,7 @@ def box_based_evaluation_meshgrid(
                 e3 = eta3[0, 0, k]
                 if e3 < domain_array[6] or e3 > domain_array[7]:
                     continue
-                loc_box = sorting_kernels.find_box(
+                loc_box = sorting_kernels_mod.find_box(
                     e1,
                     e2,
                     e3,

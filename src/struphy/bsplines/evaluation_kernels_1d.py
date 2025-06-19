@@ -16,7 +16,7 @@ from pyccel.decorators import pure, stack_array
 
 from numpy import empty, zeros
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
 
 
 # =============================================================================
@@ -93,7 +93,7 @@ def evaluate(kind1: int, t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'floa
     """
 
     # find knot span indices
-    span1 = bsplines_kernels.find_span(t1, p1, eta1)
+    span1 = bsplines_kernels_mod.find_span(t1, p1, eta1)
 
     # evaluate non-vanishing basis functions
     b1 = empty(p1 + 1, dtype=float)
@@ -102,15 +102,15 @@ def evaluate(kind1: int, t1: 'float[:]', p1: int, ind1: 'int[:,:]', coeff: 'floa
     tmp1 = zeros(p1 + 1, dtype=int)
 
     if kind1 == 1:
-        bsplines_kernels.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
+        bsplines_kernels_mod.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
     elif kind1 == 2:
-        bsplines_kernels.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
-        bsplines_kernels.scaling(t1, p1, span1, b1)
+        bsplines_kernels_mod.basis_funs(t1, p1, eta1, span1, bl1, br1, b1)
+        bsplines_kernels_mod.scaling(t1, p1, span1, b1)
     elif kind1 == 3:
-        bsplines_kernels.basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
+        bsplines_kernels_mod.basis_funs_1st_der(t1, p1, eta1, span1, bl1, br1, b1)
     elif kind1 == 4:
         tmp2 = zeros((3, p1 + 1), dtype=float)
-        bsplines_kernels.basis_funs_all_ders(t1, p1, eta1, span1, bl1, br1, 2, tmp2)
+        bsplines_kernels_mod.basis_funs_all_ders(t1, p1, eta1, span1, bl1, br1, 2, tmp2)
         b1[:] = tmp2[2, :]
 
     # sum up non-vanishing contributions

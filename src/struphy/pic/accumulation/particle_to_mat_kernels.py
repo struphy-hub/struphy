@@ -23,8 +23,8 @@
 
 from pyccel.decorators import pure, stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.pic.accumulation.filler_kernels as filler_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
+import struphy.pic.accumulation.filler_kernels as filler_kernels_mod
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 
@@ -73,21 +73,21 @@ def mat_fill_b_v1_diag(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -142,21 +142,21 @@ def m_v_fill_b_v1_diag(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
@@ -205,21 +205,21 @@ def mat_fill_b_v2_diag(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -274,21 +274,21 @@ def m_v_fill_b_v2_diag(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
@@ -337,21 +337,21 @@ def mat_fill_b_v1_asym(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -406,28 +406,28 @@ def m_v_fill_b_v1_asym(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pn3, pn1, pd2, pn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat12, fill12, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pn3, pn1, pn2, pd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat23, fill23, vec2, fill2)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_vec(pn1, pn2, pd3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -475,21 +475,21 @@ def mat_fill_b_v2_asym(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -544,28 +544,28 @@ def m_v_fill_b_v2_asym(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pd3, pd1, pn2, pd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat12, fill12, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pd3, pd1, pd2, pn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat23, fill23, vec2, fill2)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_vec(pd1, pd2, pn3,
+    filler_kernels_mod.fill_vec(pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -613,42 +613,42 @@ def mat_fill_b_v1_symm(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -703,42 +703,42 @@ def m_v_fill_b_v1_symm(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -787,42 +787,42 @@ def mat_fill_b_v2_symm(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -877,42 +877,42 @@ def m_v_fill_b_v2_symm(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -961,63 +961,63 @@ def mat_fill_b_v1_full(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pd1, pn2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pd1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat32, fill32)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -1072,63 +1072,63 @@ def m_v_fill_b_v1_full(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pd1, pn2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pd1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -1183,63 +1183,63 @@ def mat_fill_b_v2_full(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pn1, pd2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pn1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat32, fill32)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -1294,63 +1294,63 @@ def m_v_fill_b_v2_full(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pn1, pd2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pn1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -1398,21 +1398,21 @@ def mat_fill_v1_diag(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -1466,21 +1466,21 @@ def m_v_fill_v1_diag(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
@@ -1528,21 +1528,21 @@ def mat_fill_v2_diag(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -1596,21 +1596,21 @@ def m_v_fill_v2_diag(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
@@ -1658,21 +1658,21 @@ def mat_fill_v1_asym(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -1726,28 +1726,28 @@ def m_v_fill_v1_asym(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pn3, pn1, pd2, pn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat12, fill12, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pn3, pn1, pn2, pd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat23, fill23, vec2, fill2)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_vec(pn1, pn2, pd3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -1794,21 +1794,21 @@ def mat_fill_v2_asym(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -1862,28 +1862,28 @@ def m_v_fill_v2_asym(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pd3, pd1, pn2, pd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat12, fill12, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pd3, pd1, pd2, pn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat23, fill23, vec2, fill2)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_vec(pd1, pd2, pn3,
+    filler_kernels_mod.fill_vec(pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -1930,42 +1930,42 @@ def mat_fill_v1_symm(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -2019,42 +2019,42 @@ def m_v_fill_v1_symm(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -2102,42 +2102,42 @@ def mat_fill_v2_symm(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -2191,42 +2191,42 @@ def m_v_fill_v2_symm(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -2274,63 +2274,63 @@ def mat_fill_v1_full(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pd1, pn2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pd1, pn2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pd1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat32, fill32)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -2384,63 +2384,63 @@ def m_v_fill_v1_full(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pn3, pd1, pn2, pn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pn3, pn1, pd2, pn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pd3, pn1, pn2, pd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pn3, pn1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pd1, pn2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pn3, pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pd1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pn1, pn2, pd3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pd3, pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -2488,63 +2488,63 @@ def mat_fill_v2_full(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pn1, pd2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pn1, pd2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pn1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat32, fill32)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
@@ -2598,63 +2598,63 @@ def m_v_fill_v2_full(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pn1, pd2, pd3, pn1, pd2, pd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bn1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pn2, pd3, pd1, pn2, pd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bn2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pn3, pd1, pd2, pn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pn2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pd2, pd3, pd1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pn1, pd2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
+    filler_kernels_mod.fill_mat(pd1, pn2, pd3, pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pn1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pn1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pd1, pd2, pn3, pd1, pn2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pn3, pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
@@ -2699,7 +2699,7 @@ def mat_fill_b_v0(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -2750,7 +2750,7 @@ def m_v_fill_b_v0(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
@@ -2799,7 +2799,7 @@ def mat_fill_b_v3(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -2854,7 +2854,7 @@ def m_v_fill_b_v3(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
@@ -2895,7 +2895,7 @@ def mat_fill_v0(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -2942,7 +2942,7 @@ def m_v_fill_v0(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
@@ -2987,7 +2987,7 @@ def mat_fill_v3(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -3038,7 +3038,7 @@ def m_v_fill_v3(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
@@ -3083,21 +3083,21 @@ def mat_fill_b_v0vec_diag(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -3148,21 +3148,21 @@ def m_v_fill_b_v0vec_diag(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
@@ -3211,21 +3211,21 @@ def mat_fill_b_v3vec_diag(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -3280,21 +3280,21 @@ def m_v_fill_b_v3vec_diag(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
@@ -3339,21 +3339,21 @@ def mat_fill_b_v0vec_asym(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -3404,28 +3404,28 @@ def m_v_fill_b_v0vec_asym(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat12, fill12, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat23, fill23, vec2, fill2)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_vec(pn1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -3473,21 +3473,21 @@ def mat_fill_b_v3vec_asym(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -3542,28 +3542,28 @@ def m_v_fill_b_v3vec_asym(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat12, fill12, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat23, fill23, vec2, fill2)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_vec(pd1, pd2, pd3,
+    filler_kernels_mod.fill_vec(pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -3607,42 +3607,42 @@ def mat_fill_b_v0vec_symm(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -3693,42 +3693,42 @@ def m_v_fill_b_v0vec_symm(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -3777,42 +3777,42 @@ def mat_fill_b_v3vec_symm(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -3867,42 +3867,42 @@ def m_v_fill_b_v3vec_symm(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -3947,63 +3947,63 @@ def mat_fill_b_v0vec_full(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat32, fill32)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -4054,63 +4054,63 @@ def m_v_fill_b_v0vec_full(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -4165,63 +4165,63 @@ def mat_fill_b_v3vec_full(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat32, fill32)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -4276,63 +4276,63 @@ def m_v_fill_b_v3vec_full(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -4373,21 +4373,21 @@ def mat_fill_v0vec_diag(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -4434,21 +4434,21 @@ def m_v_fill_v0vec_diag(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
@@ -4493,21 +4493,21 @@ def mat_fill_v3vec_diag(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -4558,21 +4558,21 @@ def m_v_fill_v3vec_diag(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
@@ -4613,21 +4613,21 @@ def mat_fill_v0vec_asym(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -4674,28 +4674,28 @@ def m_v_fill_v0vec_asym(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat12, fill12, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat23, fill23, vec2, fill2)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_vec(pn1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -4739,21 +4739,21 @@ def mat_fill_v3vec_asym(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -4804,28 +4804,28 @@ def m_v_fill_v3vec_asym(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat12, fill12, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat23, fill23, vec2, fill2)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_vec(pd1, pd2, pd3,
+    filler_kernels_mod.fill_vec(pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -4865,42 +4865,42 @@ def mat_fill_v0vec_symm(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -4947,42 +4947,42 @@ def m_v_fill_v0vec_symm(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -5027,42 +5027,42 @@ def mat_fill_v3vec_symm(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -5113,42 +5113,42 @@ def m_v_fill_v3vec_symm(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -5189,63 +5189,63 @@ def mat_fill_v0vec_full(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill matrix entries
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat32, fill32)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -5292,63 +5292,63 @@ def m_v_fill_v0vec_full(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec(pn1, pn2, pn3, pn1, pn2, pn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 args_derham.bn1, args_derham.bn2, args_derham.bn3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
+    filler_kernels_mod.fill_mat(pn1, pn2, pn3, pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
@@ -5399,63 +5399,63 @@ def mat_fill_v3vec_full(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat11, fill11)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat22, fill22)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat32, fill32)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -5506,63 +5506,63 @@ def m_v_fill_v3vec_full(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix entries
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat11, fill11, vec1, fill1)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat22, fill22, vec2, fill2)
 
-    filler_kernels.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat_vec(pd1, pd2, pd3, pd1, pd2, pd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 args_derham.bd1, args_derham.bd2, args_derham.bd3,
                                 span1, span2, span3,
                                 args_derham.starts, args_derham.pn,
                                 mat33, fill33, vec3, fill3)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat12, fill12)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat13, fill13)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat21, fill21)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat23, fill23)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts, args_derham.pn,
                             mat31, fill31)
 
-    filler_kernels.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
+    filler_kernels_mod.fill_mat(pd1, pd2, pd3, pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
@@ -5620,7 +5620,7 @@ def m_v_fill_v1_pressure_full(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec_pressure_full(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec_pressure_full(pd1, pn2, pn3, pd1, pn2, pn3,
                                               args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                               args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                               span1, span2, span3,
@@ -5629,7 +5629,7 @@ def m_v_fill_v1_pressure_full(args_derham: 'DerhamArguments',
                                               vec1_1, vec1_2, vec1_3, fill1,
                                               vx, vy, vz)
 
-    filler_kernels.fill_mat_vec_pressure_full(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec_pressure_full(pn1, pd2, pn3, pn1, pd2, pn3,
                                               args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                               args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                               span1, span2, span3,
@@ -5638,7 +5638,7 @@ def m_v_fill_v1_pressure_full(args_derham: 'DerhamArguments',
                                               vec2_1, vec2_2, vec2_3, fill2,
                                               vx, vy, vz)
 
-    filler_kernels.fill_mat_vec_pressure_full(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec_pressure_full(pn1, pn2, pd3, pn1, pn2, pd3,
                                               args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                               args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                               span1, span2, span3,
@@ -5647,7 +5647,7 @@ def m_v_fill_v1_pressure_full(args_derham: 'DerhamArguments',
                                               vec3_1, vec3_2, vec3_3, fill3,
                                               vx, vy, vz)
 
-    filler_kernels.fill_mat_pressure_full(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_pressure_full(pd1, pn2, pn3, pn1, pd2, pn3,
                                           args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                           args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                           span1, span2, span3,
@@ -5655,7 +5655,7 @@ def m_v_fill_v1_pressure_full(args_derham: 'DerhamArguments',
                                           mat12_11, mat12_12, mat12_13, mat12_22, mat12_23, mat12_33, fill12,
                                           vx, vy, vz)
 
-    filler_kernels.fill_mat_pressure_full(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_pressure_full(pd1, pn2, pn3, pn1, pn2, pd3,
                                           args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                           args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                           span1, span2, span3,
@@ -5663,7 +5663,7 @@ def m_v_fill_v1_pressure_full(args_derham: 'DerhamArguments',
                                           mat13_11, mat13_12, mat13_13, mat13_22, mat13_23, mat13_33, fill13,
                                           vx, vy, vz)
 
-    filler_kernels.fill_mat_pressure_full(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_pressure_full(pn1, pd2, pn3, pn1, pn2, pd3,
                                           args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                           args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                           span1, span2, span3,
@@ -5722,7 +5722,7 @@ def m_v_fill_v1_pressure(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill matrix and vector entries
-    filler_kernels.fill_mat_vec_pressure(pd1, pn2, pn3, pd1, pn2, pn3,
+    filler_kernels_mod.fill_mat_vec_pressure(pd1, pn2, pn3, pd1, pn2, pn3,
                                          args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                          args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                          span1, span2, span3,
@@ -5731,7 +5731,7 @@ def m_v_fill_v1_pressure(args_derham: 'DerhamArguments',
                                          vec1_1, vec1_2, fill1,
                                          vx, vy)
 
-    filler_kernels.fill_mat_vec_pressure(pn1, pd2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_vec_pressure(pn1, pd2, pn3, pn1, pd2, pn3,
                                          args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                          args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                          span1, span2, span3,
@@ -5740,7 +5740,7 @@ def m_v_fill_v1_pressure(args_derham: 'DerhamArguments',
                                          vec2_1, vec2_2, fill2,
                                          vx, vy)
 
-    filler_kernels.fill_mat_vec_pressure(pn1, pn2, pd3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_vec_pressure(pn1, pn2, pd3, pn1, pn2, pd3,
                                          args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                          args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                          span1, span2, span3,
@@ -5749,7 +5749,7 @@ def m_v_fill_v1_pressure(args_derham: 'DerhamArguments',
                                          vec3_1, vec3_2, fill3,
                                          vx, vy)
 
-    filler_kernels.fill_mat_pressure(pd1, pn2, pn3, pn1, pd2, pn3,
+    filler_kernels_mod.fill_mat_pressure(pd1, pn2, pn3, pn1, pd2, pn3,
                                      args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                      args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                      span1, span2, span3,
@@ -5757,7 +5757,7 @@ def m_v_fill_v1_pressure(args_derham: 'DerhamArguments',
                                      mat12_11, mat12_12, mat12_22, fill12,
                                      vx, vy)
 
-    filler_kernels.fill_mat_pressure(pd1, pn2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_pressure(pd1, pn2, pn3, pn1, pn2, pd3,
                                      args_derham.bd1, args_derham.bn2, args_derham.bn3,
                                      args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                      span1, span2, span3,
@@ -5765,7 +5765,7 @@ def m_v_fill_v1_pressure(args_derham: 'DerhamArguments',
                                      mat13_11, mat13_12, mat13_22, fill13,
                                      vx, vy)
 
-    filler_kernels.fill_mat_pressure(pn1, pd2, pn3, pn1, pn2, pd3,
+    filler_kernels_mod.fill_mat_pressure(pn1, pd2, pn3, pn1, pn2, pd3,
                                      args_derham.bn1, args_derham.bd2, args_derham.bn3,
                                      args_derham.bn1, args_derham.bn2, args_derham.bd3,
                                      span1, span2, span3,
@@ -5776,7 +5776,7 @@ def m_v_fill_v1_pressure(args_derham: 'DerhamArguments',
 
 def hybrid_density(Nel: 'int[:]', args_derham: 'DerhamArguments', cell_left: 'int[:]', cell_number: 'int[:]', span1: 'int', span2: 'int', span3: 'int', ie1: 'int', ie2: 'int', ie3: 'int', temp1: 'float[:]', temp4: 'float[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]', compact: 'float[:]', eta1: 'float', eta2: 'float', eta3: 'float', mat: 'float[:,:,:,:,:,:]', weight: 'float', p_shape: 'int[:]', p_size: 'float[:]', grids_shapex: 'float[:]', grids_shapey: 'float[:]', grids_shapez: 'float[:]'):
 
-    filler_kernels.hy_density(Nel, args_derham.pn, cell_left, cell_number, span1, span2, span3, args_derham.starts, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x,
+    filler_kernels_mod.hy_density(Nel, args_derham.pn, cell_left, cell_number, span1, span2, span3, args_derham.starts, ie1, ie2, ie3, temp1, temp4, quad, quad_pts_x,
                               quad_pts_y, quad_pts_z, compact, eta1, eta2, eta3, mat, weight, p_shape, p_size, grids_shapex, grids_shapey, grids_shapez)
 
 #####################################
@@ -5796,7 +5796,7 @@ def vec_fill_v0(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill vector entries
-    filler_kernels.fill_vec(pn1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -5819,19 +5819,19 @@ def vec_fill_v1(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill vector entries
-    filler_kernels.fill_vec(pd1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pd1, pn2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec1, fill1)
 
-    filler_kernels.fill_vec(pn1, pd2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec2, fill2)
 
-    filler_kernels.fill_vec(pn1, pn2, pd3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -5854,19 +5854,19 @@ def vec_fill_v2(args_derham: 'DerhamArguments',
     pd3 = pn3 - 1
 
     # fill vector entries
-    filler_kernels.fill_vec(pn1, pd2, pd3,
+    filler_kernels_mod.fill_vec(pn1, pd2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec1, fill1)
 
-    filler_kernels.fill_vec(pd1, pn2, pd3,
+    filler_kernels_mod.fill_vec(pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec2, fill2)
 
-    filler_kernels.fill_vec(pd1, pd2, pn3,
+    filler_kernels_mod.fill_vec(pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -5885,7 +5885,7 @@ def vec_fill_v3(args_derham: 'DerhamArguments',
     pd3 = args_derham.pn[2] - 1
 
     # fill vector entries
-    filler_kernels.fill_vec(pd1, pd2, pd3,
+    filler_kernels_mod.fill_vec(pd1, pd2, pd3,
                             args_derham.bd1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -5904,19 +5904,19 @@ def vec_fill_v0vec(args_derham: 'DerhamArguments',
     pn3 = args_derham.pn[2]
 
     # fill vector entries
-    filler_kernels.fill_vec(pn1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec1, fill1)
 
-    filler_kernels.fill_vec(pn1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec2, fill2)
 
-    filler_kernels.fill_vec(pn1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -5938,7 +5938,7 @@ def vec_fill_b_v0(args_derham: 'DerhamArguments',
 
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-    filler_kernels.fill_vec(pn1, pn2, pn3, args_derham.bn1, args_derham.bn2, args_derham.bn3, span1,
+    filler_kernels_mod.fill_vec(pn1, pn2, pn3, args_derham.bn1, args_derham.bn2, args_derham.bn3, span1,
                             span2, span3, args_derham.starts, vec, fill)
 
 
@@ -5962,19 +5962,19 @@ def vec_fill_b_v1(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill vector entries
-    filler_kernels.fill_vec(pd1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pd1, pn2, pn3,
                             args_derham.bd1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec1, fill1)
 
-    filler_kernels.fill_vec(pn1, pd2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pd2, pn3,
                             args_derham.bn1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec2, fill2)
 
-    filler_kernels.fill_vec(pn1, pn2, pd3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pd3,
                             args_derham.bn1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -6001,19 +6001,19 @@ def vec_fill_b_v2(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill vector entries
-    filler_kernels.fill_vec(pn1, pd2, pd3,
+    filler_kernels_mod.fill_vec(pn1, pd2, pd3,
                             args_derham.bn1, args_derham.bd2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec1, fill1)
 
-    filler_kernels.fill_vec(pd1, pn2, pd3,
+    filler_kernels_mod.fill_vec(pd1, pn2, pd3,
                             args_derham.bd1, args_derham.bn2, args_derham.bd3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec2, fill2)
 
-    filler_kernels.fill_vec(pd1, pd2, pn3,
+    filler_kernels_mod.fill_vec(pd1, pd2, pn3,
                             args_derham.bd1, args_derham.bd2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
@@ -6039,7 +6039,7 @@ def vec_fill_b_v3(args_derham: 'DerhamArguments',
 
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-    filler_kernels.fill_vec(pd1, pd2, pd3, args_derham.bd1, args_derham.bd2, args_derham.bd3, span1,
+    filler_kernels_mod.fill_vec(pd1, pd2, pd3, args_derham.bd1, args_derham.bd2, args_derham.bd3, span1,
                             span2, span3, args_derham.starts, vec, fill)
 
 
@@ -6059,19 +6059,19 @@ def vec_fill_b_v0vec(args_derham: 'DerhamArguments',
     span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
     # fill vector entries
-    filler_kernels.fill_vec(pn1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec1, fill1)
 
-    filler_kernels.fill_vec(pn1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,
                             vec2, fill2)
 
-    filler_kernels.fill_vec(pn1, pn2, pn3,
+    filler_kernels_mod.fill_vec(pn1, pn2, pn3,
                             args_derham.bn1, args_derham.bn2, args_derham.bn3,
                             span1, span2, span3,
                             args_derham.starts,

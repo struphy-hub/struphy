@@ -1,10 +1,10 @@
 from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros
 from pyccel.decorators import stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d_mod
+import struphy.geometry.evaluation_kernels as evaluation_kernels_mod
+import struphy.linear_algebra.linalg_kernels as linalg_kernels_mod
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
@@ -279,7 +279,7 @@ def eval_magnetic_energy(
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -287,7 +287,7 @@ def eval_magnetic_energy(
             dfm,
         )
 
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # abs_B0; 0form
         abs_B = eval_0form_spline_mpi(
@@ -322,7 +322,7 @@ def eval_magnetic_energy(
             norm_b1,
         )
 
-        b_para = linalg_kernels.scalar_dot(norm_b1, b)
+        b_para = linalg_kernels_mod.scalar_dot(norm_b1, b)
         b_para /= det_df
 
         markers[ip, first_diagnostics_idx] = mu * (abs_B + b_para)
@@ -374,7 +374,7 @@ def eval_guiding_center_from_6d(
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -383,7 +383,7 @@ def eval_guiding_center_from_6d(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -411,15 +411,15 @@ def eval_guiding_center_from_6d(
 
         # calculate normalized magnetic filed; cartesian
         b2 /= abs_B
-        linalg_kernels.matrix_vector(dfm, b2, norm_b_cart)
+        linalg_kernels_mod.matrix_vector(dfm, b2, norm_b_cart)
         norm_b_cart /= det_df
 
         # calculate parallel velocity
-        v_parallel = linalg_kernels.scalar_dot(norm_b_cart, v)
+        v_parallel = linalg_kernels_mod.scalar_dot(norm_b_cart, v)
 
         # extract perpendicular velocity
-        linalg_kernels.cross(v, norm_b_cart, temp)
-        linalg_kernels.cross(norm_b_cart, temp, v_perp)
+        linalg_kernels_mod.cross(v, norm_b_cart, temp)
+        linalg_kernels_mod.cross(norm_b_cart, temp, v_perp)
 
         v_perp_square = v_perp[0] ** 2 + v_perp[1] ** 2 + v_perp[2] ** 2
 
@@ -430,7 +430,7 @@ def eval_guiding_center_from_6d(
         markers[ip, first_diagnostics_idx + 4] = 1 / 2 * v_perp_square / abs_B
 
         # calculate Larmor radius vector
-        linalg_kernels.cross(norm_b_cart, v_perp, Larmor_r)
+        linalg_kernels_mod.cross(norm_b_cart, v_perp, Larmor_r)
         Larmor_r /= abs_B
         Larmor_r *= epsilon
 
@@ -491,7 +491,7 @@ def accum_gradI_const(
         )
 
         tmp[:] = markers[ip, 15:18]
-        res += linalg_kernels.scalar_dot(tmp, grad_PB) * weight * mu * scale
+        res += linalg_kernels_mod.scalar_dot(tmp, grad_PB) * weight * mu * scale
 
     return res / n_markers_tot
 
@@ -670,7 +670,7 @@ def canonical_kinetic_particles(
         v[:] = markers[ip, 3:6]
         w = markers[ip, 6]
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -678,8 +678,8 @@ def canonical_kinetic_particles(
             dfm,
         )
 
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
+        linalg_kernels_mod.matrix_inv(dfm, dfinv)
+        linalg_kernels_mod.transpose(dfinv, dfinv_t)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -795,9 +795,9 @@ def thermal_energy(
                                 vv = 1.0
 
                             # evaluate Jacobian, result in dfm
-                            evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfm)
+                            evaluation_kernels_mod.df(eta1, eta2, eta3, args_domain, dfm)
 
-                            det_df = linalg_kernels.det(dfm)
+                            det_df = linalg_kernels_mod.det(dfm)
 
                             res[0] += vv * det_df * log(vv) * wvol
     # -- removed omp: #$ omp end parallel

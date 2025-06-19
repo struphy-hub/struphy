@@ -47,8 +47,8 @@ from pyccel.decorators import stack_array
 
 from numpy import shape, empty, sqrt, zeros
 
-import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.geometry.evaluation_kernels as evaluation_kernels_mod
+import struphy.linear_algebra.linalg_kernels as linalg_kernels_mod
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels # do not remove; needed to identify dependencies
 
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
@@ -85,8 +85,8 @@ def pull(a: 'float[:]',
     
     # evaluate Jacobian matrix and its determinant
     if kind_fun > 0:
-        evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfmat1)
-        detdf = linalg_kernels.det(dfmat1)
+        evaluation_kernels_mod.df(eta1, eta2, eta3, args_domain, dfmat1)
+        detdf = linalg_kernels_mod.det(dfmat1)
     
     # 0-form
     if kind_fun == 0:
@@ -98,21 +98,21 @@ def pull(a: 'float[:]',
     
     # 1-form
     elif kind_fun == 10:
-        linalg_kernels.transpose(dfmat1, dfmat2)
-        linalg_kernels.matrix_vector(dfmat2, a, out)
+        linalg_kernels_mod.transpose(dfmat1, dfmat2)
+        linalg_kernels_mod.matrix_vector(dfmat2, a, out)
         
     # 2-form
     elif kind_fun == 11:
-        linalg_kernels.matrix_inv_with_det(dfmat1, 1., dfmat2)
-        linalg_kernels.matrix_vector(dfmat2, a, out)
+        linalg_kernels_mod.matrix_inv_with_det(dfmat1, 1., dfmat2)
+        linalg_kernels_mod.matrix_vector(dfmat2, a, out)
         
         if detdf < 0.:
             out[:] = -out
     
     # vector
     elif kind_fun == 12:
-        linalg_kernels.matrix_inv(dfmat1, dfmat2)
-        linalg_kernels.matrix_vector(dfmat2, a, out)
+        linalg_kernels_mod.matrix_inv(dfmat1, dfmat2)
+        linalg_kernels_mod.matrix_vector(dfmat2, a, out)
         
 
 @stack_array('dfmat1', 'dfmat2', 'dfmat3')        
@@ -148,8 +148,8 @@ def push(a: 'float[:]',
     
     # evaluate Jacobian matrix and its determinant
     if kind_fun > 0:
-        evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfmat1)
-        detdf = linalg_kernels.det(dfmat1)
+        evaluation_kernels_mod.df(eta1, eta2, eta3, args_domain, dfmat1)
+        detdf = linalg_kernels_mod.det(dfmat1)
     
     # 0-form
     if kind_fun == 0:
@@ -161,18 +161,18 @@ def push(a: 'float[:]',
     
     # 1-form
     elif kind_fun == 10:
-        linalg_kernels.matrix_inv_with_det(dfmat1, detdf, dfmat2)
-        linalg_kernels.transpose(dfmat2, dfmat3)
-        linalg_kernels.matrix_vector(dfmat3, a, out)
+        linalg_kernels_mod.matrix_inv_with_det(dfmat1, detdf, dfmat2)
+        linalg_kernels_mod.transpose(dfmat2, dfmat3)
+        linalg_kernels_mod.matrix_vector(dfmat3, a, out)
         
     # 2-form
     elif kind_fun == 11:
-        linalg_kernels.matrix_vector(dfmat1, a, out)
+        linalg_kernels_mod.matrix_vector(dfmat1, a, out)
         out[:] = out / abs(detdf)
     
     # vector
     elif kind_fun == 12:
-        linalg_kernels.matrix_vector(dfmat1, a, out)
+        linalg_kernels_mod.matrix_vector(dfmat1, a, out)
 
 
 @stack_array('dfmat1', 'dfmat2', 'dfmat3', 'vec1', 'vec2') 
@@ -210,8 +210,8 @@ def tran(a: 'float[:]',
     vec2 = empty(3, dtype=float)
     
     # evaluate Jacobian matrix and its determinant
-    evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfmat1)
-    detdf = linalg_kernels.det(dfmat1)
+    evaluation_kernels_mod.df(eta1, eta2, eta3, args_domain, dfmat1)
+    detdf = linalg_kernels_mod.det(dfmat1)
     
     # 0-form to 3-form
     if kind_fun == 0:
@@ -223,17 +223,17 @@ def tran(a: 'float[:]',
     
     # 1-form to 2-form (a^2 = G^(-1) * a^1 * |det(DF)|)
     elif kind_fun == 10:
-        linalg_kernels.matrix_inv_with_det(dfmat1, detdf, dfmat2)
-        linalg_kernels.transpose(dfmat2, dfmat3)
-        linalg_kernels.matrix_vector(dfmat3, a, vec1)
-        linalg_kernels.matrix_vector(dfmat2, vec1, out)
+        linalg_kernels_mod.matrix_inv_with_det(dfmat1, detdf, dfmat2)
+        linalg_kernels_mod.transpose(dfmat2, dfmat3)
+        linalg_kernels_mod.matrix_vector(dfmat3, a, vec1)
+        linalg_kernels_mod.matrix_vector(dfmat2, vec1, out)
         out[:] = out * abs(detdf)
         
     # 2-form to 1-form (a^1 = G * a^2 / |det(DF)|)
     elif kind_fun == 11:
-        linalg_kernels.transpose(dfmat1, dfmat2)
-        linalg_kernels.matrix_vector(dfmat1, a, vec1)
-        linalg_kernels.matrix_vector(dfmat2, vec1, out)
+        linalg_kernels_mod.transpose(dfmat1, dfmat2)
+        linalg_kernels_mod.matrix_vector(dfmat1, a, vec1)
+        linalg_kernels_mod.matrix_vector(dfmat2, vec1, out)
         out[:] = out / abs(detdf)
     
     # norm vector to vector
@@ -247,9 +247,9 @@ def tran(a: 'float[:]',
         vec1[0] = a[0] / sqrt(dfmat1[0, 0]**2 + dfmat1[1, 0]**2 + dfmat1[2, 0]**2)
         vec1[1] = a[1] / sqrt(dfmat1[0, 1]**2 + dfmat1[1, 1]**2 + dfmat1[2, 1]**2)
         vec1[2] = a[2] / sqrt(dfmat1[0, 2]**2 + dfmat1[1, 2]**2 + dfmat1[2, 2]**2)
-        linalg_kernels.transpose(dfmat1, dfmat2)
-        linalg_kernels.matrix_vector(dfmat1, vec1, vec2)
-        linalg_kernels.matrix_vector(dfmat2, vec2, out)
+        linalg_kernels_mod.transpose(dfmat1, dfmat2)
+        linalg_kernels_mod.matrix_vector(dfmat1, vec1, vec2)
+        linalg_kernels_mod.matrix_vector(dfmat2, vec2, out)
         
     # norm vector to 2-form (a^2 = |det(DF)| * a)
     elif kind_fun == 14:
@@ -260,9 +260,9 @@ def tran(a: 'float[:]',
         
     # vector to 1-form (a^1 = G * a)
     elif kind_fun == 15:
-        linalg_kernels.transpose(dfmat1, dfmat2)
-        linalg_kernels.matrix_vector(dfmat1, a, vec1)
-        linalg_kernels.matrix_vector(dfmat2, vec1, out)
+        linalg_kernels_mod.transpose(dfmat1, dfmat2)
+        linalg_kernels_mod.matrix_vector(dfmat1, a, vec1)
+        linalg_kernels_mod.matrix_vector(dfmat2, vec1, out)
         
     # vector to 2-form (a^2 = |det(DF)| * a)
     elif kind_fun == 16:
@@ -270,10 +270,10 @@ def tran(a: 'float[:]',
         
     # 1-form to vector (a = G^(-1) * a^1)
     elif kind_fun == 17:
-        linalg_kernels.matrix_inv_with_det(dfmat1, detdf, dfmat2)
-        linalg_kernels.transpose(dfmat2, dfmat3)
-        linalg_kernels.matrix_vector(dfmat3, a, vec1)
-        linalg_kernels.matrix_vector(dfmat2, vec1, out)
+        linalg_kernels_mod.matrix_inv_with_det(dfmat1, detdf, dfmat2)
+        linalg_kernels_mod.transpose(dfmat2, dfmat3)
+        linalg_kernels_mod.matrix_vector(dfmat3, a, vec1)
+        linalg_kernels_mod.matrix_vector(dfmat2, vec1, out)
         
     # 2-form to vector (a = a^2 / |det(DF)|)
     elif kind_fun == 18:

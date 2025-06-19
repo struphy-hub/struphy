@@ -11,9 +11,9 @@ These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.A
 from numpy import empty, floor, log, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
-import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
-import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
+import struphy.geometry.evaluation_kernels as evaluation_kernels_mod
+import struphy.linear_algebra.linalg_kernels as linalg_kernels_mod
+import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels_mod
 
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
@@ -59,7 +59,7 @@ def charge_density_0form(
         # filling = w_p/N
         filling = markers[ip, 3 + vdim] / n_markers_tot
 
-        particle_to_mat_kernels.vec_fill_b_v0(
+        particle_to_mat_kernels_mod.vec_fill_b_v0(
             args_derham,
             eta1,
             eta2,
@@ -147,7 +147,7 @@ def hybrid_fA_density(
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -156,7 +156,7 @@ def hybrid_fA_density(
         )
 
         # metric coeffs
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         weight = markers[ip, 6] / (p_size[0] * p_size[1] * p_size[2]) / n_markers_tot / det_df
 
@@ -197,7 +197,7 @@ def hybrid_fA_density(
         span3 = int(eta3 * Nel[2]) + int(args_derham.pn[2])
 
         # =========== kernel part (periodic bundary case) ==========
-        particle_to_mat_kernels.hybrid_density(
+        particle_to_mat_kernels_mod.hybrid_density(
             Nel,
             args_derham,
             cell_left,
@@ -288,7 +288,7 @@ def hybrid_fA_Arelated(
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -297,8 +297,8 @@ def hybrid_fA_Arelated(
         )
 
         # filling functions
-        linalg_kernels.matrix_inv(dfm, df_inv)
-        linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
+        linalg_kernels_mod.matrix_inv(dfm, df_inv)
+        linalg_kernels_mod.matrix_vector(df_inv, v, df_inv_times_v)
 
         weight = markers[ip, 6]
 
@@ -340,7 +340,7 @@ def hybrid_fA_Arelated(
         filling_v[:] = weight / n_markers_tot * df_inv_times_v
 
         # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_b_v1_symm(
+        particle_to_mat_kernels_mod.m_v_fill_b_v1_symm(
             args_derham,
             eta1,
             eta2,
@@ -441,7 +441,7 @@ def linear_vlasov_ampere(
         v[2] = markers[ip, 5]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -450,20 +450,20 @@ def linear_vlasov_ampere(
         )
 
         # invert Jacobian matrix
-        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels_mod.matrix_inv(dfm, df_inv)
 
         # compute DF^{-1} v
-        linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
+        linalg_kernels_mod.matrix_vector(df_inv, v, df_inv_v)
 
         # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
-        linalg_kernels.outer(df_inv_v, df_inv_v, filling_m)
+        linalg_kernels_mod.outer(df_inv_v, df_inv_v, filling_m)
         filling_m[:, :] *= f0_values[ip] / (n_markers_tot * markers[ip, 7])
 
         # filling_v = alpha^2 * kappa / N * w_p * DL^{-1} * v_p
         filling_v[:] = markers[ip, 6] * df_inv_v / n_markers_tot
 
         # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_b_v1_symm(
+        particle_to_mat_kernels_mod.m_v_fill_b_v1_symm(
             args_derham,
             eta1,
             eta2,
@@ -528,7 +528,7 @@ def vlasov_maxwell_poisson(
         # filling = w_p
         filling = markers[ip, 6] / n_markers_tot
 
-        particle_to_mat_kernels.vec_fill_b_v0(
+        particle_to_mat_kernels_mod.vec_fill_b_v0(
             args_derham,
             eta1,
             eta2,
@@ -598,7 +598,7 @@ def vlasov_maxwell(
         eta3 = markers[ip, 2]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -612,10 +612,10 @@ def vlasov_maxwell(
         v[2] = markers[ip, 5]
 
         # filling functions
-        linalg_kernels.matrix_inv(dfm, df_inv)
-        linalg_kernels.transpose(df_inv, df_inv_t)
-        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
-        linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
+        linalg_kernels_mod.matrix_inv(dfm, df_inv)
+        linalg_kernels_mod.transpose(df_inv, df_inv_t)
+        linalg_kernels_mod.matrix_matrix(df_inv, df_inv_t, g_inv)
+        linalg_kernels_mod.matrix_vector(df_inv, v, df_inv_times_v)
 
         # filling_m = w_p * DF^{-1} * DF^{-T}
         filling_m[:, :] = markers[ip, 6] * g_inv / n_markers_tot
@@ -624,7 +624,7 @@ def vlasov_maxwell(
         filling_v[:] = markers[ip, 6] * df_inv_times_v / n_markers_tot
 
         # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_b_v1_symm(
+        particle_to_mat_kernels_mod.m_v_fill_b_v1_symm(
             args_derham,
             eta1,
             eta2,
@@ -742,7 +742,7 @@ def cc_lin_mhd_6d_1(
         b_prod[2, 1] = +b[0]
 
         # evaluate Jacobian matrix and Jacobian determinant
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -750,7 +750,7 @@ def cc_lin_mhd_6d_1(
             dfm,
         )
 
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # marker weight
         weight = markers[ip, 6]
@@ -762,7 +762,7 @@ def cc_lin_mhd_6d_1(
             filling_m23 = -weight * b_prod[1, 2] * scale_mat
 
             # call the appropriate matvec filler
-            particle_to_mat_kernels.mat_fill_v0vec_asym(
+            particle_to_mat_kernels_mod.mat_fill_v0vec_asym(
                 args_derham,
                 span1,
                 span2,
@@ -777,18 +777,18 @@ def cc_lin_mhd_6d_1(
 
         elif basis_u == 1:
             # filling functions
-            linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
-            linalg_kernels.transpose(df_inv, df_inv_t)
-            linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
-            linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+            linalg_kernels_mod.matrix_inv_with_det(dfm, det_df, df_inv)
+            linalg_kernels_mod.transpose(df_inv, df_inv_t)
+            linalg_kernels_mod.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg_kernels_mod.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg_kernels_mod.matrix_matrix(tmp1, g_inv, tmp2)
 
             filling_m12 = -weight * tmp2[0, 1] * scale_mat
             filling_m13 = -weight * tmp2[0, 2] * scale_mat
             filling_m23 = -weight * tmp2[1, 2] * scale_mat
 
             # call the appropriate matvec filler
-            particle_to_mat_kernels.mat_fill_v1_asym(
+            particle_to_mat_kernels_mod.mat_fill_v1_asym(
                 args_derham,
                 span1,
                 span2,
@@ -808,7 +808,7 @@ def cc_lin_mhd_6d_1(
             filling_m23 = -weight * b_prod[1, 2] * scale_mat / det_df**2
 
             # call the appropriate matvec filler
-            particle_to_mat_kernels.mat_fill_v2_asym(
+            particle_to_mat_kernels_mod.mat_fill_v2_asym(
                 args_derham,
                 span1,
                 span2,
@@ -951,7 +951,7 @@ def cc_lin_mhd_6d_2(
         b_prod[2, 1] = +b[0]
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -959,7 +959,7 @@ def cc_lin_mhd_6d_2(
             dfm,
         )
 
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # marker weight and velocity
         weight = markers[ip, 6]
@@ -967,23 +967,23 @@ def cc_lin_mhd_6d_2(
 
         if basis_u == 0:
             # needed metric coefficients
-            linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
-            linalg_kernels.transpose(df_inv, df_inv_t)
-            linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg_kernels_mod.matrix_inv_with_det(dfm, det_df, df_inv)
+            linalg_kernels_mod.transpose(df_inv, df_inv_t)
+            linalg_kernels_mod.matrix_matrix(df_inv, df_inv_t, g_inv)
 
             # filling functions tmp_m = tmp1 * tmp1^T and tmp_v = tmp1 * v, where tmp1 = B^x * DF^(-1)
-            linalg_kernels.matrix_matrix(b_prod, df_inv, tmp1)
+            linalg_kernels_mod.matrix_matrix(b_prod, df_inv, tmp1)
 
-            linalg_kernels.transpose(tmp1, tmp_t)
+            linalg_kernels_mod.transpose(tmp1, tmp_t)
 
-            linalg_kernels.matrix_matrix(tmp1, tmp_t, tmp_m)
-            linalg_kernels.matrix_vector(tmp1, v, tmp_v)
+            linalg_kernels_mod.matrix_matrix(tmp1, tmp_t, tmp_m)
+            linalg_kernels_mod.matrix_vector(tmp1, v, tmp_v)
 
             filling_m[:, :] = weight * tmp_m * scale_mat
             filling_v[:] = weight * tmp_v * scale_vec
 
             # call the appropriate matvec filler
-            particle_to_mat_kernels.m_v_fill_v0vec_symm(
+            particle_to_mat_kernels_mod.m_v_fill_v0vec_symm(
                 args_derham,
                 span1,
                 span2,
@@ -1010,24 +1010,24 @@ def cc_lin_mhd_6d_2(
 
         elif basis_u == 1:
             # needed metric coefficients
-            linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
-            linalg_kernels.transpose(df_inv, df_inv_t)
-            linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg_kernels_mod.matrix_inv_with_det(dfm, det_df, df_inv)
+            linalg_kernels_mod.transpose(df_inv, df_inv_t)
+            linalg_kernels_mod.matrix_matrix(df_inv, df_inv_t, g_inv)
 
             # filling functions tmp_m = tmp2 * tmp2^T and tmp_v = tmp2 * v, where tmp2 = G^(-1) * B^x * DF^(-1)
-            linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, df_inv, tmp2)
+            linalg_kernels_mod.matrix_matrix(g_inv, b_prod, tmp1)
+            linalg_kernels_mod.matrix_matrix(tmp1, df_inv, tmp2)
 
-            linalg_kernels.transpose(tmp2, tmp_t)
+            linalg_kernels_mod.transpose(tmp2, tmp_t)
 
-            linalg_kernels.matrix_matrix(tmp2, tmp_t, tmp_m)
-            linalg_kernels.matrix_vector(tmp2, v, tmp_v)
+            linalg_kernels_mod.matrix_matrix(tmp2, tmp_t, tmp_m)
+            linalg_kernels_mod.matrix_vector(tmp2, v, tmp_v)
 
             filling_m[:, :] = weight * tmp_m * scale_mat
             filling_v[:] = weight * tmp_v * scale_vec
 
             # call the appropriate matvec filler
-            particle_to_mat_kernels.m_v_fill_v1_symm(
+            particle_to_mat_kernels_mod.m_v_fill_v1_symm(
                 args_derham,
                 span1,
                 span2,
@@ -1054,23 +1054,23 @@ def cc_lin_mhd_6d_2(
 
         elif basis_u == 2:
             # needed metric coefficients
-            linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
-            linalg_kernels.transpose(df_inv, df_inv_t)
-            linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+            linalg_kernels_mod.matrix_inv_with_det(dfm, det_df, df_inv)
+            linalg_kernels_mod.transpose(df_inv, df_inv_t)
+            linalg_kernels_mod.matrix_matrix(df_inv, df_inv_t, g_inv)
 
             # filling functions tmp_m = tmp1 * tmp1^T and tmp_v = tmp1 * v, where tmp1 = B^x * DF^(-1) / det(DF)
-            linalg_kernels.matrix_matrix(b_prod, df_inv, tmp1)
+            linalg_kernels_mod.matrix_matrix(b_prod, df_inv, tmp1)
 
-            linalg_kernels.transpose(tmp1, tmp_t)
+            linalg_kernels_mod.transpose(tmp1, tmp_t)
 
-            linalg_kernels.matrix_matrix(tmp1, tmp_t, tmp_m)
-            linalg_kernels.matrix_vector(tmp1, v, tmp_v)
+            linalg_kernels_mod.matrix_matrix(tmp1, tmp_t, tmp_m)
+            linalg_kernels_mod.matrix_vector(tmp1, v, tmp_v)
 
             filling_m[:, :] = weight * tmp_m * scale_mat / det_df**2
             filling_v[:] = weight * tmp_v * scale_vec / det_df
 
             # call the appropriate matvec filler
-            particle_to_mat_kernels.m_v_fill_v2_symm(
+            particle_to_mat_kernels_mod.m_v_fill_v2_symm(
                 args_derham,
                 span1,
                 span2,
@@ -1216,7 +1216,7 @@ def pc_lin_mhd_6d_full(
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -1225,15 +1225,15 @@ def pc_lin_mhd_6d_full(
         )
 
         # Avoid second computation of dfm, use linear_algebra.linalg_kernels routines to get g_inv:
-        linalg_kernels.matrix_inv(dfm, df_inv)
-        linalg_kernels.transpose(dfm, df_t)
-        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels_mod.matrix_inv(dfm, df_inv)
+        linalg_kernels_mod.transpose(dfm, df_t)
+        linalg_kernels_mod.transpose(df_inv, df_inv_t)
 
         # filling functions
         v[:] = markers[ip, 3:6]
 
-        linalg_kernels.matrix_matrix(df_inv, df_inv_t, tmp1)
-        linalg_kernels.matrix_vector(df_inv, v, tmp_v)
+        linalg_kernels_mod.matrix_matrix(df_inv, df_inv_t, tmp1)
+        linalg_kernels_mod.matrix_vector(df_inv, v, tmp_v)
 
         weight = markers[ip, 8]
 
@@ -1241,7 +1241,7 @@ def pc_lin_mhd_6d_full(
         filling_v[:] = weight * tmp_v / n_markers_tot * scale_vec
 
         # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_v1_pressure_full(
+        particle_to_mat_kernels_mod.m_v_fill_v1_pressure_full(
             args_derham,
             span1,
             span2,
@@ -1416,7 +1416,7 @@ def pc_lin_mhd_6d(
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta1,
             eta2,
             eta3,
@@ -1424,20 +1424,20 @@ def pc_lin_mhd_6d(
             dfm,
         )
 
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # Avoid second computation of dfm, use linear_algebra.linalg_kernels routines to get g_inv:
-        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels_mod.matrix_inv_with_det(dfm, det_df, df_inv)
+        linalg_kernels_mod.transpose(df_inv, df_inv_t)
 
-        linalg_kernels.matrix_matrix(df_inv, df_inv_t, tmp1)
-        linalg_kernels.matrix_vector(df_inv, v, tmp_v)
+        linalg_kernels_mod.matrix_matrix(df_inv, df_inv_t, tmp1)
+        linalg_kernels_mod.matrix_vector(df_inv, v, tmp_v)
 
         filling_m[:, :] = weight * tmp1 * scale_mat
         filling_v[:] = weight * tmp_v * scale_vec
 
         # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_v1_pressure(
+        particle_to_mat_kernels_mod.m_v_fill_v1_pressure(
             args_derham,
             span1,
             span2,

@@ -1346,8 +1346,8 @@ class Derham:
         for n in range(etas.size):
             # avoid 1. --> 0. for clamped interpolation
             eta = etas[n] % (1.0 + 1e-14)
-            span = bsplines_kernels.find_span(Tn, pn, eta)
-            bsplines_kernels.b_d_splines_slim(Tn, pn, eta, span, bn, bd)
+            span = bsplines_kernels_mod.find_span(Tn, pn, eta)
+            bsplines_kernels_mod.b_d_splines_slim(Tn, pn, eta, span, bn, bd)
             # correct span for mpi spline eval
             if span > end + pn + 1:
                 span -= Nspace.nbasis

@@ -3,14 +3,14 @@
 from numpy import abs, empty, log, mod, shape, size, sqrt, zeros
 from pyccel.decorators import stack_array
 
-import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
-import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels_mod
+import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d_mod
+import struphy.geometry.evaluation_kernels as evaluation_kernels_mod
+import struphy.linear_algebra.linalg_kernels as linalg_kernels_mod
 
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-import struphy.pic.sph_eval_kernels as sph_eval_kernels
+import struphy.pic.sph_eval_kernels as sph_eval_kernels_mod
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -266,7 +266,7 @@ def bstar_parallel_3form(
         v = alpha[3] * v_k + (1.0 - alpha[3]) * v_n
 
         # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
+        evaluation_kernels_mod.df(
             eta[0],
             eta[1],
             eta[2],
@@ -274,7 +274,7 @@ def bstar_parallel_3form(
             dfm,
         )
 
-        det_df = linalg_kernels.det(dfm)
+        det_df = linalg_kernels_mod.det(dfm)
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
@@ -527,7 +527,7 @@ def sph_isotherm_pressure_coeffs(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         loc_box = int(markers[ip, n_cols - 2])
-        n_at_eta = sph_eval_kernels.boxed_based_kernel(
+        n_at_eta = sph_eval_kernels_mod.boxed_based_kernel(
             eta1,
             eta2,
             eta3,
