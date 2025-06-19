@@ -264,6 +264,7 @@ def test_main_options(args_expected, capsys):
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("language", ["c", "fortran"])
 @pytest.mark.parametrize("compiler", ["gnu", "intel"])
+@pytest.mark.parametrize("compiler_config", [None])
 @pytest.mark.parametrize("omp_pic", [True, False])
 @pytest.mark.parametrize("omp_feec", [True, False])
 @pytest.mark.parametrize("delete", [True, False])
@@ -275,6 +276,7 @@ def test_main_options(args_expected, capsys):
 def test_struphy_compile(
     language,
     compiler,
+    compiler_config,
     omp_pic,
     omp_feec,
     delete,
@@ -310,6 +312,7 @@ def test_struphy_compile(
         struphy_compile(
             language=language,
             compiler=compiler,
+            compiler_config=compiler_config,
             omp_pic=omp_pic,
             omp_feec=omp_feec,
             delete=delete,
