@@ -1,7 +1,6 @@
 from pyccel.decorators import pure, stack_array
 from numpy import zeros
 
-
 @pure
 def matrix_vector(a: 'float[:,:]', b: 'float[:]', c: 'float[:]'):
     """
