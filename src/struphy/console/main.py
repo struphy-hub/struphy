@@ -46,25 +46,12 @@ def struphy():
     # Read struphy state file
     state = utils.read_state()
 
-    if "i_path" in state:
-        i_path = state["i_path"]
-    else:
-        i_path = os.path.join(libpath, "io/inp")
-        state["i_path"] = i_path
+    # Update and save state file
+    utils.update_state(state=state)
+    utils.save_state(state=state)
 
-    if "o_path" in state:
-        o_path = state["o_path"]
-    else:
-        o_path = os.path.join(libpath, "io/out")
-        state["o_path"] = o_path
-
-    if "b_path" in state:
-        b_path = state["b_path"]
-    else:
-        b_path = os.path.join(libpath, "io/batch")
-        state["b_path"] = b_path
-
-    utils.save_state(state)
+    # Get paths from state
+    i_path, o_path, b_path = utils.get_paths(state=state)
 
     # path message
     path_message = f"Struphy installation path: {libpath}\n"

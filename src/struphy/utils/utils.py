@@ -39,11 +39,16 @@ def get_paths(state, libpath=STRUPHY_LIBPATH):
     i_path = state.get("i_path", os.path.join(libpath, "io/inp"))
     o_path = state.get("o_path", os.path.join(libpath, "io/out"))
     b_path = state.get("b_path", os.path.join(libpath, "io/batch"))
-    # Update state if defaults were used
+
+    return i_path, o_path, b_path
+
+
+def update_state(state):
+    """Update i_path, o_path, b_path in state if they are not set."""
+    i_path, o_path, b_path = get_paths(state=state)
     state["i_path"] = i_path
     state["o_path"] = o_path
     state["b_path"] = b_path
-    return i_path, o_path, b_path
 
 
 def save_state(state, libpath=STRUPHY_LIBPATH):
