@@ -4,6 +4,7 @@ from collections.abc import Callable
 from copy import deepcopy
 
 import numpy as np
+from mpi4py import MPI
 from numpy import zeros
 from psydac.linalg.basic import IdentityOperator, ZeroOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
@@ -177,7 +178,7 @@ class Maxwell(Propagator):
         else:
             self._ode_solver(0.0, dt)
 
-        if self._info and self.rank == 0:
+        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             if self._algo == "implicit":
                 print("Status     for Maxwell:", info["success"])
                 print("Iterations for Maxwell:", info["niter"])
@@ -566,7 +567,7 @@ class ShearAlfven(Propagator):
         else:
             self._ode_solver(0.0, dt)
 
-        if self._info and self.rank == 0:
+        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             if self._algo == "implicit":
                 print("Status     for ShearAlfven:", info["success"])
                 print("Iterations for ShearAlfven:", info["niter"])
@@ -709,7 +710,7 @@ class ShearAlfvenB1(Propagator):
         # write new coeffs into self.feec_vars
         max_du, max_db = self.feec_vars_update(un1, bn1)
 
-        if self._info and self.rank == 0:
+        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for ShearAlfvenB1:", info["success"])
             print("Iterations for ShearAlfvenB1:", info["niter"])
             print("Maxdiff up for ShearAlfvenB1:", max_du)
@@ -817,7 +818,7 @@ class Hall(Propagator):
         # write new coeffs into self.feec_vars
         max_db = self.feec_vars_update(bn1)
 
-        if self._info and self.rank == 0:
+        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for Hall:", info["success"])
             print("Iterations for Hall:", info["niter"])
             print("Maxdiff b1 for Hall:", max_db)
@@ -988,7 +989,7 @@ class Magnetosonic(Propagator):
             pn1,
         )
 
-        if self._info and self.rank == 0:
+        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for Magnetosonic:", info["success"])
             print("Iterations for Magnetosonic:", info["niter"])
             print("Maxdiff n3 for Magnetosonic:", max_dn)
@@ -1149,7 +1150,7 @@ class MagnetosonicUniform(Propagator):
             pn1,
         )
 
-        if self._info and self.rank == 0:
+        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for Magnetosonic:", info["success"])
             print("Iterations for Magnetosonic:", info["niter"])
             print("Maxdiff n3 for Magnetosonic:", max_dn)
@@ -1598,7 +1599,7 @@ class CurrentCoupling6DDensity(Propagator):
         # write new coeffs into Propagator.variables
         max_du = self.feec_vars_update(un1)
 
-        if self._info and self.rank == 0:
+        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for CurrentCoupling6DDensity:", info["success"])
             print("Iterations for CurrentCoupling6DDensity:", info["niter"])
             print("Maxdiff up for CurrentCoupling6DDensity:", max_du)
@@ -1827,7 +1828,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         # write new coeffs into self.feec_vars
         max_du, max_db = self.feec_vars_update(un1, bn1)
 
-        if self._info and self.rank == 0:
+        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for ShearAlfven:", info["success"])
             print("Iterations for ShearAlfven:", info["niter"])
             print("Maxdiff up for ShearAlfven:", max_du)
@@ -2114,7 +2115,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
             pn1,
         )
 
-        if self._info and self.rank == 0:
+        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for Magnetosonic:", info["success"])
             print("Iterations for Magnetosonic:", info["niter"])
             print("Maxdiff n3 for Magnetosonic:", max_dn)
@@ -2484,7 +2485,7 @@ class CurrentCoupling5DDensity(Propagator):
         # write new coeffs into Propagator.variables
         max_du = self.feec_vars_update(un1)
 
-        if self._info and self.rank == 0:
+        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for CurrentCoupling5DDensity:", info["success"])
             print("Iterations for CurrentCoupling5DDensity:", info["niter"])
             print("Maxdiff up for CurrentCoupling5DDensity:", max_du)
@@ -2933,7 +2934,7 @@ class VariationalMomentumAdvection(Propagator):
         self._lin_solver = lin_solver
         self._nonlin_solver = nonlin_solver
 
-        self._info = self._nonlin_solver["info"] and (self.rank == 0)
+        self._info = self._nonlin_solver["info"] and (MPI.COMM_WORLD.Get_rank() == 0)
 
         self._Mrho = mass_ops
 
@@ -3192,7 +3193,7 @@ class VariationalDensityEvolve(Propagator):
         self._nonlin_solver = nonlin_solver
         self._linearize = self._nonlin_solver["linearize"]
 
-        self._info = self._nonlin_solver["info"] and (self.rank == 0)
+        self._info = self._nonlin_solver["info"] and (MPI.COMM_WORLD.Get_rank() == 0)
 
         self._Mrho = mass_ops
 
@@ -3687,7 +3688,7 @@ class VariationalEntropyEvolve(Propagator):
         self._nonlin_solver = nonlin_solver
         self._linearize = self._nonlin_solver["linearize"]
 
-        self._info = self._nonlin_solver["info"] and (self.rank == 0)
+        self._info = self._nonlin_solver["info"] and (MPI.COMM_WORLD.Get_rank() == 0)
 
         self._Mrho = mass_ops
 
@@ -4049,7 +4050,7 @@ class VariationalMagFieldEvolve(Propagator):
         self._nonlin_solver = nonlin_solver
         self._linearize = self._nonlin_solver["linearize"]
 
-        self._info = self._nonlin_solver["info"] and (self.rank == 0)
+        self._info = self._nonlin_solver["info"] and (MPI.COMM_WORLD.Get_rank() == 0)
 
         self._Mrho = mass_ops
 
@@ -4420,7 +4421,7 @@ class VariationalPBEvolve(Propagator):
         self._pt3 = pt3
         self._bt2 = bt2
 
-        self._info = self._nonlin_solver["info"] and (self.rank == 0)
+        self._info = self._nonlin_solver["info"] and (MPI.COMM_WORLD.Get_rank() == 0)
 
         self._Mrho = mass_ops
 
@@ -4955,7 +4956,7 @@ class VariationalViscosity(Propagator):
         self._rho = rho
         self._energy_evaluator = energy_evaluator
 
-        self._info = self._nonlin_solver["info"] and (self.rank == 0)
+        self._info = self._nonlin_solver["info"] and (MPI.COMM_WORLD.Get_rank() == 0)
 
         self._Mrho = mass_ops
 
@@ -5610,7 +5611,7 @@ class VariationalResistivity(Propagator):
         self._linearize_current = linearize_current
         self._pt3 = pt3
 
-        self._info = self._nonlin_solver["info"] and (self.rank == 0)
+        self._info = self._nonlin_solver["info"] and (MPI.COMM_WORLD.Get_rank() == 0)
 
         # Femfields for the projector
         self.rhof = self.derham.create_spline_function("rhof", "L2")
