@@ -232,20 +232,12 @@ def struphy():
 
     # transform parser Namespace object to dictionary and remove "command" key
     kwargs = vars(args)
-    kwargs.pop("command")
-    kwargs.pop("short_help")
-    kwargs.pop("fluid")
-    kwargs.pop("kinetic")
-    kwargs.pop("hybrid")
-    kwargs.pop("toy")
-    kwargs.pop("set_i")
-    kwargs.pop("set_o")
-    kwargs.pop("set_b")
-    kwargs.pop("set_iob")
-    kwargs.pop("refresh_models")
-
-    # These options are stored in kwargs.config
-    for key in ["input_type", "path", "linters", "iterations", "output_format"]:
+    for key in [
+        "command", "short_help", "fluid", "kinetic", "hybrid", "toy",
+        "set_i", "set_o", "set_b", "set_iob", "refresh_models",
+        # These options are stored in kwargs.config
+        "input_type", "path", "linters", "iterations", "output_format",
+    ]:
         kwargs.pop(key, None)
 
     # start sub-command function with all parameters of that function
