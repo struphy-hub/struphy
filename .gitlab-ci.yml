@@ -737,7 +737,7 @@ lint_full_repo_report:
   artifacts:
     paths:
       - lint_reports/
-    expire_in: 1 week
+    expire_in: 1 month
 
 # Lint struphy with `struphy lint`
 lint_branch:
@@ -772,7 +772,7 @@ lint_branch_report:
   artifacts:
     paths:
       - lint_reports/
-    expire_in: 1 week
+    expire_in: 1 month
 
 ###################
 ### PAGES STAGE ###
