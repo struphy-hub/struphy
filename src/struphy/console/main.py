@@ -101,10 +101,10 @@ def struphy():
     add_parser_compile(subparsers)
 
     # 2. "run" sub-command
-    add_parser_run(subparsers, list_models, model_message)
+    add_parser_run(subparsers, list_models, model_message, params_files, batch_files)
 
     # 3. "units" sub-command
-    add_parser_units(subparsers, list_models, model_message)
+    add_parser_units(subparsers, list_models, model_message, params_files)
 
     # 4. "params" sub-command
     add_parser_params(subparsers, list_models, model_message)
@@ -119,7 +119,7 @@ def struphy():
     add_parser_pproc(subparsers, out_folders)
 
     # 8. "test" sub-command
-    add_parser_test(subparsers)
+    add_parser_test(subparsers, list_models)
 
     # 9 "format" and "lint" sub-commands
     add_parser_format(subparsers)
@@ -402,7 +402,7 @@ def add_parser_compile(subparsers, ):
         action="store_true",
     )
 
-def add_parser_run(subparsers, list_models, model_message):
+def add_parser_run(subparsers, list_models, model_message, params_files, batch_files):
     parser_run = subparsers.add_parser(
         "run",
         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
@@ -614,7 +614,7 @@ def add_parser_run(subparsers, list_models, model_message):
         default=1.0,
     )
 
-def add_parser_units(subparsers, list_models, model_message):
+def add_parser_units(subparsers, list_models, model_message, params_files):
     parser_units = subparsers.add_parser(
         "units",
         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
@@ -877,7 +877,7 @@ def add_parser_pproc(subparsers, out_folders):
         action="store_true",
     )
 
-def add_parser_test(subparsers):
+def add_parser_test(subparsers, list_models):
     try:
         import pytest_mpi
 
@@ -962,7 +962,7 @@ def add_parser_test(subparsers):
             action="store_true",
         )
 
-def add_parser_format(subparser):
+def add_parser_format(subparsers):
     try:
         import autopep8
         import isort
