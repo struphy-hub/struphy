@@ -231,7 +231,8 @@ def get_params_files(i_path):
     else:
         print("Path to input files missing! Set it with `struphy --set-i PATH`")
         params_files = []
-        return params_files
+
+    return params_files
 
 
 def get_out_folders(o_path):
@@ -241,6 +242,7 @@ def get_out_folders(o_path):
             out_folders = [entry.name for entry in entries if entry.is_dir()]
     else:
         print("Path to outputs directory missing! Set it with `struphy --set-o PATH`")
+
     return out_folders
 
 
@@ -255,6 +257,8 @@ def get_batch_files(b_path):
     else:
         print("Path to batch files missing! Set it with `struphy --set-b PATH`")
         batch_files = []
+
+    return batch_files
 
 
 def add_parser_basic_options(parser, i_path, o_path, b_path):
