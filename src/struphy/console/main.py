@@ -126,6 +126,7 @@ def struphy():
     # parse argument
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
+    
     if args.command == "format" or args.command == "lint":
         if not args.input_type and not args.path:
             parser.error("Use with either 'all', 'staged', 'branch', or '--path PATH'")
@@ -154,13 +155,7 @@ def struphy():
 
     # display short help and exit
     if args.short_help:
-        lines = parser.format_help().splitlines()
-        bool_1 = [i for i, x in enumerate(lines) if "Struphy" in x]
-        bool_2 = [i for i, x in enumerate(lines) if "available commands:" in x]
-        print(lines[bool_1[0]])
-        print(lines[bool_1[0] + 1])
-        for li in lines[bool_2[0] :]:
-            print(li)
+        print_short_help(parser)
         sys.exit(0)
 
     # display subset of models
@@ -1079,6 +1074,15 @@ def set_path(state, arg_value, default_subdir, state_key, exit_on_set=True):
 
     if exit_on_set:
         sys.exit(0)
+
+def print_short_help(parser):
+    lines = parser.format_help().splitlines()
+    bool_1 = [i for i, x in enumerate(lines) if "Struphy" in x]
+    bool_2 = [i for i, x in enumerate(lines) if "available commands:" in x]
+    print(lines[bool_1[0]])
+    print(lines[bool_1[0] + 1])
+    for li in lines[bool_2[0] :]:
+        print(li)
 
 class NoSubparsersMetavarFormatter(HelpFormatter):
     """
