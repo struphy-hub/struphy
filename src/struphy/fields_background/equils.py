@@ -8,7 +8,6 @@ from time import time
 
 import numpy as np
 
-from struphy.utils.utils import subp_run
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -24,7 +23,7 @@ from struphy.fields_background.base import (
     NumericalFluidEquilibriumWithB,
     NumericalMHDequilibrium,
 )
-from struphy.utils.utils import read_state
+from struphy.utils.utils import read_state, subp_run
 
 
 class HomogenSlab(CartesianMHDequilibrium):

@@ -1,6 +1,6 @@
 import os
-import sys
 import subprocess
+import sys
 
 import yaml
 
@@ -186,6 +186,7 @@ def refresh_models():
     print("Done.")
     sys.exit(0)
 
+
 def subp_run(cmd, cwd="libpath", check=True):
     """Call subprocess.run and print run command."""
 
@@ -194,6 +195,7 @@ def subp_run(cmd, cwd="libpath", check=True):
 
     print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}")
     subprocess.run(cmd, cwd=cwd, check=check)
+
 
 if __name__ == "__main__":
     state = read_state()

@@ -4,6 +4,7 @@ import sys
 import struphy
 from struphy.utils.utils import subp_run
 
+
 def struphy_run(
     model,
     inp=None,
@@ -302,4 +303,3 @@ def struphy_run(
         cmd = ["sbatch", "batch_script.sh"]
         subp_run(cmd, cwd=output_abs)
     return command
-
