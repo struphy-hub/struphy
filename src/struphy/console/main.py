@@ -176,38 +176,18 @@ def struphy():
             print(message)
             print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
             sys.exit(0)
-    
-    def set_path(arg_value, default_subdir, state_key, exit_on_set=True):
-        if arg_value == ".":
-            path = os.getcwd()
-        elif arg_value == "d":
-            path = os.path.join(libpath, default_subdir)
-        else:
-            path = arg_value
-            try:
-                os.makedirs(path, exist_ok=True)
-            except Exception as e:
-                print(f"Warning: Could not create directory {path}: {e}")
-
-        path = os.path.abspath(path)
-        state[state_key] = path
-        utils.save_state(state)
-        print(f"New {state_key} has been set to {path}")
-
-        if exit_on_set:
-            sys.exit(0)
 
     # Set default input path
     if args.set_i:
-        set_path(args.set_i, "io/inp", "i_path")
+        set_path(state, args.set_i, "io/inp", "i_path")
 
     # Set default output path
     if args.set_o:
-        set_path(args.set_o, "io/out", "o_path")
+        set_path(state, args.set_o, "io/out", "o_path")
 
     # Set default batch path
     if args.set_b:
-        set_path(args.set_b, "io/batch", "b_path")
+        set_path(state, args.set_b, "io/batch", "b_path")
 
     # set paths for inp, out and batch (with io/inp etc. prefices)
     if args.set_iob:
@@ -222,9 +202,9 @@ def struphy():
         o_path = os.path.join(path, "io/out")
         b_path = os.path.join(path, "io/batch")
 
-        set_path(i_path, "", "i_path", exit_on_set=False)
-        set_path(o_path, "", "o_path", exit_on_set=False)
-        set_path(b_path, "", "b_path", exit_on_set=False)
+        set_path(state, i_path, "", "i_path", exit_on_set=False)
+        set_path(state, o_path, "", "o_path", exit_on_set=False)
+        set_path(state, b_path, "", "b_path", exit_on_set=False)
 
         sys.exit(0)
 
@@ -1163,7 +1143,25 @@ def add_parser_format(subparser):
             help="specify the format of the output: 'table' for tabular output, 'plain' for regular output, or 'report' for saving a html report",
         )
 
+def set_path(state, arg_value, default_subdir, state_key, exit_on_set=True):
+    if arg_value == ".":
+        path = os.getcwd()
+    elif arg_value == "d":
+        path = os.path.join(libpath, default_subdir)
+    else:
+        path = arg_value
+        try:
+            os.makedirs(path, exist_ok=True)
+        except Exception as e:
+            print(f"Warning: Could not create directory {path}: {e}")
 
+    path = os.path.abspath(path)
+    state[state_key] = path
+    utils.save_state(state)
+    print(f"New {state_key} has been set to {path}")
+
+    if exit_on_set:
+        sys.exit(0)
 
 class NoSubparsersMetavarFormatter(HelpFormatter):
     """
