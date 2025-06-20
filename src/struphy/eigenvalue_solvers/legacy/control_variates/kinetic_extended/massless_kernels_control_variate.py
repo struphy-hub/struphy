@@ -4,7 +4,7 @@ import hylife.linear_algebra.core as linalg
 import hylife.utilitis_FEEC.basics.spline_evaluation_3d as eva
 import hylife.utilitis_FEEC.bsplines_kernels as bsp
 import input_run.equilibrium_PIC as equ_PIC
-from pyccel.decorators import types
+
 
 
 # ==========================================================================================

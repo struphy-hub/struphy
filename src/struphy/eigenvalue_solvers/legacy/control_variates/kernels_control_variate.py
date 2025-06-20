@@ -1,4 +1,4 @@
-from pyccel.decorators import types
+
 
 import struphy.geometry.mappings_3d as mapping
 import struphy.pic.equilibrium_PIC as eq_pic

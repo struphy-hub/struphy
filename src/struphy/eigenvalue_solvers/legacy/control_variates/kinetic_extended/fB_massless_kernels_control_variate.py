@@ -1,5 +1,5 @@
 import input_run.equilibrium_PIC as equ_PIC
-from pyccel.decorators import types
+
 
 import struphy.feec.basics.spline_evaluation_3d as eva
 import struphy.feec.bsplines_kernels as bsp
