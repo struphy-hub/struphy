@@ -26,7 +26,6 @@ def struphy_run(
     restart=False,
     mpi=1,
     nclones=1,
-    debug=False,
     cprofile=False,
     verbose=False,
     likwid=False,
@@ -79,9 +78,6 @@ def struphy_run(
 
     nclones : int
         Number of domain clones.
-
-    debug : bool
-        Whether to run in Cobra debug mode, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs'.
 
     verbose : bool
         Show full screen output.
@@ -169,25 +165,7 @@ def struphy_run(
 
     # run in normal or debug mode
     if batch_abs is None:
-        if debug:
-            print("\nLaunching main() in Cobra debug mode ...")
-            command = (
-                [
-                    "srun",
-                    "-n",
-                    str(mpi),
-                    "-p",  # interactive commands
-                    "interactive",
-                    "--time",
-                    "119",
-                    "--mem",
-                    "2000",
-                ]
-                + cmd_python
-                + cprofile * cmd_cprofile
-                + cmd_main
-            )
-        elif likwid:
+        if likwid:
             command = likwid_command + cmd_python + cprofile * cmd_cprofile + cmd_main + ["--likwid"]
         else:
             print("\nLaunching main() in normal mode ...")
