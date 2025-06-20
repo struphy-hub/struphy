@@ -125,29 +125,11 @@ def struphy():
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
-    if args.command == "format" or args.command == "lint":
-        if not args.input_type and not args.path:
-            parser.error("Use with either 'all', 'staged', 'branch', or '--path PATH'")
-        args.config = {
-            "input_type": args.input_type,
-            "path": args.path,
-            "linters": args.linters,
-        }
-
-    if args.command == "format":
-        args.config["iterations"] = args.iterations
-    if args.command == "lint":
-        args.config["output_format"] = args.output_format
+    # Set args.config if user ran struphy format / struphy lint
+    set_args_format_config(args, parser)
 
     # if no arguments are passed, print help and exit
-    print_help = True
-    for key, val in args.__dict__.items():
-        if val is None or not val:
-            continue
-        else:
-            print_help = False
-
-    if print_help:
+    if all(v is None or not v for v in vars(args).values()):
         parser.print_help()
         sys.exit(0)
 
@@ -1087,6 +1069,22 @@ def set_path(state, arg_value, default_subdir, state_key, exit_on_set=True):
 
     if exit_on_set:
         sys.exit(0)
+
+
+def set_args_format_config(args, parser):
+    if args.command == "format" or args.command == "lint":
+        if not args.input_type and not args.path:
+            parser.error("Use with either 'all', 'staged', 'branch', or '--path PATH'")
+        args.config = {
+            "input_type": args.input_type,
+            "path": args.path,
+            "linters": args.linters,
+        }
+
+    if args.command == "format":
+        args.config["iterations"] = args.iterations
+    if args.command == "lint":
+        args.config["output_format"] = args.output_format
 
 
 def print_short_help(parser):
