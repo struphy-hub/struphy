@@ -21,6 +21,11 @@ import struphy.utils.utils as utils
 libpath = struphy.__path__[0]
 __version__ = importlib.metadata.version("struphy")
 
+# version message
+version_message = f"Struphy {__version__}\n"
+version_message += "Copyright 2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
+version_message += "MIT license\n"
+
 
 def struphy():
     """Struphy main executable. Performs argument parsing and sub-command call."""
@@ -47,32 +52,15 @@ def struphy():
     i_path, o_path, b_path = utils.get_paths(state=state)
 
     # check parameter file in current input path:
-    if os.path.exists(i_path) and os.path.isdir(i_path):
-        params_files = recursive_get_files(i_path)
-    else:
-        print("Path to input files missing! Set it with `struphy --set-i PATH`")
-        params_files = []
+    params_files = get_params_files(i_path)
 
     # check output folders in current output path:
-    out_folders = []
-    if os.path.isdir(o_path):
-        with os.scandir(o_path) as entries:
-            out_folders = [entry.name for entry in entries if entry.is_dir()]
-    else:
-        print("Path to outputs directory missing! Set it with `struphy --set-o PATH`")
+    out_folders = get_out_folders(o_path)
 
     # check batch scripts in current batch path:
-    if os.path.exists(b_path) and os.path.isdir(b_path):
-        batch_files = recursive_get_files(
-            b_path,
-            contains=(".sh"),
-            out=[],
-            prefix=[],
-        )
-    else:
-        print("Path to batch files missing! Set it with `struphy --set-b PATH`")
-        batch_files = []
+    batch_files = get_batch_files(b_path)
 
+    # Load the models and messages
     try:
         with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
             list_models = pickle.load(fp)
@@ -236,17 +224,44 @@ def struphy():
     func(**kwargs)
 
 
+def get_params_files(i_path):
+    if os.path.exists(i_path) and os.path.isdir(i_path):
+        params_files = recursive_get_files(i_path)
+    else:
+        print("Path to input files missing! Set it with `struphy --set-i PATH`")
+        params_files = []
+        return params_files
+
+
+def get_out_folders(o_path):
+    out_folders = []
+    if os.path.isdir(o_path):
+        with os.scandir(o_path) as entries:
+            out_folders = [entry.name for entry in entries if entry.is_dir()]
+    else:
+        print("Path to outputs directory missing! Set it with `struphy --set-o PATH`")
+    return out_folders
+
+
+def get_batch_files(b_path):
+    if os.path.exists(b_path) and os.path.isdir(b_path):
+        batch_files = recursive_get_files(
+            b_path,
+            contains=(".sh"),
+            out=[],
+            prefix=[],
+        )
+    else:
+        print("Path to batch files missing! Set it with `struphy --set-b PATH`")
+        batch_files = []
+
+
 def add_parser_basic_options(parser, i_path, o_path, b_path):
     # path message
     path_message = f"Struphy installation path: {libpath}\n"
     path_message += f"current input:             {i_path}\n"
     path_message += f"current output:            {o_path}\n"
     path_message += f"current batch scripts:     {b_path}"
-
-    # version message
-    version_message = f"Struphy {__version__}\n"
-    version_message += "Copyright 2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
-    version_message += "MIT license\n"
 
     parser.add_argument(
         "-v",
