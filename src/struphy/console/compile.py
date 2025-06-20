@@ -1,6 +1,6 @@
 import sys
 
-from struphy.console.run import subp_run
+from struphy.utils.utils import subp_run
 
 
 def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbose, dependencies, time_execution, yes):

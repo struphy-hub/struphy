@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 
 import yaml
 
@@ -185,6 +186,14 @@ def refresh_models():
     print("Done.")
     sys.exit(0)
 
+def subp_run(cmd, cwd="libpath", check=True):
+    """Call subprocess.run and print run command."""
+
+    if cwd == "libpath":
+        cwd = struphy.__path__[0]
+
+    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}")
+    subprocess.run(cmd, cwd=cwd, check=check)
 
 if __name__ == "__main__":
     state = read_state()

@@ -2,7 +2,7 @@ import subprocess
 import sys
 
 import struphy
-
+from struphy.utils.utils import subp_run
 
 def struphy_run(
     model,
@@ -303,12 +303,3 @@ def struphy_run(
         subp_run(cmd, cwd=output_abs)
     return command
 
-
-def subp_run(cmd, cwd="libpath", check=True):
-    """Call subprocess.run and print run command."""
-
-    if cwd == "libpath":
-        cwd = struphy.__path__[0]
-
-    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}")
-    subprocess.run(cmd, cwd=cwd, check=check)
