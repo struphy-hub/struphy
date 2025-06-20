@@ -276,12 +276,22 @@ def struphy():
         epilog="For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html",
     )
 
+    # parser_run.add_argument(
+    #     "model",
+    #     type=str,
+    #     default=None,
+    #     choices=list_models,
+    #     metavar="MODEL",
+    #     help=model_message,
+    # )
     parser_run.add_argument(
         "model",
         type=str,
+        nargs="?",                    # makes it optional
+        default=None,             # fallback if nothing is passed
         choices=list_models,
         metavar="MODEL",
-        help=model_message,
+        help=model_message + f" (default: None)",
     )
 
     parser_run.add_argument(

@@ -410,6 +410,11 @@ def pre_processing(
         with open(parameters) as file:
             params = yaml.load(file, Loader=yaml.FullLoader)
 
+    if model_name is None:
+        print('yoooo')
+        assert "model" in params, "If model is not specified, then model: MODEL must be specified in the params!"
+        model_name = params["model"]
+
     if mpi_rank == 0:
         # copy parameter file to output folder
         if parameters_path != os.path.join(path_out, "parameters.yml"):
