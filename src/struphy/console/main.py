@@ -61,6 +61,8 @@ def struphy():
     batch_files = get_batch_files(b_path)
 
     # Load the models and messages
+    list_models = []
+    model_message = fluid_message = kinetic_message = hybrid_message = toy_message = ""
     try:
         with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
             list_models = pickle.load(fp)
@@ -69,8 +71,7 @@ def struphy():
                 fp,
             )
     except:
-        list_models = []
-        model_message = ""
+        print("run: struphy --refresh-models")
 
     # 0. basic options
     add_parser_basic_options(parser, i_path, o_path, b_path)
