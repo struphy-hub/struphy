@@ -121,11 +121,8 @@ def struphy_run(
         output_abs,
         batch,
         batch_abs,
+        restart,
     )
-
-    # take existing parameter file for restart
-    if restart:
-        input_abs = os.path.join(output_abs, "parameters.yml")
 
     # Read likwid params
     if likwid:
@@ -290,6 +287,7 @@ def generate_absolute_io_paths(
     output_abs,
     batch,
     batch_abs,
+    restart,
 ):
     # Read struphy state file
     state = utils.read_state()
@@ -324,5 +322,9 @@ def generate_absolute_io_paths(
     if batch_abs is None:
         if batch is not None:
             batch_abs = os.path.join(b_path, batch)
+
+    # take existing parameter file for restart
+    if restart:
+        input_abs = os.path.join(output_abs, "parameters.yml")
 
     return input_abs, output_abs, batch_abs
