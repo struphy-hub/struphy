@@ -532,12 +532,6 @@ def add_parser_run(subparsers, list_models, model_message, params_files, batch_f
     )
 
     parser_run.add_argument(
-        "--debug",
-        help="launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs",
-        action="store_true",
-    )
-
-    parser_run.add_argument(
         "--cprofile",
         help="run with Cprofile",
         action="store_true",

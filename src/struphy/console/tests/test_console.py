@@ -59,7 +59,6 @@ def split_command(command):
         # ["run", "Maxwell", "--batch", "batch_cobra.sh"],
         ["run", "Maxwell", "--mpi", "4"],
         ["run", "Vlasov", "--restart"],
-        ["run", "Vlasov", "--debug"],
         # Test cases for 'compile' sub-command with options
         ["compile"],
         ["compile", "-y"],
