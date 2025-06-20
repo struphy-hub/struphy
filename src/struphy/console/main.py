@@ -164,25 +164,18 @@ def struphy():
         sys.exit(0)
 
     # display subset of models
-    if args.fluid:
-        print(fluid_message)
-        print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        sys.exit(0)
+    model_flags = [
+        (args.fluid, fluid_message),
+        (args.kinetic, kinetic_message),
+        (args.hybrid, hybrid_message),
+        (args.toy, toy_message),
+    ]
 
-    if args.kinetic:
-        print(kinetic_message)
-        print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        sys.exit(0)
-
-    if args.hybrid:
-        print(hybrid_message)
-        print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        sys.exit(0)
-
-    if args.toy:
-        print(toy_message)
-        print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        sys.exit(0)
+    for flag, message in model_flags:
+        if flag:
+            print(message)
+            print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
+            sys.exit(0)
     
     def set_path(arg_value, default_subdir, state_key, exit_on_set=True):
         if arg_value == ".":
