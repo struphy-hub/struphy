@@ -1,5 +1,6 @@
 from typing import Optional
 
+
 def main(
     model_name: Optional[str],
     parameters: dict | str,
@@ -72,10 +73,7 @@ def main(
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-    
-    if model_name is None:
-        print('Yoooo time to figure out the model name')
-    
+
     if rank == 0:
         print("")
     comm.Barrier()
@@ -99,7 +97,6 @@ def main(
     )
 
     if model_name is None:
-        print('yoooo')
         assert "model" in params, "If model is not specified, then model: MODEL must be specified in the params!"
         model_name = params["model"]
 
@@ -345,13 +342,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run an Struphy model.")
 
     # model
-    # parser.add_argument("model", type=str, metavar="model", help="the name of the model to run")
-
     parser.add_argument(
         "model",
         type=str,
-        nargs="?",                    # makes it optional
-        default=None,             # fallback if nothing is passed
+        nargs="?",
+        default=None,
         metavar="MODEL",
         help="the name of the model to run (default: None)",
     )

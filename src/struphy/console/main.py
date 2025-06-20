@@ -287,8 +287,8 @@ def struphy():
     parser_run.add_argument(
         "model",
         type=str,
-        nargs="?",                    # makes it optional
-        default=None,             # fallback if nothing is passed
+        nargs="?",  # makes it optional
+        default=None,  # fallback if nothing is passed
         choices=list_models,
         metavar="MODEL",
         help=model_message + f" (default: None)",

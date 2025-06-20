@@ -411,7 +411,7 @@ def pre_processing(
             params = yaml.load(file, Loader=yaml.FullLoader)
 
     if model_name is None:
-        print('yoooo')
+        print("yoooo")
         assert "model" in params, "If model is not specified, then model: MODEL must be specified in the params!"
         model_name = params["model"]
 
