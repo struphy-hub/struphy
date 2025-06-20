@@ -1515,6 +1515,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         with open(os.path.join(libpath, "io/inp/parameters.yml")) as tmp:
             parameters = yaml.load(tmp, Loader=yaml.FullLoader)
 
+        parameters["model"] = cls.__name__
+
         # extract default em_fields parameters
         bckgr_params_1_em = parameters["em_fields"]["background"]["var_1"]
         bckgr_params_2_em = parameters["em_fields"]["background"]["var_2"]
