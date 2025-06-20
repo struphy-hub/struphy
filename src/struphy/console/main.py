@@ -6,6 +6,7 @@ import os
 import site
 import subprocess
 import sys
+import importlib
 from argparse import HelpFormatter, RawTextHelpFormatter, _SubParsersAction
 
 import argcomplete
@@ -208,26 +209,26 @@ def struphy():
         
 
     # load sub-command function
-    if args.command == "compile":
-        from struphy.console.compile import struphy_compile as func
-    elif args.command == "lint":
-        from struphy.console.format import struphy_lint as func
-    elif args.command == "format":
-        from struphy.console.format import struphy_format as func
-    elif args.command == "likwid_profile":
-        from struphy.console.likwid import struphy_likwid_profile as func
-    elif args.command == "params":
-        from struphy.console.params import struphy_params as func
-    elif args.command == "pproc":
-        from struphy.console.pproc import struphy_pproc as func
-    elif args.command == "profile":
-        from struphy.console.profile import struphy_profile as func
-    elif args.command == "run":
-        from struphy.console.run import struphy_run as func
-    elif args.command == "test":
-        from struphy.console.test import struphy_test as func
-    elif args.command == "units":
-        from struphy.console.units import struphy_units as func
+    command_map = {
+        "compile": ("struphy.console.compile", "struphy_compile"),
+        "lint": ("struphy.console.format", "struphy_lint"),
+        "format": ("struphy.console.format", "struphy_format"),
+        "likwid_profile": ("struphy.console.likwid", "struphy_likwid_profile"),
+        "params": ("struphy.console.params", "struphy_params"),
+        "pproc": ("struphy.console.pproc", "struphy_pproc"),
+        "profile": ("struphy.console.profile", "struphy_profile"),
+        "run": ("struphy.console.run", "struphy_run"),
+        "test": ("struphy.console.test", "struphy_test"),
+        "units": ("struphy.console.units", "struphy_units"),
+    }
+
+    # import struphy.console.MODULE.FUNC_NAME as func
+    if args.command in command_map:
+        module_path, func_name = command_map[args.command]
+        func = getattr(importlib.import_module(module_path), func_name)
+    else:
+        raise ValueError(f"Unknown command: {args.command}")
+
 
     # transform parser Namespace object to dictionary and remove "command" key
     kwargs = vars(args)
