@@ -109,9 +109,7 @@ def struphy_run(
     state = utils.read_state()
 
     # Struphy paths
-    i_path = state["i_path"]
-    o_path = state["o_path"]
-    b_path = state["b_path"]
+    i_path, o_path, b_path = utils.get_paths(state=state)
 
     assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
     if batch is not None or batch_abs is not None:
