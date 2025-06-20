@@ -183,69 +183,36 @@ def struphy():
         print(toy_message)
         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
         sys.exit(0)
+    
+    def set_path(arg_value, default_subdir, state_key):
+        if arg_value == ".":
+            path = os.getcwd()
+        elif arg_value == "d":
+            path = os.path.join(libpath, default_subdir)
+        else:
+            path = arg_value
+            try:
+                os.makedirs(path, exist_ok=True)
+            except Exception as e:
+                print(f"Warning: Could not create directory {path}: {e}")
 
-    # set default in path
+        path = os.path.abspath(path)
+        state[state_key] = path
+        utils.save_state(state)
+        print(f"New {state_key} has been set to {path}")
+        sys.exit(0)
+
+    # Set default input path
     if args.set_i:
-        if args.set_i == ".":
-            i_path = os.getcwd()
-        elif args.set_i == "d":
-            i_path = os.path.join(libpath, "io/inp")
-        else:
-            i_path = args.set_i
-            try:
-                os.makedirs(i_path)
-            except:
-                pass
+        set_path(args.set_i, "io/inp", "i_path")
 
-        i_path = os.path.abspath(i_path)
-
-        state["i_path"] = i_path
-        utils.save_state(state)
-
-        print(f"New input path has been set to {state['i_path']}")
-        sys.exit(0)
-
-    # set default out path
+    # Set default output path
     if args.set_o:
-        if args.set_o == ".":
-            o_path = os.getcwd()
-        elif args.set_o == "d":
-            o_path = os.path.join(libpath, "io/out")
-        else:
-            o_path = args.set_o
-            try:
-                os.makedirs(o_path)
-            except:
-                pass
+        set_path(args.set_o, "io/out", "o_path")
 
-        o_path = os.path.abspath(o_path)
-
-        state["o_path"] = o_path
-        utils.save_state(state)
-
-        print(f"New output path has been set to {state['o_path']}")
-        sys.exit(0)
-
-    # set default out path
+    # Set default batch path
     if args.set_b:
-        if args.set_b == ".":
-            b_path = os.getcwd()
-        elif args.set_b == "d":
-            b_path = os.path.join(libpath, "io/batch")
-        else:
-            b_path = args.set_b
-            try:
-                os.makedirs(b_path)
-            except:
-                pass
-
-        b_path = os.path.abspath(b_path)
-
-        state["b_path"] = b_path
-        utils.save_state(state)
-
-        print(f"New batch path has been set to {state['b_path']}")
-        sys.exit(0)
+        set_path(args.set_b, "io/batch", "b_path")
 
     # set paths for inp, out and batch (with io/inp etc. prefices)
     if args.set_iob:
