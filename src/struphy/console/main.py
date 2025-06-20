@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
+import argparse
 import glob
+import importlib
 import importlib.metadata
 import os
+import pickle
 import site
 import subprocess
 import sys
-import importlib
 from argparse import HelpFormatter, RawTextHelpFormatter, _SubParsersAction
 
 import argcomplete
-import argparse
-import pickle
-
 import yaml
 
 # struphy path
@@ -25,8 +24,6 @@ __version__ = importlib.metadata.version("struphy")
 
 def struphy():
     """Struphy main executable. Performs argument parsing and sub-command call."""
-
-    
 
     # create argument parser
     epilog_message = 'Type "struphy COMMAND --help" for more information on a command.\n\n'
@@ -127,7 +124,7 @@ def struphy():
     # parse argument
     argcomplete.autocomplete(parser)
     args = parser.parse_args()
-    
+
     if args.command == "format" or args.command == "lint":
         if not args.input_type and not args.path:
             parser.error("Use with either 'all', 'staged', 'branch', or '--path PATH'")
@@ -206,7 +203,6 @@ def struphy():
 
     if args.refresh_models:
         utils.refresh_models()
-        
 
     # load sub-command function
     command_map = {
@@ -229,14 +225,26 @@ def struphy():
     else:
         raise ValueError(f"Unknown command: {args.command}")
 
-
     # transform parser Namespace object to dictionary and remove "command" key
     kwargs = vars(args)
     for key in [
-        "command", "short_help", "fluid", "kinetic", "hybrid", "toy",
-        "set_i", "set_o", "set_b", "set_iob", "refresh_models",
+        "command",
+        "short_help",
+        "fluid",
+        "kinetic",
+        "hybrid",
+        "toy",
+        "set_i",
+        "set_o",
+        "set_b",
+        "set_iob",
+        "refresh_models",
         # These options are stored in kwargs.config
-        "input_type", "path", "linters", "iterations", "output_format",
+        "input_type",
+        "path",
+        "linters",
+        "iterations",
+        "output_format",
     ]:
         kwargs.pop(key, None)
 
@@ -245,8 +253,8 @@ def struphy():
     #     print(k, v)
     func(**kwargs)
 
-def add_parser_basic_options(parser, i_path, o_path, b_path):
 
+def add_parser_basic_options(parser, i_path, o_path, b_path):
     # path message
     path_message = f"Struphy installation path: {libpath}\n"
     path_message += f"current input:             {i_path}\n"
@@ -327,7 +335,10 @@ def add_parser_basic_options(parser, i_path, o_path, b_path):
         help='make PATH the new default folder for io/inp/, io/out and io/batch ("." to use cwd, "d" to use default <install-path>)',
     )
 
-def add_parser_compile(subparsers, ):
+
+def add_parser_compile(
+    subparsers,
+):
     parser_compile = subparsers.add_parser(
         "compile",
         help="compile computational kernels, install psydac (on first call only)",
@@ -401,6 +412,7 @@ def add_parser_compile(subparsers, ):
         help="say yes to prompt when changing the language",
         action="store_true",
     )
+
 
 def add_parser_run(subparsers, list_models, model_message, params_files, batch_files):
     parser_run = subparsers.add_parser(
@@ -614,6 +626,7 @@ def add_parser_run(subparsers, list_models, model_message, params_files, batch_f
         default=1.0,
     )
 
+
 def add_parser_units(subparsers, list_models, model_message, params_files):
     parser_units = subparsers.add_parser(
         "units",
@@ -649,6 +662,7 @@ def add_parser_units(subparsers, list_models, model_message, params_files):
         metavar="FILE",
         help="parameter file (.yml), absolute path",
     )
+
 
 def add_parser_params(subparsers, list_models, model_message):
     parser_params = subparsers.add_parser(
@@ -690,6 +704,7 @@ def add_parser_params(subparsers, list_models, model_message):
         help="Say yes on prompt to overwrite .yml FILE",
         action="store_true",
     )
+
 
 def add_parser_profile(subparsers):
     parser_profile = subparsers.add_parser(
@@ -740,6 +755,7 @@ def add_parser_profile(subparsers):
         metavar="NAME",
         help="save (and dont display) the profile figure under NAME, relative to current output path.",
     )
+
 
 def add_parser_likwid_profile(subparsers):
     try:
@@ -805,6 +821,7 @@ def add_parser_likwid_profile(subparsers):
             required=False,
             help="Types of plots to plot (space-separated). Default: [pinning, speedup. barplots, loadbalance, roofline]",
         )
+
 
 def add_parser_pproc(subparsers, out_folders):
     parser_pproc = subparsers.add_parser(
@@ -876,6 +893,7 @@ def add_parser_pproc(subparsers, out_folders):
         help="whether to plot the time traces",
         action="store_true",
     )
+
 
 def add_parser_test(subparsers, list_models):
     try:
@@ -961,6 +979,7 @@ def add_parser_test(subparsers, list_models):
             help="show plots of tests",
             action="store_true",
         )
+
 
 def add_parser_format(subparsers):
     try:
@@ -1048,6 +1067,7 @@ def add_parser_format(subparsers):
             help="specify the format of the output: 'table' for tabular output, 'plain' for regular output, or 'report' for saving a html report",
         )
 
+
 def set_path(state, arg_value, default_subdir, state_key, exit_on_set=True):
     if arg_value == ".":
         path = os.getcwd()
@@ -1068,6 +1088,7 @@ def set_path(state, arg_value, default_subdir, state_key, exit_on_set=True):
     if exit_on_set:
         sys.exit(0)
 
+
 def print_short_help(parser):
     lines = parser.format_help().splitlines()
     bool_1 = [i for i, x in enumerate(lines) if "Struphy" in x]
@@ -1076,6 +1097,7 @@ def print_short_help(parser):
     print(lines[bool_1[0] + 1])
     for li in lines[bool_2[0] :]:
         print(li)
+
 
 class NoSubparsersMetavarFormatter(HelpFormatter):
     """
