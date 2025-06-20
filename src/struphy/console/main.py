@@ -184,7 +184,7 @@ def struphy():
         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
         sys.exit(0)
     
-    def set_path(arg_value, default_subdir, state_key):
+    def set_path(arg_value, default_subdir, state_key, exit_on_set=True):
         if arg_value == ".":
             path = os.getcwd()
         elif arg_value == "d":
@@ -200,7 +200,9 @@ def struphy():
         state[state_key] = path
         utils.save_state(state)
         print(f"New {state_key} has been set to {path}")
-        sys.exit(0)
+
+        if exit_on_set:
+            sys.exit(0)
 
     # Set default input path
     if args.set_i:
@@ -227,9 +229,9 @@ def struphy():
         o_path = os.path.join(path, "io/out")
         b_path = os.path.join(path, "io/batch")
 
-        subprocess.run(["struphy", "--set-i", i_path])
-        subprocess.run(["struphy", "--set-o", o_path])
-        subprocess.run(["struphy", "--set-b", b_path])
+        set_path(i_path, "", "i_path", exit_on_set=False)
+        set_path(o_path, "", "o_path", exit_on_set=False)
+        set_path(b_path, "", "b_path", exit_on_set=False)
 
         sys.exit(0)
 
