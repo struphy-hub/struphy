@@ -68,11 +68,9 @@ def struphy():
 
     # check output folders in current output path:
     out_folders = []
-    if os.path.exists(o_path) and os.path.isdir(o_path):
-        all_folders = os.listdir(o_path)
-        for name in all_folders:
-            if "." not in name:
-                out_folders += [name]
+    if os.path.isdir(o_path):
+        with os.scandir(o_path) as entries:
+            out_folders = [entry.name for entry in entries if entry.is_dir()]
     else:
         print("Path to outputs directory missing! Set it with `struphy --set-o PATH`")
 
