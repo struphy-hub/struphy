@@ -675,13 +675,13 @@ def struphy():
     )
 
     parser_pproc.add_argument(
-        "-d",
-        "--dirr",
+        "dirs",
         type=str,
+        nargs="*",
         choices=out_folders,
         metavar="DIR",
-        help="simulation output folder to post-process relative to current I/O path (default=sim_1)",
-        default="sim_1",
+        default=["sim_1"],  # ✅ works with nargs="*"
+        help=("Simulation output folders to post-process (relative to current I/O path) (default: [sim_1])."),
     )
 
     parser_pproc.add_argument(

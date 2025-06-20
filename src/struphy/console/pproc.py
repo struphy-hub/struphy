@@ -2,7 +2,7 @@ from struphy.console.run import subp_run
 
 
 def struphy_pproc(
-    dirr,
+    dirs,
     dir_abs=None,
     step=1,
     celldivide=1,
@@ -16,8 +16,8 @@ def struphy_pproc(
 
     Parameters
     ----------
-    dirr : str
-        Path of simulation output folder relative to <struphy_path>/io/out.
+    dirs : str
+        Paths of simulation output folders relative to <struphy_path>/io/out.
 
     dir_abs : str
         Absolute path to the simulation output folder.
@@ -47,29 +47,37 @@ def struphy_pproc(
     state = utils.read_state(libpath)
 
     o_path = state["o_path"]
+    for dir in dirs:
+        # create absolute path
+        if dir_abs is None:
+            dir_abs = os.path.join(o_path, dir)
 
-    # create absolute path
-    if dir_abs is None:
-        dir_abs = os.path.join(o_path, dirr)
+        print(f"Post processing data in {dir_abs}")
 
-    print(f"Post processing data in {dir_abs}")
+        command = [
+            "python3",
+            "post_processing/pproc_struphy.py",
+            dir_abs,
+            "-s",
+            str(step),
+            "--celldivide",
+            str(celldivide),
+        ]
 
-    command = ["python3", "post_processing/pproc_struphy.py", dir_abs, "-s", str(step), "--celldivide", str(celldivide)]
+        if physical:
+            command += ["--physical"]
 
-    if physical:
-        command += ["--physical"]
+        if guiding_center:
+            command += ["--guiding-center"]
 
-    if guiding_center:
-        command += ["--guiding-center"]
+        if classify:
+            command += ["--classify"]
 
-    if classify:
-        command += ["--classify"]
+        # Whether vtk files should be created
+        if no_vtk:
+            command += ["--no-vtk"]
 
-    # Whether vtk files should be created
-    if no_vtk:
-        command += ["--no-vtk"]
+        if time_trace:
+            command += ["--time-trace"]
 
-    if time_trace:
-        command += ["--time-trace"]
-
-    subp_run(command)
+        subp_run(command)
