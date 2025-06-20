@@ -8,7 +8,7 @@ from time import time
 
 import numpy as np
 
-from struphy.console.run import subp_run
+from struphy.utils.utils import subp_run
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
