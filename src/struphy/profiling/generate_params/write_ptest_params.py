@@ -164,13 +164,13 @@ def generate_ptest_params():
             params_prefix,
         )
 
-        mpi_nclones_scan(
-            base_params,
-            mpi_values,
-            filename_template,
-            extra_modifications,
-            params_prefix,
-        )
+        # mpi_nclones_scan(
+        #     base_params,
+        #     mpi_values,
+        #     filename_template,
+        #     extra_modifications,
+        #     params_prefix,
+        # )
     # grid value scan
     # mpi_values = [72]
     # grid_values = [[16, 16, 16], [32, 32, 32], [64, 64, 64]]
