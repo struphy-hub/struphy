@@ -538,6 +538,8 @@ Fedora:
     - dnf install -y environment-modules 
     - dnf install -y python3-mpi4py-openmpi 
     - dnf install -y pandoc
+    - dnf install -y gawk
+    - dnf update -y
     - wget https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz 
     - tar xzf Python-3.10.14.tgz 
     - cd Python-3.10.14 
