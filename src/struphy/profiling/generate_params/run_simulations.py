@@ -44,6 +44,13 @@ def main():
     )
 
     parser.add_argument(
+        "--account",
+        type=str,
+        default="maxlin",
+        help="Account name of account submitting the jobs (default: maxlin)",
+    )
+
+    parser.add_argument(
         "--mpi",
         type=int,
         default=1,
@@ -127,6 +134,7 @@ def main():
             submit_file = f"submit_{projectname}.sh"
 
             script_params = {
+                "account": args.account,
                 "job_name": job_name,
                 "ntasks_per_node": args.tasks_per_node,
                 "nodes": args.nodes,
