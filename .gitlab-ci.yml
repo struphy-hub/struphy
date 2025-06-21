@@ -780,6 +780,10 @@ mpi_scaling_plot:
   stage: performance-tests
   needs:
     - run_jobs_sbatch
+  extends:
+    - .tags_raven_private_runner
+    - .rules_test_performance
+    - .before_script_load_modules
   script:
     - !reference [.scripts, source_env_raven]
     # Plot results
@@ -797,6 +801,10 @@ upload_outputs:
   needs:
     - run_jobs_sbatch
     - mpi_scaling_plot
+  extends:
+    - .tags_raven_private_runner
+    - .rules_test_performance
+    - .before_script_load_modules
   script:
     - datetime=$(date +"%Y%m%d_%H%M%S")
     - export ARTIFACT_DIR="struphy_performance_${datetime}_${CI_PIPELINE_ID}"
