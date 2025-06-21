@@ -161,7 +161,7 @@ stages:
     - python3 -m pip list
     - python3 --version
   source_env_raven:
-    - module load likwid/5.2
+    - module load likwid/5.3
     - !reference [.scripts, setup_paths_raven_private_runner]
     - echo $VENV_DIR/env_struphy_CI
     - source $VENV_DIR/env_struphy_CI/bin/activate
@@ -175,7 +175,7 @@ stages:
     - python3 -m pip list
     - python3 --version
   create_venv_raven:
-    - module load likwid/5.2
+    - module load likwid/5.3
     - !reference [.scripts, setup_paths_raven_private_runner]
     - if [ ! -d "$VENV_DIR/env_struphy_CI" ]; then python3 -m venv $VENV_DIR/env_struphy_CI; fi
     - echo $VENV_DIR/env_struphy_CI
