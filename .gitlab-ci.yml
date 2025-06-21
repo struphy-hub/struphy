@@ -189,7 +189,7 @@ stages:
     - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
     - git pull
-    - pip install -e $(echo $STRUPHY_SOURCE)
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - !reference [.scripts, compile_matrix]
   install:
     - pip install $(echo $STRUPHY_SOURCE)[phys]
