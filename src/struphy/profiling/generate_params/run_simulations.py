@@ -166,21 +166,23 @@ def main():
             # print(" ".join(command))
             if action == "run":
                 subprocess.run(command)
-                print(f"{GREEN}Running:\t{projectname} ({param_filename}){NC}")
+                print(f"{GREEN}Running:\t{projectname}\t({param_filename}){NC}")
             elif action == "check":
-                projectname_width = 50
+                projectname_width = 70
                 print(
-                    f"{GREEN}Would run:\t{projectname.ljust(projectname_width)}\t({param_filename}) using {submit_file}{NC}",
+                    f"{GREEN}Would run:\t{projectname.ljust(projectname_width)}\t({param_filename}){NC}",
                 )
-                print(f"Command: {' '.join(command)}")
+                # print(f"Command: {' '.join(command)}")
             else:
                 print(f"{RED}Invalid action: {action}{NC}")
                 print("Usage: script.py [run|check]")
                 sys.exit(1)
             num_new_simulations += 1
     print(f"Total new simulations: {num_new_simulations}")
-    cmd = ["squeue", "-u", "$USER"]
-    subprocess.run(cmd)
+    
+    if action == "run":
+        cmd = ["squeue", "-u", "$USER"]
+        subprocess.run(cmd)
 
 
 def save_batch_script(batch_script, filename, path=None):
