@@ -269,10 +269,9 @@ stages:
 
 .tags_raven_private_runner:
   tags:
-    - linux
     - raven
-    - struphy
     - private
+    - maxlin
 
 .rules_test_performance:
   rules:
