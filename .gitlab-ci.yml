@@ -743,6 +743,8 @@ struphy_almalinux_latest:
 run_jobs_sbatch:
   stage: performance-tests
   extends:
+    - .tags_raven_private_runner
+    - .rules_test_performance
     - .before_script_load_modules
   script:
     - !reference [.scripts, inspect_directory]
