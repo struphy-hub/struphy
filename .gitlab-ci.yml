@@ -262,6 +262,7 @@ stages:
     - echo $IOB_DIR
     - echo $FIGURE_DIR
     - echo $VENV_DIR
+    - echo $VENV_FULLPATH
     - mkdir -p $CI_JOBS_DIR
     - mkdir -p $IOB_DIR
     - mkdir -p $FIGURE_DIR
