@@ -1182,8 +1182,8 @@ def struphy():
         kwargs.pop(key, None)
 
     # start sub-command function with all parameters of that function
-    for k, v in kwargs.items():
-        print(k, v)
+    # for k, v in kwargs.items():
+    #     print(k, v)
     func(**kwargs)
 
 
