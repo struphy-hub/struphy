@@ -689,6 +689,7 @@ struphy_almalinux_latest:
 # Run in weekly CI pipeline only
 lint_full_repo_report:
   stage: lint
+  needs: []
   extends:
     - .rules_scheduled
     - .image_ubuntu_latest
@@ -709,6 +710,7 @@ lint_full_repo_report:
 # Lint struphy with `struphy lint`
 lint_branch:
   stage: lint
+  needs: []
   extends:
     - .rules_push
     - .image_ubuntu_latest
@@ -724,6 +726,7 @@ lint_branch:
 # Lint struphy with `struphy lint`
 lint_branch_report:
   stage: lint
+  needs: []
   extends:
     - .rules_push
     - .image_ubuntu_latest
