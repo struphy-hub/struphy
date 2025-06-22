@@ -941,7 +941,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self._tmp_b = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
-
         self._mass_ops_Mn.dot(self.pointer["mhd_velocity"], out=self._tmp_u)
         en_U = self.pointer["mhd_velocity"].dot(self._tmp_u) / 2.
 
@@ -987,6 +986,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # calculate particle magnetic energy
         self._PBb = self._PB.dot(self.pointer["b_field"])
         self.pointer["energetic_ions"].save_magnetic_energy(self._PBb)
+
+        #TODO remove
+        self.pointer["energetic_ions"].save_energy_diff(PBb=self._PBb)
 
         self._en_fB[0] = np.sum(
             self.pointer["energetic_ions"].markers[~self.pointer["energetic_ions"].holes, 8]) * self._coupling_params["Ah"] / self._coupling_params["Ab"]

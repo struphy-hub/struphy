@@ -99,6 +99,12 @@ def main(path: str,
             if 'f' in file['kinetic'][name]:
                 exist_kinetic['f'] = True
 
+            # check for saved diagnostics
+            diag_kinds = {key: values for key, values in file["kinetic"][name].items() if key.startswith("diag")}
+
+            if diag_kinds:
+                for key, values in diag_kinds.items():
+                    exist_kinetic[key] = True
     else:
         exist_kinetic = None
 
@@ -234,6 +240,14 @@ def main(path: str,
                 pproc.post_process_f(path, path_kinetics_species,
                                      species, step, compute_bckgr=compute_bckgr)
 
+            # diagnostics
+            diag_kinds = {key: values for key, values in exist_kinetic.items() if key.startswith("diag")}
+
+            if diag_kinds:
+                for key, values in diag_kinds.items():
+
+                    pproc.post_process_d(path, path_kinetics_species,
+                                        species, diag_name=key, step=step)
 
 if __name__ == '__main__':
 

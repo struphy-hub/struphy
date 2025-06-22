@@ -447,14 +447,16 @@ def eval_energy_diff(
             PBb,
         )
 
-        energy = mu * (weight * abs_B + weight * PB_b) + 1 / 2 * vp**2
+        energy = mu * (abs_B + PB_b) + 1 / 2 * vp**2
 
         if init:
-            markers[ip, first_diagnostics_idx+3] = energy
+            markers[ip, first_diagnostics_idx+3] = energy * weight
             markers[ip, first_diagnostics_idx+4] = 0.
+            markers[ip, first_diagnostics_idx+5] = 0.
 
-        else: 
-            markers[ip, first_diagnostics_idx+4] = energy - markers[ip, first_diagnostics_idx+3]
+        else:
+            markers[ip, first_diagnostics_idx+4] = markers[ip, first_diagnostics_idx+3] - energy * weight
+            markers[ip, first_diagnostics_idx+5] = energy * dweight
 
 
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")

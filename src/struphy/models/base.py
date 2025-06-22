@@ -741,6 +741,25 @@ class StruphyModel(metaclass=ABCMeta):
                     val["kinetic_data"]["f"][slice_i][:] = f_slice
                     val["kinetic_data"]["df"][slice_i][:] = df_slice
 
+            diag_kinds = {key: values for key, values in val["params"]["save_data"].items() if key.startswith("diag")}
+
+            if diag_kinds:
+                
+                for key, values in diag_kinds.items():
+                    str_bin_edges = "bin_edges"+"_"+key
+                    index = int(key[4:])
+
+                    for slice_i, edges in val[str_bin_edges].items():
+                        comps = slice_i.split("_")
+                        components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
+
+                        for comp in comps:
+                            components[dim_to_int[comp]] = True
+
+                        d_slice = obj.binning(components, edges, diagnostics=index)
+
+                        val["kinetic_data"][key][slice_i][:] = d_slice
+
     def print_scalar_quantities(self):
         """
         Check if scalar_quantities are not "nan" and print to screen.
@@ -926,6 +945,9 @@ class StruphyModel(metaclass=ABCMeta):
                             obj.save_constants_of_motion()
 
                         obj.initialize_weights()
+
+                        if any(k.startswith("diag") for k in val["kinetic_data"]):
+                            obj.save_energy_diff(init=True)
 
     def initialize_from_restart(self, data):
         """
@@ -1130,6 +1152,11 @@ class StruphyModel(metaclass=ABCMeta):
             for key1, val1 in val["kinetic_data"].items():
                 key_dat = key_spec + "/" + key1
 
+                if key1[:4] == 'diag':
+                    str_bin_edges = "bin_edges" + "_" + key1
+                else:
+                    str_bin_edges = "bin_edges"
+
                 if isinstance(val1, dict):
                     for key2, val2 in val1.items():
                         key_f = key_dat + "/" + key2
@@ -1138,8 +1165,8 @@ class StruphyModel(metaclass=ABCMeta):
                         dims = (len(key2) - 2) // 3 + 1
                         for dim in range(dims):
                             data.file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = (
-                                val["bin_edges"][key2][dim][:-1]
-                                + (val["bin_edges"][key2][dim][1] - val["bin_edges"][key2][dim][0]) / 2
+                                val[str_bin_edges][key2][dim][:-1]
+                                + (val[str_bin_edges][key2][dim][1] - val[str_bin_edges][key2][dim][0]) / 2
                             )
 
                 else:
@@ -1880,7 +1907,39 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                             )
 
                 # other data (wave-particle power exchange, etc.)
-                # TODO
+                diag_kinds = {key: values for key, values in val["params"]["save_data"].items() if key.startswith("diag")}
+
+                if diag_kinds:
+                    for key, values in diag_kinds.items():
+
+                        slices = values["slices"]
+                        n_bins = values["n_bins"]
+                        ranges = values["ranges"]
+
+                        val["kinetic_data"][key] = {}
+                        str_bin_edges = "bin_edges"+"_"+key
+                        val[str_bin_edges] = {}
+
+                        if len(slices) > 0:
+                            for i, sli in enumerate(slices):
+                                assert ((len(sli) - 2) / 3).is_integer()
+                                assert len(slices[i].split("_")) == len(ranges[i]) == len(n_bins[i]), (
+                                    f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
+                                )
+                                val[str_bin_edges][sli] = []
+                                dims = (len(sli) - 2) // 3 + 1
+                                for j in range(dims):
+                                    val[str_bin_edges][sli] += [
+                                        np.linspace(
+                                            ranges[i][j][0],
+                                            ranges[i][j][1],
+                                            n_bins[i][j] + 1,
+                                        ),
+                                    ]
+                                val["kinetic_data"][key][sli] = np.zeros(
+                                    n_bins[i],
+                                    dtype=float,
+                                )
 
         # allocate memory for FE coeffs of diagnostics
         if "diagnostics" in self.params:

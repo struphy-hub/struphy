@@ -2427,9 +2427,10 @@ class CurrentCoupling5DGradB(Propagator):
         _u_temp = un.copy(out=self._u_temp1)
 
         # save old marker positions
+        first_pusher_idx = self.particles[0].first_pusher_idx
         self.particles[0].markers[
             ~self.particles[0].holes,
-            11:14,
+            first_pusher_idx:first_pusher_idx+3,
         ] = self.particles[0].markers[~self.particles[0].holes, 0:3]
 
         for stage in range(self._butcher.n_stages):
@@ -2510,7 +2511,7 @@ class CurrentCoupling5DGradB(Propagator):
             if stage == self._butcher.n_stages - 1:
                 self.particles[0].markers[
                     ~self.particles[0].holes,
-                    11:-1,
+                    first_pusher_idx:-1,
                 ] = 0.0
 
         # write new coeffs into Propagator.variables

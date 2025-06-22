@@ -601,7 +601,7 @@ class Particles5D(Particles):
             self.absB0_h._data,
         )
 
-    def save_energy_diff(self, PBb, init=False):
+    def save_energy_diff(self, PBb=None, init=False):
         """
         Save each markers' initial particle energy and calculate energy difference :math:`\Delta \epsilon(t) = \epsilon(t) - \epsilon(t=0)`
         and assign them into markers[:, self.first_diagnostics_idx+3] and markers[:, self.first_diagnostics_idx+4].
@@ -612,10 +612,12 @@ class Particles5D(Particles):
         PBb : StencilVEctor
             Finite element coefficients of the time-dependent magnetic field.
         """
-
-        E0T = self.derham.extraction_ops["0"].transpose()
-        PBbt = E0T.dot(PBb, out=self._tmp0)
-        PBbt.update_ghost_regions()
+        if PBb is None:
+            PBbt = self.derham.Vh["0"].zeros()
+        else:
+            E0T = self.derham.extraction_ops["0"].transpose()
+            PBbt = E0T.dot(PBb, out=self._tmp0)
+            PBbt.update_ghost_regions()
 
         utilities_kernels.eval_energy_diff(
             self.markers,
@@ -626,6 +628,7 @@ class Particles5D(Particles):
             PBbt._data,
             init,
         )
+
 
 class Particles3D(Particles):
     """

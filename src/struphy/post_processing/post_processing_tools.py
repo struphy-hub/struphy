@@ -698,3 +698,79 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
     # close hdf5 files
     for file in files:
         file.close()
+
+def post_process_d(path_in, path_out, species, diag_name, step=1,):
+    """TODO
+    """
+
+    # get model name and # of MPI processes from meta.txt file
+    with open(os.path.join(path_in, "meta.txt"), "r") as f:
+        lines = f.readlines()
+
+    nproc = lines[4].split()[-1]
+
+    # load parameters
+    with open(os.path.join(path_in, "parameters.yml"), "r") as f:
+        params = yaml.load(f, Loader=yaml.FullLoader)
+
+    # open hdf5 files
+    files = [
+        h5py.File(
+            os.path.join(
+                path_in,
+                "data/",
+                f"data_proc{i}.hdf5",
+            ),
+            "r",
+        )
+        for i in range(int(nproc))
+    ]
+
+    # directory for .npy files
+    path_distr = os.path.join(path_out, diag_name)
+
+    try:
+        os.mkdir(path_distr)
+    except:
+        shutil.rmtree(path_distr)
+        os.mkdir(path_distr)
+
+    print("Evaluation of diagnostics for " + str(species))
+
+    # Create grids
+    for slice_name in tqdm(files[0]["kinetic/" + species + '/' + diag_name]):
+
+        # create a new folder for each slice
+        path_slice = os.path.join(path_distr, slice_name)
+        os.mkdir(path_slice)
+
+        # Find out all names of slices
+        slice_names = slice_name.split("_")
+
+        # save grid
+        for n_gr, (_, grid) in enumerate(files[0]["kinetic/" + species + '/' + diag_name + '/' + slice_name].attrs.items()):
+            grid_path = os.path.join(
+                path_slice,
+                "grid_" + slice_names[n_gr] + ".npy",
+            )
+            np.save(grid_path, grid[:])
+
+    # compute distribution function
+    for slice_name in tqdm(files[0]["kinetic/" + species + '/' + diag_name]):
+        # path to folder of slice
+        path_slice = os.path.join(path_distr, slice_name)
+
+        # Find out all names of slices
+        slice_names = slice_name.split("_")
+
+        # load full-f data
+        data = files[0]["kinetic/" + species + '/' + diag_name + '/' + slice_name][::step].copy()
+        for rank in range(1, int(nproc)):
+            data += files[rank]["kinetic/" + species + '/' + diag_name + '/' + slice_name][::step]
+
+        # save distribution functions
+        np.save(os.path.join(path_slice, "binned.npy"), data)
+
+    # close hdf5 files
+    for file in files:
+        file.close()

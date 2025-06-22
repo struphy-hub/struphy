@@ -1440,7 +1440,21 @@ class Particles(metaclass=ABCMeta):
         # extend components list to number of columns of markers array
         _n = len(components)
         slicing = components + [False] * (self.markers.shape[1] - _n)
-        if diagnostics is None:
+        
+        if diagnostics is not None:
+            _weights = self.markers[~self.holes, self.first_diagnostics_idx + diagnostics - 1]
+
+            d_slice = np.histogramdd(
+                self.markers_wo_holes[:, slicing],
+                bins=bin_edges,
+                weights=_weights,
+            )[0]
+
+            d_slice /=  bin_vol
+
+            return d_slice
+        
+        else:
             # compute weights of histogram:
             _weights0 = self.weights0
             _weights = self.weights
@@ -1475,28 +1489,8 @@ class Particles(metaclass=ABCMeta):
 
             f_slice /= n_mks_tot * bin_vol
             df_slice /= n_mks_tot * bin_vol
-
-        else:
-            diagnostics <= self.n_cols_diagnostics
-            _weights0 = self.markers[~self.holes, self.first_diagnostics_idx + diagnostics]
-            _weights = self.markers[~self.holes, self.first_diagnostics_idx + diagnostics]
-
-            f_slice = np.histogramdd(
-                self.markers_wo_holes[:, slicing],
-                bins=bin_edges,
-                weights=_weights0,
-            )[0]
-
-            df_slice = np.histogramdd(
-                self.markers_wo_holes[:, slicing],
-                bins=bin_edges,
-                weights=_weights,
-            )[0]
-
-            f_slice /=  bin_vol
-            df_slice /= bin_vol
-
-        return f_slice, df_slice
+        
+            return f_slice, df_slice
 
     def show_distribution_function(self, components, bin_edges):
         """
