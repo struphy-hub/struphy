@@ -4,7 +4,8 @@ import re
 
 import matplotlib.pyplot as plt
 import numpy as np
-import plotly.io as pio   
+import plotly.io as pio
+
 pio.kaleido.scope.mathjax = None
 
 import struphy.post_processing.likwid.maxplotlylib as mply
