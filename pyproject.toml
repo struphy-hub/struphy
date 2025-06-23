@@ -36,7 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 phys = [
-    'gvec-to-python',
+    'gvec-to-python @ git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python.git@enable-pyccel-2.0',
     'desc-opt',
 ]
 dev = [
