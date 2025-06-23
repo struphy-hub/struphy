@@ -125,6 +125,7 @@ class LinearMHD(StruphyModel):
         self.add_scalar("en_B_tot")
         self.add_scalar("en_tot")
 
+
         # vectors for computing scalar quantities
         self._tmp_b1 = self.derham.Vh["2"].zeros()
         self._tmp_b2 = self.derham.Vh["2"].zeros()
