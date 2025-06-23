@@ -16,6 +16,7 @@ Possible combinations for tensor product (BB):
 """
 
 from numpy import empty
+from pyccel.decorators import types
 
 import struphy.bsplines.bsplines_kernels as bsp
 
