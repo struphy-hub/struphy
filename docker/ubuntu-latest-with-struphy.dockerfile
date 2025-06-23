@@ -26,7 +26,11 @@ RUN apt update -y && apt clean \
     && apt install -y libomp-dev libomp5 \
     && apt install -y git \
     && apt install -y pandoc graphviz \
-    && bash -c "source ~/.bashrc" 
+    && bash -c "source ~/.bashrc" \
+    && export FC=`which gfortran` \ 
+    && export CC=`which gcc` \ 
+    && export CXX=`which g++` \
+    && export CMAKE_HOSTNAME=mpcdfcirunner 
 
 # install three versions of struphy
 RUN git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git struphy_c_ \

@@ -20,7 +20,7 @@ classifiers = [
     ]
 dependencies = [
     'numpy',
-    'pyccel>=1.11.1',
+    'pyccel>=1.11.1,<2.0',
     'mpi4py',
     'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'scipy',
@@ -92,11 +92,11 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 
 'struphy.fields_background.mhd_equil.gvec' = [
             'run_01/*.dat',
-            'run_01/parameter.ini',
+            'run_01/*.ini',
             'run_02/*.dat',
-            'run_02/parameter.ini',
+            'run_02/*.ini',
             'run_03/*.dat',
-            'run_03/parameter.ini',
+            'run_03/*.ini',
         ]
 
 'struphy.io' = ['batch/*.sh']
