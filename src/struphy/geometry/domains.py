@@ -226,6 +226,9 @@ class GVECunit(Spline):
 
         self._params_map["rmin"] = _rmin
         self._params_map["equilibrium"] = gvec_equil
+        
+        # finalize GVEC in order to be able to launch other tests
+        gvec_equil._state.finalize()
 
 
 class DESCunit(Spline):
