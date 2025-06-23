@@ -48,7 +48,7 @@ stages:
 
 .variables_push:
   variables:
-    LANGUAGE: 'fortran'
+    LANGUAGE: 'c'
     OMP: ''
 
 # --- rules ---
@@ -102,8 +102,8 @@ stages:
     matrix:
       - LANGUAGE: "fortran"
         OMP: ["", "--omp-pic"]
-      - LANGUAGE: "c"
-        OMP: [""]
+      # - LANGUAGE: "c"
+      #   OMP: [""]
 
 .parallel_matrix_scheduled:
   parallel:
@@ -173,7 +173,7 @@ stages:
     - struphy compile -d -y
     - pip uninstall pyccel -y
     - pip uninstall psydac -y
-    - pip install -e $(echo $STRUPHY_SOURCE)[test]
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - struphy compile -d -y
     - !reference [.scripts, compile_matrix]
   install_on_push:
@@ -182,21 +182,15 @@ stages:
     - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
     - git pull
-    - struphy compile -d -y
-    - pip uninstall pyccel -y
-    - pip uninstall psydac -y
-    - pip install -e $(echo $STRUPHY_SOURCE)[test]
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - !reference [.scripts, compile_matrix]
   install:
-    - pip uninstall pyccel -y
-    - pip uninstall psydac -y
-    - pip install $(echo $STRUPHY_SOURCE)[test]
+    - pip install $(echo $STRUPHY_SOURCE)[phys]
     - pip show struphy
     - pip list
     - struphy -h
   compile:
     - pyccel --version
-    - struphy compile -d -y
     - struphy compile --status
     - struphy compile -y
   compile_matrix:
@@ -345,21 +339,20 @@ pages_tests:
     - module load pandoc
     - module list
     - pip install .[doc]
-    - struphy compile -d -y
     - struphy compile -y
     - cd doc ; make html; cd ..
 
-# ubuntu_latest:
-#   stage: test
-#   extends:
-#     - .rules_push
-#     - .image_ubuntu_struphy
-#     - .variables_push
-#   script:
-#     - !reference [.scripts, inspect_directory]
-#     - !reference [.scripts, install_on_push]
-#     - !reference [.scripts, quickstart_tests]
-#     - !reference [.scripts, model_tests]
+ubuntu_latest:
+  stage: test
+  extends:
+    - .rules_push
+    - .image_ubuntu_struphy
+    - .variables_push
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, quickstart_tests]
+    - !reference [.scripts, model_tests]
 
 macos_nmpp:
   stage: test
