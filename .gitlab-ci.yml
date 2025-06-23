@@ -195,7 +195,6 @@ stages:
     - struphy compile -y
   compile_matrix:
     - pyccel --version
-    - struphy compile -d -y
     - struphy compile --status
     - echo ${LANGUAGE} && echo ${OMP}
     - struphy compile --language ${LANGUAGE} ${OMP} -y
