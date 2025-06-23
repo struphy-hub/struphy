@@ -394,16 +394,10 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 assert np.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
                 assert np.allclose(maxwellian.n(e1_fl, e2_fl, e3_fl), mhd_equil.n0(e_args_fl))
 
-            if 'GVECequilibrium' in key:
-                pass
-            else:
                 u_maxw = maxwellian.u(e1_fl, e2_fl, e3_fl)
                 u_eq = mhd_equil.u_cart(e_args_fl)[0]
                 assert all([np.allclose(m, e) for m, e in zip(u_maxw, u_eq)])
 
-            if 'GVECequilibrium' in key:
-                pass
-            else:
                 vth_maxw = maxwellian.vth(e1_fl, e2_fl, e3_fl)
                 vth_eq = np.sqrt(mhd_equil.p0(e_args_fl) / mhd_equil.n0(e_args_fl))
                 assert all([np.allclose(v, vth_eq) for v in vth_maxw])
@@ -519,6 +513,10 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 plt.title(f"Maxwellian thermal velocity $v_t$, poloidal view (e1-e2)")
 
                 plt.show()
+
+            # finalize GVEC in order to be able to launch other tests
+            if "GVECequilibrium" in key:
+                mhd_equil._state.finalize()
 
             # test perturbations
             if "EQDSKequilibrium" in key:
@@ -1084,6 +1082,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
             if "DESCequilibrium" in key and not with_desc:
                 print(f"Attention: {with_desc = }, DESC not tested here !!")
                 continue
+            
+            if "GVECequilibrium" in key:
+                print(f'Attention: flat (marker) evaluation not tested for GVEC at the moment.')
 
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
@@ -1129,20 +1130,22 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
             assert np.allclose(maxwellian(*meshgrids)[:, :, :, 0, 1], n0 * maxwellian_1(*meshgrids)[:, :, :, 0, 1])
 
             # test flat evaluation
-            assert np.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
+            if 'GVECequilibrium' in key:
+                pass
+            else:
+                assert np.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
+                assert np.allclose(maxwellian.n(e1_fl, e2_fl, e3_fl), mhd_equil.n0(e_args_fl))
 
-            assert np.allclose(maxwellian.n(e1_fl, e2_fl, e3_fl), mhd_equil.n0(e_args_fl))
+                u_maxw = maxwellian.u(e1_fl, e2_fl, e3_fl)
+                tmp_jv = mhd_equil.jv(e_args_fl) / mhd_equil.n0(e_args_fl)
+                tmp_unit_b1 = mhd_equil.unit_b1(e_args_fl)
+                # j_parallel = jv.b1
+                j_para = sum([ji * bi for ji, bi in zip(tmp_jv, tmp_unit_b1)])
+                assert np.allclose(u_maxw[0], j_para)
 
-            u_maxw = maxwellian.u(e1_fl, e2_fl, e3_fl)
-            tmp_jv = mhd_equil.jv(e_args_fl) / mhd_equil.n0(e_args_fl)
-            tmp_unit_b1 = mhd_equil.unit_b1(e_args_fl)
-            # j_parallel = jv.b1
-            j_para = sum([ji * bi for ji, bi in zip(tmp_jv, tmp_unit_b1)])
-            assert np.allclose(u_maxw[0], j_para)
-
-            vth_maxw = maxwellian.vth(e1_fl, e2_fl, e3_fl)
-            vth_eq = np.sqrt(mhd_equil.p0(e_args_fl) / mhd_equil.n0(e_args_fl))
-            assert all([np.allclose(v, vth_eq) for v in vth_maxw])
+                vth_maxw = maxwellian.vth(e1_fl, e2_fl, e3_fl)
+                vth_eq = np.sqrt(mhd_equil.p0(e_args_fl) / mhd_equil.n0(e_args_fl))
+                assert all([np.allclose(v, vth_eq) for v in vth_maxw])
 
             # plotting moments
             if show_plot:
@@ -1653,8 +1656,8 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 if __name__ == "__main__":
     # test_maxwellian_3d_uniform(Nel=[64, 1, 1], show_plot=False)
     # test_maxwellian_3d_perturbed(Nel=[64, 1, 1], show_plot=False)
-    test_maxwellian_3d_mhd(Nel=[8, 11, 12], with_desc=None, show_plot=False)
+    # test_maxwellian_3d_mhd(Nel=[8, 11, 12], with_desc=None, show_plot=False)
     # test_maxwellian_2d_uniform(Nel=[64, 1, 1], show_plot=True)
     # test_maxwellian_2d_perturbed(Nel=[64, 1, 1], show_plot=True)
-    # test_maxwellian_2d_mhd(Nel=[8, 12, 12], with_desc=None, show_plot=False)
+    test_maxwellian_2d_mhd(Nel=[8, 12, 12], with_desc=None, show_plot=False)
     # test_canonical_maxwellian_uniform(Nel=[64, 1, 1], show_plot=True)
