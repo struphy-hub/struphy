@@ -171,13 +171,13 @@ stages:
     - git checkout $CI_COMMIT_BRANCH
     - git pull
     - struphy compile -d -y
-    - pip uninstall pyccel -y
-    - pip uninstall psydac -y
+    - pip uninstall psydac pyccel gvec-to-python -y
     - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - struphy compile -d -y
     - !reference [.scripts, compile_matrix]
   install_on_push:
     - !reference [.scripts, source_env_matrix_push]
+    - pip uninstall psydac pyccel gvec-to-python -y
     - git status
     - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
@@ -185,16 +185,19 @@ stages:
     - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - !reference [.scripts, compile_matrix]
   install:
+    - pip uninstall psydac pyccel gvec-to-python -y
     - pip install $(echo $STRUPHY_SOURCE)[phys]
     - pip show struphy
     - pip list
     - struphy -h
   compile:
     - pyccel --version
+    - struphy compile -d -y
     - struphy compile --status
     - struphy compile -y
   compile_matrix:
     - pyccel --version
+    - struphy compile -d -y
     - struphy compile --status
     - echo ${LANGUAGE} && echo ${OMP}
     - struphy compile --language ${LANGUAGE} ${OMP} -y
