@@ -339,9 +339,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
             if "DESCequilibrium" in key and not with_desc:
                 print(f"Attention: {with_desc = }, DESC not tested here !!")
                 continue
-            
+
             if "GVECequilibrium" in key:
-                print(f'Attention: flat (marker) evaluation not tested for GVEC at the moment.')
+                print(f"Attention: flat (marker) evaluation not tested for GVEC at the moment.")
 
             mhd_equil = val()
             print(f"{mhd_equil.params = }")
@@ -388,7 +388,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
             )
 
             # test flat evaluation
-            if 'GVECequilibrium' in key:
+            if "GVECequilibrium" in key:
                 pass
             else:
                 assert np.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
@@ -1082,9 +1082,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
             if "DESCequilibrium" in key and not with_desc:
                 print(f"Attention: {with_desc = }, DESC not tested here !!")
                 continue
-            
+
             if "GVECequilibrium" in key:
-                print(f'Attention: flat (marker) evaluation not tested for GVEC at the moment.')
+                print(f"Attention: flat (marker) evaluation not tested for GVEC at the moment.")
 
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
@@ -1130,7 +1130,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
             assert np.allclose(maxwellian(*meshgrids)[:, :, :, 0, 1], n0 * maxwellian_1(*meshgrids)[:, :, :, 0, 1])
 
             # test flat evaluation
-            if 'GVECequilibrium' in key:
+            if "GVECequilibrium" in key:
                 pass
             else:
                 assert np.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))

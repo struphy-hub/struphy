@@ -146,8 +146,8 @@ class Tokamak(PoloidalSplineTorus):
         self._params_map["r0"] = r0
         self._params_map["Nel_pre"] = Nel_pre
         self._params_map["p_pre"] = p_pre
-        
-        
+
+
 class GVECunit(Spline):
     """The mapping from `pygvec <https://gvec.readthedocs.io/latest/index.html>`_, computed by the GVEC MHD equilibrium code.
 
@@ -168,6 +168,7 @@ class GVECunit(Spline):
 
     def __init__(self, gvec_equil=None):
         import gvec
+
         from struphy.fields_background.equils import GVECequilibrium
         from struphy.geometry.base import interp_mapping
 
@@ -193,8 +194,8 @@ class GVECunit(Spline):
 
         def XYZ(e1, e2, e3):
             rho = _rmin + e1 * (1.0 - _rmin)
-            theta = 2*np.pi * e2
-            zeta = 2*np.pi * e3
+            theta = 2 * np.pi * e2
+            zeta = 2 * np.pi * e3
             ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=gvec_equil.state)
             gvec_equil.state.compute(ev, "pos")
             x = ev.pos.data[0]
@@ -228,7 +229,7 @@ class GVECunit(Spline):
 
         self._params_map["rmin"] = _rmin
         self._params_map["equilibrium"] = gvec_equil
-        
+
         # finalize GVEC in order to be able to launch other tests
         if finalize:
             gvec_equil._state.finalize()

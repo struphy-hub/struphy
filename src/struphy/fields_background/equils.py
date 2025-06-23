@@ -2187,11 +2187,11 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         params_default = {
             "rel_path": True,
-            #"dat_file": "run_01/CIRCTOK_State_0000_00000000.dat",
-            #"dat_file": "run_02/W7X_State_0000_00000000.dat",
+            # "dat_file": "run_01/CIRCTOK_State_0000_00000000.dat",
+            # "dat_file": "run_02/W7X_State_0000_00000000.dat",
             "dat_file": "run_03/NEO-SPITZER_State_0000_00000000.dat",
-            #"param_file": "run_01/parameter.ini",
-            #"param_file": "run_02/parameter-w7x.ini",
+            # "param_file": "run_01/parameter.ini",
+            # "param_file": "run_02/parameter-w7x.ini",
             "param_file": "run_03/parameter-fig8.ini",
             "use_pest": False,
             "use_nfp": True,
@@ -2214,7 +2214,8 @@ class GVECequilibrium(NumericalMHDequilibrium):
                 struphy.__path__[0],
                 "fields_background",
                 "mhd_equil",
-                "gvec",)
+                "gvec",
+            )
             dat_file = os.path.join(
                 gvec_path,
                 self._params["dat_file"],
@@ -2274,9 +2275,9 @@ class GVECequilibrium(NumericalMHDequilibrium):
         # evaluate
         ev, flat_eval = self._gvec_evaluations(*etas)
         self.state.compute(ev, "B_contra_t", "B_contra_z")
-        bv_2 = ev.B_contra_t.data / 2*np.pi
-        bv_3 = ev.B_contra_z.data / 2*np.pi
-        out = (np.zeros_like(bv_2) , bv_2, bv_3)
+        bv_2 = ev.B_contra_t.data / 2 * np.pi
+        bv_3 = ev.B_contra_z.data / 2 * np.pi
+        out = (np.zeros_like(bv_2), bv_2, bv_3)
 
         # apply struphy units
         for o in out:
@@ -2286,15 +2287,15 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
     def jv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) current density (=curl B) on logical cube [0, 1]^3 in Ampere / meter^3."""
-        
+
         # evaluate
         ev, flat_eval = self._gvec_evaluations(*etas)
         self.state.compute(ev, "J_contra_r", "J_contra_t", "J_contra_z")
         rmin = self._params["rmin"]
         jv_1 = ev.J_contra_r.data / (1.0 - rmin)
-        jv_2 = ev.J_contra_t.data / 2*np.pi
-        jv_3 = ev.J_contra_z.data / 2*np.pi
-        out = (jv_1 , jv_2, jv_3)
+        jv_2 = ev.J_contra_t.data / 2 * np.pi
+        jv_3 = ev.J_contra_z.data / 2 * np.pi
+        out = (jv_1, jv_2, jv_3)
 
         # apply struphy units
         for o in out:
@@ -2313,10 +2314,10 @@ class GVECequilibrium(NumericalMHDequilibrium):
             if eta2.ndim == 3:
                 eta2 = eta2[0, :, 0]
                 eta3 = eta3[0, 0, :]
-            tmp, _1, _2 = np.meshgrid(ev.p.data, eta2, eta3, indexing='ij')
+            tmp, _1, _2 = np.meshgrid(ev.p.data, eta2, eta3, indexing="ij")
         else:
             tmp = ev.p.data
-        
+
         return self._params["p0"] + tmp / self.units["p"]
 
     def n0(self, *etas, squeeze_out=False):
@@ -2339,10 +2340,10 @@ class GVECequilibrium(NumericalMHDequilibrium):
                 eta2 = etas[1]
                 eta3 = etas[2]
                 flat_eval = False
-                
+
             rmin = self._params["rmin"]
             r = rmin + eta1 * (1.0 - rmin)
-                
+
             if self._params["density_profile"] == "parabolic":
                 return self._params["n1"] + (1.0 - r**2) * (self._params["n0"] - self._params["n1"])
             elif self._params["density_profile"] == "linear":
@@ -2355,11 +2356,11 @@ class GVECequilibrium(NumericalMHDequilibrium):
         raise NotImplementedError(
             "1-form gradient of magnetic field of GVECequilibrium is not implemented",
         )
-        
+
     def _gvec_evaluations(self, *etas):
         """Call gvec.Evaluations with Struphy coordinates."""
         import gvec
-        
+
         # flat (marker) evaluation
         if len(etas) == 1:
             assert etas[0].ndim == 2
@@ -2383,15 +2384,15 @@ class GVECequilibrium(NumericalMHDequilibrium):
             flat_eval = False
 
         rmin = self._params["rmin"]
-        
+
         # gvec coordinates
         rho = rmin + eta1 * (1.0 - rmin)
-        theta = 2*np.pi * eta2
-        zeta = 2*np.pi * eta3
-        
+        theta = 2 * np.pi * eta2
+        zeta = 2 * np.pi * eta3
+
         # evaluate
         ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
-        
+
         return ev, flat_eval
 
 
