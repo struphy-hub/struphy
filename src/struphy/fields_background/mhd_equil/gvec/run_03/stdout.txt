@@ -1,0 +1,193 @@
+====================================================================================================================================
+%%% Sys date : 2025-06-18 21:11:42
+====================================================================================================================================
+*    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -   *
+*   - - - - - - - - - - - - GGGGGGGGGGGGGGG - VVVVVVVV  - - - -  VVVVVVVV - EEEEEEEEEEEEEEEEEEEEEE  - - - - CCCCCCCCCCCCCCC - -    *
+*    - - - - - - - - - - GGGG::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - - CCCC::::::::::::C - - -   *
+*   - - - - - - - - - GGG:::::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - CCC:::::::::::::::C - - -    *
+*    - - - - - - -  GG:::::GGGGGGGG::::G - V::::::V  - - - -  V::::::V - EEE:::::EEEEEEEEE::::E  -  CC:::::CCCCCCCC::::C - - - -   *
+*   - - - - - - - GG:::::GG  - - GGGGGG -  V:::::V  - - - -  V:::::V  - - E:::::E - - - EEEEEE  - CC:::::CC - -  CCCCCC - - - -    *
+*    - - - - - - G:::::GG  - - - - - - - - V:::::V - - - - V:::::V - - - E:::::E - - - - - - - - C:::::CC  - - - - - - - - - - -   *
+*   - - - - - - G:::::G - - - - - - - - -  V:::::V  - -  V:::::V  - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - -    *
+*    - - - - - G:::::G -  GGGGGGGGGG - - - V:::::V - - V:::::V - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - -   *
+*   - - - - - G:::::G -  G::::::::G - - -  V:::::V   V:::::V  - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - -    *
+*    - - - - G:::::G -  GGGGG::::G - - - - V:::::V V:::::V - - - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - - - -   *
+*   - - - - G:::::G - - -  G::::G - - - -  V:::::V:::::V  - - - - - E:::::E - - - - - - - - C:::::C - - - - - - - - - - - - - -    *
+*    - - -  G:::::G  - -  G::::G - - - - - V:::::::::V - - - - - - E:::::E - - - EEEEEE  -  C:::::C  - -  CCCCCC - - - - - - - -   *
+*   - - - - G::::::GGGGGGG::::G - - - - -  V:::::::V  - - - - - EEE:::::EEEEEEEEE::::E  - - C::::::CCCCCCC::::C - - - - - - - -    *
+*    - - - - G:::::::::::::::G - - - - - - V:::::V - - - - - - E::::::::::::::::::::E  - - - C:::::::::::::::C - - - - - - - - -   *
+*   - - - - - GG::::GGGG::::G - - - - - -  V:::V  - - - - - - E::::::::::::::::::::E  - - - - CC::::::::::::C - - - - - - - - -    *
+*    - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - -   *
+*   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -    *
+====================================================================================================================================
+   Number of OpenMP threads :      4
+====================================================================================================================================
+GIT_BRANCH: '' ,GIT_HASH: ''
+ THIS IS AN OUTPUT OF THE GVEC OPTIONS USED IN CMAKE:
+   CMAKE-OPTION :                CMAKE_HOSTNAME  :                            nb-spossann-1
+   CMAKE-OPTION :              CMAKE_BUILD_TYPE  :                                  Release
+   CMAKE-OPTION :        CMAKE_Fortran_COMPILER  :                        /usr/bin/gfortran
+   CMAKE-OPTION :              CMAKE_C_COMPILER  :            /usr/bin/x86_64-linux-gnu-gcc
+   CMAKE-OPTION :            CMAKE_CXX_COMPILER  :            /usr/bin/x86_64-linux-gnu-g++
+   CMAKE-OPTION :                  COMPILE_GVEC  :                                       On
+   CMAKE-OPTION :    COMPILE_GVEC_AS_STATIC_LIB  :                                       On
+   CMAKE-OPTION :      COMPILE_GVEC_TO_CASTOR3D  :                                       On
+   CMAKE-OPTION :          COMPILE_GVEC_TO_GENE  :                                       On
+   CMAKE-OPTION :          COMPILE_GVEC_TO_HOPR  :                                       On
+   CMAKE-OPTION :         COMPILE_GVEC_TO_JOREK  :                                       On
+   CMAKE-OPTION :                COMPILE_PYGVEC  :                                       On
+   CMAKE-OPTION :               GVEC_BINARY_DIR  : /tmp/pip-install-u0172le6/gvec_b27afd05f
+   CMAKE-OPTION :             GVEC_IS_TOP_LEVEL  :                                       ON
+   CMAKE-OPTION :               GVEC_SOURCE_DIR  : /tmp/pip-install-u0172le6/gvec_b27afd05f
+   CMAKE-OPTION :           LINK_GVEC_TO_NETCDF  :                                       On
+   CMAKE-OPTION :                  USE_FTIMINGS  :                                      Off
+   CMAKE-OPTION :                       USE_MPI  :                                      Off
+   CMAKE-OPTION :                    USE_OPENMP  :                                       On
+   CMAKE-OPTION :                    USE_VISU_J  :                                      off
+====================================================================================================================================
+ | Reading from file "/home/IPP-AD/spossann/git_repos/struphy/run_03/parameter-fig8.ini":
+ |                        testdbg |                                 F | DEFAULT | 
+ |                      testlevel |                                -1 | DEFAULT | 
+INIT OUTPUT ...
+ |                    ProjectName |                       NEO-SPITZER | *CUSTOM | 
+... DONE
+====================================================================================================================================
+INIT ANALYZE ...
+ |                         visu1D |                                -1 | DEFAULT | 
+ |                         visu2D |                                -1 | DEFAULT | 
+ |                         visu3D |                                -1 | DEFAULT | 
+ |                    outfileType |                                 1 | DEFAULT | 
+ |                       visu_min |         Real array of size (   3) | DEFAULT |  0.00 0.00 0.00
+ |                       visu_max |         Real array of size (   3) | DEFAULT |  1.00 1.00 1.00
+ |                         SFLout |                                -1 | DEFAULT | 
+... DONE
+====================================================================================================================================
+ |               which_functional |                                 1 | DEFAULT | 
+INIT MHD3D ...
+ |           whichInitEquilibrium |                                 0 | *CUSTOM | 
+ |                  MinimizerType |                                10 | *CUSTOM | 
+ |                    PrecondType |                                 1 | *CUSTOM | 
+ |                     dW_allowed |                       0.10000E-09 | DEFAULT | 
+ |                        maxIter |                             10000 | *CUSTOM | 
+ |                     outputIter |                             10000 | DEFAULT | 
+ |                        logIter |                               100 | *CUSTOM | 
+ |                     nLogScreen |                                 1 | DEFAULT | 
+ |                   minimize_tol |                       0.10000E-05 | *CUSTOM | 
+ |                       start_dt |                       0.40000E+00 | *CUSTOM | 
+ |                doCheckDistance |                                 F | DEFAULT | 
+ |                    doCheckAxis |                                 T | DEFAULT | 
+ |                        fac_nyq |                                 4 | DEFAULT | 
+ |                        init_LA |                                 F | *CUSTOM | 
+ |                            nfp |                                 2 | *CUSTOM | 
+ |                     which_hmap |                                21 | *CUSTOM | 
+ |                        PHIEDGE |                       0.31416E-01 | *CUSTOM | 
+ |                     iota_scale |                       0.10000E+01 | DEFAULT | 
+ |                      iota_type |                     interpolation | *CUSTOM | 
+ |                      iota_vals |         Real array of size ( 101) | *CUSTOM |  0.70 0.70 0.70 0.70 0.70 0.70 0.70 0.70
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69 0.69 0.69 0.69
+                                                                                 |  0.69 0.69 0.69 0.69 0.69
+ |                      iota_rho2 |         Real array of size ( 101) | *CUSTOM |  0.00 0.01 0.02 0.03 0.04 0.05 0.06 0.07
+                                                                                 |  0.08 0.09 0.10 0.11 0.12 0.13 0.14 0.15
+                                                                                 |  0.16 0.17 0.18 0.19 0.20 0.21 0.22 0.23
+                                                                                 |  0.24 0.25 0.26 0.27 0.28 0.29 0.30 0.31
+                                                                                 |  0.32 0.33 0.34 0.35 0.36 0.37 0.38 0.39
+                                                                                 |  0.40 0.41 0.42 0.43 0.44 0.45 0.46 0.47
+                                                                                 |  0.48 0.49 0.50 0.51 0.52 0.53 0.54 0.55
+                                                                                 |  0.56 0.57 0.58 0.59 0.60 0.61 0.62 0.63
+                                                                                 |  0.64 0.65 0.66 0.67 0.68 0.69 0.70 0.71
+                                                                                 |  0.72 0.73 0.74 0.75 0.76 0.77 0.78 0.79
+                                                                                 |  0.80 0.81 0.82 0.83 0.84 0.85 0.86 0.87
+                                                                                 |  0.88 0.89 0.90 0.91 0.92 0.93 0.94 0.95
+                                                                                 |  0.96 0.97 0.98 0.99 1.00
+ |              iota_BC_type_axis |                        not_a_knot | DEFAULT | 
+ |              iota_BC_type_edge |                        not_a_knot | DEFAULT | 
+ |                     pres_scale |                       0.10000E+01 | DEFAULT | 
+ |                      pres_type |                        polynomial | *CUSTOM | 
+ |                     pres_coefs |         Real array of size (   1) | *CUSTOM |  0.00
+ |            getBoundaryFromFile |                                -1 | DEFAULT | 
+INIT HMAP :: axisNB FRAME OF A CLOSED CURVE ...
+ |                    hmap_ncfile | Neo-spitzer-mirror23-well-opt-1-A | *CUSTOM | 
+    READ AXIS FILE "Neo-spitzer-mirror23-well-opt-1-AR10-1.nc" in NETCDF format ...
+      read netCDF scalar                          "NFP" ::        2
+      read netCDF scalar                   "axis/nzeta" ::      201
+      read netCDF array                 "axis/zeta(:)", shape: [ 201]
+      read netCDF array                 "axis/xyz(::)", shape: [   3 402]
+      read netCDF array                "axis/Nxyz(::)", shape: [   3 402]
+      read netCDF array                "axis/Bxyz(::)", shape: [   3 402]
+    ...DONE.
+    INFO: sign of the rotation from zeta=0 to zeta=2pi/nfp is:  1
+    INIT fBase type: mn_max= (     0 ,    100 ), mn_nyq =      1 ,    201 )
+      nfp    =    2 exclude_mn_zero =  F ,  sin/cos : _sincos_ ...
+    ... DONE
+ |                     hmap_nvisu |                               402 | DEFAULT | 
+   WRITE DATA TO VTX XML BINARY (VTU) FILE "visu_hmap_axisNB.vtu" ...   DONE
+...DONE
+ |                       X1X2_deg |                                 5 | *CUSTOM | 
+ |                X1X2_continuity |                                 4 | DEFAULT | 
+ |                      X1_mn_max |      Integer array of size (   2) | *CUSTOM |     2    2
+ |                      X2_mn_max |      Integer array of size (   2) | *CUSTOM |     2    2
+ |                     X1_sin_cos |                             _cos_ | *CUSTOM | 
+ |                     X2_sin_cos |                             _sin_ | *CUSTOM | 
+ |                         LA_deg |                                 5 | *CUSTOM | 
+ |                  LA_continuity |                                 4 | DEFAULT | 
+ |                      LA_mn_max |      Integer array of size (   2) | *CUSTOM |     2    2
+ |                     LA_sin_cos |                             _sin_ | *CUSTOM | 
+
+    fac_nyq =    4  ==> interpolation points mn_nyq=(      9 ,      9 )
+
+ |                   sgrid_nElems |                                 2 | *CUSTOM | 
+ |                sgrid_grid_type |                                 0 | *CUSTOM | 
+ |                          degGP |                                 7 | *CUSTOM | 
+    INIT sGrid type nElems=      2 grid_type=   0 ...
+    ... DONE
+    INIT sBase type: degree=   5 gauss points per elem =   7 continuity=   4 ...
+    ... DONE
+ |              init_average_axis |                                 T | *CUSTOM | 
+ |           average_axis_move_X1 |                       0.00000E+00 | DEFAULT | 
+ |           average_axis_move_X2 |                       0.00000E+00 | DEFAULT | 
+    ... read axis data for X1:
+    ... read axis data for X2:
+    ... read edge boundary data for X1:
+ |                  X1_b_cos(1;0) |                       0.10000E+00 | *CUSTOM | 
+ |                  X1_b_cos(1;1) |                      -0.70000E-01 | *CUSTOM | 
+    ... read edge boundary data for X2:
+ |                  X2_b_sin(1;0) |                       0.15000E+00 | *CUSTOM | 
+ |                  X2_b_sin(1;1) |                       0.60000E-01 | *CUSTOM | 
+ |               boundary_perturb |                                 F | DEFAULT | 
+INIT MHD3D_EVALFUNC...
+... DONE
+====================================================================================================================================
+...DONE
+====================================================================================================================================
+    INITIALIZE SOLUTION...
+                           ...
+    ... initialize lambda =0 ...
+   WRITE SOLUTION VARIABLE TO FILE    "NEO-SPITZER_State_0000_00000000.dat" ... ......DONE.
+        |Force|=  0.3741E-02 0.1847E-01 0.1863E+00
+    ...DONE
+====================================================================================================================================
+ INITIALIZATION FINISHED! [    0.20 sec ]
+====================================================================================================================================
+MINIMIZE MHD3D FUNCTIONAL...
+%%%%%%%%%%  START ITERATION, dt=  0.4000E+00  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Sys date : 2025-06-18 21:11:42
+%%% dU = |Force|=  0.37408941453771E-02 0.18474663193690E-01 0.18629328233971E+00
+%%% accel.GD: tau=  0.7500E-01 |vel|=  0.0000E+00 0.0000E+00 0.0000E+00
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+               2...deltaW> 0.1E-09*W_MHD3D_0, skip step and decrease stepsize to dt= 0.3600E+00
+               5...deltaW> 0.1E-09*W_MHD3D_0, skip step and decrease stepsize to dt= 0.3240E+00
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Sys date : 2025-06-18 21:11:53
+%%% #ITERATIONS=      100, #skippedIter (Jac/dW)=        0       0
+%%% t_pseudo=  0.3266E+02, min/max dt=  0.3240E+00 0.3240E+00
+%%% W_MHD3D=  0.93781099347663E-01, min/max/sum deltaW=  -0.6334E-06 -0.3112E-08 -0.4195E-05

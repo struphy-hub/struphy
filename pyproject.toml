@@ -93,6 +93,10 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 'struphy.fields_background.mhd_equil.gvec' = [
             'run_01/*.dat',
             'run_01/parameter.ini',
+            'run_02/*.dat',
+            'run_02/parameter.ini',
+            'run_03/*.dat',
+            'run_03/parameter.ini',
         ]
 
 'struphy.io' = ['batch/*.sh']

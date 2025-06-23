@@ -1,0 +1,193 @@
+====================================================================================================================================
+%%% Sys date : 2025-06-18 18:55:52
+====================================================================================================================================
+*    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -   *
+*   - - - - - - - - - - - - GGGGGGGGGGGGGGG - VVVVVVVV  - - - -  VVVVVVVV - EEEEEEEEEEEEEEEEEEEEEE  - - - - CCCCCCCCCCCCCCC - -    *
+*    - - - - - - - - - - GGGG::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - - CCCC::::::::::::C - - -   *
+*   - - - - - - - - - GGG:::::::::::::::G - V::::::V  - - - -  V::::::V - E::::::::::::::::::::E  - - CCC:::::::::::::::C - - -    *
+*    - - - - - - -  GG:::::GGGGGGGG::::G - V::::::V  - - - -  V::::::V - EEE:::::EEEEEEEEE::::E  -  CC:::::CCCCCCCC::::C - - - -   *
+*   - - - - - - - GG:::::GG  - - GGGGGG -  V:::::V  - - - -  V:::::V  - - E:::::E - - - EEEEEE  - CC:::::CC - -  CCCCCC - - - -    *
+*    - - - - - - G:::::GG  - - - - - - - - V:::::V - - - - V:::::V - - - E:::::E - - - - - - - - C:::::CC  - - - - - - - - - - -   *
+*   - - - - - - G:::::G - - - - - - - - -  V:::::V  - -  V:::::V  - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - -    *
+*    - - - - - G:::::G -  GGGGGGGGGG - - - V:::::V - - V:::::V - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - -   *
+*   - - - - - G:::::G -  G::::::::G - - -  V:::::V   V:::::V  - - - - E:::::::::::::::E - - - C:::::C - - - - - - - - - - - - -    *
+*    - - - - G:::::G -  GGGGG::::G - - - - V:::::V V:::::V - - - - - E:::::EEEEEEEEEEE - - - C:::::C - - - - - - - - - - - - - -   *
+*   - - - - G:::::G - - -  G::::G - - - -  V:::::V:::::V  - - - - - E:::::E - - - - - - - - C:::::C - - - - - - - - - - - - - -    *
+*    - - -  G:::::G  - -  G::::G - - - - - V:::::::::V - - - - - - E:::::E - - - EEEEEE  -  C:::::C  - -  CCCCCC - - - - - - - -   *
+*   - - - - G::::::GGGGGGG::::G - - - - -  V:::::::V  - - - - - EEE:::::EEEEEEEEE::::E  - - C::::::CCCCCCC::::C - - - - - - - -    *
+*    - - - - G:::::::::::::::G - - - - - - V:::::V - - - - - - E::::::::::::::::::::E  - - - C:::::::::::::::C - - - - - - - - -   *
+*   - - - - - GG::::GGGG::::G - - - - - -  V:::V  - - - - - - E::::::::::::::::::::E  - - - - CC::::::::::::C - - - - - - - - -    *
+*    - - - - -  GGGG  GGGGGG - - - - - - - VVV - - - - - - - EEEEEEEEEEEEEEEEEEEEEE  - - - - -  CCCCCCCCCCCC - - - - - - - - - -   *
+*   - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -    *
+====================================================================================================================================
+   Number of OpenMP threads :      4
+====================================================================================================================================
+GIT_BRANCH: '' ,GIT_HASH: ''
+ THIS IS AN OUTPUT OF THE GVEC OPTIONS USED IN CMAKE:
+   CMAKE-OPTION :                CMAKE_HOSTNAME  :                            nb-spossann-1
+   CMAKE-OPTION :              CMAKE_BUILD_TYPE  :                                  Release
+   CMAKE-OPTION :        CMAKE_Fortran_COMPILER  :                        /usr/bin/gfortran
+   CMAKE-OPTION :              CMAKE_C_COMPILER  :            /usr/bin/x86_64-linux-gnu-gcc
+   CMAKE-OPTION :            CMAKE_CXX_COMPILER  :            /usr/bin/x86_64-linux-gnu-g++
+   CMAKE-OPTION :                  COMPILE_GVEC  :                                       On
+   CMAKE-OPTION :    COMPILE_GVEC_AS_STATIC_LIB  :                                       On
+   CMAKE-OPTION :      COMPILE_GVEC_TO_CASTOR3D  :                                       On
+   CMAKE-OPTION :          COMPILE_GVEC_TO_GENE  :                                       On
+   CMAKE-OPTION :          COMPILE_GVEC_TO_HOPR  :                                       On
+   CMAKE-OPTION :         COMPILE_GVEC_TO_JOREK  :                                       On
+   CMAKE-OPTION :                COMPILE_PYGVEC  :                                       On
+   CMAKE-OPTION :               GVEC_BINARY_DIR  : /tmp/pip-install-u0172le6/gvec_b27afd05f
+   CMAKE-OPTION :             GVEC_IS_TOP_LEVEL  :                                       ON
+   CMAKE-OPTION :               GVEC_SOURCE_DIR  : /tmp/pip-install-u0172le6/gvec_b27afd05f
+   CMAKE-OPTION :           LINK_GVEC_TO_NETCDF  :                                       On
+   CMAKE-OPTION :                  USE_FTIMINGS  :                                      Off
+   CMAKE-OPTION :                       USE_MPI  :                                      Off
+   CMAKE-OPTION :                    USE_OPENMP  :                                       On
+   CMAKE-OPTION :                    USE_VISU_J  :                                      off
+====================================================================================================================================
+ | Reading from file "/home/IPP-AD/spossann/git_repos/struphy/run_01/parameter-w7x.ini":
+ |                        testdbg |                                 F | DEFAULT | 
+ |                      testlevel |                                -1 | DEFAULT | 
+INIT OUTPUT ...
+ |                    ProjectName |                               W7X | *CUSTOM | 
+... DONE
+====================================================================================================================================
+INIT ANALYZE ...
+ |                         visu1D |                                -1 | DEFAULT | 
+ |                         visu2D |                                -1 | DEFAULT | 
+ |                         visu3D |                                -1 | DEFAULT | 
+ |                    outfileType |                                12 | *CUSTOM | 
+ |                       visu_min |         Real array of size (   3) | *CUSTOM |  0.00 0.00 0.00
+ |                       visu_max |         Real array of size (   3) | *CUSTOM |  1.00 1.00 0.10
+ |                         SFLout |                                -1 | DEFAULT | 
+... DONE
+====================================================================================================================================
+ |               which_functional |                                 1 | DEFAULT | 
+INIT MHD3D ...
+ |           whichInitEquilibrium |                                 0 | *CUSTOM | 
+ |                  MinimizerType |                                10 | *CUSTOM | 
+ |                    PrecondType |                                 1 | *CUSTOM | 
+ |                     dW_allowed |                       0.10000E-09 | DEFAULT | 
+ |                        maxIter |                               100 | *CUSTOM | 
+ |                     outputIter |                               100 | DEFAULT | 
+ |                        logIter |                               100 | DEFAULT | 
+ |                     nLogScreen |                                 1 | DEFAULT | 
+ |                   minimize_tol |                       0.10000E-07 | *CUSTOM | 
+ |                       start_dt |                       0.50000E+00 | *CUSTOM | 
+ |                doCheckDistance |                                 F | DEFAULT | 
+ |                    doCheckAxis |                                 T | DEFAULT | 
+ |                        fac_nyq |                                 4 | DEFAULT | 
+ |                        init_LA |                                 T | *CUSTOM | 
+ |                            nfp |                                 5 | *CUSTOM | 
+ |                     which_hmap |                                 1 | *CUSTOM | 
+ |                        PHIEDGE |                       0.21500E+01 | *CUSTOM | 
+ |                     iota_scale |                      -0.10000E+01 | *CUSTOM | 
+ |                      iota_type |                        polynomial | *CUSTOM | 
+ |                     iota_coefs |         Real array of size (  10) | *CUSTOM | -0.86 0.08-0.31 0.47-0.24-3.1310.15*****
+                                                                                 |  9.74-2.66
+ |                     pres_scale |                       0.10000E+01 | DEFAULT | 
+ |                      pres_type |                        polynomial | *CUSTOM | 
+ |                     pres_coefs |         Real array of size (   6) | *CUSTOM | ******************************
+ |            getBoundaryFromFile |                                -1 | DEFAULT | 
+    INIT HMAP :: TORUS WITH X1:=R, X2:=Z, zeta := toroidal angle  ...
+    ...DONE.
+ |                       X1X2_deg |                                 5 | *CUSTOM | 
+ |                X1X2_continuity |                                 4 | DEFAULT | 
+ |                      X1_mn_max |      Integer array of size (   2) | *CUSTOM |     9   10
+ |                      X2_mn_max |      Integer array of size (   2) | *CUSTOM |     9   10
+ |                     X1_sin_cos |                             _cos_ | *CUSTOM | 
+ |                     X2_sin_cos |                             _sin_ | *CUSTOM | 
+ |                         LA_deg |                                 5 | *CUSTOM | 
+ |                  LA_continuity |                                 4 | DEFAULT | 
+ |                      LA_mn_max |      Integer array of size (   2) | *CUSTOM |     9   10
+ |                     LA_sin_cos |                             _sin_ | *CUSTOM | 
+
+    fac_nyq =    4  ==> interpolation points mn_nyq=(     37 ,     41 )
+
+ |                   sgrid_nElems |                                11 | *CUSTOM | 
+ |                sgrid_grid_type |                                 4 | *CUSTOM | 
+ |                          degGP |                                 8 | *CUSTOM | 
+    INIT sGrid type nElems=     11 grid_type=   4 ...
+    ... DONE
+    INIT sBase type: degree=   5 gauss points per elem =   8 continuity=   4 ...
+    ... DONE
+    INIT fBase type: mn_max= (     9 ,     10 ), mn_nyq =     37 ,     41 )
+      nfp    =    5 exclude_mn_zero =  F ,  sin/cos : _cos_ ...
+    ... DONE
+ |              init_average_axis |                                 F | DEFAULT | 
+    ... read axis data for X1:
+ |                  X1_a_cos(0;0) |                       0.55963E+01 | *CUSTOM | 
+ |                  X1_a_cos(0;1) |                       0.35860E+00 | *CUSTOM | 
+ |                  X1_a_cos(0;2) |                       0.20130E-01 | *CUSTOM | 
+    ... read axis data for X2:
+ |                  X2_a_sin(0;1) |                       0.28765E+00 | *CUSTOM | 
+ |                  X2_a_sin(0;2) |                       0.20350E-01 | *CUSTOM | 
+    ... read edge boundary data for X1:
+ |                  X1_b_cos(0;0) |                       0.55000E+01 | *CUSTOM | 
+ |                  X1_b_cos(0;1) |                       0.23540E+00 | *CUSTOM | 
+ |                  X1_b_cos(0;2) |                       0.12650E-01 | *CUSTOM | 
+ |                  X1_b_cos(0;3) |                       0.19800E-02 | *CUSTOM | 
+ |                 X1_b_cos(1;-2) |                      -0.31350E-01 | *CUSTOM | 
+ |                 X1_b_cos(1;-1) |                      -0.22330E+00 | *CUSTOM | 
+ |                  X1_b_cos(1;0) |                       0.47685E+00 | *CUSTOM | 
+ |                  X1_b_cos(1;1) |                      -0.12100E-01 | *CUSTOM | 
+ |                  X1_b_cos(1;2) |                      -0.17050E-02 | *CUSTOM | 
+ |                 X1_b_cos(2;-4) |                      -0.17600E-02 | *CUSTOM | 
+ |                 X1_b_cos(2;-3) |                      -0.18700E-02 | *CUSTOM | 
+ |                 X1_b_cos(2;-2) |                       0.55000E-01 | *CUSTOM | 
+ |                 X1_b_cos(2;-1) |                       0.10065E+00 | *CUSTOM | 
+ |                  X1_b_cos(2;0) |                       0.61600E-01 | *CUSTOM | 
+ |                  X1_b_cos(2;1) |                       0.13750E-02 | *CUSTOM | 
+ |                 X1_b_cos(3;-4) |                       0.12650E-02 | *CUSTOM | 
+ |                 X1_b_cos(3;-3) |                      -0.67650E-02 | *CUSTOM | 
+ |                 X1_b_cos(3;-2) |                       0.64350E-02 | *CUSTOM | 
+ |                 X1_b_cos(3;-1) |                       0.11165E-01 | *CUSTOM | 
+ |                  X1_b_cos(3;0) |                       0.20350E-03 | *CUSTOM | 
+ |                 X1_b_cos(4;-3) |                      -0.27390E-02 | *CUSTOM | 
+ |                 X1_b_cos(4;-2) |                      -0.68750E-02 | *CUSTOM | 
+    ... read edge boundary data for X2:
+ |                  X2_b_sin(0;1) |                       0.11550E+00 | *CUSTOM | 
+ |                  X2_b_sin(0;2) |                       0.12650E-01 | *CUSTOM | 
+ |                  X2_b_sin(0;3) |                       0.19800E-02 | *CUSTOM | 
+ |                 X2_b_sin(1;-2) |                       0.31350E-01 | *CUSTOM | 
+ |                 X2_b_sin(1;-1) |                       0.22330E+00 | *CUSTOM | 
+ |                  X2_b_sin(1;0) |                       0.62315E+00 | *CUSTOM | 
+ |                  X2_b_sin(1;1) |                      -0.12100E-01 | *CUSTOM | 
+ |                  X2_b_sin(1;2) |                      -0.17050E-02 | *CUSTOM | 
+ |                 X2_b_sin(2;-4) |                       0.17600E-02 | *CUSTOM | 
+ |                 X2_b_sin(2;-3) |                       0.17600E-02 | *CUSTOM | 
+ |                 X2_b_sin(2;-2) |                      -0.55000E-01 | *CUSTOM | 
+ |                 X2_b_sin(2;-1) |                       0.13200E+00 | *CUSTOM | 
+ |                  X2_b_sin(2;0) |                       0.64350E-01 | *CUSTOM | 
+ |                  X2_b_sin(2;1) |                       0.13750E-02 | *CUSTOM | 
+ |                 X2_b_sin(3;-4) |                      -0.12650E-02 | *CUSTOM | 
+ |                 X2_b_sin(3;-3) |                       0.67650E-02 | *CUSTOM | 
+ |                 X2_b_sin(3;-2) |                       0.64350E-02 | *CUSTOM | 
+ |                 X2_b_sin(3;-1) |                      -0.11165E-01 | *CUSTOM | 
+ |                  X2_b_sin(3;0) |                       0.20350E-03 | *CUSTOM | 
+ |                 X2_b_sin(4;-3) |                       0.27390E-02 | *CUSTOM | 
+ |                 X2_b_sin(4;-2) |                      -0.68750E-02 | *CUSTOM | 
+ |               boundary_perturb |                                 F | DEFAULT | 
+INIT MHD3D_EVALFUNC...
+... DONE
+====================================================================================================================================
+...DONE
+====================================================================================================================================
+------------------------------------------------------------------------------------------------------------------------------------
+ THE FOLLOWING INI-FILE PARAMETERS WERE IGNORED:
+ |- which_visu=0
+ |- np_1d=5
+ |- np_visu_bc=10,20
+ |- visu_bc_min=0.,0.
+ |- visu_bc_max=1.,1.
+ |- np_visu_planes=2,3,4
+ |- np_visu_3d=2,3,4
+ |- sflout_radialpos=0.1,0.5,1.0
+ |- sflout_mn_max=10,10
+ |- sflout_mn_pts=8,12
+------------------------------------------------------------------------------------------------------------------------------------
+    INITIALIZE SOLUTION...
+                           ...
+    ... Initialize lambda from mapping ...
+    |       10%       20%       30%       40%       50%       60%       70%       80%       90%      100%| ... of       16
+    |....................................................................................................

@@ -2187,8 +2187,12 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
         params_default = {
             "rel_path": True,
-            "dat_file": "run_01/CIRCTOK_State_0000_00000000.dat",
-            "param_file": "run_01/parameter.ini",
+            #"dat_file": "run_01/CIRCTOK_State_0000_00000000.dat",
+            #"dat_file": "run_02/W7X_State_0000_00000000.dat",
+            "dat_file": "run_03/NEO-SPITZER_State_0000_00000000.dat",
+            #"param_file": "run_01/parameter.ini",
+            #"param_file": "run_02/parameter-w7x.ini",
+            "param_file": "run_03/parameter-fig8.ini",
             "use_pest": False,
             "use_nfp": True,
             "rmin": 0.01,
