@@ -173,7 +173,7 @@ stages:
     - struphy compile -d -y
     - pip uninstall pyccel -y
     - pip uninstall psydac -y
-    - pip install -e $(echo $STRUPHY_SOURCE)[phys] --upgrade --upgrade-strategy eager
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - struphy compile -d -y
     - !reference [.scripts, compile_matrix]
   install_on_push:
@@ -182,10 +182,10 @@ stages:
     - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
     - git pull
-    - pip install -e $(echo $STRUPHY_SOURCE)[phys] --upgrade --upgrade-strategy eager
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - !reference [.scripts, compile_matrix]
   install:
-    - pip install $(echo $STRUPHY_SOURCE)[phys] --upgrade --upgrade-strategy eager
+    - pip install $(echo $STRUPHY_SOURCE)[phys]
     - pip show struphy
     - pip list
     - struphy -h
@@ -337,7 +337,7 @@ pages_tests:
     - !reference [.scripts, inspect_struphy]
     - module load pandoc
     - module list
-    - pip install .[doc] --upgrade --upgrade-strategy eager
+    - pip install .[doc]
     - struphy compile -y
     - cd doc ; make html; cd ..
 
@@ -465,7 +465,7 @@ test_build:
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, build]
-    - pip install $(echo dist/struphy*.whl) --no-cache-dir --upgrade --upgrade-strategy eager
+    - pip install $(echo dist/struphy*.whl) --no-cache-dir
 
 unit_tests_scheduled:
   stage: test
@@ -720,7 +720,7 @@ lint_full_repo_report:
   script:
     - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
-    - pip install -e .[dev] --upgrade --upgrade-strategy eager # We have to install struphy in editable mode for struphy lint to work
+    - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
     - struphy lint all --output-format report
     - mkdir -p lint_reports
@@ -740,7 +740,7 @@ lint_branch:
   script:
     - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
-    - pip install -e .[dev] --upgrade --upgrade-strategy eager # We have to install struphy in editable mode for struphy lint to work
+    - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
     # Lint changed files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
     - struphy lint branch --output-format plain --verbose
@@ -755,7 +755,7 @@ lint_branch_report:
   script:
     - !reference [.scripts, inspect_directory]
     - !reference [.scripts, create_venv]
-    - pip install -e .[dev] --upgrade --upgrade-strategy eager # We have to install struphy in editable mode for struphy lint to work
+    - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
     - struphy lint branch --output-format report
     - mkdir -p lint_reports
@@ -780,7 +780,7 @@ pages:
     - apt show pandoc
     - apt show graphviz
     - echo $CI_COMMIT_MESSAGE
-    - pip install .[doc] --upgrade --upgrade-strategy eager
+    - pip install .[doc]
   script:
     - !reference [.scripts, inspect_struphy]
     - !reference [.scripts, compile]
