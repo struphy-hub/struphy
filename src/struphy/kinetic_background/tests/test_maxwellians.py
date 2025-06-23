@@ -1259,6 +1259,10 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
 
                 plt.show()
 
+            # finalize GVEC in order to be able to launch other tests
+            if "GVECequilibrium" in key:
+                mhd_equil._state.finalize()
+
             # test perturbations
             if "EQDSKequilibrium" in key:
                 maxw_params_zero = {"n": 0.0, "vth_para": 0.0, "vth_perp": 0.0}
