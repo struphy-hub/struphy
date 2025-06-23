@@ -2199,7 +2199,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
             "Nel": (16, 16, 16),
             "p": (3, 3, 3),
             "density_profile": "pressure",
-            "p0": 0.0,
+            "p0": 0.1,
             "n0": 0.2,
             "n1": 0.0,
         }
@@ -2308,7 +2308,12 @@ class GVECequilibrium(NumericalMHDequilibrium):
         ev, flat_eval = self._gvec_evaluations(*etas)
         self.state.compute(ev, "p")
         if not flat_eval:
-            tmp, _1, _2 = np.meshgrid(ev.p.data, etas[1], etas[2], indexing='ij')
+            eta2 = etas[1]
+            eta3 = etas[2]
+            if eta2.ndim == 3:
+                eta2 = eta2[0, :, 0]
+                eta3 = eta3[0, 0, :]
+            tmp, _1, _2 = np.meshgrid(ev.p.data, eta2, eta3, indexing='ij')
         else:
             tmp = ev.p.data
         
@@ -2316,32 +2321,34 @@ class GVECequilibrium(NumericalMHDequilibrium):
 
     def n0(self, *etas, squeeze_out=False):
         """0-form equilibrium density on logical cube [0, 1]^3."""
-        
-        # flat (marker) evaluation
-        if len(etas) == 1:
-            assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
-            flat_eval = True
-        # meshgrid evaluation
-        else:
-            assert len(etas) == 3
-            eta1 = etas[0]
-            eta2 = etas[1]
-            eta3 = etas[2]
-            flat_eval = False
 
-        rmin = self._params["rmin"]
-        r = rmin + eta1 * (1.0 - rmin)
         if self._params["density_profile"] == "pressure":
             return self._params["n0"] * self.p0(*etas)
-        elif self._params["density_profile"] == "parabolic":
-            return self._params["n1"] + (1.0 - r**2) * (self._params["n0"] - self._params["n1"])
-        elif self._params["density_profile"] == "linear":
-            return self._params["n1"] + (1.0 - r) * (self._params["n0"] - self._params["n1"])
         else:
-            raise ValueError("wrong type of density profile for GVEC equilibrium")
+            # flat (marker) evaluation
+            if len(etas) == 1:
+                assert etas[0].ndim == 2
+                eta1 = etas[0][:, 0]
+                eta2 = etas[0][:, 1]
+                eta3 = etas[0][:, 2]
+                flat_eval = True
+            # meshgrid evaluation
+            else:
+                assert len(etas) == 3
+                eta1 = etas[0]
+                eta2 = etas[1]
+                eta3 = etas[2]
+                flat_eval = False
+                
+            rmin = self._params["rmin"]
+            r = rmin + eta1 * (1.0 - rmin)
+                
+            if self._params["density_profile"] == "parabolic":
+                return self._params["n1"] + (1.0 - r**2) * (self._params["n0"] - self._params["n1"])
+            elif self._params["density_profile"] == "linear":
+                return self._params["n1"] + (1.0 - r) * (self._params["n0"] - self._params["n1"])
+            else:
+                raise ValueError("wrong type of density profile for GVEC equilibrium")
 
     def gradB1(self, *etas, squeeze_out=False):
         """1-form gradient of magnetic field strength on logical cube [0, 1]^3."""
@@ -2363,9 +2370,16 @@ class GVECequilibrium(NumericalMHDequilibrium):
         # meshgrid evaluation
         else:
             assert len(etas) == 3
-            eta1 = etas[0]
-            eta2 = etas[1]
-            eta3 = etas[2]
+            assert etas[0].ndim == etas[1].ndim == etas[2].ndim
+            if etas[0].ndim == 1:
+                eta1 = etas[0]
+                eta2 = etas[1]
+                eta3 = etas[2]
+            elif etas[0].ndim == 3:
+                # assuming ij-indexing of meshgrid
+                eta1 = etas[0][:, 0, 0]
+                eta2 = etas[1][0, :, 0]
+                eta3 = etas[2][0, 0, :]
             flat_eval = False
 
         rmin = self._params["rmin"]

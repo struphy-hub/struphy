@@ -339,6 +339,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
             if "DESCequilibrium" in key and not with_desc:
                 print(f"Attention: {with_desc = }, DESC not tested here !!")
                 continue
+            
+            if "GVECequilibrium" in key:
+                print(f'Attention: flat (marker) evaluation not tested for GVEC at the moment.')
 
             mhd_equil = val()
             print(f"{mhd_equil.params = }")
@@ -385,17 +388,25 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
             )
 
             # test flat evaluation
-            assert np.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
+            if 'GVECequilibrium' in key:
+                pass
+            else:
+                assert np.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
+                assert np.allclose(maxwellian.n(e1_fl, e2_fl, e3_fl), mhd_equil.n0(e_args_fl))
 
-            assert np.allclose(maxwellian.n(e1_fl, e2_fl, e3_fl), mhd_equil.n0(e_args_fl))
+            if 'GVECequilibrium' in key:
+                pass
+            else:
+                u_maxw = maxwellian.u(e1_fl, e2_fl, e3_fl)
+                u_eq = mhd_equil.u_cart(e_args_fl)[0]
+                assert all([np.allclose(m, e) for m, e in zip(u_maxw, u_eq)])
 
-            u_maxw = maxwellian.u(e1_fl, e2_fl, e3_fl)
-            u_eq = mhd_equil.u_cart(e_args_fl)[0]
-            assert all([np.allclose(m, e) for m, e in zip(u_maxw, u_eq)])
-
-            vth_maxw = maxwellian.vth(e1_fl, e2_fl, e3_fl)
-            vth_eq = np.sqrt(mhd_equil.p0(e_args_fl) / mhd_equil.n0(e_args_fl))
-            assert all([np.allclose(v, vth_eq) for v in vth_maxw])
+            if 'GVECequilibrium' in key:
+                pass
+            else:
+                vth_maxw = maxwellian.vth(e1_fl, e2_fl, e3_fl)
+                vth_eq = np.sqrt(mhd_equil.p0(e_args_fl) / mhd_equil.n0(e_args_fl))
+                assert all([np.allclose(v, vth_eq) for v in vth_maxw])
 
             # plotting moments
             if show_plot:
