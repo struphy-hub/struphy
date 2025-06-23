@@ -13,10 +13,9 @@ from struphy.console.compile import struphy_compile
 from struphy.console.main import struphy
 from struphy.console.params import struphy_params
 from struphy.console.pproc import struphy_pproc
-from struphy.console.run import subp_run
 
 # from struphy.console.profile import struphy_profile
-from struphy.console.run import struphy_run
+from struphy.console.run import struphy_run, subp_run
 
 # from struphy.console.test import struphy_test
 # from struphy.console.units import struphy_units
@@ -27,11 +26,12 @@ state = read_state()
 
 # Create models_list if it doesn't exist
 if not os.path.isfile(os.path.join(libpath, "models", "models_list")):
-    cmd = ['struphy', '--refresh-models']
+    cmd = ["struphy", "--refresh-models"]
     subp_run(cmd)
 
 with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
-        struphy_models = pickle.load(fp)
+    struphy_models = pickle.load(fp)
+
 
 def is_sublist(main_list, sub_list):
     """

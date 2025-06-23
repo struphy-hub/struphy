@@ -1,5 +1,3 @@
-
-
 import struphy.feec.bsplines_kernels as bsp
 import struphy.geometry.mappings_3d_fast as mapping_fast
 import struphy.linear_algebra.linalg_kernels as linalg

@@ -1,6 +1,8 @@
+from typing import Final
+
 from numpy import shape
 from pyccel.decorators import pure
-from typing import Final
+
 
 @pure
 def matmul(a: "float[:,:]", b: "float[:,:]", c: "float[:,:]"):

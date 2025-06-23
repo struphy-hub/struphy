@@ -1,5 +1,7 @@
 # from numpy import copy
 from numpy import empty
+
+
 class MarkerArguments:
     """Holds arguments pertaining to :class:`~struphy.pic.base.Particles`
     passed to particle kernels.

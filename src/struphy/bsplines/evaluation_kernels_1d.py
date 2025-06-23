@@ -12,32 +12,34 @@ Possible combinations for tensor product (B):
 * (D)
 * (dN/deta)
 """
-from pyccel.decorators import pure, stack_array
+
+from typing import Final
 
 from numpy import empty, zeros
+from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
-from typing import Final
+
 
 # =============================================================================
 @pure
-def evaluation_kernel_1d(p1: int, basis1: 'Final[float[:]]', ind1: 'Final[int[:]]', coeff: 'Final[float[:]]') -> float:
+def evaluation_kernel_1d(p1: int, basis1: "Final[float[:]]", ind1: "Final[int[:]]", coeff: "Final[float[:]]") -> float:
     """
     Summing non-zero contributions.
 
     Parameters
     ----------
-        p1 : int                 
+        p1 : int
             Degree of the univariate spline.
 
-        basis1 : array[float]           
+        basis1 : array[float]
             The p+1 values of non-zero basis splines at one point (eta1,) from 'basis_funs' of shape.
 
-        ind1 : array[int]                 
+        ind1 : array[int]
             Global indices of non-vanishing splines in the element of the considered point.
 
         coeff : array[float]
-            The spline coefficients c_i. 
+            The spline coefficients c_i.
 
     Returns
     -------
@@ -45,7 +47,7 @@ def evaluation_kernel_1d(p1: int, basis1: 'Final[float[:]]', ind1: 'Final[int[:]
             Value of spline at point (eta1,).
     """
 
-    spline_value = 0.
+    spline_value = 0.0
 
     for il1 in range(p1 + 1):
         i1 = ind1[il1]
@@ -57,10 +59,12 @@ def evaluation_kernel_1d(p1: int, basis1: 'Final[float[:]]', ind1: 'Final[int[:]
 
 # =============================================================================
 @pure
-@stack_array('tmp1', 'tmp2')
-def evaluate(kind1: int, t1: 'Final[float[:]]', p1: int, ind1: 'Final[int[:,:]]', coeff: 'Final[float[:]]', eta1: float) -> float:
+@stack_array("tmp1", "tmp2")
+def evaluate(
+    kind1: int, t1: "Final[float[:]]", p1: int, ind1: "Final[int[:,:]]", coeff: "Final[float[:]]", eta1: float
+) -> float:
     """
-    Point-wise evaluation of a spline. 
+    Point-wise evaluation of a spline.
 
     Parameters
     ----------
@@ -74,16 +78,16 @@ def evaluate(kind1: int, t1: 'Final[float[:]]', p1: int, ind1: 'Final[int[:,:]]'
         t1 : array[float]
             Knot vector of univariate spline.
 
-        p1 : int                 
+        p1 : int
             Degree of univariate spline.
 
-        ind1 : array[int]                 
+        ind1 : array[int]
             Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
         coeff : array[float]
-            The spline coefficients c_i. 
+            The spline coefficients c_i.
 
-        eta1 : float              
+        eta1 : float
             Point of evaluation.
 
     Returns
@@ -122,25 +126,33 @@ def evaluate(kind1: int, t1: 'Final[float[:]]', p1: int, ind1: 'Final[int[:,:]]'
 
 # =============================================================================
 @pure
-def evaluate_vector(t1: 'Final[float[:]]', p1: int, ind1: 'Final[int[:,:]]', coeff: 'Final[float[:]]', eta1: 'float[:]', spline_values: 'float[:]', kind: int):
+def evaluate_vector(
+    t1: "Final[float[:]]",
+    p1: int,
+    ind1: "Final[int[:,:]]",
+    coeff: "Final[float[:]]",
+    eta1: "float[:]",
+    spline_values: "float[:]",
+    kind: int,
+):
     """
-    Vector evaluation of a uni-variate spline. 
+    Vector evaluation of a uni-variate spline.
 
     Parameters
     ----------
         t1 : array[float]
             Knot vector of univariate spline.
 
-        p1 : int                 
+        p1 : int
             Degree of univariate spline.
 
-        ind1 : array[int]                 
+        ind1 : array[int]
             Global indices of non-vanishing splines in each element. Can be accessed via (element, local index).
 
         coeff : array[float]
-            The spline coefficients c_i. 
+            The spline coefficients c_i.
 
-        eta1 : array[float]              
+        eta1 : array[float]
             Points of evaluation in a 1d array.
 
         spline_values : array[float]
@@ -155,7 +167,6 @@ def evaluate_vector(t1: 'Final[float[:]]', p1: int, ind1: 'Final[int[:,:]]', coe
     """
 
     for i1 in range(len(eta1)):
-
         if kind == 0:
             spline_values[i1] = evaluate(1, t1, p1, ind1, coeff, eta1[i1])
         elif kind == 1:

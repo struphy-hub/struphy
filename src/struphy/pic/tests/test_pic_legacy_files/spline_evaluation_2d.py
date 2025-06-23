@@ -17,7 +17,6 @@ Possible combinations for tensor product (BB):
 
 from numpy import empty
 
-
 import struphy.bsplines.bsplines_kernels as bsp
 
 

@@ -216,7 +216,7 @@ def struphy():
         "--compiler-config",
         type=str,
         metavar="COMPILER_CONFIG",
-        help='Path to a JSON compiler file.',
+        help="Path to a JSON compiler file.",
         default=None,
     )
 

@@ -1,6 +1,5 @@
 import input_run.equilibrium_PIC as equ_PIC
 
-
 import struphy.feec.basics.spline_evaluation_3d as eva
 import struphy.feec.bsplines_kernels as bsp
 
@@ -12,7 +11,20 @@ import struphy.geometry.mappings_3d_fast as mapping_fast
 import struphy.linear_algebra.linalg_kernels as linalg
 
 
-def grid_density(Nel: "int[:]", gather: "float[:,:,:]", kind_map: int, params_map: "float[:]", tf1: "float[:]", tf2: "float[:]", tf3: "float[:]", pf: "int[:]", nbasef: "int[:]", cx: "float[:,:,:]", cy: "float[:,:,:]", cz: "float[:,:,:]"):
+def grid_density(
+    Nel: "int[:]",
+    gather: "float[:,:,:]",
+    kind_map: int,
+    params_map: "float[:]",
+    tf1: "float[:]",
+    tf2: "float[:]",
+    tf3: "float[:]",
+    pf: "int[:]",
+    nbasef: "int[:]",
+    cx: "float[:,:,:]",
+    cy: "float[:,:,:]",
+    cz: "float[:,:,:]",
+):
     # =======================================================================
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (ie1, ie2, ie3, x1, x2, x3)
@@ -442,6 +454,7 @@ def bvfinal(
 
 
 # =============================================================================================================================================================================
+
 
 def vv(
     tol: "float",

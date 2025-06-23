@@ -3,7 +3,9 @@ import sys
 from struphy.console.run import subp_run
 
 
-def struphy_compile(language, compiler, compiler_config, omp_pic, omp_feec, delete, status, verbose, dependencies, time_execution, yes):
+def struphy_compile(
+    language, compiler, compiler_config, omp_pic, omp_feec, delete, status, verbose, dependencies, time_execution, yes
+):
     """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
     Parameters

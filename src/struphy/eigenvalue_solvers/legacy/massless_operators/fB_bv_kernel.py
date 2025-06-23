@@ -1,5 +1,3 @@
-
-
 import struphy.linear_algebra.linalg_kernels as linalg
 
 
