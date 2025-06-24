@@ -78,6 +78,12 @@ likwid = [
     "pandas",
     "plotly",
 ]
+all = [
+    "struphy[phys]",
+    "struphy[dev]",
+    "struphy[doc]",
+    "struphy[likwid]",
+]
 
 [project.urls]
 homepage = "https://struphy.pages.mpcdf.de/struphy/"
