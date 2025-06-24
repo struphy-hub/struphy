@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.4.3"
+version = "2.4.4"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
@@ -109,7 +109,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
                     ]
                     
 struphy = ['compile_struphy.mk',
-           'psydac-2.4.3.dev0-py3-none-any.whl',]
+           'psydac-2.4.4.dev0-py3-none-any.whl',]
 
 [tool.autopep8]
 # Add specific settings for autopep8
