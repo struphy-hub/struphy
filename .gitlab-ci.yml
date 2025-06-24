@@ -65,6 +65,19 @@ stages:
       when: never
     - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
 
+.rules_mr_to_master:
+  rules:
+    - if: $TEST_SCHEDULED == "true"
+      when: never
+    - if: $MAKE_PAGES == "true"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master" && $CI_COMMIT_REF_PROTECTED == "false"
+      when: always
+
 .rules_scheduled:
   rules:
     - if: $TEST_SCHEDULED == "true"
@@ -174,6 +187,12 @@ stages:
     - !reference [.scripts, compile_matrix]
   install:
     - pip install $(echo $STRUPHY_SOURCE)[phys]
+    - pip show struphy
+    - pip list
+    - struphy -h
+  install_all:
+    - pip install -U pip
+    - pip install $(echo $STRUPHY_SOURCE)[all] --no-cache-dir
     - pip show struphy
     - pip list
     - struphy -h
@@ -461,6 +480,26 @@ model_tests_scheduled:
   script:
     - !reference [.scripts, source_env_matrix]
     - !reference [.scripts, model_tests]
+
+check_release_dependencies:
+  stage: test
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_load_modules
+    - .rules_mr_to_master
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - !reference [.scripts, install_all]
+    - python src/struphy/utils/set_release_dependencies.py
+    - |
+      if git diff --exit-code pyproject.toml; then
+        echo "pyproject.toml has not changed, dependencies are set correctly!"
+      else
+        echo "pyproject.toml has changed, dependencies are set incorrectly!"
+        echo "Run python src/struphy/utils/set_release_dependencies.py to update pyproject.toml"
+        exit 1
+      fi
 
 Ubuntu_22_04:
   stage: test
