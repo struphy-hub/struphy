@@ -36,7 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 phys = [
-    'gvec-to-python',
+    'gvec-to-python <= 1.2.2',
     'desc-opt',
 ]
 dev = [
