@@ -73,16 +73,15 @@ doc = [
 ]
 likwid = [
     "struphy[dev]",
-    "kaleido<=0.2.1",
-    "pylikwid<=0.4.2",
-    "pandas<=2.2.3",
+    "kaleido",
+    "pylikwid",
+    "pandas<=2.3.0",
     "plotly<=6.0.1",
 ]
 all = [
     "struphy[phys]",
     "struphy[dev]",
     "struphy[doc]",
-    "struphy[likwid]",
 ]
 
 [project.urls]
