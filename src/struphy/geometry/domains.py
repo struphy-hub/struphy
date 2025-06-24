@@ -232,6 +232,7 @@ class GVECunit(Spline):
 
         # finalize GVEC in order to be able to launch other tests
         if finalize:
+            print('finalizing GVEC ...')
             gvec_equil._state.finalize()
 
 
