@@ -993,6 +993,8 @@ class StruphyModel(metaclass=ABCMeta):
                 assert isinstance(obj, Particles)
                 obj.draw_markers(verbose=self.verbose)
                 obj._markers[:, :] = data.file["restart/" + key][-1, :, :]
+                obj._n_lost_markers[:] = data.file["restart/n_lost_markers"][-1]
+
 
                 # important: sets holes attribute of markers!
                 obj.mpi_sort_markers(do_test=True)
@@ -1148,6 +1150,7 @@ class StruphyModel(metaclass=ABCMeta):
             key_spec_restart = "restart/" + key
 
             data.add_data({key_spec_restart: obj._markers})
+            data.add_data({"restart/n_lost_markers": obj._n_lost_markers})
 
             for key1, val1 in val["kinetic_data"].items():
                 key_dat = key_spec + "/" + key1

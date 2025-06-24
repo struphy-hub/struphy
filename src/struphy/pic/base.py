@@ -847,7 +847,7 @@ class Particles(metaclass=ABCMeta):
         self._markers = np.zeros((n_rows, self.n_cols), dtype=float)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
-        self._n_lost_markers = 0
+        self._n_lost_markers = np.zeros(1, dtype=int)
         self._lost_markers = np.zeros((int(n_rows * 0.5), 10), dtype=float)
 
     def draw_markers(self, sort: "bool" = True, verbose=True):

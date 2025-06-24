@@ -935,7 +935,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
-        self._n_lost_particles = np.empty(1, dtype=float)
 
         self._tmp_u = self.derham.Vh[self.derham.space_to_form[u_space]].zeros()
         self._tmp_b = self.derham.Vh["2"].zeros()
@@ -997,13 +996,18 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.update_scalar("en_tot")
 
         # Print number of lost ions
-        self._n_lost_particles[0] = self.pointer["energetic_ions"].n_lost_markers
-        self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
-        if self.derham.comm.Get_rank() == 0:
+        n_mks_tot = np.array([self.pointer["energetic_ions"].n_mks])
+        n_lost_particles = self.pointer["energetic_ions"].n_lost_markers.copy()
+        self.derham.comm.Allreduce(self._mpi_in_place, n_lost_particles, op=self._mpi_sum)
+        if self.Nclones > 1:
+            self.inter_comm.Allreduce(self._mpi_in_place, n_mks_tot, op=self._mpi_sum)
+            self.inter_comm.Allreduce(self._mpi_in_place, n_lost_particles, op=self._mpi_sum)
+
+        if self.derham.comm.Get_rank() == 0 and self.inter_comm.Get_rank() == 0:
             print(
-                "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].n_mks * 100,
-                "%",
+                "Lost particle ratio: ",
+                n_lost_particles[0] / n_mks_tot[0] * 100,
+                "% \n",
             )
 
     @staticmethod
