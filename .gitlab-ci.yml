@@ -177,6 +177,11 @@ stages:
     - pip show struphy
     - pip list
     - struphy -h
+  install_all:
+    - pip install $(echo $STRUPHY_SOURCE)[all] --no-cache-dir
+    - pip show struphy
+    - pip list
+    - struphy -h
   compile:
     - pyccel --version
     - struphy compile --status
@@ -461,6 +466,25 @@ model_tests_scheduled:
   script:
     - !reference [.scripts, source_env_matrix]
     - !reference [.scripts, model_tests]
+
+check_release_dependencies:
+  stage: test
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .rules_release
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - !reference [.scripts, install_all]
+    - python src/struphy/utils/set_release_dependencies.py
+    - |
+      if git diff --exit-code pyproject.toml; then
+        echo "pyproject.toml has not changed, dependencies are set correctly!"
+      else
+        echo "pyproject.toml has changed, dependencies are set incorrectly!"
+        echo "Run python src/struphy/utils/set_release_dependencies.py to update pyproject.toml"
+        exit 1
+      fi
 
 Ubuntu_22_04:
   stage: test
