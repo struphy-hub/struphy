@@ -355,7 +355,6 @@ macos_nmpp:
     - export FC=`which gfortran` # for gvec
     - export CC=`which gcc` # for gvec
     - export CXX=`which g++` # for gvec
-    - export CMAKE_HOSTNAME=mac_brew # for gvec, until newer version
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, install]

@@ -36,7 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 phys = [
-    'gvec',
+    'gvec @ git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git',
     'desc-opt',
 ]
 dev = [
