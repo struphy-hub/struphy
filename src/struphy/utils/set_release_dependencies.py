@@ -37,7 +37,6 @@ def generate_updated_entry(package_name, package_deps):
 
 def update_dependencies(dependencies):
     for i, entry in enumerate(dependencies):
-        print(i, entry)
         package_name = get_package_name(entry)
 
         try:
@@ -68,8 +67,6 @@ def main():
     update_dependencies(mandatory_dependencies)
     for group_name, group_deps in optional_dependency_groups.items():
         update_dependencies(group_deps)
-
-    print(pyproject_data["project"]["dependencies"])
 
     with open("pyproject.toml", "wb") as f:
         tomli_w.dump(pyproject_data, f)
