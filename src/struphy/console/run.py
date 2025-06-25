@@ -185,34 +185,7 @@ def struphy_run(
 
     # run in batch mode
     else:
-        # create output folder if it does not exit
-        if not os.path.exists(output_abs):
-            os.mkdir(output_abs)
-            os.mkdir(os.path.join(output_abs, "data/"))
-
-        # remove sim.out file
-        file = os.path.join(output_abs, "sim.out")
-        if os.path.exists(file):
-            os.remove(file)
-            print("Removed file " + file)
-
-        # remove sim.err file
-        file = os.path.join(output_abs, "sim.err")
-        if os.path.exists(file):
-            os.remove(file)
-            print("Removed file " + file)
-
-        # remove old batch script
-        file = os.path.join(output_abs, "batch_script.sh")
-        if os.path.exists(file):
-            os.remove(file)
-            print("Removed file " + file)
-
-        # remove struphy.out file
-        file = os.path.join(output_abs, "sim.out")
-        if os.path.exists(file):
-            os.remove(file)
-            print("Removed file " + file)
+        cleanup_batch_environment(output_abs)
 
         # copy batch script to output folder
         batch_abs_new = os.path.join(output_abs, "batch_script.sh")
@@ -303,3 +276,33 @@ def generate_absolute_io_paths(
         input_abs = os.path.join(output_abs, "parameters.yml")
 
     return input_abs, output_abs, batch_abs
+
+def cleanup_batch_environment(output_abs):
+    # create output folder if it does not exit
+    if not os.path.exists(output_abs):
+        os.mkdir(output_abs)
+        os.mkdir(os.path.join(output_abs, "data/"))
+
+    # remove sim.out file
+    file = os.path.join(output_abs, "sim.out")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
+
+    # remove sim.err file
+    file = os.path.join(output_abs, "sim.err")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
+
+    # remove old batch script
+    file = os.path.join(output_abs, "batch_script.sh")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
+
+    # remove struphy.out file
+    file = os.path.join(output_abs, "sim.out")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
