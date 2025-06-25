@@ -82,7 +82,6 @@ all = [
     "struphy[phys]",
     "struphy[dev]",
     "struphy[doc]",
-    "struphy[likwid]",
 ]
 
 [project.urls]
