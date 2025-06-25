@@ -22,7 +22,7 @@ dependencies = [
     'numpy',
     'pyccel>=2.0',
     'mpi4py',
-    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@remove-templates',
+    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'scipy',
     'h5py',
     'matplotlib',
