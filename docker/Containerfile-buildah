@@ -1,3 +1,14 @@
+# Template from https://docs.gitlab.com/ci/docker/buildah_rootless_tutorial/
+# Here is how to build the image and upload it to the mpcdf gitlab registry:
+#
+# We suppose you are in the struphy repo directory. 
+# Start the docker engine and run "docker login" with the current token from https://struphy.pages.mpcdf.de/struphy/sections/install.html#user-install, then:
+#
+# docker info
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/buildah:1.23.1 -f docker/Containerfile-buildah .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/buildah:1.23.1
+
+
 FROM quay.io/buildah/stable:v1.23.1
 
 RUN touch /etc/subgid /etc/subuid \
