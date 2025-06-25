@@ -244,6 +244,7 @@ build_images:
     - apt-get -y install buildah
     - buildah -h
     - sysctl kernel.unprivileged_userns_clone
+    - grep $(whoami) /etc/subuid /etc/subgid
   script:
     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu.dockerfile .
 
