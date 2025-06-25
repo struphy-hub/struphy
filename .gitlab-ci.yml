@@ -243,6 +243,7 @@ build_images:
     - apt-get update
     - apt-get -y install buildah
     - buildah -h
+    - sysctl kernel.unprivileged_userns_clone
   script:
     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu.dockerfile .
 
