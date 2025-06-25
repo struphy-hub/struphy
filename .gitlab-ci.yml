@@ -259,7 +259,7 @@ build_template:
     KUBERNETES_SERVICE_ACCOUNT_OVERWRITE: "buildah-sa"
   before_script:
     - buildah -h
-    - sysctl kernel.unprivileged_userns_clone
+    #- sysctl kernel.unprivileged_userns_clone
     - grep $(whoami) /etc/subuid /etc/subgid
     # Log in to the GitLab container registry
     - buildah login -u "$CI_REGISTRY_USER" --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
