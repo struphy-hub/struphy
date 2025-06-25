@@ -826,13 +826,16 @@ class RestelliAnalyticSolutionVelocity:
         uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
 
         if self._comp == "0":
-            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
+            # print(f"{uz=}")
             return uz
         else:
             raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
@@ -915,10 +918,12 @@ class RestelliAnalyticSolutionVelocity_2:
         uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
 
         if self._comp == "0":
-            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1004,10 +1009,12 @@ class RestelliAnalyticSolutionVelocity_3:
         uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
 
         if self._comp == "0":
-            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
