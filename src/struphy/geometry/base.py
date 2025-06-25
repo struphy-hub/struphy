@@ -1261,9 +1261,9 @@ class Domain(metaclass=ABCMeta):
 
                 elif isinstance(component, np.ndarray):
                     if flat_eval:
-                        assert component.ndim == 1
+                        assert component.ndim == 1, print(f"{component.ndim = }")
                     else:
-                        assert component.ndim == 3
+                        assert component.ndim == 3, print(f"{component.ndim = }")
 
                     a_out += [component]
 
