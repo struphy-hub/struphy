@@ -54,7 +54,6 @@ stages:
 # --- rules ---
 
 # Options for CI_PIPELINE_SOURCE: push, merge_request_event, web, schedule, api
-
 .rules_common:
   skip_pages_and_scheduled:
     - if: $TEST_SCHEDULED == "true"
@@ -258,12 +257,16 @@ ci_vars:
     - .image_gitlab_mpcdf_gcc_openmp
     - .before_script_load_modules
   stage: startup
+  rules:
+    - when: always
   script:
     - echo "All environment variables:"
     - env
 
 inspect_repo:
   stage: startup
+  rules:
+    - when: always
   script:
     - curl https://raw.githubusercontent.com/AlDanial/cloc/master/cloc > cloc
     - chmod +x cloc
