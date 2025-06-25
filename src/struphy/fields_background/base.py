@@ -1183,6 +1183,8 @@ class MHDequilibrium(FluidEquilibriumWithB):
             )
             fig.colorbar(map, ax=ax, location="right")
 
+        plt.show()
+
 
 class CartesianMHDequilibrium(MHDequilibrium):
     r"""

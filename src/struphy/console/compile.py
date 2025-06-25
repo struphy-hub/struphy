@@ -316,15 +316,6 @@ def struphy_compile(
             flags += " --verbose"
 
         # compilation
-        gvec_spec = importlib.util.find_spec("gvec_to_python")
-        if gvec_spec is not None:
-            cmd = [
-                "compile-gvec-tp",
-                "--language=" + language,
-                "--compiler=" + compiler,
-            ]
-            subp_run(cmd)
-
         print("\nCompiling Struphy kernels ...")
         cmd = [
             "make",
