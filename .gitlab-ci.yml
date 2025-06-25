@@ -250,7 +250,7 @@ build_images:
 
 build_template:
   stage: startup
-  image: registry.example.com/group/project/buildah:1.23.1
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/buildah:1.23.1
   variables:
     STORAGE_DRIVER: vfs
     BUILDAH_FORMAT: docker
