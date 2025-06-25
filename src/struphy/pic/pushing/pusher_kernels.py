@@ -3065,14 +3065,13 @@ def push_v_sph_pressure(
 
         # first component
         grad_u[0] = sph_eval_kernels.boxed_based_kernel(
+            args_markers,
             eta1,
             eta2,
             eta3,
             loc_box,
             boxes,
             neighbours,
-            markers,
-            Np,
             holes,
             periodic1,
             periodic2,
@@ -3086,14 +3085,13 @@ def push_v_sph_pressure(
         grad_u[0] *= kappa / n_at_eta
 
         sum2 = sph_eval_kernels.boxed_based_kernel(
+            args_markers,
             eta1,
             eta2,
             eta3,
             loc_box,
             boxes,
             neighbours,
-            markers,
-            Np,
             holes,
             periodic1,
             periodic2,
@@ -3110,14 +3108,13 @@ def push_v_sph_pressure(
         if kernel_type >= 340:
             # second component
             grad_u[1] = sph_eval_kernels.boxed_based_kernel(
+                args_markers,
                 eta1,
                 eta2,
                 eta3,
                 loc_box,
                 boxes,
                 neighbours,
-                markers,
-                Np,
                 holes,
                 periodic1,
                 periodic2,
@@ -3131,14 +3128,13 @@ def push_v_sph_pressure(
             grad_u[1] *= kappa / n_at_eta
 
             sum4 = sph_eval_kernels.boxed_based_kernel(
+                args_markers,
                 eta1,
                 eta2,
                 eta3,
                 loc_box,
                 boxes,
                 neighbours,
-                markers,
-                Np,
                 holes,
                 periodic1,
                 periodic2,
@@ -3155,14 +3151,13 @@ def push_v_sph_pressure(
         if kernel_type >= 670:
             # third component
             grad_u[2] = sph_eval_kernels.boxed_based_kernel(
+                args_markers,
                 eta1,
                 eta2,
                 eta3,
                 loc_box,
                 boxes,
                 neighbours,
-                markers,
-                Np,
                 holes,
                 periodic1,
                 periodic2,
@@ -3176,14 +3171,13 @@ def push_v_sph_pressure(
             grad_u[2] *= kappa / n_at_eta
 
             sum6 = sph_eval_kernels.boxed_based_kernel(
+                args_markers,
                 eta1,
                 eta2,
                 eta3,
                 loc_box,
                 boxes,
                 neighbours,
-                markers,
-                Np,
                 holes,
                 periodic1,
                 periodic2,

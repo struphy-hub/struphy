@@ -528,14 +528,13 @@ def sph_isotherm_pressure_coeffs(
         eta3 = markers[ip, 2]
         loc_box = int(markers[ip, n_cols - 2])
         n_at_eta = sph_eval_kernels.boxed_based_kernel(
+            args_markers,
             eta1,
             eta2,
             eta3,
             loc_box,
             boxes,
             neighbours,
-            markers,
-            Np,
             holes,
             periodic1,
             periodic2,
