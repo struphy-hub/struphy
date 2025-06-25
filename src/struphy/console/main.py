@@ -553,7 +553,7 @@ def add_parser_run(subparsers, list_models, model_message, params_files, batch_f
         import pylikwid
 
         add_likwid_parser = True
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, ImportError):
         add_likwid_parser = False
 
     if add_likwid_parser:
@@ -758,7 +758,7 @@ def add_parser_likwid_profile(subparsers):
         import pylikwid
 
         add_likwid_parser = True
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, ImportError):
         add_likwid_parser = False
 
     if add_likwid_parser:
