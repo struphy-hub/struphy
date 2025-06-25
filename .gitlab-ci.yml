@@ -236,7 +236,7 @@ stages:
 ### STARTUP STAGE ###
 #####################
 
-build_images:
+install_buildah:
   stage: startup
   image: ubuntu:latest
   before_script:
@@ -248,7 +248,7 @@ build_images:
   script:
     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu.dockerfile .
 
-build_template:
+build_buildah:
   stage: startup
   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/buildah:1.23.1
   variables:
@@ -263,12 +263,27 @@ build_template:
     - grep $(whoami) /etc/subuid /etc/subgid
     # - unshare -U -m
     # Log in to the GitLab container registry
-    # - buildah login -u "$CI_REGISTRY_USER" --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - buildah login -u "$CI_REGISTRY_USER" --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - buildah images
     - buildah --security-opt seccomp=unconfined build -t $FQ_IMAGE_NAME
     - buildah images
     - buildah push $FQ_IMAGE_NAME
+
+build_podman:
+  stage: startup
+
+  image:
+    name: quay.io/podman/stable
+
+  script:
+    # GitLab has a built-in Docker image registry, whose
+    # parameters are set automatically. You can use some
+    # other Docker registry though by changing the login and
+    # image name.
+    - podman login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - podman build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu.dockerfile .
+    - podman push "$CI_REGISTRY_IMAGE:podman"
 
 # # Print predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 # ci_vars:
