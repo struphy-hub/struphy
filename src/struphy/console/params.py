@@ -1,3 +1,5 @@
+import sys
+
 import yaml
 from mpi4py import MPI
 
@@ -42,6 +44,7 @@ def struphy_params(model, file, yes=False, options=False, check_file=None):
             print("Model initialized successfully.")
         except Exception as e:
             print(f"Failed to initialize model: {e}")
+            sys.exit(1)
 
     elif options:
         model_class.show_options()
