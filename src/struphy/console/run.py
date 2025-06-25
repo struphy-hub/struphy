@@ -175,10 +175,7 @@ def struphy_run(
         if restart:
             command += ["-r"]
 
-        if cprofile:
-            print("\nCprofile turned on.")
-        else:
-            print("\nCprofile turned off.")
+        print(f"\nCprofile turned {'on' if cprofile else 'off'}.")
 
         # run command as subprocess
         if likwid:
