@@ -249,7 +249,7 @@ build_images:
     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu.dockerfile .
 
 build_template:
-  stage: build
+  stage: startup
   image: registry.example.com/group/project/buildah:1.23.1
   variables:
     STORAGE_DRIVER: vfs
