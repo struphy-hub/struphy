@@ -236,6 +236,17 @@ stages:
 ### STARTUP STAGE ###
 #####################
 
+build_images:
+  stage: startup
+  image: ubuntu:latest
+  before_script:
+    - apt-get update
+    - apt-get -y install buildah
+    - buildah -h
+  script:
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu.dockerfile .
+
+
 # Print predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
   extends:
