@@ -67,6 +67,14 @@ stages:
       when: never
     - if: $CI_PIPELINE_SOURCE == "push"
       when: never
+  release:
+    - if: $TEST_SCHEDULED == "true"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
 
 .rules_mr_to_devel:
   rules:
@@ -86,23 +94,11 @@ stages:
 
 .rules_release:
   rules:
-    - if: $TEST_SCHEDULED == "true"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master"
+    - !reference [.rules_common, release]
 
 .rules_make_pages:
   rules:
-    - if: $TEST_SCHEDULED == "true"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master"
+    - !reference [.rules_common, release]
     - if: $MAKE_PAGES == "true"
 
 .rules_cleanup_macos:
