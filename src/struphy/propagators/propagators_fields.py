@@ -42,6 +42,8 @@ from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
+from line_profiler import profile
+
 
 class Maxwell(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
@@ -6878,7 +6880,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         # self._F1 = l2_proj.get_dofs([_forceterm_logical, _forceterm_logical, fun_pb])
         # self._F2 = l2_proj.get_dofs([_forceterm_logical, _forceterm_logical, fun_electrons_pb])
 
-        # ### End Restelli ###
+        # # ### End Restelli ###
 
         
         if self._variant == "GMRES":
@@ -6943,16 +6945,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 else:
                     self._Hodgenp = self.basis_ops.S21.toarray_struphy(is_sparse=True)
                 self._M2Bnp = -self.mass_ops.M2B._mat.tosparse()
+            self._A11np_notimedependency = self._nu* (self._Dnp.T @ self._M3np @ self._Dnp+ 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)- 1.0 * self._M2Bnp/self._eps_norm
+            A11np = self._M2np + self._A11np_notimedependency
 
-            A11np = (
-                self._M2np
-                + self._nu
-                * (
-                    self._Dnp.T @ self._M3np @ self._Dnp
-                    + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
-                )
-                - 1.0 * self._M2Bnp/self._eps_norm
-            )
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
                 self.A22np = (
                     self._stab_sigma * np.identity(A11np.shape[0])
@@ -6987,7 +6982,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _Anp = [A11np, self.A22np]
             _Bnp = [B1np, B2np]
             _Fnp = [self._F1np, self._F2np]
-            _A11prenp = self._M2np + self._nu * (self._Dnp.T @ self._M3np @ self._Dnp)  # np.identity(A11np.shape[0])#
+            self._A11prenp_notimedependency = self._nu * (self._Dnp.T @ self._M3np @ self._Dnp)
+            _A11prenp = self._M2np +  self._A11prenp_notimedependency
             _Anppre = [_A11prenp, self._A22prenp]
 
         if self._variant == "GMRES":
@@ -7022,6 +7018,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
         unfeec = self.feec_vars[0]
         uenfeec = self.feec_vars[1]
         phinfeec = self.feec_vars[2]
+
+        # print(f"{min(unfeec.toarray()) =}")
+        # print(f"{max(unfeec.toarray()) =}")
 
         if self._variant == "GMRES":
             # Define block matrix [[A BT], [B 0]]
@@ -7085,16 +7084,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
             max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
 
         elif self._variant == "Uzawa":
+            print(f'{self._eps_norm = }')
             # Numpy
-            A11np = (
-                self._M2np / dt
-                + self._nu
-                * (
-                    self._Dnp.T @ self._M3np @ self._Dnp
-                    + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
-                )
-                - self._M2Bnp/self._eps_norm
-            )
+            A11np = self._M2np / dt + self._A11np_notimedependency
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
                 _A22prenp = self._A22prenp
                 A22np = self.A22np
@@ -7104,16 +7096,16 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # _Anp[1] and _Anppre[1] remain unchanged
             _Anp = [A11np, A22np]
-            _A11prenp = self._M2np / dt   + self._nu * (
-                self._Dnp.T @ self._M3np @ self._Dnp
-            )
-            _Anppre = [_A11prenp, _A22prenp]
+            if self._preconditioner == True:
+                _A11prenp = self._M2np / dt +  self._A11prenp_notimedependency
+                _Anppre = [_A11prenp, _A22prenp]
             _F1np = self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
             _Fnp = [_F1np, self._F2np]
 
             if self.rank == 0:
                 self._solver_UzawaNumpy.A = _Anp
-                self._solver_UzawaNumpy.Apre = _Anppre
+                if self._preconditioner == True:
+                    self._solver_UzawaNumpy.Apre = _Anppre
                 self._solver_UzawaNumpy.F = _Fnp
                 un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(unfeec, uenfeec, phinfeec)
 
@@ -7188,10 +7180,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
         # 3. Append your iteration number
         iteration_log[key]["niter"].append(info["niter"])
         if self._spectralanalysis == True and self._variant == "Uzawa":
-            iteration_log[key]["A11_specnr"].append(spectralresult[0])
+            iteration_log[key]["A22_cdtnr"].append(spectralresult[0])
             iteration_log[key]["A22_specnr"].append(spectralresult[1])
             if self._preconditioner == True:
-                iteration_log[key]["A11_specnr_PC"].append(spectralresult[2])
+                iteration_log[key]["A22_cdtnr_PC"].append(spectralresult[2])
                 iteration_log[key]["A22_specnr_PC"].append(spectralresult[3])
         
 
@@ -7211,8 +7203,8 @@ def default_entry():
     return {
         "niter": [],
         "timestep": [],
-        "A11_specnr": [],
+        "A22_cdtnr": [],
         "A22_specnr": [],
-        "A11_specnr_PC": [],
+        "A22_cdtnr_PC": [],
         "A22_specnr_PC": [],
     }
