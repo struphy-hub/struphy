@@ -276,6 +276,7 @@ def generate_absolute_io_paths(
 
     return input_abs, output_abs, batch_abs
 
+
 def cleanup_batch_environment(output_abs):
     # create output folder if it does not exit
     if not os.path.exists(output_abs):
