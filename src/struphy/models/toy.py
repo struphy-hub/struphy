@@ -1221,7 +1221,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     def species():
         dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
 
-        dct['em_fields']['potential'] = 'L2'
+        dct["em_fields"]["potential"] = "L2"
         dct["fluid"]["ions"] = {
             "u": "Hdiv",
         }
@@ -1248,7 +1248,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-    
+
     # add special options
     @classmethod
     def options(cls):
@@ -1263,7 +1263,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
-        
+
         # get species paramaters
         electrons_params = params["fluid"]["electrons"]
 
@@ -1275,7 +1275,6 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             )
         else:
             self._epsilon = self.equation_params["electrons"]["epsilon"]
-
 
         # extract necessary parameters
         stokes_solver = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["solver"]
@@ -1291,7 +1290,9 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         stokes_variant = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["variant"]
         stokes_method_to_solve = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["method_to_solve"]
         stokes_preconditioner = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["preconditioner"]
-        stokes_spectralanalysis = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["spectralanalysis"]
+        stokes_spectralanalysis = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"][
+            "spectralanalysis"
+        ]
         stokes_dimension = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
         stokes_1D_dt = params["time"]["dt"]
 

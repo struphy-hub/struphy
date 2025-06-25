@@ -2,12 +2,13 @@ from typing import Union
 
 import numpy as np
 import scipy as sc
+from line_profiler import profile
 from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.solvers import inverse
 
-from line_profiler import profile
+
 class SaddlePointSolver:
     r"""Solves for :math:`(x, y)` in the saddle point problem
 
@@ -76,6 +77,7 @@ class SaddlePointSolver:
     max_iter : int
         Maximum number of iterations allowed.
     """
+
     @profile
     def __init__(
         self,
@@ -246,6 +248,7 @@ class SaddlePointSolver:
                 self._setup_inverses()
         elif self._variant == "Inverse_Solver":
             self._Apre = a
+
     @profile
     def __call__(self, U_init=None, Ue_init=None, P_init=None, out=None):
         """
@@ -358,6 +361,7 @@ class SaddlePointSolver:
             info["success"] = False
             info["niter"] = iteration + 1
             return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
+
     @profile
     def _setup_inverses(self):
         A0 = self._A[0]
@@ -407,6 +411,7 @@ class SaddlePointSolver:
 
         # Precompute Schur complement
         self._Precnp = self._B1np @ self._Anpinv @ self._B1np.T + self._B2np @ self._Aenpinv @ self._B2np.T
+
     @profile
     def _is_inverse_still_valid(self, inv, mat, name="", pre=None):
         # try:
@@ -437,6 +442,7 @@ class SaddlePointSolver:
                 return False
             print(f"{name} inverse is still valid.")
             return True
+
     @profile
     def _compute_inverse(self, mat, which="matrix"):
         print(f"Computing inverse for {which} using method {self._method_to_solve}")
@@ -487,7 +493,7 @@ class SaddlePointSolver:
         # print(f'{minbeforeA22 = }')
         # print(f'{specA22_bef = }')
         print(f"{specA22_bef_abs = }")
-        
+
         condA22_before = np.linalg.cond(self._A[1])
 
         if self._preconditioner == True:
@@ -526,9 +532,9 @@ class SaddlePointSolver:
             # print(f'{minafterA22_prec = }')
             # print(f'{specA22_aft_prec = }')
             print(f"{specA22_aft_abs_prec = }")
-            condA22_after = np.linalg.cond(self._A22npinv @ self._A[1]) 
-            
+            condA22_after = np.linalg.cond(self._A22npinv @ self._A[1])
+
             return condA22_before, specA22_bef_abs, condA22_after, specA22_aft_abs_prec
-        
+
         else:
             return condA22_before, specA22_bef_abs

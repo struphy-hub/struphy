@@ -5,6 +5,7 @@ from copy import deepcopy
 
 import numpy as np
 import scipy as sc
+from line_profiler import profile
 from numpy import zeros
 from psydac.linalg.basic import IdentityOperator, ZeroOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
@@ -41,8 +42,6 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-
-from line_profiler import profile
 
 
 class Maxwell(Propagator):
@@ -6763,7 +6762,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
             _A11 = (
                 self._M2
-                - self._M2B/self._eps_norm
+                - self._M2B / self._eps_norm
                 + self._nu
                 * (
                     self.derham.div.T @ self._M3 @ self.derham.div
@@ -6774,7 +6773,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _A21 = _A12
             _A22 = (
                 -self._stab_sigma * IdentityOperator(_A11.domain)
-                + self._M2B/self._eps_norm
+                + self._M2B / self._eps_norm
                 + self._nu_e
                 * (
                     self.derham.div.T @ self._M3 @ self.derham.div
@@ -6822,7 +6821,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             epsilon=self._stab_sigma,
             dt=D1_dt,
         )
-        
+
         # get callable(s) for specified init type
         forceterm_class = [_funx, _funy, _forceterm_logical]
         forcetermelectrons_class = [_funelectronsx, _funelectronsy, _forceterm_logical]
@@ -6844,7 +6843,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._F1 = l2_proj.get_dofs([funx, funy, _forceterm_logical])
         self._F2 = l2_proj.get_dofs([fun_electronsx, fun_electronsy, _forceterm_logical])
 
-        
         # ### Restelli ###
 
         # _forceterm_logical = lambda e1, e2, e3: 0 * e1
@@ -6864,7 +6862,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         #     alpha=self._alpha,
         #     beta=self._beta,
         # )
-        
+
         # # get callable(s) for specified init type
         # forceterm_class = [_forceterm_logical, _forceterm_logical, _fun]
         # forcetermelectrons_class = [_forceterm_logical, _forceterm_logical, _funelectrons]
@@ -6882,7 +6880,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         # # ### End Restelli ###
 
-        
         if self._variant == "GMRES":
             if _A12 is not None:
                 assert _A11.codomain == _A12.codomain
@@ -6921,10 +6918,12 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 self._S21 = BasisProjectionOperatorLocal(
                     self.derham._Ploc["1"], self.derham.Vh_fem["2"], fun, transposed=False
                 )
-            self.derhamnumpy = Derham(self.derham.Nel,
-                                      self.derham.p,
-                                      self.derham.spl_kind,
-                                      domain=self.domain,)
+            self.derhamnumpy = Derham(
+                self.derham.Nel,
+                self.derham.p,
+                self.derham.spl_kind,
+                domain=self.domain,
+            )
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
                 self._M2np = self.mass_ops.M2._mat.toarray()
                 self._M3np = self.mass_ops.M3._mat.toarray()
@@ -6945,7 +6944,14 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 else:
                     self._Hodgenp = self.basis_ops.S21.toarray_struphy(is_sparse=True)
                 self._M2Bnp = -self.mass_ops.M2B._mat.tosparse()
-            self._A11np_notimedependency = self._nu* (self._Dnp.T @ self._M3np @ self._Dnp+ 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp)- 1.0 * self._M2Bnp/self._eps_norm
+            self._A11np_notimedependency = (
+                self._nu
+                * (
+                    self._Dnp.T @ self._M3np @ self._Dnp
+                    + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                )
+                - 1.0 * self._M2Bnp / self._eps_norm
+            )
             A11np = self._M2np + self._A11np_notimedependency
 
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -6956,9 +6962,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
                         self._Dnp.T @ self._M3np @ self._Dnp
                         + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                     )
-                    + self._M2Bnp/self._eps_norm
+                    + self._M2Bnp / self._eps_norm
                 )
-                self._A22prenp = np.identity(self.A22np.shape[0]) #* self._stab_sigma 
+                self._A22prenp = np.identity(self.A22np.shape[0])  # * self._stab_sigma
                 # + self._nu_e * (
                 #     self._Dnp.T @ self._M3np @ self._Dnp
                 # )
@@ -6970,7 +6976,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                         self._Dnp.T @ self._M3np @ self._Dnp
                         + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                     )
-                    + self._M2Bnp/self._eps_norm
+                    + self._M2Bnp / self._eps_norm
                 )
                 self._A22prenp = sc.sparse.eye(self.A22np.shape[0], format="csr")
 
@@ -6983,7 +6989,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _Bnp = [B1np, B2np]
             _Fnp = [self._F1np, self._F2np]
             self._A11prenp_notimedependency = self._nu * (self._Dnp.T @ self._M3np @ self._Dnp)
-            _A11prenp = self._M2np +  self._A11prenp_notimedependency
+            _A11prenp = self._M2np + self._A11prenp_notimedependency
             _Anppre = [_A11prenp, self._A22prenp]
 
         if self._variant == "GMRES":
@@ -7026,7 +7032,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # Define block matrix [[A BT], [B 0]]
             _A11 = (
                 self._M2 / dt
-                - self._M2B/self._eps_norm
+                - self._M2B / self._eps_norm
                 + self._nu
                 * (
                     self.derham.div.T @ self._M3 @ self.derham.div
@@ -7041,7 +7047,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     self.derham.div.T @ self._M3 @ self.derham.div
                     + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
                 )
-                + self._M2B/self._eps_norm
+                + self._M2B / self._eps_norm
                 - self._stab_sigma * IdentityOperator(_A11.domain)
             )
             _B1 = -self._M3 @ self.derham.div
@@ -7084,7 +7090,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
 
         elif self._variant == "Uzawa":
-            print(f'{self._eps_norm = }')
+            print(f"{self._eps_norm = }")
             # Numpy
             A11np = self._M2np / dt + self._A11np_notimedependency
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -7097,7 +7103,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # _Anp[1] and _Anppre[1] remain unchanged
             _Anp = [A11np, A22np]
             if self._preconditioner == True:
-                _A11prenp = self._M2np / dt +  self._A11prenp_notimedependency
+                _A11prenp = self._M2np / dt + self._A11prenp_notimedependency
                 _Anppre = [_A11prenp, _A22prenp]
             _F1np = self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
             _Fnp = [_F1np, self._F2np]
@@ -7159,12 +7165,12 @@ class TwoFluidQuasiNeutralFull(Propagator):
         def save_iteration_log(data, filename="iteration_log_sigma.pkl"):
             with open(filename, "wb") as f:
                 pickle.dump(data, f)
-        
+
         # from struphy.params_2D_variation_run import load_iteration_log, save_iteration_log, default_entry
-        
+
         # 1. Load existing data
         iteration_log = load_iteration_log()
-        
+
         # 2. Define the key tuple using your parameters
         key = (
             self._variant,
@@ -7174,7 +7180,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             self._nu,
             self._nu_e,
             self._method_to_solve,
-            self._preconditioner
+            self._preconditioner,
         )
 
         # 3. Append your iteration number
@@ -7185,7 +7191,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
             if self._preconditioner == True:
                 iteration_log[key]["A22_cdtnr_PC"].append(spectralresult[2])
                 iteration_log[key]["A22_specnr_PC"].append(spectralresult[3])
-        
 
         # 4. Save the updated data
         save_iteration_log(iteration_log)
