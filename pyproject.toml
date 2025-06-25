@@ -1,78 +1,90 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = [
+    "setuptools>=61.0",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.4.3"
+version = "2.4.4"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {file = "LICENSE"}
 authors = [
-  { name = "Max Planck Institute for Plasma Physics"},
-  { email = "stefan.possanner@ipp.mpg.de"},
-  { email = "eric.sonnendruecker@ipp.mpg.de"}
+    { name = "Max Planck Institute for Plasma Physics" },
+    { email = "stefan.possanner@ipp.mpg.de" },
+    { email = "eric.sonnendruecker@ipp.mpg.de" },
 ]
 description = "Multi-model plasma physics package"
-keywords = ["plasma physics, fusion, numerical modeling, partial differential equations, energetic particles"]
+keywords = [
+    "plasma physics, fusion, numerical modeling, partial differential equations, energetic particles",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
-    ]
-dependencies = [
-    'numpy',
-    'pyccel>=1.11.1',
-    'mpi4py',
-    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
-    'scipy',
-    'h5py',
-    'matplotlib',
-    'pyyaml',
-    'vtk',
-    'tqdm',
-    'argcomplete',
-    'pytest',
-    'pytest-mpi',
 ]
+dependencies = [
+    "numpy",
+    "pyccel >=1.11.1, <2.0",
+    "mpi4py",
+    "psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny",
+    "scipy",
+    "h5py",
+    "matplotlib",
+    "pyyaml",
+    "vtk",
+    "tqdm",
+    "argcomplete",
+    "pytest",
+    "pytest-mpi",
+]
+
+[project.license]
+file = "LICENSE"
 
 [project.optional-dependencies]
 phys = [
-    'gvec-to-python',
+    'gvec @ git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git',
     'desc-opt',
 ]
 dev = [
-    'notebook',
-    'autopep8',
-    'isort',
-    'flake8',
-    'pylint',
-    'add-trailing-comma',
-    'ruff>=0.9.1',
-    'pre-commit',
-    'nbstripout',
-    'tabulate',
+    "notebook",
+    "autopep8",
+    "isort",
+    "flake8",
+    "pylint",
+    "add-trailing-comma",
+    "ruff>=0.9.1",
+    "pre-commit",
+    "nbstripout",
+    "tabulate",
+    "tomli-w",
 ]
 doc = [
-    'struphy[phys]',
-    'sphinx',
-    'sphinx-design',
-    'lxml_html_clean',
-    'sphinxcontrib-napoleon',
-    'pydata-sphinx-theme',
-    'nbsphinx',
-    'm2r2',
-    'myst-parser',
-    'mistune',
-    'docutils',
-    'ipyparallel',
+    "struphy[phys]",
+    "sphinx",
+    "sphinx-design",
+    "lxml_html_clean",
+    "sphinxcontrib-napoleon",
+    "pydata-sphinx-theme",
+    "nbsphinx",
+    "m2r2",
+    "myst-parser",
+    "mistune",
+    "docutils",
+    "ipyparallel",
 ]
 likwid = [
-    'struphy[dev]',
-    'kaleido',
-    'pylikwid',
-    'pandas',
-    'plotly',
+    "struphy[dev]",
+    "kaleido",
+    "pylikwid",
+    "pandas",
+    "plotly",
 ]
-
+all = [
+    "struphy[phys]",
+    "struphy[dev]",
+    "struphy[doc]",
+    "struphy[likwid]",
+]
 
 [project.urls]
 homepage = "https://struphy.pages.mpcdf.de/struphy/"
@@ -86,84 +98,68 @@ struphy = "struphy.console.main:struphy"
 kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 
 [tool.setuptools.package-data]
-'struphy.fields_background.mhd_equil.eqdsk' = [
-            'data/*.high',
-        ]
-
-'struphy.fields_background.mhd_equil.gvec' = [
-            'ellipstell_v2/newBC_E1D6_M6N6/*.dat',
-            'ellipstell_v2/newBC_E1D6_M6N6/*.ini',
-            'ellipstell_v2/newBC_E4D6_M6N6/*.dat',
-            'ellipstell_v2/newBC_E4D6_M6N6/*.ini',
-            'ellipstell_v2/oldBC_E40D5M6N6/*.dat',
-            'ellipstell_v2/oldBC_E40D5M6N6/*.ini',
-        ]
-
-'struphy.io' = ['batch/*.sh']
-
-'struphy.io.inp' = ['parameters.yml',
-                    'tests/*.yml',
-                    'tutorials/*.yml',
-                    'longer_examples/*.yml',
-                    'verification/*.yml',
-                    ]
-                    
-struphy = ['compile_struphy.mk',
-           'psydac-2.4.3.dev0-py3-none-any.whl',]
+"struphy.fields_background.mhd_equil.eqdsk" = [
+    "data/*.high",
+]
+"struphy.fields_background.mhd_equil.gvec" = [
+    "run_01/*.dat",
+    "run_01/*.ini",
+    "run_02/*.dat",
+    "run_02/*.ini",
+    "run_03/*.dat",
+    "run_03/*.ini",
+    "run_03/*.nc",
+]
+"struphy.io" = [
+    "batch/*.sh",
+]
+"struphy.io.inp" = [
+    "parameters.yml",
+    "tests/*.yml",
+    "tutorials/*.yml",
+    "longer_examples/*.yml",
+    "verification/*.yml",
+]
+struphy = [
+    "compile_struphy.mk",
+    "psydac-2.4.4.dev0-py3-none-any.whl",
+]
 
 [tool.autopep8]
-# Add specific settings for autopep8
 max_line_length = 120
-ignore = ["E221,E226,E203,E265,E731,E711"]
-# Descriptions of error codes: https://www.flake8rules.com/
-# E201 – Whitespace after  (, [ or {
-# E202 – Whitespace before (, [ or {
-# E221 – Multiple spaces before operator
-# E226 – Missing whitespace around arithmetic operators
-# E265 - Block comment should start with '# '
-# E266 – Too many leading # for block comment
-# E731 – Do not assign a lambda expression
-# E203 – Whitespace before : (used in slicing)
-# E711 - Ignore enforcing 'is not None' over '!= None'
+ignore = [
+    "E221,E226,E203,E265,E731,E711",
+]
 
 [tool.isort]
-# Configuration for isort
-profile = "black"  # Using the Black profile to match formatting styles
+profile = "black"
 line_length = 120
-multi_line_output = 3  # Control how isort wraps imports
+multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
 combine_as_imports = true
 
 [tool.pylint]
-max-line-length=120
+max-line-length = 120
 quote-style = "single"
 
 [tool.ruff]
-line-length=120
-lint.ignore = [
-    "E265",  # Checks for block comments that lack a single space after the leading # character.
-    "E402",  # Module-level imports should be placed at the top of the file (before any other code)
-    "E701",  # Multiple statements on one line (colon)
-    # "E711",  # Comparison to `None` should be `cond is None`
-    # "E712",  # Comparison to True, False, or None should be avoided (e.g., use `if variable:` instead of `if variable == True:`)
-    # "E713",  # Convert to `not in`
-    # "E721",  # Avoid comparing types directly with `type()` (e.g., use `isinstance()` instead of `type(variable) == list`)
-    "E722",  # Do not use bare 'except'
-    "E731",  # Do not assign a lambda expression, use a def
-    "E741",  # Do not use variables named 'l', 'O', or 'I'
-    "E742",  # Do not define classes named 'l', 'O', or 'I'
-    "E743",  # Do not define functions named 'l', 'O', or 'I'
-    "E902",  # IOError
-    # "E999",  # SyntaxError
-    "F401",  # Module imported but unused
-    "F403",  # 'from module import *' used; unable to detect undefined names
-    "F405",  # Name may be undefined, or defined from star imports: module
-    # "F811",  # Redefinition of a variable that might cause ambiguity (e.g., reusing a variable name in a conflicting scope)
-    # "F821",  # Undefined name
-    # "F822",  # Undefined name in __all__
-    # "F823",  # Local variable name referenced before assignment
-    # "F841",  # Local variable name assigned to but never used
-    "D211",  # Checks for docstrings on class definitions that are preceded by a blank line
-    "D213",  # Checks for docstring summary lines that are not positioned on the second physical line of the docstring
+line-length = 120
+
+[tool.ruff.lint]
+ignore = [
+    "E265",
+    "E402",
+    "E701",
+    "E722",
+    "E731",
+    "E741",
+    "E742",
+    "E743",
+    "E902",
+    "F401",
+    "F403",
+    "F405",
+    "D211",
+    "D213",
 ]

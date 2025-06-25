@@ -490,7 +490,7 @@ def struphy():
         import pylikwid
 
         add_likwid_parser = True
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, ImportError):
         add_likwid_parser = False
 
     if add_likwid_parser:
@@ -608,13 +608,6 @@ def struphy():
         metavar="NAME",
         help="save (and dont display) the profile figure under NAME, relative to current output path.",
     )
-
-    try:
-        import pylikwid
-
-        add_likwid_parser = True
-    except ModuleNotFoundError:
-        add_likwid_parser = False
 
     if add_likwid_parser:
         parser_likwid_profile = subparsers.add_parser(
