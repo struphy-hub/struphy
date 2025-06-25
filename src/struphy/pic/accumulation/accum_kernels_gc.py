@@ -32,7 +32,7 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArgum
 
 def gc_density_0form(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
@@ -68,7 +68,7 @@ def gc_density_0form(
 @stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "tmp1", "tmp2", "b", "b_prod", "bstar", "norm_b1", "curl_norm_b")
 def cc_lin_mhd_5d_D(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat12: "float[:,:,:,:,:,:]",
@@ -262,7 +262,7 @@ def cc_lin_mhd_5d_D(
 )
 def cc_lin_mhd_5d_J1(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -526,7 +526,7 @@ def cc_lin_mhd_5d_J1(
 @stack_array("dfm", "norm_b1", "filling_v")
 def cc_lin_mhd_5d_M(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -639,7 +639,7 @@ def cc_lin_mhd_5d_M(
 )
 def cc_lin_mhd_5d_J2(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
