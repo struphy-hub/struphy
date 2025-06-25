@@ -331,7 +331,7 @@ ubuntu_latest:
 
 macos_nmpp:
   stage: test
-  tags: [macos, nmpp, private]
+  tags: [macos, nmpp, private, docker]
   needs: []
   variables:
     # Job ID changes for each job, so reusing the directory becomes impossible,
