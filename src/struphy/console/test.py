@@ -11,6 +11,7 @@ def struphy_test(
     vrbose: bool = False,
     verification: bool = False,
     show_plots: bool = False,
+    nclones: int = 1,
 ):
     """
     Run Struphy unit and/or model tests.
@@ -92,6 +93,8 @@ def struphy_test(
             cmd += ["--vrbose"]
         if verification:
             cmd += ["--verification"]
+        if nclones > 1:
+            cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
         subp_run(cmd)
@@ -123,6 +126,8 @@ def struphy_test(
             cmd += ["--vrbose"]
         if verification:
             cmd += ["--verification"]
+        if nclones > 1:
+            cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
         subp_run(cmd)
@@ -146,17 +151,17 @@ def struphy_test(
             )
 
         if group in toy_message:
-            test_mod = "test_toy_models.py"
+            mtype = "toy"
         elif group in fluid_message:
-            test_mod = "test_fluid_models.py"
+            mtype = "fluid"
         elif group in kinetic_message:
-            test_mod = "test_kinetic_models.py"
+            mtype = "kinetic"
         elif group in hybrid_message:
-            test_mod = "test_hybrid_models.py"
+            mtype = "hybrid"
         else:
             raise ValueError(f"{group} is not a valid model name.")
 
-        py_file = os.path.join(libpath, "models", "tests", test_mod)
+        py_file = os.path.join(libpath, "models", "tests", "util.py")
 
         cmd = [
             "mpirun",
@@ -164,11 +169,13 @@ def struphy_test(
             str(mpi),
             "python3",
             py_file,
+            mtype,
             group,
             str(Tend),
             str(fast),
             str(vrbose),
             str(verification),
+            str(nclones),
             str(show_plots),
         ]
         subp_run(cmd)

@@ -1,3 +1,5 @@
+import sys
+
 from struphy.console.run import subp_run
 
 
@@ -39,7 +41,9 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
     """
 
     import importlib.metadata
+    import importlib.util
     import os
+    import re
     import sysconfig
 
     import pyccel
@@ -246,23 +250,26 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
                     print(
                         f"You have psydac version {psydac_ver}, but version {struphy_ver} is available. Please re-install struphy (e.g. pip install .)\n"
                     )
-                    exit()
+                    sys.exit(1)
             else:
                 print(f"Psydac is not installed. To install it, please re-install struphy (e.g. pip install .)\n")
-                exit()
+                sys.exit(1)
 
         else:
             install_psydac = False
             if psydac_installed:
                 # only install (from .whl) if psydac not up-to-date
-                if psydac_ver != struphy_ver:
+                if ".".join(psydac_ver.split(".")[:3]) != ".".join(struphy_ver.split(".")[:3]):
                     print(f"You have psydac version {psydac_ver}, but version {struphy_ver} is required.\n")
                     install_psydac = True
             else:
                 install_psydac = True
 
             if install_psydac:
-                psydac_file = "psydac-" + struphy_ver + "-py3-none-any.whl"
+                for filename in os.listdir(libpath):
+                    if re.match("psydac-", filename):
+                        psydac_file = filename
+
                 cmd = ["pip", "uninstall", "-y", "psydac"]
                 subp_run(cmd)
                 print("\nInstalling Psydac ...")
@@ -281,7 +288,7 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         cmd = [
             "psydac-accelerate",
             "--language=" + language,
-            # "--compiler=" + compiler, # Compiler flag not implemented yet
+            "--compiler=" + compiler,
         ]
         subp_run(cmd)
 
@@ -295,12 +302,14 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
             flags += " --verbose"
 
         # compilation
-        cmd = [
-            "compile-gvec-tp",
-            "--language=" + language,
-            "--compiler=" + compiler,
-        ]
-        subp_run(cmd)
+        gvec_spec = importlib.util.find_spec("gvec_to_python")
+        if gvec_spec is not None:
+            cmd = [
+                "compile-gvec-tp",
+                "--language=" + language,
+                "--compiler=" + compiler,
+            ]
+            subp_run(cmd)
 
         print("\nCompiling Struphy kernels ...")
         cmd = [

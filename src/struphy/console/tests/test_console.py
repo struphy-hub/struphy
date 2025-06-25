@@ -209,12 +209,12 @@ def test_struphy_run(
         if likwid:
             assert is_sublist(
                 run_command,
-                ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-stats"],
+                ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-mpi", "openmpi"],
             )
             assert os.path.join(libpath, "main.py") in run_command
         else:
             assert is_sublist(run_command, mpirun_command)
-            assert is_sublist(run_command, [main, model])
+            assert is_sublist(run_command, [model])
         if restart:
             assert is_sublist(run_command, ["-r"])
         if cprofile:

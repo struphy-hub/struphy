@@ -51,7 +51,7 @@ class CloneConfig:
                     print(
                         f"Total number of ranks ({size}) is not divisible by the number of clones ({num_clones}).",
                     )
-                MPI.COMM_WORLD.Abort()  # Proper MPI abort instead of exit()
+                MPI.COMM_WORLD.Abort()  # MPI abort instead of sys.exit(1)
 
             # Determine the color and rank within each clone
             ranks_per_clone = size // num_clones
@@ -96,6 +96,32 @@ class CloneConfig:
 
         return Np_clone
 
+    def get_Np_global(self, species_name):
+        """
+        Return the total particle count (Np).
+
+        If Np is not explicitly set in the params,
+        then Np is calculated based on ppc or ppb.
+
+        Parameters:
+            species_name: str
+                Name of the particle species
+
+        Returns:
+            int: The number of particles.
+        """
+        species = self.params["kinetic"][species_name]
+        markers = species["markers"]
+        n_cells = np.sum(np.prod(self.params["grid"]["Nel"]))
+
+        if "Np" in markers:
+            return markers["Np"]
+        elif "ppc" in markers:
+            return int(markers["ppc"] * n_cells)
+        elif "ppb" in markers:
+            n_boxes = np.prod(species["boxes_per_dim"], dtype=int)
+            return int(markers["ppb"] * n_boxes)
+
     def print_clone_config(self):
         """Print a table summarizing the clone configuration."""
         comm_world = MPI.COMM_WORLD
@@ -126,12 +152,24 @@ class CloneConfig:
 
     def print_particle_config(self):
         """Print the particle configuration for each clone."""
-
         if self.params is None:
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print("No params in clone_config")
+            return
         else:
-            assert "kinetic" in self.params
+            _skip = False
+            if "kinetic" not in self.params:
+                _skip = True
+            else:
+                for name, species in self.params["kinetic"].items():
+                    if ("Np" not in species["markers"]) and ("ppc" not in species["markers"]):
+                        _skip = True
+
+            if _skip:
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    print("No kinetic parameters")
+                    return
+
             assert "grid" in self.params
 
             marker_keys = ["Np", "ppc"]
@@ -156,7 +194,8 @@ class CloneConfig:
             for species_name in species_list:
                 for i_clone in range(self.num_clones):
                     row = f"{i_clone:6} "
-                    Np = self.params["kinetic"][species_name]["markers"]["Np"]
+                    # Np = self.params["kinetic"][species_name]["markers"]["Np"]
+                    Np = self.get_Np_global(species_name)
                     n_cells_clone = np.prod(self.params["grid"]["Nel"])
 
                     Np_clone = self.get_Np_clone(Np, clone_id=i_clone)

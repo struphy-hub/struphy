@@ -2,11 +2,11 @@ import numpy as np
 from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.ddm.cart import CartDecomposition, DomainDecomposition
 from psydac.fem.tensor import TensorFemSpace
-from psydac.linalg.basic import ComposedLinearOperator, LinearOperator, LinearSolver, Vector
+from psydac.linalg.basic import ComposedLinearOperator, LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator
 from psydac.linalg.direct_solvers import BandedSolver, SparseSolver
 from psydac.linalg.kron import KroneckerLinearSolver, KroneckerStencilMatrix
-from psydac.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVectorSpace
+from psydac.linalg.stencil import StencilMatrix, StencilVectorSpace
 from scipy import sparse
 from scipy.linalg import solve_circulant
 
@@ -141,7 +141,7 @@ class MassMatrixPreconditioner(LinearOperator):
 
                 # apply boundary conditions
                 if apply_bc:
-                    if mass_operator._domain_symbolic_name != "H1H1H1":
+                    if mass_operator._domain_symbolic_name not in ("H1H1H1", "H1vec"):
                         if femspace_1d.basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
@@ -187,12 +187,12 @@ class MassMatrixPreconditioner(LinearOperator):
                     solvercells += [SparseSolver(M.tosparse())]
 
                 # === NOTE: for KroneckerStencilMatrix being built correctly, 1d matrices must be local to process! ===
-                periodic = femspaces[c].vector_space.periods[d]
+                periodic = femspaces[c].coeff_space.periods[d]
 
-                n = femspaces[c].vector_space.npts[d]
-                p = femspaces[c].vector_space.pads[d]
-                s = femspaces[c].vector_space.starts[d]
-                e = femspaces[c].vector_space.ends[d]
+                n = femspaces[c].coeff_space.npts[d]
+                p = femspaces[c].coeff_space.pads[d]
+                s = femspaces[c].coeff_space.starts[d]
+                e = femspaces[c].coeff_space.ends[d]
 
                 cart_decomp_1d = CartDecomposition(
                     domain_decompos_1d,
@@ -228,30 +228,30 @@ class MassMatrixPreconditioner(LinearOperator):
             if isinstance(self._femspace, TensorFemSpace):
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space,
-                        self._femspace.vector_space,
+                        self._femspace.coeff_space,
+                        self._femspace.coeff_space,
                         *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space,
-                        self._femspace.vector_space,
+                        self._femspace.coeff_space,
+                        self._femspace.coeff_space,
                         solvercells,
                     ),
                 ]
             else:
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space[c],
-                        self._femspace.vector_space[c],
+                        self._femspace.coeff_space[c],
+                        self._femspace.coeff_space[c],
                         *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space[c],
-                        self._femspace.vector_space[c],
+                        self._femspace.coeff_space[c],
+                        self._femspace.coeff_space[c],
                         solvercells,
                     ),
                 ]
@@ -268,8 +268,8 @@ class MassMatrixPreconditioner(LinearOperator):
             ]
 
             self._matrix = BlockLinearOperator(
-                self._femspace.vector_space,
-                self._femspace.vector_space,
+                self._femspace.coeff_space,
+                self._femspace.coeff_space,
                 blocks=blocks,
             )
 
@@ -280,8 +280,8 @@ class MassMatrixPreconditioner(LinearOperator):
             ]
 
             self._solver = BlockLinearOperator(
-                self._femspace.vector_space,
-                self._femspace.vector_space,
+                self._femspace.coeff_space,
+                self._femspace.coeff_space,
                 blocks=sblocks,
             )
 
@@ -513,7 +513,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
                 # apply boundary conditions
                 if apply_bc:
-                    if mass_operator._domain_symbolic_name != "H1H1H1":
+                    if mass_operator._domain_symbolic_name not in ("H1H1H1", "H1vec"):
                         if femspace_1d.basis == "B":
                             if bc[d][0]:
                                 apply_essential_bc_stencil(
@@ -559,12 +559,12 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                     solvercells += [SparseSolver(M.tosparse())]
 
                 # === NOTE: for KroneckerStencilMatrix being built correctly, 1d matrices must be local to process! ===
-                periodic = femspaces[c].vector_space.periods[d]
+                periodic = femspaces[c].coeff_space.periods[d]
 
-                n = femspaces[c].vector_space.npts[d]
-                p = femspaces[c].vector_space.pads[d]
-                s = femspaces[c].vector_space.starts[d]
-                e = femspaces[c].vector_space.ends[d]
+                n = femspaces[c].coeff_space.npts[d]
+                p = femspaces[c].coeff_space.pads[d]
+                s = femspaces[c].coeff_space.starts[d]
+                e = femspaces[c].coeff_space.ends[d]
 
                 cart_decomp_1d = CartDecomposition(
                     domain_decompos_1d,
@@ -600,30 +600,30 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             if isinstance(self._femspace, TensorFemSpace):
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space,
-                        self._femspace.vector_space,
+                        self._femspace.coeff_space,
+                        self._femspace.coeff_space,
                         *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space,
-                        self._femspace.vector_space,
+                        self._femspace.coeff_space,
+                        self._femspace.coeff_space,
                         solvercells,
                     ),
                 ]
             else:
                 matrixblocks += [
                     KroneckerStencilMatrix(
-                        self._femspace.vector_space[c],
-                        self._femspace.vector_space[c],
+                        self._femspace.coeff_space[c],
+                        self._femspace.coeff_space[c],
                         *matrixcells,
                     ),
                 ]
                 solverblocks += [
                     KroneckerLinearSolver(
-                        self._femspace.vector_space[c],
-                        self._femspace.vector_space[c],
+                        self._femspace.coeff_space[c],
+                        self._femspace.coeff_space[c],
                         solvercells,
                     ),
                 ]
@@ -640,8 +640,8 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             ]
 
             self._matrix = BlockLinearOperator(
-                self._femspace.vector_space,
-                self._femspace.vector_space,
+                self._femspace.coeff_space,
+                self._femspace.coeff_space,
                 blocks=blocks,
             )
 
@@ -651,8 +651,8 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 [None, None, solverblocks[2]],
             ]
             self._solver = BlockLinearOperator(
-                self._femspace.vector_space,
-                self._femspace.vector_space,
+                self._femspace.coeff_space,
+                self._femspace.coeff_space,
                 blocks=sblocks,
             )
 
@@ -836,173 +836,6 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                 out = self._tmp_vector.copy()
             self._solve_no_bc(rhs, out=out)
 
-        return out
-
-    def dot(self, v, out=None):
-        """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
-
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
-
-        # newly created output vector
-        if out is None:
-            out = self.solve(v)
-
-        # in-place dot-product (result is written to out)
-        else:
-            assert isinstance(out, Vector)
-            assert out.space == self.codomain
-            self.solve(v, out=out)
-
-        return out
-
-
-class ProjectorPreconditioner(LinearOperator):
-    r"""
-    Preconditioner for approximately inverting a (polar) 3d inter-/histopolation matrix via
-
-    .. math::
-
-        (B * P * I * E^T * B^T)^{-1} \approx B * P * I^{-1} * E^T * B^T.
-
-    In case that $P$ and $E$ are identity operators, the solution is exact (pure tensor product case).
-
-    Parameters
-    ----------
-    projector : CommutingProjector
-        The global commuting projector for which the inter-/histopolation matrix shall be inverted.
-
-    transposed : bool, optional
-        Whether to invert the transposed inter-/histopolation matrix.
-
-    apply_bc : bool, optional
-        Whether to include the boundary operators.
-    """
-
-    def __init__(self, projector, transposed=False, apply_bc=False):
-        # vector space in tensor product case/polar case
-        self._space = projector.I.domain
-
-        self._codomain = projector.I.codomain
-
-        self._dtype = projector.I.dtype
-
-        self._projector = projector
-
-        self._apply_bc = apply_bc
-
-        # save Kronecker solver (needed in solve method)
-        self._solver = projector.projector_tensor.solver
-        if transposed:
-            self._solver = self.solver.transpose()
-
-        self._transposed = transposed
-
-        # save inter-/histopolation matrix to be inverted
-        if transposed:
-            self._I = projector.IT
-        else:
-            self._I = projector.I
-
-        self._is_composed = isinstance(self._I, ComposedLinearOperator)
-
-        # temporary vectors for dot product
-        if self._is_composed:
-            tmp_vectors = []
-            for op in self._I.multiplicants[1:]:
-                tmp_vectors.append(op.codomain.zeros())
-
-            self._tmp_vectors = tuple(tmp_vectors)
-        else:
-            self._tmp_vector = self._I.codomain.zeros()
-
-    @property
-    def space(self):
-        """Stencil-/BlockVectorSpace or PolarDerhamSpace."""
-        return self._space
-
-    @property
-    def solver(self):
-        """KroneckerLinearSolver for exactly inverting tensor product inter-histopolation matrix."""
-        return self._solver
-
-    @property
-    def transposed(self):
-        """Whether to invert the transposed inter-/histopolation matrix."""
-        return self._transposed
-
-    @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._space
-
-    @property
-    def codomain(self):
-        """The codomain of the linear operator - an element of Vectorspace"""
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    def tosparse(self):
-        raise NotImplementedError()
-
-    def toarray(self):
-        raise NotImplementedError()
-
-    def transpose(self, conjugate=False):
-        """
-        Returns the transposed operator.
-        """
-        return ProjectorPreconditioner(self._projector, True, self._apply_bc)
-
-    def solve(self, rhs, out=None):
-        """
-        Computes (B * P * I^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True) as an approximation for an inverse inter-/histopolation matrix.
-
-        Parameters
-        ----------
-        rhs : psydac.linalg.basic.Vector
-            The right-hand side vector.
-
-        out : psydac.linalg.basic.Vector, optional
-            If given, the output vector will be written into this vector in-place.
-
-        Returns
-        -------
-        out : psydac.linalg.basic.Vector
-            The result of (B * E * M^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True).
-        """
-
-        assert isinstance(rhs, Vector)
-        assert rhs.space == self._space
-
-        # successive dot products with all but last operator
-        if self._is_composed:
-            x = rhs
-            for i in range(len(self._tmp_vectors)):
-                y = self._tmp_vectors[-1 - i]
-                A = self._I.multiplicants[-1 - i]
-                if isinstance(A, (StencilMatrix, KroneckerStencilMatrix, BlockLinearOperator)):
-                    self.solver.dot(x, out=y)
-                else:
-                    A.dot(x, out=y)
-                x = y
-
-            # last operator
-            A = self._I.multiplicants[0]
-            if out is None:
-                out = A.dot(x)
-            else:
-                assert isinstance(out, Vector)
-                assert out.space == self._space
-                A.dot(x, out=out)
-
-        else:
-            if out is None:
-                out = self.solver.dot(rhs)
-            self.solver.dot(rhs, out=out)
         return out
 
     def dot(self, v, out=None):

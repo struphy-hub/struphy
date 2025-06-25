@@ -83,7 +83,6 @@ import tempfile
 import time
 from collections import defaultdict
 
-import pandas as pd
 from tabulate import tabulate
 
 import struphy
@@ -99,8 +98,7 @@ PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
 
 
 def check_omp_flags(file_path, verbose=False):
-    """
-    Checks if a file contains incorrect OpenMP-like flags (`# $`).
+    """Checks if a file contains incorrect OpenMP-like flags (`# $`).
 
     Parameters:
     -----------
@@ -124,8 +122,7 @@ def check_omp_flags(file_path, verbose=False):
 
 
 def check_ruff(file_path, verbose=False):
-    """
-    Check if a file passes Ruff linting.
+    """Check if a file passes Ruff linting.
 
     Parameters
     ----------
@@ -175,8 +172,7 @@ def check_ruff(file_path, verbose=False):
 
 
 def check_isort(file_path, verbose=False):
-    """
-    Check if a file is sorted according to isort.
+    """Check if a file is sorted according to isort.
 
     Parameters
     ----------
@@ -204,8 +200,7 @@ def check_isort(file_path, verbose=False):
 
 
 def check_autopep8(file_path, verbose=False):
-    """
-    Check if a file is formatted according to autopep8.
+    """Check if a file is formatted according to autopep8.
 
     Parameters
     ----------
@@ -235,8 +230,7 @@ def check_autopep8(file_path, verbose=False):
 
 
 def check_flake8(file_path, verbose=False):
-    """
-    Check if a file is formatted according to flake8.
+    """Check if a file is formatted according to flake8.
 
     Parameters
     ----------
@@ -265,8 +259,7 @@ def check_flake8(file_path, verbose=False):
 
 
 def get_pylint_score(file_path, verbose=False, pass_score=8.0):
-    """
-    Get pylint score for a file and determine if it passes.
+    """Get pylint score for a file and determine if it passes.
 
     Parameters
     ----------
@@ -320,8 +313,7 @@ def get_pylint_score(file_path, verbose=False, pass_score=8.0):
 
 
 def check_trailing_commas(file_path, verbose=False):
-    """
-    Check if a file contains trailing commas as required by add-trailing-commas.
+    """Check if a file contains trailing commas as required by add-trailing-commas.
 
     Parameters
     ----------
@@ -367,8 +359,7 @@ def check_trailing_commas(file_path, verbose=False):
 
 
 def parse_path(directory):
-    """
-    Traverse a directory to find Python files, excluding '__XYZ__.py'.
+    """Traverse a directory to find Python files, excluding '__XYZ__.py'.
 
     Parameters
     ----------
@@ -391,8 +382,7 @@ def parse_path(directory):
 
 
 def get_python_files(input_type, path=None):
-    """
-    Retrieve Python files based on the specified input type
+    """Retrieve Python files based on the specified input type.
 
     Parameters
     ----------
@@ -480,8 +470,7 @@ def get_python_files(input_type, path=None):
 
 
 def struphy_lint(config, verbose):
-    """
-    Lint Python files based on the given configuration and specified linters.
+    """Lint Python files based on the given configuration and specified linters.
 
     Parameters
     ----------
@@ -614,8 +603,7 @@ def confirm_formatting(python_files, linters, yes):
 
 
 def files_require_formatting(python_files, linters):
-    """
-    Check if any of the specified files still require formatting based on the specified linters.
+    """Check if any of the specified files still require formatting based on the specified linters.
 
     Parameters
     ----------
@@ -674,8 +662,7 @@ def run_linters_on_files(linters, python_files, flags, verbose):
 
 
 def struphy_format(config, verbose, yes=False):
-    """
-    Format Python files with specified linters, optionally iterating multiple times.
+    """Format Python files with specified linters, optionally iterating multiple times.
 
     Parameters
     ----------
@@ -755,8 +742,7 @@ def struphy_format(config, verbose, yes=False):
 
 
 def print_stats_plain(stats, linters, ci_linters=["ruff"]):
-    """
-    Print statistics for a single file in plain text format.
+    """Print statistics for a single file in plain text format.
 
     Parameters
     ----------
@@ -789,8 +775,7 @@ def print_stats_plain(stats, linters, ci_linters=["ruff"]):
 
 
 def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_linters=["ruff"]):
-    """
-    Print statistics for Python files in a tabular format.
+    """Print statistics for Python files in a tabular format.
 
     Parameters
     ----------
@@ -850,8 +835,7 @@ def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_lint
 
 
 def analyze_file(file_path, linters=None, verbose=False):
-    """
-    Analyze a Python file with list of linters
+    """Analyze a Python file with list of linters.
 
     Parameters
     ----------
@@ -936,8 +920,7 @@ def analyze_file(file_path, linters=None, verbose=False):
 
 
 def replace_backticks_with_code_tags(text):
-    """
-    Recursively replaces inline backticks with <code> tags.
+    """Recursively replaces inline backticks with <code> tags.
     Handles multiple or nested occurrences.
 
     Args:
@@ -971,7 +954,7 @@ def generate_html_table_from_combined_data(combined_data, sort_descending=True):
 
 
 def parse_json_file_to_html(json_file_path, html_output_path):
-    """
+    """Parses a JSON file containing code issues and writes an HTML report.
     Parses a JSON file containing code issues, groups them by filename,
     reads the source code to extract context, and writes an HTML report.
     Each file's section is foldable using <details> and <summary> tags.
@@ -1288,7 +1271,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
                         html_content.append("</div>")
                 else:
                     html_content.append(
-                        f"<p>Cannot read file <code>{filename}</code> or invalid row " f"<code>{row}</code>.</p>"
+                        f"<p>Cannot read file <code>{filename}</code> or invalid row <code>{row}</code>.</p>"
                     )
 
                 html_content.append("</div>")

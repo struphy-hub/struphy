@@ -90,15 +90,15 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
 
     # loop over spaces
     for sp_id, sp_key in derham.space_to_form.items():
-        P_Loc = derham._Ploc[sp_key]
+        P_Loc = derham.P[sp_key]
 
         out = derham.Vh[sp_key].zeros()
 
         # field for local projection output
-        field = derham.create_field("fh", sp_id)
+        field = derham.create_spline_function("fh", sp_id)
 
         # field for global projection output
-        fieldg = derham.create_field("fhg", sp_id)
+        fieldg = derham.create_spline_function("fhg", sp_id)
 
         # project test function
         if sp_id in ("H1", "L2"):
@@ -214,10 +214,10 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
 
         # loop over spaces
         for sp_id, sp_key in derham.space_to_form.items():
-            P_Loc = derham._Ploc[sp_key]
+            P_Loc = derham.P[sp_key]
             out = derham.Vh[sp_key].zeros()
 
-            field = derham.create_field("fh", sp_id)
+            field = derham.create_spline_function("fh", sp_id)
 
             # project test function
             if sp_id in ("H1", "L2"):
@@ -301,7 +301,7 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
 
     # For B-splines
     sp_key = "0"
-    P_Loc = derham._Ploc[sp_key]
+    P_Loc = derham.P[sp_key]
     spaces = derham.Vh_fem[sp_key].spaces
     space = spaces[0]
     N = space.nbasis
@@ -366,11 +366,11 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
 
     sp_key = "3"
     sp_id = "L2"
-    P_Loc = derham._Ploc[sp_key]
+    P_Loc = derham.P[sp_key]
     spaces = derham.Vh_fem[sp_key].spaces
     input = derham.Vh[sp_key].zeros()
     npts = derham.Vh[sp_key].npts
-    field = derham.create_field("fh", sp_id)
+    field = derham.create_spline_function("fh", sp_id)
 
     counter = 0
     for col0 in range(npts[0]):
@@ -471,7 +471,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
                 varr.append(j)
 
     # We get the local projector
-    P_Loc = derham._Ploc[out_sp_key]
+    P_Loc = derham.P[out_sp_key]
     out = derham.Vh[out_sp_key].zeros()
     VFEM = derham.Vh_fem[out_sp_key]
 
@@ -483,10 +483,10 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
         VFEM1ds = [VFEM.spaces]
         nbasis_out = np.array([VFEM1ds[0][0].nbasis, VFEM1ds[0][1].nbasis, VFEM1ds[0][2].nbasis])
     else:
-        npts_out = np.array([sp.npts for sp in P_Loc._vector_space.spaces])
-        pds = np.array([vi.pads for vi in P_Loc._vector_space.spaces])
-        starts = np.array([vi.starts for vi in P_Loc._vector_space.spaces])
-        ends = np.array([vi.ends for vi in P_Loc._vector_space.spaces])
+        npts_out = np.array([sp.npts for sp in P_Loc.coeff_space.spaces])
+        pds = np.array([vi.pads for vi in P_Loc.coeff_space.spaces])
+        starts = np.array([vi.starts for vi in P_Loc.coeff_space.spaces])
+        ends = np.array([vi.ends for vi in P_Loc.coeff_space.spaces])
         starts = np.array(starts, dtype=int)
         ends = np.array(ends, dtype=int)
         pds = np.array(pds, dtype=int)
@@ -506,7 +506,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
     if in_sp_key == "0" or in_sp_key == "3":
         npts_in = derham.Vh[in_sp_key].npts
     else:
-        npts_in = np.array([sp.npts for sp in derham.Vh_fem[in_sp_key].vector_space.spaces])
+        npts_in = np.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
 
     def define_basis(in_sp_key):
         def wrapper(dim, index, h=None):
@@ -556,13 +556,13 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
             input[random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
     else:
-        npts_in = np.array([sp.npts for sp in derham.Vh_fem[in_sp_key].vector_space.spaces])
+        npts_in = np.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
         random_h = random.randrange(0, 3)
         random_i0 = random.randrange(0, npts_in[random_h][0])
         random_i1 = random.randrange(0, npts_in[random_h][1])
         random_i2 = random.randrange(0, npts_in[random_h][2])
-        starts_in = np.array([sp.starts for sp in derham.Vh_fem[in_sp_key].vector_space.spaces])
-        ends_in = np.array([sp.ends for sp in derham.Vh_fem[in_sp_key].vector_space.spaces])
+        starts_in = np.array([sp.starts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        ends_in = np.array([sp.ends for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
         if starts_in[random_h][0] <= random_i0 and random_i0 <= ends_in[random_h][0]:
             input[random_h][random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
@@ -1102,7 +1102,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
     basis1, basis2, basis3 = define_basis(in_sp_key)
 
     # We get the local projector
-    P_Loc = derham._Ploc[out_sp_key]
+    P_Loc = derham.P[out_sp_key]
     # We get the global projector
     P = derham._P[out_sp_key]
 
@@ -1119,13 +1119,13 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
             input[random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
     else:
-        npts_in = np.array([sp.npts for sp in derham.Vh_fem[in_sp_key].vector_space.spaces])
+        npts_in = np.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
         random_h = random.randrange(0, 3)
         random_i0 = random.randrange(0, npts_in[random_h][0])
         random_i1 = random.randrange(0, npts_in[random_h][1])
         random_i2 = random.randrange(0, npts_in[random_h][2])
-        starts = np.array([sp.starts for sp in derham.Vh_fem[in_sp_key].vector_space.spaces])
-        ends = np.array([sp.ends for sp in derham.Vh_fem[in_sp_key].vector_space.spaces])
+        starts = np.array([sp.starts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        ends = np.array([sp.ends for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
         if starts[random_h][0] <= random_i0 and random_i0 <= ends[random_h][0]:
             input[random_h][random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
@@ -1324,10 +1324,10 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
     elif out_sp_key == "v":
         out_sp_id = "H1vec"
 
-    fieldloc = derham.create_field("fh", out_sp_id)
+    fieldloc = derham.create_spline_function("fh", out_sp_id)
     fieldloc.vector = FE_loc
 
-    fieldglo = derham.create_field("fh", out_sp_id)
+    fieldglo = derham.create_spline_function("fh", out_sp_id)
     fieldglo.vector = FE_glo
 
     errorloc = np.abs(fieldloc(*meshgrid) - analytic_vals)
@@ -1447,12 +1447,12 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
 
     # FE coefficeints to get B-splines from field
     inputB = derham.Vh["0"].zeros()
-    fieldB = derham.create_field("fh", "H1")
+    fieldB = derham.create_spline_function("fh", "H1")
     npts_in_B = derham.Vh["0"].npts
 
     # FE coefficeints to get D-splines from field
     inputD = derham.Vh["3"].zeros()
-    fieldD = derham.create_field("fh", "L2")
+    fieldD = derham.create_spline_function("fh", "L2")
     npts_in_D = derham.Vh["3"].npts
 
     etas1 = np.linspace(0.0, 1.0, 20)

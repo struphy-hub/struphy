@@ -466,7 +466,7 @@ class Accumulator:
 
             \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
 
-        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.Derham.Field`.
+        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.SplineFunction`.
         """
         from matplotlib import pyplot as plt
 
@@ -477,7 +477,7 @@ class Accumulator:
         a = proj.solve(self.vectors[0])
 
         # create field and assign coeffs
-        field = self.derham.create_field("accum_field", self.space_id)
+        field = self.derham.create_spline_function("accum_field", self.space_id)
         field.vector = a
 
         # plot field
@@ -548,29 +548,29 @@ class AccumulatorVector:
 
         if space_id in ("H1", "L2"):
             self._vectors += [
-                StencilVector(self.derham.Vh_fem[self.form].vector_space),
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
             self._vectors_temp += [
-                StencilVector(self.derham.Vh_fem[self.form].vector_space),
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
             self._vectors_out += [
-                StencilVector(self.derham.Vh_fem[self.form].vector_space),
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
 
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
             self._vectors += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].vector_space,
+                    self.derham.Vh_fem[self.form].coeff_space,
                 ),
             ]
             self._vectors_temp += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].vector_space,
+                    self.derham.Vh_fem[self.form].coeff_space,
                 ),
             ]
             self._vectors_out += [
                 BlockVector(
-                    self.derham.Vh_fem[self.form].vector_space,
+                    self.derham.Vh_fem[self.form].coeff_space,
                 ),
             ]
 
@@ -702,7 +702,7 @@ class AccumulatorVector:
 
             \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
 
-        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.Derham.Field`.
+        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.SplineFunction`.
         """
         from matplotlib import pyplot as plt
 
@@ -713,7 +713,7 @@ class AccumulatorVector:
         a = proj.solve(self.vectors[0])
 
         # create field and assign coeffs
-        field = self.derham.create_field("accum_field", self.space_id)
+        field = self.derham.create_spline_function("accum_field", self.space_id)
         field.vector = a
 
         # plot field

@@ -220,13 +220,13 @@ For running (parallel) tests:
 
         .. code-block::
 
-            pip install --no-cache-dir -U struphy[test]
+            pip install --no-cache-dir -U struphy
 
     .. tab-item:: zsh
 
         .. code-block::
 
-            pip install --no-cache-dir -U struphy"[test]"
+            pip install --no-cache-dir -U struphy
 
 Compile kernels in ``c`` (default)::
 
@@ -283,19 +283,19 @@ Struphy features optional dependencies:
 
     .. tab-item:: bash
 
-        * ``pip install .[test]`` enables (parallel) tests
+        * ``pip install .[phys]`` enables some physics packages, see `pyproject.toml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/pyproject.toml?ref_type=heads>`_
         * ``pip install .[dev]`` enables the development environment (testing, linting, formatting)
         * ``pip install .[doc]`` enables :ref:`change_doc`
 
-        These can also be combined, as for example in ``pip install .[dev,doc]``.
+        These can also be combined, as for example in ``pip install .[phys,dev,doc]``.
 
     .. tab-item:: zsh
 
-        * ``pip install ."[test]"`` enables (parallel) tests
+        * ``pip install ."[phys]"`` enables some physics packages, see `pyproject.toml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/pyproject.toml?ref_type=heads>`_
         * ``pip install ."[dev]"`` enables the development environment (testing, linting, formatting)
         * ``pip install ."[doc]"`` enables :ref:`change_doc`
 
-        These can also be combined, as for example in ``pip install ."[dev,doc]"``.
+        These can also be combined, as for example in ``pip install ."[phys,dev,doc]"``.
 
 Compile kernels in ``c`` (default)::
 
@@ -442,7 +442,7 @@ A common installation looks like this
 1. Load necessary modules and create a virtual environment::
 
     module purge
-    module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
+    module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git pandoc graphviz/8
     pip install -U virtualenv
     python3 -m venv <some_name>
     source <some_name>/bin/activate

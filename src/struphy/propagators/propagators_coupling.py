@@ -1,9 +1,9 @@
 "Particle and FEEC variables are updated."
 
 import numpy as np
-
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
+
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.io.setup import descend_options_dict
@@ -742,11 +742,11 @@ class PressureCoupling6D(Propagator):
             Parameters
             ----------
                 v : StencilVector or BlockVector
-                    Input FE coefficients from V.vector_space.
+                    Input FE coefficients from V.coeff_space.
 
             Returns
             -------
-                A StencilVector or BlockVector from W.vector_space."""
+                A StencilVector or BlockVector from W.coeff_space."""
 
             assert v.space == self.domain
 
@@ -1495,7 +1495,8 @@ class CurrentCoupling5DGradB(Propagator):
         boundary_cut: dict = options(default=True)["boundary_cut"],
     ):
         from psydac.linalg.solvers import inverse
-        from struphy.pic.pushing.pusher import ButcherTableau
+
+        from struphy.ode.utils import ButcherTableau
 
         super().__init__(particles, u)
 
@@ -1659,6 +1660,9 @@ class CurrentCoupling5DGradB(Propagator):
 
         # choose algorithm
         self._butcher = ButcherTableau(algo)
+        # temp fix due to refactoring of ButcherTableau:
+        self._butcher._a = np.diag(self._butcher.a, k=-1)
+        self._butcher._a = np.array(list(self._butcher.a) + [0.0])
 
         # instantiate Pusher
         if u_space == "Hdiv":

@@ -69,6 +69,7 @@ __epyccel__/
 *.vts
 *acquisition.lock
 *.json
+.output*
 
 # Default simulations and diagnostics
 my_diagnostics
@@ -77,11 +78,14 @@ my_struphy_sims
 /run_STRUPHY*.sh
 logs
 *env/
+.hostfile*
+.likwidscript*
 code_analysis_report.html
 
 # I/O
 src/struphy/io/out/
 src/struphy/state.yml
+src/struphy/io/inp/params_*
 
 # models list
 src/struphy/models/models_list

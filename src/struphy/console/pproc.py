@@ -1,9 +1,18 @@
 from struphy.console.run import subp_run
 
 
-def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False, guiding_center=False, classify=False):
-    """
-    Post process data from finished Struphy runs.
+def struphy_pproc(
+    dirr,
+    dir_abs=None,
+    step=1,
+    celldivide=1,
+    physical=False,
+    guiding_center=False,
+    classify=False,
+    no_vtk=False,
+    time_trace=False,
+):
+    """Post process data from finished Struphy runs.
 
     Parameters
     ----------
@@ -55,5 +64,12 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False, guid
 
     if classify:
         command += ["--classify"]
+
+    # Whether vtk files should be created
+    if no_vtk:
+        command += ["--no-vtk"]
+
+    if time_trace:
+        command += ["--time-trace"]
 
     subp_run(command)

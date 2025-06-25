@@ -6,14 +6,14 @@ from mpi4py import MPI
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize('Nel', [[8, 9, 10]])
-@pytest.mark.parametrize('p', [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
-@pytest.mark.parametrize('spl_kind', [[False, False, True], [False, True, False], [True, False, False]])
+@pytest.mark.parametrize("Nel", [[8, 9, 10]])
+@pytest.mark.parametrize("p", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
+@pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
 def test_bsplines_span_and_basis(Nel, p, spl_kind):
-    '''
+    """
     Compare Struphy and Psydac bsplines kernels for knot spans and basis values computation.
     Print timings.
-    '''
+    """
 
     import psydac.core.bsplines_kernels as bsp_psy
 
@@ -29,15 +29,15 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # knot vectors
-    tn1, tn2, tn3 = derham.Vh_fem['0'].knots
-    td1, td2, td3 = derham.Vh_fem['3'].knots
+    tn1, tn2, tn3 = derham.Vh_fem["0"].knots
+    td1, td2, td3 = derham.Vh_fem["3"].knots
 
     # Random points in domain of process
     n_pts = 100
     dom = derham.domain_array[rank]
-    eta1s = np.random.rand(n_pts)*(dom[1] - dom[0]) + dom[0]
-    eta2s = np.random.rand(n_pts)*(dom[4] - dom[3]) + dom[3]
-    eta3s = np.random.rand(n_pts)*(dom[7] - dom[6]) + dom[6]
+    eta1s = np.random.rand(n_pts) * (dom[1] - dom[0]) + dom[0]
+    eta2s = np.random.rand(n_pts) * (dom[4] - dom[3]) + dom[3]
+    eta3s = np.random.rand(n_pts) * (dom[7] - dom[6]) + dom[6]
 
     # struphy find_span
     t0 = time.time()
@@ -48,7 +48,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         span3s += [bsp.find_span(tn3, derham.p[2], eta3)]
     t1 = time.time()
     if rank == 0:
-        print(f'struphy find_span  : {t1 - t0}')
+        print(f"struphy find_span  : {t1 - t0}")
 
     # psydac find_span_p
     t0 = time.time()
@@ -59,7 +59,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         span3s_psy += [bsp_psy.find_span_p(tn3, derham.p[2], eta3)]
     t1 = time.time()
     if rank == 0:
-        print(f'psydac find_span_p : {t1 - t0}')
+        print(f"psydac find_span_p : {t1 - t0}")
 
     assert np.allclose(span1s, span1s_psy)
     assert np.allclose(span2s, span2s_psy)
@@ -86,7 +86,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s += [bn3]
     t1 = time.time()
     if rank == 0:
-        print(f'bsp.b_splines_slim        : {t1 - t0}')
+        print(f"bsp.b_splines_slim        : {t1 - t0}")
 
     # psydac basis_funs_p
     val1s_psy, val2s_psy, val3s_psy = [], [], []
@@ -100,7 +100,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s_psy += [bn3]
     t1 = time.time()
     if rank == 0:
-        print(f'bsp_psy.basis_funs_p for N: {t1 - t0}')
+        print(f"bsp_psy.basis_funs_p for N: {t1 - t0}")
 
     # compare
     for val1, val1_psy in zip(val1s, val1s_psy):
@@ -128,7 +128,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s_d += [bd3]
     t1 = time.time()
     if rank == 0:
-        print(f'bsp.b_d_splines_slim      : {t1 - t0}')
+        print(f"bsp.b_d_splines_slim      : {t1 - t0}")
 
     # compare
     for val1, val1_psy in zip(val1s_n, val1s_psy):
@@ -158,7 +158,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s += [bd3]
     t1 = time.time()
     if rank == 0:
-        print(f'bsp.d_splines_slim        : {t1 - t0}')
+        print(f"bsp.d_splines_slim        : {t1 - t0}")
 
     # psydac basis_funs_p for D-splines
     val1s_psy, val2s_psy, val3s_psy = [], [], []
@@ -172,7 +172,7 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         val3s_psy += [bd3]
     t1 = time.time()
     if rank == 0:
-        print(f'bsp_psy.basis_funs_p for D: {t1 - t0}')
+        print(f"bsp_psy.basis_funs_p for D: {t1 - t0}")
 
     # compare
     for val1, val1_psy in zip(val1s, val1s_psy):
@@ -194,5 +194,5 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
         assert np.allclose(val3, val3_psy)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_bsplines_span_and_basis([8, 9, 10], [3, 4, 3], [False, False, True])
