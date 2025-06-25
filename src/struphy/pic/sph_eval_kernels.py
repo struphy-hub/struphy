@@ -4,6 +4,7 @@ import struphy.pic.sorting_kernels as sorting_kernels
 import struphy.pic.sph_smoothing_kernels as sph_smoothing_kernels
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 
+
 def distance(x: "float", y: "float", periodic: "bool") -> float:
     """Return the one dimensional distance of x and y taking in account the periodicity on [0,1]."""
     d = x - y
