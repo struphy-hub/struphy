@@ -4,6 +4,8 @@
 Basic functions for point-wise B-spline evaluation
 """
 
+from typing import Final
+
 from numpy import empty, zeros
 from pyccel.decorators import pure, stack_array
 
@@ -108,7 +110,7 @@ def piecewise_der(p: "int", delta: "float", eta: "float") -> "float":
 
 # ========================================================================================
 @pure
-def convolution(p: "int", grids: "float[:]", eta: "float") -> "float":
+def convolution(p: "int", grids: "Final[float[:]]", eta: "float") -> "float":
     r"""
     evaluate a hat function (B-spline) at eta, i.e.
 
@@ -159,7 +161,7 @@ def convolution(p: "int", grids: "float[:]", eta: "float") -> "float":
 
 # ========================================================================================
 @pure
-def convolution_der(p: "int", grids: "float[:]", eta: "float") -> "float":
+def convolution_der(p: "int", grids: "Final[float[:]]", eta: "float") -> "float":
     r"""
     evaluate the derivative of a hat function (B-spline) at eta, i.e.
 

@@ -123,7 +123,7 @@ stages:
     - uname -a
     - module list
     - module avail
-    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
+    - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8 cmake
     #- module unload python-waterboa/2024.06 # for gvec
     - module load cmake netcdf-serial mkl hdf5-serial # for gvec
     - export FC=`which gfortran` # for gvec
@@ -171,8 +171,20 @@ stages:
     - pip install -U pip
     - python3 -m pip list
     - python3 --version
+  install_pyccel_devel:
+    - !reference [.scripts, source_env_matrix_push]
+    - git status
+    - git fetch origin
+    - git checkout $CI_COMMIT_BRANCH
+    - git pull
+    - struphy compile -d -y
+    - pip uninstall psydac pyccel gvec-to-python -y
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
+    - struphy compile -d -y
+    - !reference [.scripts, compile_matrix]
   install_on_push:
     - !reference [.scripts, source_env_matrix_push]
+    - pip uninstall psydac pyccel gvec-to-python -y
     - git status
     - git fetch origin
     - git checkout $CI_COMMIT_BRANCH
@@ -180,16 +192,19 @@ stages:
     - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - !reference [.scripts, compile_matrix]
   install:
+    - pip uninstall psydac pyccel gvec-to-python -y
     - pip install $(echo $STRUPHY_SOURCE)[phys]
     - pip show struphy
     - pip list
     - struphy -h
   compile:
     - pyccel --version
+    - struphy compile -d -y
     - struphy compile --status
     - struphy compile -y
   compile_matrix:
     - pyccel --version
+    - struphy compile -d -y
     - struphy compile --status
     - echo ${LANGUAGE} && echo ${OMP}
     - struphy compile --language ${LANGUAGE} ${OMP} -y
@@ -286,6 +301,18 @@ unit_tests:
     - !reference [.scripts, install_on_push]
     - !reference [.scripts, unit_tests]
 
+tests_pyccel_devel:
+  stage: test
+  extends:
+    - .rules_scheduled
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_pyccel_devel]
+    - !reference [.scripts, unit_tests]
+    - !reference [.scripts, model_tests]
+
 model_tests:
   stage: test
   extends:
@@ -349,6 +376,9 @@ macos_nmpp:
     - .rules_push
     - .variables_push
   before_script:
+    # - brew install cmake
+    - brew link --overwrite cmake
+    - cmake --version 
     - make -v
     - printenv
     - system_profiler SPHardwareDataType
@@ -712,7 +742,7 @@ lint_full_repo_report:
   artifacts:
     paths:
       - lint_reports/
-    expire_in: 1 week
+    expire_in: 1 month
 
 # Lint struphy with `struphy lint`
 lint_branch:
@@ -747,7 +777,7 @@ lint_branch_report:
   artifacts:
     paths:
       - lint_reports/
-    expire_in: 1 week
+    expire_in: 1 month
 
 ###################
 ### PAGES STAGE ###
