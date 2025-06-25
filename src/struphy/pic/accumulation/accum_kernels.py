@@ -310,36 +310,24 @@ def hybrid_fA_Arelated(
 
         # filling_m
         filling_m[0, 0] = (
-            weight
-            / Np
-            * (df_inv[0, 0] * df_inv[0, 0] + df_inv[0, 1] * df_inv[0, 1] + df_inv[0, 2] * df_inv[0, 2])
+            weight / Np * (df_inv[0, 0] * df_inv[0, 0] + df_inv[0, 1] * df_inv[0, 1] + df_inv[0, 2] * df_inv[0, 2])
         )
         filling_m[0, 1] = (
-            weight
-            / Np
-            * (df_inv[0, 0] * df_inv[1, 0] + df_inv[0, 1] * df_inv[1, 1] + df_inv[0, 2] * df_inv[1, 2])
+            weight / Np * (df_inv[0, 0] * df_inv[1, 0] + df_inv[0, 1] * df_inv[1, 1] + df_inv[0, 2] * df_inv[1, 2])
         )
         filling_m[0, 2] = (
-            weight
-            / Np
-            * (df_inv[0, 0] * df_inv[2, 0] + df_inv[0, 1] * df_inv[2, 1] + df_inv[0, 2] * df_inv[2, 2])
+            weight / Np * (df_inv[0, 0] * df_inv[2, 0] + df_inv[0, 1] * df_inv[2, 1] + df_inv[0, 2] * df_inv[2, 2])
         )
 
         filling_m[1, 1] = (
-            weight
-            / Np
-            * (df_inv[1, 0] * df_inv[1, 0] + df_inv[1, 1] * df_inv[1, 1] + df_inv[1, 2] * df_inv[1, 2])
+            weight / Np * (df_inv[1, 0] * df_inv[1, 0] + df_inv[1, 1] * df_inv[1, 1] + df_inv[1, 2] * df_inv[1, 2])
         )
         filling_m[1, 2] = (
-            weight
-            / Np
-            * (df_inv[1, 0] * df_inv[2, 0] + df_inv[1, 1] * df_inv[2, 1] + df_inv[1, 2] * df_inv[2, 2])
+            weight / Np * (df_inv[1, 0] * df_inv[2, 0] + df_inv[1, 1] * df_inv[2, 1] + df_inv[1, 2] * df_inv[2, 2])
         )
 
         filling_m[2, 2] = (
-            weight
-            / Np
-            * (df_inv[2, 0] * df_inv[2, 0] + df_inv[2, 1] * df_inv[2, 1] + df_inv[2, 2] * df_inv[2, 2])
+            weight / Np * (df_inv[2, 0] * df_inv[2, 0] + df_inv[2, 1] * df_inv[2, 1] + df_inv[2, 2] * df_inv[2, 2])
         )
 
         # filling_v
