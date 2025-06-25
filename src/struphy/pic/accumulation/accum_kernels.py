@@ -25,12 +25,11 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 
 def charge_density_0form(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
@@ -43,6 +42,9 @@ def charge_density_0form(
 
         B_p^\mu = \frac{w_p}{N} \,.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -84,8 +86,7 @@ def charge_density_0form(
     "grids_shapez",
 )
 def hybrid_fA_density(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat: "float[:,:,:,:,:,:]",
@@ -110,6 +111,9 @@ def hybrid_fA_density(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate
     cell_left = empty(3, dtype=int)
@@ -231,8 +235,7 @@ def hybrid_fA_density(
 
 @stack_array("dfm", "df_t", "df_inv", "df_inv_times_v", "filling_m", "filling_v", "v")
 def hybrid_fA_Arelated(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -258,6 +261,9 @@ def hybrid_fA_Arelated(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -376,8 +382,7 @@ def hybrid_fA_Arelated(
 
 @stack_array("dfm", "df_inv", "v", "df_inv_times_v", "filling_m", "filling_v")
 def linear_vlasov_ampere(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -409,6 +414,9 @@ def linear_vlasov_ampere(
     ----
     The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -492,8 +500,7 @@ def linear_vlasov_ampere(
 
 
 def vlasov_maxwell_poisson(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
@@ -512,6 +519,9 @@ def vlasov_maxwell_poisson(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -542,8 +552,7 @@ def vlasov_maxwell_poisson(
 
 @stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "v", "df_inv_times_v", "filling_m", "filling_v")
 def vlasov_maxwell(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -572,6 +581,9 @@ def vlasov_maxwell(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = zeros((3, 3), dtype=float)
@@ -654,8 +666,7 @@ def vlasov_maxwell(
 
 @stack_array("b", "b_prod", "dfm", "df_inv", "df_inv_tg_inv", "tmp1", "tmp2")
 def cc_lin_mhd_6d_1(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat12: "float[:,:,:,:,:,:]",
@@ -685,6 +696,9 @@ def cc_lin_mhd_6d_1(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -845,8 +859,7 @@ def cc_lin_mhd_6d_1(
     "v",
 )
 def cc_lin_mhd_6d_2(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -885,6 +898,9 @@ def cc_lin_mhd_6d_2(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -1111,8 +1127,7 @@ def cc_lin_mhd_6d_2(
 
 @stack_array("dfm", "df_t", "df_inv", "df_inv_t", "filling_m", "filling_v", "tmp1", "v", "tmp_v")
 def pc_lin_mhd_6d_full(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11_11: "float[:,:,:,:,:,:]",
@@ -1179,6 +1194,9 @@ def pc_lin_mhd_6d_full(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -1308,8 +1326,7 @@ def pc_lin_mhd_6d_full(
 
 @stack_array("dfm", "df_inv_t", "df_inv", "filling_m", "filling_v", "tmp1", "v", "tmp_v")
 def pc_lin_mhd_6d(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11_11: "float[:,:,:,:,:,:]",
@@ -1376,6 +1393,9 @@ def pc_lin_mhd_6d(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)

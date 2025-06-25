@@ -27,12 +27,11 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 
 def gc_density_0form(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
@@ -44,6 +43,9 @@ def gc_density_0form(
 
         B_p^\mu = \frac{w_p}{N} \,.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -67,8 +69,7 @@ def gc_density_0form(
 
 @stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "tmp1", "tmp2", "b", "b_prod", "bstar", "norm_b1", "curl_norm_b")
 def cc_lin_mhd_5d_D(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat12: "float[:,:,:,:,:,:]",
@@ -116,6 +117,9 @@ def cc_lin_mhd_5d_D(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -261,8 +265,7 @@ def cc_lin_mhd_5d_D(
     "curl_norm_b",
 )
 def cc_lin_mhd_5d_J1(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -316,6 +319,9 @@ def cc_lin_mhd_5d_J1(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -525,8 +531,7 @@ def cc_lin_mhd_5d_J1(
 
 @stack_array("dfm", "norm_b1", "filling_v")
 def cc_lin_mhd_5d_M(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -562,6 +567,9 @@ def cc_lin_mhd_5d_M(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for a field evaluation
     norm_b1 = empty(3, dtype=float)
@@ -638,8 +646,7 @@ def cc_lin_mhd_5d_M(
     "grad_PB",
 )
 def cc_lin_mhd_5d_J2(
-    markers: "float[:,:]",
-    Np: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -703,6 +710,9 @@ def cc_lin_mhd_5d_J2(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
