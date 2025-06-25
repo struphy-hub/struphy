@@ -248,6 +248,23 @@ build_images:
   script:
     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu.dockerfile .
 
+build_template:
+  stage: build
+  image: registry.example.com/group/project/buildah:1.23.1
+  variables:
+    STORAGE_DRIVER: vfs
+    BUILDAH_FORMAT: docker
+    BUILDAH_ISOLATION: chroot
+    FQ_IMAGE_NAME: "$CI_REGISTRY_IMAGE/test"
+    KUBERNETES_SERVICE_ACCOUNT_OVERWRITE: "buildah-sa"
+  before_script:
+    # Log in to the GitLab container registry
+    - buildah login -u "$CI_REGISTRY_USER" --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - buildah images
+    - buildah build -t $FQ_IMAGE_NAME
+    - buildah images
+    - buildah push $FQ_IMAGE_NAME
 
 # # Print predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 # ci_vars:
