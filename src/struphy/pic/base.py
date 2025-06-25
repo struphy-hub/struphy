@@ -3219,6 +3219,7 @@ class Particles(metaclass=ABCMeta):
                 func = box_based_evaluation_meshgrid
 
             func(
+                self.args_markers,
                 eta1,
                 eta2,
                 eta3,
@@ -3228,8 +3229,6 @@ class Particles(metaclass=ABCMeta):
                 self.domain_array[self.mpi_rank],
                 self.sorting_boxes.boxes,
                 self.sorting_boxes.neighbours,
-                self.markers,
-                self.Np,
                 self.holes,
                 periodic1,
                 periodic2,
@@ -3247,11 +3246,10 @@ class Particles(metaclass=ABCMeta):
             elif len(_shp) == 3:
                 func = naive_evaluation_meshgrid
             func(
+                args_markers,
                 eta1,
                 eta2,
                 eta3,
-                self.markers,
-                self.Np,
                 self.holes,
                 periodic1,
                 periodic2,
