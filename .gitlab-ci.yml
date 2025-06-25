@@ -124,7 +124,14 @@ stages:
     - module list
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8
+    #- module unload python-waterboa/2024.06 # for gvec
+    - module load cmake netcdf-serial mkl hdf5-serial # for gvec
+    - export FC=`which gfortran` # for gvec
+    - export CC=`which gcc` # for gvec
+    - export CXX=`which g++` # for gvec
+    - export CMAKE_HOSTNAME=mpcdfcirunner # for current gvec 1.0, can be removed for future versions
     - module list
+    - echo "Fortran compiler is ${FC}"
     - make -v
     - python3 --version
 
@@ -345,6 +352,9 @@ macos_nmpp:
     - make -v
     - printenv
     - system_profiler SPHardwareDataType
+    - export FC=`which gfortran` # for gvec
+    - export CC=`which gcc` # for gvec
+    - export CXX=`which g++` # for gvec
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, install]
