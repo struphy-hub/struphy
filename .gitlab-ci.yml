@@ -262,7 +262,7 @@ build_template:
     #- sysctl kernel.unprivileged_userns_clone
     - grep $(whoami) /etc/subuid /etc/subgid
     # Log in to the GitLab container registry
-    - buildah login -u "$CI_REGISTRY_USER" --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - buildah login -u "$CI_REGISTRY_USER" --password $CI_REGISTRY_PASSWORD $CI_REGISTRY --security-opt seccomp=unconfined
   script:
     - buildah images
     - buildah build -t $FQ_IMAGE_NAME
