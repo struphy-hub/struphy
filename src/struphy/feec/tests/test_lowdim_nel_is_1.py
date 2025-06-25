@@ -157,7 +157,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     ##########
     f0_h = derham.P["0"](f)
 
-    field_f0 = derham.create_field("f0", "H1")
+    field_f0 = derham.create_spline_function("f0", "H1")
     field_f0.vector = f0_h
     field_f0_vals = field_f0(e1, e2, e3, squeeze_out=True)
 
@@ -171,7 +171,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     assert np.allclose(df0_h.toarray(), proj_of_grad_f.toarray())
 
     # c) derivative error
-    field_df0 = derham.create_field("df0", "Hcurl")
+    field_df0 = derham.create_spline_function("df0", "Hcurl")
     field_df0.vector = df0_h
     field_df0_vals = field_df0(e1, e2, e3, squeeze_out=True)
 
@@ -199,7 +199,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     ##########
     f1_h = derham.P["1"]((f, f, f))
 
-    field_f1 = derham.create_field("f1", "Hcurl")
+    field_f1 = derham.create_spline_function("f1", "Hcurl")
     field_f1.vector = f1_h
     field_f1_vals = field_f1(e1, e2, e3, squeeze_out=True)
 
@@ -213,7 +213,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     assert np.allclose(df1_h.toarray(), proj_of_curl_fff.toarray())
 
     # c) derivative error
-    field_df1 = derham.create_field("df1", "Hdiv")
+    field_df1 = derham.create_spline_function("df1", "Hdiv")
     field_df1.vector = df1_h
     field_df1_vals = field_df1(e1, e2, e3, squeeze_out=True)
 
@@ -246,7 +246,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     ##########
     f2_h = derham.P["2"]((f, f, f))
 
-    field_f2 = derham.create_field("f2", "Hdiv")
+    field_f2 = derham.create_spline_function("f2", "Hdiv")
     field_f2.vector = f2_h
     field_f2_vals = field_f2(e1, e2, e3, squeeze_out=True)
 
@@ -260,7 +260,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     assert np.allclose(df2_h.toarray(), proj_of_div_fff.toarray())
 
     # c) derivative error
-    field_df2 = derham.create_field("df2", "L2")
+    field_df2 = derham.create_spline_function("df2", "L2")
     field_df2.vector = df2_h
     field_df2_vals = field_df2(e1, e2, e3, squeeze_out=True)
 
@@ -288,7 +288,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     ##########
     f3_h = derham.P["3"](f)
 
-    field_f3 = derham.create_field("f3", "L2")
+    field_f3 = derham.create_spline_function("f3", "L2")
     field_f3.vector = f3_h
     field_f3_vals = field_f3(e1, e2, e3, squeeze_out=True)
 

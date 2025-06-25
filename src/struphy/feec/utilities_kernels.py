@@ -99,7 +99,7 @@ def l2_projection_V0(
 #     nel2 = spans2.size
 #     nel3 = spans3.size
 
-#     #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value, il1, il2, il3, i1, i2, i3)
+#     # -- removed omp: #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value, il1, il2, il3, i1, i2, i3)
 #     for iel1 in range(nel1):
 #         for iel2 in range(nel2):
 #             for iel3 in range(nel3):
@@ -120,7 +120,7 @@ def l2_projection_V0(
 #                                             coeffs[i1, i2, i3]
 
 #                             data[iel1*nq1+q1, iel2*nq2+q2, iel3*nq3+q3] = value
-#     #$ omp end parallel
+#     # -- removed omp: #$ omp end parallel
 
 
 # ================= 3d =================================
@@ -154,7 +154,7 @@ def hybrid_weight(
     G = empty((3, 3), dtype=float)
     value_new = empty(3, dtype=float)
 
-    #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value1, value2, value3, eta1, eta2, eta3, df_out, G, overn, value_new)
+    # -- removed omp: #$ omp parallel private (iel1, iel2, iel3, q1, q2, q3, value1, value2, value3, eta1, eta2, eta3, df_out, G, overn, value_new)
     for iel1 in range(nel1):
         for iel2 in range(nel2):
             for iel3 in range(nel3):
@@ -209,4 +209,4 @@ def hybrid_weight(
                             data1[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3] = value_new[0]
                             data2[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3] = value_new[1]
                             data3[iel1 * nq1 + q1, iel2 * nq2 + q2, iel3 * nq3 + q3] = value_new[2]
-    #$ omp end parallel
+    # -- removed omp: #$ omp end parallel
