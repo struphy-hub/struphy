@@ -215,7 +215,7 @@ stages:
     - mv params_VlasovMaxwellOneSpecies.yml test.yml
     - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
     - ls my_first_sim/
-    - struphy pproc -d my_first_sim
+    - struphy pproc my_first_sim
     - ls my_first_sim/post_processing/fields_data/
     - ls my_first_sim/post_processing/kinetic_data/
     - struphy params VlasovMaxwellOneSpecies --options

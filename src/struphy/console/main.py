@@ -680,7 +680,7 @@ def struphy():
         nargs="*",
         choices=out_folders,
         metavar="DIR",
-        default=["sim_1"],  # ✅ works with nargs="*"
+        default=["sim_1"],
         help=("Simulation output folders to post-process (relative to current I/O path) (default: [sim_1])."),
     )
 
