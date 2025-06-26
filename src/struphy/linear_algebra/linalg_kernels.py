@@ -1,3 +1,5 @@
+from typing import Final
+
 from numpy import zeros
 from pyccel.decorators import pure, stack_array
 
@@ -71,7 +73,7 @@ def transpose(a: "float[:,:]", b: "float[:,:]"):
 
 
 @pure
-def scalar_dot(a: "float[:]", b: "float[:]") -> float:
+def scalar_dot(a: "Final[float[:]]", b: "Final[float[:]]") -> float:
     """
     Computes scalar (dot) product of two vectors of length 3.
 
@@ -95,7 +97,7 @@ def scalar_dot(a: "float[:]", b: "float[:]") -> float:
 
 
 @pure
-def det(a: "float[:,:]") -> float:
+def det(a: "Final[float[:,:]]") -> float:
     """
     Computes the determinant of a 3x3 matrix.
 

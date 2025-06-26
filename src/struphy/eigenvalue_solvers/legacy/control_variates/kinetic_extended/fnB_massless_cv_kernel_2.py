@@ -1,29 +1,25 @@
 import hylife.geometry.mappings_3d as map3d
 import input_run.equilibrium_PIC as equ_PIC
-from pyccel.decorators import types
 
 
 # =============== xvn substep ============================
-@types(
-    "int[:]",
-    "double[:,:]",
-    "double[:,:]",
-    "double[:,:]",
-    "int[:]",
-    "double[:,:,:,:,:,:]",
-    "int",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "int[:]",
-    "int[:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-)
 def quadrature_density(
-    Nel, pts1, pts2, pts3, n_quad, gather, kind_map, params_map, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
+    Nel: "int[:]",
+    pts1: "float[:,:]",
+    pts2: "float[:,:]",
+    pts3: "float[:,:]",
+    n_quad: "int[:]",
+    gather: "float[:,:,:,:,:,:]",
+    kind_map: "int",
+    params_map: "float[:]",
+    tf1: "float[:]",
+    tf2: "float[:]",
+    tf3: "float[:]",
+    pf: "int[:]",
+    nbasef: "int[:]",
+    cx: "float[:,:,:]",
+    cy: "float[:,:,:]",
+    cz: "float[:,:,:]",
 ):
     # =======================================================================
 

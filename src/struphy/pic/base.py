@@ -150,7 +150,7 @@ class Particles(metaclass=ABCMeta):
         domain_decomp: tuple = None,
         ppb: int = 10,
         boxes_per_dim: tuple | list = None,
-        box_buff_size: float = 0.25,
+        box_buff_size: float = 2.0,
         bc: list = None,
         bc_refill: str = None,
         type: str = "full_f",
@@ -196,6 +196,7 @@ class Particles(metaclass=ABCMeta):
 
         # domain decomposition (MPI) and cell information
         self._boxes_per_dim = boxes_per_dim
+        self._box_buff_size = box_buff_size
         if domain_decomp is None:
             self._domain_array, self._nprocs = self._get_domain_decomp()
         else:
@@ -1173,6 +1174,7 @@ class Particles(metaclass=ABCMeta):
                 nz=nboxes[2],
                 comm=self.mpi_comm,
                 verbose=self.verbose,
+                box_buff_size=self._box_buff_size,
             )
             if self.sorting_boxes.communicate:
                 self._get_neighbouring_proc()
@@ -2632,7 +2634,7 @@ class Particles(metaclass=ABCMeta):
             nz: int = 1,
             comm: Intracomm = None,
             box_index: "int" = -2,
-            box_buff_size: "float" = 1.0,
+            box_buff_size: "float" = 2.0,
             verbose: str = False,
         ):
             self._markers_shape = markers_shape

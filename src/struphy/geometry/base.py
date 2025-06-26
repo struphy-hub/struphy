@@ -139,9 +139,9 @@ class Domain(metaclass=ABCMeta):
             self.indN[0],
             self.indN[1],
             self.indN[2],
-            self.cx,
-            self.cy,
-            self.cz,
+            self.cx.copy(),  # make sure we don't have stride = 0
+            self.cy.copy(),  # make sure we don't have stride = 0
+            self.cz.copy(),  # make sure we don't have stride = 0
         )
 
     @property
@@ -840,7 +840,6 @@ class Domain(metaclass=ABCMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
-
             evaluation_kernels.kernel_evaluate(
                 E1,
                 E2,
@@ -985,6 +984,9 @@ class Domain(metaclass=ABCMeta):
             # call evaluation kernel
             out = np.empty((markers.shape[0], 3), dtype=float)
 
+            # make sure we don't have stride = 0
+            A = A.copy()
+
             n_inside = transform_kernels.kernel_pullpush_pic(
                 A,
                 markers,
@@ -1041,7 +1043,6 @@ class Domain(metaclass=ABCMeta):
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3),
                 dtype=float,
             )
-
             transform_kernels.kernel_pullpush(
                 A,
                 E1,
@@ -1136,7 +1137,8 @@ class Domain(metaclass=ABCMeta):
             E2 = arg_y[:, None, None]
             E3 = arg_z[:, None, None]
 
-            return E1, E2, E3, is_sparse_meshgrid
+            # Make sure we don't have stride 0
+            return E1.copy(), E2.copy(), E3.copy(), is_sparse_meshgrid
 
         # non-flat evaluation (broadcast to 3d arrays)
         else:
@@ -1214,7 +1216,8 @@ class Domain(metaclass=ABCMeta):
             else:
                 raise ValueError("Argument dimensions not supported")
 
-            return E1, E2, E3, is_sparse_meshgrid
+            # Make sure we don't have stride 0
+            return E1.copy(), E2.copy(), E3.copy(), is_sparse_meshgrid
 
     # ================================
     @staticmethod
@@ -1368,7 +1371,7 @@ class Domain(metaclass=ABCMeta):
         if flat_eval:
             assert a_out.ndim == 2
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
-            a_out = np.ascontiguousarray(np.transpose(a_out, axes=(1, 0)))
+            a_out = np.ascontiguousarray(np.transpose(a_out, axes=(1, 0))).copy()  # Make sure we don't have stride 0
 
         # make sure that output array is 4d and of shape (:,:,:, 1) or (:,:,:, 3) for tensor-product/slice evaluation
         else:
@@ -1376,7 +1379,7 @@ class Domain(metaclass=ABCMeta):
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
             a_out = np.ascontiguousarray(
                 np.transpose(a_out, axes=(1, 2, 3, 0)),
-            )
+            ).copy()  # Make sure we don't have stride 0
 
         return a_out
 
@@ -1917,7 +1920,9 @@ class Spline(Domain):
         self._periodic_eta3 = self._params_map["spl_kind"][-1]
 
         # init base class
-        self._params_numpy = np.array([])
+        # Added one element so we are not passing empty numpy arrays
+        self._params_numpy = np.array([0.0])
+
         super().__init__()
 
     @property
