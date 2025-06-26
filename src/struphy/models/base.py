@@ -993,8 +993,9 @@ class StruphyModel(metaclass=ABCMeta):
                 assert isinstance(obj, Particles)
                 obj.draw_markers(verbose=self.verbose)
                 obj._markers[:, :] = data.file["restart/" + key][-1, :, :]
-                obj._n_lost_markers[:] = data.file["restart/n_lost_markers"][-1]
-
+                # Check if the dataset exists before accessing it
+                if "restart/n_lost_markers" in data.file:
+                    obj._n_lost_markers[:] = data.file["restart/n_lost_markers"][-1]
 
                 # important: sets holes attribute of markers!
                 obj.mpi_sort_markers(do_test=True)
