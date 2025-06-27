@@ -514,10 +514,6 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
                 plt.show()
 
-            # finalize GVEC in order to be able to launch other tests
-            if "GVECequilibrium" in key:
-                mhd_equil._state.finalize()
-
             # test perturbations
             if "EQDSKequilibrium" in key:
                 maxw_params_zero = {"n": 0.0, "vth1": 0.0, "vth2": 0.0, "vth3": 0.0}
@@ -1258,10 +1254,6 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 plt.title(f"Maxwellian density $v_t$, poloidal view (e1-e2)")
 
                 plt.show()
-
-            # finalize GVEC in order to be able to launch other tests
-            if "GVECequilibrium" in key:
-                mhd_equil._state.finalize()
 
             # test perturbations
             if "EQDSKequilibrium" in key:
