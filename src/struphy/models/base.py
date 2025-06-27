@@ -1295,7 +1295,7 @@ class StruphyModel(metaclass=ABCMeta):
         )
 
         # print to screen
-        if verbose and rank == 0:
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print("\nUNITS:")
             print(
                 f"Unit of length:".ljust(25),
@@ -1351,7 +1351,7 @@ class StruphyModel(metaclass=ABCMeta):
                 equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
                 equation_params[species]["kappa"] = om_p * units["t"]
 
-                if verbose and rank == 0:
+                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                     print("\nNORMALIZATION PARAMETERS:")
                     print("- " + species + ":")
                     for key, val in equation_params[species].items():
@@ -1370,7 +1370,7 @@ class StruphyModel(metaclass=ABCMeta):
                 equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
                 equation_params[species]["kappa"] = om_p * units["t"]
 
-                if verbose and rank == 0:
+                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                     if "fluid" not in params:
                         print("\nNORMALIZATION PARAMETERS:")
                     print("- " + species + ":")

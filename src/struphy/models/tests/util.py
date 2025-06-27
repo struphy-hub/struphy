@@ -138,19 +138,19 @@ def call_test(
         ver_path = os.path.join(libpath, "io", "inp", "verification")
         yml_files = recursive_get_files(ver_path, contains=(model_name,))
         if len(yml_files) == 0:
-            if rank == 0:
+            if MPI.COMM_WORLD.Get_rank() == 0:
                 print(f"\nVerification run not started: no .yml files for model {model_name} in {ver_path}.")
             return
         params_list = []
         paths_out = []
         py_scripts = []
-        if rank == 0:
+        if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nThe following verification tests will be run:")
         for n, file in enumerate(yml_files):
             ref = file.split("_")[0]
             if ref != model_name:
                 continue
-            if rank == 0:
+            if MPI.COMM_WORLD.Get_rank() == 0:
                 print(file)
             with open(os.path.join(ver_path, file)) as tmp:
                 params_list += [yaml.load(tmp, Loader=yaml.FullLoader)]
@@ -163,7 +163,7 @@ def call_test(
         try:
             py_scripts += [getattr(verif, tname)]
         except:
-            if rank == 0:
+            if MPI.COMM_WORLD.Get_rank() == 0:
                 print(f"A Python script for {model_name} is missing in models/tests/verification.py, exiting ...")
             sys.exit(1)
     else:
@@ -179,7 +179,7 @@ def call_test(
     for parameters, path_out, py_script in zip(params_list, paths_out, py_scripts):
         if Tend is not None:
             parameters["time"]["Tend"] = Tend
-            if rank == 0:
+            if MPI.COMM_WORLD.Get_rank() == 0:
                 print_test_params(parameters)
             main(
                 model_name,
@@ -194,7 +194,7 @@ def call_test(
             return
         else:
             # run with default
-            if rank == 0:
+            if MPI.COMM_WORLD.Get_rank() == 0:
                 print_test_params(parameters)
             main(
                 model_name,
@@ -228,7 +228,7 @@ def call_test(
                         continue
                     else:
                         test_list += [opt]
-                        if rank == 0:
+                        if MPI.COMM_WORLD.Get_rank() == 0:
                             print_test_params(parameters)
                         main(
                             model_name,
@@ -250,7 +250,7 @@ def call_test(
                             continue
                         else:
                             test_list += [opt]
-                            if rank == 0:
+                            if MPI.COMM_WORLD.Get_rank() == 0:
                                 print_test_params(parameters)
                             main(
                                 model_name,
@@ -272,7 +272,7 @@ def call_test(
                             continue
                         else:
                             test_list += [opt]
-                            if rank == 0:
+                            if MPI.COMM_WORLD.Get_rank() == 0:
                                 print_test_params(parameters)
                             main(
                                 model_name,
