@@ -629,6 +629,36 @@ class Particles5D(Particles):
             init,
         )
 
+    def save_step_energy_diff(self, diag_idx, PBb=None, dweight=False, before=False):
+        """
+        Save each markers' initial particle energy and calculate energy difference :math:`\Delta \epsilon(t) = \epsilon(t) - \epsilon(t=0)`
+        and assign them into markers[:, self.first_diagnostics_idx+3] and markers[:, self.first_diagnostics_idx+4].
+
+        Parameters
+        ----------
+
+        PBb : StencilVEctor
+            Finite element coefficients of the time-dependent magnetic field.
+        """
+        if PBb is None:
+            PBbt = self.derham.Vh["0"].zeros()
+        else:
+            E0T = self.derham.extraction_ops["0"].transpose()
+            PBbt = E0T.dot(PBb, out=self._tmp0)
+            PBbt.update_ghost_regions()
+
+        utilities_kernels.eval_step_energy_diff(
+            self.markers,
+            self.derham.args_derham,
+            self.domain.args_domain,
+            self.first_diagnostics_idx,
+            self.absB0_h._data,
+            PBbt._data,
+            diag_idx,
+            dweight,
+            before,
+        )
+
 
 class Particles3D(Particles):
     """

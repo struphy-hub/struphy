@@ -1661,7 +1661,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
-        _PB = getattr(self.basis_ops, "PB")
+        self._PB = getattr(self.basis_ops, "PB")
 
         # initialize projection operator TB
         self._initialize_projection_operator_TB()
@@ -1669,11 +1669,11 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         if higher_order:
             self._B = -1 / 2 * (_T.T + self._TB.T) @ self.derham.curl.T @ self.mass_ops.M2
             self._C = 1 / 2 * self.derham.curl @ (_T + self._TB)
-            self._B2 = -1 / 2 * (_T.T + self._TB.T) @ self.derham.curl.T @ _PB.T
+            self._B2 = -1 / 2 * (_T.T + self._TB.T) @ self.derham.curl.T @ self._PB.T
         else:
             self._B = -1 / 2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
             self._C = 1 / 2 * self.derham.curl @ _T
-            self._B2 = -1 / 2 * _T.T @ self.derham.curl.T @ _PB.T
+            self._B2 = -1 / 2 * _T.T @ self.derham.curl.T @ self._PB.T
 
         # Preconditioner
         if solver["type"][1] is None:
@@ -1700,6 +1700,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._u_tmp1 = u.space.zeros()
         self._u_tmp2 = u.space.zeros()
         self._b_tmp1 = b.space.zeros()
+        self._PBb = self._PB.codomain.zeros()
 
         self._byn = self._B.codomain.zeros()
         self._tmp_acc = self._B2.codomain.zeros()
@@ -1709,6 +1710,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         un = self.feec_vars[0]
         bn = self.feec_vars[1]
 
+        self._PB.dot(bn, out=self._PBb)
+        self.particles.save_step_energy_diff(6, PBb=self._PBb, dweight=False, before=True)
+        self.particles.save_step_energy_diff(7, PBb=self._PBb, dweight=True, before=True)
         # perform accumulation (either with or without control variate)
         # if self._particles.control_variate:
 
@@ -1739,6 +1743,10 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         # write new coeffs into self.feec_vars
         max_du, max_db = self.feec_vars_update(un1, bn1)
+
+        self._PB.dot(bn1, out=self._PBb)
+        self.particles.save_step_energy_diff(6, PBb=self._PBb, dweight=False, before=False)
+        self.particles.save_step_energy_diff(7, PBb=self._PBb, dweight=True, before=False)
 
         if self._info and self.rank == 0:
             print("Status     for ShearAlfven:", info["success"])
