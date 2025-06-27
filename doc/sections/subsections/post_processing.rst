@@ -8,7 +8,7 @@ By default, this folder is relative to the output path (``struphy -p``) at the t
 
 The basic command for Struphy post-processing is::
 
-    struphy pproc -d <sim_name> 
+    struphy pproc <sim_name> 
 
 Here, ``<sim_name>`` is relative to the current output path. 
 In the latter, the generated output data can be inspected at:: 
