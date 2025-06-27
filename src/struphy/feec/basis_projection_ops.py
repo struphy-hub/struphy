@@ -51,7 +51,7 @@ class BasisProjectionOperators:
         self._rank = derham.comm.Get_rank() if derham.comm is not None else 0
 
         if np.any([p == 1 and Nel > 1 for p, Nel in zip(derham.p, derham.Nel)]):
-            if self.rank == 0:
+            if MPI.COMM_WORLD.Get_rank() == 0:
                 print(
                     f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).',
                 )
@@ -891,11 +891,11 @@ class BasisProjectionOperators:
             )
 
         if assemble:
-            if self.rank == 0 and self.verbose:
+            if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
                 print(f'\nAssembling BasisProjectionOperator "{name}" with V={V_id}, W={W_id}.')
             out.assemble(verbose=self.verbose)
 
-        if self.rank == 0 and self.verbose:
+        if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
             print("Done.")
 
         return out
