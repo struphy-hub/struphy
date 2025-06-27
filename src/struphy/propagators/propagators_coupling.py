@@ -1824,7 +1824,8 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
         _A = getattr(self.mass_ops, "M" + u_id + "n")
-
+        self._PB = getattr(self.basis_ops, "PB")
+        
         # preconditioner
         if solver["type"][1] is None:
             pc = None
@@ -1838,6 +1839,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._u_new = u.space.zeros()
         self._u_avg1 = u.space.zeros()
         self._u_avg2 = self._EuT.codomain.zeros()
+        self._PBb = self._PB.codomain.zeros()
 
         # Call the accumulation and Pusher class
         accum_kernel = accum_kernels_gc.cc_lin_mhd_5d_curlb
@@ -1934,6 +1936,10 @@ class CurrentCoupling5DCurlb(Propagator):
 
         if self._b is not None:
             self._b_full1 += self._b
+
+        self._PB.dot(self._b, out=self._PBb)
+        self.particles[0].save_step_energy_diff(10, PBb=self._PBb, dweight=False, before=True)
+        self.particles[0].save_step_energy_diff(11, PBb=self._PBb, dweight=True, before=True)
 
         # extract coefficients to tensor product space (in-place)
         Eb_full = self._E2T.dot(b_full, out=self._b_full2)
@@ -2046,6 +2052,9 @@ class CurrentCoupling5DCurlb(Propagator):
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
 
+        self.particles[0].save_step_energy_diff(10, PBb=self._PBb, dweight=False, before=False)
+        self.particles[0].save_step_energy_diff(11, PBb=self._PBb, dweight=True, before=False)
+    
         if self._info and self._rank == 0:
             print("Status     for CurrentCoupling5DCurlb:", info["success"])
             print("Iterations for CurrentCoupling5DCurlb:", info["niter"])
@@ -2381,6 +2390,10 @@ class CurrentCoupling5DGradB(Propagator):
             self._b_full1 += self._b
 
         PBbtilde = self._PB.dot(self._b, out=self._tmp1)
+
+        self.particles[0].save_step_energy_diff(8, PBb=self._tmp1, dweight=False, before=True)
+        self.particles[0].save_step_energy_diff(9, PBb=self._tmp1, dweight=True, before=True)
+
         grad_Pbtilde = self.derham.grad.dot(PBbtilde, out=self._tmp2)
 
         Eb_full = self._E2T.dot(b_full, out=self._b_full2)
@@ -2520,6 +2533,9 @@ class CurrentCoupling5DGradB(Propagator):
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
+
+        self.particles[0].save_step_energy_diff(8, PBb=self._tmp1, dweight=False, before=False)
+        self.particles[0].save_step_energy_diff(9, PBb=self._tmp1, dweight=True, before=False)
 
         if self._info and self._rank == 0:
             print("Maxdiff up for CurrentCoupling5DGradB:", max_du)
