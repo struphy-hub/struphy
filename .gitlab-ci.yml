@@ -621,6 +621,8 @@ Fedora:
     - dnf install -y environment-modules 
     - dnf install -y python3-mpi4py-openmpi 
     - dnf install -y pandoc
+    - dnf install -y gawk
+    - dnf update -y
     - wget https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz 
     - tar xzf Python-3.10.14.tgz 
     - cd Python-3.10.14 
@@ -770,6 +772,7 @@ struphy_almalinux_latest:
 # Run in weekly CI pipeline only
 lint_full_repo_report:
   stage: lint
+  needs: []
   extends:
     - .rules_scheduled
     - .image_ubuntu_latest
@@ -790,6 +793,7 @@ lint_full_repo_report:
 # Lint struphy with `struphy lint`
 lint_branch:
   stage: lint
+  needs: []
   extends:
     - .rules_mr_to_devel
     - .image_ubuntu_latest
@@ -805,6 +809,7 @@ lint_branch:
 # Lint struphy with `struphy lint`
 lint_branch_report:
   stage: lint
+  needs: []
   extends:
     - .rules_mr_to_devel
     - .image_ubuntu_latest
