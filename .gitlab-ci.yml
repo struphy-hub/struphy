@@ -256,13 +256,14 @@ stages:
     - mv params_VlasovMaxwellOneSpecies.yml test.yml
     - struphy run -i test.yml -o my_first_sim
     - ls my_first_sim/
-    - struphy pproc -d my_first_sim
+    - struphy pproc my_first_sim
     - ls my_first_sim/post_processing/fields_data/
     - ls my_first_sim/post_processing/kinetic_data/
     - struphy params VlasovMaxwellOneSpecies --options
     - struphy run -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
     - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
     - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
+    - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
 
 # --- artifacts ---
 
