@@ -622,7 +622,6 @@ class ViscoresistiveMHD(StruphyModel):
 
         # temporary vectors for scalar quantities
         self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
-        self._tmp_w_div_B = self.derham.Vh_pol["3"].zeros()
         tmp_dof = self.derham.Vh_pol["3"].zeros()
         projV3 = L2Projector("L2", self.mass_ops)
 
@@ -657,8 +656,7 @@ class ViscoresistiveMHD(StruphyModel):
         self.update_scalar("entr_tot", entr_tot)
 
         div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-        w_div_B = self.mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
-        L2_div_B = np.sqrt(np.abs(div_B.inner(w_div_B)))
+        L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
         self.update_scalar("tot_div_B", L2_div_B)
 
     def update_thermo_energy(self):
@@ -827,7 +825,6 @@ class ViscousFluid(StruphyModel):
         self.add_scalar("entr_tot")
 
         # temporary vectors for scalar quantities
-        self._tmp_wb2 = self.derham.Vh_pol["2"].zeros()
         tmp_dof = self.derham.Vh_pol["3"].zeros()
         projV3 = L2Projector("L2", self.mass_ops)
 
@@ -1042,7 +1039,6 @@ class ViscoresistiveMHD_with_p(StruphyModel):
 
         # temporary vectors for scalar quantities
         self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
-        self._tmp_w_div_B = self.derham.Vh_pol["3"].zeros()
         tmp_dof = self.derham.Vh_pol["3"].zeros()
         projV3 = L2Projector("L2", self.mass_ops)
 
@@ -1072,8 +1068,7 @@ class ViscoresistiveMHD_with_p(StruphyModel):
         self.update_scalar("dens_tot", dens_tot)
 
         div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-        w_div_B = self.mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
-        L2_div_B = np.sqrt(np.abs(div_B.inner(w_div_B)))
+        L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
         self.update_scalar("tot_div_B", L2_div_B)
 
     @staticmethod
@@ -1246,7 +1241,6 @@ class ViscoresistiveLinearMHD(StruphyModel):
 
         # temporary vectors for scalar quantities
         self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
-        self._tmp_w_div_B = self.derham.Vh_pol["3"].zeros()
         tmp_dof = self.derham.Vh_pol["3"].zeros()
         projV3 = L2Projector("L2", self.mass_ops)
 
@@ -1279,8 +1273,7 @@ class ViscoresistiveLinearMHD(StruphyModel):
         # self.update_scalar("dens_tot", dens_tot)
 
         # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-        # w_div_B = self.mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
-        # L2_div_B = np.sqrt(np.abs(div_B.dot(w_div_B)))
+        # L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
         # self.update_scalar("tot_div_B", L2_div_B)
 
         en_thermo_l1 = self.mass_ops.M3.dot_inner(self.pointer["mhd_p3"], self._integrator) / (self._gamma - 1.0)
@@ -1469,10 +1462,6 @@ class ViscoresistiveDeltafMHD(StruphyModel):
         self.add_scalar("en_mag_l1")
 
         # temporary vectors for scalar quantities
-        self._tmp_m1 = self.derham.Vh_pol["v"].zeros()
-        self._tmp_wb2 = self.derham.Vh_pol["2"].zeros()
-        self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
-        self._tmp_w_div_B = self.derham.Vh_pol["3"].zeros()
         tmp_dof = self.derham.Vh_pol["3"].zeros()
         projV3 = L2Projector("L2", self.mass_ops)
 
@@ -1505,8 +1494,7 @@ class ViscoresistiveDeltafMHD(StruphyModel):
         # self.update_scalar("dens_tot", dens_tot)
 
         # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-        # w_div_B = self.mass_ops.M3.dot(div_B, out=self._tmp_w_div_B)
-        # L2_div_B = np.sqrt(np.abs(div_B.dot(w_div_B)))
+        # L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
         # self.update_scalar("tot_div_B", L2_div_B)
 
         en_thermo_l1 = self.mass_ops.M3.dot_inner(self.pointer["mhd_p3"], self._integrator) / (self._gamma - 1.0)
@@ -1523,6 +1511,661 @@ class ViscoresistiveDeltafMHD(StruphyModel):
         dct = {}
         dct["bt2"] = "Hdiv"
         dct["pt3"] = "L2"
+        dct["div_u"] = "L2"
+        dct["u2"] = "Hdiv"
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
+
+
+class ViscoresistiveMHD_with_q(StruphyModel):
+    r"""Full (non-linear) visco-resistive MHD equations, with the q variable (square root of the pressure) discretized with a variational method.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat u =  \hat v_\textnormal{A}\,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
+        \\[4mm]
+        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) + \frac{2q}{\gamma -1} \nabla q + \mathbf B \times \nabla \times \mathbf B - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \mathbf u \right) = 0 \,,
+        \\[4mm]
+        &\partial_t q + \cdot(\nabla q \mathbf u) + (\gamma/2 -1) q \nabla \cdot u = \frac{2 q}{(\gamma -1)}\left((\mu+\mu_a(\mathbf x)) |\nabla \mathbf u|^2 + (\eta + \eta_a(\mathbf x)) |\nabla \times \mathbf B|^2\right) \,,
+        \\[4mm]
+        &\partial_t \mathbf B + \nabla \times ( \mathbf B \times \mathbf u ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \mathbf B = 0 \,,
+
+    and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+    3. :class:`~struphy.propagators.propagators_fields.VariationalQBEvolve`
+    4. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
+    5. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
+
+    :ref:`Model info <add_model>`:
+    """
+
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+        dct["em_fields"]["b2"] = "Hdiv"
+        dct["fluid"]["mhd"] = {"rho3": "L2", "q3": "L2", "uv": "H1vec"}
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "mhd"
+
+    @staticmethod
+    def velocity_scale():
+        return "alfvén"
+
+    @staticmethod
+    def propagators_dct():
+        return {
+            propagators_fields.VariationalDensityEvolve: ["mhd_rho3", "mhd_uv"],
+            propagators_fields.VariationalMomentumAdvection: ["mhd_uv"],
+            propagators_fields.VariationalQBEvolve: ["mhd_q3", "b2", "mhd_uv"],
+            propagators_fields.VariationalViscosity: ["mhd_q3", "mhd_uv"],
+            propagators_fields.VariationalResistivity: ["mhd_q3", "b2"],
+        }
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    def __init__(self, params, comm, clone_config=None):
+        from struphy.feec.projectors import L2Projector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
+        from struphy.polar.basic import PolarVector
+
+        # initialize base class
+        super().__init__(params, comm=comm, clone_config=clone_config)
+
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
+
+        # Initialize propagators/integrators used in splitting substeps
+        lin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
+        nonlin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["nonlin_solver"]
+        lin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["lin_solver"]
+        nonlin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["nonlin_solver"]
+        lin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalQBEvolve"]["lin_solver"]
+        nonlin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalQBEvolve"]["nonlin_solver"]
+        lin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["lin_solver"]
+        nonlin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["nonlin_solver"]
+        lin_solver_resistivity = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["lin_solver"]
+        nonlin_solver_resistivity = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["nonlin_solver"]
+        if "linearize_current" in params["fluid"]["mhd"]["options"]["VariationalResistivity"].keys():
+            self._linearize_current = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["linearize_current"]
+        else:
+            self._linearize_current = False
+        self._gamma = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["physics"]["gamma"]
+        self._mu = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["physics"]["mu"]
+        self._mu_a = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["physics"]["mu_a"]
+        self._alpha = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["physics"]["alpha"]
+        self._eta = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["physics"]["eta"]
+        self._eta_a = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["physics"]["eta_a"]
+        model = "full_q"
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.VariationalDensityEvolve] = {
+            "model": model,
+            "gamma": self._gamma,
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_density,
+            "nonlin_solver": nonlin_solver_density,
+        }
+
+        self._kwargs[propagators_fields.VariationalMomentumAdvection] = {
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_momentum,
+            "nonlin_solver": nonlin_solver_momentum,
+        }
+
+        self._kwargs[propagators_fields.VariationalQBEvolve] = {
+            "model": model,
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_magfield,
+            "nonlin_solver": nonlin_solver_magfield,
+            "gamma": self._gamma,
+        }
+
+        self._kwargs[propagators_fields.VariationalViscosity] = {
+            "model": model,
+            "rho": self.pointer["mhd_rho3"],
+            "gamma": self._gamma,
+            "mu": self._mu,
+            "mu_a": self._mu_a,
+            "alpha": self._alpha,
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_viscosity,
+            "nonlin_solver": nonlin_solver_viscosity,
+        }
+
+        self._kwargs[propagators_fields.VariationalResistivity] = {
+            "model": model,
+            "rho": self.pointer["mhd_rho3"],
+            "gamma": self._gamma,
+            "eta": self._eta,
+            "eta_a": self._eta_a,
+            "lin_solver": lin_solver_resistivity,
+            "nonlin_solver": nonlin_solver_resistivity,
+            "linearize_current": self._linearize_current,
+        }
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar("en_U")
+        self.add_scalar("en_thermo")
+        self.add_scalar("en_mag")
+        self.add_scalar("en_tot")
+        self.add_scalar("dens_tot")
+        self.add_scalar("tot_div_B")
+
+        # temporary vectors for scalar quantities
+        self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
+        tmp_dof = self.derham.Vh_pol["3"].zeros()
+        projV3 = L2Projector("L2", self.mass_ops)
+
+        self._integrator = projV3(self.domain.jacobian_det, dofs=tmp_dof)
+
+        self._ones = self.derham.Vh_pol["3"].zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+    def update_scalar_quantities(self):
+        # Update mass matrix
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["mhd_uv"], self.pointer["mhd_uv"])
+        self.update_scalar("en_U", en_U)
+
+        en_mag = 0.5 * self._mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
+        self.update_scalar("en_mag", en_mag)
+
+        en_thermo = 1 / (self._gamma - 1) * self._mass_ops.M3.dot_inner(self.pointer["mhd_q3"], self.pointer["mhd_q3"])
+        self.update_scalar("en_thermo", en_thermo)
+
+        en_tot = en_U + en_thermo + en_mag
+        self.update_scalar("en_tot", en_tot)
+
+        dens_tot = self._ones.inner(self.pointer["mhd_rho3"])
+        self.update_scalar("dens_tot", dens_tot)
+
+        div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
+        L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
+        self.update_scalar("tot_div_B", L2_div_B)
+
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+
+        dct["div_u"] = "L2"
+        dct["u2"] = "Hdiv"
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
+
+
+class ViscoresistiveLinearMHD_with_q(StruphyModel):
+    r"""Linear visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat u =  \hat v_\textnormal{A}\,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        &\partial_t \tilde{\rho} + \nabla \cdot ( \rho_0 \tilde{\mathbf u} ) = 0 \,,
+        \\[4mm]
+        &\partial_t (\rho_0 \tilde{\mathbf u}) + \frac{2 q_0}{\gamma -1} \nabla \tilde{q} +  \frac{2 \tilde{q}}{\gamma -1} \nabla q_0 + \mathbf B_0 \times \nabla \times \tilde{\mathbf B} + \tilde{\mathbf B} \times \nabla \times \mathbf B_0 - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \tilde{\mathbf u} \right) = 0 \,,
+        \\[4mm]
+        &\partial_t \tilde{q} + \cdot(\nabla q_0 \mathbf u) + (\gamma/2 -1) q_0 \nabla \cdot u = 0 \,,
+        \\[4mm]
+        &\partial_t \tilde{\mathbf B} + \nabla \times ( \mathbf B_0 \times \tilde{\mathbf u} ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \tilde{\mathbf B} = 0 \,,
+
+    and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalQBEvolve`
+    3. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
+    4. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
+
+    :ref:`Model info <add_model>`:
+    """
+
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+        dct["em_fields"]["b2"] = "Hdiv"
+        dct["fluid"]["mhd"] = {"rho3": "L2", "q3": "L2", "uv": "H1vec"}
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "mhd"
+
+    @staticmethod
+    def velocity_scale():
+        return "alfvén"
+
+    @staticmethod
+    def propagators_dct():
+        return {
+            propagators_fields.VariationalDensityEvolve: ["mhd_rho3", "mhd_uv"],
+            propagators_fields.VariationalQBEvolve: ["mhd_q3", "b2", "mhd_uv"],
+            propagators_fields.VariationalViscosity: ["mhd_q3", "mhd_uv"],
+            propagators_fields.VariationalResistivity: ["mhd_q3", "b2"],
+        }
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    def __init__(self, params, comm, clone_config=None):
+        from struphy.feec.projectors import L2Projector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
+        from struphy.polar.basic import PolarVector
+
+        # initialize base class
+        super().__init__(params, comm=comm, clone_config=clone_config)
+
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
+
+        # Initialize propagators/integrators used in splitting substeps
+        lin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["lin_solver"]
+        nonlin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["nonlin_solver"]
+        lin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalQBEvolve"]["lin_solver"]
+        nonlin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalQBEvolve"]["nonlin_solver"]
+        lin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["lin_solver"]
+        nonlin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["nonlin_solver"]
+        lin_solver_resistivity = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["lin_solver"]
+        nonlin_solver_resistivity = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["nonlin_solver"]
+        if "linearize_current" in params["fluid"]["mhd"]["options"]["VariationalResistivity"].keys():
+            self._linearize_current = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["linearize_current"]
+        else:
+            self._linearize_current = False
+        self._gamma = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["physics"]["gamma"]
+        self._mu = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["physics"]["mu"]
+        self._mu_a = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["physics"]["mu_a"]
+        self._alpha = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["physics"]["alpha"]
+        self._eta = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["physics"]["eta"]
+        self._eta_a = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["physics"]["eta_a"]
+        model = "linear_q"
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.VariationalDensityEvolve] = {
+            "model": model,
+            "gamma": self._gamma,
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_density,
+            "nonlin_solver": nonlin_solver_density,
+        }
+
+        self._kwargs[propagators_fields.VariationalQBEvolve] = {
+            "model": model,
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_magfield,
+            "nonlin_solver": nonlin_solver_magfield,
+            "gamma": self._gamma,
+            "div_u": self.pointer["div_u"],
+            "u2": self.pointer["u2"],
+            "bt2": self.pointer["bt2"],
+            "qt3": self.pointer["qt3"],
+        }
+
+        self._kwargs[propagators_fields.VariationalViscosity] = {
+            "model": model,
+            "rho": self.pointer["mhd_rho3"],
+            "gamma": self._gamma,
+            "mu": self._mu,
+            "mu_a": self._mu_a,
+            "alpha": self._alpha,
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_viscosity,
+            "nonlin_solver": nonlin_solver_viscosity,
+            "pt3": self.pointer["qt3"],
+        }
+
+        self._kwargs[propagators_fields.VariationalResistivity] = {
+            "model": model,
+            "rho": self.pointer["mhd_rho3"],
+            "gamma": self._gamma,
+            "eta": self._eta,
+            "eta_a": self._eta_a,
+            "lin_solver": lin_solver_resistivity,
+            "nonlin_solver": nonlin_solver_resistivity,
+            "linearize_current": self._linearize_current,
+            "pt3": self.pointer["qt3"],
+        }
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar("en_U")
+        # self.add_scalar("en_thermo_1")
+        # self.add_scalar("en_thermo_2")
+        # self.add_scalar("en_mag_1")
+        # self.add_scalar("en_mag_2")
+        self.add_scalar("en_tot")
+
+        # self.add_scalar("dens_tot")
+        # self.add_scalar("tot_div_B")
+
+        # self.add_scalar("en_tot_l1")
+        # self.add_scalar("en_thermo_l1")
+        # self.add_scalar("en_mag_l1")
+
+        # temporary vectors for scalar quantities
+        self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
+        tmp_dof = self.derham.Vh_pol["3"].zeros()
+        projV3 = L2Projector("L2", self.mass_ops)
+
+        self._integrator = projV3(self.domain.jacobian_det, dofs=tmp_dof)
+
+        self._ones = self.derham.Vh_pol["3"].zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+    def update_scalar_quantities(self):
+        # Update mass matrix
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["mhd_uv"], self.pointer["mhd_uv"])
+        self.update_scalar("en_U", en_U)
+
+        en_mag1 = self._mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
+        # self.update_scalar("en_mag_1", en_mag1)
+
+        en_mag2 = self._mass_ops.M2.dot_inner(self.pointer["bt2"], self.projected_equil.b2)
+        # self.update_scalar("en_mag_2", en_mag2)
+
+        en_th_1 = 1 / (self._gamma - 1) * self._mass_ops.M3.dot_inner(self.pointer["mhd_q3"], self.pointer["mhd_q3"])
+        # self.update_scalar("en_thermo_1", en_th_1)
+
+        en_th_2 = 2 / (self._gamma - 1) * self._mass_ops.M3.dot_inner(self.pointer["qt3"], self.projected_equil.q3)
+        # self.update_scalar("en_thermo_2", en_th_2)
+
+        en_tot = en_U + en_th_1 + en_th_2 + en_mag1 + en_mag2
+        self.update_scalar("en_tot", en_tot)
+
+        # dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
+        # self.update_scalar("dens_tot", dens_tot)
+
+        # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
+        # L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
+        # self.update_scalar("tot_div_B", L2_div_B)
+
+        # en_thermo_l1 = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
+        # self.update_scalar("en_thermo_l1", en_thermo_l1)
+
+        # wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
+        # en_mag_l1 = wb2.dot(self.projected_equil.b2)
+        # self.update_scalar("en_mag_l1", en_mag_l1)
+
+        # en_tot_l1 = en_thermo_l1 + en_mag_l1
+        # self.update_scalar("en_tot_l1", en_tot_l1)
+
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+        dct["bt2"] = "Hdiv"
+        dct["qt3"] = "L2"
+        dct["div_u"] = "L2"
+        dct["u2"] = "Hdiv"
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
+
+
+class ViscoresistiveDeltafMHD_with_q(StruphyModel):
+    r"""Linear visco-resistive MHD equations discretized with a variational method.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat u =  \hat v_\textnormal{A}\,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        &\partial_t \tilde{\rho} + \nabla \cdot ( \rho_0 \tilde{\mathbf u} ) = 0 \,,
+        \\[4mm]
+        &\partial_t (\rho_0 \tilde{\mathbf u}) + \frac{2 q_0}{\gamma -1} \nabla \tilde{q} +  \frac{2 \tilde{q}}{\gamma -1} \nabla q_0 + \frac{2 \tilde{q}}{\gamma -1} \nabla \tilde{q} + \mathbf B_0 \times \nabla \times \tilde{\mathbf B} + \tilde{\mathbf B} \times \nabla \times \mathbf B_0 - \nabla \cdot \left((\mu+\mu_a(\mathbf x)) \nabla \tilde{\mathbf u} \right) = 0 \,,
+        \\[4mm]
+        &\partial_t \tilde{q} + \cdot(\nabla (q_0 + \tilde{q}) \mathbf u) + (\gamma/2 -1) (q_0 + \tilde{q}) \nabla \cdot u = 0 \,,
+        \\[4mm]
+        &\partial_t \tilde{\mathbf B} + \nabla \times ( \mathbf (B_0 + \tilde{\mathbf B}) \times \tilde{\mathbf u} ) + \nabla \times (\eta + \eta_a(\mathbf x)) \nabla \times \tilde{\mathbf B} = 0 \,,
+
+    and :math:`\mu_a(\mathbf x)` and :math:`\eta_a(\mathbf x)` are artificial viscosity and resistivity coefficients.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.VariationalDensityEvolve`
+    2. :class:`~struphy.propagators.propagators_fields.VariationalMomentumAdvection`
+    3. :class:`~struphy.propagators.propagators_fields.VariationalQBEvolve`
+    4. :class:`~struphy.propagators.propagators_fields.VariationalViscosity`
+    5. :class:`~struphy.propagators.propagators_fields.VariationalResistivity`
+
+    :ref:`Model info <add_model>`:
+    """
+
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+        dct["em_fields"]["b2"] = "Hdiv"
+        dct["fluid"]["mhd"] = {"rho3": "L2", "q3": "L2", "uv": "H1vec"}
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "mhd"
+
+    @staticmethod
+    def velocity_scale():
+        return "alfvén"
+
+    @staticmethod
+    def propagators_dct():
+        return {
+            propagators_fields.VariationalDensityEvolve: ["mhd_rho3", "mhd_uv"],
+            propagators_fields.VariationalMomentumAdvection: ["mhd_uv"],
+            propagators_fields.VariationalQBEvolve: ["mhd_q3", "b2", "mhd_uv"],
+            propagators_fields.VariationalViscosity: ["mhd_q3", "mhd_uv"],
+            propagators_fields.VariationalResistivity: ["mhd_q3", "b2"],
+        }
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    def __init__(self, params, comm, clone_config=None):
+        from struphy.feec.projectors import L2Projector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
+        from struphy.polar.basic import PolarVector
+
+        # initialize base class
+        super().__init__(params, comm=comm, clone_config=clone_config)
+
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
+
+        # Initialize propagators/integrators used in splitting substeps
+        lin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["lin_solver"]
+        nonlin_solver_density = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["nonlin_solver"]
+        lin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
+        nonlin_solver_momentum = params["fluid"]["mhd"]["options"]["VariationalMomentumAdvection"]["nonlin_solver"]
+        lin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalQBEvolve"]["lin_solver"]
+        nonlin_solver_magfield = params["fluid"]["mhd"]["options"]["VariationalQBEvolve"]["nonlin_solver"]
+        lin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["lin_solver"]
+        nonlin_solver_viscosity = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["nonlin_solver"]
+        lin_solver_resistivity = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["lin_solver"]
+        nonlin_solver_resistivity = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["nonlin_solver"]
+        if "linearize_current" in params["fluid"]["mhd"]["options"]["VariationalResistivity"].keys():
+            self._linearize_current = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["linearize_current"]
+        else:
+            self._linearize_current = False
+        self._gamma = params["fluid"]["mhd"]["options"]["VariationalDensityEvolve"]["physics"]["gamma"]
+        self._mu = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["physics"]["mu"]
+        self._mu_a = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["physics"]["mu_a"]
+        self._alpha = params["fluid"]["mhd"]["options"]["VariationalViscosity"]["physics"]["alpha"]
+        self._eta = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["physics"]["eta"]
+        self._eta_a = params["fluid"]["mhd"]["options"]["VariationalResistivity"]["physics"]["eta_a"]
+        model = "deltaf_q"
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.VariationalDensityEvolve] = {
+            "model": model,
+            "gamma": self._gamma,
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_density,
+            "nonlin_solver": nonlin_solver_density,
+        }
+
+        self._kwargs[propagators_fields.VariationalMomentumAdvection] = {
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_momentum,
+            "nonlin_solver": nonlin_solver_momentum,
+        }
+
+        self._kwargs[propagators_fields.VariationalQBEvolve] = {
+            "model": model,
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_magfield,
+            "nonlin_solver": nonlin_solver_magfield,
+            "gamma": self._gamma,
+            "div_u": self.pointer["div_u"],
+            "u2": self.pointer["u2"],
+            "bt2": self.pointer["bt2"],
+            "qt3": self.pointer["qt3"],
+        }
+
+        self._kwargs[propagators_fields.VariationalViscosity] = {
+            "model": model,
+            "rho": self.pointer["mhd_rho3"],
+            "gamma": self._gamma,
+            "mu": self._mu,
+            "mu_a": self._mu_a,
+            "alpha": self._alpha,
+            "mass_ops": self.WMM,
+            "lin_solver": lin_solver_viscosity,
+            "nonlin_solver": nonlin_solver_viscosity,
+            "pt3": self.pointer["qt3"],
+        }
+
+        self._kwargs[propagators_fields.VariationalResistivity] = {
+            "model": model,
+            "rho": self.pointer["mhd_rho3"],
+            "gamma": self._gamma,
+            "eta": self._eta,
+            "eta_a": self._eta_a,
+            "lin_solver": lin_solver_resistivity,
+            "nonlin_solver": nonlin_solver_resistivity,
+            "linearize_current": self._linearize_current,
+            "pt3": self.pointer["qt3"],
+        }
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+        # Scalar variables to be saved during simulation
+        self.add_scalar("en_U")
+        self.add_scalar("en_thermo_1")
+        self.add_scalar("en_thermo_2")
+        self.add_scalar("en_mag_1")
+        self.add_scalar("en_mag_2")
+        self.add_scalar("en_tot")
+
+        # self.add_scalar("dens_tot")
+        # self.add_scalar("tot_div_B")
+
+        # self.add_scalar("en_tot_l1")
+        # self.add_scalar("en_thermo_l1")
+        # self.add_scalar("en_mag_l1")
+
+        # temporary vectors for scalar quantities
+        self._tmp_div_B = self.derham.Vh_pol["3"].zeros()
+        tmp_dof = self.derham.Vh_pol["3"].zeros()
+        projV3 = L2Projector("L2", self.mass_ops)
+
+        self._integrator = projV3(self.domain.jacobian_det, dofs=tmp_dof)
+
+        self._ones = self.derham.Vh_pol["3"].zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+    def update_scalar_quantities(self):
+        # Update mass matrix
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["mhd_uv"], self.pointer["mhd_uv"])
+        self.update_scalar("en_U", en_U)
+
+        en_mag1 = 0.5 * self._mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
+        self.update_scalar("en_mag_1", en_mag1)
+
+        en_mag2 = 0.5 * self._mass_ops.M2.dot_inner(self.pointer["bt2"], self.projected_equil.b2)
+        self.update_scalar("en_mag_2", en_mag2)
+
+        en_th_1 = 1 / (self._gamma - 1) * self._mass_ops.M3.dot_inner(self.pointer["mhd_q3"], self.pointer["mhd_q3"])
+        self.update_scalar("en_thermo_1", en_th_1)
+
+        en_th_2 = 2 / (self._gamma - 1) * self._mass_ops.M3.dot_inner(self.pointer["qt3"], self.projected_equil.q3)
+        self.update_scalar("en_thermo_2", en_th_2)
+
+        en_tot = en_U + en_th_1 + en_th_2 + en_mag1 + en_mag2
+        self.update_scalar("en_tot", en_tot)
+
+        # dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
+        # self.update_scalar("dens_tot", dens_tot)
+
+        # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
+        # L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
+        # self.update_scalar("tot_div_B", L2_div_B)
+
+        # en_thermo_l1 = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
+        # self.update_scalar("en_thermo_l1", en_thermo_l1)
+
+        # wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
+        # en_mag_l1 = wb2.dot(self.projected_equil.b2)
+        # self.update_scalar("en_mag_l1", en_mag_l1)
+
+        # en_tot_l1 = en_thermo_l1 + en_mag_l1
+        # self.update_scalar("en_tot_l1", en_tot_l1)
+
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+        dct["bt2"] = "Hdiv"
+        dct["qt3"] = "L2"
         dct["div_u"] = "L2"
         dct["u2"] = "Hdiv"
         return dct
