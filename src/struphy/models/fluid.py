@@ -1586,7 +1586,7 @@ class ViscoresistiveMHD_with_q(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         from struphy.feec.projectors import L2Projector
         from struphy.feec.variational_utilities import H1vecMassMatrix_density
         from struphy.polar.basic import PolarVector
@@ -1785,7 +1785,7 @@ class ViscoresistiveLinearMHD_with_q(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         from struphy.feec.projectors import L2Projector
         from struphy.feec.variational_utilities import H1vecMassMatrix_density
         from struphy.polar.basic import PolarVector
@@ -2008,7 +2008,7 @@ class ViscoresistiveDeltafMHD_with_q(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         from struphy.feec.projectors import L2Projector
         from struphy.feec.variational_utilities import H1vecMassMatrix_density
         from struphy.polar.basic import PolarVector
