@@ -2247,10 +2247,12 @@ class IsothermalEulerSPH(StruphyModel):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # prelim
-        _p = self.kinetic["euler_fluid"]["params"]
+        _p = params["kinetic"]["euler_fluid"]
         algo_eta = _p["options"]["PushEta"]["algo"]
         kernel_type = _p["options"]["PushVinSPHpressure"]["kernel_type"]
         algo_sph = _p["options"]["PushVinSPHpressure"]["algo"]
+        gravity = _p["options"]["PushVinSPHpressure"]["gravity"]
+        thermodynamics = _p["options"]["PushVinSPHpressure"]["thermodynamics"]
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {
@@ -2261,6 +2263,8 @@ class IsothermalEulerSPH(StruphyModel):
         self._kwargs[propagators_markers.PushVinSPHpressure] = {
             "kernel_type": kernel_type,
             "algo": algo_sph,
+            "gravity": gravity,
+            "thermodynamics": thermodynamics,
         }
 
         # Initialize propagators used in splitting substeps
