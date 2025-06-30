@@ -461,7 +461,7 @@ class DeltaFVelocitiesEfield(Propagator):
                 ("pcg", "MassMatrixPreconditioner"),
                 ("cg", None),
             ],
-            "tol": 1.0e-8,
+            "tol": 1.0e-14,
             "maxiter": 3000,
             "info": False,
             "verbose": False,
@@ -511,7 +511,7 @@ class DeltaFVelocitiesEfield(Propagator):
         self._accum_c = AccumulatorVector(
             particles,
             "Hcurl",
-            accum_kernels.deltaf_vlasov_ampere_accum_c,
+            accum_kernels.deltaf_vlasov_ampere_accum_chi,
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -669,6 +669,7 @@ class DeltaFVelocitiesEfield(Propagator):
             print(f"{rank=}: {converged=} with {max_diff_v=} and {max_diff_e=}")
 
             if k >= self._maxiter:
+                print("Max number of iterations reached, breaking..")
                 break
 
         self.derham.comm.Barrier()

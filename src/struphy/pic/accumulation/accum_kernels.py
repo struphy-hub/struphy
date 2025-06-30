@@ -564,7 +564,7 @@ def deltaf_vlasov_ampere_accum_gamma(
 
 
 @stack_array("v_old", "v_next", "v_diff")
-def deltaf_vlasov_ampere_accum_c(
+def deltaf_vlasov_ampere_accum_chi(
     markers: "float[:,:]",
     n_markers_tot: "int",
     args_derham: "DerhamArguments",
@@ -620,7 +620,7 @@ def deltaf_vlasov_ampere_accum_c(
         abc = ab + c
 
         fill_vec1 = (
-            (cosh(abc) - sinh(abc))
+            exp(-abc)
             / (4 * a ** (3 / 2) * markers[ip, 7])
             * (
                 2 * sqrt(a) * factor * v_diff[0] * (exp(ab) - 1)
@@ -631,7 +631,7 @@ def deltaf_vlasov_ampere_accum_c(
             )
         )
         fill_vec2 = (
-            (cosh(abc) - sinh(abc))
+            exp(-abc)
             / (4 * a ** (3 / 2) * markers[ip, 7])
             * (
                 2 * sqrt(a) * factor * v_diff[1] * (exp(ab) - 1)
@@ -642,7 +642,7 @@ def deltaf_vlasov_ampere_accum_c(
             )
         )
         fill_vec3 = (
-            (cosh(abc) - sinh(abc))
+            exp(-abc)
             / (4 * a ** (3 / 2) * markers[ip, 7])
             * (
                 2 * sqrt(a) * factor * v_diff[2] * (exp(ab) - 1)
