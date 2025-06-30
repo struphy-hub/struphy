@@ -80,7 +80,7 @@ class LinearMHD(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None, amrex: bool = False):
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         from struphy.polar.basic import PolarVector
 
@@ -236,7 +236,7 @@ class LinearExtendedMHDuniform(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         from struphy.polar.basic import PolarVector
 
@@ -394,7 +394,7 @@ class ColdPlasma(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         # model parameters
         self._alpha = self.equation_params["electrons"]["alpha"]
@@ -518,7 +518,7 @@ class ViscoresistiveMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
@@ -752,7 +752,7 @@ class ViscousFluid(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         from struphy.feec.variational_utilities import H1vecMassMatrix_density, InternalEnergyEvaluator
 
@@ -953,7 +953,7 @@ class ViscoresistiveMHD_with_p(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
@@ -1152,7 +1152,7 @@ class ViscoresistiveLinearMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
@@ -1369,7 +1369,7 @@ class ViscoresistiveDeltafMHD(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
@@ -1592,7 +1592,7 @@ class ViscoresistiveMHD_with_q(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
@@ -1791,7 +1791,7 @@ class ViscoresistiveLinearMHD_with_q(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
@@ -2014,7 +2014,7 @@ class ViscoresistiveDeltafMHD_with_q(StruphyModel):
         from struphy.polar.basic import PolarVector
 
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
@@ -2244,7 +2244,7 @@ class IsothermalEulerSPH(StruphyModel):
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None, amrex=False):
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         # prelim
         _p = params["kinetic"]["euler_fluid"]
@@ -2352,7 +2352,7 @@ class HasegawaWakatani(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         from struphy.polar.basic import PolarVector
 

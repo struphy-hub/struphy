@@ -127,7 +127,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -413,7 +413,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -691,7 +691,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         """
 
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1125,7 +1125,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None, amrex=False):
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        super().__init__(params, comm=comm, clone_config=clone_config, amrex=False)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
