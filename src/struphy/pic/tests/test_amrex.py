@@ -1383,6 +1383,7 @@ def profile_push_v_in_efield(sort="calls"):
     amrex_obj.finalize()
 
 
+@pytest.mark.skipif(amr == None, reason="pyAMReX is not installed")
 def test_all():
     test_amrex_box()
     test_amrex_cylinder()
