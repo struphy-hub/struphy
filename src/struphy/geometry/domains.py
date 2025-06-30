@@ -174,10 +174,8 @@ class GVECunit(Spline):
 
         if gvec_equil is None:
             gvec_equil = GVECequilibrium()
-            finalize = True
         else:
             assert isinstance(gvec_equil, GVECequilibrium)
-            finalize = False
 
         params_map = {
             "Nel": gvec_equil.params["Nel"],
@@ -232,11 +230,6 @@ class GVECunit(Spline):
 
         self._params_map["rmin"] = _rmin
         self._params_map["equilibrium"] = gvec_equil
-
-        # finalize GVEC in order to be able to launch other tests
-        if finalize:
-            print("finalizing GVEC ...")
-            gvec_equil._state.finalize()
 
 
 class DESCunit(Spline):

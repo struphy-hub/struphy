@@ -3016,6 +3016,12 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             return self.params["n"] + 0 * x
         elif self.params["density_profile"] == "affine":
             return self.params["n"] + self.params["n1"] * x
+        elif self.params["density_profile"] == "gaussian_xy":
+            return self.params["n"] * np.exp(-(x**2 + y**2) / self.params["p0"])
+        elif self.params["density_profile"] == "step_function_x":
+            out = 1e-8 + 0 * x
+            out[x < 0.0] = self.params["n"]
+            return out
 
 
 class HomogenSlabITG(CartesianFluidEquilibriumWithB):

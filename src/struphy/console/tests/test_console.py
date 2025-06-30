@@ -131,9 +131,6 @@ def test_main(args):
         for func_name, func in funcs.items():
             if args[0] == func_name:
                 if func_name == "pproc":
-                    # if '-d' in args or '--dirr' in args:
-                    #     o_path = state['o_path']
-                    #     if os.path.exists(os.path.join(o_path, )
                     pass
                 else:
                     func.assert_called_once()
@@ -371,7 +368,7 @@ def test_struphy_params(tmp_path, model, file, yes, options):
 
 
 @pytest.mark.mpi_skip
-@pytest.mark.parametrize("dirr", ["simulation_output", "custom_output"])
+@pytest.mark.parametrize("dir", ["simulation_output", "custom_output"])
 @pytest.mark.parametrize("dir_abs", [None, "/custom/path/simulation_output"])
 @pytest.mark.parametrize("step", [1, 2])
 @pytest.mark.parametrize("celldivide", [1, 2])
@@ -379,7 +376,7 @@ def test_struphy_params(tmp_path, model, file, yes, options):
 @pytest.mark.parametrize("guiding_center", [False, True])
 @pytest.mark.parametrize("classify", [False, True])
 def test_struphy_pproc(
-    dirr,
+    dir,
     dir_abs,
     step,
     celldivide,
@@ -389,7 +386,7 @@ def test_struphy_pproc(
 ):
     with patch("subprocess.run") as mock_subprocess_run:
         struphy_pproc(
-            dirr=dirr,
+            dirs=[dir],
             dir_abs=dir_abs,
             step=step,
             celldivide=celldivide,
@@ -403,7 +400,7 @@ def test_struphy_pproc(
         o_path = read_state()["o_path"]
 
         if dir_abs is None:
-            expected_dir_abs = os.path.join(o_path, dirr)
+            expected_dir_abs = os.path.join(o_path, dir)
         else:
             expected_dir_abs = dir_abs
 

@@ -1,5 +1,8 @@
+from typing import Optional
+
+
 def main(
-    model_name: str,
+    model_name: Optional[str],
     parameters: dict | str,
     path_out: str,
     *,
@@ -75,10 +78,6 @@ def main(
     if rank == 0:
         print("")
     comm.Barrier()
-    if rank < 32:
-        print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
-    if size > 32 and rank == 32:
-        print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
 
     # synchronize MPI processes to set same start time of simulation for all processes
     comm.Barrier()
@@ -97,6 +96,15 @@ def main(
         num_clones=num_clones,
         verbose=verbose,
     )
+
+    if model_name is None:
+        assert "model" in params, "If model is not specified, then model: MODEL must be specified in the params!"
+        model_name = params["model"]
+
+    if rank < 32:
+        print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
+    if size > 32 and rank == 32:
+        print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
 
     if comm is None:
         clone_config = None
@@ -342,7 +350,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run an Struphy model.")
 
     # model
-    parser.add_argument("model", type=str, metavar="model", help="the name of the model to run")
+    parser.add_argument(
+        "model",
+        type=str,
+        nargs="?",
+        default=None,
+        metavar="MODEL",
+        help="the name of the model to run (default: None)",
+    )
 
     # input (absolute path)
     parser.add_argument(

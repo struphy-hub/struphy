@@ -53,8 +53,17 @@ stages:
 
 # --- rules ---
 
-.rules_push:
+# Options for CI_PIPELINE_SOURCE: push, merge_request_event, web, schedule, api
+.rules_startup:
   rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_PROTECTED == "false"
+      when: never
+    - when: always # this is a fix from https://forum.gitlab.com/t/push-to-gitlab-triggers-one-or-two-pipelines/61070/2
+
+.rules_common:
+  skip_pages_and_scheduled:
     - if: $TEST_SCHEDULED == "true"
       when: never
     - if: $MAKE_PAGES == "true"
@@ -63,7 +72,27 @@ stages:
       when: never
     - if: $CI_COMMIT_TAG
       when: never
-    - if: $CI_COMMIT_REF_PROTECTED == "false" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: never
+  release:
+    - if: $TEST_SCHEDULED == "true"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_REF_NAME == "master"
+
+.rules_mr_to_devel:
+  rules:
+    - !reference [.rules_common, skip_pages_and_scheduled]
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "devel" && $CI_PIPELINE_SOURCE == "merge_request_event"
+
+.rules_mr_to_master:
+  rules:
+    - !reference [.rules_common, skip_pages_and_scheduled]
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"
+      when: always
 
 .rules_scheduled:
   rules:
@@ -72,23 +101,11 @@ stages:
 
 .rules_release:
   rules:
-    - if: $TEST_SCHEDULED == "true"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master"
+    - !reference [.rules_common, release]
 
 .rules_make_pages:
   rules:
-    - if: $TEST_SCHEDULED == "true"
-      when: never
-    - if: $CI_PIPELINE_SOURCE == "schedule"
-      when: never
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_REF_NAME == "master"
+    - !reference [.rules_common, release]
     - if: $MAKE_PAGES == "true"
 
 .rules_cleanup_macos:
@@ -124,12 +141,10 @@ stages:
     - module list
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8 cmake
-    #- module unload python-waterboa/2024.06 # for gvec
     - module load cmake netcdf-serial mkl hdf5-serial # for gvec
     - export FC=`which gfortran` # for gvec
     - export CC=`which gcc` # for gvec
     - export CXX=`which g++` # for gvec
-    - export CMAKE_HOSTNAME=mpcdfcirunner # for current gvec 1.0, can be removed for future versions
     - module list
     - echo "Fortran compiler is ${FC}"
     - make -v
@@ -175,36 +190,49 @@ stages:
     - !reference [.scripts, source_env_matrix_push]
     - git status
     - git fetch origin
-    - git checkout $CI_COMMIT_BRANCH
+    - echo $CI_COMMIT_REF_NAME
+    - git checkout $CI_COMMIT_REF_NAME
     - git pull
-    - struphy compile -d -y
-    - pip uninstall psydac pyccel gvec-to-python -y
+    - pip uninstall psydac pyccel -y
+    - echo $STRUPHY_SOURCE
     - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - struphy compile -d -y
     - !reference [.scripts, compile_matrix]
   install_on_push:
     - !reference [.scripts, source_env_matrix_push]
-    - pip uninstall psydac pyccel gvec-to-python -y
     - git status
     - git fetch origin
-    - git checkout $CI_COMMIT_BRANCH
+    - echo $CI_COMMIT_REF_NAME
+    - git checkout $CI_COMMIT_REF_NAME
     - git pull
+    - echo $STRUPHY_SOURCE
     - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - !reference [.scripts, compile_matrix]
   install:
-    - pip uninstall psydac pyccel gvec-to-python -y
+    - echo $STRUPHY_SOURCE
     - pip install $(echo $STRUPHY_SOURCE)[phys]
+    - pip show struphy
+    - pip list
+    - struphy -h
+  install_no_binary:
+    - echo $STRUPHY_SOURCE
+    - pip install $(echo $STRUPHY_SOURCE)[phys] --no-binary mpi4py
+    - pip show struphy
+    - pip list
+    - struphy -h
+  install_all:
+    - pip install -U pip
+    - echo $STRUPHY_SOURCE
+    - pip install $(echo $STRUPHY_SOURCE)[all] --no-cache-dir
     - pip show struphy
     - pip list
     - struphy -h
   compile:
     - pyccel --version
-    - struphy compile -d -y
     - struphy compile --status
     - struphy compile -y
   compile_matrix:
     - pyccel --version
-    - struphy compile -d -y
     - struphy compile --status
     - echo ${LANGUAGE} && echo ${OMP}
     - struphy compile --language ${LANGUAGE} ${OMP} -y
@@ -235,15 +263,16 @@ stages:
     - struphy params VlasovMaxwellOneSpecies -y
     - ls -1a
     - mv params_VlasovMaxwellOneSpecies.yml test.yml
-    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
+    - struphy run -i test.yml -o my_first_sim
     - ls my_first_sim/
-    - struphy pproc -d my_first_sim
+    - struphy pproc my_first_sim
     - ls my_first_sim/post_processing/fields_data/
     - ls my_first_sim/post_processing/kinetic_data/
     - struphy params VlasovMaxwellOneSpecies --options
-    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
-    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
-    - struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
+    - struphy run -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
+    - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
+    - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
+    - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
 
 # --- artifacts ---
 
@@ -260,16 +289,19 @@ stages:
 
 # Print predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
+  stage: startup
   extends:
+    - .rules_startup
     - .image_gitlab_mpcdf_gcc_openmp
     - .before_script_load_modules
-  stage: startup
   script:
     - echo "All environment variables:"
     - env
 
 inspect_repo:
   stage: startup
+  extends:
+    - .rules_startup
   script:
     - curl https://raw.githubusercontent.com/AlDanial/cloc/master/cloc > cloc
     - chmod +x cloc
@@ -283,7 +315,7 @@ inspect_repo:
 install_tests:
   stage: test
   extends:
-    - .rules_push
+    - .rules_mr_to_devel
     - .image_gitlab_mpcdf_struphy
     - .before_script_load_modules
     - .parallel_matrix_install
@@ -293,7 +325,7 @@ install_tests:
 unit_tests:
   stage: test
   extends:
-    - .rules_push
+    - .rules_mr_to_devel
     - .image_gitlab_mpcdf_struphy
     - .before_script_load_modules
     - .variables_push
@@ -316,7 +348,7 @@ tests_pyccel_devel:
 model_tests:
   stage: test
   extends:
-    - .rules_push
+    - .rules_mr_to_devel
     - .image_gitlab_mpcdf_struphy
     - .before_script_load_modules
     - .variables_push
@@ -327,7 +359,7 @@ model_tests:
 quickstart_tests:
   stage: test
   extends:
-    - .rules_push
+    - .rules_mr_to_devel
     - .image_gitlab_mpcdf_struphy
     - .before_script_load_modules
     - .variables_push
@@ -338,7 +370,7 @@ quickstart_tests:
 pages_tests:
   stage: test
   extends:
-    - .rules_push
+    - .rules_mr_to_devel
     - .image_gitlab_mpcdf_struphy
     - .before_script_load_modules
     - .variables_push
@@ -347,14 +379,14 @@ pages_tests:
     - !reference [.scripts, inspect_struphy]
     - module load pandoc
     - module list
-    - pip install .[doc]
+    - pip install -e .[doc]
     - struphy compile -y
     - cd doc ; make html; cd ..
 
 ubuntu_latest:
   stage: test
   extends:
-    - .rules_push
+    - .rules_mr_to_devel
     - .image_ubuntu_struphy
     - .variables_push
   script:
@@ -373,7 +405,7 @@ macos_nmpp:
     GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID/$CI_CONCURRENT_PROJECT_ID
     _JOB_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID
   extends:
-    - .rules_push
+    - .rules_mr_to_devel
     - .variables_push
   before_script:
     # - brew install cmake
@@ -432,7 +464,7 @@ install_scheduled:
     - .artifacts_scheduled
   script:
     - !reference [.scripts, create_venv_matrix]
-    - !reference [.scripts, install]
+    - !reference [.scripts, install_no_binary]
     - !reference [.scripts, compile_matrix]
 
 compile_timing:
@@ -444,7 +476,7 @@ compile_timing:
     - .rules_scheduled
   script:
     - !reference [.scripts, create_venv]
-    - !reference [.scripts, install]
+    - !reference [.scripts, install_no_binary]
     - pyccel --version
     - struphy compile --status
     - struphy compile --delete
@@ -478,7 +510,7 @@ test_build:
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, build]
-    - pip install $(echo dist/struphy*.whl) --no-cache-dir
+    - pip install $(echo dist/struphy*.whl) --no-cache-dir --no-binary mpi4py
 
 unit_tests_scheduled:
   stage: test
@@ -501,6 +533,26 @@ model_tests_scheduled:
   script:
     - !reference [.scripts, source_env_matrix]
     - !reference [.scripts, model_tests]
+
+check_release_dependencies:
+  stage: test
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_load_modules
+    - .rules_mr_to_master
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - !reference [.scripts, install_all]
+    - python src/struphy/utils/set_release_dependencies.py
+    - |
+      if git diff --exit-code pyproject.toml; then
+        echo "pyproject.toml has not changed, dependencies are set correctly!"
+      else
+        echo "pyproject.toml has changed, dependencies are set incorrectly!"
+        echo "Run python src/struphy/utils/set_release_dependencies.py to update pyproject.toml"
+        exit 1
+      fi
 
 Ubuntu_22_04:
   stage: test
@@ -578,6 +630,8 @@ Fedora:
     - dnf install -y environment-modules 
     - dnf install -y python3-mpi4py-openmpi 
     - dnf install -y pandoc
+    - dnf install -y gawk
+    - dnf update -y
     - wget https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz 
     - tar xzf Python-3.10.14.tgz 
     - cd Python-3.10.14 
@@ -727,6 +781,7 @@ struphy_almalinux_latest:
 # Run in weekly CI pipeline only
 lint_full_repo_report:
   stage: lint
+  needs: []
   extends:
     - .rules_scheduled
     - .image_ubuntu_latest
@@ -747,8 +802,9 @@ lint_full_repo_report:
 # Lint struphy with `struphy lint`
 lint_branch:
   stage: lint
+  needs: []
   extends:
-    - .rules_push
+    - .rules_mr_to_devel
     - .image_ubuntu_latest
   script:
     - !reference [.scripts, inspect_directory]
@@ -762,8 +818,9 @@ lint_branch:
 # Lint struphy with `struphy lint`
 lint_branch_report:
   stage: lint
+  needs: []
   extends:
-    - .rules_push
+    - .rules_mr_to_devel
     - .image_ubuntu_latest
   script:
     - !reference [.scripts, inspect_directory]

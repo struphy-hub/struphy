@@ -42,7 +42,7 @@ file = "LICENSE"
 
 [project.optional-dependencies]
 phys = [
-    'gvec @ git+https://gitlab.mpcdf.mpg.de/gvec-group/gvec.git',
+    'gvec>=1.1.0',
     'desc-opt',
 ]
 dev = [

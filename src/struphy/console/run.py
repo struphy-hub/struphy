@@ -5,7 +5,7 @@ import struphy
 
 
 def struphy_run(
-    model,
+    model=None,
     inp=None,
     input_abs=None,
     output="sim_1",
@@ -121,6 +121,9 @@ def struphy_run(
     # create absolute i/o paths
     if input_abs is None:
         if inp is None:
+            if model is None:
+                print("You have to either specify a struphy model or a parameter file which contains the model.")
+                sys.exit(0)
             default_yml = os.path.join(i_path, f"params_{model}.yml")
             if os.path.isfile(default_yml):
                 print(f"\nNo input file specified, running with default: {default_yml}")
@@ -166,9 +169,10 @@ def struphy_run(
 
     # command parts
     cmd_python = ["python3"]
-    cmd_main = [
-        f"{libpath}/main.py",
-        model,
+    cmd_main = [f"{libpath}/main.py"]
+    if model is not None:
+        cmd_main += [model]
+    cmd_main += [
         "-i",
         input_abs,
         "-o",
