@@ -141,12 +141,10 @@ stages:
     - module list
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git graphviz/8 cmake
-    #- module unload python-waterboa/2024.06 # for gvec
     - module load cmake netcdf-serial mkl hdf5-serial # for gvec
     - export FC=`which gfortran` # for gvec
     - export CC=`which gcc` # for gvec
     - export CXX=`which g++` # for gvec
-    - export CMAKE_HOSTNAME=mpcdfcirunner # for current gvec 1.0, can be removed for future versions
     - module list
     - echo "Fortran compiler is ${FC}"
     - make -v
@@ -192,9 +190,9 @@ stages:
     - !reference [.scripts, source_env_matrix_push]
     - git status
     - git fetch origin
+    - echo $CI_COMMIT_REF_NAME
     - git checkout $CI_COMMIT_REF_NAME
     - git pull
-    - struphy compile -d -y
     - pip uninstall psydac pyccel -y
     - echo $STRUPHY_SOURCE
     - pip install -e $(echo $STRUPHY_SOURCE)[phys]
@@ -202,18 +200,23 @@ stages:
     - !reference [.scripts, compile_matrix]
   install_on_push:
     - !reference [.scripts, source_env_matrix_push]
-    - pip uninstall psydac pyccel -y
     - git status
     - git fetch origin
+    - echo $CI_COMMIT_REF_NAME
     - git checkout $CI_COMMIT_REF_NAME
     - git pull
     - echo $STRUPHY_SOURCE
     - pip install -e $(echo $STRUPHY_SOURCE)[phys]
     - !reference [.scripts, compile_matrix]
   install:
-    - pip uninstall psydac pyccel -y
     - echo $STRUPHY_SOURCE
     - pip install $(echo $STRUPHY_SOURCE)[phys]
+    - pip show struphy
+    - pip list
+    - struphy -h
+  install_no_binary:
+    - echo $STRUPHY_SOURCE
+    - pip install $(echo $STRUPHY_SOURCE)[phys] --no-binary mpi4py
     - pip show struphy
     - pip list
     - struphy -h
@@ -226,12 +229,10 @@ stages:
     - struphy -h
   compile:
     - pyccel --version
-    - struphy compile -d -y
     - struphy compile --status
     - struphy compile -y
   compile_matrix:
     - pyccel --version
-    - struphy compile -d -y
     - struphy compile --status
     - echo ${LANGUAGE} && echo ${OMP}
     - struphy compile --language ${LANGUAGE} ${OMP} -y
@@ -463,7 +464,7 @@ install_scheduled:
     - .artifacts_scheduled
   script:
     - !reference [.scripts, create_venv_matrix]
-    - !reference [.scripts, install]
+    - !reference [.scripts, install_no_binary]
     - !reference [.scripts, compile_matrix]
 
 compile_timing:
@@ -475,7 +476,7 @@ compile_timing:
     - .rules_scheduled
   script:
     - !reference [.scripts, create_venv]
-    - !reference [.scripts, install]
+    - !reference [.scripts, install_no_binary]
     - pyccel --version
     - struphy compile --status
     - struphy compile --delete
@@ -509,7 +510,7 @@ test_build:
   script:
     - !reference [.scripts, create_venv]
     - !reference [.scripts, build]
-    - pip install $(echo dist/struphy*.whl) --no-cache-dir
+    - pip install $(echo dist/struphy*.whl) --no-cache-dir --no-binary mpi4py
 
 unit_tests_scheduled:
   stage: test
