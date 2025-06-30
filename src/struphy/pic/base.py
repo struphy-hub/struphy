@@ -248,10 +248,6 @@ class Particles(metaclass=ABCMeta):
 
         assert self.Np >= self.mpi_size
 
-        # create marker array
-        self._eps = eps
-        self._create_marker_array()
-
         # boundary conditions
         if bc is None:
             bc = ["periodic", "periodic", "periodic"]
@@ -336,7 +332,7 @@ class Particles(metaclass=ABCMeta):
         if self.amrex:
             self._init_amrex()
         else:
-            self._init_struphy(domain_decomp, boxes_per_dim, eps)
+            self._init_struphy(domain_decomp, boxes_per_dim, bufsize)
 
     def _init_amrex(
         self,
@@ -352,7 +348,7 @@ class Particles(metaclass=ABCMeta):
         self,
         domain_decomp: tuple = None,
         boxes_per_dim: tuple | list = None,
-        eps: float = 0.25,
+        bufsize: float = 0.25,
     ):
         self._periodic_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "reflect"]
@@ -1971,7 +1967,6 @@ class Particles(metaclass=ABCMeta):
                 pert_params=pert_params,
                 reject_weights=reject_weights,
                 threshold=threshold,
-                from_tesselation=from_tesselation,
             )
         else:
             self._initialize_weights_struphy(
@@ -1979,7 +1974,6 @@ class Particles(metaclass=ABCMeta):
                 pert_params=pert_params,
                 reject_weights=reject_weights,
                 threshold=threshold,
-                from_tesselation=from_tesselation,
             )
 
     def _initialize_weights_amrex(
@@ -1989,12 +1983,11 @@ class Particles(metaclass=ABCMeta):
         pert_params: dict = None,
         reject_weights: bool = False,
         threshold: float = 1e-8,
-        from_tesselation: bool = False,
     ):
         for pti in self._markers.iterator(self._markers, 0):
             markers_array = self.get_amrex_markers_array(pti.soa())
 
-            if from_tesselation:  # TODO (Mati)
+            if self.loading == "tesselation":  # TODO (Mati)
                 if self.pforms[0] is None:
                     fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
                 else:
@@ -2065,7 +2058,6 @@ class Particles(metaclass=ABCMeta):
         pert_params: dict = None,
         reject_weights: bool = False,
         threshold: float = 1e-8,
-        from_tesselation: bool = False,
     ):
         if self.loading == "tesselation":
             if self.pforms[0] is None:
