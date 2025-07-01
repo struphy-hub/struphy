@@ -697,7 +697,12 @@ class LinearMHDDriftkineticCC(StruphyModel):
             option=[False],
             dct=dct,
         )
-
+        cls.add_option(
+            species=["kinetic", "energetic_ions"],
+            key="save_ediff",
+            option=[False],
+            dct=dct,
+        )
         return dct
 
     def __init__(self, params, comm, inter_comm=None):
@@ -711,6 +716,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # extract necessary parameters
         u_space = params["fluid"]["mhd"]["options"]["spaces"]["velocity"]
         self._include_feq_b = params["kinetic"]["energetic_ions"]["options"]["include_feq_b"]
+        self._save_ediff = params["kinetic"]["energetic_ions"]["options"]["save_ediff"]
         params_alfven = params["fluid"]["mhd"]["options"]["ShearAlfvenCurrentCoupling5D"]
         params_sonic = params["fluid"]["mhd"]["options"]["MagnetosonicCurrentCoupling5D"]
         params_density = params["fluid"]["mhd"]["options"]["CurrentCoupling5DDensity"]
@@ -817,6 +823,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_gradB["boundary_cut"],
                 "include_feq_b": self._include_feq_b,
+                "save_ediff": self._save_ediff,
             }
 
         if params_cc_gradB_dg["turn_off"]:
@@ -855,6 +862,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "epsilon": epsilon,
                 "boundary_cut": params_cc_curlb["boundary_cut"],
                 "include_feq_b": self._include_feq_b,
+                "save_ediff": self._save_ediff,
             }
 
         if params_density["turn_off"]:
@@ -886,6 +894,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 "coupling_params": self._coupling_params,
                 "boundary_cut": params_alfven["boundary_cut"],
                 "higher_order": params_alfven["higher_order"],
+                "save_ediff": self._save_ediff,
             }
 
         if params_sonic["turn_off"]:

@@ -1593,7 +1593,8 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         filter: dict = options(default=True)["filter"],
         coupling_params: dict,
         boundary_cut: dict = options(default=True)["boundary_cut"],
-        higher_order: dict = options(default=True)["higher_order"]
+        higher_order: dict = options(default=True)["higher_order"],
+        save_ediff: dict,
     ):
         super().__init__(u, b)
 
@@ -1615,6 +1616,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             self._space_key_int = int(self._u_id)
 
         self._boundary_cut_e1 = boundary_cut["e1"]
+        self._save_ediff = save_ediff
 
         self._ACC = AccumulatorVector(
             particles,
@@ -1711,8 +1713,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         bn = self.feec_vars[1]
 
         self._PB.dot(bn, out=self._PBb)
-        self.particles.save_step_energy_diff(6, PBb=self._PBb, dweight=False, before=True)
-        self.particles.save_step_energy_diff(7, PBb=self._PBb, dweight=True, before=True)
+        if self._save_ediff:
+            self.particles.save_step_energy_diff(6, PBb=self._PBb, dweight=False, before=True)
+            self.particles.save_step_energy_diff(7, PBb=self._PBb, dweight=True, before=True)
         # perform accumulation (either with or without control variate)
         # if self._particles.control_variate:
 
@@ -1745,8 +1748,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         max_du, max_db = self.feec_vars_update(un1, bn1)
 
         self._PB.dot(bn1, out=self._PBb)
-        self.particles.save_step_energy_diff(6, PBb=self._PBb, dweight=False, before=False)
-        self.particles.save_step_energy_diff(7, PBb=self._PBb, dweight=True, before=False)
+        if self._save_ediff:
+            self.particles.save_step_energy_diff(6, PBb=self._PBb, dweight=False, before=False)
+            self.particles.save_step_energy_diff(7, PBb=self._PBb, dweight=True, before=False)
 
         if self._info and self.rank == 0:
             print("Status     for ShearAlfven:", info["success"])

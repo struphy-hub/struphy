@@ -1781,6 +1781,7 @@ class CurrentCoupling5DCurlb(Propagator):
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
         include_feq_b: bool,
+        save_ediff: bool,
     ):
         super().__init__(particles, u)
 
@@ -1810,6 +1811,7 @@ class CurrentCoupling5DCurlb(Propagator):
 
         self._boundary_cut_e1 = boundary_cut["e1"]
         self._include_feq_b = include_feq_b
+        self._save_ediff = save_ediff
 
         u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops["0"].transpose()
@@ -1938,8 +1940,9 @@ class CurrentCoupling5DCurlb(Propagator):
             self._b_full1 += self._b
 
         self._PB.dot(self._b, out=self._PBb)
-        self.particles[0].save_step_energy_diff(10, PBb=self._PBb, dweight=False, before=True)
-        self.particles[0].save_step_energy_diff(11, PBb=self._PBb, dweight=True, before=True)
+        if self._save_ediff:
+            self.particles[0].save_step_energy_diff(10, PBb=self._PBb, dweight=False, before=True)
+            self.particles[0].save_step_energy_diff(11, PBb=self._PBb, dweight=True, before=True)
 
         # extract coefficients to tensor product space (in-place)
         Eb_full = self._E2T.dot(b_full, out=self._b_full2)
@@ -2052,8 +2055,9 @@ class CurrentCoupling5DCurlb(Propagator):
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
 
-        self.particles[0].save_step_energy_diff(10, PBb=self._PBb, dweight=False, before=False)
-        self.particles[0].save_step_energy_diff(11, PBb=self._PBb, dweight=True, before=False)
+        if self._save_ediff:
+            self.particles[0].save_step_energy_diff(10, PBb=self._PBb, dweight=False, before=False)
+            self.particles[0].save_step_energy_diff(11, PBb=self._PBb, dweight=True, before=False)
     
         if self._info and self._rank == 0:
             print("Status     for CurrentCoupling5DCurlb:", info["success"])
@@ -2150,6 +2154,7 @@ class CurrentCoupling5DGradB(Propagator):
         coupling_params: dict,
         epsilon: float = 1.0,
         boundary_cut: dict = options(default=True)["boundary_cut"],
+        save_ediff: bool,
         include_feq_b: bool,
     ):
         from psydac.linalg.solvers import inverse
@@ -2184,6 +2189,7 @@ class CurrentCoupling5DGradB(Propagator):
         self._scale_push = 1
 
         self._boundary_cut_e1 = boundary_cut["e1"]
+        self._save_ediff = save_ediff
 
         u_id = self.derham.space_to_form[u_space]
         self._E0T = self.derham.extraction_ops["0"].transpose()
@@ -2390,9 +2396,9 @@ class CurrentCoupling5DGradB(Propagator):
             self._b_full1 += self._b
 
         PBbtilde = self._PB.dot(self._b, out=self._tmp1)
-
-        self.particles[0].save_step_energy_diff(8, PBb=self._tmp1, dweight=False, before=True)
-        self.particles[0].save_step_energy_diff(9, PBb=self._tmp1, dweight=True, before=True)
+        if self._save_ediff:
+            self.particles[0].save_step_energy_diff(8, PBb=self._tmp1, dweight=False, before=True)
+            self.particles[0].save_step_energy_diff(9, PBb=self._tmp1, dweight=True, before=True)
 
         grad_Pbtilde = self.derham.grad.dot(PBbtilde, out=self._tmp2)
 
@@ -2533,9 +2539,9 @@ class CurrentCoupling5DGradB(Propagator):
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
-
-        self.particles[0].save_step_energy_diff(8, PBb=self._tmp1, dweight=False, before=False)
-        self.particles[0].save_step_energy_diff(9, PBb=self._tmp1, dweight=True, before=False)
+        if self._save_ediff:
+            self.particles[0].save_step_energy_diff(8, PBb=self._tmp1, dweight=False, before=False)
+            self.particles[0].save_step_energy_diff(9, PBb=self._tmp1, dweight=True, before=False)
 
         if self._info and self._rank == 0:
             print("Maxdiff up for CurrentCoupling5DGradB:", max_du)
