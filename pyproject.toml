@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.4.4"
+version = "2.4.5"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -22,17 +22,17 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "numpy<=2.2.2",
-    "pyccel<=1.12.1, >=1.11.1",
-    "mpi4py<=4.0.3",
-    "scipy<=1.15.2",
+    "numpy<=2.2.5",
+    "pyccel<=2.0.1, >=2.0",
+    "mpi4py<=4.1.0",
+    "scipy<=1.15.3",
     "h5py<=3.13.0",
-    "matplotlib<=3.10.1",
+    "matplotlib<=3.10.3",
     "pyyaml<=6.0.2",
-    "vtk<=9.4.2",
+    "vtk<=9.5.0",
     "tqdm<=4.67.1",
     "argcomplete<=3.6.2",
-    "pytest<=8.3.5",
+    "pytest<=8.4.1",
     "pytest-mpi<=0.6",
 ]
 
@@ -41,17 +41,17 @@ file = "LICENSE"
 
 [project.optional-dependencies]
 phys = [
-    "gvec-to-python<=1.2.2",
-    "desc-opt<=0.14.1",
+    "gvec<=1.1.0, >=1.1.0",
+    "desc-opt<=0.14.2",
 ]
 dev = [
-    "notebook<=7.4.1",
+    "notebook<=7.4.3",
     "autopep8<=2.3.2",
     "isort<=6.0.1",
-    "flake8<=7.2.0",
-    "pylint<=3.3.6",
-    "add-trailing-comma<=3.1.0",
-    "ruff<=0.11.6, >=0.9.1",
+    "flake8<=7.3.0",
+    "pylint<=3.3.7",
+    "add-trailing-comma<=3.2.0",
+    "ruff<=0.12.1, >=0.9.1",
     "pre-commit<=4.2.0",
     "nbstripout<=0.8.1",
     "tabulate<=0.9.0",
@@ -100,12 +100,13 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
     "data/*.high",
 ]
 "struphy.fields_background.mhd_equil.gvec" = [
-    "ellipstell_v2/newBC_E1D6_M6N6/*.dat",
-    "ellipstell_v2/newBC_E1D6_M6N6/*.ini",
-    "ellipstell_v2/newBC_E4D6_M6N6/*.dat",
-    "ellipstell_v2/newBC_E4D6_M6N6/*.ini",
-    "ellipstell_v2/oldBC_E40D5M6N6/*.dat",
-    "ellipstell_v2/oldBC_E40D5M6N6/*.ini",
+    "run_01/*.dat",
+    "run_01/*.ini",
+    "run_02/*.dat",
+    "run_02/*.ini",
+    "run_03/*.dat",
+    "run_03/*.ini",
+    "run_03/*.nc",
 ]
 "struphy.io" = [
     "batch/*.sh",
@@ -119,7 +120,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 ]
 struphy = [
     "compile_struphy.mk",
-    "psydac-2.4.4.dev0-py3-none-any.whl",
+    "psydac-2.4.5.dev0-py3-none-any.whl",
 ]
 
 [tool.autopep8]

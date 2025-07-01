@@ -28,7 +28,12 @@ RUN apt update -y && apt clean \
     && apt install -y pandoc graphviz \
     && apt install -y sqlite3 \
     && bash -c "echo 'alias python3=python3.11' >> ~/.bashrc" \
-    && bash -c "source ~/.bashrc" 
+    && bash -c "source ~/.bashrc" \
+    # for gvec
+    && apt install -y g++ liblapack3 cmake cmake-curses-gui zlib1g-dev libnetcdf-dev libnetcdff-dev \
+    && export FC=`which gfortran` \ 
+    && export CC=`which gcc` \ 
+    && export CXX=`which g++`
 
 # create new working dir
 WORKDIR /struphy_install/

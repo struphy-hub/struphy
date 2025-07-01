@@ -47,7 +47,7 @@ The produced data is in the expected folder in the current output path (cwd)::
 
 Let us post-process the raw simulation data::
 
-    struphy pproc -d my_first_sim
+    struphy pproc my_first_sim
 
 The results of post-processing are stored under ``my_first_sim/post_processing/``. In particular, 
 the data of the FEEC-fields is stored under::
@@ -76,7 +76,7 @@ This time we ran for 20 time steps. The physical time unit of the run can be kno
 
 For completeness, let us post-process the data of the second run::
 
-    struphy pproc -d another_sim
+    struphy pproc another_sim
 
 Let us now double the number of markers used in the simulation:: 
 

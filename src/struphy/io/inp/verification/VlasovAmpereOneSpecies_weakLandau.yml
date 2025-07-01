@@ -44,7 +44,7 @@ kinetic:
             ppc: 1000
             bc: [periodic, periodic, periodic]
             control_variate: true
-            eps: 0.4
+            bufsize: 0.4
             loading: pseudo_random
             loading_params: {seed: 1234, spatial: uniform, dir_particles: path_to_particles}
         save_data:

@@ -178,7 +178,8 @@ Trouble shooting
 Install problems
 ^^^^^^^^^^^^^^^^
 
-* Make sure that you can ``pip install mpi4py``.
+* Make sure that you can ``pip install -U mpi4py``.
+* `mpi4py>=4.1.0` `provides binaries <https://github.com/mpi4py/mpi4py/releases/tag/4.1.0>`_` for common platforms. In case of "exotic" platforms you might try `pip install -U mpi4py --no-binary mpi4py`
 * In many cases installing ``apt install openmpi-devel`` solves a problem with missing headers.
 * On Mac OS, you can try to install the command line tools (160 MB) ``xcode-select --install``.
 * Struphy is not supported with Conda; however, in case you insist you might try::
@@ -448,7 +449,9 @@ A common installation looks like this
     source <some_name>/bin/activate
     python3 -m pip install --upgrade pip
 
-2. Continue with one of the install methods from above (:ref:`pypi_install` or :ref:`source_install`).
+2. Install Struphy by not using the binaries of `mpi4py` (see install methods from above: :ref:`pypi_install` or :ref:`source_install`):
+
+    pip install -U struphy --no-binary mpi4py
 
 3. When using slurm, include the following lines in your BATCH script::
 
@@ -510,12 +513,11 @@ You can nevertheless install vtk on your VM via::
 
     sudo apt install python3-vtk9
 
-This will give you all functionality, however it will not be recognized by ``pip``. You therefore have to install ``gvec_to_python`` from source,
-commenting out ``vtk`` under ``install_requires``. Then do::
+This will give you all functionality, however it will not be recognized by ``pip``. Then do::
 
     python3 -m pip install .
 
-You will further have to comment out ``vtk`` and ``gvec_to_python`` from the ``pyproject.toml`` file in the struphy repository. You then proceed with::
+You will further have to comment out ``vtk`` from the ``pyproject.toml`` file in the struphy repository. You then proceed with::
 
     python3 -m pip install <option> .
 

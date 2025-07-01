@@ -143,16 +143,16 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
     # struphy d_splines_slim
     span1s, span2s, span3s = [], [], []
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
-        span1s += [bsp.find_span(td1, derham.p[0] - 1, eta1)]
-        span2s += [bsp.find_span(td2, derham.p[1] - 1, eta2)]
-        span3s += [bsp.find_span(td3, derham.p[2] - 1, eta3)]
+        span1s += [bsp.find_span(td1, derham.p[0], eta1)]
+        span2s += [bsp.find_span(td2, derham.p[1], eta2)]
+        span3s += [bsp.find_span(td3, derham.p[2], eta3)]
 
     val1s, val2s, val3s = [], [], []
     t0 = time.time()
     for eta1, eta2, eta3, span1, span2, span3 in zip(eta1s, eta2s, eta3s, span1s, span2s, span3s):
-        bsp.d_splines_slim(td1, derham.p[0] - 1, eta1, span1, bd1)
-        bsp.d_splines_slim(td2, derham.p[1] - 1, eta2, span2, bd2)
-        bsp.d_splines_slim(td3, derham.p[2] - 1, eta3, span3, bd3)
+        bsp.d_splines_slim(td1, derham.p[0], eta1, span1, bd1)
+        bsp.d_splines_slim(td2, derham.p[1], eta2, span2, bd2)
+        bsp.d_splines_slim(td3, derham.p[2], eta3, span3, bd3)
         val1s += [bd1]
         val2s += [bd2]
         val3s += [bd3]
