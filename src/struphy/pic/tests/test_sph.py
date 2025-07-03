@@ -259,10 +259,10 @@ def test_evaluation_mc_particle_number_convergence_2d(boxes_per_dim, bc_x, bc_y,
     pert_params = {"n": modes}
 
     fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1) * np.cos(2 * np.pi * e2)
-
+  
     
     #parameters
-    Nps = np.array([(2**k)*10**3 for k in range(-2, 9)])
+    Nps = np.array([(2**k)*10**3 for k in range(-2, 11)])
     Np_vec = []
     err_vec = []
     for i_n, Np in enumerate(Nps):
@@ -285,51 +285,56 @@ def test_evaluation_mc_particle_number_convergence_2d(boxes_per_dim, bc_x, bc_y,
         h2 = 1 / boxes_per_dim[1]
         h3 = 1 / boxes_per_dim[2]
         eta1 = np.linspace(0, 1.0, 100)  # add offset for non-periodic boundary conditions, TODO: implement Neumann
-        eta2 = np.linspace(0, 1.0, 70)
+        eta2 = np.linspace(0, 1.0, 40)
         eta3 = np.array([0.0])
         ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
-        test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
+        test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3, kernel_type = "gaussian_2d")
         all_eval = np.zeros_like(test_eval)
         
         comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
         
         if show_plot and comm.Get_rank() == 0:
             from matplotlib import pyplot as plt
-            x = ee1.squeeze()
-            y = ee2.squeeze()
-            z = fun_exact(ee1, ee2, ee3).squeeze()
+            fig, ax = plt.subplots()
 
-            # Damit pcolor funktioniert, brauchen x und y als 2D-Gitter:
-            X, Y = np.meshgrid(x, y)
-            plt.pcolor(X, Y, z, shading='auto')  # shading='auto' verhindert Warnungen
-            plt.colorbar(label='fun_exact Wert')
-            plt.xlabel('ee1')
-            plt.ylabel('ee2')
-            plt.title('Pcolor plot von fun_exact')
-            plt.show()
-            plt.savefig("2d convergence")
+            c = ax.pcolor(ee1.squeeze(), ee2.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label = "exact")
+            fig.colorbar(c, ax=ax, label='fun_exact')
+            
+            ax.set_xlabel('ee1')
+            ax.set_ylabel('ee2')
+            ax.set_title('fun_exact')
+            
+            fig.savefig(f"2d_fun_{Np}.png")  
+            plt.close(fig) 
+            
+            fig, ax = plt.subplots()
 
+            d = ax.pcolor(ee1.squeeze(), ee2.squeeze(), all_eval.squeeze(), label = "eval_sph") 
+            fig.colorbar(d, ax=ax, label='2d_SPH')
             
+            ax.set_xlabel('ee1')
+            ax.set_ylabel('ee2')
+            ax.set_title('2d_SPH')
             
-            # plt.figure()
-            # plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
-            # plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
-            # plt.savefig(f"fun_{Np}.png")
-    #     diff = np.max(np.abs(all_eval - fun_exact(ee1,ee2,ee3)))
-    #     Np_vec += [Np] 
-    #     err_vec += [diff]
-    # fit = np.polyfit(np.log(Np_vec), np.log(err_vec), 1)
-    # print(fit)
+            fig.savefig(f"2d_sph_eval_{Np}.png")  
+            plt.close(fig) 
+            
+   
+        diff = np.max(np.abs(all_eval - fun_exact(ee1,ee2,ee3)))
+        #print(f"{diff = }")
+        Np_vec += [Np] 
+        err_vec += [diff]
+ 
     
-    # if show_plot and comm.Get_rank() == 0:
-    #     from matplotlib import pyplot as plt
+    if show_plot and comm.Get_rank() == 0:
+        from matplotlib import pyplot as plt
 
-    #     plt.figure(figsize=(12, 8))
-    #     plt.loglog(Np_vec, err_vec, label = "Convergence")
-    #     plt.loglog(Np_vec, np.exp(fit[1])*Np_vec**(fit[0]), "--", label = f"fit with slope {fit[0]}")
-    #     plt.legend() 
-    #     plt.show()
-    #     plt.savefig("Convergence_SPH")
+        plt.figure(figsize=(12, 8))
+        plt.loglog(Np_vec, err_vec, label = "Convergence")
+        #plt.loglog(Np_vec, np.exp(fit[1])*Np_vec**(fit[0]), "--", label = f"fit with slope {fit[0]}")
+        plt.legend() 
+        plt.show()
+        plt.savefig("2d_Convergence_SPH")
     
     # assert np.abs(fit[0] + 0.5) < 0.1
 
