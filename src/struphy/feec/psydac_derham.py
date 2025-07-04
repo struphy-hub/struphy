@@ -1649,6 +1649,9 @@ class SplineFunction:
 
         self._vector *= 0.0
 
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"Initializing {self.name} ...")
+
         # add background to initial vector
         if self.bckgr_params is not None:
             for _type in self.bckgr_params:
@@ -1709,6 +1712,9 @@ class SplineFunction:
         # add perturbations to coefficient vector
         if self.pert_params is not None:
             for _type in self.pert_params:
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    print(f"Adding perturbation {_type} ...")
+
                 _params = self.pert_params[_type].copy()
 
                 # special case of white noise in logical space for different components
