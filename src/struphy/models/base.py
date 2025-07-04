@@ -119,8 +119,8 @@ class StruphyModel(metaclass=ABCMeta):
                 if key not in {"cx", "cy", "cz"}:
                     print((key + ":").ljust(25), val)
 
-            print("\nFIELDS BACKGROUND:")
-            if "fields_background" in params:
+            print("\nFLUID BACKGROUND:")
+            if "fluid_background" in params:
                 print("type:".ljust(25), self.equil.__class__.__name__)
                 for key, val in self.equil.params.items():
                     print((key + ":").ljust(25), val)
