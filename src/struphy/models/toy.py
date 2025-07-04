@@ -1186,3 +1186,154 @@ class PressureLessSPH(StruphyModel):
         ) / (2.0 * self.pointer["p_fluid"].Np)
 
         self.update_scalar("en_kin", en_kin)
+
+
+class TwoFluidQuasiNeutralToy(StruphyModel):
+    r"""Linearized, quasi-neutral two-fluid model with zero electron inertia.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat u = \hat v_\textnormal{th}\,,\qquad  e\hat \phi = m \hat v_\textnormal{th}^2\,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        \frac{\partial \mathbf u}{\partial t} &= - \nabla \phi + \frac{\mathbf u \times \mathbf B_0}{\varepsilon} + \nu \Delta \mathbf u + \mathbf f\,,
+        \\[2mm]
+        0 &= \nabla \phi - \frac{\mathbf u_e \times \mathbf B_0}{\varepsilon} + \nu_e \Delta \mathbf u_e + \mathbf f_e \,,
+        \\[3mm]
+        \nabla & \cdot (\mathbf u - \mathbf u_e) = 0\,,
+
+    where :math:`\mathbf B_0` is a static magnetic field and :math:`\mathbf f, \mathbf f_e` are given forcing terms,
+    and with the normalization parameter
+
+    .. math::
+
+        \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.TwoFluidQuasiNeutralFull`
+
+    :ref:`Model info <add_model>`:
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+
+        dct["em_fields"]["potential"] = "L2"
+        dct["fluid"]["ions"] = {
+            "u": "Hdiv",
+        }
+        dct["fluid"]["electrons"] = {
+            "u": "Hdiv",
+        }
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "ions"
+
+    @staticmethod
+    def velocity_scale():
+        return "thermal"
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.TwoFluidQuasiNeutralFull: ["ions_u", "electrons_u", "potential"]}
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["fluid", "electrons"],
+            option=propagators_fields.TwoFluidQuasiNeutralFull,
+            dct=dct,
+        )
+        return dct
+
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
+
+        # get species paramaters
+        electrons_params = params["fluid"]["electrons"]
+
+        # Get coupling strength
+        if electrons_params["options"]["TwoFluidQuasiNeutralFull"]["override_eq_params"]:
+            self._epsilon = electrons_params["options"]["TwoFluidQuasiNeutralFull"]["eps_norm"]
+            print(
+                f"\n!!! Override equation parameters: {self._epsilon = }.",
+            )
+        else:
+            self._epsilon = self.equation_params["electrons"]["epsilon"]
+
+        # extract necessary parameters
+        stokes_solver = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["solver"]
+        stokes_nu = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu"]
+        stokes_nu_e = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu_e"]
+        stokes_a = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["a"]
+        stokes_R0 = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["R0"]
+        stokes_B0 = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["B0"]
+        stokes_Bp = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["Bp"]
+        stokes_alpha = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["alpha"]
+        stokes_beta = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["beta"]
+        stokes_sigma = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["stab_sigma"]
+        stokes_variant = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["variant"]
+        stokes_method_to_solve = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["method_to_solve"]
+        stokes_preconditioner = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["preconditioner"]
+        stokes_spectralanalysis = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"][
+            "spectralanalysis"
+        ]
+        stokes_dimension = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
+        stokes_1D_dt = params["time"]["dt"]
+
+        # Check MPI size to ensure only one MPI process
+        size = comm.Get_size()
+        if size != 1 and stokes_variant == "Uzawa":
+            if comm.Get_rank() == 0:
+                print(f"Error: TwoFluidQuasiNeutralToy only runs with one MPI process.")
+            return  # Early return to stop execution for multiple MPI processes
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.TwoFluidQuasiNeutralFull] = {
+            "solver": stokes_solver,
+            "nu": stokes_nu,
+            "nu_e": stokes_nu_e,
+            "eps_norm": self._epsilon,
+            "a": stokes_a,
+            "R0": stokes_R0,
+            "B0": stokes_B0,
+            "Bp": stokes_Bp,
+            "alpha": stokes_alpha,
+            "beta": stokes_beta,
+            "stab_sigma": stokes_sigma,
+            "variant": stokes_variant,
+            "method_to_solve": stokes_method_to_solve,
+            "preconditioner": stokes_preconditioner,
+            "spectralanalysis": stokes_spectralanalysis,
+            "dimension": stokes_dimension,
+            "D1_dt": stokes_1D_dt,
+        }
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+    def update_scalar_quantities(self):
+        pass

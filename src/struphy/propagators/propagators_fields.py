@@ -4,6 +4,7 @@ from collections.abc import Callable
 from copy import deepcopy
 
 import numpy as np
+import scipy as sc
 from mpi4py import MPI
 from numpy import zeros
 from psydac.linalg.basic import IdentityOperator, ZeroOperator
@@ -12,10 +13,13 @@ from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
 
 import struphy.feec.utilities as util
+from struphy.examples.restelli2018 import callables
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
 from struphy.feec.mass import WeightedMassOperator
-from struphy.feec.psydac_derham import SplineFunction
+from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.projectors import L2Projector
+from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.variational_utilities import (
     BracketOperator,
     H1vecMassMatrix_density,
@@ -23,9 +27,12 @@ from struphy.feec.variational_utilities import (
     KineticEnergyEvaluator,
 )
 from struphy.fields_background.equils import set_defaults
+from struphy.geometry.utilities import TransformedPformComponent
+from struphy.initial import perturbations
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
+from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
@@ -7377,3 +7384,535 @@ class HasegawaWakatani(Propagator):
 
         # solve with RK
         self._ode_solver(0.0, dt)
+
+
+class TwoFluidQuasiNeutralFull(Propagator):
+    r""":ref:`FEEC <gempic>` discretization of the following equations:
+    find :math:`\mathbf u \in H(\textnormal{div})`, :math:`\mathbf u_e \in H(\textnormal{div})` and  :math:`\mathbf \phi \in L^2` such that
+
+    .. math::
+
+        \int_{\Omega} \partial_t  \mathbf{u}\cdot \mathbf{v} \, \textrm d\mathbf{x} &=  \int_{\Omega}  \phi \nabla \! \cdot \! \mathbf{v} \, \textrm d\mathbf{x}  + \int_{\Omega}  \mathbf{u}\! \times \! \mathbf{B}_0 \cdot \mathbf{v} \, \textrm d\mathbf{x} + \nu \int_{\Omega} \nabla \mathbf{u}\! : \! \nabla \mathbf{v} \, \textrm d\mathbf{x} + \int_{\Omega} f \mathbf{v} \, \textrm d\mathbf{x} \qquad \forall \, \mathbf{v} \in H(\textrm{div}) \,.
+        \\[2mm]
+        0 &= - \int_{\Omega} \phi \nabla \! \cdot \! \mathbf{v_e} \, \textrm d\mathbf{x} - \int_{\Omega} \mathbf{u_e} \! \times \! \mathbf{B}_0 \cdot \mathbf{v_e} \, \textrm d\mathbf{x}  + \nu_e \int_{\Omega} \nabla \mathbf{u_e}  \!: \! \nabla \mathbf{v_e} \, \textrm d\mathbf{x} + \int_{\Omega} f_e \mathbf{v_e} \, \textrm d\mathbf{x} \qquad \forall \ \mathbf{v_e} \in H(\textrm{div}) \,.
+        \\[2mm]
+        0 &= \int_{\Omega} \psi \nabla \cdot (\mathbf{u}-\mathbf{u_e}) \, \textrm d\mathbf{x} \qquad \forall \, \psi \in L^2 \,.
+
+    :ref:`time_discret`: fully implicit.
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["solver"] = {
+            "type": [
+                ("gmres", None),
+            ],
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
+        }
+        dct["nu"] = 1.0
+        dct["nu_e"] = 0.01
+        dct["override_eq_params"] = [False, {"epsilon": 1.0}]
+        dct["eps_norm"] = 1.0
+        dct["a"] = 1.0
+        dct["R0"] = 1.0
+        dct["B0"] = 10.0
+        dct["Bp"] = 12.5
+        dct["alpha"] = 0.1
+        dct["beta"] = 1.0
+        dct["stab_sigma"] = 0.00001
+        dct["variant"] = "Uzawa"
+        dct["method_to_solve"] = "DirectNPInverse"
+        dct["preconditioner"] = False
+        dct["spectralanalysis"] = False
+        dct["dimension"] = "2D"
+        dct["1D_dt"] = 0.001
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(
+        self,
+        u: BlockVector,
+        ue: BlockVector,
+        phi: BlockVector,
+        *,
+        nu: float = options(default=True)["nu"],
+        nu_e: float = options(default=True)["nu_e"],
+        eps_norm: float = options(default=True)["eps_norm"],
+        solver: dict = options(default=True)["solver"],
+        a: float = options(default=True)["a"],
+        R0: float = options(default=True)["R0"],
+        B0: float = options(default=True)["B0"],
+        Bp: float = options(default=True)["Bp"],
+        alpha: float = options(default=True)["alpha"],
+        beta: float = options(default=True)["beta"],
+        stab_sigma: float = options(default=True)["stab_sigma"],
+        variant: str = options(default=True)["variant"],
+        method_to_solve: str = options(default=True)["method_to_solve"],
+        preconditioner: bool = options(default=True)["preconditioner"],
+        spectralanalysis: bool = options(default=True)["spectralanalysis"],
+        dimension: str = options(default=True)["dimension"],
+        D1_dt: float = options(default=True)["1D_dt"],
+    ):
+        super().__init__(u, ue, phi)
+
+        self._info = solver["info"]
+        if self.derham.comm is not None:
+            self._rank = self.derham.comm.Get_rank()
+        else:
+            self._rank = 0
+
+        self._nu = nu
+        self._nu_e = nu_e
+        self._eps_norm = eps_norm
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+        self._stab_sigma = stab_sigma
+        self._variant = variant
+        self._method_to_solve = method_to_solve
+        self._preconditioner = preconditioner
+        self._dimension = dimension
+        self._spectralanalysis = spectralanalysis
+
+        if self._variant == "GMRES":
+            self._M2 = getattr(self.mass_ops, "M2")
+            self._M3 = getattr(self.mass_ops, "M3")
+            self._M2B = -getattr(self.mass_ops, "M2B")
+            # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
+            _A11 = (
+                self._M2
+                - self._M2B / self._eps_norm
+                + self._nu
+                * (
+                    self.derham.div.T @ self._M3 @ self.derham.div
+                    + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+                )
+            )
+            _A12 = None
+            _A21 = _A12
+            _A22 = (
+                -self._stab_sigma * IdentityOperator(_A11.domain)
+                + self._M2B / self._eps_norm
+                + self._nu_e
+                * (
+                    self.derham.div.T @ self._M3 @ self.derham.div
+                    + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+                )
+            )
+            _B1 = -self._M3 @ self.derham.div
+            _B2 = self._M3 @ self.derham.div
+
+        if self._dimension in ["2D", "1D"]:
+            ### Manufactured solution ###
+            _forceterm_logical = lambda e1, e2, e3: 0 * e1
+            _funx = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Ions",
+                comp="0",
+                b0=self._B0,
+                nu=self._nu,
+                dimension=self._dimension,
+                epsilon=self._stab_sigma,
+                dt=D1_dt,
+            )
+            _funy = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Ions",
+                comp="1",
+                b0=self._B0,
+                nu=self._nu,
+                dimension=self._dimension,
+                epsilon=self._stab_sigma,
+                dt=D1_dt,
+            )
+            _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Electrons",
+                comp="0",
+                b0=self._B0,
+                nu_e=self._nu_e,
+                dimension=self._dimension,
+                epsilon=self._stab_sigma,
+                dt=D1_dt,
+            )
+            _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Electrons",
+                comp="1",
+                b0=self._B0,
+                nu_e=self._nu_e,
+                dimension=self._dimension,
+                epsilon=self._stab_sigma,
+                dt=D1_dt,
+            )
+
+            # get callable(s) for specified init type
+            forceterm_class = [_funx, _funy, _forceterm_logical]
+            forcetermelectrons_class = [_funelectronsx, _funelectronsy, _forceterm_logical]
+
+            # pullback callable
+            funx = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+            )
+            funy = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            )
+            fun_electronsx = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+            )
+            fun_electronsy = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            )
+            l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
+            self._F1 = l2_proj.get_dofs([funx, funy, _forceterm_logical])
+            self._F2 = l2_proj.get_dofs([fun_electronsx, fun_electronsy, _forceterm_logical])
+
+        elif self._dimension == "Restelli":
+            ### Restelli ###
+
+            _forceterm_logical = lambda e1, e2, e3: 0 * e1
+            _fun = getattr(callables, "RestelliForcingTerm")(
+                B0=self._B0,
+                nu=self._nu,
+                a=self._a,
+                Bp=self._Bp,
+                alpha=self._alpha,
+                beta=self._beta,
+            )
+            _funelectrons = getattr(callables, "RestelliForcingTerm")(
+                B0=self._B0,
+                nu=self._nu_e,
+                a=self._a,
+                Bp=self._Bp,
+                alpha=self._alpha,
+                beta=self._beta,
+            )
+
+            # get callable(s) for specified init type
+            forceterm_class = [_forceterm_logical, _forceterm_logical, _fun]
+            forcetermelectrons_class = [_forceterm_logical, _forceterm_logical, _funelectrons]
+
+            # pullback callable
+            fun_pb = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+            )
+            fun_electrons_pb = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+            )
+            l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
+            self._F1 = l2_proj.get_dofs([_forceterm_logical, _forceterm_logical, fun_pb])
+            self._F2 = l2_proj.get_dofs([_forceterm_logical, _forceterm_logical, fun_electrons_pb])
+
+            ### End Restelli ###
+
+        if self._variant == "GMRES":
+            if _A12 is not None:
+                assert _A11.codomain == _A12.codomain
+            if _A21 is not None:
+                assert _A22.codomain == _A21.codomain
+            assert _B1.codomain == _B2.codomain
+            if _A12 is not None:
+                assert _A11.domain == _A12.domain == _B1.domain
+            if _A21 is not None:
+                assert _A21.domain == _A22.domain == _B2.domain
+            assert _A22.domain == _B2.domain
+            assert _A11.domain == _B1.domain
+
+            self._block_domainA = BlockVectorSpace(_A11.domain, _A22.domain)
+            self._block_codomainA = self._block_domainA
+            self._block_domainB = self._block_domainA
+            self._block_codomainB = _B2.codomain
+            _blocksA = [[_A11, _A12], [_A21, _A22]]
+            _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
+            _blocksB = [[_B1, _B2]]
+            _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
+            _F = BlockVector(self._block_domainA, blocks=[self._F1, self._F2])  # missing M2/dt *un-1
+
+        elif self._variant == "Uzawa":
+            # Numpy
+            fun = []
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: self.basis_ops.G(e1, e2, e3)[:, :, :, m, n]
+                        / self.basis_ops.sqrt_g(e1, e2, e3),
+                    ]
+            self._S21 = None
+            if self.derham.with_local_projectors:
+                self._S21 = BasisProjectionOperatorLocal(
+                    self.derham._Ploc["1"], self.derham.Vh_fem["2"], fun, transposed=False
+                )
+            self.derhamnumpy = Derham(
+                self.derham.Nel,
+                self.derham.p,
+                self.derham.spl_kind,
+                domain=self.domain,
+            )
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                self._M2np = self.mass_ops.M2._mat.toarray()
+                self._M3np = self.mass_ops.M3._mat.toarray()
+                self._Dnp = self.derhamnumpy.div.toarray()
+                self._Cnp = self.derhamnumpy.curl.toarray()
+                if self._S21 is not None:
+                    self._Hodgenp = self._S21.toarray
+                else:
+                    self._Hodgenp = self.basis_ops.S21.toarray_struphy()  # self.basis_ops.S21.toarray
+                self._M2Bnp = -self.mass_ops.M2B._mat.toarray()
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                self._M2np = self.mass_ops.M2._mat.tosparse()
+                self._M3np = self.mass_ops.M3._mat.tosparse()
+                self._Dnp = self.derhamnumpy.div.tosparse()
+                self._Cnp = self.derhamnumpy.curl.tosparse()
+                if self._S21 is not None:
+                    self._Hodgenp = self._S21.tosparse
+                else:
+                    self._Hodgenp = self.basis_ops.S21.toarray_struphy(is_sparse=True)
+                self._M2Bnp = -self.mass_ops.M2B._mat.tosparse()
+            self._A11np_notimedependency = (
+                self._nu
+                * (
+                    self._Dnp.T @ self._M3np @ self._Dnp
+                    + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                )
+                - 1.0 * self._M2Bnp / self._eps_norm
+            )
+            A11np = self._M2np + self._A11np_notimedependency
+
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                self.A22np = (
+                    self._stab_sigma * np.identity(A11np.shape[0])
+                    + self._nu_e
+                    * (
+                        self._Dnp.T @ self._M3np @ self._Dnp
+                        + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                    )
+                    + self._M2Bnp / self._eps_norm
+                )
+                self._A22prenp = (
+                    np.identity(self.A22np.shape[0]) * self._stab_sigma
+                )  # + self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp)
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                self.A22np = (
+                    self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
+                    + self._nu_e
+                    * (
+                        self._Dnp.T @ self._M3np @ self._Dnp
+                        + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                    )
+                    + self._M2Bnp / self._eps_norm
+                )
+                self._A22prenp = sc.sparse.eye(self.A22np.shape[0], format="csr")
+
+            B1np = -self._M3np @ self._Dnp
+            B2np = self._M3np @ self._Dnp
+            self._B1np = B1np
+            self._F1np = self._F1.toarray()
+            self._F2np = self._F2.toarray()
+            _Anp = [A11np, self.A22np]
+            _Bnp = [B1np, B2np]
+            _Fnp = [self._F1np, self._F2np]
+            self._A11prenp_notimedependency = self._nu * (self._Dnp.T @ self._M3np @ self._Dnp)
+            _A11prenp = self._M2np + self._A11prenp_notimedependency
+            _Anppre = [_A11prenp, self._A22prenp]
+
+        if self._variant == "GMRES":
+            self._solver_GMRES = SaddlePointSolver(
+                A=_A,
+                B=_B,
+                F=_F,
+                solver_name=solver["type"][0],
+                tol=solver["tol"],
+                max_iter=solver["maxiter"],
+                verbose=solver["verbose"],
+                pc=None,
+            )
+            # Allocate memory for call
+            self._untemp = u.space.zeros()
+
+        elif self._variant == "Uzawa":
+            self._solver_UzawaNumpy = SaddlePointSolver(
+                A=_Anp,
+                B=_Bnp,
+                F=_Fnp,
+                Apre=_Anppre,
+                method_to_solve=self._method_to_solve,
+                preconditioner=self._preconditioner,
+                spectralanalysis=spectralanalysis,
+                tol=solver["tol"],
+                max_iter=solver["maxiter"],
+            )
+
+    def __call__(self, dt):
+        # current variables
+        unfeec = self.feec_vars[0]
+        uenfeec = self.feec_vars[1]
+        phinfeec = self.feec_vars[2]
+
+        # print(f"{min(unfeec.toarray()) =}")
+        # print(f"{max(unfeec.toarray()) =}")
+        # print(f"{min(self._F1.toarray()) =}")
+        # print(f"{max(self._F1.toarray()) =}")
+        # f1test = self.derham.create_spline_function('f1', 'Hdiv')
+        # f1test.vector = self._F1
+        # utest = self.derham.create_spline_function('u', 'Hdiv')
+        # utest.vector = self._feec_vars[0]
+
+        # print(f'{type(self._F1)=}')
+        # print(f'{type(self.feec_vars[0])=}')
+
+        # x1 = np.linspace(0.,1.,100)
+        # x2 = np.linspace(0.,1.,100)
+        # x3 = np.linspace(0.,1.,2)
+
+        # f1call = f1test(x1,x2,x3)
+        # ucall = utest(x1,x2,x3)
+
+        # from matplotlib import pyplot as plt
+        # plt.figure(figsize=(8, 6))
+        # plt.subplot(3,2,1)
+        # plt.contourf(f1call[2][:,:,0])
+        # plt.colorbar()
+        # plt.subplot(3,2,2)
+        # plt.plot(self._F2.toarray())
+        # plt.subplot(3,2,3)
+        # plt.contourf(ucall[0][:,:,0])
+        # plt.colorbar()
+        # plt.subplot(3,2,4)
+        # plt.plot(uenfeec.toarray())
+
+        # plt.savefig("Forceterm.png")
+        # exit()
+
+        if self._variant == "GMRES":
+            # Define block matrix [[A BT], [B 0]]
+            _A11 = (
+                self._M2 / dt
+                - self._M2B / self._eps_norm
+                + self._nu
+                * (
+                    self.derham.div.T @ self._M3 @ self.derham.div
+                    + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+                )
+            )
+            _A12 = None
+            _A21 = _A12
+            _A22 = (
+                self._nu_e
+                * (
+                    self.derham.div.T @ self._M3 @ self.derham.div
+                    + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+                )
+                + self._M2B / self._eps_norm
+                - self._stab_sigma * IdentityOperator(_A11.domain)
+            )
+            _B1 = -self._M3 @ self.derham.div
+            _B2 = self._M3 @ self.derham.div
+
+            if _A12 is not None:
+                assert _A11.codomain == _A12.codomain
+            if _A21 is not None:
+                assert _A22.codomain == _A21.codomain
+            assert _B1.codomain == _B2.codomain
+            if _A12 is not None:
+                assert _A11.domain == _A12.domain == _B1.domain
+            if _A21 is not None:
+                assert _A21.domain == _A22.domain == _B2.domain
+            assert _A22.domain == _B2.domain
+            assert _A11.domain == _B1.domain
+
+            _blocksA = [[_A11, _A12], [_A21, _A22]]
+            _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
+            _blocksB = [[_B1, _B2]]
+            _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
+            _blocksF = [self._F1 + self._M2.dot(unfeec, out=self._untemp) / dt, self._F2]
+            _F = BlockVector(self._block_domainA, blocks=_blocksF)
+
+            # Imported solver
+            self._solver_GMRES.A = _A
+            self._solver_GMRES.B = _B
+            self._solver_GMRES.F = _F
+
+            (
+                _sol1,
+                _sol2,
+                info,
+            ) = self._solver_GMRES(unfeec, uenfeec, phinfeec)
+            un = _sol1[0]
+            uen = _sol1[1]
+            phin = _sol2
+
+            # write new coeffs into self.feec_vars
+            max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
+
+        elif self._variant == "Uzawa":
+            print(f"{self._eps_norm = }")
+            # Numpy
+            A11np = self._M2np / dt + self._A11np_notimedependency
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                _A22prenp = self._A22prenp
+                A22np = self.A22np
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                _A22prenp = self._A22prenp
+                A22np = self.A22np
+
+            # _Anp[1] and _Anppre[1] remain unchanged
+            _Anp = [A11np, A22np]
+            if self._preconditioner == True:
+                _A11prenp = self._M2np / dt + self._A11prenp_notimedependency
+                _Anppre = [_A11prenp, _A22prenp]
+            _F1np = self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
+            _Fnp = [_F1np, self._F2np]
+
+            if self.rank == 0:
+                self._solver_UzawaNumpy.A = _Anp
+                if self._preconditioner == True:
+                    self._solver_UzawaNumpy.Apre = _Anppre
+                self._solver_UzawaNumpy.F = _Fnp
+                un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(unfeec, uenfeec, phinfeec)
+
+                dimlist = [[shp - 2 * pi for shp, pi in zip(unfeec[i][:].shape, self.derham.p)] for i in range(3)]
+                dimphi = [shp - 2 * pi for shp, pi in zip(phinfeec[:].shape, self.derham.p)]
+                u_temp = BlockVector(self.derham.Vh["2"])
+                ue_temp = BlockVector(self.derham.Vh["2"])
+                phi_temp = StencilVector(self.derham.Vh["3"])
+                test = 0
+                for i, bl in enumerate(u_temp.blocks):
+                    s = bl.starts
+                    e = bl.ends
+                    totaldim = dimlist[i][0] * dimlist[i][1] * dimlist[i][2]
+                    test += totaldim
+                    bl[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = un[
+                        i * totaldim : (i + 1) * totaldim
+                    ].reshape(*dimlist[i])
+
+                for i, bl in enumerate(ue_temp.blocks):
+                    s = bl.starts
+                    e = bl.ends
+                    totaldim = dimlist[i][0] * dimlist[i][1] * dimlist[i][2]
+                    bl[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = uen[
+                        i * totaldim : (i + 1) * totaldim
+                    ].reshape(*dimlist[i])
+
+                s = phi_temp.starts
+                e = phi_temp.ends
+                phi_temp[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = phin.reshape(*dimphi)
+            else:
+                print(f"TwoFluidQuasiNeutralFull is only running on one MPI.")
+
+            # write new coeffs into self.feec_vars
+            max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
+
+        if self._info and self._rank == 0:
+            print("Status     for TwoFluidQuasiNeutralFull:", info["success"])
+            print("Iterations for TwoFluidQuasiNeutralFull:", info["niter"])
+            print("Maxdiff u for TwoFluidQuasiNeutralFull:", max_du)
+            print("Maxdiff u_e for TwoFluidQuasiNeutralFull:", max_due)
+            print("Maxdiff phi for TwoFluidQuasiNeutralFull:", max_dphi)
+            print()

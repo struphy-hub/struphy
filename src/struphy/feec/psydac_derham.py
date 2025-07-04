@@ -564,6 +564,11 @@ class Derham:
         return self._nq_pr
 
     @property
+    def with_local_projectors(self):
+        """True if local projectors are to be used instead of the default global ones."""
+        return self._with_local_projectors
+
+    @property
     def comm(self):
         """MPI communicator."""
         return self._comm
@@ -739,7 +744,7 @@ class Derham:
     @property
     def P(self):
         """Dictionary holding global commuting projectors."""
-        if self._with_local_projectors == True:
+        if self.with_local_projectors:
             return self._Ploc
         else:
             return self._P
@@ -2629,7 +2634,16 @@ def transform_perturbation(
         pert_params.pop("given_in_basis")
         for component, base in enumerate(bases):
             if base is None:
-                fun_basis += ["v"]  # TODO: this should be set to the non-zero components value
+                # Look ahead to find the next non-None base, assuming len of bases is 3
+                next_base = None
+                if bases[0] is not None:
+                    next_base = bases[0]
+                elif bases[1] is not None:
+                    next_base = bases[1]
+                elif bases[2] is not None:
+                    next_base = bases[2]
+                # If no non-None base found later, default to "physical"
+                fun_basis += [next_base if next_base is not None else "physical"]
                 fun_tmp += [None]
             else:
                 # which transform is to be used: physical, '1', '2' or 'v'
