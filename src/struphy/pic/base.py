@@ -9,7 +9,6 @@ import scipy.special as sp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
-import copy
 
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils

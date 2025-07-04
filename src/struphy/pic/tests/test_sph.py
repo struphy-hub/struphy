@@ -235,6 +235,94 @@ def test_evaluation_mc_kernel_width_convergence__1d(boxes_per_dim, bc_x, show_pl
         plt.savefig("Convergence_SPH")
     
     #assert np.abs(fit[0] + 0.5) < 0.1
+@pytest.mark.mpi(min_size=2)
+@pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1), (32, 1, 1)])
+@pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
+def test_evaluation_mc_convergence_in_N_and_h_1d(boxes_per_dim, bc_x, show_plot=False):
+    comm = MPI.COMM_WORLD
+
+    # DOMAIN object
+    dom_type = "Cuboid"
+    dom_params = {"l1": 0.0, "r1": 3.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    loading_params = {"seed": 1607}
+    cst_vel = {"density_profile": "constant", "n": 1.0}
+    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+
+    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
+    modes = {"ModesSin": mode_params}
+    pert_params = {"n": modes}
+    fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1)
+
+    # parameters
+    Nps = np.array([(2**k) * 10**3 for k in range(-2, 9)])
+    h_arr = np.array([((2**k) * 10**-3 * 0.25) for k in range(2, 12)])
+
+    Np_vec = []
+    h_vec = []
+    err_vec = []
+
+    for i_h, h in enumerate(h_arr):
+        for i_n, Np in enumerate(Nps):
+            particles = ParticlesSPH(
+                comm_world=comm,
+                Np=Np,
+                boxes_per_dim=boxes_per_dim,
+                bc=[bc_x, "periodic", "periodic"],
+                bufsize=1.0,
+                loading_params=loading_params,
+                domain=domain,
+                bckgr_params=bckgr_params,
+                pert_params=pert_params,
+            )
+
+            particles.draw_markers(sort=False)
+            particles.mpi_sort_markers()
+            particles.initialize_weights()
+
+            h2 = 1 / boxes_per_dim[1]
+            h3 = 1 / boxes_per_dim[2]
+
+            eta1 = np.linspace(0, 1.0, 100)
+            eta2 = np.array([0.0])
+            eta3 = np.array([0.0])
+            ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+            test_eval = particles.eval_density(ee1, ee2, ee3, h1=h, h2=h2, h3=h3)
+            all_eval = np.zeros_like(test_eval)
+            comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+            
+            if show_plot and comm.Get_rank() == 0:
+                from matplotlib import pyplot as plt
+                plt.figure()
+                plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
+                plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
+                plt.savefig(f"fun_h{h}_N{Np}.png")
+
+            diff = np.max(np.abs(all_eval - fun_exact(ee1, ee2, ee3)))
+            h_vec += [h]
+            Np_vec += [Np]
+            err_vec += [diff]
+
+    if show_plot and comm.Get_rank() == 0:
+        from matplotlib import pyplot as plt
+
+        h_mesh, n_mesh = np.meshgrid(np.log10(h_arr), np.log10(Nps), indexing='ij')
+        plt.figure(figsize=(6, 6))
+        plt.pcolor(h_mesh, n_mesh, np.log10(err_vec), shading='auto')
+        plt.title('Error')
+        plt.colorbar(label='log10(error)')
+        plt.xlabel('log10(h)')
+        plt.ylabel('log10(Np)')
+
+        min_indices = np.argmin(err_vec, axis=0)
+        min_h_values = np.log10(h_vec[min_indices])
+        log_Nps = np.log10(Np_vec)
+        plt.plot(min_h_values, log_Nps, 'r-', label='Min error h for each Np', linewidth=2)
+        plt.legend()
+        plt.savefig("SPH_conv_in_h_and_N.png")
 
 
 @pytest.mark.mpi(min_size=2)
@@ -432,6 +520,7 @@ if __name__ == "__main__":
     #     show_plot=True
     # )
 
-    test_evaluation_mc_particle_number_convergence_1d((16, 1, 1), "periodic", show_plot=True)
+    #test_evaluation_mc_particle_number_convergence_1d((16, 1, 1), "periodic", show_plot=True)
     #test_evaluation_mc_kernel_width_convergence__1d((16,1,1), "periodic", show_plot="True")
-    # test_evaluation_mc_particle_number_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
+    #test_evaluation_mc_particle_number_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
+    test_evaluation_mc_convergence_in_N_and_h_1d((16,1,1), "periodic", show_plot = "True")
