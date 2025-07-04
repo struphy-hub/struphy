@@ -2315,9 +2315,10 @@ class GVECequilibrium(NumericalMHDequilibrium):
         if not flat_eval:
             eta2 = etas[1]
             eta3 = etas[2]
-            if eta2.ndim == 3:
-                eta2 = eta2[0, :, 0]
-                eta3 = eta3[0, 0, :]
+            if isinstance(eta2, np.ndarray):
+                if eta2.ndim == 3:
+                    eta2 = eta2[0, :, 0]
+                    eta3 = eta3[0, 0, :]
             tmp, _1, _2 = np.meshgrid(ev.p.data, eta2, eta3, indexing="ij")
         else:
             tmp = ev.p.data
@@ -2375,6 +2376,10 @@ class GVECequilibrium(NumericalMHDequilibrium):
         # meshgrid evaluation
         else:
             assert len(etas) == 3
+            etas = list(etas)
+            for i, eta in enumerate(etas):
+                if isinstance(eta, (float, int)):
+                    etas[i] = np.array((eta,))
             assert etas[0].ndim == etas[1].ndim == etas[2].ndim
             if etas[0].ndim == 1:
                 eta1 = etas[0]
