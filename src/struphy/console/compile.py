@@ -209,7 +209,7 @@ def struphy_compile(
             flags += " --compiler-family=" + compiler
 
         if time_execution:
-            flags += " --time_execution"
+            flags += " --time-execution"
 
         # state
         if state["last_used_language"] not in (language, None):
