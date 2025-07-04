@@ -369,7 +369,8 @@ To use Struphy via docker, perform the following steps:
 
 2. Login to the MPCDF Gitlab registry using a predefined Struphy user and token::
 
-    docker login gitlab-registry.mpcdf.mpg.de -u docker_api_2024 -p glpat-SkfAWwNPEVwsRB3dLioz
+    TOKEN=glpat-YzkatDxAYT1JZtyj9KjS; echo "$TOKEN" | docker login gitlab-registry.mpcdf.mpg.de -u struphy-hub-read-registry --password-stdin
+    docker login gitlab-registry.mpcdf.mpg.de -u struphy-hub-read-registry -p glpat-YzkatDxAYT1JZtyj9KjS
 
 3. Pull one of the availabale images listed above (< 1 GB in size), for instance::
 
