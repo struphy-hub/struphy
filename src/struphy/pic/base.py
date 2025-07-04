@@ -9,6 +9,7 @@ import scipy.special as sp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
+import copy
 
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
@@ -312,13 +313,13 @@ class Particles(metaclass=ABCMeta):
         # background
         if bckgr_params is None:
             bckgr_params = {"Maxwellian3D": {}, "pforms": [None, None]}
-        self._bckgr_params = bckgr_params
+        self._bckgr_params = copy.deepcopy(bckgr_params)
 
         # background p-form description in [eta, v] (None means 0-form, "vol" means volume form -> divide by det)
         if isinstance(bckgr_params, FluidEquilibrium):
             self._pforms = [None, None]
         else:
-            self._pforms = bckgr_params.pop("pforms", [None, None])
+            self._pforms = self.bckgr_params.pop("pforms", [None, None])
 
         # set background function
         self._set_background_function()

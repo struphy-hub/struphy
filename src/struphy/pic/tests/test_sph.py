@@ -83,7 +83,7 @@ def test_evaluation_mc_particle_number_convergence_1d(boxes_per_dim, bc_x, show_
 
     # DOMAIN object
     dom_type = "Cuboid"
-    dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
+    dom_params = {"l1": 0.0, "r1": 3.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
     
@@ -103,17 +103,18 @@ def test_evaluation_mc_particle_number_convergence_1d(boxes_per_dim, bc_x, show_
     Np_vec = []
     err_vec = []
     for i_n, Np in enumerate(Nps):
+        
         particles = ParticlesSPH(
-        comm_world=comm,
-        Np=Np,
-        boxes_per_dim=boxes_per_dim,
-        bc=[bc_x, "periodic", "periodic"],
-        bufsize=1.0,
-        loading_params=loading_params,
-        domain=domain,
-        bckgr_params=bckgr_params,
-        pert_params=pert_params,
-        )
+            comm_world=comm,
+            Np=Np,
+            boxes_per_dim=boxes_per_dim,
+            bc=[bc_x, "periodic", "periodic"],
+            bufsize=1.0,
+            loading_params=loading_params,
+            domain=domain,
+            bckgr_params=bckgr_params,
+            pert_params=pert_params,
+            )
 
         particles.draw_markers(sort=False)
         particles.mpi_sort_markers()
@@ -431,6 +432,6 @@ if __name__ == "__main__":
     #     show_plot=True
     # )
 
-    #test_evaluation_mc_particle_number_convergence_1d((16, 1, 1), "periodic", show_plot=True)
+    test_evaluation_mc_particle_number_convergence_1d((16, 1, 1), "periodic", show_plot=True)
     #test_evaluation_mc_kernel_width_convergence__1d((16,1,1), "periodic", show_plot="True")
-    test_evaluation_mc_particle_number_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
+    # test_evaluation_mc_particle_number_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
