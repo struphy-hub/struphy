@@ -77,7 +77,7 @@ def test_evaluation_mc(Np, bc_x, show_plot=False):
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1), (32, 1, 1)])
 @pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
-def test_evaluation_mc_particle_number_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
+def test_evaluation_mc_Np_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
     comm = MPI.COMM_WORLD
 
     # DOMAIN object
@@ -98,10 +98,9 @@ def test_evaluation_mc_particle_number_convergence_1d(boxes_per_dim, bc_x, show_
     fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1) 
     
     #parameters
-    Nps = np.array([(2**k)*10**3 for k in range(-2, 9)])
-    Np_vec = []
+    Nps = [(2**k)*10**3 for k in range(-2, 9)]
     err_vec = []
-    for i_n, Np in enumerate(Nps):
+    for Np in Nps:
         
         particles = ParticlesSPH(
             comm_world=comm,
@@ -135,16 +134,17 @@ def test_evaluation_mc_particle_number_convergence_1d(boxes_per_dim, bc_x, show_
             plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
             plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
             plt.savefig(f"fun_{Np}.png")
+            
         diff = np.max(np.abs(all_eval - fun_exact(ee1,ee2,ee3)))
-        Np_vec += [Np] 
         err_vec += [diff]
-    fit = np.polyfit(np.log(Np_vec), np.log(err_vec), 1)
+        
+    fit = np.polyfit(np.log(Nps), np.log(err_vec), 1)
     print(fit)
     
     if show_plot and comm.Get_rank() == 0:
         plt.figure(figsize=(12, 8))
-        plt.loglog(Np_vec, err_vec, label = "Convergence")
-        plt.loglog(Np_vec, np.exp(fit[1])*Np_vec**(fit[0]), "--", label = f"fit with slope {fit[0]}")
+        plt.loglog(Nps, err_vec, label = "Convergence")
+        plt.loglog(Nps, np.exp(fit[1])*np.array(Nps)**(fit[0]), "--", label = f"fit with slope {fit[0]}")
         plt.legend() 
         plt.show()
         plt.savefig("Convergence_SPH")
@@ -154,9 +154,8 @@ def test_evaluation_mc_particle_number_convergence_1d(boxes_per_dim, bc_x, show_
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1), (32, 1, 1)])
-@pytest.mark.parametrize("Np", [40000, 46200])
 @pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
-def test_evaluation_mc_kernel_width_convergence__1d(boxes_per_dim, bc_x, show_plot=False):
+def test_evaluation_mc_h_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
     comm = MPI.COMM_WORLD
 
     # DOMAIN object
@@ -178,10 +177,9 @@ def test_evaluation_mc_kernel_width_convergence__1d(boxes_per_dim, bc_x, show_pl
     
     #parameters
     Np = 50000
-    h_arr = np.array([((2**k)*10**-3*0.25) for k in range(2, 12)])
-    h_vec = []
+    h_vec = [((2**k)*10**-3*0.25) for k in range(2, 12)]
     err_vec = []
-    for i_h, h1 in enumerate(h_arr):
+    for h1 in h_vec:
         particles = ParticlesSPH(
         comm_world=comm,
         Np=Np,
@@ -213,16 +211,17 @@ def test_evaluation_mc_kernel_width_convergence__1d(boxes_per_dim, bc_x, show_pl
             plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
             plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
             plt.savefig(f"fun_{h1}.png")
+            
         diff = np.max(np.abs(all_eval - fun_exact(ee1,ee2,ee3)))
-        h_vec += [h1] 
         err_vec += [diff]
+        
     fit = np.polyfit(np.log(h_vec), np.log(err_vec), 1)
     print(fit)
     
     if show_plot and comm.Get_rank() == 0:
         plt.figure(figsize=(12, 8))
         plt.loglog(h_vec, err_vec, label = "Convergence")
-        plt.loglog(h_vec, np.exp(fit[1])*h_vec**(fit[0]), "--", label = f"fit with slope {fit[0]}")
+        plt.loglog(h_vec, np.exp(fit[1])*np.array(h_vec)**(fit[0]), "--", label = f"fit with slope {fit[0]}")
         plt.legend() 
         plt.show()
         plt.savefig("Convergence_SPH")
@@ -233,7 +232,7 @@ def test_evaluation_mc_kernel_width_convergence__1d(boxes_per_dim, bc_x, show_pl
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1), (32, 1, 1)])
 @pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
-def test_evaluation_mc_convergence_in_N_and_h_1d(boxes_per_dim, bc_x, show_plot=False):
+def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
     comm = MPI.COMM_WORLD
 
     # DOMAIN object
@@ -324,7 +323,7 @@ def test_evaluation_mc_convergence_in_N_and_h_1d(boxes_per_dim, bc_x, show_plot=
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1), (32, 1, 1)])
 @pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
 @pytest.mark.parametrize("bc_y", ["periodic", "reflect", "remove"])
-def test_evaluation_mc_particle_number_convergence_2d(boxes_per_dim, bc_x, bc_y, show_plot=False):
+def test_evaluation_mc_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, show_plot=False):
     from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
     
     comm = MPI.COMM_WORLD
@@ -342,18 +341,7 @@ def test_evaluation_mc_particle_number_convergence_2d(boxes_per_dim, bc_x, bc_y,
     
     bckgr = GenericCartesianFluidEquilibrium(n_xyz=n_fun)
     bckgr.domain = domain
-        
-    #cst_vel = {"density_profile": "constant", "n": 1.0}
-    #bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
-
-    #ode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-    #odes = {"ModesSin": mode_params}
-    #ert_params = {"n": modes}
-
-    #fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1) * np.cos(2 * np.pi * e2)
-  
     
-    #parameters
     Nps = [int((2**k)*10**3) for k in range(-3, 11)]
     err_vec = []
     for Np in Nps:
@@ -366,7 +354,6 @@ def test_evaluation_mc_particle_number_convergence_2d(boxes_per_dim, bc_x, bc_y,
         loading_params=loading_params,
         domain=domain,
         bckgr_params=bckgr, 
-        #pert_params=pert_params,
         )
 
         particles.draw_markers(sort=False)
@@ -375,7 +362,7 @@ def test_evaluation_mc_particle_number_convergence_2d(boxes_per_dim, bc_x, bc_y,
         h1 = 1 / boxes_per_dim[0]
         h2 = 1 / boxes_per_dim[1]
         h3 = 1 / boxes_per_dim[2]
-        eta1 = np.linspace(0, 1.0, 100)  # add offset for non-periodic boundary conditions, TODO: implement Neumann
+        eta1 = np.linspace(0, 1.0, 100) 
         eta2 = np.linspace(0, 1.0, 40)
         eta3 = np.array([0.0])
         ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
@@ -395,12 +382,10 @@ def test_evaluation_mc_particle_number_convergence_2d(boxes_per_dim, bc_x, bc_y,
             
             fig.savefig(f"2d_sph_neu{Np}.png")  
             
-   
         diff = np.max(np.abs(all_eval - n_fun(x,y,z)))
         #print(f"{diff = }")
         err_vec += [diff]
  
-    
     if show_plot and comm.Get_rank() == 0:
         plt.figure(figsize=(12, 8))
         plt.loglog(Nps, err_vec, label = "Convergence")
@@ -495,6 +480,6 @@ if __name__ == "__main__":
     # )
 
     #test_evaluation_mc_particle_number_convergence_1d((16, 1, 1), "periodic", show_plot=True)
-    #test_evaluation_mc_kernel_width_convergence__1d((16,1,1), "periodic", show_plot="True")
-    test_evaluation_mc_particle_number_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
+    #test_evaluation_mc_kernel_width_convergence_1d((16,1,1), "periodic", show_plot="True")
+    test_evaluation_mc_Np_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
     # test_evaluation_mc_convergence_in_N_and_h_1d((16,1,1), "periodic", show_plot = "True")
