@@ -3,6 +3,7 @@ from time import time
 import numpy as np
 import pytest
 from mpi4py import MPI
+from matplotlib import pyplot as plt
 
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
@@ -61,8 +62,6 @@ def test_evaluation_mc(Np, bc_x, show_plot=False):
     comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
 
     if show_plot and comm.Get_rank() == 0:
-        from matplotlib import pyplot as plt
-
         plt.figure(figsize=(12, 8))
         plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
         plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
@@ -132,7 +131,6 @@ def test_evaluation_mc_particle_number_convergence_1d(boxes_per_dim, bc_x, show_
         comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
         
         if show_plot and comm.Get_rank() == 0:
-            from matplotlib import pyplot as plt
             plt.figure()
             plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
             plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
@@ -144,8 +142,6 @@ def test_evaluation_mc_particle_number_convergence_1d(boxes_per_dim, bc_x, show_
     print(fit)
     
     if show_plot and comm.Get_rank() == 0:
-        from matplotlib import pyplot as plt
-
         plt.figure(figsize=(12, 8))
         plt.loglog(Np_vec, err_vec, label = "Convergence")
         plt.loglog(Np_vec, np.exp(fit[1])*Np_vec**(fit[0]), "--", label = f"fit with slope {fit[0]}")
@@ -213,7 +209,6 @@ def test_evaluation_mc_kernel_width_convergence__1d(boxes_per_dim, bc_x, show_pl
         comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
         
         if show_plot and comm.Get_rank() == 0:
-            from matplotlib import pyplot as plt
             plt.figure()
             plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
             plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
@@ -225,8 +220,6 @@ def test_evaluation_mc_kernel_width_convergence__1d(boxes_per_dim, bc_x, show_pl
     print(fit)
     
     if show_plot and comm.Get_rank() == 0:
-        from matplotlib import pyplot as plt
-
         plt.figure(figsize=(12, 8))
         plt.loglog(h_vec, err_vec, label = "Convergence")
         plt.loglog(h_vec, np.exp(fit[1])*h_vec**(fit[0]), "--", label = f"fit with slope {fit[0]}")
@@ -295,7 +288,6 @@ def test_evaluation_mc_convergence_in_N_and_h_1d(boxes_per_dim, bc_x, show_plot=
             comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
             
             if show_plot and comm.Get_rank() == 0:
-                from matplotlib import pyplot as plt
                 plt.figure()
                 plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
                 plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
@@ -308,8 +300,6 @@ def test_evaluation_mc_convergence_in_N_and_h_1d(boxes_per_dim, bc_x, show_plot=
     err_vec = np.array(err_vec)
 
     if show_plot and comm.Get_rank() == 0:
-        from matplotlib import pyplot as plt
-
         h_mesh, n_mesh = np.meshgrid(np.log10(h_arr), np.log10(Nps), indexing='ij')
         plt.figure(figsize=(6, 6))
         plt.pcolor(h_mesh, n_mesh, np.log10(err_vec), shading='auto')
@@ -364,10 +354,9 @@ def test_evaluation_mc_particle_number_convergence_2d(boxes_per_dim, bc_x, bc_y,
   
     
     #parameters
-    Nps = np.array([(2**k)*10**3 for k in range(-5, 11)])
-    Np_vec = []
+    Nps = [int((2**k)*10**3) for k in range(-3, 11)]
     err_vec = []
-    for i_n, Np in enumerate(Nps):
+    for Np in Nps:
         particles = ParticlesSPH(
         comm_world=comm,
         Np=Np,
@@ -397,47 +386,29 @@ def test_evaluation_mc_particle_number_convergence_2d(boxes_per_dim, bc_x, bc_y,
         comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
         
         if show_plot and comm.Get_rank() == 0:
-            from matplotlib import pyplot as plt
             fig, ax = plt.subplots()
-
-            c = ax.pcolor(x.squeeze(), y.squeeze(), n_fun(x, y, z).squeeze(), label = "exact")
-            fig.colorbar(c, ax=ax, label='fun_exact')
-            
-            ax.set_xlabel('ee1')
-            ax.set_ylabel('ee2')
-            ax.set_title('fun_exact')
-            
-            fig.savefig(f"2d_fun_neu_{Np}.png")  
-            plt.close(fig) 
-            
-            fig, ax = plt.subplots()
-
             d = ax.pcolor(ee1.squeeze(), ee2.squeeze(), all_eval.squeeze(), label = "eval_sph") 
             fig.colorbar(d, ax=ax, label='2d_SPH')
-            
             ax.set_xlabel('ee1')
             ax.set_ylabel('ee2')
-            ax.set_title('2d_SPH')
+            ax.set_title(f'{Np = }')
             
             fig.savefig(f"2d_sph_neu{Np}.png")  
-            plt.close(fig) 
             
    
         diff = np.max(np.abs(all_eval - n_fun(x,y,z)))
         #print(f"{diff = }")
-        Np_vec += [Np] 
         err_vec += [diff]
  
     
     if show_plot and comm.Get_rank() == 0:
-        from matplotlib import pyplot as plt
-
         plt.figure(figsize=(12, 8))
-        plt.loglog(Np_vec, err_vec, label = "Convergence")
+        plt.loglog(Nps, err_vec, label = "Convergence")
         #plt.loglog(Np_vec, np.exp(fit[1])*Np_vec**(fit[0]), "--", label = f"fit with slope {fit[0]}")
         plt.legend() 
-        plt.show()
         plt.savefig("2d_Conv_neu_SPH")
+        
+        plt.show()
     
     # assert np.abs(fit[0] + 0.5) < 0.1
 
@@ -500,8 +471,6 @@ def test_evaluation_tesselation(boxes_per_dim, ppb, bc_x, show_plot=False):
     comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
 
     if show_plot and comm.Get_rank() == 0:
-        from matplotlib import pyplot as plt
-
         plt.figure(figsize=(12, 8))
         plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
         plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
@@ -527,5 +496,5 @@ if __name__ == "__main__":
 
     #test_evaluation_mc_particle_number_convergence_1d((16, 1, 1), "periodic", show_plot=True)
     #test_evaluation_mc_kernel_width_convergence__1d((16,1,1), "periodic", show_plot="True")
-    #test_evaluation_mc_particle_number_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
-    test_evaluation_mc_convergence_in_N_and_h_1d((16,1,1), "periodic", show_plot = "True")
+    test_evaluation_mc_particle_number_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
+    # test_evaluation_mc_convergence_in_N_and_h_1d((16,1,1), "periodic", show_plot = "True")
