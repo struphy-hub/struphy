@@ -235,6 +235,8 @@ def test_evaluation_mc_kernel_width_convergence__1d(boxes_per_dim, bc_x, show_pl
         plt.savefig("Convergence_SPH")
     
     #assert np.abs(fit[0] + 0.5) < 0.1
+
+
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1), (32, 1, 1)])
 @pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
@@ -257,15 +259,13 @@ def test_evaluation_mc_convergence_in_N_and_h_1d(boxes_per_dim, bc_x, show_plot=
     fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1)
 
     # parameters
-    Nps = np.array([(2**k) * 10**3 for k in range(-2, 9)])
-    h_arr = np.array([((2**k) * 10**-3 * 0.25) for k in range(2, 12)])
+    Nps = [(2**k) * 10**3 for k in range(-2, 9)]
+    h_arr = [((2**k) * 10**-3 * 0.25) for k in range(2, 12)]
 
-    Np_vec = []
-    h_vec = []
     err_vec = []
-
-    for i_h, h in enumerate(h_arr):
-        for i_n, Np in enumerate(Nps):
+    for h in h_arr:
+        err_vec += [[]]
+        for Np in Nps:
             particles = ParticlesSPH(
                 comm_world=comm,
                 Np=Np,
@@ -299,12 +299,13 @@ def test_evaluation_mc_convergence_in_N_and_h_1d(boxes_per_dim, bc_x, show_plot=
                 plt.figure()
                 plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
                 plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
+                plt.title(f'{h = }, {Np = }')
                 plt.savefig(f"fun_h{h}_N{Np}.png")
 
             diff = np.max(np.abs(all_eval - fun_exact(ee1, ee2, ee3)))
-            h_vec += [h]
-            Np_vec += [Np]
-            err_vec += [diff]
+            err_vec[-1] += [diff]
+
+    err_vec = np.array(err_vec)
 
     if show_plot and comm.Get_rank() == 0:
         from matplotlib import pyplot as plt
@@ -318,11 +319,15 @@ def test_evaluation_mc_convergence_in_N_and_h_1d(boxes_per_dim, bc_x, show_plot=
         plt.ylabel('log10(Np)')
 
         min_indices = np.argmin(err_vec, axis=0)
-        min_h_values = np.log10(h_vec[min_indices])
-        log_Nps = np.log10(Np_vec)
+        min_h_values = []
+        for mi in min_indices:
+            min_h_values += [np.log10(h_arr[mi])]
+        log_Nps = np.log10(Nps)
         plt.plot(min_h_values, log_Nps, 'r-', label='Min error h for each Np', linewidth=2)
         plt.legend()
         plt.savefig("SPH_conv_in_h_and_N.png")
+        
+        plt.show()
 
 
 @pytest.mark.mpi(min_size=2)
