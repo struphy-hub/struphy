@@ -1104,9 +1104,36 @@ class Particles(metaclass=ABCMeta):
         )
 
     def _initialize_sorting_boxes(self):
+        """Initializes the sorting boxes.
+        
+        Each MPI process has exactly the same box structure and numbering.
+        For instance, if boxes_per_dim = (16, 1, 1) and there are 2 MPI processes, 
+        each process would get 8 boxes in the first direction.
+        Hence boxes_per_dim has to be divisible by the number of ranks in each direction.
+        """
+        
         self._initialized_sorting = False
         if self.boxes_per_dim is not None:
+            
+            # split boxes across MPI processes
             nboxes = [nboxes // nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]
+            
+            # check whether this process touches the domain boundary
+            is_domain_boundary = {}
+            x_l = self.domain_array[self.mpi_rank, 0]
+            x_r = self.domain_array[self.mpi_rank, 1]
+            y_l = self.domain_array[self.mpi_rank, 3]
+            y_r = self.domain_array[self.mpi_rank, 4]
+            z_l = self.domain_array[self.mpi_rank, 6]
+            z_r = self.domain_array[self.mpi_rank, 7]
+            is_domain_boundary["x_m"] = x_l == 0.0
+            is_domain_boundary["x_p"] = x_r == 1.0
+            is_domain_boundary["y_m"] = y_l == 0.0
+            is_domain_boundary["y_p"] = y_r == 1.0
+            is_domain_boundary["z_m"] = z_l == 0.0
+            is_domain_boundary["z_p"] = z_r == 1.0
+            
+            print(f'{self.mpi_rank = }, {is_domain_boundary = }')
 
             self._sorting_boxes = self.SortingBoxes(
                 self.markers.shape,
@@ -1114,10 +1141,12 @@ class Particles(metaclass=ABCMeta):
                 nx=nboxes[0],
                 ny=nboxes[1],
                 nz=nboxes[2],
+                is_domain_boundary=is_domain_boundary,
                 comm=self.mpi_comm,
                 verbose=self.verbose,
                 box_bufsize=self._box_bufsize,
             )
+            
             if self.sorting_boxes.communicate:
                 self._get_neighbouring_proc()
 
@@ -2137,10 +2166,10 @@ class Particles(metaclass=ABCMeta):
 
     class SortingBoxes:
         """Boxes used for the sorting of the particles.
-
-        Represented as a 2D array of integers,
-        each line of the array corespond to one box,
-        and all the non (-1) entries of line i are the particles in the i-th box
+        
+        Boxes are represented as a 2D array of integers, where
+        each line coresponds to one box, and all entries of line i that are not -1 
+        correspond to a particles in the i-th box.
 
         Parameters
         ----------
@@ -2158,6 +2187,9 @@ class Particles(metaclass=ABCMeta):
 
         nz : int
             number of boxes in the z direction.
+            
+        is_domain_boundary: dict
+            Has two booleans for each direction; True when the boundary of the MPI process is a domain boundary.
 
         comm : Intracomm
             MPI communicator or None.
@@ -2177,6 +2209,7 @@ class Particles(metaclass=ABCMeta):
             nx: int = 1,
             ny: int = 1,
             nz: int = 1,
+            is_domain_boundary: dict = None,
             comm: Intracomm = None,
             box_index: "int" = -2,
             box_bufsize: "float" = 2.0,
@@ -2190,6 +2223,15 @@ class Particles(metaclass=ABCMeta):
             self._box_index = box_index
             self._box_bufsize = box_bufsize
             self._verbose = verbose
+
+            if is_domain_boundary is None:
+                is_domain_boundary = {}
+                is_domain_boundary["x_m"] = True
+                is_domain_boundary["x_p"] = True
+                is_domain_boundary["y_m"] = True
+                is_domain_boundary["y_p"] = True
+                is_domain_boundary["z_m"] = True
+                is_domain_boundary["z_p"] = True
 
             if comm is None:
                 self._rank = 0

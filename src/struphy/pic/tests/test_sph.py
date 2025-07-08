@@ -416,10 +416,10 @@ def test_evaluation_mc_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, show_plot=Fa
 if __name__ == "__main__":
     test_sph_evaluation(
         40000,
-        (8, 1, 1),
+        (9, 1, 1),
         4,
         "periodic",
-        tesselation=True,
+        tesselation=False,
         show_plot=True
     )
 
