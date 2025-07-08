@@ -12,8 +12,11 @@ from struphy.pic.particles import ParticlesSPH
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Np", [40000, 46200])
+@pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1)])
+@pytest.mark.parametrize("ppb", [4, 10])
 @pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
-def test_evaluation_mc(Np, bc_x, show_plot=False):
+@pytest.mark.parametrize("tesselation", [False, True])
+def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=False):
     comm = MPI.COMM_WORLD
 
     # DOMAIN object
@@ -22,8 +25,14 @@ def test_evaluation_mc(Np, bc_x, show_plot=False):
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
 
-    boxes_per_dim = (16, 1, 1)
-    loading_params = {"seed": 1607}
+    if tesselation:
+        loading = "tesselation"
+        loading_params = {"n_quad": 1}
+        Np = None
+    else:
+        loading = "pseudo_random"
+        loading_params = {"seed": 1607}
+        ppb = None
 
     cst_vel = {"density_profile": "constant", "n": 1.0}
     bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
@@ -37,13 +46,16 @@ def test_evaluation_mc(Np, bc_x, show_plot=False):
     particles = ParticlesSPH(
         comm_world=comm,
         Np=Np,
+        ppb=ppb,
         boxes_per_dim=boxes_per_dim,
         bc=[bc_x, "periodic", "periodic"],
         bufsize=1.0,
+        loading=loading,
         loading_params=loading_params,
         domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
+        verbose=True,
     )
 
     particles.draw_markers(sort=False)
@@ -70,8 +82,11 @@ def test_evaluation_mc(Np, bc_x, show_plot=False):
 
     # print(f'{fun_exact(ee1, ee2, ee3) = }')
     # print(f'{comm.Get_rank() = }, {all_eval = }')
-    # print(f'{np.max(np.abs(all_eval - fun_exact(ee1, ee2, ee3))) = }')
-    assert np.all(np.abs(all_eval - fun_exact(ee1, ee2, ee3)) < 0.065)
+    print(f'{np.max(np.abs(all_eval - fun_exact(ee1, ee2, ee3))) = }')
+    if tesselation:
+        assert np.all(np.abs(all_eval - fun_exact(ee1, ee2, ee3)) < 0.0171)
+    else:
+        assert np.all(np.abs(all_eval - fun_exact(ee1, ee2, ee3)) < 0.041)
 
 
 @pytest.mark.mpi(min_size=2)
@@ -471,15 +486,16 @@ def test_evaluation_tesselation(boxes_per_dim, ppb, bc_x, show_plot=False):
 
 
 if __name__ == "__main__":
-    #test_evaluation_mc(40000, "periodic", show_plot=True)
-    # test_evaluation_tesselation(
-    #     (8, 1, 1),
-    #     4,
-    #     "periodic",
-    #     show_plot=True
-    # )
+    test_sph_evaluation(
+        40000,
+        (8, 1, 1),
+        4,
+        "periodic",
+        tesselation=True,
+        show_plot=True
+    )
 
     #test_evaluation_mc_particle_number_convergence_1d((16, 1, 1), "periodic", show_plot=True)
     #test_evaluation_mc_kernel_width_convergence_1d((16,1,1), "periodic", show_plot="True")
-    test_evaluation_mc_Np_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
-    # test_evaluation_mc_convergence_in_N_and_h_1d((16,1,1), "periodic", show_plot = "True")
+    # test_evaluation_mc_Np_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
+    # test_evaluation_mc_Np_and_h_convergence_1d((16,1,1), "periodic", show_plot = "True")
