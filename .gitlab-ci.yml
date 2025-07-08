@@ -17,6 +17,10 @@ variables:
     value: "false"
     options: ["true", "false"]
     description: "''true'' to run the scheduled pipeline"
+  BUILD_IMAGES:
+    value: "false"
+    options: ["true", "false"]
+    description: "''true'' to build all struphy images with buildah."
   STRUPHY_SOURCE:
     value: "."
     options: [".", "-U struphy"]
@@ -28,6 +32,7 @@ variables:
 
 stages:
   - startup
+  - build_images
   - install
   - test
   - lint
@@ -102,6 +107,10 @@ stages:
   rules:
     - if: $TEST_SCHEDULED == "true"
     - if: $CI_PIPELINE_SOURCE == "schedule"
+
+.rules_build_images:
+  rules:
+    - if: $BUILD_IMAGES == "true"
 
 .rules_pypi_release:
   rules:
@@ -437,12 +446,12 @@ stages:
 ### STARTUP STAGE ###
 #####################
 
-test_buildah_build:
+update_images_buildah:
   tags: [podman] #necessary to run on the correct runner
-  stage: startup
+  stage: build_images
   image: quay.io/buildah/stable #stable buildah image should suffice
   extends:
-    - .rules_startup
+    - .rules_build_images
   variables:
     BUILDAH_FORMAT: docker #necessary
     BUILDAH_ISOLATION: chroot #necessary
@@ -451,6 +460,7 @@ test_buildah_build:
     - buildah login -u $CI_REGISTRY_USER --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - !reference [.scripts, build_images]
+    - !reference [.scripts, push_images]
 
 # Print predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
