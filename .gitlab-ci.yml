@@ -435,7 +435,7 @@ build_buildah:
     - buildah login -u $CI_REGISTRY_USER --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - buildah images
-    - buildah build -t $FQ_IMAGE_NAME -f docker/ubuntu.dockerfile .
+    - buildah build -t $FQ_IMAGE_NAME -f docker/ubuntu-latest.dockerfile .
     - buildah push $FQ_IMAGE_NAME
 
 
