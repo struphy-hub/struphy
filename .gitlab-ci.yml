@@ -17,7 +17,7 @@ variables:
     value: "false"
     options: ["true", "false"]
     description: "''true'' to run the scheduled pipeline"
-  BUILD_IMAGES:
+  UPDATE_IMAGES:
     value: "false"
     options: ["true", "false"]
     description: "''true'' to build all struphy images with buildah."
@@ -108,9 +108,9 @@ stages:
     - if: $TEST_SCHEDULED == "true"
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
-.rules_build_images:
+.rules_update_images:
   rules:
-    - if: $BUILD_IMAGES == "true"
+    - if: $UPDATE_IMAGES == "true"
 
 .rules_pypi_release:
   rules:
@@ -451,7 +451,7 @@ update_images_buildah:
   stage: build_images
   image: quay.io/buildah/stable #stable buildah image should suffice
   extends:
-    - .rules_build_images
+    - .rules_update_images
   variables:
     BUILDAH_FORMAT: docker #necessary
     BUILDAH_ISOLATION: chroot #necessary
