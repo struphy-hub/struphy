@@ -408,6 +408,21 @@ stages:
     - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
     - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
     - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
+  build_images:
+    - buildah images
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest --provenance=false -f docker/almalinux-latest.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest --provenance=false -f docker/fedora-latest.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy --provenance=false -f docker/mpcdf-gcc-openmpi-with-struphy.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest --provenance=false -f docker/opensuse-latest.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy --provenance=false -f docker/ubuntu-latest-with-struphy.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest --provenance=false -f docker/ubuntu-latest.dockerfile .
+  push_images:
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest
 
 # --- artifacts ---
 
@@ -422,21 +437,18 @@ stages:
 ### STARTUP STAGE ###
 #####################
 
-build_buildah:
+test_buildah_build:
   tags: [podman] #necessary to run on the correct runner
   stage: startup
   image: quay.io/buildah/stable #stable buildah image should suffice
   variables:
     BUILDAH_FORMAT: docker #necessary
     BUILDAH_ISOLATION: chroot #necessary
-    FQ_IMAGE_NAME: gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest
   before_script:
     - !reference [.scripts, inspect_directory]
     - buildah login -u $CI_REGISTRY_USER --password $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
-    - buildah images
-    - buildah build -t $FQ_IMAGE_NAME -f docker/ubuntu-latest.dockerfile .
-    - buildah push $FQ_IMAGE_NAME
+    - !reference [.scripts, build_images]
 
 # Print predefined variables: https://gitlab.mpcdf.mpg.de/help/ci/variables/predefined_variables.md
 ci_vars:
