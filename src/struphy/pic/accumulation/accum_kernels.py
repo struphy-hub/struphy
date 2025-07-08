@@ -493,85 +493,17 @@ def linear_vlasov_ampere(
     # -- removed omp: #$ omp end parallel
 
 
-def deltaf_vlasov_ampere_accum_gamma(
+@stack_array("v_old", "v_next", "v_diff", "v_sum")
+def deltaf_vlasov_ampere_accum_vec(
     markers: "float[:,:]",
     n_markers_tot: "int",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
-    mat11: "float[:,:,:,:,:,:]",
-    mat12: "float[:,:,:,:,:,:]",
-    mat13: "float[:,:,:,:,:,:]",
-    mat22: "float[:,:,:,:,:,:]",
-    mat23: "float[:,:,:,:,:,:]",
-    mat33: "float[:,:,:,:,:,:]",
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
     gamma: "float[:]",
-):
-    r"""TODO"""
-
-    # get number of markers
-    n_markers = shape(markers)[0]
-
-    #$ omp parallel private (ip, eta1, eta2, eta3, fill_vec1, fill_vec2, fill_vec3, gamma)
-    #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
-    for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
-            continue
-
-        # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-
-        # marker positions
-        fill_vec1 = markers[ip, 3]
-        fill_vec1 *= gamma[ip]
-        fill_vec2 = markers[ip, 4]
-        fill_vec2 *= gamma[ip]
-        fill_vec3 = markers[ip, 5]
-        fill_vec3 *= gamma[ip]
-
-        # call the appropriate matvec filler
-        particle_to_mat_kernels.m_v_fill_b_v1_symm(
-            args_derham,
-            eta1,
-            eta2,
-            eta3,
-            mat11,
-            mat12,
-            mat13,
-            mat22,
-            mat23,
-            mat33,
-            gamma[ip],
-            gamma[ip],
-            gamma[ip],
-            gamma[ip],
-            gamma[ip],
-            gamma[ip],
-            vec1,
-            vec2,
-            vec3,
-            fill_vec1,
-            fill_vec2,
-            fill_vec3,
-        )
-
-    #$ omp end parallel
-
-
-@stack_array("v_old", "v_next", "v_diff")
-def deltaf_vlasov_ampere_accum_chi(
-    markers: "float[:,:]",
-    n_markers_tot: "int",
-    args_derham: "DerhamArguments",
-    args_domain: "DomainArguments",
-    vec1: "float[:,:,:]",
-    vec2: "float[:,:,:]",
-    vec3: "float[:,:,:]",
+    free_idx: "int",
     vth: "float",
     n0: "float",
 ):
@@ -580,6 +512,7 @@ def deltaf_vlasov_ampere_accum_chi(
     v_old = empty(3, dtype=float)
     v_next = empty(3, dtype=float)
     v_diff = empty(3, dtype=float)
+    v_sum = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
@@ -602,9 +535,17 @@ def deltaf_vlasov_ampere_accum_chi(
         v_old[2] = markers[ip, 5]
 
         # get current v^{n+1}
-        v_next[0] = markers[ip, 9]
-        v_next[1] = markers[ip, 10]
-        v_next[2] = markers[ip, 11]
+        v_next[0] = markers[ip, free_idx]
+        v_next[1] = markers[ip, free_idx + 1]
+        v_next[2] = markers[ip, free_idx + 2]
+
+        # get gamma
+        g = gamma[ip]
+
+        # compute sum
+        v_sum[0] = v_next[0] + v_old[0]
+        v_sum[1] = v_next[1] + v_old[1]
+        v_sum[2] = v_next[2] + v_old[2]
 
         # compute difference
         v_diff[0] = v_next[0] - v_old[0]
@@ -612,44 +553,39 @@ def deltaf_vlasov_ampere_accum_chi(
         v_diff[2] = v_next[2] - v_old[2]
 
         # Assign variables
-        a = linalg_kernels.scalar_dot(v_diff, v_diff) / (2 * vth**2)
-        c = linalg_kernels.scalar_dot(v_old, v_old) / (2 * vth**2)
-        b = linalg_kernels.scalar_dot(v_old, v_next) / (vth**2) - 2 * c
-        factor = n0 / sqrt((2 * pi * vth**2) ** 3)
+        a = linalg_kernels.scalar_dot(v_diff, v_diff)
+        b = - 2 * linalg_kernels.scalar_dot(v_old, v_old) + 2 * linalg_kernels.scalar_dot(v_old, v_next)
+        c = linalg_kernels.scalar_dot(v_old, v_old)
+        nu = 1 / (2 * vth**2)
+        factor = n0 / (sqrt((2 * pi)**3 * vth**2) * markers[ip, 7])
         ab = a + b
         abc = ab + c
 
-        fill_vec1 = (
-            exp(-abc)
-            / (4 * a ** (3 / 2) * markers[ip, 7])
+        fill_vec1 = g * v_sum[0] / 2. - factor * (
+            exp(-abc * nu)
             * (
-                2 * sqrt(a) * factor * v_diff[0] * (exp(ab) - 1)
-                + sqrt(pi)
-                * exp(ab + b**2 / (4 * a))
-                * (b * factor * v_diff[0] - 2 * a * factor * v_old[0])
-                * (erf(b / (2 * sqrt(a))) - erf((2 * a + b) / (2 * sqrt(a))))
+                v_diff[0] / (2. * a * nu) * (exp(ab * nu) - 1.)
+                + sqrt(pi / (a * nu)) / 2. * exp((2*a + b)**2 * nu / (4. * a))
+                * (b * v_diff[0] / (2. * a) - v_old[0])
+                * (erf(b * sqrt(nu) / (2. * sqrt(a))) - erf((2. * a + b) * sqrt(nu) / (2. * sqrt(a))))
             )
         )
-        fill_vec2 = (
-            exp(-abc)
-            / (4 * a ** (3 / 2) * markers[ip, 7])
+        fill_vec2 = g * v_sum[1] / 2. - factor * (
+            exp(-abc * nu)
             * (
-                2 * sqrt(a) * factor * v_diff[1] * (exp(ab) - 1)
-                + sqrt(pi)
-                * exp(ab + b**2 / (4 * a))
-                * (b * factor * v_diff[1] - 2 * a * factor * v_old[1])
-                * (erf(b / (2 * sqrt(a))) - erf((2 * a + b) / (2 * sqrt(a))))
+                v_diff[1] / (2. * a * nu) * (exp(ab * nu) - 1.)
+                + sqrt(pi / (a * nu)) / 2. * exp((2*a + b)**2 * nu / (4. * a))
+                * (b * v_diff[1] / (2. * a) - v_old[1])
+                * (erf(b * sqrt(nu) / (2. * sqrt(a))) - erf((2. * a + b) * sqrt(nu) / (2. * sqrt(a))))
             )
         )
-        fill_vec3 = (
-            exp(-abc)
-            / (4 * a ** (3 / 2) * markers[ip, 7])
+        fill_vec3 = g * v_sum[2] / 2. - factor * (
+            exp(-abc * nu)
             * (
-                2 * sqrt(a) * factor * v_diff[2] * (exp(ab) - 1)
-                + sqrt(pi)
-                * exp(ab + b**2 / (4 * a))
-                * (b * factor * v_diff[2] - 2 * a * factor * v_old[2])
-                * (erf(b / (2 * sqrt(a))) - erf((2 * a + b) / (2 * sqrt(a))))
+                v_diff[2] / (2. * a * nu) * (exp(ab * nu) - 1.)
+                + sqrt(pi / (a * nu)) / 2. * exp((2*a + b)**2 * nu / (4. * a))
+                * (b * v_diff[2] / (2. * a) - v_old[2])
+                * (erf(b * sqrt(nu) / (2. * sqrt(a))) - erf((2. * a + b) * sqrt(nu) / (2. * sqrt(a))))
             )
         )
 

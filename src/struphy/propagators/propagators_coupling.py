@@ -493,44 +493,26 @@ class DeltaFVelocitiesEfield(Propagator):
         self._n0 = n0
 
         self._info = solver["info"]
-        self._tol = 1e-10
+        self._tol = 1e-12
         self._maxiter = solver["maxiter"]
         # self._tol = solver["tol"]
 
-        # Initialize Accumulator for gamma matrix
-        self._accum_gamma = Accumulator(
+        self._accum_vec = AccumulatorVector(
             particles,
             "Hcurl",
-            accum_kernels.deltaf_vlasov_ampere_accum_gamma,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-        )
-
-        self._accum_c = AccumulatorVector(
-            particles,
-            "Hcurl",
-            accum_kernels.deltaf_vlasov_ampere_accum_chi,
+            accum_kernels.deltaf_vlasov_ampere_accum_vec,
             self.mass_ops,
             self.domain.args_domain,
         )
-
-        # Initialize M/D=M1-AB and M1+AB as M1
-        self.MplusAB = self.mass_ops.M1.copy()
-        self.MminusAB = self.mass_ops.M1.copy()
 
         # marker storage
         self._old_vels = np.zeros((particles.markers.shape[0], 3), dtype=float)
         self._vel_diffs = np.zeros((particles.markers.shape[0], 3), dtype=float)
 
         # Create buffers to store temporarily e and its sum with old e
-        self._e_tmp = e.space.zeros()
-        self._e_rhs = e.space.zeros()
-        self._e_sum = e.space.zeros()
-        self._c_vec = e.space.zeros()
-        self._e_prev = e.space.zeros()
+        self._e_curr = e.space.zeros()
         self._e_next = e.space.zeros()
+        self._e_diff = e.space.zeros()
 
         # Preconditioner
         if solver["type"][1] == None:
@@ -540,7 +522,7 @@ class DeltaFVelocitiesEfield(Propagator):
             pc = pc_class(self.mass_ops.M1)
 
         self.solver = inverse(
-            A=self.MminusAB,
+            A=self.mass_ops.M1,
             solver=solver["type"][0],
             pc=pc,
             tol=solver["tol"],
@@ -554,6 +536,7 @@ class DeltaFVelocitiesEfield(Propagator):
             self.feec_vars[0].blocks[0]._data,
             self.feec_vars[0].blocks[1]._data,
             self.feec_vars[0].blocks[2]._data,
+            self.particles[0].first_free_idx,
             self._epsilon,
         )
 
@@ -574,6 +557,7 @@ class DeltaFVelocitiesEfield(Propagator):
             self._e_next.blocks[0]._data,
             self._e_next.blocks[1]._data,
             self._e_next.blocks[2]._data,
+            self.particles[0].first_free_idx,
             self._epsilon,
         )
 
@@ -586,70 +570,56 @@ class DeltaFVelocitiesEfield(Propagator):
         )
 
     def __call__(self, dt):
-        # Accumulate gamma
-        self._accum_gamma(self._gamma)
-
-        # Compute M/D=M1-AB and M1+AB
-        self._accum_gamma.operators[0].copy(out=self.MplusAB)
-        self.MplusAB *= -(dt**2) * self._alpha**2 / (4 * self.particles[0].Np * self._epsilon)
-        self.MplusAB += self.mass_ops.M1
-        self._accum_gamma.operators[0].copy(out=self.MminusAB)
-        self.MminusAB *= dt**2 * self._alpha**2 / (4 * self.particles[0].Np * self._epsilon)
-        self.MminusAB += self.mass_ops.M1.copy()
-
-        # use setter to update lhs matrix
-        self.solver.linop = self.MminusAB
-
         # Use predictor for velocities
         self._predict_velocities(dt)
 
-        # Compute rhs for iteration: self._e_sum = (M1 + AB) e^n + 2 A V^n
-        self.MplusAB.dot(self.feec_vars[0], out=self._e_sum)
-        self._e_tmp *= 0.0
-        self._e_tmp += self._accum_gamma.vectors[0]
-        self._e_tmp *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
-        self._e_sum -= self._e_tmp
-        self._e_sum.update_ghost_regions()
-
         converged = False
 
-        rank = self.derham.comm.Get_rank()
+        # Accumulate diff_e
+        self._accum_vec(self._gamma, self.particles[0].first_free_idx, self._vth, self._n0)
+        # self._accum_vec.vectors[0].update_ghost_regions()
+
+        # compute next e
+        self._e_diff *= 0.0
+        self._e_diff += self._accum_vec.vectors[0]
+        self._e_diff *= (-1.) * dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+
+        # Compute next iteration for E-field
+        self.solver.dot(self._e_diff, out=self._e_next)
+        self._e_next += self.feec_vars[0]
+        # self._e_next.update_ghost_regions()
 
         k = 0
         while not converged:
             k += 1
-            # Add c to rhs
-            self._accum_c(self._vth, self._n0)
-            self._accum_c.vectors[0].update_ghost_regions()
-            self._c_vec *= 0.0
-            self._c_vec += self._accum_c.vectors[0]
-            self._c_vec *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
-            self._c_vec.update_ghost_regions()
 
-            # Construct rhs of equation for E-field
-            self._e_rhs *= 0.0
-            self._e_rhs += self._e_sum
-            self._e_rhs += self._c_vec
-            self._e_rhs.update_ghost_regions()
+            # Store current e-field
+            self._e_curr *= 0.0
+            self._e_curr += self._e_next
 
-            # Save previous electric field value
-            self._e_prev *= 0.0
-            self._e_prev += self._e_next
-            self._e_prev.update_ghost_regions()
+            # Accumulate diff_e
+            self._accum_vec(self._gamma, self.particles[0].first_free_idx, self._vth, self._n0)
+            # self._accum_vec.vectors[0].update_ghost_regions()
+
+            # compute next e
+            self._e_diff *= 0.0
+            self._e_diff += self._accum_vec.vectors[0]
+            self._e_diff *= (-1.) * dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
 
             # Compute next iteration for E-field
-            self.solver.dot(self._e_rhs, out=self._e_next)
-            self._e_next.update_ghost_regions()
+            self.solver.dot(self._e_diff, out=self._e_next)
+            self._e_next += self.feec_vars[0]
+            # self._e_next.update_ghost_regions()
 
             # store velocities before the push
-            self._old_vels[:] = self.particles[0].markers[:, 9:12]
+            self._old_vels[:] = self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
 
-            # Update velocities
+            # Push velocities
             self._push_velocities(dt)
 
             # Compute difference
             self._vel_diffs[:] *= 0.0
-            self._vel_diffs[:] += self.particles[0].markers[:, 9:12]
+            self._vel_diffs[:] += self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
             self._vel_diffs[:] -= self._old_vels[:]
 
             max_diff_v = np.max(
@@ -662,11 +632,9 @@ class DeltaFVelocitiesEfield(Propagator):
                 )
             )
 
-            max_diff_e = np.max(np.abs(self._e_prev.toarray() - self._e_next.toarray()))
+            max_diff_e = np.max(np.abs(self._e_curr.toarray() - self._e_next.toarray()))
 
             converged = (max_diff_v < self._tol) and (max_diff_e < self._tol)
-
-            print(f"{rank=}: {converged=} with {max_diff_v=} and {max_diff_e=}")
 
             if k >= self._maxiter:
                 print("Max number of iterations reached, breaking..")
@@ -674,17 +642,11 @@ class DeltaFVelocitiesEfield(Propagator):
 
         self.derham.comm.Barrier()
 
-        print()
-        print("Loop done")
-        print()
         # write new coeffs into self.variables
         self.feec_vars_update(self._e_next)
 
         # Update velocities
-        self.particles[0].markers[self.particles[0].valid_mks, 3:6] = self.particles[0].markers_wo_holes[:, 9:12]
-        print()
-        print("variable update done")
-        print()
+        self.particles[0].markers[self.particles[0].valid_mks, 3:6] = self.particles[0].markers_wo_holes[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
 
 
 class PressureCoupling6D(Propagator):

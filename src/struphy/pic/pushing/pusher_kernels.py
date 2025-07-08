@@ -2832,6 +2832,7 @@ def push_velocity_predictor_df_va(
     e1_1: "float[:,:,:]",
     e1_2: "float[:,:,:]",
     e1_3: "float[:,:,:]",
+    free_idx: "int",
     epsilon: "float",
 ):
     r"""TODO"""
@@ -2869,9 +2870,9 @@ def push_velocity_predictor_df_va(
             e_vec,
         )
 
-        markers[ip, 9] = markers[ip, 3] + dt / epsilon * e_vec[0]
-        markers[ip, 10] = markers[ip, 4] + dt / epsilon * e_vec[1]
-        markers[ip, 11] = markers[ip, 5] + dt / epsilon * e_vec[2]
+        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * e_vec[0]
+        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * e_vec[1]
+        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * e_vec[2]
 
     #$ omp end parallel
 
@@ -2889,6 +2890,7 @@ def push_velocities_df_va(
     e1_next_1: "float[:,:,:]",
     e1_next_2: "float[:,:,:]",
     e1_next_3: "float[:,:,:]",
+    free_idx: "int",
     epsilon: "float",
 ):
     r"""TODO"""
@@ -2940,9 +2942,9 @@ def push_velocities_df_va(
             e_next,
         )
 
-        markers[ip, 9] = markers[ip, 3] + dt / epsilon * (e_old[0] + e_next[0]) / 2.0
-        markers[ip, 10] = markers[ip, 4] + dt / epsilon * (e_old[1] + e_next[1]) / 2.0
-        markers[ip, 11] = markers[ip, 5] + dt / epsilon * (e_old[2] + e_next[2]) / 2.0
+        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * (e_old[0] + e_next[0]) / 2.
+        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * (e_old[1] + e_next[1]) / 2.
+        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * (e_old[2] + e_next[2]) / 2.
 
     #$ omp end parallel
 

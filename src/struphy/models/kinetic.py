@@ -1288,7 +1288,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             *self.pointer["species1"].phasespace_coords[:, 3:6].T
         )
 
-        # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
+        # alpha^2 * v_th^2 / N * sum_p ( - gamma_p * ln(n_{0,p}) + gamma_p |v_p|^2 / (2 vth^2) + f_{0,p} / s_{0,p} )
         self._tmp[0] = (
             self.alpha**2
             * self.vth**2
