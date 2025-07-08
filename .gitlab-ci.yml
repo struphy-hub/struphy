@@ -519,18 +519,17 @@ build_buildah:
 #     - pip install .[doc]
 #     - struphy compile -y
 #     - cd doc ; make html; cd ..
-
- ubuntu_latest:
-   stage: test
-   extends:
-     - .rules_push
-     - .image_ubuntu_struphy
-     - .variables_push
-   script:
-     - !reference [.scripts, inspect_directory]
-     - !reference [.scripts, install_on_push]
-     - !reference [.scripts, quickstart_tests]
-     - !reference [.scripts, model_tests]
+ubuntu_latest:
+  stage: test
+  extends:
+    - .rules_push
+    - .image_ubuntu_struphy
+    - .variables_push
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, quickstart_tests]
+    - !reference [.scripts, model_tests]
 
 # macos_nmpp:
 #   stage: test
