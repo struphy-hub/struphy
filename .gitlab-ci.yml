@@ -441,6 +441,8 @@ test_buildah_build:
   tags: [podman] #necessary to run on the correct runner
   stage: startup
   image: quay.io/buildah/stable #stable buildah image should suffice
+  extends:
+    - .rules_startup
   variables:
     BUILDAH_FORMAT: docker #necessary
     BUILDAH_ISOLATION: chroot #necessary
