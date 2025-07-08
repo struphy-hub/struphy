@@ -97,6 +97,10 @@ class Particles(metaclass=ABCMeta):
 
     bc_refill : list
         Either 'inner' or 'outer'.
+        
+    bc_sph : list
+        Boundary condition for sph density evaluation.
+        Either 'periodic', 'mirror', 'static' or 'force' in each direction.
 
     type : str
         Either 'full_f' (default), 'delta_f' or 'sph'.
@@ -155,6 +159,7 @@ class Particles(metaclass=ABCMeta):
         box_bufsize: float = 2.0,
         bc: list = None,
         bc_refill: str = None,
+        bc_sph: str = None,
         type: str = "full_f",
         control_variate: bool = False,
         name: str = "some_name",
@@ -257,11 +262,20 @@ class Particles(metaclass=ABCMeta):
         if bc_refill is not None:
             for bc_refilli in bc_refill:
                 assert bc_refilli in ("outer", "inner")
+                
         self._bc = bc
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
         self._bc_refill = bc_refill
+        
+        if bc_sph is None:
+            bc_sph = [bci if bci == "periodic" else "mirror" for bci in self.bc] 
+
+        for bci in bc_sph:
+            assert bci in ("periodic", "mirror", "static", "force")
+            
+        self._bc_sph = bc_sph
 
         # particle type
         assert type in ("full_f", "delta_f", "sph")
@@ -455,6 +469,11 @@ class Particles(metaclass=ABCMeta):
     def bc_refill(self):
         """How to re-enter particles if bc is 'refill'."""
         return self._bc_refill
+    
+    @property
+    def bc_sph(self):
+        """List of boundary conditions for sph evaluation in each direction."""
+        return self._bc_sph
 
     @property
     def Np(self):
@@ -2529,7 +2548,7 @@ class Particles(metaclass=ABCMeta):
         self._markers[new_holes] = -1.0
         self.update_holes()
 
-    def determine_send_markers_box(self):
+    def determine_boundary_markers(self):
         """Determine which markers belong to boxes that are at the boundary and put them in a new array"""
         # Faces
         self._markers_x_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m)
@@ -2886,7 +2905,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             n_ghosts = np.count_nonzero(self.ghost_particles)
             print(f"before communicate_boxes: {self.mpi_rank = }, {n_valid = } {n_holes = }, {n_ghosts = }")
 
-        self.determine_send_markers_box()
+        self.determine_boundary_markers()
         self.get_destinations_box()
         self.self_communication_boxes()
         self.update_holes()

@@ -418,7 +418,8 @@ if __name__ == "__main__":
         40000,
         (9, 1, 1),
         4,
-        "periodic",
+        # "periodic",
+        "reflect",
         tesselation=False,
         show_plot=True
     )
