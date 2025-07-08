@@ -410,12 +410,12 @@ stages:
     - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
   build_images:
     - buildah images
-    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest --provenance=false -f docker/almalinux-latest.dockerfile .
-    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest --provenance=false -f docker/fedora-latest.dockerfile .
-    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy --provenance=false -f docker/mpcdf-gcc-openmpi-with-struphy.dockerfile .
-    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest --provenance=false -f docker/opensuse-latest.dockerfile .
-    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy --provenance=false -f docker/ubuntu-latest-with-struphy.dockerfile .
-    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest --provenance=false -f docker/ubuntu-latest.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest -f docker/almalinux-latest.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest -f docker/fedora-latest.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy -f docker/mpcdf-gcc-openmpi-with-struphy.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest -f docker/opensuse-latest.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy -f docker/ubuntu-latest-with-struphy.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu-latest.dockerfile .
   push_images:
     - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest
     - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest
