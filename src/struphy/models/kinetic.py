@@ -1194,11 +1194,10 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             self._kwargs[propagators_markers.PushVinEfield] = None
 
         self._kwargs[propagators_coupling.DeltaFVelocitiesEfield] = {
-            "gamma": self._gamma[self.pointer["species1"].valid_mks],
             "alpha": self.alpha,
             "epsilon": self.epsilon,
             "vth": self.vth,
-            "n0": self._f0.maxw_params["n"],
+            "f0": self._f0,
             "solver": params_coupling,
         }
 
@@ -1308,12 +1307,9 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
                     self._gamma[self.pointer["species1"].valid_mks],
                 )
                 / (2 * self.vth**2)
-                +
-                # f_{0,p} / s_{0,p}
-                np.divide(
-                    self._f0_values[self.pointer["species1"].valid_mks],
-                    self.pointer["species1"].sampling_density,
-                ).sum()
+                -
+                # w_p
+                self.pointer["species1"].weights.sum()
             )
         )
 

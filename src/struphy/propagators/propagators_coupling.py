@@ -477,20 +477,19 @@ class DeltaFVelocitiesEfield(Propagator):
         e: BlockVector,
         particles: Particles6D,
         *,
-        gamma: np.ndarray,
         alpha: float = 1.0,
         epsilon: float = 1.0,
         vth: float = 1.0,
-        n0: float = 1.0,
+        f0: Maxwellian = None,
         solver=options(default=True)["solver"],
     ):
         super().__init__(e, particles)
 
         self._alpha = alpha
         self._epsilon = epsilon
-        self._gamma = gamma
         self._vth = vth
-        self._n0 = n0
+        self._n0 = f0.maxw_params["n"]
+        self._f0 = f0
 
         self._info = solver["info"]
         self._tol = 1e-12
@@ -500,7 +499,7 @@ class DeltaFVelocitiesEfield(Propagator):
         self._accum_vec = AccumulatorVector(
             particles,
             "Hcurl",
-            accum_kernels.deltaf_vlasov_ampere_accum_vec,
+            accum_kernels.dfva_accum_vec,
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -508,6 +507,10 @@ class DeltaFVelocitiesEfield(Propagator):
         # marker storage
         self._old_vels = np.zeros((particles.markers.shape[0], 3), dtype=float)
         self._vel_diffs = np.zeros((particles.markers.shape[0], 3), dtype=float)
+        self._weight_diffs = np.zeros((particles.markers.shape[0]), dtype=float)
+
+        self._f0_values = np.zeros((particles.markers.shape[0]), dtype=float)
+        self._f0_values[self.particles[0].valid_mks] = self._f0(*self.particles[0].phasespace_coords.T)
 
         # Create buffers to store temporarily e and its sum with old e
         self._e_curr = e.space.zeros()
@@ -542,8 +545,24 @@ class DeltaFVelocitiesEfield(Propagator):
 
         self._predict_velocities = Pusher(
             particles,
-            pusher_kernels.push_velocity_predictor_df_va,
+            pusher_kernels.push_predict_velocities_dfva,
             args_kernel_predictor,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
+        # Instantiate predictor for velocities
+        args_kernel_weights = (
+            self.derham.args_derham,
+            self.particles[0].first_free_idx,
+            self._vth,
+            self._epsilon,
+        )
+
+        self._push_weights = Pusher(
+            particles,
+            pusher_kernels.push_weights_dfva,
+            args_kernel_weights,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
         )
@@ -563,7 +582,7 @@ class DeltaFVelocitiesEfield(Propagator):
 
         self._push_velocities = Pusher(
             particles,
-            pusher_kernels.push_velocities_df_va,
+            pusher_kernels.push_velocities_dfva,
             args_kernel_pusher,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -576,13 +595,13 @@ class DeltaFVelocitiesEfield(Propagator):
         converged = False
 
         # Accumulate diff_e
-        self._accum_vec(self._gamma, self.particles[0].first_free_idx, self._vth, self._n0)
+        self._accum_vec(self._f0_values, self.particles[0].first_free_idx, self._vth)
         # self._accum_vec.vectors[0].update_ghost_regions()
 
         # compute next e
         self._e_diff *= 0.0
         self._e_diff += self._accum_vec.vectors[0]
-        self._e_diff *= (-1.) * dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+        self._e_diff *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
 
         # Compute next iteration for E-field
         self.solver.dot(self._e_diff, out=self._e_next)
@@ -598,13 +617,13 @@ class DeltaFVelocitiesEfield(Propagator):
             self._e_curr += self._e_next
 
             # Accumulate diff_e
-            self._accum_vec(self._gamma, self.particles[0].first_free_idx, self._vth, self._n0)
+            self._accum_vec(self._f0_values, self.particles[0].first_free_idx, self._vth)
             # self._accum_vec.vectors[0].update_ghost_regions()
 
             # compute next e
             self._e_diff *= 0.0
             self._e_diff += self._accum_vec.vectors[0]
-            self._e_diff *= (-1.) * dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+            self._e_diff *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
 
             # Compute next iteration for E-field
             self.solver.dot(self._e_diff, out=self._e_next)

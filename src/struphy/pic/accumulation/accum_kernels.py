@@ -16,6 +16,7 @@ from pyccel.decorators import stack_array
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
+from struphy.pic.pushing.pusher_utilities_kernels import expm1_minus_x_over_x
 
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
@@ -494,7 +495,7 @@ def linear_vlasov_ampere(
 
 
 @stack_array("v_old", "v_next", "v_diff", "v_sum")
-def deltaf_vlasov_ampere_accum_vec(
+def dfva_accum_vec(
     markers: "float[:,:]",
     n_markers_tot: "int",
     args_derham: "DerhamArguments",
@@ -502,10 +503,9 @@ def deltaf_vlasov_ampere_accum_vec(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
-    gamma: "float[:]",
+    f0_values: "float[:]",
     free_idx: "int",
     vth: "float",
-    n0: "float",
 ):
     r"""TODO"""
     # Allocate memory
@@ -539,8 +539,8 @@ def deltaf_vlasov_ampere_accum_vec(
         v_next[1] = markers[ip, free_idx + 1]
         v_next[2] = markers[ip, free_idx + 2]
 
-        # get gamma
-        g = gamma[ip]
+        # get f0 values
+        f0 = f0_values[ip]
 
         # compute sum
         v_sum[0] = v_next[0] + v_old[0]
@@ -552,42 +552,15 @@ def deltaf_vlasov_ampere_accum_vec(
         v_diff[1] = v_next[1] - v_old[1]
         v_diff[2] = v_next[2] - v_old[2]
 
-        # Assign variables
-        a = linalg_kernels.scalar_dot(v_diff, v_diff)
-        b = - 2 * linalg_kernels.scalar_dot(v_old, v_old) + 2 * linalg_kernels.scalar_dot(v_old, v_next)
-        c = linalg_kernels.scalar_dot(v_old, v_old)
-        nu = 1 / (2 * vth**2)
-        factor = n0 / (sqrt((2 * pi)**3 * vth**2) * markers[ip, 7])
-        ab = a + b
-        abc = ab + c
+        # Norms of old and new velocities
+        v_tilde = linalg_kernels.scalar_dot(v_next, v_next)
+        v_tilde -= linalg_kernels.scalar_dot(v_old, v_old)
 
-        fill_vec1 = g * v_sum[0] / 2. - factor * (
-            exp(-abc * nu)
-            * (
-                v_diff[0] / (2. * a * nu) * (exp(ab * nu) - 1.)
-                + sqrt(pi / (a * nu)) / 2. * exp((2*a + b)**2 * nu / (4. * a))
-                * (b * v_diff[0] / (2. * a) - v_old[0])
-                * (erf(b * sqrt(nu) / (2. * sqrt(a))) - erf((2. * a + b) * sqrt(nu) / (2. * sqrt(a))))
-            )
-        )
-        fill_vec2 = g * v_sum[1] / 2. - factor * (
-            exp(-abc * nu)
-            * (
-                v_diff[1] / (2. * a * nu) * (exp(ab * nu) - 1.)
-                + sqrt(pi / (a * nu)) / 2. * exp((2*a + b)**2 * nu / (4. * a))
-                * (b * v_diff[1] / (2. * a) - v_old[1])
-                * (erf(b * sqrt(nu) / (2. * sqrt(a))) - erf((2. * a + b) * sqrt(nu) / (2. * sqrt(a))))
-            )
-        )
-        fill_vec3 = g * v_sum[2] / 2. - factor * (
-            exp(-abc * nu)
-            * (
-                v_diff[2] / (2. * a * nu) * (exp(ab * nu) - 1.)
-                + sqrt(pi / (a * nu)) / 2. * exp((2*a + b)**2 * nu / (4. * a))
-                * (b * v_diff[2] / (2. * a) - v_old[2])
-                * (erf(b * sqrt(nu) / (2. * sqrt(a))) - erf((2. * a + b) * sqrt(nu) / (2. * sqrt(a))))
-            )
-        )
+        factor = f0 / markers[ip, 7] * expm1_minus_x_over_x(- v_tilde / (2. * vth**2)) - markers[ip, 6]
+
+        fill_vec1 = (v_next[0] + v_old[0]) / 2. * factor
+        fill_vec2 = (v_next[1] + v_old[1]) / 2. * factor
+        fill_vec3 = (v_next[2] + v_old[2]) / 2. * factor
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.vec_fill_b_v1(

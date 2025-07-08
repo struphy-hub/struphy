@@ -7,6 +7,7 @@ import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
+from struphy.pic.pushing.pusher_utilities_kernels import expm1_taylor
 
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
@@ -2823,7 +2824,7 @@ def push_weights_with_efield_lin_va(
 
 
 @stack_array("e_vec")
-def push_velocity_predictor_df_va(
+def push_predict_velocities_dfva(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -2844,8 +2845,6 @@ def push_velocity_predictor_df_va(
     n_markers = args_markers.n_markers
     valid_mks = args_markers.valid_mks
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, span1, span2, span3, e_vec)
-    #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
             continue
@@ -2870,15 +2869,52 @@ def push_velocity_predictor_df_va(
             e_vec,
         )
 
+        # compute explicit velocity update
         markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * e_vec[0]
         markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * e_vec[1]
         markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * e_vec[2]
 
-    #$ omp end parallel
+@stack_array("v_old", "v_next")
+def push_weights_dfva(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    f0_values: "float[:]",
+    free_idx: "int",
+    vth: "float",
+):
+    # Allocate memory
+    v_old = empty(3, dtype=float)
+    v_next = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # f0 value for marker
+        f0 = f0_values[ip]
+
+        # Get old and new velocities
+        v_old[:] = markers[ip, 3:6]
+        v_next[:] = markers[ip, free_idx:free_idx + 3]
+
+        # Norms of old and new velocities
+        v_tilde = linalg_kernels.scalar_dot(v_next, v_next)
+        v_tilde -= linalg_kernels.scalar_dot(v_old, v_old)
+
+        # compute explicit velocity update
+        update = f0 / markers[ip, 7] * expm1_taylor(- v_tilde / (2. * vth**2))
+        markers[ip, 6] -= update
 
 
 @stack_array("e_old, e_next")
-def push_velocities_df_va(
+def push_velocities_dfva(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -2904,8 +2940,6 @@ def push_velocities_df_va(
     n_markers = args_markers.n_markers
     valid_mks = args_markers.valid_mks
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, span1, span2, span3, e_old, e_next)
-    #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
             continue
@@ -2945,8 +2979,6 @@ def push_velocities_df_va(
         markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * (e_old[0] + e_next[0]) / 2.
         markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * (e_old[1] + e_next[1]) / 2.
         markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * (e_old[2] + e_next[2]) / 2.
-
-    #$ omp end parallel
 
 
 @stack_array("ginv", "k", "tmp", "pi_du_value")
