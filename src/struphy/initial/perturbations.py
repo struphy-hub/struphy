@@ -747,3 +747,596 @@ class Erf_z:
         val = self._amp * erf((e3 - 0.5) / self._delta)
 
         return val
+
+
+class RestelliAnalyticSolutionVelocity:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \nu \omega \,, 
+        \\[2mm]
+        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        """
+            Parameters
+        ----------
+        comp : string
+            Which component of the solution ('0', '1' or '2').
+        a : float
+            Minor radius of torus (default: 1.).
+        R0 : float
+            Major radius of torus (default: 2.).
+        B0 : float
+            On-axis (r=0) toroidal magnetic field (default: 10.).
+        Bp : float
+            Poloidal magnetic field (default: 12.5).
+        alpha : float
+            (default: 0.1)
+        beta : float
+            (default: 1.0)
+        """
+
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(y, x)
+        uR = (
+            self._alpha * R / (self._a * self._R0) * (-z)
+            + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
+        )
+        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+            self._B0 * self._a * R
+        ) * (-(R - self._R0))
+        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        if self._comp == "0":
+            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+
+class RestelliAnalyticSolutionVelocity_2:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \nu \omega \,, 
+        \\[2mm]
+        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        """
+            Parameters
+        ----------
+        comp : string
+            Which component of the solution ('0', '1' or '2').
+        a : float
+            Minor radius of torus (default: 1.).
+        R0 : float
+            Major radius of torus (default: 2.).
+        B0 : float
+            On-axis (r=0) toroidal magnetic field (default: 10.).
+        Bp : float
+            Poloidal magnetic field (default: 12.5).
+        alpha : float
+            (default: 0.1)
+        beta : float
+            (default: 1.0)
+        """
+
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(y, x)
+        uR = (
+            self._alpha * R / (self._a * self._R0) * (-z)
+            + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
+        )
+        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+            self._B0 * self._a * R
+        ) * (-(R - self._R0))
+        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        if self._comp == "0":
+            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+
+class RestelliAnalyticSolutionVelocity_3:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \nu \omega \,, 
+        \\[2mm]
+        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \alpha \frac{R}{a R_0} \left[\begin{array}{c} -z \\ R-R_0 \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{aR} \left[\begin{array}{c} z \\ -(R-R_0) \\ \frac{B_0}{B_p} a \end{array} \right] \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        """
+            Parameters
+        ----------
+        comp : string
+            Which component of the solution ('0', '1' or '2').
+        a : float
+            Minor radius of torus (default: 1.).
+        R0 : float
+            Major radius of torus (default: 2.).
+        B0 : float
+            On-axis (r=0) toroidal magnetic field (default: 10.).
+        Bp : float
+            Poloidal magnetic field (default: 12.5).
+        alpha : float
+            (default: 0.1)
+        beta : float
+            (default: 1.0)
+        """
+
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(y, x)
+        uR = (
+            self._alpha * R / (self._a * self._R0) * (-z)
+            + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
+        )
+        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+            self._B0 * self._a * R
+        ) * (-(R - self._R0))
+        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        if self._comp == "0":
+            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+
+class RestelliAnalyticSolutionPotential:
+    r"""Analytic solution :math:`\phi` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \nu \omega \,, 
+        \\[2mm]
+        \omega = \left[0, \alpha \frac{R_0 - 4R}{a R_0 R} - \beta \frac{B_p}{B_0}\frac{R_0^2}{a R^3}, 0 \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \phi = \frac{1}{2} a B_0 \alpha \left( \frac{(R-R_0)^2+z^2}{a^2} - \frac{2}{3} \right)
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        """
+            Parameters
+        ----------
+        a : float
+            Minor radius of torus (default: 1.).
+        R0 : float
+            Major radius of torus (default: 2.).
+        B0 : float
+            On-axis (r=0) toroidal magnetic field (default: 10.).
+        Bp : float
+            Poloidal magnetic field (default: 12.5).
+        alpha : float
+            (default: 0.1)
+        beta : float
+            (default: 1.0)
+        """
+
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium potential
+    def __call__(self, x, y, z):
+        """Equilibrium potential."""
+        R = np.sqrt(x**2 + y**2)
+        pp = 0.5 * self._a * self._B0 * self._alpha * (((R - self._R0) ** 2 + z**2) / self._a**2 - 2.0 / 3.0)
+
+        return pp
+
+
+class ManufacturedSolutionVelocity:
+    r"""Analytic solutions :math:`u` and :math:`u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution in 1D is given by:
+
+    .. math::
+        u =  \left[\begin{array}{c} sin(2 \pi x) + 1.0 \\ 0 \\ 0 \end{array} \right] \,,
+        u_e =  \left[\begin{array}{c} sin(2 \pi x) \\ 0 \\ 0 \end{array} \right] \,.
+    
+    The solution in 2D is given by:
+
+    .. math::
+        u =  \left[\begin{array}{c} -sin(2 \pi x) sin(2 \pi y) \\ -cos(2 \pi y) cos(2 \pi y) \\ 0 \end{array} \right] \,,
+        u_e =  \left[\begin{array}{c} -sin(4 \pi x) sin(4 \pi y) \\ -cos(4 \pi y) cos(4 \pi y) \\ 0 \end{array} \right] \,.
+    """
+
+    def __init__(self, species="Ions", comp="0", dimension="1D", b0=1.0):
+        """
+            Parameters
+        ----------
+        species : string
+            'Ions' or 'Electrons'.
+        comp : string
+            Which component of the solution ('0', '1' or '2').
+        dimension: string
+            Defines the manufactured solution to be selected ('1D' or '2D').
+        b0 : float
+            Magnetic field (default: 1.0).
+        """
+
+        self._b = b0
+        self._species = species
+        self._comp = comp
+        self._dimension = dimension
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        if self._species == "Ions":
+            """Velocity of ions."""
+            """x component"""
+            if self._dimension == "2D":
+                ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+            elif self._dimension == "1D":
+                ux = np.sin(2 * np.pi * x) + 1.0
+
+            """y component"""
+            if self._dimension == "2D":
+                uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+            elif self._dimension == "1D":
+                uy = np.cos(2 * np.pi * x)
+
+            """z component"""
+            uz = 0.0 * x
+
+            if self._comp == "0":
+                return ux
+            elif self._comp == "1":
+                return uy
+            elif self._comp == "2":
+                return uz
+            else:
+                raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+        elif self._species == "Electrons":
+            """Velocity of electrons."""
+            """x component"""
+            if self._dimension == "2D":
+                ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+            elif self._dimension == "1D":
+                ux = np.sin(2.0 * np.pi * x)
+
+            """y component"""
+            if self._dimension == "2D":
+                uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+            elif self._dimension == "1D":
+                uy = np.cos(2 * np.pi * x)
+
+            """z component"""
+            uz = 0.0 * x
+
+            if self._comp == "0":
+                return ux
+            if self._comp == "1":
+                return uy
+            if self._comp == "2":
+                return uz
+            else:
+                raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+        else:
+            raise ValueError(f"Invalid species '{self._species}'. Must be 'Ions' or 'Electrons'.")
+
+
+class ManufacturedSolutionPotential:
+    r"""Analytic solution :math:`\phi` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[1 - b_0 cos(x) - \nu sin(y), 1 - b_0 sin(y) + \nu cos(x) , 0 \right] \,, 
+        \\[2mm]
+        f_e = \left[-1 + 0.5 b_0 cos(x) - \nu_e 0.5 sin(y), -1 + 0.5 b_0 sin(y) + \nu_e cos(x) , 0 \right] \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution in 1D is given by:
+
+    .. math::
+        \phi =  sin(2\pi x) \,.
+        
+    The solution in 2D is given by:
+
+    .. math::
+        \phi =  cos(2\pi x) + sin(2\pi y) \,.
+    """
+
+    def __init__(self, dimension="1D", b0=1.0):
+        """
+            Parameters
+        ----------
+        dimension: string
+            Defines the manufactured solution to be selected ('1D' or '2D').
+        b0 : float
+            Magnetic field (default: 1.0).
+        """
+
+        self._ab = b0
+        self._dimension = dimension
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Potential."""
+        if self._dimension == "2D":
+            phi = np.cos(2 * np.pi * x) + np.sin(2 * np.pi * y)
+        elif self._dimension == "1D":
+            phi = np.sin(2.0 * np.pi * x)
+
+        return phi
+
+
+class ManufacturedSolutionVelocity_2:
+    r"""Analytic solutions :math:`u` and :math:`u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution in 1D is given by:
+
+    .. math::
+        u =  \left[\begin{array}{c} sin(2 \pi x) + 1.0 \\ 0 \\ 0 \end{array} \right] \,,
+        u_e =  \left[\begin{array}{c} sin(2 \pi x) \\ 0 \\ 0 \end{array} \right] \,.
+    
+    The solution in 2D is given by:
+
+    .. math::
+        u =  \left[\begin{array}{c} -sin(2 \pi x) sin(2 \pi y) \\ -cos(2 \pi y) cos(2 \pi y) \\ 0 \end{array} \right] \,,
+        u_e =  \left[\begin{array}{c} -sin(4 \pi x) sin(4 \pi y) \\ -cos(4 \pi y) cos(4 \pi y) \\ 0 \end{array} \right] \,.
+    """
+
+    def __init__(self, species="Ions", comp="0", dimension="1D", b0=1.0):
+        """
+            Parameters
+        ----------
+        species : string
+            'Ions' or 'Electrons'.
+        comp : string
+            Which component of the solution ('0', '1' or '2').
+        dimension: string
+            Defines the manufactured solution to be selected ('1D' or '2D').
+        b0 : float
+            Magnetic field (default: 1.0).
+        """
+
+        self._b = b0
+        self._species = species
+        self._comp = comp
+        self._dimension = dimension
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        if self._species == "Ions":
+            """Velocity of ions."""
+            """x component"""
+            if self._dimension == "2D":
+                ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+            elif self._dimension == "1D":
+                ux = np.sin(2 * np.pi * x) + 1.0
+
+            """y component"""
+            if self._dimension == "2D":
+                uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+            elif self._dimension == "1D":
+                uy = np.cos(2 * np.pi * x)
+
+            """z component"""
+            uz = 0.0 * x
+
+            if self._comp == "0":
+                return ux
+            elif self._comp == "1":
+                return uy
+            elif self._comp == "2":
+                return uz
+            else:
+                raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+        elif self._species == "Electrons":
+            """Velocity of electrons."""
+            """x component"""
+            if self._dimension == "2D":
+                ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+            elif self._dimension == "1D":
+                ux = np.sin(2.0 * np.pi * x)
+
+            """y component"""
+            if self._dimension == "2D":
+                uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+            elif self._dimension == "1D":
+                uy = np.cos(2 * np.pi * x)
+
+            """z component"""
+            uz = 0.0 * x
+
+            if self._comp == "0":
+                return ux
+            if self._comp == "1":
+                return uy
+            if self._comp == "2":
+                return uz
+            else:
+                raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+        else:
+            raise ValueError(f"Invalid species '{self._species}'. Must be 'Ions' or 'Electrons'.")

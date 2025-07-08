@@ -529,12 +529,6 @@ class Derham:
             self.Vh_fem["0"].knots[1],
             self.Vh_fem["0"].knots[2],
             np.array(self.Vh["0"].starts),
-            np.empty(self.p[0] + 1, dtype=float),
-            np.empty(self.p[1] + 1, dtype=float),
-            np.empty(self.p[2] + 1, dtype=float),
-            np.empty(self.p[0], dtype=float),
-            np.empty(self.p[1], dtype=float),
-            np.empty(self.p[2], dtype=float),
         )
 
     @property
@@ -568,6 +562,11 @@ class Derham:
     def nq_pr(self):
         """List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction."""
         return self._nq_pr
+
+    @property
+    def with_local_projectors(self):
+        """True if local projectors are to be used instead of the default global ones."""
+        return self._with_local_projectors
 
     @property
     def comm(self):
@@ -745,7 +744,7 @@ class Derham:
     @property
     def P(self):
         """Dictionary holding global commuting projectors."""
-        if self._with_local_projectors == True:
+        if self.with_local_projectors:
             return self._Ploc
         else:
             return self._P
@@ -1655,6 +1654,9 @@ class SplineFunction:
 
         self._vector *= 0.0
 
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"Initializing {self.name} ...")
+
         # add background to initial vector
         if self.bckgr_params is not None:
             for _type in self.bckgr_params:
@@ -1715,6 +1717,9 @@ class SplineFunction:
         # add perturbations to coefficient vector
         if self.pert_params is not None:
             for _type in self.pert_params:
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    print(f"Adding perturbation {_type} ...")
+
                 _params = self.pert_params[_type].copy()
 
                 # special case of white noise in logical space for different components
@@ -2360,8 +2365,8 @@ class SplineFunction:
             tmp_arrays = np.zeros((nprocs[1], nprocs[2])).tolist()
             Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
         elif direction == "e1e2e3":
+            tmp_arrays = np.zeros((nprocs[0], nprocs[1], nprocs[2])).tolist()
             Warning, f"3d noise in the directions {direction} is not correctly initilaized for MPI !!"
-            pass
         else:
             raise ValueError("Invalid direction for tmp_arrays.")
 
@@ -2393,16 +2398,7 @@ class SplineFunction:
                 elif direction == "e2e3":
                     _amps[:] = tmp_arrays[inds[1]][inds[2]]
                 elif direction == "e1e2e3":
-                    _amps[:] = (
-                        (
-                            np.random.rand(
-                                *shapes,
-                            )
-                            - 0.5
-                        )
-                        * 2.0
-                        * amp
-                    )
+                    _amps[:] = tmp_arrays[inds[0]][inds[1]][inds[2]]
 
             else:
                 if direction == "e1":
@@ -2456,6 +2452,10 @@ class SplineFunction:
                     tmp_arrays[inds[1]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
                     already_drawn[:, inds[1], inds[2]] = True
                     _amps[:] = tmp_arrays[inds[1]][inds[2]]
+                elif direction == "e1e2e3":
+                    tmp_arrays[inds[0]][inds[1]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
+                    already_drawn[inds[0], inds[1], inds[2]] = True
+                    _amps[:] = tmp_arrays[inds[0]][inds[1]][inds[2]]
 
             if np.all(np.array([ind_c == ind for ind_c, ind in zip(inds_current, inds)])):
                 return _amps
@@ -2634,7 +2634,16 @@ def transform_perturbation(
         pert_params.pop("given_in_basis")
         for component, base in enumerate(bases):
             if base is None:
-                fun_basis += ["v"]  # TODO: this should be set to the non-zero components value
+                # Look ahead to find the next non-None base, assuming len of bases is 3
+                next_base = None
+                if bases[0] is not None:
+                    next_base = bases[0]
+                elif bases[1] is not None:
+                    next_base = bases[1]
+                elif bases[2] is not None:
+                    next_base = bases[2]
+                # If no non-None base found later, default to "physical"
+                fun_basis += [next_base if next_base is not None else "physical"]
                 fun_tmp += [None]
             else:
                 # which transform is to be used: physical, '1', '2' or 'v'

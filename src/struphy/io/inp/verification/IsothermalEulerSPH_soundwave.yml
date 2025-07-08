@@ -12,14 +12,13 @@ kinetic:
         markers:
             ppb: 8
             bc: [periodic, periodic, periodic]
-            eps: 1.0
+            bufsize: 1.0
             loading: tesselation
             loading_params: {n_quad: 1}
             control_variate: false
         weights : 
             reject_weights : False
             threshold : 0.0
-            from_tesselation : True
         boxes_per_dim: [16, 1, 1]
         save_data:
             f:
@@ -38,7 +37,7 @@ kinetic:
                     amps: [1.0e-2]
         options:
             PushEta: {algo: forward_euler}
-            PushVinSPHpressure: {kernel_type: gaussian_1d, algo: forward_euler}
+            PushVinSPHpressure: {kernel_type: gaussian_1d, algo: forward_euler, gravity: [0.0, 0.0, 0.0], thermodynamics: isothermal}
         background:
             ConstantVelocity: 
                 ux: 0.0 
