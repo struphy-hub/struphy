@@ -7753,6 +7753,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 spectralanalysis=spectralanalysis,
                 tol=solver["tol"],
                 max_iter=solver["maxiter"],
+                verbose=solver["verbose"],
             )
 
     def __call__(self, dt):
