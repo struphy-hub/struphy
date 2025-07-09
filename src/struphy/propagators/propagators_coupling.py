@@ -593,6 +593,10 @@ class DeltaFVelocitiesEfield(Propagator):
         while not converged:
             k += 1
 
+            # Store old velocities because free idx gets reset
+            self._vel_diffs[:] *= 0.0
+            self._vel_diffs[:] += self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+
             # Store current e-field
             self._e_curr *= 0.0
             self._e_curr += self._e_next
@@ -647,11 +651,7 @@ class DeltaFVelocitiesEfield(Propagator):
 
             # Check if converged
             converged = (max_diff_v < self._tol) and (max_diff_e < self._tol)
-            print(f"{converged=} with {max_diff_v=} and {max_diff_e=}")
-
-            # Store old velocities because free idx gets reset
-            self._vel_diffs[:] *= 0.0
-            self._vel_diffs[:] += self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+            # print(f"{converged=} with {max_diff_v=} and {max_diff_e=}")
 
             if k >= self._maxiter:
                 print("Max number of iterations reached, breaking..")
