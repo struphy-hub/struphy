@@ -1282,9 +1282,14 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # evaluate f0
         self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
 
+        # Compute gamma
+        self._gamma[self.pointer["species1"].valid_mks] = self.pointer["species1"].weights + np.divide(
+            self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
+        )
+
         # evaluate n0
         self._n0_values[self.pointer["species1"].valid_mks] = self._f0.n(
-            *self.pointer["species1"].phasespace_coords[:, 3:6].T
+            *self.pointer["species1"].phasespace_coords[:, :3].T
         )
 
         # alpha^2 * v_th^2 / N * sum_p ( - gamma_p * ln(n_{0,p}) + gamma_p |v_p|^2 / (2 vth^2) + f_{0,p} / s_{0,p} )
@@ -1294,7 +1299,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             / self.pointer["species1"].Np
             * (
                 # - gamma_p * ln(n_{0,p})
-                (-1) * np.dot(
+                (-1.) * np.dot(
                     self._gamma[self.pointer["species1"].valid_mks],
                     np.log(self._n0_values[self.pointer["species1"].valid_mks]),
                 )
@@ -1306,10 +1311,15 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
                     + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
                     self._gamma[self.pointer["species1"].valid_mks],
                 )
-                / (2 * self.vth**2)
+                / (2. * self.vth**2)
                 -
                 # w_p
                 self.pointer["species1"].weights.sum()
+                # # f_{0,p} / s_{0,p}
+                # + np.divide(
+                #     self._f0_values[self.pointer["species1"].valid_mks],
+                #     self.pointer["species1"].sampling_density,
+                # ).sum()
             )
         )
 

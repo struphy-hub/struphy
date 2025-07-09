@@ -2874,6 +2874,7 @@ def push_predict_velocities_dfva(
         markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * e_vec[1]
         markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * e_vec[2]
 
+
 @stack_array("v_old", "v_next")
 def push_weights_dfva(
     dt: float,
@@ -2893,6 +2894,7 @@ def push_weights_dfva(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     valid_mks = args_markers.valid_mks
+
     for ip in range(n_markers):
         if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
             continue
@@ -2909,7 +2911,9 @@ def push_weights_dfva(
         v_tilde -= linalg_kernels.scalar_dot(v_old, v_old)
 
         # compute explicit velocity update
-        update = f0 / markers[ip, 7] * expm1_taylor(- v_tilde / (2. * vth**2))
+        arg = - v_tilde / (2. * vth**2)
+        factor = f0 / markers[ip, 7]
+        update = factor * expm1_taylor(arg)
         markers[ip, 6] -= update
 
 

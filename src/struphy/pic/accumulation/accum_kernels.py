@@ -539,7 +539,7 @@ def dfva_accum_vec(
         v_next[1] = markers[ip, free_idx + 1]
         v_next[2] = markers[ip, free_idx + 2]
 
-        # get f0 values
+        # get f0 value
         f0 = f0_values[ip]
 
         # compute sum

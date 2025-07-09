@@ -79,6 +79,16 @@ def reflect(
 
 @pure
 def expm1_taylor(x: "float", n_terms: "int" = 100) -> "float":
+    """ Taylor series computation for the expression exp(x) - 1
+    
+    Parameters
+    ----------
+    x : float
+        Point at where to evaluate the function
+
+    n_terms : int
+        How many terms to take in the series
+    """
     term = x
     result = 0.0
     for n in range(1, n_terms):
