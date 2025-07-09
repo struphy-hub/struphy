@@ -494,6 +494,50 @@ def linear_vlasov_ampere(
     # -- removed omp: #$ omp end parallel
 
 
+def dfva_accum_vec_predictor(
+    markers: "float[:,:]",
+    n_markers_tot: "int",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+):
+    r"""TODO"""
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # w_p * v_p
+        fill_vec1 = markers[ip, 3] * markers[ip, 6]
+        fill_vec2 = markers[ip, 4] * markers[ip, 6]
+        fill_vec3 = markers[ip, 5] * markers[ip, 6]
+
+        # call the appropriate matvec filler
+        particle_to_mat_kernels.vec_fill_b_v1(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec1,
+            vec2,
+            vec3,
+            fill_vec1,
+            fill_vec2,
+            fill_vec3,
+        )
+
+
 @stack_array("v_old", "v_next", "v_diff", "v_sum")
 def dfva_accum_vec(
     markers: "float[:,:]",
@@ -517,8 +561,6 @@ def dfva_accum_vec(
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, v1, v2, v3, gamma, v_old, v_next, v_diff)
-    #$ omp for reduction ( + : vec1, vec2, vec3)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
@@ -575,8 +617,6 @@ def dfva_accum_vec(
             fill_vec2,
             fill_vec3,
         )
-
-    #$ omp end parallel
 
 
 def vlasov_maxwell_poisson(

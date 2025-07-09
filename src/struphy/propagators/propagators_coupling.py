@@ -504,6 +504,14 @@ class DeltaFVelocitiesEfield(Propagator):
             self.domain.args_domain,
         )
 
+        self._accum_vec_predictor = AccumulatorVector(
+            particles,
+            "Hcurl",
+            accum_kernels.dfva_accum_vec_predictor,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
+
         # marker storage
         self._old_vels = np.zeros((particles.markers.shape[0], 3), dtype=float)
         self._vel_diffs = np.zeros((particles.markers.shape[0], 3), dtype=float)
@@ -593,22 +601,22 @@ class DeltaFVelocitiesEfield(Propagator):
         # Compute values of f_0
         self._f0_values[self.particles[0].valid_mks] = self._f0(*self.particles[0].phasespace_coords.T)
 
-        # Use predictor for velocities
-        self._predict_velocities(dt)
-
         converged = False
 
         # Accumulate diff_e
-        self._accum_vec(self._f0_values, self.particles[0].first_free_idx, self._vth)
+        self._accum_vec_predictor()
 
         # compute next e
         self._e_diff *= 0.0
-        self._e_diff += self._accum_vec.vectors[0]
+        self._e_diff += self._accum_vec_predictor.vectors[0]
         self._e_diff *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
 
         # Compute next iteration for E-field
         self.solver.dot(self._e_diff, out=self._e_next)
         self._e_next += self.feec_vars[0]
+
+        # Use predicted e_field to push velocities
+        self._push_velocities(dt)
 
         k = 0
         while not converged:
@@ -665,7 +673,7 @@ class DeltaFVelocitiesEfield(Propagator):
             self.derham.comm.Barrier()
 
         self.derham.comm.Barrier()
-        # print(f"converged with {max_diff_v=} and {max_diff_e=}")
+        print(f"converged with {max_diff_v=} and {max_diff_e=}")
 
         # Store old weights
         self._old_weights[self.particles[0].valid_mks] = self.particles[0].weights
