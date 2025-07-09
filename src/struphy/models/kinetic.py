@@ -809,6 +809,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
         # temporaries
+        self._en_e_tmp = self.mass_ops.M1.codomain.zeros()
         self._tmp = np.empty(1, dtype=float)
         self.en_E = 0.0
 
@@ -854,7 +855,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     def update_scalar_quantities(self):
         # 0.5 * e^T * M_1 * e
-        self.en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
+        self._mass_ops.M1.dot(self.pointer["e_field"], out=self._en_e_tmp)
+        self.en_E = self.pointer["e_field"].dot(self._en_e_tmp) / 2.0
         self.update_scalar("en_E", self.en_E)
 
         # evaluate f0
