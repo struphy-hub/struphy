@@ -458,8 +458,10 @@ class SaddlePointSolver:
         # A11 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
             eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0])
+            condA11_before = np.linalg.cond(self._A[0])
         elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
             eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0].toarray())
+            condA11_before = np.linalg.cond(self._A[0].toarray())
         maxbeforeA11 = max(eigvalsA11_before)
         maxbeforeA11_abs = np.max(np.abs(eigvalsA11_before))
         minbeforeA11_abs = np.min(np.abs(eigvalsA11_before))
@@ -533,7 +535,7 @@ class SaddlePointSolver:
             # print(f'{specA22_aft_prec = }')
             print(f"{specA22_aft_abs_prec = }")
 
-            return condA22_before, specA22_bef_abs, condA22_after, specA22_aft_abs_prec
+            return condA22_before, specA22_bef_abs, condA11_before, condA22_after, specA22_aft_abs_prec
 
         else:
-            return condA22_before, specA22_bef_abs
+            return condA22_before, specA22_bef_abs, condA11_before
