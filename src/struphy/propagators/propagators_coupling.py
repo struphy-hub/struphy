@@ -576,7 +576,7 @@ class DeltaFVelocitiesEfield(Propagator):
         converged = False
 
         # Accumulate diff_e
-        self._accum_vec(self._gamma, self.particles[0].first_free_idx, self._vth, self._n0)
+        self._accum_vec(self._vel_diffs, self._gamma, self._vth, self._n0)
         # self._accum_vec.vectors[0].update_ghost_regions()
 
         # compute next e
@@ -598,7 +598,7 @@ class DeltaFVelocitiesEfield(Propagator):
             self._e_curr += self._e_next
 
             # Accumulate diff_e
-            self._accum_vec(self._gamma, self.particles[0].first_free_idx, self._vth, self._n0)
+            self._accum_vec(self._vel_diffs, self._gamma, self._vth, self._n0)
             # self._accum_vec.vectors[0].update_ghost_regions()
 
             # compute next e
@@ -622,19 +622,36 @@ class DeltaFVelocitiesEfield(Propagator):
             self._vel_diffs[:] += self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
             self._vel_diffs[:] -= self._old_vels[:]
 
+            # Compute relative error in velocities
             max_diff_v = np.max(
-                np.abs(
-                    np.sqrt(
-                        self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
-                        + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
-                        + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
-                    )
+                np.divide(
+                    np.abs(
+                        np.sqrt(
+                            self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
+                            + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
+                            + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
+                        )
+                    ),
+                    np.abs(
+                        np.sqrt(
+                            self._old_vels[self.particles[0].valid_mks, 0] ** 2
+                            + self._old_vels[self.particles[0].valid_mks, 1] ** 2
+                            + self._old_vels[self.particles[0].valid_mks, 2] ** 2
+                        )
+                    ),
                 )
             )
 
+            # Compute difference in e-field (not very efficient, find better way)
             max_diff_e = np.max(np.abs(self._e_curr.toarray() - self._e_next.toarray()))
 
+            # Check if converged
             converged = (max_diff_v < self._tol) and (max_diff_e < self._tol)
+            print(f"{converged=} with {max_diff_v=} and {max_diff_e=}")
+
+            # Store old velocities because free idx gets reset
+            self._vel_diffs[:] *= 0.0
+            self._vel_diffs[:] += self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
 
             if k >= self._maxiter:
                 print("Max number of iterations reached, breaking..")

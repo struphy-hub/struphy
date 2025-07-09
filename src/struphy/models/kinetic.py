@@ -1285,7 +1285,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # evaluate n0
         self._n0_values[self.pointer["species1"].valid_mks] = self._f0.n(
-            *self.pointer["species1"].phasespace_coords[:, 3:6].T
+            *self.pointer["species1"].phasespace_coords[:, :3].T
         )
 
         # alpha^2 * v_th^2 / N * sum_p ( - gamma_p * ln(n_{0,p}) + gamma_p |v_p|^2 / (2 vth^2) + f_{0,p} / s_{0,p} )

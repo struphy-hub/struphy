@@ -502,8 +502,8 @@ def deltaf_vlasov_ampere_accum_vec(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
+    new_velocities: "float[:,:]",
     gamma: "float[:]",
-    free_idx: "int",
     vth: "float",
     n0: "float",
 ):
@@ -535,9 +535,9 @@ def deltaf_vlasov_ampere_accum_vec(
         v_old[2] = markers[ip, 5]
 
         # get current v^{n+1}
-        v_next[0] = markers[ip, free_idx]
-        v_next[1] = markers[ip, free_idx + 1]
-        v_next[2] = markers[ip, free_idx + 2]
+        v_next[0] = new_velocities[ip, 0]
+        v_next[1] = new_velocities[ip, 1]
+        v_next[2] = new_velocities[ip, 2]
 
         # get gamma
         g = gamma[ip]
