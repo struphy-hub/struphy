@@ -816,22 +816,27 @@ class RestelliAnalyticSolutionVelocity:
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(y, x)
-        uR = (
+        ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
         )
-        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+        ustarZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
             self._B0 * self._a * R
         ) * (-(R - self._R0))
-        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+        ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        #form normalized to cylindrical coordinates:
+        uR = ustarR
+        uphi = ustarphi / R
+        uZ = ustarZ
+
+        #from cylindrical to cartesian:
 
         if self._comp == "0":
-            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
-            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
-            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            uy = np.sin(phi) * uR + R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -907,22 +912,27 @@ class RestelliAnalyticSolutionVelocity_2:
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(y, x)
-        uR = (
+        ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
         )
-        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+        ustarZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
             self._B0 * self._a * R
         ) * (-(R - self._R0))
-        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+        ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        #form normalized to cylindrical coordinates:
+        uR = ustarR
+        uphi = ustarphi / R
+        uZ = ustarZ
+
+        #from cylindrical to cartesian:
 
         if self._comp == "0":
-            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
-            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
-            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            uy = np.sin(phi) * uR + R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -998,22 +1008,27 @@ class RestelliAnalyticSolutionVelocity_3:
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(y, x)
-        uR = (
+        ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
         )
-        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+        ustarZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
             self._B0 * self._a * R
         ) * (-(R - self._R0))
-        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+        ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        #form normalized to cylindrical coordinates:
+        uR = ustarR
+        uphi = ustarphi / R
+        uZ = ustarZ
+
+        #from cylindrical to cartesian:
 
         if self._comp == "0":
-            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
-            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
-            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            uy = np.sin(phi) * uR + R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
