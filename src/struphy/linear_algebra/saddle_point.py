@@ -135,6 +135,7 @@ class SaddlePointSolver:
         self._max_iter = max_iter
         self._spectralanalysis = spectralanalysis
         self._dimension = dimension
+        self._verbose = solver_params["verbose"]
 
         if self._variant == "Inverse_Solver":
             self._BT = B.transpose()
@@ -316,6 +317,15 @@ class SaddlePointSolver:
                 self._Unp = U_init.toarray() if U_init is not None else self._Unp
                 self._Uenp = Ue_init.toarray() if U_init is not None else self._Uenp
 
+            
+
+            if self._verbose:
+                print( "Uzawa solver:" )
+                print( "+---------+---------------------+")
+                print( "+ Iter. # | L2-norm of residual |")
+                print( "+---------+---------------------+")
+                template = "| {:7d} | {:19.2e} |"
+
             for iteration in range(self._max_iter):
                 # Step 1: Compute velocity U by solving A U = -Bᵀ P + F -A Un
                 self._rhs0np *= 0
@@ -356,6 +366,12 @@ class SaddlePointSolver:
                 # Minimal residual
                 # alpha = ((self._Precnp.dot(R)).dot(R)) / ((self._Precnp.dot(R)).dot(self._Precnp.dot(R)))
                 self._Pnp += alpha.real * R.real
+
+                if self._verbose:
+                    print( template.format(iteration+1, residual_norm))
+
+            if self._verbose:
+                print( "+---------+---------------------+")
 
             # Return with info if maximum iterations reached
             info["success"] = False
