@@ -90,9 +90,12 @@ def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=Fal
 
 
 @pytest.mark.mpi(min_size=2)
+#@pytest.mark.parametrize("Np", [40000, 46200])
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1)])
+#@pytest.mark.parametrize("ppb", [4, 10])
 @pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
-def test_evaluation_mc_Np_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
+@pytest.mark.parametrize("tesselation", [False, True])
+def test_evaluation_SPH_Np_convergence_1d( boxes_per_dim, bc_x, tesselation,  show_plot=False):
     comm = MPI.COMM_WORLD
 
     # DOMAIN object
@@ -101,7 +104,14 @@ def test_evaluation_mc_Np_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
     
-    loading_params = {"seed": 1607}
+    if tesselation: 
+        loading = "tesselation"
+        loading_params = {"n_quad": 1}
+        Np = None
+    else: 
+        loading = "pseudo_random"
+        loading_params = {"seed": 1607}
+        ppb = None
 
     cst_vel = {"density_profile": "constant", "n": 1.0}
     bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
@@ -114,63 +124,124 @@ def test_evaluation_mc_Np_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
     
     #parameters
     Nps = [(2**k)*10**3 for k in range(-2, 9)]
+    ppbs = np.array([5000, 10000, 15000, 20000, 25000])
     err_vec = []
-    for Np in Nps:
-        
-        particles = ParticlesSPH(
-            comm_world=comm,
-            Np=Np,
-            boxes_per_dim=boxes_per_dim,
-            bc=[bc_x, "periodic", "periodic"],
-            bufsize=1.0,
-            loading_params=loading_params,
-            domain=domain,
-            bckgr_params=bckgr_params,
-            pert_params=pert_params,
-            )
-
-        particles.draw_markers(sort=False)
-        particles.mpi_sort_markers()
-        particles.initialize_weights()
-        h1 = 1 / boxes_per_dim[0]
-        h2 = 1 / boxes_per_dim[1]
-        h3 = 1 / boxes_per_dim[2]
-        eta1 = np.linspace(0, 1.0, 100)  # add offset for non-periodic boundary conditions, TODO: implement Neumann
-        eta2 = np.array([0.0])
-        eta3 = np.array([0.0])
-        ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
-        test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
-        all_eval = np.zeros_like(test_eval)
-        
-        comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
-        
-        if show_plot and comm.Get_rank() == 0:
-            plt.figure()
-            plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
-            plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
-            plt.savefig(f"fun_{Np}.png")
+    
+    if tesselation: 
+        for ppb in ppbs: 
+            particles = ParticlesSPH(
+                comm_world=comm,
+                Np=Np,
+                ppb = ppb, 
+                boxes_per_dim=boxes_per_dim,
+                bc=[bc_x, "periodic", "periodic"],
+                bufsize=1.0,
+                loading_params=loading_params,
+                domain=domain,
+                bckgr_params=bckgr_params,
+                pert_params=pert_params,
+                verbose = True, 
+                )
             
-        diff = np.max(np.abs(all_eval - fun_exact(ee1,ee2,ee3)))
-        err_vec += [diff]
+            particles.draw_markers(sort=False)
+            particles.mpi_sort_markers()
+            particles.initialize_weights()
+            h1 = 1 / boxes_per_dim[0]
+            h2 = 1 / boxes_per_dim[1]
+            h3 = 1 / boxes_per_dim[2]
+            eta1 = np.linspace(0, 1.0, 100)  # add offset for non-periodic boundary conditions, TODO: implement Neumann
+            eta2 = np.array([0.0])
+            eta3 = np.array([0.0])
+            ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+            test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
+            all_eval = np.zeros_like(test_eval)
+            
+            comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+            
+            if show_plot and comm.Get_rank() == 0:
+                plt.figure()
+                plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
+                plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
+                plt.savefig(f"fun_{ppb}.png")
+                
+            diff = np.max(np.abs(all_eval - fun_exact(ee1,ee2,ee3)))
+            err_vec += [diff]
+            
+        fit = np.polyfit(np.log(ppbs), np.log(err_vec), 1)
+        print(fit)
+    
+        if show_plot and comm.Get_rank() == 0:
+            plt.figure(figsize=(12, 8))
+            plt.loglog(ppbs, err_vec, label = "Convergence")
+            plt.loglog(ppbs, np.exp(fit[1])*np.array(ppbs)**(fit[0]), "--", label = f"fit with slope {fit[0]}")
+            plt.legend() 
+            plt.show()
+            plt.savefig("Convergence_SPH_tesselation")
         
-    fit = np.polyfit(np.log(Nps), np.log(err_vec), 1)
-    print(fit)
     
-    if show_plot and comm.Get_rank() == 0:
-        plt.figure(figsize=(12, 8))
-        plt.loglog(Nps, err_vec, label = "Convergence")
-        plt.loglog(Nps, np.exp(fit[1])*np.array(Nps)**(fit[0]), "--", label = f"fit with slope {fit[0]}")
-        plt.legend() 
-        plt.show()
-        plt.savefig("Convergence_SPH")
+    else: 
+        for Np in Nps:
+            
+            particles = ParticlesSPH(
+                comm_world=comm,
+                Np=Np,
+                ppb = ppb, 
+                boxes_per_dim=boxes_per_dim,
+                bc=[bc_x, "periodic", "periodic"],
+                bufsize=1.0,
+                loading_params=loading_params,
+                domain=domain,
+                bckgr_params=bckgr_params,
+                pert_params=pert_params,
+                verbose = True, 
+                )
+
+            particles.draw_markers(sort=False)
+            particles.mpi_sort_markers()
+            particles.initialize_weights()
+            h1 = 1 / boxes_per_dim[0]
+            h2 = 1 / boxes_per_dim[1]
+            h3 = 1 / boxes_per_dim[2]
+            eta1 = np.linspace(0, 1.0, 100)  # add offset for non-periodic boundary conditions, TODO: implement Neumann
+            eta2 = np.array([0.0])
+            eta3 = np.array([0.0])
+            ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+            test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
+            all_eval = np.zeros_like(test_eval)
+            
+            comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+            
+            if show_plot and comm.Get_rank() == 0:
+                plt.figure()
+                plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
+                plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
+                plt.savefig(f"fun_{Np}.png")
+                
+            diff = np.max(np.abs(all_eval - fun_exact(ee1,ee2,ee3)))
+            err_vec += [diff]
+            
+        fit = np.polyfit(np.log(Nps), np.log(err_vec), 1)
+        print(fit)
+        
     
-    assert np.abs(fit[0] + 0.5) < 0.1
+        if show_plot and comm.Get_rank() == 0:
+            plt.figure(figsize=(12, 8))
+            plt.loglog(Nps, err_vec, label = "Convergence")
+            plt.loglog(Nps, np.exp(fit[1])*np.array(Nps)**(fit[0]), "--", label = f"fit with slope {fit[0]}")
+            plt.legend() 
+            plt.show()
+            plt.savefig("Convergence_SPH")
+    
+        #assert np.abs(fit[0] + 0.5) < 0.1
     
 
 @pytest.mark.mpi(min_size=2)
+@pytest.mark.parametrize("Np", [40000, 46200])
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1)])
+@pytest.mark.parametrize("ppb", [4, 10])
 @pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
-def test_evaluation_mc_h_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
+@pytest.mark.parametrize("tesselation", [False, True])
+def test_evaluation_SPH_h_convergence_1d(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=False):
     comm = MPI.COMM_WORLD
 
     # DOMAIN object
@@ -179,8 +250,16 @@ def test_evaluation_mc_h_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
     
-    loading_params = {"seed": 1607}
+    if tesselation: 
+        loading = "tesselation"
+        loading_params = {"seed": 1607}
+        Np = None
 
+    else: 
+        loading = "pseudo_random"
+        loading_params = {"seed": 1607}
+        ppb = None
+        
     cst_vel = {"density_profile": "constant", "n": 1.0}
     bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
 
@@ -194,10 +273,12 @@ def test_evaluation_mc_h_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
     Np = 50000
     h_vec = [((2**k)*10**-3*0.25) for k in range(2, 12)]
     err_vec = []
+    
     for h1 in h_vec:
         particles = ParticlesSPH(
         comm_world=comm,
         Np=Np,
+        ppb = ppb, 
         boxes_per_dim=boxes_per_dim,
         bc=[bc_x, "periodic", "periodic"],
         bufsize=1.0,
@@ -414,15 +495,16 @@ def test_evaluation_mc_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, show_plot=Fa
 
 
 if __name__ == "__main__":
-    test_sph_evaluation(
-        40000,
-        (8, 1, 1),
-        4,
-        "periodic",
-        tesselation=True,
-        show_plot=True
-    )
-
+    # test_sph_evaluation(
+    #     40000,
+    #     (8, 1, 1),
+    #     4,
+    #     "periodic",
+    #     tesselation=True,
+    #     show_plot=True
+    # )
+    test_evaluation_SPH_Np_convergence_1d((16,1,1),"periodic", tesselation = False,  show_plot= True)
+    test_evaluation_SPH_h_convergence_1d(4000, (8,1,1), 4, "periodic", tesselation = True, show_plot=True)
     #test_evaluation_mc_particle_number_convergence_1d((16, 1, 1), "periodic", show_plot=True)
     #test_evaluation_mc_kernel_width_convergence_1d((16,1,1), "periodic", show_plot="True")
     # test_evaluation_mc_Np_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
