@@ -505,14 +505,6 @@ class DeltaFVelocitiesEfield(Propagator):
             self.domain.args_domain,
         )
 
-        self._accum_vec_predictor = AccumulatorVector(
-            particles,
-            "Hcurl",
-            accum_kernels.dfva_accum_vec_predictor,
-            self.mass_ops,
-            self.domain.args_domain,
-        )
-
         # marker storage
         self._old_vels = np.zeros((particles.markers.shape[0], 3), dtype=float)
         self._vel_diffs = np.zeros((particles.markers.shape[0], 3), dtype=float)
@@ -602,23 +594,22 @@ class DeltaFVelocitiesEfield(Propagator):
         # Compute values of f_0
         self._f0_values[self.particles[0].valid_mks] = self._f0(*self.particles[0].phasespace_coords.T)
 
-        converged = False
+        # Use predictor for velocities
+        self._predict_velocities(dt)
 
         # Accumulate diff_e
-        self._accum_vec_predictor()
+        self._accum_vec(self._f0_values, self.particles[0].first_free_idx, self._vth)
 
         # compute next e
         self._e_diff *= 0.0
-        self._e_diff += self._accum_vec_predictor.vectors[0]
-        self._e_diff *= (-1.) * dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+        self._e_diff += self._accum_vec.vectors[0]
+        self._e_diff *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
 
         # Compute next iteration for E-field
         self.solver.dot(self._e_diff, out=self._e_next)
         self._e_next += self.feec_vars[0]
 
-        # Use predicted e_field to push velocities
-        self._push_velocities(dt)
-
+        converged = False
         k = 0
         while not converged:
             k += 1
@@ -688,9 +679,6 @@ class DeltaFVelocitiesEfield(Propagator):
         # self.derham.comm.Barrier()
         # print(f"converged with {max_diff_v=} and {max_diff_e=}")
 
-        # Store old weights
-        self._old_weights[self.particles[0].valid_mks] = self.particles[0].weights
-
         # Update velocities
         self.particles[0].markers[self.particles[0].valid_mks, 3:6] = \
             self.particles[0].markers_wo_holes[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
@@ -710,6 +698,9 @@ class DeltaFVelocitiesEfield(Propagator):
                 )
             )
         )
+
+        # Store old weights
+        self._old_weights[self.particles[0].valid_mks] = self.particles[0].weights
 
         # Store new velocities in vel_diffs array and pass to weights
         self._vel_diffs[:] *= 0.0
@@ -733,7 +724,7 @@ class DeltaFVelocitiesEfield(Propagator):
         # write new coeffs into self.variables
         (max_diff_e,) = self.feec_vars_update(self._e_next)
 
-        # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
+        print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
 
         # exit()
 
