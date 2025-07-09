@@ -2883,7 +2883,7 @@ def push_weights_dfva(
     args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
     f0_values: "float[:]",
-    free_idx: "int",
+    new_velocities: "float[:,:]",
     vth: "float",
 ):
     # Allocate memory
@@ -2904,7 +2904,7 @@ def push_weights_dfva(
 
         # Get old and new velocities
         v_old[:] = markers[ip, 3:6]
-        v_next[:] = markers[ip, free_idx:free_idx + 3]
+        v_next[:] = new_velocities[ip]
 
         # Norms of old and new velocities
         v_tilde = linalg_kernels.scalar_dot(v_next, v_next)

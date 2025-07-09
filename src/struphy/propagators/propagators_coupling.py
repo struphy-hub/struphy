@@ -490,6 +490,7 @@ class DeltaFVelocitiesEfield(Propagator):
         self._vth = vth
         self._n0 = f0.maxw_params["n"]
         self._f0 = f0
+        self._first_free_idx = self.particles[0].first_free_idx
 
         self._info = solver["info"]
         self._tol = 1e-13
@@ -564,7 +565,7 @@ class DeltaFVelocitiesEfield(Propagator):
         args_kernel_weights = (
             self.derham.args_derham,
             self._f0_values,
-            self.particles[0].first_free_idx,
+            self._vel_diffs,
             self._vth,
         )
 
@@ -609,7 +610,7 @@ class DeltaFVelocitiesEfield(Propagator):
         # compute next e
         self._e_diff *= 0.0
         self._e_diff += self._accum_vec_predictor.vectors[0]
-        self._e_diff *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+        self._e_diff *= (-1.) * dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
 
         # Compute next iteration for E-field
         self.solver.dot(self._e_diff, out=self._e_next)
@@ -639,23 +640,35 @@ class DeltaFVelocitiesEfield(Propagator):
             self._e_next += self.feec_vars[0]
 
             # store velocities before the push
-            self._old_vels[:] = self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+            self._old_vels[:] = \
+                self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
 
             # Push velocities
             self._push_velocities(dt)
 
             # Compute difference in velocities
             self._vel_diffs[:] *= 0.0
-            self._vel_diffs[:] += self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+            self._vel_diffs[:] += \
+                self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
             self._vel_diffs[:] -= self._old_vels[:]
 
+            # Compute relative error in velocities
             max_diff_v = np.max(
-                np.abs(
-                    np.sqrt(
-                        self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
-                        + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
-                        + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
-                    )
+                np.divide(
+                    np.abs(
+                        np.sqrt(
+                            self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
+                            + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
+                            + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
+                        )
+                    ),
+                    np.abs(
+                        np.sqrt(
+                            self._old_vels[self.particles[0].valid_mks, 0] ** 2
+                            + self._old_vels[self.particles[0].valid_mks, 1] ** 2
+                            + self._old_vels[self.particles[0].valid_mks, 2] ** 2
+                        )
+                    ),
                 )
             )
 
@@ -670,13 +683,38 @@ class DeltaFVelocitiesEfield(Propagator):
                 print("Max number of iterations reached, breaking..")
                 break
 
-            self.derham.comm.Barrier()
+            # self.derham.comm.Barrier()
 
-        self.derham.comm.Barrier()
-        print(f"converged with {max_diff_v=} and {max_diff_e=}")
+        # self.derham.comm.Barrier()
+        # print(f"converged with {max_diff_v=} and {max_diff_e=}")
 
         # Store old weights
         self._old_weights[self.particles[0].valid_mks] = self.particles[0].weights
+
+        # Update velocities
+        self.particles[0].markers[self.particles[0].valid_mks, 3:6] = \
+            self.particles[0].markers_wo_holes[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+
+        # Compute difference in velocities
+        self._vel_diffs[:] *= 0.0
+        self._vel_diffs[:] += \
+            self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+        self._vel_diffs[:] -= self.particles[0].markers[:, 3:6]
+
+        max_diff_v = np.max(
+            np.abs(
+                np.sqrt(
+                    self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
+                    + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
+                    + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
+                )
+            )
+        )
+
+        # Store new velocities in vel_diffs array and pass to weights
+        self._vel_diffs[:] *= 0.0
+        self._vel_diffs[:] += \
+            self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
 
         # Update weights
         self._push_weights(dt)
@@ -692,29 +730,10 @@ class DeltaFVelocitiesEfield(Propagator):
             )
         )
 
-        # Compute difference in velocities
-        self._vel_diffs[:] *= 0.0
-        self._vel_diffs[:] += self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
-        self._vel_diffs[:] -= self.particles[0].markers[:, 3:6]
-
-        max_diff_v = np.max(
-            np.abs(
-                np.sqrt(
-                    self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
-                    + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
-                    + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
-                )
-            )
-        )
-
         # write new coeffs into self.variables
         (max_diff_e,) = self.feec_vars_update(self._e_next)
 
-        print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
-
-        # Update velocities
-        self.particles[0].markers[self.particles[0].valid_mks, 3:6] = \
-            self.particles[0].markers_wo_holes[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+        # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
 
         # exit()
 
