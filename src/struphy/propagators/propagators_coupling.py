@@ -1,6 +1,7 @@
 "Particle and FEEC variables are updated."
 
 import numpy as np
+from mpi4py import MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
@@ -609,9 +610,9 @@ class DeltaFVelocitiesEfield(Propagator):
         self.solver.dot(self._e_diff, out=self._e_next)
         self._e_next += self.feec_vars[0]
 
-        converged = False
+        converged_glob = False
         k = 0
-        while not converged:
+        while not converged_glob:
             k += 1
 
             # Store current e-field
@@ -658,16 +659,16 @@ class DeltaFVelocitiesEfield(Propagator):
             max_diff_e = np.max(np.abs(self._e_curr.toarray() - self._e_next.toarray()))
 
             # Check if converged
-            converged = (max_diff_v < self._tol) and (max_diff_e < self._tol)
-            # print(f"{converged=} with {max_diff_v=} and {max_diff_e=}")
+            converged_loc = int((max_diff_v < self._tol) and (max_diff_e < self._tol))
+            # print(f"{converged_loc=} with {max_diff_v=} and {max_diff_e=}")
+
+            converged_glob = self.derham.comm.allreduce(converged_loc, op=MPI.LAND)
+            # print(f"{converged_glob=}")
 
             if k >= self._maxiter:
                 print("Max number of iterations reached, breaking..")
                 break
 
-            # self.derham.comm.Barrier()
-
-        # self.derham.comm.Barrier()
         # print(f"converged with {max_diff_v=} and {max_diff_e=}")
 
         # Update velocities
