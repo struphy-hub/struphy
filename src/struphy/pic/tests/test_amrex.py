@@ -79,7 +79,7 @@ def test_amrex_push_v_x_b(plot=False, verbose=False, same_phasespace_coords=True
 
     # instantiate Particle objects (for random drawing of markers)
     bc = ["periodic", "periodic", "periodic"]
-    eps = 1.0
+    bufsize = 1.0
     loading = "pseudo_random"
     loading_params = {"seed": seed, "spatial": "uniform"}
     control_variate = False
@@ -91,7 +91,7 @@ def test_amrex_push_v_x_b(plot=False, verbose=False, same_phasespace_coords=True
         domain=domain,
         Np=Np,
         bc=bc,
-        eps=eps,
+        bufsize=bufsize,
         loading=loading,
         loading_params=loading_params,
         control_variate=control_variate,
@@ -105,7 +105,7 @@ def test_amrex_push_v_x_b(plot=False, verbose=False, same_phasespace_coords=True
         domain=domain,
         Np=Np,
         bc=bc,
-        eps=eps,
+        bufsize=bufsize,
         loading=loading,
         loading_params=loading_params,
         control_variate=control_variate,
@@ -831,7 +831,7 @@ def test_amrex_box(plot=False, verbose=False):
             l2,
             r1,
             r2,
-            f"{math.ceil(Tend / dt)} time steps (full color at t=0) (Struphy)",
+            f"{math.ceil(Tend / dt)} time stbufsize (full color at t=0) (Struphy)",
             "./box_final_struphy.jpg",
         )
 
@@ -844,7 +844,7 @@ def test_amrex_box(plot=False, verbose=False):
             l2,
             r1,
             r2,
-            f"{math.ceil(Tend / dt)} time steps (full color at t=0) (Amrex)",
+            f"{math.ceil(Tend / dt)} time stbufsize (full color at t=0) (Amrex)",
             "./box_final_amrex.jpg",
         )
 
@@ -952,7 +952,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
             colors,
             alpha,
             a2,
-            f"{math.ceil(Tend / dt)} time steps (full color at t=0) (amrex)",
+            f"{math.ceil(Tend / dt)} time stbufsize (full color at t=0) (amrex)",
             "./cylinder_final_amrex.jpg",
         )
 
@@ -962,7 +962,7 @@ def test_amrex_cylinder(plot=False, verbose=False):
             colors,
             alpha,
             a2,
-            f"{math.ceil(Tend / dt)} time steps (full color at t=0) (struphy)",
+            f"{math.ceil(Tend / dt)} time stbufsize (full color at t=0) (struphy)",
             "./cylinder_final_struphy.jpg",
         )
 

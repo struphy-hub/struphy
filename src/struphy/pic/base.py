@@ -335,7 +335,6 @@ class Particles(metaclass=ABCMeta):
             self._init_amrex()
         else:
             self._init_struphy()
-            
 
     def _init_amrex(
         self,
@@ -1202,7 +1201,7 @@ class Particles(metaclass=ABCMeta):
 
         SINGLE_CELL_SIZE = 32  # default size of single cell in indexing domain
 
-        TOTAL_SIZE = [n*SINGLE_CELL_SIZE-1 for _, n in enumerate(self._nprocs)]
+        TOTAL_SIZE = [n * SINGLE_CELL_SIZE - 1 for _, n in enumerate(self._nprocs)]
 
         # indexing space domain size depends on the number of processes available
         big_box = amr.Box(amr.IntVect(0, 0, 0), amr.IntVect(TOTAL_SIZE[0], TOTAL_SIZE[1], TOTAL_SIZE[2]))

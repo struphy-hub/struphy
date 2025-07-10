@@ -292,7 +292,7 @@ class Pusher:
                 if self.particles.amrex:
                     if self.particles.mpi_comm is not None:
                         self.particles.markers.redistribute()
-                    
+
                     # push markers
                     self.kernel(
                         dt,
