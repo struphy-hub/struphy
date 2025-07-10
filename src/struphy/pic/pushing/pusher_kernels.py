@@ -2822,7 +2822,7 @@ def push_weights_with_efield_lin_va(
     # -- removed omp: #$ omp end parallel
 
 
-@stack_array("e_vec")
+@stack_array("e_vec", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
 def push_velocity_predictor_df_va(
     dt: float,
     stage: int,
@@ -2837,15 +2837,18 @@ def push_velocity_predictor_df_va(
 ):
     r"""TODO"""
 
+    # Allocate necessary memory
     e_vec = empty(3, dtype=float)
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    df_inv_t_e = empty(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     valid_mks = args_markers.valid_mks
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, span1, span2, span3, e_vec)
-    #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
             continue
@@ -2870,11 +2873,27 @@ def push_velocity_predictor_df_va(
             e_vec,
         )
 
-        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * e_vec[0]
-        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * e_vec[1]
-        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * e_vec[2]
+        # Compute Jacobian matrix
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
 
-    #$ omp end parallel
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # transpose matrix
+        linalg_kernels.transpose(df_inv, df_inv_t)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv_t, e_vec, df_inv_t_e)
+
+        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * df_inv_t_e[0]
+        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * df_inv_t_e[1]
+        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * df_inv_t_e[2]
 
 
 @stack_array("e_old", "e_next", "e_sum", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
