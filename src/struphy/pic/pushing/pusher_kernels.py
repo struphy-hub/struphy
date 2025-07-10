@@ -2891,9 +2891,9 @@ def push_velocity_predictor_df_va(
         # compute DF^{-1} v
         linalg_kernels.matrix_vector(df_inv_t, e_vec, df_inv_t_e)
 
-        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * df_inv_t_e[0]
-        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * df_inv_t_e[1]
-        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * df_inv_t_e[2]
+        markers[ip, free_idx] = dt / epsilon * df_inv_t_e[0]
+        markers[ip, free_idx + 1] = dt / epsilon * df_inv_t_e[1]
+        markers[ip, free_idx + 2] = dt / epsilon * df_inv_t_e[2]
 
 
 @stack_array("e_old", "e_next", "e_sum", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
@@ -2988,10 +2988,9 @@ def push_velocities_df_va(
         # compute DF^{-1} v
         linalg_kernels.matrix_vector(df_inv_t, e_sum, df_inv_t_e)
 
-
-        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * df_inv_t_e[0] / 2.
-        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * df_inv_t_e[1] / 2.
-        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * df_inv_t_e[2] / 2.
+        markers[ip, free_idx] = dt / epsilon * df_inv_t_e[0] / 2.
+        markers[ip, free_idx + 1] = dt / epsilon * df_inv_t_e[1] / 2.
+        markers[ip, free_idx + 2] = dt / epsilon * df_inv_t_e[2] / 2.
 
 
 @stack_array("ginv", "k", "tmp", "pi_du_value")

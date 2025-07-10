@@ -491,6 +491,7 @@ class DeltaFVelocitiesEfield(Propagator):
         self._gamma = gamma
         self._vth = vth
         self._n0 = n0
+        self._first_free_idx = self.particles[0].first_free_idx
 
         self._info = solver["info"]
         self._tol = 1e-12
@@ -575,6 +576,11 @@ class DeltaFVelocitiesEfield(Propagator):
 
         converged = False
 
+        # Store old velocities because free idx gets reset
+        self._vel_diffs[:] *= 0.0
+        self._vel_diffs[:] += \
+            self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
+
         # Accumulate diff_e
         self._accum_vec(self._vel_diffs, self._gamma, self._vth, self._n0)
         # self._accum_vec.vectors[0].update_ghost_regions()
@@ -595,7 +601,8 @@ class DeltaFVelocitiesEfield(Propagator):
 
             # Store old velocities because free idx gets reset
             self._vel_diffs[:] *= 0.0
-            self._vel_diffs[:] += self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+            self._vel_diffs[:] += \
+                self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
 
             # Store current e-field
             self._e_curr *= 0.0
@@ -615,35 +622,26 @@ class DeltaFVelocitiesEfield(Propagator):
             self._e_next += self.feec_vars[0]
             # self._e_next.update_ghost_regions()
 
-            # store velocities before the push
-            self._old_vels[:] = self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+            # store delta v before the push
+            self._old_vels[:] = self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
 
             # Push velocities
             self._push_velocities(dt)
 
-            # Compute difference
+            # Compute difference of delta v
             self._vel_diffs[:] *= 0.0
-            self._vel_diffs[:] += self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+            self._vel_diffs[:] += self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
             self._vel_diffs[:] -= self._old_vels[:]
 
-            # Compute relative error in velocities
+            # Compute relative error in delta v
             max_diff_v = np.max(
-                np.divide(
-                    np.abs(
-                        np.sqrt(
-                            self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
-                            + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
-                            + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
-                        )
-                    ),
-                    np.abs(
-                        np.sqrt(
-                            self._old_vels[self.particles[0].valid_mks, 0] ** 2
-                            + self._old_vels[self.particles[0].valid_mks, 1] ** 2
-                            + self._old_vels[self.particles[0].valid_mks, 2] ** 2
-                        )
-                    ),
-                )
+                np.abs(
+                    np.sqrt(
+                        self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
+                        + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
+                        + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
+                    )
+                ),
             )
 
             # Compute difference in e-field (not very efficient, find better way)
@@ -663,7 +661,8 @@ class DeltaFVelocitiesEfield(Propagator):
         self.feec_vars_update(self._e_next)
 
         # Update velocities
-        self.particles[0].markers[self.particles[0].valid_mks, 3:6] = self.particles[0].markers_wo_holes[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+        self.particles[0].markers[self.particles[0].valid_mks, 3:6] += \
+            self.particles[0].markers_wo_holes[:, self._first_free_idx:self._first_free_idx+3]
 
 
 class PressureCoupling6D(Propagator):

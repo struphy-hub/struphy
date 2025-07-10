@@ -502,7 +502,7 @@ def deltaf_vlasov_ampere_accum_vec(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
-    new_velocities: "float[:,:]",
+    vel_diffs: "float[:,:]",
     gamma: "float[:]",
     vth: "float",
     n0: "float",
@@ -539,26 +539,21 @@ def deltaf_vlasov_ampere_accum_vec(
         v_old[2] = markers[ip, 5]
 
         # get current v^{n+1}
-        v_next[0] = new_velocities[ip, 0]
-        v_next[1] = new_velocities[ip, 1]
-        v_next[2] = new_velocities[ip, 2]
+        v_diff[0] = vel_diffs[ip, 0]
+        v_diff[1] = vel_diffs[ip, 1]
+        v_diff[2] = vel_diffs[ip, 2]
 
         # get gamma
         g = gamma[ip]
 
         # compute sum
-        v_sum[0] = v_next[0] + v_old[0]
-        v_sum[1] = v_next[1] + v_old[1]
-        v_sum[2] = v_next[2] + v_old[2]
-
-        # compute difference
-        v_diff[0] = v_next[0] - v_old[0]
-        v_diff[1] = v_next[1] - v_old[1]
-        v_diff[2] = v_next[2] - v_old[2]
+        v_sum[0] = 2. * v_old[0] + v_diff[0]
+        v_sum[1] = 2. * v_old[1] + v_diff[1]
+        v_sum[2] = 2. * v_old[2] + v_diff[2]
 
         # Assign variables
         a = linalg_kernels.scalar_dot(v_diff, v_diff)
-        b = - 2 * linalg_kernels.scalar_dot(v_old, v_old) + 2 * linalg_kernels.scalar_dot(v_old, v_next)
+        b = 2 * linalg_kernels.scalar_dot(v_old, v_diff)
         c = linalg_kernels.scalar_dot(v_old, v_old)
         nu = 1 / (2 * vth**2)
         factor = n0 / (sqrt((2 * pi)**3 * vth**2) * markers[ip, 7])
