@@ -77,6 +77,7 @@ def reflect(
         markers[ip, 3:6] = v[:]
 
 
+@pure
 def expm1_taylor(x: "float", n_terms: "int" = 100) -> "float":
     """ Taylor series computation for the expression exp(x) - 1
     
@@ -97,6 +98,7 @@ def expm1_taylor(x: "float", n_terms: "int" = 100) -> "float":
     return result
 
 
+@pure
 def expm1_minus_x_over_x(x: "float", n_terms: "int" = 100) -> "float":
     """ Taylor series computation for the expression (exp(x) - 1 - x) / x
     

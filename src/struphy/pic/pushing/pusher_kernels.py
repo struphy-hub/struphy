@@ -7,7 +7,7 @@ import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
-from struphy.pic.pushing.pusher_utilities_kernels import expm1_taylor
+import struphy.pic.pushing.pusher_utilities_kernels as utils
 
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
@@ -2935,7 +2935,7 @@ def push_weights_dfva(
         # compute explicit velocity update
         arg = - v_tilde / (2. * vth**2)
         factor = f0 / markers[ip, 7]
-        update = factor * expm1_taylor(arg, n_terms=200)
+        update = factor * utils.expm1_taylor(arg, n_terms=200)
         markers[ip, 6] -= update
 
 
