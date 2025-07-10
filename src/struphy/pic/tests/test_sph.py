@@ -61,7 +61,7 @@ def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=Fal
         domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
-        verbose=False,
+        verbose=True,
     )
 
     particles.draw_markers(sort=False, verbose=False)
@@ -125,7 +125,7 @@ def test_evaluation_mc_Np_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
     # perturbation and exact solution
     mode_params = {"given_in_basis": "0", "ls": [1], "amps": [-1e-0]}
     if bc_x == "periodic":
-        fun_exact = lambda e1, e2, e3: 1.5 + np.sin(2 * np.pi * e1)
+        fun_exact = lambda e1, e2, e3: 1.5 - np.sin(2 * np.pi * e1)
         modes = {"ModesSin": mode_params}
     elif bc_x == "mirror":
         fun_exact = lambda e1, e2, e3: 1.5 - np.cos(2 * np.pi * e1)
@@ -147,9 +147,10 @@ def test_evaluation_mc_Np_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
             domain=domain,
             bckgr_params=bckgr_params,
             pert_params=pert_params,
+            verbose=True,
             )
 
-        particles.draw_markers(sort=False)
+        particles.draw_markers(sort=False, verbose=False)
         particles.mpi_sort_markers()
         particles.initialize_weights()
         h1 = 1 / boxes_per_dim[0]
@@ -434,16 +435,19 @@ def test_evaluation_mc_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, show_plot=Fa
 
 
 if __name__ == "__main__":
-    test_sph_evaluation(
-        40000,
-        (8, 1, 1),
-        4,
-        "periodic",
-        # "mirror",
-        tesselation=False,
-        show_plot=True
-    )
-    # test_evaluation_mc_Np_convergence_1d((16, 1, 1), "mirror", show_plot=True)
+    # test_sph_evaluation(
+    #     40000,
+    #     (8, 1, 1),
+    #     4,
+    #     "periodic",
+    #     # "mirror",
+    #     tesselation=False,
+    #     show_plot=True
+    # )
+    test_evaluation_mc_Np_convergence_1d((12, 1, 1), 
+                                        #  "periodic",
+                                         "mirror", 
+                                         show_plot=True)
     #test_evaluation_mc_kernel_width_convergence_1d((16,1,1), "periodic", show_plot="True")
     # test_evaluation_mc_Np_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")
     # test_evaluation_mc_Np_and_h_convergence_1d((16,1,1), "periodic", show_plot = "True")

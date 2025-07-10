@@ -1169,7 +1169,7 @@ class Particles(metaclass=ABCMeta):
                 self._get_neighbouring_proc()
 
             self._initialized_sorting = True
-            self._argsort_array = np.zeros(self.markers.shape[0], dtype=int)
+            
         else:
             self._sorting_boxes = None
 
@@ -2259,6 +2259,8 @@ class Particles(metaclass=ABCMeta):
                 is_domain_boundary["y_p"] = True
                 is_domain_boundary["z_m"] = True
                 is_domain_boundary["z_p"] = True
+                
+            self._is_domain_boundary = is_domain_boundary
 
             if comm is None:
                 self._rank = 0
@@ -2309,6 +2311,11 @@ class Particles(metaclass=ABCMeta):
             return self._communicate
         
         @property
+        def is_domain_boundary(self):
+            """Dict with two booleans for each direction (e.g. 'x_m' and 'x_p'); True when the boundary of the MPI process is a domain boundary (0.0 or 1.0)."""
+            return self._is_domain_boundary
+        
+        @property
         def bc_sph(self):
             """List of boundary conditions for sph evaluation in each direction."""
             return self._bc_sph
@@ -2323,34 +2330,30 @@ class Particles(metaclass=ABCMeta):
         def _compute_sph_index_shifts(self):
             """The index shifts are applied to ghost particles to indicate their new box after sending."""
             self._bc_sph_index_shifts = {}
-            
-            # Faces
-            if self.bc_sph[0] == "periodic":
-                self._bc_sph_index_shifts["x"] = flatten_index(self.nx, 0, 0, self.nx, self.ny, self.nz)
-            elif self.bc_sph[0] == "mirror":
-                self._bc_sph_index_shifts["x"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
-            elif self.bc_sph[0] == "force":
-                self._bc_sph_index_shifts["x"] = 0
-            else:
-                NotImplementedError(f'sph boundary condition {self.bc_sph[0] = } is not implemented.')
+            self._bc_sph_index_shifts["x_m"] = flatten_index(self.nx, 0, 0, self.nx, self.ny, self.nz)
+            self._bc_sph_index_shifts["x_p"] = flatten_index(self.nx, 0, 0, self.nx, self.ny, self.nz)
+            self._bc_sph_index_shifts["y_m"] = flatten_index(0, self.ny, 0, self.nx, self.ny, self.nz)
+            self._bc_sph_index_shifts["y_p"] = flatten_index(0, self.ny, 0, self.nx, self.ny, self.nz)
+            self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
+            self._bc_sph_index_shifts["z_p"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
+    
+            if self.bc_sph[0] == "mirror":
+                if self.is_domain_boundary["x_m"]:
+                    self._bc_sph_index_shifts["x_m"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
+                if self.is_domain_boundary["x_p"]:
+                    self._bc_sph_index_shifts["x_p"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
                 
-            if self.bc_sph[1] == "periodic":
-                self._bc_sph_index_shifts["y"] = flatten_index(0, self.ny, 0, self.nx, self.ny, self.nz)
-            elif self.bc_sph[1] == "mirror":
-                self._bc_sph_index_shifts["y"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
-            elif self.bc_sph[1] == "force":
-                self._bc_sph_index_shifts["y"] = 0
-            else:
-                NotImplementedError(f'sph boundary condition {self.bc_sph[1] = } is not implemented.')
-                
-            if self.bc_sph[2] == "periodic":
-                self._bc_sph_index_shifts["z"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
-            elif self.bc_sph[2] == "mirror":
-                self._bc_sph_index_shifts["z"] = flatten_index(0, 0, -1, self.nx, self.ny, self.nz)
-            elif self.bc_sph[2] == "force":
-                self._bc_sph_index_shifts["z"] = 0
-            else:
-                NotImplementedError(f'sph boundary condition {self.bc_sph[2] = } is not implemented.')
+            if self.bc_sph[1] == "mirror":
+                if self.is_domain_boundary["y_m"]:
+                    self._bc_sph_index_shifts["y_m"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
+                if self.is_domain_boundary["y_p"]:
+                    self._bc_sph_index_shifts["y_p"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
+ 
+            if self.bc_sph[2] == "mirror":
+                if self.is_domain_boundary["z_m"]:
+                    self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, -1, self.nx, self.ny, self.nz)
+                if self.is_domain_boundary["z_p"]:
+                    self._bc_sph_index_shifts["z_p"] = flatten_index(0, 0, -1, self.nx, self.ny, self.nz)
 
         def _set_boxes(self):
             """ "(Re)set the box structure."""
@@ -2536,10 +2539,14 @@ class Particles(metaclass=ABCMeta):
                     )
                 )
 
-    def sort_boxed_particles_numpy(self):
-        """Sort the particles by box using numpy.sort."""
+    def _sort_boxed_particles_numpy(self):
+        """Sort the particles by box using numpy.argsort."""
         sorting_axis = self._sorting_boxes.box_index
+        
+        if not hasattr(self, "_argsort_array"):
+            self._argsort_array = np.zeros(self.markers.shape[0], dtype=int)
         self._argsort_array[:] = self._markers[:, sorting_axis].argsort()
+        
         self._markers[:, :] = self._markers[self._argsort_array]
 
     def put_particles_in_boxes(self):
@@ -2576,7 +2583,7 @@ class Particles(metaclass=ABCMeta):
                 n_mks_box = np.count_nonzero(self._sorting_boxes._boxes[i] != -1)
                 print(f'Number of markers in box {i} is {n_mks_box}')
 
-    def do_sort(self):
+    def do_sort(self, use_numpy_argsort=False):
         """Assign the particles to boxes and then sort them."""
         nx = self._sorting_boxes.nx
         ny = self._sorting_boxes.ny
@@ -2585,18 +2592,17 @@ class Particles(metaclass=ABCMeta):
 
         self.put_particles_in_boxes()
 
-        # We could either use numpy routine or kernel to sort
-        # Kernel seems to be 3x faster
-        # self.sort_boxed_particles_numpy()
-
-        sort_boxed_particles(
-            self._markers,
-            self._sorting_boxes._swap_line_1,
-            self._sorting_boxes._swap_line_2,
-            nboxes + 1,
-            self._sorting_boxes._next_index,
-            self._sorting_boxes._cumul_next_index,
-        )
+        if use_numpy_argsort:
+            self._sort_boxed_particles_numpy()
+        else:
+            sort_boxed_particles(
+                self._markers,
+                self._sorting_boxes._swap_line_1,
+                self._sorting_boxes._swap_line_2,
+                nboxes + 1,
+                self._sorting_boxes._next_index,
+                self._sorting_boxes._cumul_next_index,
+            )
 
         if self.sorting_boxes.communicate:
             self.update_ghost_particles()
@@ -2639,22 +2645,22 @@ class Particles(metaclass=ABCMeta):
         self._markers_z_p[:, -1] = -2.0
         
         # Adjust box number
-        self._markers_x_m[:, self._sorting_boxes.box_index] += shifts["x"]
-        self._markers_x_p[:, self._sorting_boxes.box_index] -= shifts["x"]
-        self._markers_y_m[:, self._sorting_boxes.box_index] += shifts["y"]
-        self._markers_y_p[:, self._sorting_boxes.box_index] -= shifts["y"]
-        self._markers_z_m[:, self._sorting_boxes.box_index] += shifts["z"]
-        self._markers_z_p[:, self._sorting_boxes.box_index] -= shifts["z"]
+        self._markers_x_m[:, self._sorting_boxes.box_index] += shifts["x_m"]
+        self._markers_x_p[:, self._sorting_boxes.box_index] -= shifts["x_p"]
+        self._markers_y_m[:, self._sorting_boxes.box_index] += shifts["y_m"]
+        self._markers_y_p[:, self._sorting_boxes.box_index] -= shifts["y_p"]
+        self._markers_z_m[:, self._sorting_boxes.box_index] += shifts["z_m"]
+        self._markers_z_p[:, self._sorting_boxes.box_index] -= shifts["z_p"]
         
         # Mirror position for boundary condition
         if self.bc_sph[0] == "mirror":
-            self._mirror_particles("_markers_x_m", "_markers_x_p",)
+            self._mirror_particles("_markers_x_m", "_markers_x_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
             
         if self.bc_sph[1] == "mirror":
-            self._mirror_particles("_markers_y_m", "_markers_y_p",)
+            self._mirror_particles("_markers_y_m", "_markers_y_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
             
         if self.bc_sph[2] == "mirror":
-            self._mirror_particles("_markers_z_m", "_markers_z_p",)
+            self._mirror_particles("_markers_z_m", "_markers_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
         ## Edges x-y
         
@@ -2671,14 +2677,14 @@ class Particles(metaclass=ABCMeta):
         self._markers_x_p_y_p[:, -1] = -2.0
         
         # Adjust box number
-        self._markers_x_m_y_m[:, self._sorting_boxes.box_index] += shifts["x"] + shifts["y"]
-        self._markers_x_m_y_p[:, self._sorting_boxes.box_index] += shifts["x"] - shifts["y"]
-        self._markers_x_p_y_m[:, self._sorting_boxes.box_index] += -shifts["x"] + shifts["y"]
-        self._markers_x_p_y_p[:, self._sorting_boxes.box_index] += -shifts["x"] - shifts["y"]
+        self._markers_x_m_y_m[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["y_m"]
+        self._markers_x_m_y_p[:, self._sorting_boxes.box_index] += shifts["x_m"] - shifts["y_p"]
+        self._markers_x_p_y_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["y_m"]
+        self._markers_x_p_y_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"]
             
         # Mirror position for boundary condition
         if self.bc_sph[0] == "mirror" or self.bc_sph[1] == "mirror":
-            self._mirror_particles("_markers_x_m_y_m", "_markers_x_m_y_p", "_markers_x_p_y_m", "_markers_x_p_y_p",)
+            self._mirror_particles("_markers_x_m_y_m", "_markers_x_m_y_p", "_markers_x_p_y_m", "_markers_x_p_y_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
         ## Edges x-z
         
@@ -2695,14 +2701,14 @@ class Particles(metaclass=ABCMeta):
         self._markers_x_p_z_p[:, -1] = -2.0
         
         # Adjust box number
-        self._markers_x_m_z_m[:, self._sorting_boxes.box_index] += shifts["x"] + shifts["z"]
-        self._markers_x_m_z_p[:, self._sorting_boxes.box_index] += shifts["x"] - shifts["z"]
-        self._markers_x_p_z_m[:, self._sorting_boxes.box_index] += -shifts["x"] + shifts["z"]
-        self._markers_x_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x"] - shifts["z"]
+        self._markers_x_m_z_m[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["z_m"]
+        self._markers_x_m_z_p[:, self._sorting_boxes.box_index] += shifts["x_m"] - shifts["z_p"]
+        self._markers_x_p_z_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["z_m"]
+        self._markers_x_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["z_p"]
         
         # Mirror position for boundary condition
         if self.bc_sph[0] == "mirror" or self.bc_sph[2] == "mirror":
-            self._mirror_particles("_markers_x_m_z_m", "_markers_x_m_z_p", "_markers_x_p_z_m", "_markers_x_p_z_p",)
+            self._mirror_particles("_markers_x_m_z_m", "_markers_x_m_z_p", "_markers_x_p_z_m", "_markers_x_p_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
         ## Edges y-z
         
@@ -2719,14 +2725,14 @@ class Particles(metaclass=ABCMeta):
         self._markers_y_p_z_p[:, -1] = -2.0
         
         # Adjust box number
-        self._markers_y_m_z_m[:, self._sorting_boxes.box_index] += shifts["y"] + shifts["z"]
-        self._markers_y_m_z_p[:, self._sorting_boxes.box_index] += shifts["y"] - shifts["z"]
-        self._markers_y_p_z_m[:, self._sorting_boxes.box_index] += -shifts["y"] + shifts["z"]
-        self._markers_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["y"] - shifts["z"]
+        self._markers_y_m_z_m[:, self._sorting_boxes.box_index] += shifts["y_m"] + shifts["z_m"]
+        self._markers_y_m_z_p[:, self._sorting_boxes.box_index] += shifts["y_m"] - shifts["z_p"]
+        self._markers_y_p_z_m[:, self._sorting_boxes.box_index] += -shifts["y_p"] + shifts["z_m"]
+        self._markers_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["y_p"] - shifts["z_p"]
         
         # Mirror position for boundary condition
         if self.bc_sph[1] == "mirror" or self.bc_sph[2] == "mirror":
-            self._mirror_particles("_markers_y_m_z_m", "_markers_y_m_z_p", "_markers_y_p_z_m", "_markers_y_p_z_p",)
+            self._mirror_particles("_markers_y_m_z_m", "_markers_y_m_z_p", "_markers_y_p_z_m", "_markers_y_p_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
         ## Corners
         
@@ -2751,30 +2757,30 @@ class Particles(metaclass=ABCMeta):
         self._markers_x_p_y_p_z_p[:, -1] = -2.0
         
         # Adjust box number
-        self._markers_x_m_y_m_z_m[:, self._sorting_boxes.box_index] += shifts["x"] + shifts["y"] + shifts["z"]
-        self._markers_x_m_y_m_z_p[:, self._sorting_boxes.box_index] += shifts["x"] + shifts["y"] - shifts["z"]
-        self._markers_x_m_y_p_z_m[:, self._sorting_boxes.box_index] += shifts["x"] - shifts["y"] + shifts["z"]
-        self._markers_x_m_y_p_z_p[:, self._sorting_boxes.box_index] += shifts["x"] - shifts["y"] - shifts["z"]
-        self._markers_x_p_y_m_z_m[:, self._sorting_boxes.box_index] += -shifts["x"] + shifts["y"] + shifts["z"]
-        self._markers_x_p_y_m_z_p[:, self._sorting_boxes.box_index] += -shifts["x"] + shifts["y"] - shifts["z"]
-        self._markers_x_p_y_p_z_m[:, self._sorting_boxes.box_index] += -shifts["x"] - shifts["y"] + shifts["z"]
-        self._markers_x_p_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x"] - shifts["y"] - shifts["z"]
+        self._markers_x_m_y_m_z_m[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["y_m"] + shifts["z_m"]
+        self._markers_x_m_y_m_z_p[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["y_m"] - shifts["z_p"]
+        self._markers_x_m_y_p_z_m[:, self._sorting_boxes.box_index] += shifts["x_m"] - shifts["y_p"] + shifts["z_m"]
+        self._markers_x_m_y_p_z_p[:, self._sorting_boxes.box_index] += shifts["x_m"] - shifts["y_p"] - shifts["z_p"]
+        self._markers_x_p_y_m_z_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["y_m"] + shifts["z_m"]
+        self._markers_x_p_y_m_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["y_m"] - shifts["z_p"]
+        self._markers_x_p_y_p_z_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"] + shifts["z_m"]
+        self._markers_x_p_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"] - shifts["z_p"]
         
         # Mirror position for boundary condition
         if self.bc_sph[0] == "mirror" or self.bc_sph[1] == "mirror" or self.bc_sph[2] == "mirror":
             self._mirror_particles("_markers_x_m_y_m_z_m", "_markers_x_m_y_m_z_p", "_markers_x_m_y_p_z_m", "_markers_x_m_y_p_z_p",
-                                   "_markers_x_p_y_m_z_m", "_markers_x_p_y_m_z_p", "_markers_x_p_y_p_z_m", "_markers_x_p_y_p_z_p",)
+                                   "_markers_x_p_y_m_z_m", "_markers_x_p_y_m_z_p", "_markers_x_p_y_p_z_m", "_markers_x_p_y_p_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
-    def _mirror_particles(self, *marker_array_names):
+    def _mirror_particles(self, *marker_array_names, is_domain_boundary=None):
         for arr_name in marker_array_names:
             assert isinstance(arr_name, str)
             arr = getattr(self, arr_name)
             
             # x-direction
             if self.bc_sph[0] == "mirror":
-                if "x_m" in arr_name:
+                if "x_m" in arr_name and is_domain_boundary["x_m"]:
                     arr[:, 0] *= -1.
-                elif "x_p" in arr_name:
+                elif "x_p" in arr_name and is_domain_boundary["x_p"]:
                     arr[:, 0] = 2. - arr[:, 0]
                 
             # y-direction
