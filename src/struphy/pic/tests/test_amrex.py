@@ -8,11 +8,14 @@ from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.equils import HomogenSlab
 from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
 from struphy.geometry.domains import Cuboid, HollowCylinder
-from struphy.pic.amrex import *
+from struphy.pic.amrex import Amrex
 from struphy.pic.particles import Particles6D, ParticlesSPH
 from struphy.propagators.propagators_markers import PushEta, PushVinEfield, PushVxB
 
-amr, xp = detect_amrex_gpu()
+try:
+    import amrex.space3d as amr
+except ImportError:
+    amr = None
 
 Np = 10
 seed = None
@@ -488,25 +491,25 @@ def test_amrex_push_v_in_e_field(plot=False, verbose=False, same_phasespace_coor
             print("*************** BEFORE TIMESTEP ***************")
             print(f"Amrex positions: \n{particles_1_amrex.positions[:10]}")
             print(f"Amrex velocities: \n{particles_1_amrex.velocities[:10]}")
-            # print(
-            #     f"Amrex energy: \n{
-            #         (
-            #             0.5 * (particles_1_amrex.velocities[:, 0] ** 2 + particles_1_amrex.velocities[:, 1] ** 2)
-            #             + 0 * p_h(particles_1_amrex.positions)
-            #         )[:10]
-            #     }"
-            # )
+            print(
+                f"Amrex energy: \n{
+                    (
+                        0.5 * (particles_1_amrex.velocities[:, 0] ** 2 + particles_1_amrex.velocities[:, 1] ** 2)
+                        + 0 * p_h(particles_1_amrex.positions)
+                    )[:10]
+                }"
+            )
 
             print(f"Struphy positions: \n{particles_1_struphy.positions[:10]}")
             print(f"Struphy velocities: \n{particles_1_struphy.velocities[:10]}")
-            # print(
-            #     f"Struphy energy: \n{
-            #         (
-            #             0.5 * (particles_1_struphy.velocities[:, 0] ** 2 + particles_1_struphy.velocities[:, 1] ** 2)
-            #             + 0 * p_h(particles_1_struphy.positions)
-            #         )[:10]
-            #     }"
-            # )
+            print(
+                f"Struphy energy: \n{
+                    (
+                        0.5 * (particles_1_struphy.velocities[:, 0] ** 2 + particles_1_struphy.velocities[:, 1] ** 2)
+                        + 0 * p_h(particles_1_struphy.positions)
+                    )[:10]
+                }"
+            )
 
         # advance in time
         prop_eta_1_amrex(dt / 2)

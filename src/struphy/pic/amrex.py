@@ -25,20 +25,3 @@ class Amrex:
 
     def finalize(self):
         amr.finalize()
-
-
-def detect_amrex_gpu():
-    try:
-        import amrex.space3d as amr
-
-        if amr.Config.have_gpu:
-            import cupy as xp
-        else:
-            import numpy as xp
-    except ImportError:
-        amr = None
-        try:
-            import cupy as xp
-        except ImportError:
-            import numpy as xp
-    return amr, xp

@@ -21,7 +21,7 @@ from struphy.initial import perturbations
 from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background import maxwellians
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.amrex import *
+from struphy.pic.amrex import Amrex
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing.pusher_kers_vectorized import amrex_reflect
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
@@ -42,7 +42,10 @@ from struphy.pic.sph_eval_kernels import (
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
 
-amr, xp = detect_amrex_gpu()
+try:
+    import amrex.space3d as amr
+except ImportError:
+    amr = None
 
 
 class Particles(metaclass=ABCMeta):
@@ -1568,7 +1571,7 @@ class Particles(metaclass=ABCMeta):
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if self.vdim == 3:
-                    markers_array["v1"][:] = xp.array(
+                    markers_array["v1"][:] = (
                         sp.erfinv(
                             2 * rng.random(size=markers_array["v1"].size) - 1,
                         )
@@ -1576,7 +1579,7 @@ class Particles(metaclass=ABCMeta):
                         * v_th[0]
                         + u_mean[0]
                     )
-                    markers_array["v2"][:] = xp.array(
+                    markers_array["v2"][:] = (
                         sp.erfinv(
                             2 * rng.random(size=markers_array["v1"].size) - 1,
                         )
@@ -1584,7 +1587,7 @@ class Particles(metaclass=ABCMeta):
                         * v_th[1]
                         + u_mean[1]
                     )
-                    markers_array["v3"][:] = xp.array(
+                    markers_array["v3"][:] = (
                         sp.erfinv(
                             2 * rng.random(size=markers_array["v1"].size) - 1,
                         )
@@ -1594,7 +1597,7 @@ class Particles(metaclass=ABCMeta):
                     )
                 # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
                 elif self.vdim == 2:
-                    markers_array["v1"][:] = xp.array(
+                    markers_array["v1"][:] = (
                         sp.erfinv(
                             2 * rng.random(size=markers_array["v1"].size) - 1,
                         )
@@ -1603,7 +1606,7 @@ class Particles(metaclass=ABCMeta):
                         + u_mean[0]
                     )
 
-                    markers_array["v2"][:] = xp.array(
+                    markers_array["v2"][:] = (
                         np.sqrt(
                             -1 * np.log(1 - rng.random(size=markers_array["v1"].size)),
                         )
@@ -1623,7 +1626,7 @@ class Particles(metaclass=ABCMeta):
             # inversion method for drawing uniformly on the disc
             self._spatial = self.loading_params["spatial"]
             if self._spatial == "disc":
-                markers_array["x"][:] = xp.sqrt(
+                markers_array["x"][:] = np.sqrt(
                     markers_array["x"][:],
                 )
             else:
@@ -2194,19 +2197,19 @@ class Particles(metaclass=ABCMeta):
                     jacobian = self.domain.jacobian(
                         e1, e2, e3, change_out_order=True, flat_eval=True, remove_outside=False
                     )
-                    det_jacobian = xp.linalg.det(jacobian)
+                    det_jacobian = np.linalg.det(jacobian)
                     _weights /= det_jacobian
                     _weights0 /= det_jacobian
 
-                phasespace_coords = xp.array([markers_array[label] for label in components_labels]).T
+                phasespace_coords = np.array([markers_array[label] for label in components_labels]).T
 
-                f_slice = xp.histogramdd(
+                f_slice = np.histogramdd(
                     phasespace_coords,
                     bins=bin_edges,
                     weights=_weights0,
                 )[0]
 
-                df_slice = xp.histogramdd(
+                df_slice = np.histogramdd(
                     phasespace_coords,
                     bins=bin_edges,
                     weights=_weights,
@@ -2420,7 +2423,7 @@ class Particles(metaclass=ABCMeta):
         if len(real_comp_names) != soa.num_real_comps:
             raise ValueError("Missing names for SoA Real components.")
         for idx_real in range(soa.num_real_comps):
-            self._markers_array[real_comp_names[idx_real]] = soa.get_real_data(idx_real).to_xp(copy=False)
+            self._markers_array[real_comp_names[idx_real]] = soa.get_real_data(idx_real).to_numpy(copy=False)
 
         return self._markers_array
 
