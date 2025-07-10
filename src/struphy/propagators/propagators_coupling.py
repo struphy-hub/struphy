@@ -724,9 +724,7 @@ class DeltaFVelocitiesEfield(Propagator):
         # write new coeffs into self.variables
         (max_diff_e,) = self.feec_vars_update(self._e_next)
 
-        print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
-
-        # exit()
+        # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
 
 
 class PressureCoupling6D(Propagator):

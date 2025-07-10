@@ -2823,7 +2823,7 @@ def push_weights_with_efield_lin_va(
     # -- removed omp: #$ omp end parallel
 
 
-@stack_array("e_vec")
+@stack_array("e_vec", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
 def push_predict_velocities_dfva(
     dt: float,
     stage: int,
@@ -2837,8 +2837,12 @@ def push_predict_velocities_dfva(
     epsilon: "float",
 ):
     r"""TODO"""
-
+    # Allocate some memory
     e_vec = empty(3, dtype=float)
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    df_inv_t_e = empty(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -2869,10 +2873,28 @@ def push_predict_velocities_dfva(
             e_vec,
         )
 
+        # Compute Jacobian matrix
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # transpose matrix
+        linalg_kernels.transpose(df_inv, df_inv_t)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv_t, e_vec, df_inv_t_e)
+
         # compute explicit velocity update
-        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * e_vec[0]
-        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * e_vec[1]
-        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * e_vec[2]
+        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * df_inv_t_e[0]
+        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * df_inv_t_e[1]
+        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * df_inv_t_e[2]
 
 
 @stack_array("v_old", "v_next")
@@ -2913,11 +2935,11 @@ def push_weights_dfva(
         # compute explicit velocity update
         arg = - v_tilde / (2. * vth**2)
         factor = f0 / markers[ip, 7]
-        update = factor * expm1_taylor(arg)
+        update = factor * expm1_taylor(arg, n_terms=200)
         markers[ip, 6] -= update
 
 
-@stack_array("e_old, e_next")
+@stack_array("e_old, e_next", "e_sum", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
 def push_velocities_dfva(
     dt: float,
     stage: int,
@@ -2938,6 +2960,11 @@ def push_velocities_dfva(
     # Allocate memory
     e_old = empty(3, dtype=float)
     e_next = empty(3, dtype=float)
+    e_sum = empty(3, dtype=float)
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    df_inv_t_e = empty(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -2980,9 +3007,32 @@ def push_velocities_dfva(
             e_next,
         )
 
-        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * (e_old[0] + e_next[0]) / 2.
-        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * (e_old[1] + e_next[1]) / 2.
-        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * (e_old[2] + e_next[2]) / 2.
+        # compute sum of old and new e-field
+        e_sum[0] = e_old[0] + e_next[0]
+        e_sum[1] = e_old[1] + e_next[1]
+        e_sum[2] = e_old[2] + e_next[2]
+
+        # Compute Jacobian matrix
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # transpose matrix
+        linalg_kernels.transpose(df_inv, df_inv_t)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv_t, e_sum, df_inv_t_e)
+
+        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * df_inv_t_e[0] / 2.
+        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * df_inv_t_e[1] / 2.
+        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * df_inv_t_e[2] / 2.
 
 
 @stack_array("ginv", "k", "tmp", "pi_du_value")

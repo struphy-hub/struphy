@@ -377,7 +377,7 @@ def hybrid_fA_Arelated(
     # -- removed omp: #$ omp end parallel
 
 
-@stack_array("dfm", "df_inv", "v", "df_inv_times_v", "filling_m", "filling_v")
+@stack_array("dfm", "df_inv", "v", "df_inv_v", "filling_m", "filling_v")
 def linear_vlasov_ampere(
     markers: "float[:,:]",
     n_markers_tot: "int",
@@ -494,7 +494,7 @@ def linear_vlasov_ampere(
     # -- removed omp: #$ omp end parallel
 
 
-@stack_array("v_old", "v_next", "v_diff", "v_sum")
+@stack_array("v_old", "v_next", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
 def dfva_accum_vec(
     markers: "float[:,:]",
     n_markers_tot: "int",
@@ -513,6 +513,11 @@ def dfva_accum_vec(
     v_next = empty(3, dtype=float)
     v_diff = empty(3, dtype=float)
     v_sum = empty(3, dtype=float)
+
+    # allocate for metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_v = empty(3, dtype=float)
 
     # get number of markers
     n_markers = shape(markers)[0]
@@ -554,11 +559,26 @@ def dfva_accum_vec(
         v_tilde = linalg_kernels.scalar_dot(v_next, v_next)
         v_tilde -= linalg_kernels.scalar_dot(v_old, v_old)
 
-        factor = f0 / markers[ip, 7] * expm1_minus_x_over_x(- v_tilde / (2. * vth**2)) - markers[ip, 6]
+        factor = f0 / markers[ip, 7] * expm1_minus_x_over_x(- v_tilde / (2. * vth**2), n_terms=200) - markers[ip, 6]
 
-        fill_vec1 = (v_next[0] + v_old[0]) / 2. * factor
-        fill_vec2 = (v_next[1] + v_old[1]) / 2. * factor
-        fill_vec3 = (v_next[2] + v_old[2]) / 2. * factor
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv, v_sum, df_inv_v)
+
+        fill_vec1 = df_inv_v[0] / 2. * factor
+        fill_vec2 = df_inv_v[1] / 2. * factor
+        fill_vec3 = df_inv_v[2] / 2. * factor
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.vec_fill_b_v1(
