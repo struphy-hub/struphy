@@ -83,7 +83,7 @@ def test_amrex_push_v_x_b(plot=False, verbose=False, same_phasespace_coords=True
     loading = "pseudo_random"
     loading_params = {"seed": seed, "spatial": "uniform"}
     control_variate = False
-    weights_params = {"reject_weights": False, "threshold": 0.0, "from_tesselation": False}
+    weights_params = {"reject_weights": False, "threshold": 0.0}
     pert_params = {"n": {"TorusModesCos": {"given_in_basis": "0", "ms": [1, 3]}}}
     bckgr_params = {"Maxwellian3D": {"n": 0.05}}
 
