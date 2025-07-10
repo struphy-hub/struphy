@@ -2877,7 +2877,7 @@ def push_velocity_predictor_df_va(
     #$ omp end parallel
 
 
-@stack_array("e_old, e_next")
+@stack_array("e_old", "e_next", "e_sum", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
 def push_velocities_df_va(
     dt: float,
     stage: int,
@@ -2898,14 +2898,18 @@ def push_velocities_df_va(
     # Allocate memory
     e_old = empty(3, dtype=float)
     e_next = empty(3, dtype=float)
+    e_sum = empty(3, dtype=float)
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    df_inv_t_e = empty(3, dtype=float)
+
 
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     valid_mks = args_markers.valid_mks
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, span1, span2, span3, e_old, e_next)
-    #$ omp for
     for ip in range(n_markers):
         if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
             continue
@@ -2942,11 +2946,33 @@ def push_velocities_df_va(
             e_next,
         )
 
-        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * (e_old[0] + e_next[0]) / 2.
-        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * (e_old[1] + e_next[1]) / 2.
-        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * (e_old[2] + e_next[2]) / 2.
+        # compute sum of old and new e-field
+        e_sum[0] = e_old[0] + e_next[0]
+        e_sum[1] = e_old[1] + e_next[1]
+        e_sum[2] = e_old[2] + e_next[2]
 
-    #$ omp end parallel
+        # Compute Jacobian matrix
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # transpose matrix
+        linalg_kernels.transpose(df_inv, df_inv_t)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv_t, e_sum, df_inv_t_e)
+
+
+        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * df_inv_t_e[0] / 2.
+        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * df_inv_t_e[1] / 2.
+        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * df_inv_t_e[2] / 2.
 
 
 @stack_array("ginv", "k", "tmp", "pi_du_value")

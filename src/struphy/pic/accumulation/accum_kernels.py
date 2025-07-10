@@ -493,7 +493,7 @@ def linear_vlasov_ampere(
     # -- removed omp: #$ omp end parallel
 
 
-@stack_array("v_old", "v_next", "v_diff", "v_sum")
+@stack_array("v_old", "v_next", "v_diff", "v_sum", "dfm", "df_inv", "fill_vec", "df_inv_vec")
 def deltaf_vlasov_ampere_accum_vec(
     markers: "float[:,:]",
     n_markers_tot: "int",
@@ -514,11 +514,15 @@ def deltaf_vlasov_ampere_accum_vec(
     v_diff = empty(3, dtype=float)
     v_sum = empty(3, dtype=float)
 
+    # allocate for metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    fill_vec = empty(3, dtype=float)
+    df_inv_vec = empty(3, dtype=float)
+
     # get number of markers
     n_markers = shape(markers)[0]
 
-    #$ omp parallel private (ip, eta1, eta2, eta3, v1, v2, v3, gamma, v_old, v_next, v_diff)
-    #$ omp for reduction ( + : vec1, vec2, vec3)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
@@ -561,7 +565,7 @@ def deltaf_vlasov_ampere_accum_vec(
         ab = a + b
         abc = ab + c
 
-        fill_vec1 = g * v_sum[0] / 2. - factor * (
+        fill_vec[0] = g * v_sum[0] / 2. - factor * (
             exp(-abc * nu)
             * (
                 v_diff[0] / (2. * a * nu) * (exp(ab * nu) - 1.)
@@ -570,7 +574,7 @@ def deltaf_vlasov_ampere_accum_vec(
                 * (erf(b * sqrt(nu) / (2. * sqrt(a))) - erf((2. * a + b) * sqrt(nu) / (2. * sqrt(a))))
             )
         )
-        fill_vec2 = g * v_sum[1] / 2. - factor * (
+        fill_vec[1] = g * v_sum[1] / 2. - factor * (
             exp(-abc * nu)
             * (
                 v_diff[1] / (2. * a * nu) * (exp(ab * nu) - 1.)
@@ -579,7 +583,7 @@ def deltaf_vlasov_ampere_accum_vec(
                 * (erf(b * sqrt(nu) / (2. * sqrt(a))) - erf((2. * a + b) * sqrt(nu) / (2. * sqrt(a))))
             )
         )
-        fill_vec3 = g * v_sum[2] / 2. - factor * (
+        fill_vec[2] = g * v_sum[2] / 2. - factor * (
             exp(-abc * nu)
             * (
                 v_diff[2] / (2. * a * nu) * (exp(ab * nu) - 1.)
@@ -588,6 +592,22 @@ def deltaf_vlasov_ampere_accum_vec(
                 * (erf(b * sqrt(nu) / (2. * sqrt(a))) - erf((2. * a + b) * sqrt(nu) / (2. * sqrt(a))))
             )
         )
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv, fill_vec, df_inv_vec)
+
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.vec_fill_b_v1(
@@ -598,12 +618,10 @@ def deltaf_vlasov_ampere_accum_vec(
             vec1,
             vec2,
             vec3,
-            fill_vec1,
-            fill_vec2,
-            fill_vec3,
+            df_inv_vec[0],
+            df_inv_vec[1],
+            df_inv_vec[2],
         )
-
-    #$ omp end parallel
 
 
 def vlasov_maxwell_poisson(
