@@ -494,7 +494,7 @@ def linear_vlasov_ampere(
     # -- removed omp: #$ omp end parallel
 
 
-@stack_array("v_old", "v_next", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
+@stack_array("v_old", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
 def dfva_accum_vec(
     markers: "float[:,:]",
     n_markers_tot: "int",
@@ -510,7 +510,6 @@ def dfva_accum_vec(
     r"""TODO"""
     # Allocate memory
     v_old = empty(3, dtype=float)
-    v_next = empty(3, dtype=float)
     v_diff = empty(3, dtype=float)
     v_sum = empty(3, dtype=float)
 
@@ -538,26 +537,21 @@ def dfva_accum_vec(
         v_old[2] = markers[ip, 5]
 
         # get current v^{n+1}
-        v_next[0] = markers[ip, free_idx]
-        v_next[1] = markers[ip, free_idx + 1]
-        v_next[2] = markers[ip, free_idx + 2]
+        v_diff[0] = markers[ip, free_idx]
+        v_diff[1] = markers[ip, free_idx + 1]
+        v_diff[2] = markers[ip, free_idx + 2]
 
         # get f0 value
         f0 = f0_values[ip]
 
         # compute sum
-        v_sum[0] = v_next[0] + v_old[0]
-        v_sum[1] = v_next[1] + v_old[1]
-        v_sum[2] = v_next[2] + v_old[2]
-
-        # compute difference
-        v_diff[0] = v_next[0] - v_old[0]
-        v_diff[1] = v_next[1] - v_old[1]
-        v_diff[2] = v_next[2] - v_old[2]
+        v_sum[0] = 2. * v_old[0] + v_diff[0]
+        v_sum[1] = 2. * v_old[1] + v_diff[1]
+        v_sum[2] = 2. * v_old[2] + v_diff[2]
 
         # Norms of old and new velocities
-        v_tilde = linalg_kernels.scalar_dot(v_next, v_next)
-        v_tilde -= linalg_kernels.scalar_dot(v_old, v_old)
+        v_tilde = 2. * linalg_kernels.scalar_dot(v_old, v_diff)
+        v_tilde += linalg_kernels.scalar_dot(v_diff, v_diff)
 
         factor = f0 / markers[ip, 7] * expm1_minus_x_over_x(- v_tilde / (2. * vth**2), n_terms=200) - markers[ip, 6]
 

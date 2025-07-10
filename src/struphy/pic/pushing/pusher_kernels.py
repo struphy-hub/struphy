@@ -2892,9 +2892,9 @@ def push_predict_velocities_dfva(
         linalg_kernels.matrix_vector(df_inv_t, e_vec, df_inv_t_e)
 
         # compute explicit velocity update
-        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * df_inv_t_e[0]
-        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * df_inv_t_e[1]
-        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * df_inv_t_e[2]
+        markers[ip, free_idx] = dt / epsilon * df_inv_t_e[0]
+        markers[ip, free_idx + 1] = dt / epsilon * df_inv_t_e[1]
+        markers[ip, free_idx + 2] = dt / epsilon * df_inv_t_e[2]
 
 
 @stack_array("v_old", "v_next")
@@ -2905,12 +2905,12 @@ def push_weights_dfva(
     args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
     f0_values: "float[:]",
-    new_velocities: "float[:,:]",
+    vel_diffs: "float[:,:]",
     vth: "float",
 ):
     # Allocate memory
     v_old = empty(3, dtype=float)
-    v_next = empty(3, dtype=float)
+    v_diff = empty(3, dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -2926,11 +2926,11 @@ def push_weights_dfva(
 
         # Get old and new velocities
         v_old[:] = markers[ip, 3:6]
-        v_next[:] = new_velocities[ip]
+        v_diff[:] = vel_diffs[ip, :]
 
         # Norms of old and new velocities
-        v_tilde = linalg_kernels.scalar_dot(v_next, v_next)
-        v_tilde -= linalg_kernels.scalar_dot(v_old, v_old)
+        v_tilde = 2. * linalg_kernels.scalar_dot(v_old, v_diff)
+        v_tilde += linalg_kernels.scalar_dot(v_diff, v_diff)
 
         # compute explicit velocity update
         arg = - v_tilde / (2. * vth**2)
@@ -3030,9 +3030,10 @@ def push_velocities_dfva(
         # compute DF^{-1} v
         linalg_kernels.matrix_vector(df_inv_t, e_sum, df_inv_t_e)
 
-        markers[ip, free_idx] = markers[ip, 3] + dt / epsilon * df_inv_t_e[0] / 2.
-        markers[ip, free_idx + 1] = markers[ip, 4] + dt / epsilon * df_inv_t_e[1] / 2.
-        markers[ip, free_idx + 2] = markers[ip, 5] + dt / epsilon * df_inv_t_e[2] / 2.
+        # Compute only v_diff
+        markers[ip, free_idx] = dt / epsilon * df_inv_t_e[0] / 2.
+        markers[ip, free_idx + 1] = dt / epsilon * df_inv_t_e[1] / 2.
+        markers[ip, free_idx + 2] = dt / epsilon * df_inv_t_e[2] / 2.
 
 
 @stack_array("ginv", "k", "tmp", "pi_du_value")

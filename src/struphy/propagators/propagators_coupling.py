@@ -553,7 +553,7 @@ class DeltaFVelocitiesEfield(Propagator):
             alpha_in_kernel=1.0,
         )
 
-        # Instantiate predictor for velocities
+        # Instantiate predictor for weights
         args_kernel_weights = (
             self.derham.args_derham,
             self._f0_values,
@@ -598,7 +598,7 @@ class DeltaFVelocitiesEfield(Propagator):
         self._predict_velocities(dt)
 
         # Accumulate diff_e
-        self._accum_vec(self._f0_values, self.particles[0].first_free_idx, self._vth)
+        self._accum_vec(self._f0_values, self._first_free_idx, self._vth)
 
         # compute next e
         self._e_diff *= 0.0
@@ -619,7 +619,7 @@ class DeltaFVelocitiesEfield(Propagator):
             self._e_curr += self._e_next
 
             # Accumulate diff_e
-            self._accum_vec(self._f0_values, self.particles[0].first_free_idx, self._vth)
+            self._accum_vec(self._f0_values, self._first_free_idx, self._vth)
 
             # compute next e
             self._e_diff *= 0.0
@@ -630,36 +630,27 @@ class DeltaFVelocitiesEfield(Propagator):
             self.solver.dot(self._e_diff, out=self._e_next)
             self._e_next += self.feec_vars[0]
 
-            # store velocities before the push
+            # store delta v before the push
             self._old_vels[:] = \
                 self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
 
             # Push velocities
             self._push_velocities(dt)
 
-            # Compute difference in velocities
+            # Compute difference in delta v
             self._vel_diffs[:] *= 0.0
             self._vel_diffs[:] += \
                 self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
             self._vel_diffs[:] -= self._old_vels[:]
 
-            # Compute relative error in velocities
+            # Compute error in delta v
             max_diff_v = np.max(
-                np.divide(
-                    np.abs(
-                        np.sqrt(
-                            self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
-                            + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
-                            + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
-                        )
-                    ),
-                    np.abs(
-                        np.sqrt(
-                            self._old_vels[self.particles[0].valid_mks, 0] ** 2
-                            + self._old_vels[self.particles[0].valid_mks, 1] ** 2
-                            + self._old_vels[self.particles[0].valid_mks, 2] ** 2
-                        )
-                    ),
+                np.abs(
+                    np.sqrt(
+                        self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
+                        + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
+                        + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
+                    )
                 )
             )
 
@@ -680,13 +671,13 @@ class DeltaFVelocitiesEfield(Propagator):
         # print(f"converged with {max_diff_v=} and {max_diff_e=}")
 
         # Update velocities
-        self.particles[0].markers[self.particles[0].valid_mks, 3:6] = \
-            self.particles[0].markers_wo_holes[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+        self.particles[0].markers[self.particles[0].valid_mks, 3:6] += \
+            self.particles[0].markers_wo_holes[:, self._first_free_idx:self._first_free_idx+3]
 
         # Compute difference in velocities
         self._vel_diffs[:] *= 0.0
         self._vel_diffs[:] += \
-            self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+            self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
         self._vel_diffs[:] -= self.particles[0].markers[:, 3:6]
 
         max_diff_v = np.max(
@@ -702,10 +693,10 @@ class DeltaFVelocitiesEfield(Propagator):
         # Store old weights
         self._old_weights[self.particles[0].valid_mks] = self.particles[0].weights
 
-        # Store new velocities in vel_diffs array and pass to weights
+        # Store delta v in vel_diffs array and pass to weights
         self._vel_diffs[:] *= 0.0
         self._vel_diffs[:] += \
-            self.particles[0].markers[:, self.particles[0].first_free_idx:self.particles[0].first_free_idx+3]
+            self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
 
         # Update weights
         self._push_weights(dt)
