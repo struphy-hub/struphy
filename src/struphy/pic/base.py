@@ -273,7 +273,7 @@ class Particles(metaclass=ABCMeta):
             bc_sph = [bci if bci == "periodic" else "mirror" for bci in self.bc] 
 
         for bci in bc_sph:
-            assert bci in ("periodic", "mirror", "static", "force")
+            assert bci in ("periodic", "mirror", "fixed")
             
         self._bc_sph = bc_sph
 
@@ -1226,6 +1226,7 @@ class Particles(metaclass=ABCMeta):
 
     def _set_initial_condition(self, bp_copy=None, pp_copy=None):
         """Compute callable initial condition from background + perturbation."""
+        
         if bp_copy is None:
             bp_copy = copy.deepcopy(self.bckgr_params)
         if pp_copy is None:
@@ -2208,7 +2209,7 @@ class Particles(metaclass=ABCMeta):
             
         bc_sph : list
             Boundary condition for sph density evaluation.
-            Either 'periodic', 'mirror', 'static' or 'force' in each direction.
+            Either 'periodic', 'mirror' or 'fixed' in each direction.
             
         is_domain_boundary: dict
             Has two booleans for each direction; True when the boundary of the MPI process is a domain boundary.
@@ -2337,19 +2338,19 @@ class Particles(metaclass=ABCMeta):
             self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
             self._bc_sph_index_shifts["z_p"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
     
-            if self.bc_sph[0] == "mirror":
+            if self.bc_sph[0] in ("mirror", "fixed"):
                 if self.is_domain_boundary["x_m"]:
                     self._bc_sph_index_shifts["x_m"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
                 if self.is_domain_boundary["x_p"]:
                     self._bc_sph_index_shifts["x_p"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
                 
-            if self.bc_sph[1] == "mirror":
+            if self.bc_sph[1] in ("mirror", "fixed"):
                 if self.is_domain_boundary["y_m"]:
                     self._bc_sph_index_shifts["y_m"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
                 if self.is_domain_boundary["y_p"]:
                     self._bc_sph_index_shifts["y_p"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
  
-            if self.bc_sph[2] == "mirror":
+            if self.bc_sph[2] in ("mirror", "fixed"):
                 if self.is_domain_boundary["z_m"]:
                     self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, -1, self.nx, self.ny, self.nz)
                 if self.is_domain_boundary["z_p"]:
@@ -2653,13 +2654,13 @@ class Particles(metaclass=ABCMeta):
         self._markers_z_p[:, self._sorting_boxes.box_index] -= shifts["z_p"]
         
         # Mirror position for boundary condition
-        if self.bc_sph[0] == "mirror":
+        if self.bc_sph[0] in ("mirror", "fixed"):
             self._mirror_particles("_markers_x_m", "_markers_x_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
             
-        if self.bc_sph[1] == "mirror":
+        if self.bc_sph[1] in ("mirror", "fixed"):
             self._mirror_particles("_markers_y_m", "_markers_y_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
             
-        if self.bc_sph[2] == "mirror":
+        if self.bc_sph[2] in ("mirror", "fixed"):
             self._mirror_particles("_markers_z_m", "_markers_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
         ## Edges x-y
@@ -2683,7 +2684,7 @@ class Particles(metaclass=ABCMeta):
         self._markers_x_p_y_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"]
             
         # Mirror position for boundary condition
-        if self.bc_sph[0] == "mirror" or self.bc_sph[1] == "mirror":
+        if self.bc_sph[0] in ("mirror", "fixed") or self.bc_sph[1] in ("mirror", "fixed"):
             self._mirror_particles("_markers_x_m_y_m", "_markers_x_m_y_p", "_markers_x_p_y_m", "_markers_x_p_y_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
         ## Edges x-z
@@ -2707,7 +2708,7 @@ class Particles(metaclass=ABCMeta):
         self._markers_x_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["z_p"]
         
         # Mirror position for boundary condition
-        if self.bc_sph[0] == "mirror" or self.bc_sph[2] == "mirror":
+        if self.bc_sph[0] in ("mirror", "fixed") or self.bc_sph[2] in ("mirror", "fixed"):
             self._mirror_particles("_markers_x_m_z_m", "_markers_x_m_z_p", "_markers_x_p_z_m", "_markers_x_p_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
         ## Edges y-z
@@ -2731,7 +2732,7 @@ class Particles(metaclass=ABCMeta):
         self._markers_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["y_p"] - shifts["z_p"]
         
         # Mirror position for boundary condition
-        if self.bc_sph[1] == "mirror" or self.bc_sph[2] == "mirror":
+        if self.bc_sph[1] in ("mirror", "fixed") or self.bc_sph[2] in ("mirror", "fixed"):
             self._mirror_particles("_markers_y_m_z_m", "_markers_y_m_z_p", "_markers_y_p_z_m", "_markers_y_p_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
         ## Corners
@@ -2767,7 +2768,7 @@ class Particles(metaclass=ABCMeta):
         self._markers_x_p_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"] - shifts["z_p"]
         
         # Mirror position for boundary condition
-        if self.bc_sph[0] == "mirror" or self.bc_sph[1] == "mirror" or self.bc_sph[2] == "mirror":
+        if any([bci in ("mirror", "fixed") for bci in self.bc_sph]):
             self._mirror_particles("_markers_x_m_y_m_z_m", "_markers_x_m_y_m_z_p", "_markers_x_m_y_p_z_m", "_markers_x_m_y_p_z_p",
                                    "_markers_x_p_y_m_z_m", "_markers_x_p_y_m_z_p", "_markers_x_p_y_p_z_m", "_markers_x_p_y_p_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
@@ -2775,27 +2776,48 @@ class Particles(metaclass=ABCMeta):
         for arr_name in marker_array_names:
             assert isinstance(arr_name, str)
             arr = getattr(self, arr_name)
+
+            if arr.size == 0:
+                continue
             
             # x-direction
-            if self.bc_sph[0] == "mirror":
+            if self.bc_sph[0] in ("mirror", "fixed"):
                 if "x_m" in arr_name and is_domain_boundary["x_m"]:
                     arr[:, 0] *= -1.
+                    if self.bc_sph[0] == "fixed":
+                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
                 elif "x_p" in arr_name and is_domain_boundary["x_p"]:
                     arr[:, 0] = 2. - arr[:, 0]
+                    if self.bc_sph[0] == "fixed":
+                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
                 
             # y-direction
-            if self.bc_sph[1] == "mirror":
-                if "y_m" in arr_name:
+            if self.bc_sph[1] in ("mirror", "fixed"):
+                if "y_m" in arr_name and is_domain_boundary["y_m"]:
                     arr[:, 1] *= -1.
-                elif "y_p" in arr_name:
+                    if self.bc_sph[1] == "fixed":
+                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                elif "y_p" in arr_name and is_domain_boundary["y_p"]:
                     arr[:, 1] = 2. - arr[:, 1]
+                    if self.bc_sph[1] == "fixed":
+                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
                 
             # z-direction
-            if self.bc_sph[2] == "mirror":
-                if "z_m" in arr_name:
+            if self.bc_sph[2] in ("mirror", "fixed"):
+                if "z_m" in arr_name and is_domain_boundary["z_m"]:
                     arr[:, 2] *= -1.
-                elif "z_p" in arr_name:
+                    if self.bc_sph[2] == "fixed":
+                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                elif "z_p" in arr_name and is_domain_boundary["z_p"]:
                     arr[:, 2] = 2. - arr[:, 2]
+                    if self.bc_sph[2] == "fixed":
+                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
 
     def determine_markers_in_box(self, list_boxes):
         """Determine the markers that belong to a certain box (list of boxes) and put them in an array"""

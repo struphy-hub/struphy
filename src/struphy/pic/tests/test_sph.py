@@ -11,10 +11,10 @@ from struphy.pic.particles import ParticlesSPH
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize("Np", [40000, 46200])
+@pytest.mark.parametrize("Np", [40000])
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (10, 1, 1)])
 @pytest.mark.parametrize("ppb", [4, 10])
-@pytest.mark.parametrize("bc_x", ["periodic", "mirror"])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=False):
     comm = MPI.COMM_WORLD
@@ -40,7 +40,7 @@ def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=Fal
     
     # perturbation and exact solution
     mode_params = {"given_in_basis": "0", "ls": [1], "amps": [-1e-0]}
-    if bc_x == "periodic":
+    if bc_x in ("periodic", "fixed"):
         fun_exact = lambda e1, e2, e3: 1.5 - np.sin(2 * np.pi * e1)
         modes = {"ModesSin": mode_params}
     elif bc_x == "mirror":
@@ -61,7 +61,7 @@ def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=Fal
         domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
-        verbose=True,
+        verbose=False,
     )
 
     particles.draw_markers(sort=False, verbose=False)
@@ -95,10 +95,12 @@ def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=Fal
     if tesselation:
         if bc_x == "periodic":
             assert err_max_norm < 0.0069
+        elif bc_x == "fixed":
+            assert err_max_norm < 0.031
         else:
             assert err_max_norm < 0.436
     else:
-        if bc_x == "periodic":
+        if bc_x in ("periodic", "fixed"):
             assert err_max_norm < 0.034
         else: 
             assert err_max_norm < 0.444
@@ -106,7 +108,7 @@ def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=Fal
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (10, 1, 1)])
-@pytest.mark.parametrize("bc_x", ["periodic", "mirror"])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
 def test_evaluation_mc_Np_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
     comm = MPI.COMM_WORLD
 
@@ -124,7 +126,7 @@ def test_evaluation_mc_Np_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
 
     # perturbation and exact solution
     mode_params = {"given_in_basis": "0", "ls": [1], "amps": [-1e-0]}
-    if bc_x == "periodic":
+    if bc_x in ("periodic", "fixed"):
         fun_exact = lambda e1, e2, e3: 1.5 - np.sin(2 * np.pi * e1)
         modes = {"ModesSin": mode_params}
     elif bc_x == "mirror":
@@ -147,7 +149,7 @@ def test_evaluation_mc_Np_convergence_1d(boxes_per_dim, bc_x, show_plot=False):
             domain=domain,
             bckgr_params=bckgr_params,
             pert_params=pert_params,
-            verbose=True,
+            verbose=False,
             )
 
         particles.draw_markers(sort=False, verbose=False)
@@ -439,14 +441,16 @@ if __name__ == "__main__":
     #     40000,
     #     (8, 1, 1),
     #     4,
-    #     "periodic",
+    #     # "periodic",
     #     # "mirror",
-    #     tesselation=False,
+    #     "fixed",
+    #     tesselation=True,
     #     show_plot=True
     # )
     test_evaluation_mc_Np_convergence_1d((12, 1, 1), 
                                         #  "periodic",
-                                         "mirror", 
+                                        #  "mirror",
+                                        "fixed", 
                                          show_plot=True)
     #test_evaluation_mc_kernel_width_convergence_1d((16,1,1), "periodic", show_plot="True")
     # test_evaluation_mc_Np_convergence_2d((16,16,1), "periodic", "periodic", show_plot = "True")

@@ -1,4 +1,5 @@
 import copy
+import numpy as np
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
@@ -877,7 +878,7 @@ class ParticlesSPH(Particles):
                 for _type, _params in pp_copy["n"].items():  # only one perturbation is taken into account at the moment
                     _fun = transform_perturbation(_type, _params, "0", self.domain)
 
-                def _f_init(*etas):
+                def _f_init(*etas, flat_eval=False):
                     if len(etas) == 1:
                         return self.f0.n0(etas[0]) + _fun(*etas[0].T)
                     else:
@@ -886,16 +887,25 @@ class ParticlesSPH(Particles):
                             etas[0],
                             etas[1],
                             etas[2],
-                            flat_eval=False,
+                            flat_eval=flat_eval,
                         )
-                        return self.f0.n0(E1, E2, E3) + _fun(E1, E2, E3)
+                        
+                        out0 = self.f0.n0(E1, E2, E3)
+                        out1 = _fun(E1, E2, E3)
+                        assert out0.shape == out1.shape
+                        
+                        if flat_eval:
+                            out0 = np.squeeze(out0)
+                            out1 = np.squeeze(out1)
+                            
+                        return out0 + out1
 
                 self._f_init = _f_init
 
             if "u1" in pp_copy:
                 for _type, _params in pp_copy[
                     "u1"
-                ].items():  # only one perturbation is taken into account at the moment
+                ].items(): # only one perturbation is taken into account at the moment
                     _fun = transform_perturbation(_type, _params, "v", self.domain)
                     _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
                 self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
