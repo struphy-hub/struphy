@@ -329,10 +329,13 @@ class Particles(metaclass=ABCMeta):
         if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
             self._auto_sampling_params()
 
+        self._bufsize = bufsize
+
         if self.amrex:
             self._init_amrex()
         else:
-            self._init_struphy(domain_decomp, boxes_per_dim, bufsize)
+            self._init_struphy()
+            
 
     def _init_amrex(
         self,
@@ -346,16 +349,12 @@ class Particles(metaclass=ABCMeta):
 
     def _init_struphy(
         self,
-        domain_decomp: tuple = None,
-        boxes_per_dim: tuple | list = None,
-        bufsize: float = 0.25,
     ):
         self._periodic_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(self.bc) if b_c == "remove"]
 
         # create marker array
-        self._bufsize = bufsize
         self._allocate_marker_array()
 
         # initialize sorting boxes
@@ -1203,12 +1202,10 @@ class Particles(metaclass=ABCMeta):
 
         SINGLE_CELL_SIZE = 32  # default size of single cell in indexing domain
 
-        multiplier = np.ceil(np.log2(amr.ParallelDescriptor.NProcs()) / 3)  # ceil(log8(NProcs))
-
-        TOTAL_SIZE = int((multiplier + 1) * SINGLE_CELL_SIZE - 1)
+        TOTAL_SIZE = [n*SINGLE_CELL_SIZE-1 for _, n in enumerate(self._nprocs)]
 
         # indexing space domain size depends on the number of processes available
-        big_box = amr.Box(amr.IntVect(0, 0, 0), amr.IntVect(TOTAL_SIZE, TOTAL_SIZE, TOTAL_SIZE))
+        big_box = amr.Box(amr.IntVect(0, 0, 0), amr.IntVect(TOTAL_SIZE[0], TOTAL_SIZE[1], TOTAL_SIZE[2]))
 
         # collection of rectangular domains in space, initially just one
         ba = amr.BoxArray(big_box)
@@ -1216,7 +1213,7 @@ class Particles(metaclass=ABCMeta):
 
         ba.max_size(SINGLE_CELL_SIZE)  # max size of a rectangular domain, results in auto-chopping
 
-        assert ba.size == 8**multiplier
+        assert ba.size == np.prod(self._nprocs)
 
         # Geometry contains all information regarding domain, coordinates, periodicity
         gm = amr.Geometry(big_box, rb, coord_int, periodicity)

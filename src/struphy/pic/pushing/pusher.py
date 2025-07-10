@@ -290,6 +290,9 @@ class Pusher:
                         self.particles.put_particles_in_boxes()
 
                 if self.particles.amrex:
+                    if self.particles.mpi_comm is not None:
+                        self.particles.markers.redistribute()
+                    
                     # push markers
                     self.kernel(
                         dt,
