@@ -2315,9 +2315,10 @@ class GVECequilibrium(NumericalMHDequilibrium):
         if not flat_eval:
             eta2 = etas[1]
             eta3 = etas[2]
-            if eta2.ndim == 3:
-                eta2 = eta2[0, :, 0]
-                eta3 = eta3[0, 0, :]
+            if isinstance(eta2, np.ndarray):
+                if eta2.ndim == 3:
+                    eta2 = eta2[0, :, 0]
+                    eta3 = eta3[0, 0, :]
             tmp, _1, _2 = np.meshgrid(ev.p.data, eta2, eta3, indexing="ij")
         else:
             tmp = ev.p.data
@@ -2375,6 +2376,10 @@ class GVECequilibrium(NumericalMHDequilibrium):
         # meshgrid evaluation
         else:
             assert len(etas) == 3
+            etas = list(etas)
+            for i, eta in enumerate(etas):
+                if isinstance(eta, (float, int)):
+                    etas[i] = np.array((eta,))
             assert etas[0].ndim == etas[1].ndim == etas[2].ndim
             if etas[0].ndim == 1:
                 eta1 = etas[0]
@@ -3120,6 +3125,155 @@ class HomogenSlabITG(CartesianFluidEquilibriumWithB):
         gradBz = 0 * x
 
         return gradBx, gradBy, gradBz
+
+
+class CircularTokamak(AxisymmMHDequilibrium):
+    r"""
+    Tokamak MHD equilibrium with circular concentric flux surfaces.
+
+    For a cylindrical coordinate system :math:`(R, \phi, Z)` with transformation formulae
+
+    .. math::
+
+        x &= R\cos(\phi)\,,     &&R = \sqrt{x^2 + y^2}\,,
+
+        y &= R\sin(\phi)\,,  &&\phi = \arctan(y/x)\,,
+
+        z &= Z\,,               &&Z = z\,,
+
+    the magnetic field is given by
+
+    .. math::
+
+        \mathbf B = \nabla\psi\times\nabla\phi+g\nabla\phi\,,
+
+    where :math:`g=g(R, Z)=B_0R_0=const.` is the toroidal field function, :math:`R_0` the major radius of the torus and :math:`B_0` the on-axis magnetic field. The flux  :math:`\psi=\psi(R, Z)` is given by
+
+    .. math::
+
+        \psi=a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
+
+    for the given constants.
+
+    The pressure profile and the number density profile are not specified
+
+    Units are those defined in the parameter file (:code:`struphy units -h`).
+
+    Parameters
+    ----------
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid_background``::
+
+        CircularTokamak :
+            a       : 1.   # minor radius
+            R0      : 2.   # major radius
+            B0      : 10.  # on-axis toroidal magnetic field
+            Bp      : 12.5 # poloidal magnetic field
+    """
+
+    def __init__(self, **params):
+        # parameters
+        params_default = {
+            "a": 1.0,
+            "R0": 2.0,
+            "B0": 10.0,
+            "Bp": 12.5,
+        }
+
+        self._params = set_defaults(params, params_default)
+
+        self._psi0 = 0.0
+        self._psi1 = self.params["a"] * self.params["R0"] * self.params["Bp"] * 0.5
+
+    @property
+    def params(self):
+        """Parameters dictionary."""
+        return self._params
+
+    # ===============================================================
+    #           abstract properties
+    # ===============================================================
+
+    @property
+    def psi_range(self):
+        """Psi on-axis and at plasma boundary."""
+        return [self._psi0, self._psi1]
+
+    @property
+    def psi_axis_RZ(self):
+        """Location of magnetic axis in R-Z-coordinates."""
+        return [self.params["R0"], 0.0]
+
+    # ===============================================================
+    #           abstract methods
+    # ===============================================================
+
+    def psi(self, R, Z, dR=0, dZ=0):
+        """Poloidal flux function psi = psi(R, Z)."""
+
+        if dR == 0 and dZ == 0:
+            out = (
+                self.params["a"]
+                * self.params["R0"]
+                * self.params["Bp"]
+                * ((R - self.params["R0"]) ** 2 + Z**2)
+                / (2 * self.params["a"] ** 2)
+            )
+        else:
+            if dR == 1 and dZ == 0:
+                out = self.params["R0"] * self.params["Bp"] * (R - self.params["R0"]) / (self.params["a"])
+            elif dR == 0 and dZ == 1:
+                out = self.params["R0"] * self.params["Bp"] * (Z) / (self.params["a"])
+            elif dR == 2 and dZ == 0:
+                out = self.params["R0"] * self.params["Bp"] / (self.params["a"])
+            elif dR == 0 and dZ == 2:
+                out = self.params["R0"] * self.params["Bp"] / (self.params["a"])
+            elif dR == 1 and dZ == 1:
+                out = 0 * R + 0 * Z
+            else:
+                raise NotImplementedError(
+                    "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
+                )
+
+        return out
+
+    def g_tor(self, R, Z, dR=0, dZ=0):
+        """Toroidal field function g = g(R, Z)."""
+
+        if dR == 0 and dZ == 0:
+            out = self._params["B0"] * self._params["R0"]
+        elif dR == 1 and dZ == 0:
+            out = 0 * R
+        elif dR == 0 and dZ == 1:
+            out = 0 * Z
+        else:
+            raise NotImplementedError(
+                "Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!",
+            )
+
+        return out
+
+    def p_xyz(self, x, y, z):
+        """Pressure p = p(x, y, z)."""
+        pp = 0.0 * x + 1.0
+
+        return pp
+
+    def n_xyz(self, x, y, z):
+        """Number density n = n(x, y, z)."""
+        nn = 0.0 * x + 1.0
+
+        return nn
 
 
 def set_defaults(params_in, params_default):

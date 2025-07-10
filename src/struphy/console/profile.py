@@ -94,7 +94,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
         dicts += [tmp2]
 
     # runtime of the main
-    runtime = dicts[0]["main.py:1(main)"]["cumtime"]
+    runtime = dicts[0]["main.py:1(<module>)"]["cumtime"]
 
     # loop over keys (should be same in each dict)
     d_saved = {}

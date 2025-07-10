@@ -1,11 +1,12 @@
 # Here is how to build the image and upload it to the mpcdf gitlab registry:
 #
 # We suppose you are in the struphy repo directory. 
-# Start the docker engine and run "docker login" with the current token from https://struphy.pages.mpcdf.de/struphy/sections/install.html#user-install, then:
+# Start the docker engine and run "docker login" with the following token:
 #
+# TOKEN=gldt-CgMRBMtePbSwdWTxKw4Q; echo "$TOKEN" | docker login gitlab-registry.mpcdf.mpg.de -u gitlab+deploy-token-162 --password-stdin
 # docker info
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/<name> -f docker/<name>.dockerfile .
-# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/<name>
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy --provenance=false -f docker/mpcdf-gcc-openmpi-with-struphy.dockerfile .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy
 
 FROM gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/gcc_14-openmpi_5_0:latest
 
