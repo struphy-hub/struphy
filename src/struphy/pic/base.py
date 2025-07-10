@@ -2773,6 +2773,10 @@ class Particles(metaclass=ABCMeta):
                                    "_markers_x_p_y_m_z_m", "_markers_x_p_y_m_z_p", "_markers_x_p_y_p_z_m", "_markers_x_p_y_p_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
 
     def _mirror_particles(self, *marker_array_names, is_domain_boundary=None):
+        
+        if not hasattr(self, "_fixe_markers_set"):
+            self._fixed_markers_set = {}
+        
         for arr_name in marker_array_names:
             assert isinstance(arr_name, str)
             arr = getattr(self, arr_name)
@@ -2784,40 +2788,46 @@ class Particles(metaclass=ABCMeta):
             if self.bc_sph[0] in ("mirror", "fixed"):
                 if "x_m" in arr_name and is_domain_boundary["x_m"]:
                     arr[:, 0] *= -1.
-                    if self.bc_sph[0] == "fixed":
+                    if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                        self._fixed_markers_set[arr_name] = True
                 elif "x_p" in arr_name and is_domain_boundary["x_p"]:
                     arr[:, 0] = 2. - arr[:, 0]
-                    if self.bc_sph[0] == "fixed":
+                    if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                        self._fixed_markers_set[arr_name] = True
                 
             # y-direction
             if self.bc_sph[1] in ("mirror", "fixed"):
                 if "y_m" in arr_name and is_domain_boundary["y_m"]:
                     arr[:, 1] *= -1.
-                    if self.bc_sph[1] == "fixed":
+                    if self.bc_sph[1] == "fixed"  and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                        self._fixed_markers_set[arr_name] = True
                 elif "y_p" in arr_name and is_domain_boundary["y_p"]:
                     arr[:, 1] = 2. - arr[:, 1]
-                    if self.bc_sph[1] == "fixed":
+                    if self.bc_sph[1] == "fixed"  and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                        self._fixed_markers_set[arr_name] = True
                 
             # z-direction
             if self.bc_sph[2] in ("mirror", "fixed"):
                 if "z_m" in arr_name and is_domain_boundary["z_m"]:
                     arr[:, 2] *= -1.
-                    if self.bc_sph[2] == "fixed":
+                    if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                        self._fixed_markers_set[arr_name] = True
                 elif "z_p" in arr_name and is_domain_boundary["z_p"]:
                     arr[:, 2] = 2. - arr[:, 2]
-                    if self.bc_sph[2] == "fixed":
+                    if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                        self._fixed_markers_set[arr_name] = True
 
     def determine_markers_in_box(self, list_boxes):
         """Determine the markers that belong to a certain box (list of boxes) and put them in an array"""
