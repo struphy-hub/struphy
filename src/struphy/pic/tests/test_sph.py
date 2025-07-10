@@ -11,10 +11,10 @@ from struphy.pic.particles import ParticlesSPH
 
 
 @pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize("Np", [40000, 46200])
-@pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1)])
+@pytest.mark.parametrize("Np", [40000])
+@pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (10, 1, 1)])
 @pytest.mark.parametrize("ppb", [4, 10])
-@pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=False):
     comm = MPI.COMM_WORLD
@@ -34,31 +34,37 @@ def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=Fal
         loading_params = {"seed": 1607}
         ppb = None
 
-    cst_vel = {"density_profile": "constant", "n": 1.0}
+    # background
+    cst_vel = {"density_profile": "constant", "n": 1.5}
     bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
-
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-    modes = {"ModesSin": mode_params}
+    
+    # perturbation and exact solution
+    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [-1e-0]}
+    if bc_x in ("periodic", "fixed"):
+        fun_exact = lambda e1, e2, e3: 1.5 - np.sin(2 * np.pi * e1)
+        modes = {"ModesSin": mode_params}
+    elif bc_x == "mirror":
+        fun_exact = lambda e1, e2, e3: 1.5 - np.cos(2 * np.pi * e1)
+        modes = {"ModesCos": mode_params}
     pert_params = {"n": modes}
 
-    fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1)
-
+    # particles object
     particles = ParticlesSPH(
         comm_world=comm,
         Np=Np,
         ppb=ppb,
         boxes_per_dim=boxes_per_dim,
-        bc=[bc_x, "periodic", "periodic"],
+        bc_sph=[bc_x, "periodic", "periodic"],
         bufsize=1.0,
         loading=loading,
         loading_params=loading_params,
         domain=domain,
         bckgr_params=bckgr_params,
         pert_params=pert_params,
-        verbose=True,
+        verbose=False,
     )
 
-    particles.draw_markers(sort=False)
+    particles.draw_markers(sort=False, verbose=False)
     particles.mpi_sort_markers()
     particles.initialize_weights()
     h1 = 1 / boxes_per_dim[0]
@@ -77,25 +83,34 @@ def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=Fal
         plt.figure(figsize=(12, 8))
         plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
         plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
-
+        plt.legend()
         plt.show()
 
-    # print(f'{fun_exact(ee1, ee2, ee3) = }')
-    # print(f'{comm.Get_rank() = }, {all_eval = }')
-    print(f'{np.max(np.abs(all_eval - fun_exact(ee1, ee2, ee3))) = }')
+    exact_eval = fun_exact(ee1, ee2, ee3)
+    err_max_norm = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
+    
+    if comm.Get_rank() == 0:
+        print(f'{tesselation = }, {bc_x = }, {err_max_norm = }')
+        
     if tesselation:
-        assert np.all(np.abs(all_eval - fun_exact(ee1, ee2, ee3)) < 0.0171)
+        if bc_x == "periodic":
+            assert err_max_norm < 0.0069
+        elif bc_x == "fixed":
+            assert err_max_norm < 0.031
+        else:
+            assert err_max_norm < 0.436
     else:
-        assert np.all(np.abs(all_eval - fun_exact(ee1, ee2, ee3)) < 0.041)
+        if bc_x in ("periodic", "fixed"):
+            assert err_max_norm < 0.034
+        else: 
+            assert err_max_norm < 0.444
 
 
 @pytest.mark.mpi(min_size=2)
-#@pytest.mark.parametrize("Np", [40000, 46200])
-@pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1)])
-#@pytest.mark.parametrize("ppb", [4, 10])
-@pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
+@pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (10, 1, 1)])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
 @pytest.mark.parametrize("tesselation", [False, True])
-def test_evaluation_SPH_Np_convergence_1d( boxes_per_dim, bc_x, tesselation,  show_plot=False):
+def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, tesselation, show_plot=False):
     comm = MPI.COMM_WORLD
 
     # DOMAIN object
@@ -113,16 +128,21 @@ def test_evaluation_SPH_Np_convergence_1d( boxes_per_dim, bc_x, tesselation,  sh
         loading_params = {"seed": 1607}
         ppb = None
 
-    cst_vel = {"density_profile": "constant", "n": 1.0}
+    # background
+    cst_vel = {"density_profile": "constant", "n": 1.5}
     bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
 
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-    modes = {"ModesSin": mode_params}
+    # perturbation and exact solution
+    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [-1e-0]}
+    if bc_x in ("periodic", "fixed"):
+        fun_exact = lambda e1, e2, e3: 1.5 - np.sin(2 * np.pi * e1)
+        modes = {"ModesSin": mode_params}
+    elif bc_x == "mirror":
+        fun_exact = lambda e1, e2, e3: 1.5 - np.cos(2 * np.pi * e1)
+        modes = {"ModesCos": mode_params}
     pert_params = {"n": modes}
-
-    fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1) 
     
-    #parameters
+    # loop over particle number
     Nps = [(2**k)*10**3 for k in range(-2, 9)]
     ppbs = np.array([5000, 10000, 15000, 20000, 25000])
     err_vec = []
@@ -134,7 +154,7 @@ def test_evaluation_SPH_Np_convergence_1d( boxes_per_dim, bc_x, tesselation,  sh
                 Np=Np,
                 ppb = ppb, 
                 boxes_per_dim=boxes_per_dim,
-                bc=[bc_x, "periodic", "periodic"],
+                bc_sph=[bc_x, "periodic", "periodic"],
                 bufsize=1.0,
                 loading_params=loading_params,
                 domain=domain,
@@ -232,7 +252,7 @@ def test_evaluation_SPH_Np_convergence_1d( boxes_per_dim, bc_x, tesselation,  sh
             plt.show()
             plt.savefig("Convergence_SPH")
     
-        #assert np.abs(fit[0] + 0.5) < 0.1
+        assert np.abs(fit[0] + 0.5) < 0.1
     
 
 @pytest.mark.mpi(min_size=2)

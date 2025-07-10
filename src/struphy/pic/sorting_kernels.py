@@ -8,12 +8,60 @@ def flatten_index(
     nx: "int",
     ny: "int",
     nz: "int",
+    algo_in: "str" = None,
 ):
     """Find the global index of a box based on its index in all 3 direction.
     At the moment this is simply sorted according to x then y then z but in the future
     more evolved indexing could be implemented.
     """
-    return n1 + n2 * (nx + 2) + n3 * (nx + 2) * (ny + 2)
+    if algo_in is None:
+        algo = "fortran_ordering"
+    else:
+        algo = algo_in
+    
+    if algo == "fortran_ordering":
+        n_glob = n1 + n2 * (nx + 2) + n3 * (nx + 2) * (ny + 2)
+    elif algo == "c_ordering":
+        n_glob = n3 + n2 * (nz + 2) + n1 * (nz + 2) * (ny + 2)
+    else:
+        n_glob = -99
+        print(algo, "is not implemented, n_glob set to -99 !!!")
+        
+    return n_glob
+
+def unflatten_index(
+    n_glob: "int",
+    nx: "int",
+    ny: "int",
+    nz: "int",
+    algo_in: "str" = None,
+):
+    """Find the multi-index (i, j, k) of a box based on its global flattened index.
+    At the moment this is simply sorted according to x then y then z but in the future
+    more evolved indexing could be implemented.
+    """
+    if algo_in is None:
+        algo = "fortran_ordering"
+    else:
+        algo = algo_in
+        
+    if algo == "fortran_ordering":
+        n3 = n_glob // ((nx + 2) * (ny + 2))
+        rest = n_glob - n3 * (nx + 2) * (ny + 2)
+        n2 = rest // (nx + 2)
+        n1 = rest - n2 * (nx + 2)
+    elif algo == "c_ordering":
+        n1 = n_glob // ((nz + 2) * (ny + 2))
+        rest = n_glob - n1 * (nz + 2) * (ny + 2)
+        n2 = rest // (nz + 2)
+        n3 = rest - n2 * (nz + 2)
+    else:
+        n1 = -99
+        n2 = -99
+        n3 = -99
+        print(algo, "is not implemented, n1, n2 and n3 set to -99 !!!")
+    
+    return n1, n2, n3
 
 
 def initialize_neighbours(
