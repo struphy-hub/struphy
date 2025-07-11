@@ -384,6 +384,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, tesselation,
 
             diff = np.max(np.abs(all_eval - fun_exact(ee1, ee2, ee3)))
             err_vec[-1] += [diff]
+            print(f'{Np = }, {ppb = }, {diff = }')
 
     err_vec = np.array(err_vec)
 
@@ -412,6 +413,8 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, tesselation,
         plt.savefig("SPH_conv_in_h_and_N.png")
         
         plt.show()
+        
+        assert np.min(err_vec) < 0.1
 
 
 @pytest.mark.mpi(min_size=2)
