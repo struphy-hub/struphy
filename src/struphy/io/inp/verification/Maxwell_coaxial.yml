@@ -1,0 +1,73 @@
+grid:
+    Nel: [32, 64, 1]
+    p: [3, 3, 1]
+    spl_kind: [false, true, true]
+    dirichlet_bc: [[true, true], [false, false], [false, false]]
+    dims_mask: [true, true, true]
+    nq_el: null
+    nq_pr: null
+    polar_ck: -1
+    local_projectors: false
+
+time: {dt: 0.05, Tend: 10., split_algo: LieTrotter}
+
+units: {x: 1.0, B: 1.0, n: 1.0, kBT: 1.0}
+
+cylinder_defaults: &cylinder_dims
+    # a1: 0.667197
+    # a2: 1.366479
+    # a1: 1.460379
+    # a2: 2.566192
+
+    a1: 2.326744
+    a2: 3.686839
+    # a1: 3.224263
+    # a2: 4.777539
+
+    # a1: 4.139727
+    # a2: 5.851798
+    # a1: 5.067045
+    # a2: 6.915457
+modes_defaults: &modes
+    m : 3
+
+geometry:
+    type: HollowCylinder
+    HollowCylinder: 
+        <<: *cylinder_dims
+        Lz : 2.0 # length of cylinder
+        poc : 1 # periodicity
+
+fluid_background:
+    HomogenSlab: {}
+
+em_fields:
+    perturbation:
+        e_field:
+            CoaxialWaveguideElectric_r:
+                given_in_basis : ['norm', null, null]
+                <<: *cylinder_dims
+                <<: *modes
+                
+            CoaxialWaveguideElectric_theta:
+                given_in_basis : [null, 'norm', null]
+                <<: *cylinder_dims
+                <<: *modes
+
+                
+        b_field:
+            CoaxialWaveguideMagnetic:
+                given_in_basis : [null, null, 'norm']
+                <<: *cylinder_dims 
+                <<: *modes
+
+    options:
+        Maxwell:
+            algo: implicit
+            solver:
+                type: [pcg, MassMatrixPreconditioner]
+                tol: 1.0e-08
+                maxiter: 3000
+                info: false
+                verbose: false
+                recycle: true
