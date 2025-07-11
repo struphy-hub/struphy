@@ -7,72 +7,42 @@ Struphy provides an abstract framework for seamless addition of new model equati
 A model consists of a set of PDEs that has been discretized within the 
 :ref:`GEMPIC <gempic>` framework.
 
-New Struphy models must be added in one of the four modules
+New Struphy models must be added in one of the four modules:
 
-.. autosummary::
-    :nosignatures:
-    :toctree: STUBDIR
-
-    struphy.models.fluid
-    struphy.models.kinetic
-    struphy.models.hybrid
-    struphy.models.toy
+* `models/toy.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/toy.py?ref_type=heads>`_
+* `models/fluid.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/fluid.py?ref_type=heads>`_
+* `models/kinetic.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/kinetic.py?ref_type=heads>`_
+* `models/hybrid.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/hybrid.py?ref_type=heads>`_
 
 as child classes of the :class:`StruphyModel <struphy.models.base.StruphyModel>`. **Please refer to existing models for templates.**
 Here is a list of points that need to be followed when creating a new model:
+
 
 1. Start from a template 
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 Perform the following steps:
 
-a. In one of the four modules above, copy-and-paste an existing model that is close to your model.
+a. In one of the four files above, copy-and-paste an existing model.
 b. Change the class name to ``<newname>``.
 c. Run ``struphy --refresh-models`` in the console.
 d. In the console, run ``struphy run <newname>`` which will just execute the copied model after creating a default parameter file.
+
 
 2. Derive Struphy discretization of your PDE 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Struphy uses the :ref:`GEMPIC <gempic>` framework on 3D mapped domains. 
 This framework uses Lagrangian particle methods combined with geometric finite elements
-based on differential forms. Please consult :ref:`disc_example`
+based on differential forms. 
+
+Please consult :ref:`disc_example`
 and/or given references for a tutorial on how to apply this discretization method.
-
-3. Add a model docstring
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-The docstring should have the following form (example taken from `LinearMHD <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/fluid.py?ref_type=heads#L7>`_)::
-
-    Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
-
-        :ref:`normalization`:
-
-        .. math::
-
-            <normalization in Latex format>
-
-        :ref:`Equations <gempic>`:
-
-        .. math::
-        
-            <some equations in Latex format>
-
-        :ref:`propagators` (called in sequence):
-
-        1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
-        2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
-
-        :ref:`Model info <add_model>`:
-
-The equations should be written in strong form (like in a textbook), in the chosen :ref:`normalization`.
-Do not include discretized equations in the model docstring.
-You can follow :ref:`change_doc` to see if your changes have been taken into
-account. 
 
 .. _species:
 
-4. Define :code:`species(cls)`
+
+3. Define :code:`species(cls)`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The :code:`species(cls)` method must be implemented in every Struphy model.
@@ -119,7 +89,7 @@ In case of a fluid species, the naming convention is :code:`species_variable`
 with an underscore separating species name and variable name.
 
 
-5. Define ``bulk_species(cls)`` and ``velocity_scale(cls)``
+4. Define ``bulk_species(cls)`` and ``velocity_scale(cls)``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These must be implemented in every Struphy model in order to :func:`struphy.io.setup.derive_units`::
@@ -143,13 +113,12 @@ There are four options for the ``velocity_scale``:
 
 The choice corresponds to setting the velocity unit :math:`\hat v` of the :ref:`normalization`.
 This then sets the time unit :math:`\hat t = \hat x / \hat v`, where :math:`\hat x` is the 
-unit of length specified through the parameter file. Consult
-`Tutorial 01 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_01_units_run_main.html#Struphy-normalization-(units)>`_ 
-for more details on the Struphy normalization.
+unit of length specified through the parameter file.
+
 
 .. _add_prop:
 
-6. Add Propagators
+5. Add Propagators
 ^^^^^^^^^^^^^^^^^^
 
 Propagators are the main building blocks of :ref:`models`, as they define the 
@@ -162,9 +131,11 @@ When adding a new model to Struphy, make sure to
 
 Propagators are in one of the following modules:
 
-* :mod:`struphy.propagators.propagators_fields`
-* :mod:`struphy.propagators.propagators_markers`
-* :mod:`struphy.propagators.propagators_coupling`
+* `propagators/propagators_fields.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/propagators/propagators_fields.py?ref_type=heads>`_
+* `propagators/propagators_markers.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/propagators/propagators_markers.py?ref_type=heads>`_
+* `propagators/propagators_coupling.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/propagators/propagators_coupling.py?ref_type=heads>`_
+
+**Check out** :ref:`write_prop` **for practical details on the implementation.**
 
 A model's propagators are defined in :meth:`struphy.models.base.StruphyModel.propagators_dct`.
 See `LinearMHD <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/fluid.py?ref_type=heads#L7>`_ for an example::
@@ -175,34 +146,15 @@ See `LinearMHD <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/str
                 propagators_fields.Magnetosonic: ['mhd_density', 'mhd_velocity', 'mhd_pressure']}
 
 The keys are the :ref:`propagator classes <propagators>` themselves; the values are the names of model variales to be updated by the propagator,
-as defined in :meth:`struphy.models.base.StruphyModel.species`::
-
-    @staticmethod
-    def species():
-        dct = {'em_fields': {}, 'fluid': {}, 'kinetic': {}}
-
-        dct['em_fields']['b_field'] = 'Hdiv'
-        dct['fluid']['mhd'] = {'density': 'L2', 'velocity': 'Hdiv', 'pressure': 'L2'}
-        return dct
-
-The variables' data structures (i.e. solution spaces) must fit the signature of the propagator constructor (``__init__`` arguments BEFORE ``*``).
+as defined in :meth:`struphy.models.base.StruphyModel.species`, see above.
+The updated variables must conform to the solution spaces defined in the ``__init__`` of the propagator (arguments BEFORE ``*``).
 
 The order in which propagators are added in :meth:`~struphy.models.base.StruphyModel.propagators_dct` matters. 
 They are called consecutively according to the time splitting scheme defined in :ref:`time`.
 
-Propagators usually need to call many Struphy features like spline spaces, geometry, mass matrices etc.
-Many of these features are `passed to all Propagators at model initialization <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/base.py?ref_type=heads#L138>`_ 
-and can be accessed via the following methods of the propagator::
-
-    self.derham
-    self.domain
-    self.mass_ops
-    self.basis_ops
-    self.projected_mhd_equil
-
-Propagator options (passed as keyword arguments) must be defined in the constructor of the model class. 
-This happens by setting the ``self._kwargs`` dictionary of the model, 
-see again `LinearMHD <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/fluid.py?ref_type=heads#L7>`_ for an example::
+Propagator parameters (passed as keyword arguments) must be defined in the ``__init__`` of the model class
+by setting the ``self._kwargs`` dictionary of the model, 
+see `LinearMHD <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/fluid.py?ref_type=heads#L7>`_ for an example::
 
     # set keyword arguments for propagators
     self._kwargs[propagators_fields.ShearAlfven] = {'u_space': u_space,
@@ -212,11 +164,12 @@ see again `LinearMHD <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/s
                                                      'u_space': u_space,
                                                      'solver': sonic_solver}
 
-The given keyword arguments must fit the signature of the propagator constructor (``__init__`` arguments AFTER ``*``).
+The given keyword arguments must conform to the ones defined in the ``__init__`` of the propagator
+(arguments AFTER ``*``).
 
 
 
-7. Add scalar quantities
+6. Add scalar quantities
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 It is often usefule to define scalar quantities that should be saved during the simulation,
@@ -228,7 +181,7 @@ e.g. for checking concervation properties. This can be done via the methods
 Check out existing models for templates.
 
 
-8. Add options
+7. Add options
 ^^^^^^^^^^^^^^
 
 Most of a model's options are defined within :meth:`struphy.propagators.base.Propagator.options`,
@@ -244,7 +197,7 @@ This is done with the method :meth:`struphy.models.base.StruphyModel.add_option`
         return dct
 
 
-9. Test
+8. Test
 ^^^^^^^
 
 Once you added a model and re-installed struphy (``pip install -e .``), 
@@ -259,5 +212,37 @@ If the model is not found::
 and run again. The parameter file of a model is created via::
 
     struphy params <yourmodel>
+
+
+9. Add a model docstring
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+The docstring should have the following form (example taken from `LinearMHD <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/fluid.py?ref_type=heads#L7>`_)::
+
+    Linear ideal MHD with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
+
+        :ref:`normalization`:
+
+        .. math::
+
+            <normalization in Latex format>
+
+        :ref:`Equations <gempic>`:
+
+        .. math::
+        
+            <some equations in Latex format>
+
+        :ref:`propagators` (called in sequence):
+
+        1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
+        2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
+
+        :ref:`Model info <add_model>`:
+
+The equations should be written in strong form (like in a textbook), in the chosen :ref:`normalization`.
+Do not include discretized equations in the model docstring.
+You can follow :ref:`change_doc` to see if your changes have been taken into
+account. 
 
     

@@ -8,12 +8,12 @@ Install
 Requirements
 ------------
 
-- Python >=3.10 and <3.12 
+- Python >=3.10 
 - C or Fortran compiler like gcc, gfortran
 - Linear algebra packages BLAS and LAPACK
 - An MPI library like open-mpi, mpich
 - OpenMP
-- **Struphy is not currently supported** with `Anaconda <https://www.anaconda.com/>`_, please use Python directly.
+- **Struphy is not currently supported** with `Anaconda <https://www.anaconda.com/>`_.
 
 In order not to interfere with existing Python packages, 
 it is highly recommended to install Struphy in a `Virtual Python environment <https://pypi.org/project/virtualenv/>`_::
@@ -35,7 +35,7 @@ Check the pre-installed packages and upgrade ``pip``::
 
 Continue with the Struphy installation; the quickest install is via :ref:`PyPI <pypi_install>`::
     
-    pip install struphy
+    pip install --no-cache-dir -U struphy
     struphy compile
 
 When finished, you can deactivate the virtual environment::
@@ -64,24 +64,108 @@ In case you encounter problems during install, check out :ref:`trouble_shoot`.
 Sample environments
 -------------------
 
-Some Linux environments on which Struphy is continuously tested can be seen here:
+Some Linux environments on which Struphy is continuously tested are:
 
-* `Docker's ubuntu:latest <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L183>`_
-* `Docker's fedora:latest <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L400>`_
-* `Docker's opensuse/tumbleweed:latest <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L478>`_
-* `Docker's almalinux:latest <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L548>`_
+.. tab-set::
 
-Sample environment on **Mac OS**::
+    .. tab-item:: Ubuntu
 
-    brew update
-    brew install python3
-    brew install gcc
-    brew install openblas
-    brew install lapack
-    brew install open-mpi
-    brew install libomp
-    brew install git
-    brew install pandoc
+        .. code-block::
+
+            apt install -y software-properties-common
+            add-apt-repository -y ppa:deadsnakes/ppa
+            apt update -y
+            apt install -y python3-pip 
+            apt install -y python3-venv 
+            apt install -y gfortran gcc 
+            apt install -y liblapack-dev libopenmpi-dev 
+            apt install -y libblas-dev openmpi-bin 
+            apt install -y libomp-dev libomp5 
+            apt install -y git
+            apt install -y pandoc
+
+    .. tab-item:: OpenSuse
+
+        .. code-block::
+
+            zypper refresh
+            zypper install -y python311 python311-devel
+            zypper install -y python311-pip python3-virtualenv
+            zypper install -y gcc-fortran gcc 
+            zypper install -y lapack-devel openmpi-devel 
+            zypper install -y blas-devel openmpi 
+            zypper install -y libgomp1 
+            zypper install -y git 
+            zypper install -y pandoc 
+            zypper install -y vim 
+            zypper install -y make
+
+    .. tab-item:: AlmaLinux
+
+        .. code-block::
+
+            - yum install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zlib-devel
+            - yum update -y 
+            - yum clean all 
+            - yum install -y gcc 
+            - yum install -y gfortran  
+            - yum install -y openmpi openmpi-devel  
+            - yum install -y libgomp 
+            - yum install -y git 
+            - yum install -y environment-modules 
+            - yum install -y sqlite-devel
+            - wget https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz 
+            - tar xzf Python-3.10.14.tgz 
+            - cd Python-3.10.14 
+            - ./configure --with-system-ffi --with-computed-gotos --enable-loadable-sqlite-extensions 
+            - make -j ${nproc} 
+            - make altinstall 
+            - cd ..
+            - export PATH="/usr/lib64/openmpi/bin:$PATH"
+            - mv /usr/local/lib/libpython3.10.a libpython3.10.a.bak
+
+    .. tab-item:: Fedora-CentOS-RHEL
+
+        .. code-block::
+
+            dnf install -y wget yum-utils make openssl-devel bzip2-devel libffi-devel zlib-devel
+            dnf update -y  
+            dnf install -y gcc
+            dnf install -y gfortran  
+            dnf install -y blas-devel lapack-devel  
+            dnf install -y openmpi openmpi-devel 
+            dnf install -y libgomp 
+            dnf install -y git 
+            dnf install -y environment-modules 
+            dnf install -y python3-mpi4py-openmpi 
+            dnf install -y pandoc
+            dnf install -y sqlite-devel
+            wget https://www.python.org/ftp/python/3.10.14/Python-3.10.14.tgz 
+            tar xzf Python-3.10.14.tgz 
+            cd Python-3.10.14 
+            ./configure --with-system-ffi --with-computed-gotos --enable-loadable-sqlite-extensions 
+            make -j ${nproc} 
+            make altinstall 
+            cd .. 
+            mv /usr/local/lib/libpython3.10.a libpython3.10.a.bak
+            module load mpi/openmpi-$(arch)
+
+    .. tab-item:: MacOS
+
+        .. code-block::
+
+            brew update
+            brew install python3
+            brew install gcc
+            brew install openblas
+            brew install lapack
+            brew install open-mpi
+            brew install libomp
+            brew install git
+            brew install pandoc
+
+More details on the continuous test environments can be found in `.gitlab-ci.yml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml>`_
+in the test stage.
 
 On **Windows systems** we recommend the use of a virtual machine, for instance the :ref:`multipass`.
 
@@ -91,7 +175,11 @@ On **Windows systems** we recommend the use of a virtual machine, for instance t
 Trouble shooting
 ----------------
 
-* Make sure that you can ``pip install mpi4py``.
+Install problems
+^^^^^^^^^^^^^^^^
+
+* Make sure that you can ``pip install -U mpi4py``.
+* `mpi4py>=4.1.0` `provides binaries <https://github.com/mpi4py/mpi4py/releases/tag/4.1.0>`_` for common platforms. In case of "exotic" platforms you might try `pip install -U mpi4py --no-binary mpi4py`
 * In many cases installing ``apt install openmpi-devel`` solves a problem with missing headers.
 * On Mac OS, you can try to install the command line tools (160 MB) ``xcode-select --install``.
 * Struphy is not supported with Conda; however, in case you insist you might try::
@@ -99,26 +187,59 @@ Trouble shooting
     conda install mpich
     conda install gxx_linux-64
 
+Compilation problems
+^^^^^^^^^^^^^^^^^^^^
+
+* If compilation fails, ``struphy compile --delete`` can help to clean up the environment.
+* 
+  It can happen that during ``struphy compile`` you encounter::
+
+    A module that was compiled using NumPy 1.x cannot be run in
+    NumPy 2.2.1 as it may crash. To support both 1.x and 2.x
+    versions of NumPy, modules must be compiled with NumPy 2.0.
+    Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+  At the moment this error is resolved with::
+
+    pip install numpy==1.26.4
+
 
 .. _pypi_install:
 
 PyPI
 ----
 
-On **Fedora-CentOS-RHEL** you must::
-
-    module load mpi/openmpi-$(arch)
-
 Install package::
 
-    pip install struphy
+    pip install --no-cache-dir -U struphy
 
-Compile kernels::
+For running (parallel) tests:
+
+.. tab-set::
+
+    .. tab-item:: bash
+
+        .. code-block::
+
+            pip install --no-cache-dir -U struphy
+
+    .. tab-item:: zsh
+
+        .. code-block::
+
+            pip install --no-cache-dir -U struphy
+
+Compile kernels in ``c`` (default)::
 
     struphy compile
 
-The default language compiled is ``c``. You can compile in Fortran via ``struphy compile --language=fortran``.
-Other compile roptions can be accessed with ``struphy compile -h``.
+You can compile in Fortran via::
+    
+    struphy compile --language=fortran
+
+Other compile options can be accessed with::
+    
+    struphy compile -h
 
 
 .. _source_install:
@@ -131,19 +252,63 @@ Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_::
     git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git
     cd struphy
 
-Update pip and install package::
+Update pip::
 
     pip install --upgrade pip
-    pip install <option> .
 
-where ``<option>`` is either empty (Python environment installation), ``--user`` (installation in ``.local/lib``) or ``-e`` (installation in development mode).
+Install Struphy:
 
-Compile kernels::
+.. tab-set::
+
+    .. tab-item:: Development mode
+
+        .. code-block::
+
+            pip install --no-cache-dir -e .
+
+    .. tab-item:: Python environment
+
+        .. code-block::
+
+            pip install --no-cache-dir .
+
+    .. tab-item:: .local/lib
+
+        .. code-block::
+
+            pip install --no-cache-dir --user .
+
+Struphy features optional dependencies:
+
+.. tab-set::
+
+    .. tab-item:: bash
+
+        * ``pip install .[phys]`` enables some physics packages, see `pyproject.toml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/pyproject.toml?ref_type=heads>`_
+        * ``pip install .[dev]`` enables the development environment (testing, linting, formatting)
+        * ``pip install .[doc]`` enables :ref:`change_doc`
+
+        These can also be combined, as for example in ``pip install .[phys,dev,doc]``.
+
+    .. tab-item:: zsh
+
+        * ``pip install ."[phys]"`` enables some physics packages, see `pyproject.toml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/pyproject.toml?ref_type=heads>`_
+        * ``pip install ."[dev]"`` enables the development environment (testing, linting, formatting)
+        * ``pip install ."[doc]"`` enables :ref:`change_doc`
+
+        These can also be combined, as for example in ``pip install ."[phys,dev,doc]"``.
+
+Compile kernels in ``c`` (default)::
 
     struphy compile
 
-The default language compiled is ``c``. You can compile in Fortran via ``struphy compile --language=fortran``.
-Other compile roptions can be accessed with ``struphy compile -h``.
+You can compile in Fortran via::
+    
+    struphy compile --language=fortran
+
+Other compile options can be accessed with::
+    
+    struphy compile -h
 
 
 .. _args:
@@ -171,14 +336,8 @@ encapsulated from your host machine.
 The container is launched from an `image <https://docs.docker.com/get-started/overview/#docker-objects>`_ 
 which you can download and run immediately, irrespective of your architecture and OS.
 
-Availabe Struphy images:
+`Link to Struphy's container registry <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`
 
-* `struphy_ubuntu_python_3_11 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
-* `struphy_fedora_python_3_10 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
-* `struphy_opensuse_python_3_11 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
-* `struphy_almalinux_python_3_10 <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`_
-
-Each of these images comes with a recent build of the ``devel`` branch under ``/struphy_install/struphy*.whl``.
 Check out the `corresponding docker files <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/tree/devel/docker?ref_type=heads>`_.
 
 .. _user_install:
@@ -188,21 +347,30 @@ User install
 
 To use Struphy via docker, perform the following steps:
 
-1. `Install Docker Desktop <https://docs.docker.com/desktop/>`_ and start it.
+1. `Install Docker Desktop <https://docs.docker.com/desktop/>`_ and start it. 
 
-On Mac, it is recommended to read the `Mac OS permission requirements <https://docs.docker.com/desktop/mac/permission-requirements/>`_.
-(REMARK: older versions of Mac OS may require `older docker desktop versions <https://docs.docker.com/desktop/release-notes/#docker-desktop-471>`_.)
+.. tab-set::
 
-On Windows, it is recommended to read the `Windows permission requirements <https://docs.docker.com/desktop/windows/permission-requirements/>`_
+    .. tab-item:: Linux
 
-On Linux, if you do not want to preface the docker command with ``sudo``, you can 
-`create a Unix group <https://docs.docker.com/engine/install/linux-postinstall/>`_ 
-called ``docker`` and add your user to it.
-If you are uncomfortable with running `sudo`, you can `run docker in "rootless" mode <https://docs.docker.com/engine/security/rootless/>`_.
+        If you do not want to preface the docker command with ``sudo``, you can 
+        `create a Unix group <https://docs.docker.com/engine/install/linux-postinstall/>`_ 
+        called ``docker`` and add your user to it.
+        If you are uncomfortable with running `sudo`, you can `run docker in "rootless" mode <https://docs.docker.com/engine/security/rootless/>`_.
+
+    .. tab-item:: MacOS
+
+        It is recommended to read the `Mac OS permission requirements <https://docs.docker.com/desktop/mac/permission-requirements/>`_.
+        (REMARK: older versions of Mac OS may require `older docker desktop versions <https://docs.docker.com/desktop/release-notes/#docker-desktop-471>`_.)
+
+    .. tab-item:: Windows
+
+        It is recommended to read the `Windows permission requirements <https://docs.docker.com/desktop/windows/permission-requirements/>`_
 
 2. Login to the MPCDF Gitlab registry using a predefined Struphy user and token::
 
-    docker login gitlab-registry.mpcdf.mpg.de -u docker_api_2024 -p glpat-SkfAWwNPEVwsRB3dLioz
+    TOKEN=glpat-YzkatDxAYT1JZtyj9KjS; echo "$TOKEN" | docker login gitlab-registry.mpcdf.mpg.de -u struphy-hub-read-registry --password-stdin
+    docker login gitlab-registry.mpcdf.mpg.de -u struphy-hub-read-registry -p glpat-YzkatDxAYT1JZtyj9KjS
 
 3. Pull one of the availabale images listed above (< 1 GB in size), for instance::
 
@@ -257,9 +425,9 @@ open any folder from the container.
 
 We recommend to install the following VScode extensions inside the container:
 
-    - ``Python`` extension 
-    - ``Python Extensions`` extension
-    - ``Jupyter`` extension  
+- ``Python`` extension 
+- ``Python Extensions`` extension
+- ``Jupyter`` extension  
 
 .. image:: ../pics/vscode_docker_red.png
 
@@ -276,13 +444,15 @@ A common installation looks like this
 1. Load necessary modules and create a virtual environment::
 
     module purge
-    module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
+    module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git pandoc graphviz/8
     pip install -U virtualenv
     python3 -m venv <some_name>
     source <some_name>/bin/activate
     python3 -m pip install --upgrade pip
 
-2. Continue with one of the install methods from above (:ref:`pypi_install` or :ref:`source_install`).
+2. Install Struphy by not using the binaries of `mpi4py` (see install methods from above: :ref:`pypi_install` or :ref:`source_install`):
+
+    pip install -U struphy --no-binary mpi4py
 
 3. When using slurm, include the following lines in your BATCH script::
 
@@ -344,12 +514,11 @@ You can nevertheless install vtk on your VM via::
 
     sudo apt install python3-vtk9
 
-This will give you all functionality, however it will not be recognized by ``pip``. You therefore have to install ``gvec_to_python`` from source,
-commenting out ``vtk`` under ``install_requires``. Then do::
+This will give you all functionality, however it will not be recognized by ``pip``. Then do::
 
     python3 -m pip install .
 
-You will further have to comment out ``vtk`` and ``gvec_to_python`` from the ``pyproject.toml`` file in the struphy repository. You then proceed with::
+You will further have to comment out ``vtk`` from the ``pyproject.toml`` file in the struphy repository. You then proceed with::
 
     python3 -m pip install <option> .
 

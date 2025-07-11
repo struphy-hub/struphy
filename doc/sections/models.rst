@@ -16,11 +16,11 @@ To add a new model, please visit :ref:`add_model`.
     :caption: Contents:
 
     subsections/normalization
-    subsections/model_base_class
     subsections/models_fluid
     subsections/models_kinetic
     subsections/models_hybrid
     subsections/models_toy
+    subsections/model_base_class
    
 
 

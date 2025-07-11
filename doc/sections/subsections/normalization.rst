@@ -92,5 +92,3 @@ can be inspected via::
     struphy units MODEL -i FILE
 
 We refer to :ref:`disc_example` for an example of how to derive a normalization for a physics model.
-In addition, `Tutorial 01 <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_01_units_run_main.html#Struphy-normalization-(units)>`_ 
-provides some insights into the use of Struphy units.

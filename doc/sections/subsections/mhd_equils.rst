@@ -1,20 +1,15 @@
-.. _mhd_equil:
+.. _equils:
 
-MHD equilibria
---------------
+Fluid backgrounds
+-----------------
 
-Magnetized plasma equilibria are often the starting point of dynamical plasma simulations.
-In Struphy, there are many options to provide MHD equilibria, for axis-symmetric (Tokamak)
-as well as for non-axis-symmetric (Stellarator) configurations. In particular, there exist interfaces 
-for reading `EQDSK <https://w3.pppl.gov/ntcc/TORAY/G_EQDSK.pdf>`_ and 
-`GVEC <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_ equilibrium data.
-The following inheritance diagram shows the MHD equilibria available in Struphy:
+The following inheritance diagram shows the fluid backgrounds available in Struphy:
 
-.. inheritance-diagram:: struphy.fields_background.mhd_equil.equils
+.. inheritance-diagram:: struphy.fields_background.equils
     :parts: 1
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     :caption: Contents:
 
     mhd_equils_sub

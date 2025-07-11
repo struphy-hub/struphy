@@ -1,36 +1,43 @@
 "Base classes for particle deposition (accumulation) on the grid."
 
-
 import numpy as np
-
-from psydac.linalg.stencil import StencilVector, StencilMatrix
+from mpi4py import MPI
 from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilMatrix, StencilVector
 
-from struphy.feec.psydac_derham import Derham
-from struphy.feec.mass import WeightedMassOperator
-from struphy.pic.base import Particles
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 import struphy.pic.accumulation.filter_kernels as filters
+from struphy.feec.mass import WeightedMassOperators
+from struphy.feec.psydac_derham import Derham
+from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
-
-from mpi4py import MPI
 
 
 class Accumulator:
     r"""
-    Struphy accumulation matrices and vectors of the form
+    Struphy accumulation (block) matrices and vectors
 
     .. math::
 
-        M^{\mu,\nu}_{ijk,mno} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * A^{\mu,\nu}_p * (\Lambda^\nu_{mno})^\top(\eta_p)  \qquad  (\mu,\nu = 1,2,3)
+        M &= (M^{\mu,\nu})_{\mu,\nu}\,,\qquad && M^{\mu,\nu} \in \mathbb R^{\mathbb N^\alpha_\mu \times \mathbb N^\alpha_\nu}\,,
+        \\[2mm]
+        V &= (V^\mu)_\mu\,,\qquad &&V^\mu \in \mathbb R^{\mathbb N^\alpha_\mu}\,,
 
-        V^\mu_{ijk} &= \sum_p \Lambda^\mu_{ijk}(\eta_p) * B^\mu_p
+    where :math:`N^\alpha_\mu` denotes the dimension of the :math:`\mu`-th component
+    of the :class:`~struphy.feec.psydac_derham.Derham` space
+    :math:`V_h^\alpha` (:math:`\mu,\nu = 1,2,3` for vector-valued spaces),
+    with entries obtained by summing over all particles :math:`p`,
 
-    where :math:`p` runs over the particles, :math:`\Lambda^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function
-    of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3, V0vec) evaluated at the particle position :math:`\eta_p`.
+    .. math::
 
-    :math:`A^{\mu,\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
+        M^{\mu,\nu}_{ijk,mno} &= \sum_{p=0}^{N-1} \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, A^{\mu,\nu}_p \, \Lambda^\nu_{mno}(\boldsymbol \eta_p) \,,
+        \\[2mm]
+        V^\mu_{ijk} &= \sum_{p=0}^{N-1} \Lambda^\mu_{ijk}(\boldsymbol \eta_p) \, B^\mu_p \,.
+
+    Here, :math:`\Lambda^\mu_{ijk}(\boldsymbol \eta_p)` denotes the :math:`ijk`-th basis function
+    of the :math:`\mu`-th component of a Derham space evaluated at the particle position :math:`\boldsymbol \eta_p`,
+    and :math:`A^{\mu,\nu}_p` and :math:`B^\mu_p` are particle-dependent "filling functions",
     to be defined in the module :mod:`~struphy.pic.accumulation.accum_kernels`.
 
     Parameters
@@ -70,26 +77,29 @@ class Accumulator:
         particles: Particles,
         space_id: str,
         kernel,
-        derham: Derham,
+        mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         *,
         add_vector: bool = False,
         symmetry: str = None,
-        filter_params: dict = {"use_filter": None,
-                               "modes": None, "repeat": None, "alpha": None},
+        filter_params: dict = {
+            "use_filter": None,
+            "modes": None,
+            "repeat": None,
+            "alpha": None,
+        },
     ):
-
         self._particles = particles
         self._space_id = space_id
         self._kernel = kernel
-        self._derham = derham
+        self._derham = mass_ops.derham
         self._args_domain = args_domain
 
         self._symmetry = symmetry
 
         self._filter_params = filter_params
 
-        self._form = derham.space_to_form[space_id]
+        self._form = self.derham.space_to_form[space_id]
 
         # initialize matrices (instances of WeightedMassOperator)
         self._operators = []
@@ -97,33 +107,21 @@ class Accumulator:
         # special treatment in model LinearMHDVlasovPC (symmetry=pressure, six symmetric BlockMatrices are needed)
         if symmetry == "pressure":
             for _ in range(6):
-                self._operators += [
-                    WeightedMassOperator(
-                        derham.Vh_fem[self.form],
-                        derham.Vh_fem[self.form],
-                        V_extraction_op=derham.extraction_ops[self.form],
-                        W_extraction_op=derham.extraction_ops[self.form],
-                        V_boundary_op=derham.boundary_ops[self.form],
-                        W_boundary_op=derham.boundary_ops[self.form],
-                        weights_info="symm",
-                        transposed=False,
-                    )
-                ]
+                operator = mass_ops.create_weighted_mass(
+                    space_id,
+                    space_id,
+                    weights="symm",
+                )
+                self._operators.append(operator)
 
         # "normal" treatment (just one matrix)
         else:
-            self._operators += [
-                WeightedMassOperator(
-                    derham.Vh_fem[self.form],
-                    derham.Vh_fem[self.form],
-                    V_extraction_op=derham.extraction_ops[self.form],
-                    W_extraction_op=derham.extraction_ops[self.form],
-                    V_boundary_op=derham.boundary_ops[self.form],
-                    W_boundary_op=derham.boundary_ops[self.form],
-                    weights_info=symmetry,
-                    transposed=False,
-                )
-            ]
+            operator = mass_ops.create_weighted_mass(
+                space_id,
+                space_id,
+                weights=symmetry,
+            )
+            self._operators.append(operator)
 
         # collect all _data attributes needed in accumulation kernel
         self._args_data = ()
@@ -150,9 +148,13 @@ class Accumulator:
             # special treatment in model LinearMHDVlasovPC (symmetry=pressure, three BlockVectors are needed)
             if symmetry == "pressure":
                 for _ in range(3):
-                    self._vectors += [BlockVector(derham.Vh[self.form])]
-                    self._vectors_temp += [BlockVector(derham.Vh[self.form])]
-                    self._vectors_out += [BlockVector(derham.Vh[self.form])]
+                    self._vectors += [BlockVector(self.derham.Vh[self.form])]
+                    self._vectors_temp += [
+                        BlockVector(self.derham.Vh[self.form]),
+                    ]
+                    self._vectors_out += [
+                        BlockVector(self.derham.Vh[self.form]),
+                    ]
 
             # normal treatment (just one vector)
             else:
@@ -201,32 +203,26 @@ class Accumulator:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        self.kernel(self.particles.markers,
-                    self.particles.n_mks,
-                    self.derham.args_derham,
-                    self.args_domain,
-                    *self._args_data,
-                    *optional_args)
+        self.kernel(
+            self.particles.markers,
+            self.particles.Np,
+            self.derham.args_derham,
+            self.args_domain,
+            *self._args_data,
+            *optional_args,
+        )
 
         # apply filter
         if self.filter_params["use_filter"] is not None:
-
             for vec in self._vectors:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
 
-                if self.filter_params["use_filter"] == 'fourier':
+                if self.filter_params["use_filter"] == "fourier_in_tor":
+                    self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
 
-                    modes = self.filter_params["modes"]
-
-                    self.apply_toroidal_fourier_filter(vec, modes)
-
-                elif self.filter_params["use_filter"] == 'three_point':
-
-                    repeat = self.filter_params["repeat"]
-                    alpha = self.filter_params["alpha"]
-
-                    for count in range(repeat):
+                elif self.filter_params["use_filter"] == "three_point":
+                    for _ in range(self.filter_params["repeat"]):
                         for i in range(3):
                             filters.apply_three_point_filter(
                                 vec[i]._data,
@@ -235,36 +231,63 @@ class Accumulator:
                                 np.array(self.derham.p),
                                 np.array(self.derham.Vh[self.form][i].starts),
                                 np.array(self.derham.Vh[self.form][i].ends),
-                                alpha=alpha,
+                                alpha=self.filter_params["alpha"],
+                            )
+
+                        vec.update_ghost_regions()
+
+                elif self.filter_params["use_filter"] == "hybrid":
+                    self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
+
+                    for _ in range(self.filter_params["repeat"]):
+                        for i in range(2):
+                            filters.apply_three_point_filter(
+                                vec[i]._data,
+                                np.array(self.derham.Nel),
+                                np.array(self.derham.spl_kind),
+                                np.array(self.derham.p),
+                                np.array(self.derham.Vh[self.form][i].starts),
+                                np.array(self.derham.Vh[self.form][i].ends),
+                                alpha=self.filter_params["alpha"],
                             )
 
                         vec.update_ghost_regions()
 
                 else:
                     raise NotImplemented(
-                        'The type of filter must be fourier or three_point.')
+                        "The type of filter must be fourier or three_point.",
+                    )
 
             vec_finished = True
 
-        if self.derham.Nclones > 1:
+        if self.particles.clone_config is None:
+            num_clones = 1
+        else:
+            num_clones = self.particles.clone_config.num_clones
+
+        if num_clones > 1:
             for data_array in self._args_data:
-
-                self.derham.inter_comm.Allreduce(
-                    MPI.IN_PLACE, data_array, op=MPI.SUM)
-
-                data_array /= self.derham.Nclones
+                self.particles.clone_config.inter_comm.Allreduce(
+                    MPI.IN_PLACE,
+                    data_array,
+                    op=MPI.SUM,
+                )
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
             self._get_L2dofs(
-                args_control["control_vec"], dofs=self._vectors[0], clear=False
+                args_control["control_vec"],
+                dofs=self._vectors[0],
+                clear=False,
             )
             vec_finished = True
 
         # add analytical contribution (control variate) to matrix and finish
         if "control_mat" in args_control:
             self._operators[0].assemble(
-                weights=args_control["control_mat"], clear=False, verbose=False
+                weights=args_control["control_mat"],
+                clear=False,
+                verbose=False,
             )
             mat_finished = True
 
@@ -281,42 +304,40 @@ class Accumulator:
                 op.matrix.update_ghost_regions()
 
             if self.symmetry == "symm":
-
                 self._operators[0].matrix[0, 1].transpose(
-                    out=self._operators[0].matrix[1, 0]
+                    out=self._operators[0].matrix[1, 0],
                 )
                 self._operators[0].matrix[0, 2].transpose(
-                    out=self._operators[0].matrix[2, 0]
+                    out=self._operators[0].matrix[2, 0],
                 )
                 self._operators[0].matrix[1, 2].transpose(
-                    out=self._operators[0].matrix[2, 1]
+                    out=self._operators[0].matrix[2, 1],
                 )
 
             elif self.symmetry == "asym":
-
                 self._operators[0].matrix[0, 1].transpose(
-                    out=self._operators[0].matrix[1, 0]
+                    out=self._operators[0].matrix[1, 0],
                 )
-                self._operators[0].matrix[1, 0] *= (-1)
+                self._operators[0].matrix[1, 0] *= -1
                 self._operators[0].matrix[0, 2].transpose(
-                    out=self._operators[0].matrix[2, 0]
+                    out=self._operators[0].matrix[2, 0],
                 )
-                self._operators[0].matrix[2, 0] *= (-1)
+                self._operators[0].matrix[2, 0] *= -1
                 self._operators[0].matrix[1, 2].transpose(
-                    out=self._operators[0].matrix[2, 1]
+                    out=self._operators[0].matrix[2, 1],
                 )
-                self._operators[0].matrix[2, 1] *= (-1)
+                self._operators[0].matrix[2, 1] *= -1
 
             elif self.symmetry == "pressure":
                 for i in range(6):
                     self._operators[i].matrix[0, 1].transpose(
-                        out=self._operators[i].matrix[1, 0]
+                        out=self._operators[i].matrix[1, 0],
                     )
                     self._operators[i].matrix[0, 2].transpose(
-                        out=self._operators[i].matrix[2, 0]
+                        out=self._operators[i].matrix[2, 0],
                     )
                     self._operators[i].matrix[1, 2].transpose(
-                        out=self._operators[i].matrix[2, 1]
+                        out=self._operators[i].matrix[2, 1],
                     )
 
     @property
@@ -400,26 +421,25 @@ class Accumulator:
             Mode numbers which are not filtered out.
         """
 
-        from scipy.fft import rfft, irfft
+        from scipy.fft import irfft, rfft
 
         tor_Nel = self.derham.Nel[2]
 
         # Nel along the toroidal direction must be equal or bigger than 2*maximum mode
-        assert tor_Nel >= 2*max(modes)
+        assert tor_Nel >= 2 * max(modes)
 
         pn = self.derham.p
         ir = np.empty(3, dtype=int)
 
         if (tor_Nel % 2) == 0:
-            vec_temp = np.zeros(int(tor_Nel/2) + 1, dtype=complex)
+            vec_temp = np.zeros(int(tor_Nel / 2) + 1, dtype=complex)
         else:
-            vec_temp = np.zeros(int((tor_Nel-1)/2) + 1, dtype=complex)
+            vec_temp = np.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
 
         # no domain decomposition along the toroidal direction
         assert self.derham.domain_decomposition.nprocs[2] == 1
 
         for axis in range(3):
-
             starts = self.derham.Vh[ſelf.form][axis].starts
             ends = self.derham.Vh[self.form][axis].ends
 
@@ -430,27 +450,59 @@ class Accumulator:
             # filtering
             for i in range(ir[0]):
                 for j in range(ir[1]):
-
                     vec_temp[:] = 0
                     vec_temp[modes] = rfft(
-                        vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]:pn[2]+ir[2]])[modes]
-                    vec[axis]._data[pn[0]+i, pn[1]+j, pn[2]                                    :pn[2]+ir[2]] = irfft(vec_temp, n=tor_Nel)
+                        vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]],
+                    )[modes]
+                    vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
 
             vec.update_ghost_regions()
+
+    def show_accumulated_spline_field(self, mass_ops: WeightedMassOperators, eta_direction=0, component=0):
+        r"""1D plot of the spline field corresponding to the accumulated vector.
+        The latter can be viewed as the rhs of an L2-projection:
+
+        .. math::
+
+            \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
+
+        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.SplineFunction`.
+        """
+        from matplotlib import pyplot as plt
+
+        from struphy.feec.projectors import L2Projector
+
+        # L2 projection
+        proj = L2Projector(self.space_id, mass_ops)
+        a = proj.solve(self.vectors[0])
+
+        # create field and assign coeffs
+        field = self.derham.create_spline_function("accum_field", self.space_id)
+        field.vector = a
+
+        # plot field
+        eta = np.linspace(0, 1, 100)
+        if eta_direction == 0:
+            args = (eta, 0.5, 0.5)
+        elif eta_direction == 1:
+            args = (0.5, eta, 0.5)
+        else:
+            args = (0.5, 0.5, eta)
+
+        vals = mass_ops.domain.push(field, *args, kind="1", squeeze_out=True)
+
+        plt.plot(eta, vals[component])
+        plt.title(
+            f'Spline field accumulated with the kernel "{self.kernel}"',
+        )
+        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
+        plt.ylabel("field amplitude")
+        plt.show()
 
 
 class AccumulatorVector:
     r"""
-    Struphy accumulation for only a vector of the form
-
-    .. math::
-
-        V^\mu_{ijk} = \sum_p \Lambda^\mu_{ijk}(\eta_p) * B^\mu_p
-
-    where :math:`p` runs over the particles, :math:`\Lambda^\mu_{ijk}(\eta_p)` denotes the :math:`ijk`-th basis function
-    of the :math:`\mu`-th component of a Derham space (V0, V1, V2, V3, V0vec) evaluated at the particle position :math:`\eta_p`.
-
-    :math:`B^\mu_p` is a particle-dependent "filling function", to be defined in the module :mod:`~struphy.pic.accumulation.accum_kernels`.
+    Same as :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` but only for vectors :math:`V`.
 
     Parameters
     ----------
@@ -475,17 +527,16 @@ class AccumulatorVector:
         particles: Particles,
         space_id: str,
         kernel,
-        derham: Derham,
+        mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
     ):
-
         self._particles = particles
         self._space_id = space_id
         self._kernel = kernel
-        self._derham = derham
+        self._derham = mass_ops.derham
         self._args_domain = args_domain
 
-        self._form = derham.space_to_form[space_id]
+        self._form = self.derham.space_to_form[space_id]
 
         # initialize vectors
         self._vectors = []
@@ -497,19 +548,31 @@ class AccumulatorVector:
 
         if space_id in ("H1", "L2"):
             self._vectors += [
-                StencilVector(derham.Vh_fem[self.form].vector_space)
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
             self._vectors_temp += [
-                StencilVector(derham.Vh_fem[self.form].vector_space)
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
             self._vectors_out += [
-                StencilVector(derham.Vh_fem[self.form].vector_space)
+                StencilVector(self.derham.Vh_fem[self.form].coeff_space),
             ]
 
         elif space_id in ("Hcurl", "Hdiv", "H1vec"):
-            self._vectors += [BlockVector(derham.Vh_fem[self.form].vector_space)]
-            self._vectors_temp += [BlockVector(derham.Vh_fem[self.form].vector_space)]
-            self._vectors_out += [BlockVector(derham.Vh_fem[self.form].vector_space)]
+            self._vectors += [
+                BlockVector(
+                    self.derham.Vh_fem[self.form].coeff_space,
+                ),
+            ]
+            self._vectors_temp += [
+                BlockVector(
+                    self.derham.Vh_fem[self.form].coeff_space,
+                ),
+            ]
+            self._vectors_out += [
+                BlockVector(
+                    self.derham.Vh_fem[self.form].coeff_space,
+                ),
+            ]
 
         for vec in self._vectors:
             if isinstance(vec, StencilVector):
@@ -547,25 +610,32 @@ class AccumulatorVector:
         # accumulate into matrix (and vector) with markers
         self.kernel(
             self.particles.markers,
-            self.particles.n_mks,
+            self.particles.Np,
             self.derham._args_derham,
             self.args_domain,
             *self._args_data,
             *optional_args,
         )
 
-        if self.derham.Nclones > 1:
+        if self.particles.clone_config is None:
+            num_clones = 1
+        else:
+            num_clones = self.particles.clone_config.num_clones
+
+        if num_clones > 1:
             for data_array in self._args_data:
-
-                self.derham.inter_comm.Allreduce(
-                    MPI.IN_PLACE, data_array, op=MPI.SUM)
-
-                data_array /= self.derham.Nclones
+                self.particles.clone_config.inter_comm.Allreduce(
+                    MPI.IN_PLACE,
+                    data_array,
+                    op=MPI.SUM,
+                )
 
         # add analytical contribution (control variate) to vector
         if "control_vec" in args_control and len(self._vectors) > 0:
             self._get_L2dofs(
-                args_control["control_vec"], dofs=self._vectors[0], clear=False
+                args_control["control_vec"],
+                dofs=self._vectors[0],
+                clear=False,
             )
             vec_finished = True
 
@@ -632,17 +702,18 @@ class AccumulatorVector:
 
             \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
 
-        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.Derham.Field`.
+        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.SplineFunction`.
         """
-        from struphy.feec.projectors import L2Projector
         from matplotlib import pyplot as plt
+
+        from struphy.feec.projectors import L2Projector
 
         # L2 projection
         proj = L2Projector(self.space_id, mass_ops)
         a = proj.solve(self.vectors[0])
 
         # create field and assign coeffs
-        field = self.derham.create_field("accum_field", self.space_id)
+        field = self.derham.create_spline_function("accum_field", self.space_id)
         field.vector = a
 
         # plot field
@@ -654,9 +725,10 @@ class AccumulatorVector:
         else:
             args = (0.5, 0.5, eta)
 
-        plt.plot(eta, field(*args, squeeze_output=True))
+        plt.plot(eta, field(*args, squeeze_out=True))
         plt.title(
-            f'Spline field accumulated with the kernel "{self.kernel_name}"')
-        plt.xlabel(f"$\eta_{eta_direction + 1}$")
+            f'Spline field accumulated with the kernel "{self.kernel}"',
+        )
+        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
         plt.ylabel("field amplitude")
         plt.show()

@@ -7,6 +7,7 @@ grid :
     nq_el    : [6, 2, 1] # quadrature points per grid cell
     nq_pr    : [6, 2, 1] # quadrature points per histopolation cell (for commuting projectors)
     polar_ck : -1 # C^k smoothness at polar singularity at eta_1=0 (default: -1 --> standard tensor product, 1 : polar splines)
+    local_projectors: False # Whether to build the local commuting projectors based on quasi-inter-/histopolation.
 
 units : # units not stated here can be viewed via "struphy units -h"
     x      : 0.022771076724847367 # Om_c * v_A
@@ -28,8 +29,7 @@ geometry :
         l3 : 0. # start of interval in eta3
         r3 : 1. # end of interval in eta3, r3>l3 
 
-mhd_equilibrium :
-    type : HomogenSlab # (possible choices seen below)
+fluid_background :
     HomogenSlab :
         B0x  : 1. # magnetic field in x
         B0y  : 0. # magnetic field in y
@@ -39,14 +39,14 @@ mhd_equilibrium :
 
 em_fields :
     perturbation :
-        type : ModesSin # type of initialization
-        ModesSin :
-            comps : {b2: [null, null, 'physical']} # components to be initialized (for scalar fields: no list)
-            ls : {b2: [null, null, [1]]} # Integer mode numbers in x or eta_1 (depending on coords)
-            amps : {b2: [null, null, [0.001]]} # amplitudes of each mode
-            Lx : 7.853981633974483 # 2*pi/0.8
-            Ly : 1.
-            Lz : 1.
+        b2 :
+            ModesSin :
+                given_in_basis : [null, null, 'physical'] # components to be initialized (for scalar fields: no list)
+                ls : [null, null, [1]] # Integer mode numbers in x or eta_1 (depending on coords)
+                amps : [null, null, [0.001]] # amplitudes of each mode
+                Lx : 7.853981633974483 # 2*pi/0.8
+                Ly : 1.
+                Lz : 1.
 
 fluid :
     mhd :
@@ -63,6 +63,9 @@ fluid :
                     info: false
                     verbose: false
                     recycle: true
+                filter: {use_filter: null, modes: 1, repeat: 1, alpha: 0.5}
+                boundary_cut: {e1: 0.0, e2: 0.0, e3: 0.0}
+                turn_off: false
             ShearAlfven:
                 solver:
                     type: [pcg, MassMatrixPreconditioner]
@@ -71,6 +74,7 @@ fluid :
                     info: false
                     verbose: false
                     recycle: true
+                turn_off: false
             Magnetosonic:
                 solver:
                     type: [pbicgstab, MassMatrixPreconditioner]
@@ -79,6 +83,7 @@ fluid :
                     info: false
                     verbose: false
                     recycle: true
+                turn_off: false
 
 kinetic :
     energetic_ions :
@@ -86,18 +91,17 @@ kinetic :
             A : 4  # mass number in units of proton mass
             Z : 2 # signed charge number in units of elementary charge
         markers :
-            type    : full_f # full_f, control_variate, or delta_f
+            Np      : null
+            type    : full_f 
             ppc     : 200 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
-            eps     : .7 # MPI send/receive buffer (0.1 <= eps <= 1.0)
-            bc : 
-                type    : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
-            loading :
-                type    : pseudo_random # particle loading mechanism
+            bufsize : .7 # MPI send/receive buffer
+            bc :    [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
+            loading : pseudo_random
+            loading_params :
                 seed    : null # seed for random number generator
                 moments : [2.5, 0., 0., 1., 1., 1.] # moments of Gaussian s3, see background/moms_spec
                 spatial : disc # uniform or disc
         background :
-            type : Maxwellian3D
             Maxwellian3D :
                 n : 0.05
                 u1 : 2.5
@@ -120,5 +124,9 @@ kinetic :
                     info: false
                     verbose: false
                     recycle: true
+                filter: {use_filter: null, modes: 1, repeat: 1, alpha: 0.5}
+                boundary_cut: {e1: 0.0, e2: 0.0, e3: 0.0}
+                turn_off: false
+
             PushEta: {algo: rk4}
             PushVxB: {algo: analytic}

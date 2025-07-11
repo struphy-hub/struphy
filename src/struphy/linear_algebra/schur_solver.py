@@ -1,10 +1,10 @@
-from psydac.linalg.basic import Vector, LinearOperator, IdentityOperator
-from psydac.linalg.block import BlockVector, BlockLinearOperator
+from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
+from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.solvers import inverse
 
 
 class SchurSolver:
-    '''Solves for :math:`x^{n+1}` in the block system
+    r"""Solves for :math:`x^{n+1}` in the block system
 
     .. math::
 
@@ -42,16 +42,11 @@ class SchurSolver:
     solver_name : str
         See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
-    **solver_params : 
+    **solver_params :
         Must correspond to the chosen solver.
-    '''
+    """
 
-    def __init__(self, 
-                 A: LinearOperator, 
-                 BC: LinearOperator,
-                 solver_name: str,
-                 **solver_params):
-
+    def __init__(self, A: LinearOperator, BC: LinearOperator, solver_name: str, **solver_params):
         assert isinstance(A, LinearOperator)
         assert isinstance(BC, LinearOperator)
 
@@ -69,8 +64,8 @@ class SchurSolver:
         # initialize solver with dummy matrix A
         self._solver_name = solver_name
 
-        if solver_params['pc'] is None:
-            solver_params.pop('pc')
+        if solver_params["pc"] is None:
+            solver_params.pop("pc")
 
         self._solver = inverse(A, solver_name, **solver_params)
 
@@ -79,30 +74,26 @@ class SchurSolver:
 
     @property
     def A(self):
-        """ Upper left block from [[A B], [C Id]].
-        """
+        """Upper left block from [[A B], [C Id]]."""
         return self._A
 
     @property
     def BC(self):
-        """ Product from [[A B], [C Id]].
-        """
+        """Product from [[A B], [C Id]]."""
         return self._BC
 
     @A.setter
     def A(self, a):
-        """ Upper left block from [[A B], [C Id]].
-        """
+        """Upper left block from [[A B], [C Id]]."""
         self._A = a
 
     @BC.setter
     def BC(self, bc):
-        """ Product from [[A B], [C Id]].
-        """
+        """Product from [[A B], [C Id]]."""
         self._BC = bc
 
     def __call__(self, xn, Byn, dt, out=None):
-        """ Solves the 2x2 block matrix linear system.
+        """Solves the 2x2 block matrix linear system.
 
         Parameters
         ----------
@@ -133,12 +124,12 @@ class SchurSolver:
         assert Byn.space == self._A.codomain
 
         # left- and right-hand side operators
-        self._schur *= 0.
+        self._schur *= 0.0
         self._schur += self._BC
-        self._schur *= (-dt**2)
+        self._schur *= -(dt**2)
         self._schur += self._A
 
-        self._rhs_m *= 0.
+        self._rhs_m *= 0.0
         self._rhs_m += self._BC
         self._rhs_m *= dt**2
         self._rhs_m += self._A
@@ -148,9 +139,9 @@ class SchurSolver:
 
         # right-hand side vector rhs = 2*dt*[ rhs_m/(2*dt) @ xn - Byn ] (in-place!)
         rhs = self._rhs_m.dot(xn, out=self._rhs)
-        rhs /= 2*dt
+        rhs /= 2 * dt
         rhs -= Byn
-        rhs *= 2*dt
+        rhs *= 2 * dt
 
         # solve linear system (in-place if out is not None)
         x = self._solver.dot(rhs, out=out)
@@ -159,7 +150,7 @@ class SchurSolver:
 
 
 class SchurSolverFull:
-    '''Solves the block system
+    r"""Solves the block system
 
     .. math::
 
@@ -192,20 +183,19 @@ class SchurSolverFull:
     solver_name : str
         See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
 
-    **solver_params : 
+    **solver_params :
         Must correspond to the chosen solver.
-    '''
+    """
 
     def __init__(self, M, solver_name, **solver_params):
-
         assert isinstance(M, BlockLinearOperator)
         assert M.domain == M.codomain  # solve square system
 
         # initialize solver with dummy matrix A
         self._solver_name = solver_name
 
-        if solver_params['pc'] is None:
-            solver_params.pop('pc')
+        if solver_params["pc"] is None:
+            solver_params.pop("pc")
 
         self._M = M
 
@@ -222,7 +212,7 @@ class SchurSolverFull:
         self._rhs = self._A.codomain.zeros()
 
     def dot(self, v, out=None):
-        """ Solves the 2x2 block matrix linear system.
+        """Solves the 2x2 block matrix linear system.
 
         Parameters
         ----------
@@ -262,5 +252,127 @@ class SchurSolverFull:
         y = self._C.dot(x, out=out[1])
         y *= -1
         y += by
+
+        return out
+
+
+class SchurSolverFull3:
+    r"""Solves the block system
+
+    .. math::
+
+        \left( \matrix{
+            A & B & D \cr
+            C & \\text{Id} & 0 \cr
+            E & 0 & \\text{Id} \cr
+        } \\right)
+        \left( \matrix{
+            x \cr y \cr z
+        } \\right)
+        =
+        \left( \matrix{
+            b_x \cr b_y \cr b_z
+        } \\right)
+
+    using the Schur complement :math:`S = A - BC - DE`, where Id is the identity matrix
+    and :math:`(b_x, b_y, b_z)^T` is given. The solution is given by
+
+    .. math::
+
+        x &= S^{-1} \, (b_x - B b_y - D b_z) \,,
+
+        y &= b_y - C x \,,
+
+        z &= b_z - E x \,.
+
+    Parameters
+    ----------
+    M : BlockLinearOperator
+        Matrix [[A B D], [C Id 0], [E 0 Id]].
+
+    solver_name : str
+        See [psydac.linalg.solvers](https://github.com/pyccel/psydac/blob/535717c6f5ea328aacbbbbcc2d582a92b31c9377/psydac/linalg/solvers.py#L47) for possible names.
+
+    **solver_params :
+        Must correspond to the chosen solver.
+    """
+
+    def __init__(self, M, solver_name, **solver_params):
+        assert isinstance(M, BlockLinearOperator)
+        assert M.domain == M.codomain  # solve square system
+
+        # initialize solver with dummy matrix A
+        self._solver_name = solver_name
+
+        if solver_params["pc"] is None:
+            solver_params.pop("pc")
+
+        self._M = M
+
+        self._A = M[0, 0]
+        self._B = M[0, 1]
+        self._C = M[1, 0]
+        self._D = M[0, 2]
+        self._E = M[2, 0]
+        NoneType = type(None)
+        assert isinstance(M[1, 1], IdentityOperator)
+        assert isinstance(M[2, 2], IdentityOperator)
+        assert isinstance(M[1, 2], NoneType)
+        assert isinstance(M[2, 1], NoneType)
+
+        self._S = self._A - self._B @ self._C - self._D @ self._E
+
+        self._solver = inverse(self._S, solver_name, **solver_params)
+
+        # right-hand side vector (avoids temporary memory allocation!)
+        self._rhs = self._A.codomain.zeros()
+        self._rhs2 = self._A.codomain.zeros()
+
+    def dot(self, v, out=None):
+        """Solves the 3x3 block matrix linear system.
+
+        Parameters
+        ----------
+        v : psydac.linalg.basic.Vector
+            Left hand side of the system.
+
+        out : psydac.linalg.basic.Vector, optional
+            If given, the converged solution will be written into this vector (in-place).
+
+        Returns
+        -------
+        out : psydac.linalg.block.BLockVector
+            Converged solution.
+
+        info : dict
+            Convergence information.
+        """
+
+        assert isinstance(v, BlockVector)
+        assert v.space == self._M.domain
+
+        if out is None:
+            out = self._M.codomain.zeros()
+        else:
+            assert out.space == self._M.codomain
+
+        bx = v[0]
+        by = v[1]
+        bz = v[2]
+
+        # right-hand side vector rhs bx - B by
+        rhs = self._B.dot(by, out=self._rhs)
+        rhs *= -1
+        rhs -= self._D.dot(bz, out=self._rhs2)
+        rhs += bx
+
+        # solve linear system (in-place if out is not None)
+        x = self._solver.dot(rhs, out=out[0])
+        y = self._C.dot(x, out=out[1])
+        y *= -1
+        y += by
+        z = self._E.dot(x, out=out[2])
+        z *= -1
+        z += bz
 
         return out

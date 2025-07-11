@@ -1,6 +1,12 @@
-def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbose, dependencies, yes):
-    """
-    Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
+import sys
+
+from struphy.console.run import subp_run
+
+
+def struphy_compile(
+    language, compiler, compiler_config, omp_pic, omp_feec, delete, status, verbose, dependencies, time_execution, yes
+):
+    """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
     Parameters
     ----------
@@ -8,8 +14,11 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
         Either "c" (default) or "fortran".
 
     compiler : str
-        Either "GNU" (default), "intel", "PGI", "nvidia" or the path to a JSON compiler file.
+        Either "GNU" (default), "intel", "PGI", "nvidia", or "LLVM"
         Only "GNU" is regularly tested at the moment.
+
+    compiler_config : str
+        Path to a JSON compiler file.
 
     omp_pic : bool
         Whether to compile PIC kernels with OpenMP (default=False).
@@ -29,245 +38,308 @@ def struphy_compile(language, compiler, omp_pic, omp_feec, delete, status, verbo
     dependencies : bool
         Whether to print Struphy kernels (to be compiled) and their dependencies on screen.
 
+    time_execution: bool
+        Prints the time spent in each section of the pyccelization (default=False).
+
     yes : bool
         Whether to say yes to prompt when changing the language.
     """
 
-    import subprocess
-    import struphy
+    import importlib.metadata
+    import importlib.util
     import os
-    import pyccel
-    import yaml
+    import re
     import sysconfig
+
+    import pyccel
+
+    import struphy
     import struphy.dependencies as depmod
+    import struphy.utils.utils as utils
 
     libpath = struphy.__path__[0]
 
-    so_suffix = sysconfig.get_config_var('EXT_SUFFIX')
+    so_suffix = sysconfig.get_config_var("EXT_SUFFIX")
 
-    if any([s == ' ' for s in libpath]):
+    if any([s == " " for s in libpath]):
         raise NameError(
-            f'Stuphy installation path MUST NOT contain blank spaces. Please rename "{libpath}".')
+            f'Stuphy installation path MUST NOT contain blank spaces. Please rename "{libpath}".',
+        )
 
-    # struphy state
-    with open(os.path.join(libpath, 'state.yml')) as f:
-        state = yaml.load(f, Loader=yaml.FullLoader)
+    # Read struphy state file
+    state = utils.read_state()
 
     # collect kernels
-    if 'kernels' not in state:
-        state['kernels'] = []
+    if "kernels" not in state:
+        state["kernels"] = []
         for subdir, dirs, files in os.walk(libpath):
             for file in files:
-                if 'kernels' in file and '.py' in file and '_tmp.py' not in file and 'test' not in file and 'legacy' not in subdir and '__pycache__' not in subdir:
-                    state['kernels'] += [os.path.join(subdir, file)]
+                if (
+                    "kernels" in file
+                    and ".py" in file
+                    and "_tmp.py" not in file
+                    and "test" not in file
+                    and "legacy" not in subdir
+                    and "__pycache__" not in subdir
+                ):
+                    state["kernels"] += [os.path.join(subdir, file)]
 
         # set initial compiler infos to None
-        state['last_used_language'] = None
-        state['last_used_compiler'] = None
-        state['last_used_omp_pic'] = None
-        state['last_used_omp_feec'] = None
+        state["last_used_language"] = None
+        state["last_used_compiler"] = None
+        state["last_used_omp_pic"] = None
+        state["last_used_omp_feec"] = None
 
-        with open(os.path.join(libpath, 'state.yml'), 'w') as f:
-            yaml.dump(state, f)
-
+        utils.save_state(state)
     # source files
-    sources = ' '.join(state['kernels'])
+    sources = " ".join(state["kernels"])
 
     # actions
     if delete:
-
         # (change dir not to be in source path)
-        print('\nDeleting .f90/.c and .so files ...')
-        subprocess.run(['make',
-                        'clean',
-                        '-f',
-                        'compile_struphy.mk',
-                        'sources=' + sources,
-                        ], check=True, cwd=libpath)
-        print('Done.')
+        print("\nDeleting .f90/.c and .so files ...")
+        cmd = [
+            "make",
+            "clean",
+            "-f",
+            "compile_struphy.mk",
+            "sources=" + sources,
+        ]
+        subp_run(cmd)
+        print("Done.")
 
-        subprocess.run(['struphy',
-                       'compile',
-                        '--status',
-                        ], check=True, cwd=libpath)
+        print("\nDeleting psydac kernels ...")
+        cmd = [
+            "psydac-accelerate",
+            "--cleanup",
+        ]
+        subp_run(cmd)
+        print("Done.")
 
-        print('\nDeleting state.yml ...')
-        os.remove(os.path.join(libpath, 'state.yml'))
-        print('Done.')
+        print("\nDeleting state.yml ...")
+        os.remove(os.path.join(libpath, "state.yml"))
+        print("Done.")
 
     elif status:
-
         # update status
         count_c = 0
         count_f90 = 0
-        list_not_compiled = [s for s in state['kernels']]
-        for subdir, dirs, files in os.walk(libpath):
+        list_not_compiled = [s for s in state["kernels"]]
+        for subdir, _, files in os.walk(libpath):
             # print(f'{subdir = }')
-            if subdir[-10:] == '__pyccel__' and '__epyccel__' not in subdir:
-                dir_stem = '/'.join(subdir.split('/')[:-1])
+            if subdir[-10:] == "__pyccel__" and "__epyccel__" not in subdir:
+                dir_stem = "/".join(subdir.split("/")[:-1])
                 # print(f'{dir_stem = }')
                 for file in files:
-                    if file[-2:] == '.c' and 'wrapper' not in file and 'bind_c_' not in file:
+                    if file[-2:] == ".c" and "wrapper" not in file and "bind_c_" not in file:
                         stem = file[:-2]
                         is_c = True
-                    elif file[-4:] == '.f90' and 'wrapper' not in file and 'bind_c_' not in file:
+                    elif file[-4:] == ".f90" and "wrapper" not in file and "bind_c_" not in file:
                         stem = file[:-4]
                         is_c = False
                     else:
                         continue
 
-                    py_file = stem + '.py'
-                    matches = [ker for ker in state['kernels']
-                               if py_file in ker and dir_stem in ker]
+                    py_file = stem + ".py"
+                    matches = [ker for ker in state["kernels"] if py_file in ker and dir_stem in ker]
                     # print(f'{matches = }')
+                    matching = None
                     for match in matches:
-                        py_ker = match.split('/')[-1]
+                        py_ker = match.split("/")[-1]
                         if py_ker == py_file:
                             matching = match
-                    matching_so = matching.replace('.py', so_suffix)
+                    matching_so = matching.replace(".py", so_suffix)
                     # print(f'{matching_so = }')
                     if os.path.isfile(matching_so):
-                        if is_c and state['last_used_language'] == 'c':
+                        if is_c and state["last_used_language"] == "c":
                             count_c += 1
-                        elif not is_c and state['last_used_language'] == 'fortran':
+                        elif not is_c and state["last_used_language"] == "fortran":
                             count_f90 += 1
                         if matching in list_not_compiled:
                             list_not_compiled.remove(matching)
 
-        n_kernels = len(state['kernels'])
-        print('')
-        print(f'{count_c} of {n_kernels} Struphy kernels are compiled with language C.')
+        n_kernels = len(state["kernels"])
+        print("")
+        print(f"{count_c} of {n_kernels} Struphy kernels are compiled with language C.")
         print(
-            f'{count_f90} of {n_kernels} Struphy kernels are compiled with language Fortran.')
-        print(f'{n_kernels - count_c - count_f90} of {n_kernels} Struphy kernels are not compiled (pure Python).')
+            f"{count_f90} of {n_kernels} Struphy kernels are compiled with language Fortran.",
+        )
+        print(f"{n_kernels - count_c - count_f90} of {n_kernels} Struphy kernels are not compiled (pure Python).")
         print(
-            f'\ncompiler={state["last_used_compiler"]}\nflags_omp_pic={state["last_used_omp_pic"]}\nflags_omp_feec={state["last_used_omp_feec"]}')
+            f"\ncompiler={state['last_used_compiler']}\nflags_omp_pic={state['last_used_omp_pic']}\nflags_omp_feec={state['last_used_omp_feec']}",
+        )
         if len(list_not_compiled) > 0:
-            print('\nPure Python kernels (not compiled) are:')
+            print("\nPure Python kernels (not compiled) are:")
             for ker in list_not_compiled:
                 print(ker)
 
-        state['kernels_n'] = n_kernels
-        state['compiled_in_c'] = count_c
-        state['compiled_in_fortran'] = count_f90
-        state['compiled_not_n'] = n_kernels - count_c - count_f90
-        state['compiled_not'] = list_not_compiled
+        state["kernels_n"] = n_kernels
+        state["compiled_in_c"] = count_c
+        state["compiled_in_fortran"] = count_f90
+        state["compiled_not_n"] = n_kernels - count_c - count_f90
+        state["compiled_not"] = list_not_compiled
 
-        with open(os.path.join(libpath, 'state.yml'), 'w') as f:
-            yaml.dump(state, f)
+        utils.save_state(state)
 
     elif dependencies:
-        print('\nAuto-detect dependencies ...')
-        for ker in state['kernels']:
-            deps = depmod.get_dependencies(ker.replace('.py', so_suffix))
-            deps_li = deps.split(' ')
-            print('-'*28)
-            print(f'{ker = }')
+        print("\nAuto-detect dependencies ...")
+        for ker in state["kernels"]:
+            deps = depmod.get_dependencies(ker.replace(".py", so_suffix))
+            deps_li = deps.split(" ")
+            print("-" * 28)
+            print(f"{ker = }")
             for dep in deps_li:
-                print(f'{dep = }')
+                print(f"{dep = }")
 
     else:
-
         # struphy and psydac (change dir not to be in source path)
-        flag_omp_pic = ''
-        flag_omp_feec = ''
+        flag_omp_pic = ""
+        flag_omp_feec = ""
         if omp_pic:
-            flag_omp_pic = '--openmp'
+            flag_omp_pic = " --openmp"
         if omp_feec:
-            flag_omp_feec = '--openmp'
+            flag_omp_feec = " --openmp"
 
         # pyccel flags
-        flags = '--language=' + language
-        flags += ' --compiler=' + compiler
+        flags = "--language=" + language
+
+        if compiler_config:
+            flags += " --compiler-config=" + compiler_config
+        else:
+            flags += " --compiler-family=" + compiler
+
+        if time_execution:
+            flags += " --time-execution"
 
         # state
-        if state['last_used_language'] not in (language, None):
+        if state["last_used_language"] not in (language, None):
             if yes:
-                yesno = 'Y'
+                yesno = "Y"
             else:
                 yesno = input(
-                    f'Kernels compiled in language {state["last_used_language"]} exist, will be deleted, continue (Y/n)?')
+                    f"Kernels compiled in language {state['last_used_language']} exist, will be deleted, continue (Y/n)?",
+                )
 
-            if yesno in ('', 'Y', 'y', 'yes'):
-                subprocess.run(['struphy',
-                                'compile',
-                                '--delete',], check=True, cwd=libpath)
+            if yesno in ("", "Y", "y", "yes"):
+                cmd = [
+                    "struphy",
+                    "compile",
+                    "--delete",
+                ]
+                subp_run(cmd)
             else:
                 return
 
-        state['last_used_language'] = language
-        state['last_used_compiler'] = compiler
-        state['last_used_omp_pic'] = flag_omp_pic
-        state['last_used_omp_feec'] = flag_omp_feec
+        state["last_used_language"] = language
+        state["last_used_compiler"] = compiler
+        state["last_used_omp_pic"] = flag_omp_pic
+        state["last_used_omp_feec"] = flag_omp_feec
 
-        with open(os.path.join(libpath, 'state.yml'), 'w') as f:
-            yaml.dump(state, f)
-
-        _li = pyccel.__version__.split('.')
-        _num = int(_li[0])*100 + int(_li[1])*10 + int(_li[2])
-        if _num >= 180:
-            flags += ' --conda-warnings=off'
-
-        if verbose:
-            flags += ' --verbose'
+        utils.save_state(state)
 
         # install psydac from wheel if not there
-        current_ver = '0.1.13'
-        psydac_file = 'psydac-' + current_ver + '-py3-none-any.whl'
+        source_install = False
+        for req in importlib.metadata.distribution("struphy").requires:
+            if "psydac" in req:
+                source_install = True
+
+        struphy_ver = importlib.metadata.version("struphy")
 
         try:
             import psydac
-            import importlib.metadata
 
-            your_ver = importlib.metadata.version("psydac")
-
-            if current_ver != your_ver:
-                print(
-                    f'You have psydac version {your_ver}, but version {current_ver} is available.\n')
-                subprocess.run(['pip',
-                                'uninstall',
-                                '-y',
-                                'psydac'])
-                print('\nInstalling Psydac ...')
-                subprocess.run(['pip',
-                                'install',
-                                os.path.join(
-                                    libpath, psydac_file),
-                                ], check=True)
-                print('Done.')
-
+            psydac_ver = importlib.metadata.version("psydac")
+            psydac_installed = True
         except:
-            print('\nInstalling Psydac ...')
-            subprocess.run(['pip',
-                            'install',
-                            os.path.join(
-                                libpath, psydac_file),
-                            ], check=True)
-            print('Done.')
+            psydac_installed = False
+
+        if source_install:
+            if psydac_installed:
+                # only install (from .whl) if psydac not up-to-date
+                if psydac_ver < struphy_ver:
+                    print(
+                        f"You have psydac version {psydac_ver}, but version {struphy_ver} is available. Please re-install struphy (e.g. pip install .)\n"
+                    )
+                    sys.exit(1)
+            else:
+                print(f"Psydac is not installed. To install it, please re-install struphy (e.g. pip install .)\n")
+                sys.exit(1)
+
+        else:
+            install_psydac = False
+            if psydac_installed:
+                # only install (from .whl) if psydac not up-to-date
+                if ".".join(psydac_ver.split(".")[:3]) != ".".join(struphy_ver.split(".")[:3]):
+                    print(f"You have psydac version {psydac_ver}, but version {struphy_ver} is required.\n")
+                    install_psydac = True
+            else:
+                install_psydac = True
+
+            if install_psydac:
+                for filename in os.listdir(libpath):
+                    if re.match("psydac-", filename):
+                        psydac_file = filename
+
+                cmd = ["pip", "uninstall", "-y", "psydac"]
+                subp_run(cmd)
+                print("\nInstalling Psydac ...")
+                cmd = [
+                    "pip",
+                    "install",
+                    os.path.join(libpath, psydac_file),
+                ]
+                subp_run(cmd)
+                print("Done.")
+
+        # Compile psydac kernels, note that this is a special function call in psydac-for-struphy.
+        # Otherwise, psydac only allows for recompiling the kernels when installed in editable mode.
+
+        print("\nCompiling Psydac kernels ...")
+        cmd = [
+            "psydac-accelerate",
+            "--language=" + language,
+        ]
+        if compiler_config:
+            cmd += ["--compiler-config=" + compiler_config]
+        else:
+            cmd += ["--compiler-family=" + compiler]
+
+        subp_run(cmd)
+
+        # Compile struphy kernels
+        _li = pyccel.__version__.split(".")
+        _num = int(_li[0]) * 100 + int(_li[1]) * 10 + int(_li[2])
+        if _num >= 180:
+            flags += " --conda-warnings=off"
+
+        if verbose:
+            flags += " --verbose"
 
         # compilation
-        subprocess.run(['compile-gvec-tp',
-                        '--language=' + language,
-                        '--compiler=' + compiler], check=True, cwd=libpath)
+        print("\nCompiling Struphy kernels ...")
+        cmd = [
+            "make",
+            "-f",
+            "compile_struphy.mk",
+            "sources=" + sources,
+            "flags=" + flags,
+            "flags_openmp_pic=" + flag_omp_pic,
+            "flags_openmp_mhd=" + flag_omp_feec,
+        ]
+        subp_run(cmd)
+        print("Done.")
 
-        print('\nCompiling Struphy and Psydac kernels ...')
-        subprocess.run(['make',
-                        '-f',
-                        'compile_struphy.mk',
-                        'sources=' + sources,
-                        'flags=' + flags,
-                        'flags_openmp_pic=' + flag_omp_pic,
-                        'flags_openmp_mhd=' + flag_omp_feec,
-                        ], check=True, cwd=libpath)
-        print('Done.')
-
-        subprocess.run(['struphy',
-                       'compile',
-                        '--status',
-                        ], check=True, cwd=libpath)
+        cmd = [
+            "struphy",
+            "compile",
+            "--status",
+        ]
+        subp_run(cmd)
 
         # collect available models
-        print('')
-        subprocess.run(['struphy',
-                        '--refresh-models',
-                        ], check=True, cwd=libpath)
+        print("")
+        cmd = [
+            "struphy",
+            "--refresh-models",
+        ]
+        subp_run(cmd)

@@ -189,7 +189,7 @@ The connection of differential $p$-forms to the {ref}`Struphy de Rham spaces <ge
 * Elements of $H$(div) are proxy functions of $2$-forms
 * Elements of $L^2$ are proxy functions of $3$-forms.
 
-A proxy function is the representation of a differential form in a particular basis defined by a map $F$. This means nothing else than the above pullbacks have to be applied for the respective spaces. Note that there is no space for vector fields in the de Rham diagram, however [vector fields are implemented in Struphy](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.psydac_derham.Derham.create_field) as elements of $(H^1)^3$ with the correct vector field pullback.  
+A proxy function is the representation of a differential form in a particular basis defined by a map $F$. This means nothing else than the above pullbacks have to be applied for the respective spaces. Note that there is no space for vector fields in the de Rham diagram, however [vector fields are implemented in Struphy](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.psydac_derham.Derham.create_spline_function) as elements of $(H^1)^3$ with the correct vector field pullback.  
 
 The grad-, curl- and div-operators transform as follows:
 
@@ -302,7 +302,7 @@ $$
 \end{aligned}
 $$
 
-These are 3x3 block matrices (implemented as [BlockLinearOperators](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#FEEC-data-structures)), where the blocks are indexed by $(\mu, \nu)$. We remark that the weak equations must hold for any choice of $\mathbf f = (\mathbf f_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$ and $ \boldsymbol \psi \in \mathbb R^{N_0}$, respectively, which means that these can be factored out to lead to a system of equations. Besides, all basis functions are linearly independent such that the coefficients in the third and fifth equation must vanish separately. This leads to the much more compact notation
+These are 3x3 block matrices (implemented as [BlockLinearOperators](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#FEEC-data-structures)), where the blocks are indexed by $(\mu, \nu)$. We remark that the weak equations must hold for any choice of $\mathbf f = (\mathbf f_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$ and $ \boldsymbol \psi \in \mathbb R^{N_0}$, respectively, which means that these can be factored out to lead to a system of equations. Besides, all basis functions are linearly independent such that the coefficients in the third and fifth equation must vanish separately. This leads to the much more compact notation
 
 $$
 \begin{align}
@@ -337,37 +337,8 @@ $$
 \end{align}
 $$
 
-Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particel index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py?ref_type=heads) (or [pusher_kernels_gc](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels_gc.py?ref_type=heads) for guiding center models) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel (see our [Tl:dr](https://struphy.pages.mpcdf.de/struphy/sections/abstract.html)) to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://struphy.pages.mpcdf.de/struphy/sections/subsections/pic_base.html#pusher-modules) that provides some syntactic sugar for calling the kernels. 
-
-In a **pusher kernel** there are usually one of two tasks to perform, sometimes even both:
-
-1. evaluation of metric coeffcients at the particle position $\boldsymbol \eta_p$,
-2. evaluation of FEEC spline fields at the particle position $\boldsymbol \eta_p$.
-
-Let us take the kernel [push_v_with_efield](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py#L72)), which is needed in our model example. By the way, this brings us to a next good pratice in Struphy:
-
-**Before implementing a kernel, check [the documentation](https://struphy.pages.mpcdf.de/struphy/sections/pic_classes.html#particle-modules) if this kernel or a similar one already exists. You might be able to take existing kernels as templates for your own.**
-
-Within a kernel the metric coefficients are available through the following module, imported at the top of [pusher_kernels.py](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py?ref_type=heads) and [pusher_kernels_gc](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels_gc.py?ref_type=heads):
-
-    import struphy.geometry.evaluation_kernels as evaluation_kernels
-
-which [provides callables to all things mapping](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/geometry/evaluation_kernels.py?ref_type=heads). Linear algebra operations are available through the module:
-
-    import struphy.linear_algebra.linalg_kernels as linalg_kernels
-
-which provides [products, transpose, inverse, etc.](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/linear_algebra/linalg_kernels.py?ref_type=heads). 
-
-The evaluation of FEEC spline fields is managed through the following functions:
-
-    get_spans
-    eval_0form_spline_mpi
-    eval_1form_spline_mpi
-    eval_2form_spline_mpi
-    eval_3form_spline_mpi
-    eval_vectorfield_spline_mpi
-
-Given a spline space of degree $d$, at each particle position $\boldsymbol \eta_p$ there are $d+1$ non-zero B-spline basis functions. The $d+1$ indices of these basis functions are given by $[s(\boldsymbol \eta_p)-d, \ldots, s(\boldsymbol \eta_p)]$, where $s(\boldsymbol \eta_p) \in \mathbb N$ is the so-called **knot span index** at position $\boldsymbol \eta_p$. See [here](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py?ref_type=heads#L85) for an example of evaluating a 1-form within a particle kernel.
+Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particle index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py?ref_type=heads) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel (see our [Tl:dr](https://struphy.pages.mpcdf.de/struphy/sections/abstract.html)) to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://struphy.pages.mpcdf.de/struphy/sections/subsections/pic_base.html#pusher-modules) that provides some syntactic sugar for calling the kernels. 
+See {ref}`prop_kernels` for more details.
 
 Now that we know how to discretize the kinetic equation by means of a Lagrangian particle method, it remains to tackle the right-hand sides of Ampère's law and of Poisson's equation in {eq}`eq:compact`. In the latter, there is the source term
 
@@ -387,7 +358,7 @@ $$
  \end{aligned}
 $$
 
-where we inserted the PIC ansatz {eq}`eq:pic` in the last line. The result is a vector $\mathbf S = (S_{ijk}) \in \mathbb R^{N_0}$, that can be stored as a distributed [StencilVector](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#FEEC-data-structures) of the space $V_h^0$. We can write this in more compact notation by introducing the rectangular matrix
+where we inserted the PIC ansatz {eq}`eq:pic` in the last line. The result is a vector $\mathbf S = (S_{ijk}) \in \mathbb R^{N_0}$, that can be stored as a distributed [StencilVector](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#FEEC-data-structures) of the space $V_h^0$. We can write this in more compact notation by introducing the rectangular matrix
 
 $$
  \mathbb L^0 \in \mathbb R^{N_0 \times N}\,,\qquad \mathbb L^0_{ijk,p} = \Lambda^0_{ijk}(\boldsymbol \eta_p) \in \mathbb R\,,
@@ -425,7 +396,7 @@ $$
 \end{aligned}
 $$
 
-where we inserted the PIC ansatz {eq}`eq:pic` in the last line. Here, it is important to realize that $\vec \Lambda^1_{\mu, ijk} \in \mathbb R^3$ is vector-valued, as defined in {ref}`geomFE`, and contracted with $DF^{-1}(\boldsymbol \eta_p) \, \mathbf v_p \in \mathbb R^3$ for each $\mu \in \{1, 2, 3\}$. The result of this is a vector $\mathbf S = (S^1_{ijk}, S^2_{ijk}, S^3_{ijk}) \in \mathbb R^{N_1}$, that can be stored as a distributed [BlockVector](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#FEEC-data-structures) of the space $V_h^1$.
+where we inserted the PIC ansatz {eq}`eq:pic` in the last line. Here, it is important to realize that $\vec \Lambda^1_{\mu, ijk} \in \mathbb R^3$ is vector-valued, as defined in {ref}`geomFE`, and contracted with $DF^{-1}(\boldsymbol \eta_p) \, \mathbf v_p \in \mathbb R^3$ for each $\mu \in \{1, 2, 3\}$. The result of this is a vector $\mathbf S = (S^1_{ijk}, S^2_{ijk}, S^3_{ijk}) \in \mathbb R^{N_1}$, that can be stored as a distributed [BlockVector](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#FEEC-data-structures) of the space $V_h^1$.
  We can write this in more compact notation by introducing the matrix
 
 $$

@@ -3,13 +3,17 @@
 Quickstart
 ==========
 
+Get familiar with Struphy objects using the notebook :ref:`tutorials`.
+What follows is an introduction to the CLI (command line interface) of Struphy.
+For a more in-depth manual please go to :ref:`userguide`.
+
 Get help on Struphy console commands::
 
     struphy -h
 
 Check if kernels are compiled::
 
-    struphy compile --status
+    struphy compile
 
 Check the current I/O paths::
 
@@ -24,9 +28,9 @@ Get a list of available Struphy models::
 
     struphy run -h
 
-Let us run the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`::
+Let us generate default parameters for the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`::
 
-    struphy run VlasovMaxwellOneSpecies
+    struphy params VlasovMaxwellOneSpecies
 
 After hitting ``enter`` on prompt, the parameter file ``params_VlasovMaxwellOneSpecies.yml`` is created
 in the current input path (cwd). Let us rename it for convenience::
@@ -43,7 +47,7 @@ The produced data is in the expected folder in the current output path (cwd)::
 
 Let us post-process the raw simulation data::
 
-    struphy pproc -d my_first_sim
+    struphy pproc my_first_sim
 
 The results of post-processing are stored under ``my_first_sim/post_processing/``. In particular, 
 the data of the FEEC-fields is stored under::
@@ -54,8 +58,8 @@ and the data of the kinetic particles is stored under::
 
     ls my_first_sim/post_processing/kinetic_data/
 
-Check out :ref:`Tutorial 2 - Data, post processing and standard plots <tutorials>`
-for a deeper discussion on Struphy data.
+Check out Tutorial 08 in :ref:`tutorials`
+for a deeper discussion on Struphy data and post processing.
 
 Our first simulation ran for just three time steps. Let us change the end-time of the simulation by opening the parameter file::
 
@@ -70,11 +74,9 @@ This time we ran for 20 time steps. The physical time unit of the run can be kno
 
     struphy units VlasovMaxwellOneSpecies -i test.yml
 
-Please refer to :ref:`Tutorial 1 - Run Struphy main file in a notebook <tutorials>` 
-for more information on the units used in Struphy.
 For completeness, let us post-process the data of the second run::
 
-    struphy pproc -d another_sim
+    struphy pproc another_sim
 
 Let us now double the number of markers used in the simulation:: 
 
