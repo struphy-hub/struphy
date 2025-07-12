@@ -23,12 +23,14 @@ from numpy import copy, empty, shape, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
+
 # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments
 
 #################################
 ### Single process evaluation ###
 #################################
+
 
 def evaluation_kernel_3d(
     p1: int,

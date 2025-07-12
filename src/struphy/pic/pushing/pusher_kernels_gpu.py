@@ -1,9 +1,8 @@
 # "Pusher kernels for full orbit (6D) particles."
 # from pyccel.stdlib.internal.openmp import omp_set_num_threads, omp_get_num_threads, omp_get_thread_num
-from numpy import arcsin, arctan, cos, pi, sin, sqrt, tan
-from numpy import abs, exp
-from numpy import copy, empty, floor, log, shape, zeros
+from numpy import abs, arcsin, arctan, copy, cos, empty, exp, floor, log, pi, shape, sin, sqrt, tan, zeros
 from pyccel.decorators import inline, pure, stack_array
+
 
 class MarkerArguments:
     """Holds arguments pertaining to :class:`~struphy.pic.base.Particles`
@@ -162,6 +161,7 @@ class DomainArguments:
         self.cy = copy(cy)
         self.cz = copy(cz)
 
+
 # import struphy.bsplines.bsplines_kernels as bsplines_kernels
 # import struphy.geometry.evaluation_kernels as evaluation_kernels
 # import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
@@ -192,6 +192,7 @@ class DomainArguments:
 
 # # from struphy.linear_algebra.linalg_kernels import matrix_inv, matrix_vector
 # # from struphy.geometry.evaluation_kernels import df
+
 
 def matmul_cpu(A: "float[:,:]", B: "float[:,:]", C: "float[:,:]"):
     N: int = shape(A)[0]
@@ -577,18 +578,18 @@ def push_v_sph_pressure_gpu(
     valid_mks = args_markers.valid_mks
 
     # Get domain args
-    args_domain_kind_map    = args_domain.kind_map
-    args_domain_params      = args_domain.params
-    args_domain_p           = args_domain.p
-    args_domain_t1          = args_domain.t1
-    args_domain_t2          = args_domain.t2
-    args_domain_t3          = args_domain.t3
-    args_domain_ind1        = args_domain.ind1
-    args_domain_ind2        = args_domain.ind2
-    args_domain_ind3        = args_domain.ind3
-    args_domain_cx          = args_domain.cx
-    args_domain_cy          = args_domain.cy
-    args_domain_cz          = args_domain.cz
+    args_domain_kind_map = args_domain.kind_map
+    args_domain_params = args_domain.params
+    args_domain_p = args_domain.p
+    args_domain_t1 = args_domain.t1
+    args_domain_t2 = args_domain.t2
+    args_domain_t3 = args_domain.t3
+    args_domain_ind1 = args_domain.ind1
+    args_domain_ind2 = args_domain.ind2
+    args_domain_ind3 = args_domain.ind3
+    args_domain_cx = args_domain.cx
+    args_domain_cy = args_domain.cy
+    args_domain_cz = args_domain.cz
 
     # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
     # -- removed omp: #$ omp for
@@ -799,14 +800,14 @@ def push_v_sph_pressure_gpu(
             # args domain start
             args_domain_kind_map,
             args_domain_params,
-            args_domain_p, 
+            args_domain_p,
             args_domain_t1,
             args_domain_t2,
             args_domain_t3,
             args_domain_ind1,
             args_domain_ind2,
             args_domain_ind3,
-            args_domain_cx,      
+            args_domain_cx,
             args_domain_cy,
             args_domain_cz,
             # args domain end
@@ -823,14 +824,14 @@ def push_v_sph_pressure_gpu(
             # args domain start
             args_domain_kind_map,
             args_domain_params,
-            args_domain_p, 
+            args_domain_p,
             args_domain_t1,
             args_domain_t2,
             args_domain_t3,
             args_domain_ind1,
             args_domain_ind2,
             args_domain_ind3,
-            args_domain_cx,      
+            args_domain_cx,
             args_domain_cy,
             args_domain_cz,
             # args domain end
@@ -856,6 +857,7 @@ def push_v_sph_pressure_gpu(
         markers[ip, 3:6] -= dt * grad_u_cart
 
     # -- removed omp: #$ omp end parallel
+
 
 # @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
 def sph_isotherm_pressure_coeffs_gpu(
@@ -957,24 +959,19 @@ def sph_isotherm_pressure_coeffs_gpu(
         markers[ip, column_nr + 1] = weight / n_at_eta
 
 
-def compute_sorting_etas(
-        markers: "float[:,:]",
-        bi: int,
-        vdim : int,
-        alpha: "float[:]",
-        sorting_etas: "float[:,:]"
-        ):
+def compute_sorting_etas(markers: "float[:,:]", bi: int, vdim: int, alpha: "float[:]", sorting_etas: "float[:,:]"):
     n_markers = markers.shape[0]
 
     #$ omp target teams distribute parallel for
     for i in range(n_markers):
         for d in range(3):
-            pos   = markers[i, d]
+            pos = markers[i, d]
             shift = markers[i, bi + 3 + vdim + d]
-            ppos  = markers[i, bi + d]
+            ppos = markers[i, bi + d]
 
             val = alpha[d] * (pos + shift) + (1.0 - alpha[d]) * ppos
             sorting_etas[i, d] = val - floor(val)  # mod(val, 1.0)
+
 
 @inline
 def df_inv_inline(
@@ -984,7 +981,7 @@ def df_inv_inline(
     # args: "DomainArguments",
     args_domain_kind_map: int,
     args_domain_params: "float[:]",
-    args_domain_p: "int[:]", 
+    args_domain_p: "int[:]",
     args_domain_t1: "float[:]",
     args_domain_t2: "float[:]",
     args_domain_t3: "float[:]",
@@ -1026,21 +1023,21 @@ def df_inv_inline(
         # args domain start
         args_domain_kind_map,
         args_domain_params,
-        args_domain_p, 
+        args_domain_p,
         args_domain_t1,
         args_domain_t2,
         args_domain_t3,
         args_domain_ind1,
         args_domain_ind2,
         args_domain_ind3,
-        args_domain_cx,      
+        args_domain_cx,
         args_domain_cy,
         args_domain_cz,
         # args domain end
         tmp1,
     )
     matrix_inv_inline(tmp1, dfinv_out)
-    
+
     # TODO: Use args_kind_map here
     # set known (analytical) zero components manually to zero to avoid round-off error remainders!
     # if avoid_round_off:
@@ -1098,6 +1095,7 @@ def df_inv_inline(
     #         dfinv_out[2, 0] = 0.0
     #         dfinv_out[2, 1] = 0.0
 
+
 @inline
 def df_inline(
     eta1: float,
@@ -1106,7 +1104,7 @@ def df_inline(
     # args: "DomainArguments",
     args_domain_kind_map: int,
     args_domain_params: "float[:]",
-    args_domain_p: "int[:]", 
+    args_domain_p: "int[:]",
     args_domain_t1: "float[:]",
     args_domain_t2: "float[:]",
     args_domain_t3: "float[:]",
@@ -1132,7 +1130,7 @@ def df_inline(
         Output array of shape (3, 3).
     """
     # Let's assume it's 10
-    
+
     if args_domain_kind_map == 10:
         cuboid_df(
             args_domain_params[0],
@@ -1143,7 +1141,6 @@ def df_inline(
             args_domain_params[5],
             df_out,
         )
-    
 
 
 @inline
@@ -1229,16 +1226,19 @@ def boxed_based_kernel_inline(
                 r1 = distance_inline(eta1, markers[p, 0], periodic1)
                 r2 = distance_inline(eta2, markers[p, 1], periodic2)
                 r3 = distance_inline(eta3, markers[p, 2], periodic3)
-                _tmp = smoothing_kernel_inline(kernel_type,r1,r2,r3,h1, h2, h3, s1, s2, s3)
+                _tmp = smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3, s1, s2, s3)
                 out = out + markers[p, index] * _tmp
                 # out += markers[p, index] * smoothing_kernel_inline(kernel_type, r1, r2, r3, h1, h2, h3)
                 pass
     return out / Np
 
+
 @inline
 def distance_inline(
-        x: "float", y: "float", periodic: "bool",
-        ) -> float:
+    x: "float",
+    y: "float",
+    periodic: "bool",
+) -> float:
     """Return the one dimensional distance of x and y taking in account the periodicity on [0,1]."""
     d = x - y
     if periodic:
@@ -1249,6 +1249,7 @@ def distance_inline(
             while d < -0.5:
                 d = d + 1.0
     return d
+
 
 @inline
 def transpose_inline(a: "float[:,:]", b: "float[:,:]"):
@@ -1448,7 +1449,7 @@ def df_pusher_inline_nodomainargs(
 
 
 @inline
-def find_span_inline(t: "float[:]", p: "int", eta: "float"): #, returnVal: "int"):
+def find_span_inline(t: "float[:]", p: "int", eta: "float"):  # , returnVal: "int"):
     """
     Computes the knot span index i for which the B-splines i-p until i are non-vanishing at point eta.
 
@@ -1529,26 +1530,23 @@ def b_d_splines_slim_inline(tn: "float[:]", pn: "int", eta: "float", span: "int"
     bd[:] = 0.0
 
     # Initialize variables left and right used for computing the value
-    left = zeros(10, dtype=float) # This should be zeros(pn, dtype=float)
+    left = zeros(10, dtype=float)  # This should be zeros(pn, dtype=float)
     right = zeros(10, dtype=float)
 
-    bn[0] = 1.
+    bn[0] = 1.0
 
     for j in range(pn):
         left[j] = eta - tn[span - j]
         right[j] = tn[span + 1 + j] - eta
-        saved = 0.
+        saved = 0.0
 
-        if j == pn-1:
+        if j == pn - 1:
             # compute D-splines values by scaling B-splines of degree pn-1
             for il in range(pd + 1):
-                bd[pd - il] = pn/(
-                    tn[span - il + pn] -
-                    tn[span - il]
-                ) * bn[pd - il]
+                bd[pd - il] = pn / (tn[span - il + pn] - tn[span - il]) * bn[pd - il]
 
         for r in range(j + 1):
-            temp = bn[r]/(right[r] + left[j - r])
+            temp = bn[r] / (right[r] + left[j - r])
             bn[r] = saved + right[r] * temp
             saved = left[j - r] * temp
 
@@ -1594,31 +1592,31 @@ def eval_2form_spline_mpi_inline(
     )
 
     out[1] = eval_spline_mpi_kernel_inline(
-       args_derham_pn[0] - 1,
-       args_derham_pn[1],
-       args_derham_pn[2] - 1,
-       args_derham_bd1,
-       args_derham_bn2,
-       args_derham_bd3,
-       span1,
-       span2,
-       span3,
-       form_coeffs_2,
-       args_derham_starts,
+        args_derham_pn[0] - 1,
+        args_derham_pn[1],
+        args_derham_pn[2] - 1,
+        args_derham_bd1,
+        args_derham_bn2,
+        args_derham_bd3,
+        span1,
+        span2,
+        span3,
+        form_coeffs_2,
+        args_derham_starts,
     )
 
     out[2] = eval_spline_mpi_kernel_inline(
-       args_derham_pn[0] - 1,
-       args_derham_pn[1] - 1,
-       args_derham_pn[2],
-       args_derham_bd1,
-       args_derham_bd2,
-       args_derham_bn3,
-       span1,
-       span2,
-       span3,
-       form_coeffs_3,
-       args_derham_starts,
+        args_derham_pn[0] - 1,
+        args_derham_pn[1] - 1,
+        args_derham_pn[2],
+        args_derham_bd1,
+        args_derham_bd2,
+        args_derham_bn3,
+        span1,
+        span2,
+        span3,
+        form_coeffs_3,
+        args_derham_starts,
     )
 
 
@@ -1676,8 +1674,6 @@ def eval_spline_mpi_kernel_inline(
     return spline_value
 
 
-
-
 ###########################################
 # Uni-variate kernels for tensor products #
 ###########################################
@@ -1687,12 +1683,13 @@ def trigonometric_uni(
     h: "float",
 ) -> float:
     """Uni-variate kernel S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
-    
+
     if abs(x / h) <= 1.0:
         out = 0.785398163397448 / h * cos(x / h * pi / 2.0)
     else:
         out = 0.0
     return out
+
 
 @inline
 def grad_trigonometric_uni(
@@ -1707,6 +1704,7 @@ def grad_trigonometric_uni(
         out = 0.0
     return out
 
+
 @inline
 def gaussian_uni(
     x: "float",
@@ -1714,10 +1712,11 @@ def gaussian_uni(
 ) -> float:
     """Uni-variate S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     if abs(x / h) <= 1.0:
-        out =  1 / (sqrt(pi) * h / 3) * exp(-(x**2) / (h / 3) ** 2)
+        out = 1 / (sqrt(pi) * h / 3) * exp(-(x**2) / (h / 3) ** 2)
     else:
         out = 0.0
     return out
+
 
 @inline
 def gaussian_uni_noreturn(
@@ -1727,10 +1726,9 @@ def gaussian_uni_noreturn(
 ) -> float:
     """Uni-variate S(x, h) = 1/(sqrt(pi)*h/3) * exp(-(x**2/(h/3)**2) if |x|<1, 0 else."""
     if abs(x / h) <= 1.0:
-        out =  1 / (sqrt(pi) * h / 3) * exp(-(x**2) / (h / 3) ** 2)
+        out = 1 / (sqrt(pi) * h / 3) * exp(-(x**2) / (h / 3) ** 2)
     else:
         out = 0.0
-
 
 
 @inline
@@ -1745,6 +1743,7 @@ def grad_gaussian_uni(
         out = 0.0
     return out
 
+
 @inline
 def linear_uni(
     x: "float",
@@ -1757,13 +1756,14 @@ def linear_uni(
         out = 0.0
     return out
 
+
 @inline
 def grad_linear_uni(
     x: "float",
     h: "float",
 ) -> float:
     """Derivative of S(x, h) = (1 - x)/h if |x|<1, 0 else."""
-    
+
     if abs(x / h) <= 1.0:
         if x > 0.0:
             out = -(1 / h**2)
@@ -1772,6 +1772,7 @@ def grad_linear_uni(
     else:
         out = 0.0
     return out
+
 
 ##############
 # 1d kernels #
@@ -1792,6 +1793,7 @@ def trigonometric_1d(
     s1 = trigonometric_uni(r1, h1)
     return s1
 
+
 @inline
 def grad_trigonometric_1d(
     r1: "float",
@@ -1807,6 +1809,7 @@ def grad_trigonometric_1d(
     """Derivative of S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
     ds1 = grad_trigonometric_uni(r1, h1)
     return ds1
+
 
 @inline
 def gaussian_1d(
@@ -1824,6 +1827,7 @@ def gaussian_1d(
     s1 = gaussian_uni(r1, h1)
     return s1
 
+
 @inline
 def grad_gaussian_1d(
     r1: "float",
@@ -1840,6 +1844,7 @@ def grad_gaussian_1d(
     ds1 = grad_gaussian_uni(r1, h1)
     return ds1
 
+
 @inline
 def linear_1d(
     r1: "float",
@@ -1855,6 +1860,7 @@ def linear_1d(
     """1d kernel S(x, h) = (1 - x)/h if |x|<1, 0 else."""
     s1 = linear_uni(r1, h1)
     return s1
+
 
 @inline
 def grad_linear_1d(
@@ -1877,6 +1883,7 @@ def grad_linear_1d(
 # 2d kernels #
 ##############
 
+
 @inline
 def trigonometric_2d(
     r1: "float",
@@ -1890,13 +1897,15 @@ def trigonometric_2d(
     s3: "float",
 ) -> float:
     """Tensor product of kernels S(x, h) = pi/4/h * cos(x*pi/2) if |x|<1, 0 else."""
-    _temporary =  testfunc()
+    _temporary = testfunc()
     # s1 = trigonometric_uni(r1, h1)
     # s2 = trigonometric_uni(r2, h2)
-    return 1.0 * 2.0 #s1 * s2
+    return 1.0 * 2.0  # s1 * s2
+
 
 def testfunc() -> "float":
     return 2.0
+
 
 @inline
 def grad_trigonometric_2d_1(
@@ -1915,6 +1924,7 @@ def grad_trigonometric_2d_1(
     s2 = trigonometric_uni(r2, h2)
     return ds1 * s2
 
+
 @inline
 def grad_trigonometric_2d_2(
     r1: "float",
@@ -1931,6 +1941,7 @@ def grad_trigonometric_2d_2(
     s1 = trigonometric_uni(r1, h1)
     ds2 = grad_trigonometric_uni(r2, h2)
     return s1 * ds2
+
 
 @inline
 def gaussian_2d(
@@ -1949,6 +1960,7 @@ def gaussian_2d(
     s2 = gaussian_uni(r2, h2)
     return s1 * s2
 
+
 @inline
 def grad_gaussian_2d_1(
     r1: "float",
@@ -1965,6 +1977,7 @@ def grad_gaussian_2d_1(
     ds1 = grad_gaussian_uni(r1, h1)
     s2 = gaussian_uni(r2, h2)
     return ds1 * s2
+
 
 @inline
 def grad_gaussian_2d_2(
@@ -1983,6 +1996,7 @@ def grad_gaussian_2d_2(
     ds2 = grad_gaussian_uni(r2, h2)
     return s1 * ds2
 
+
 @inline
 def linear_2d(
     r1: "float",
@@ -2000,6 +2014,7 @@ def linear_2d(
     s2 = linear_uni(r2, h2)
     return s1 * s2
 
+
 @inline
 def grad_linear_2d_1(
     r1: "float",
@@ -2016,6 +2031,7 @@ def grad_linear_2d_1(
     ds1 = grad_linear_uni(r1, h1)
     s2 = linear_uni(r2, h2)
     return ds1 * s2
+
 
 @inline
 def grad_linear_2d_2(
@@ -2056,6 +2072,7 @@ def trigonometric_3d(
     s3 = trigonometric_uni(r3, h3)
     return s1 * s2 * s3
 
+
 @inline
 def gaussian_3d(
     r1: "float",
@@ -2075,6 +2092,7 @@ def gaussian_3d(
     s3 = gaussian_uni(r3, h3)
     return s1 * s2 * s3
 
+
 @inline
 def grad_gaussian_3d_1(
     r1: "float",
@@ -2092,6 +2110,7 @@ def grad_gaussian_3d_1(
     s2 = gaussian_uni(r2, h2)
     s3 = gaussian_uni(r3, h3)
     return ds1 * s2 * s3
+
 
 @inline
 def grad_gaussian_3d_2(
@@ -2111,6 +2130,7 @@ def grad_gaussian_3d_2(
     s3 = gaussian_uni(r3, h3)
     return s1 * ds2 * s3
 
+
 @inline
 def grad_gaussian_3d_3(
     r1: "float",
@@ -2128,6 +2148,7 @@ def grad_gaussian_3d_3(
     s2 = gaussian_uni(r2, h2)
     ds3 = grad_gaussian_uni(r3, h3)
     return s1 * s2 * ds3
+
 
 @inline
 def linear_isotropic_3d(
@@ -2151,6 +2172,7 @@ def linear_isotropic_3d(
         return 0.0
     else:
         return (1.0 - r / h) / (1.0471975512 * h**3)
+
 
 @inline
 def grad_linear_isotropic_3d_1(
@@ -2177,6 +2199,7 @@ def grad_linear_isotropic_3d_1(
     else:
         return -r1 / (r * h) / (1.0471975512 * h**3)
 
+
 @inline
 def grad_linear_isotropic_3d_2(
     r1: "float",
@@ -2201,6 +2224,7 @@ def grad_linear_isotropic_3d_2(
         return -1 / h / (1.0471975512 * h**3)
     else:
         return -r2 / (r * h) / (1.0471975512 * h**3)
+
 
 @inline
 def grad_linear_isotropic_3d_3(
@@ -2227,6 +2251,7 @@ def grad_linear_isotropic_3d_3(
     else:
         return -r3 / (r * h) / (1.0471975512 * h**3)
 
+
 @inline
 def linear_3d(
     r1: "float",
@@ -2244,6 +2269,7 @@ def linear_3d(
     s2 = linear_uni(r2, h2)
     s3 = linear_uni(r3, h3)
     return s1 * s2 * s3
+
 
 @inline
 def grad_linear_3d_1(
@@ -2263,6 +2289,7 @@ def grad_linear_3d_1(
     s3 = linear_uni(r3, h3)
     return ds1 * s2 * s3
 
+
 @inline
 def grad_linear_3d_2(
     r1: "float",
@@ -2280,6 +2307,7 @@ def grad_linear_3d_2(
     ds2 = grad_linear_uni(r2, h2)
     s3 = linear_uni(r3, h3)
     return s1 * ds2 * s3
+
 
 @inline
 def grad_linear_3d_3(
@@ -2453,15 +2481,9 @@ def spline_3d(
     tmp2 = ind2[span2 - int(p[1]), :]
     tmp3 = ind3[span3 - int(p[2]), :]
 
-    f_out[0] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cx
-    )
-    f_out[1] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cy
-    )
-    f_out[2] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cz
-    )
+    f_out[0] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cx)
+    f_out[1] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cy)
+    f_out[2] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cz)
 
 
 # @stack_array("b1", "b2", "b3", "der1", "der2", "der3", "tmp1", "tmp2", "tmp3")
@@ -2502,33 +2524,15 @@ def spline_3d_df(
     tmp2 = ind2[span2 - int(p[1]), :]
     tmp3 = ind3[span3 - int(p[2]), :]
 
-    df_out[0, 0] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cx
-    )
-    df_out[0, 1] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cx
-    )
-    df_out[0, 2] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cx
-    )
-    df_out[1, 0] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cy
-    )
-    df_out[1, 1] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cy
-    )
-    df_out[1, 2] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cy
-    )
-    df_out[2, 0] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cz
-    )
-    df_out[2, 1] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cz
-    )
-    df_out[2, 2] = evaluation_kernel_3d_inline(
-        int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cz
-    )
+    df_out[0, 0] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cx)
+    df_out[0, 1] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cx)
+    df_out[0, 2] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cx)
+    df_out[1, 0] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cy)
+    df_out[1, 1] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cy)
+    df_out[1, 2] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cy)
+    df_out[2, 0] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cz)
+    df_out[2, 1] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cz)
+    df_out[2, 2] = evaluation_kernel_3d_inline(int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cz)
 
 
 # @stack_array("b1", "b2", "tmp1", "tmp2")
@@ -3684,4 +3688,3 @@ def evaluation_kernel_3d_inline(
                 spline_value = spline_value + coeff[i1, i2, i3] * basis1[il1] * basis2[il2] * basis3[il3]
 
     return spline_value
-

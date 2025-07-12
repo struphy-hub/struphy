@@ -1633,7 +1633,7 @@ class PushVinSPHpressure(Propagator):
                 kernel = pusher_kernels.push_v_sph_pressure
             elif thermodynamics == "polytropic":
                 kernel = pusher_kernels.push_v_sph_pressure_ideal_gas
-        
+
         print(f"Loaded {kernel = }")
 
         gravity = np.array(gravity, dtype=float)

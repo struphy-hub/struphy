@@ -1,19 +1,20 @@
 import time
 
 import numpy as np
+
 import struphy.pic.pushing.pusher_kernels
 from struphy.pic.pushing.pusher_kernels_gpu import matmul_cpu, matmul_gpu
+
 # from pusher_kernels_gpu import matmul_cpu, matmul_gpu
 
 
-def compare_pyccel_cpu_gpu(Nvec=[2000],iterations=1):
-    
+def compare_pyccel_cpu_gpu(Nvec=[2000], iterations=1):
     elapsed_cpu_vec = []
     elapsed_gpu_vec = []
-    
+
     for N in Nvec:
         print(f"{N = }")
-        
+
         min_cpu = 1e17
         max_cpu = 0.0
         avg_cpu = 0.0
@@ -41,7 +42,7 @@ def compare_pyccel_cpu_gpu(Nvec=[2000],iterations=1):
             start_gpu = time.time()
             matmul_gpu(A, B, C_gpu)
             el_gpu = time.time() - start_gpu
-            
+
             min_cpu = min(min_cpu, el_cpu)
             max_cpu = max(max_cpu, el_cpu)
             avg_cpu += el_cpu
@@ -50,15 +51,14 @@ def compare_pyccel_cpu_gpu(Nvec=[2000],iterations=1):
             max_gpu = max(max_gpu, el_gpu)
             avg_gpu += el_gpu
 
-
             # ------------------------ Output --------------------------- #
             assert np.allclose(C_cpu, C_gpu)
-        
+
         avg_cpu /= iterations
         avg_gpu /= iterations
 
-        elapsed_cpu_vec.append([N,avg_cpu,min_cpu,max_cpu])
-        elapsed_gpu_vec.append([N,avg_gpu,min_gpu,max_gpu])
+        elapsed_cpu_vec.append([N, avg_cpu, min_cpu, max_cpu])
+        elapsed_gpu_vec.append([N, avg_gpu, min_gpu, max_gpu])
         # print(f"{elapsed_cpu_vec[-1] = } {elapsed_gpu_vec[-1] = }")
         # print(f"{A = }")
         # print(f"{B = }")
@@ -73,5 +73,7 @@ def compare_pyccel_cpu_gpu(Nvec=[2000],iterations=1):
         # print(f"{N},{elapsed_cpu / elapsed_gpu}")
         # print("#" + "-"*40 + "#")
     return elapsed_cpu_vec, elapsed_gpu_vec
+
+
 if __name__ == "__main__":
     compare_pyccel_cpu_gpu(N=2000)

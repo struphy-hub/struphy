@@ -10,6 +10,7 @@ import struphy.linear_algebra.linalg_kernels as linalg_kernels
 from struphy.bsplines.evaluation_kernels_3d import get_spans
 from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments
 
+
 @stack_array("dfm", "dfinv", "eta", "v", "v_logical")
 def reflect(
     markers: "float[:,:]",

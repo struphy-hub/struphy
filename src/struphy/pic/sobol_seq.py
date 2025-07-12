@@ -23,6 +23,7 @@ from scipy.stats import norm
 
 __all__ = ["i4_bit_hi1", "i4_bit_lo0", "i4_sobol_generate", "i4_sobol", "i4_uniform", "prime_ge", "is_prime"]
 
+
 def i4_bit_hi1(n):
     """
     i4_bit_hi1 returns the position of the high 1 bit base 2 in an integer.

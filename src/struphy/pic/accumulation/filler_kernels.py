@@ -16,6 +16,7 @@ from pyccel.decorators import pure
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
+
 @pure
 def fill_mat(
     pi1: int,

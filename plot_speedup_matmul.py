@@ -1,13 +1,14 @@
-from struphy.gpu.test_pyccel_timings import compare_pyccel_cpu_gpu
 import numpy as np
 import plotly.graph_objects as go
-import struphy.post_processing.likwid.maxplotlylib as mply
 
-if __name__ == '__main__':
+import struphy.post_processing.likwid.maxplotlylib as mply
+from struphy.gpu.test_pyccel_timings import compare_pyccel_cpu_gpu
+
+if __name__ == "__main__":
     run_tests = False
     if run_tests:
         # Warm‑up
-        _ , _ = compare_pyccel_cpu_gpu(Nvec=[2,4,8], iterations=1000)
+        _, _ = compare_pyccel_cpu_gpu(Nvec=[2, 4, 8], iterations=1000)
 
         # Actual timings
         iterations = 10
@@ -28,20 +29,10 @@ if __name__ == '__main__':
     fig = go.Figure()
 
     # CPU trace
-    fig.add_trace(go.Scatter(
-        x=elapsed_cpu_vec[:, 0],
-        y=elapsed_cpu_vec[:, 1],
-        mode='lines+markers',
-        name='CPU'
-    ))
+    fig.add_trace(go.Scatter(x=elapsed_cpu_vec[:, 0], y=elapsed_cpu_vec[:, 1], mode="lines+markers", name="CPU"))
 
     # GPU trace
-    fig.add_trace(go.Scatter(
-        x=elapsed_gpu_vec[:, 0],
-        y=elapsed_gpu_vec[:, 1],
-        mode='lines+markers',
-        name='GPU'
-    ))
+    fig.add_trace(go.Scatter(x=elapsed_gpu_vec[:, 0], y=elapsed_gpu_vec[:, 1], mode="lines+markers", name="GPU"))
 
     # Layout
     fig.update_layout(
@@ -53,7 +44,7 @@ if __name__ == '__main__':
         margin=dict(t=0, b=0, l=0, r=0),
     )
 
-    mply.format_size(fig,width=800, height=500)
+    mply.format_size(fig, width=800, height=500)
     mply.format_axes(fig)
     mply.format_font(fig)
     mply.format_grid(fig)
@@ -65,9 +56,9 @@ if __name__ == '__main__':
     fig.write_html("timings.html")
     fig.write_image("timings.pdf")
 
-
     import matplotlib.pyplot as plt
-    plt.plot(elapsed_cpu_vec[:,0], elapsed_cpu_vec[:,1],'.-', label = 'CPU')
-    plt.plot(elapsed_gpu_vec[:,0], elapsed_gpu_vec[:,1],'.-', label = 'GPU')
+
+    plt.plot(elapsed_cpu_vec[:, 0], elapsed_cpu_vec[:, 1], ".-", label="CPU")
+    plt.plot(elapsed_gpu_vec[:, 0], elapsed_gpu_vec[:, 1], ".-", label="GPU")
     plt.show()
-    plt.savefig('test.pdf')
+    plt.savefig("test.pdf")

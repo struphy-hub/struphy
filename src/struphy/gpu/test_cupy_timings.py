@@ -33,11 +33,11 @@ def test_xp(xp, N=100_000_000, num_iterations=1):
 
 
 def compare_np_cp(N=100_000_000):
-    print("\n\n\n#" + "-"*40 + "#")
+    print("\n\n\n#" + "-" * 40 + "#")
     print("Comparing numpy and cupy...")
     time_cpu = test_xp(np, N=N)
-    _ = test_xp(cp,N=N) # Warmup
-    time_gpu = test_xp(cp,N=N)
+    _ = test_xp(cp, N=N)  # Warmup
+    time_gpu = test_xp(cp, N=N)
     # time_cpu = test_numpy()
     # time_gpu = test_cupy()
 
@@ -45,8 +45,9 @@ def compare_np_cp(N=100_000_000):
     print(f"Time Numpy: {time_cpu}")
     print(f"Time CuPy: {time_gpu}")
     print(f"Cupy vs Numpy speedup: {time_cpu / time_gpu}")
-    print("#" + "-"*40 + "#")
+    print("#" + "-" * 40 + "#")
+
 
 if __name__ == "__main__":
-    N=100_000_000
+    N = 100_000_000
     compare_np_cp(N=N)

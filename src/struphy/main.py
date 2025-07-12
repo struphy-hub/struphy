@@ -1,12 +1,13 @@
 import time
 
+# from struphy.pic.pushing.pusher_kernels_gpu import matmul_cpu, matmul_gpu
+from typing import Optional
+
 import numpy as np
 
 # from pusher_kernels_gpu import matmul_gpu, matmul_cpu
 from struphy.gpu.test_cupy_timings import compare_np_cp
 from struphy.gpu.test_pyccel_timings import compare_pyccel_cpu_gpu
-# from struphy.pic.pushing.pusher_kernels_gpu import matmul_cpu, matmul_gpu
-from typing import Optional
 
 
 def main(
@@ -60,10 +61,11 @@ def main(
     """
 
     import struphy.gpu.gpu as struphy_gpu
+
     if gpu and struphy_gpu.gpu_active:
-        print("\n\n\n#" + "-"*40 + "#")
-        _, _ = compare_pyccel_cpu_gpu(Nvec=[100],iterations=100)
-        print("#" + "-"*40 + "#")
+        print("\n\n\n#" + "-" * 40 + "#")
+        _, _ = compare_pyccel_cpu_gpu(Nvec=[100], iterations=100)
+        print("#" + "-" * 40 + "#")
     print(f"\n\n\nRunning struphy with {gpu = }\n\n\n")
 
     import copy
@@ -191,7 +193,7 @@ def main(
         data.add_data({key_time_restart: val})
 
     time_params = params["time"]
-    print('C')
+    print("C")
     # set initial conditions for all variables
     if not restart:
         model.initialize_from_params(gpu=gpu)

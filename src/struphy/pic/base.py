@@ -6,6 +6,7 @@ from abc import ABCMeta, abstractmethod
 
 import h5py
 import numpy as np
+
 import struphy.gpu.gpu as struphy_gpu
 
 cp = struphy_gpu.import_xp()
@@ -1651,7 +1652,7 @@ class Particles(metaclass=ABCMeta):
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu(alpha=alpha)
             # hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs_gpu_pyccel(alpha=alpha)
             # hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs(alpha=alpha)
-            
+
         else:
             hole_inds_after_send, send_inds = self.sendrecv_determine_mtbs(alpha=alpha)
 
@@ -2053,7 +2054,7 @@ class Particles(metaclass=ABCMeta):
                 outside_inds_per_axis[axis],
                 axis,
             )
-    
+
     def apply_kinetic_bc_gpu(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -2067,7 +2068,7 @@ class Particles(metaclass=ABCMeta):
         # apply boundary conditions
         for axis in self._remove_axes:
             outside_inds = self._find_outside_particles_gpu(axis)
-            
+
             if len(outside_inds) == 0:
                 continue
 
@@ -2079,7 +2080,7 @@ class Particles(metaclass=ABCMeta):
 
         for axis in self._periodic_axes:
             outside_inds = self._find_outside_particles_gpu(axis)
-            
+
             if len(outside_inds) == 0:
                 continue
 
@@ -2115,7 +2116,7 @@ class Particles(metaclass=ABCMeta):
         outside_inds_per_axis = {}
         for axis in self._reflect_axes:
             outside_inds = self._find_outside_particles_gpu(axis)
-            
+
             self.markers[self._is_outside_left, axis] = 1e-4
             self.markers[self._is_outside_right, axis] = 1 - 1e-4
 
@@ -3635,7 +3636,6 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
         return cp.asnumpy(hole_inds_after_send), cp.asnumpy(send_inds)
 
-
     def sendrecv_determine_mtbs_gpu_pyccel(
         self,
         alpha: list | tuple | np.ndarray = (1.0, 1.0, 1.0),
@@ -3660,6 +3660,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
                 Eta-values of shape (n_send, :) according to which the sorting is performed.
         """
         from struphy.pic.pushing.pusher_kernels_gpu import compute_sorting_etas
+
         # position that determines the sorting (including periodic shift of boundary conditions)
         if not isinstance(alpha, np.ndarray):
             alpha = np.array(alpha, dtype=float)

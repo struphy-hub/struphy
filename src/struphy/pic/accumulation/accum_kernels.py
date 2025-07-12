@@ -27,6 +27,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments
 
+
 def charge_density_0form(
     markers: "float[:,:]",
     n_markers_tot: "int",

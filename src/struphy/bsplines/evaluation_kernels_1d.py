@@ -20,6 +20,7 @@ from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
+
 # =============================================================================
 @pure
 def evaluation_kernel_1d(p1: int, basis1: "Final[float[:]]", ind1: "Final[int[:]]", coeff: "Final[float[:]]") -> float:

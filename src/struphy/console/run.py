@@ -174,9 +174,14 @@ def struphy_run(
     if line_profile:
         cmd_python = ["kernprof", "-l"] + cmd_python
     if nsys_profile:
-        cmd_python = ["nsys", "profile", "--stats=true", "--trace=cuda,nvtx,cudnn,osrt,openmp", "--force-overwrite=true",
-                    #   "-o", "nsys_report",
-                      ] + cmd_python
+        cmd_python = [
+            "nsys",
+            "profile",
+            "--stats=true",
+            "--trace=cuda,nvtx,cudnn,osrt,openmp",
+            "--force-overwrite=true",
+            #   "-o", "nsys_report",
+        ] + cmd_python
 
     cmd_main = [f"{libpath}/main.py"]
     if model is not None:

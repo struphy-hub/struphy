@@ -1,9 +1,11 @@
 from pyccel.decorators import inline
 
+
 # @inline
 def f() -> float:
     _tmp_g = g()
     return _tmp_g
+
 
 @inline
 def g() -> float:
@@ -11,6 +13,7 @@ def g() -> float:
     for i in range(3):
         _tmp_h = h()
     return _tmp_h
+
 
 @inline
 def h() -> float:

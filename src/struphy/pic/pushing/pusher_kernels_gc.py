@@ -20,6 +20,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments, MarkerArguments
 
+
 @stack_array("dfm", "unit_b1", "e_star", "e_field", "Exb", "k")
 def push_gc_bxEstar_explicit_multistage(
     dt: float,

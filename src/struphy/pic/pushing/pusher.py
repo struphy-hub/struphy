@@ -11,6 +11,7 @@ from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments
 from struphy.profiling.profiling import ProfileManager
 
+
 class Pusher:
     r"""
     Class for solving particle ODEs

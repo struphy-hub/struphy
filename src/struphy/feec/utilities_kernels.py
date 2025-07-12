@@ -4,8 +4,10 @@ from pyccel.decorators import pure, stack_array
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.pic.accumulation.filler_kernels as filler_kernels
+
 # import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments
+
 
 @pure
 @stack_array("bn1", "bn2", "bn3")
