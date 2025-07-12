@@ -94,7 +94,7 @@ kinetic :
             Np      : null
             type    : full_f 
             ppc     : 200 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
-            eps     : .7 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            bufsize : .7 # MPI send/receive buffer
             bc :    [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
             loading : pseudo_random
             loading_params :

@@ -1,5 +1,5 @@
 # import pyccel decorators
-from pyccel.decorators import types
+
 
 # import modules for B-spline evaluation
 import struphy.bsplines.bsplines_kernels as bsp
@@ -14,24 +14,23 @@ import struphy.pic.tests.test_pic_legacy_files.spline_evaluation_3d as eva3
 
 
 # ==========================================================================================================
-@types(
-    "double[:,:]",
-    "double",
-    "int",
-    "int",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "int[:]",
-    "int[:]",
-    "int[:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "int",
-)
-def pusher_step4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, bc):
+def pusher_step4(
+    particles: "float[:,:]",
+    dt: "float",
+    np: "int",
+    kind_map: "int",
+    params_map: "float[:]",
+    tf1: "float[:]",
+    tf2: "float[:]",
+    tf3: "float[:]",
+    pf: "int[:]",
+    nelf: "int[:]",
+    nbasef: "int[:]",
+    cx: "float[:,:,:]",
+    cy: "float[:,:,:]",
+    cz: "float[:,:,:]",
+    bc: "int",
+):
     from numpy import arctan2, cos, empty, pi, sin, sqrt
 
     # ================ for mapping evaluation ==================
@@ -404,8 +403,9 @@ def pusher_step4(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nel
 
 
 # ========================================================================================================
-@types("double[:,:]", "double[:,:]", "double[:]")
-def reflect(df, df_inv, v):
+def reflect(
+    df: "",
+):
     from numpy import empty, sqrt
 
     vg = empty(3, dtype=float)
@@ -434,26 +434,23 @@ def reflect(df, df_inv, v):
 
 
 # ==========================================================================================================
-@types(
-    "double[:,:]",
-    "double",
-    "int",
-    "int",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "int[:]",
-    "int[:]",
-    "int[:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "int",
-    "double",
-)
 def pusher_step4_pcart(
-    particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, map_pseudo, r0_pseudo
+    particles: "float[:,:]",
+    dt: "float",
+    np: "int",
+    kind_map: "int",
+    params_map: "float[:]",
+    tf1: "float[:]",
+    tf2: "float[:]",
+    tf3: "float[:]",
+    pf: "int[:]",
+    nelf: "int[:]",
+    nbasef: "int[:]",
+    cx: "float[:,:,:]",
+    cy: "float[:,:,:]",
+    cz: "float[:,:,:]",
+    map_pseudo: "int",
+    r0_pseudo: "float",
 ):
     from numpy import empty, zeros
 
@@ -958,24 +955,23 @@ def pusher_step4_pcart(
 
 
 # ==========================================================================================================
-@types(
-    "double[:,:]",
-    "double",
-    "int",
-    "int",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "int[:]",
-    "int[:]",
-    "int[:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "double",
-)
-def pusher_step4_cart(particles, dt, np, kind_map, params_map, tf1, tf2, tf3, pf, nelf, nbasef, cx, cy, cz, tol):
+def pusher_step4_cart(
+    particles: "float[:,:]",
+    dt: "float",
+    np: "int",
+    kind_map: "int",
+    params_map: "float[:]",
+    tf1: "float[:]",
+    tf2: "float[:]",
+    tf3: "float[:]",
+    pf: "int[:]",
+    nelf: "int[:]",
+    nbasef: "int[:]",
+    cx: "float[:,:,:]",
+    cy: "float[:,:,:]",
+    cz: "float[:,:,:]",
+    tol: "float",
+):
     from numpy import empty
 
     # ================ for mapping evaluation ==================
@@ -1774,59 +1770,32 @@ def pusher_rk4_pc_full(
 
 
 # ==========================================================================================================
-@types(
-    "double[:,:]",
-    "double",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "int[:]",
-    "int[:]",
-    "int[:]",
-    "int[:]",
-    "int",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "int",
-    "int",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "int[:]",
-    "int[:]",
-    "int[:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-)
 def pusher_rk4_pc_perp(
-    particles,
-    dt,
-    t1,
-    t2,
-    t3,
-    p,
-    nel,
-    nbase_n,
-    nbase_d,
-    np,
-    u1,
-    u2,
-    u3,
-    basis_u,
-    kind_map,
-    params_map,
-    tf1,
-    tf2,
-    tf3,
-    pf,
-    nelf,
-    nbasef,
-    cx,
-    cy,
-    cz,
+    particles: "float[:,:]",
+    dt: "float",
+    t1: "float[:]",
+    t2: "float[:]",
+    t3: "float[:]",
+    p: "int[:]",
+    nel: "int[:]",
+    nbase_n: "int[:]",
+    nbase_d: "int[:]",
+    np: "int",
+    u1: "float[:,:,:]",
+    u2: "float[:,:,:]",
+    u3: "float[:,:,:]",
+    basis_u: "int",
+    kind_map: "int",
+    params_map: "float[:]",
+    tf1: "float[:]",
+    tf2: "float[:]",
+    tf3: "float[:]",
+    pf: "int[:]",
+    nelf: "int[:]",
+    nbasef: "int[:]",
+    cx: "float[:,:,:]",
+    cy: "float[:,:,:]",
+    cz: "float[:,:,:]",
 ):
     from numpy import empty
 

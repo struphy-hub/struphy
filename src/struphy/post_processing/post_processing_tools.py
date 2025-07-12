@@ -358,41 +358,43 @@ def create_vtk(
 
 
 def post_process_markers(path_in, path_out, species, kind, step=1):
-    """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation and writes them to a .npy files and to .txt files.
+    """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation
+    and writes them to a .npy files and to .txt files.
+    Also saves the weights.
 
     * ``.npy`` files:
 
       * Particles6D:
 
-        ===== ===== ============== =============
-        index | 0 | | 1 | 2 | 3 |  | 4 | 5 | 6 |
-        ===== ===== ============== =============
-        value  ID   position (xyz)  velocities
-        ===== ===== ============== =============
+        ===== ===== ============== ============= ======
+        index | 0 | | 1 | 2 | 3 |  | 4 | 5 | 6 | | 7 |
+        ===== ===== ============== ============= ======
+        value  ID   position (xyz)  velocities   weight
+        ===== ===== ============== ============= ======
 
       * Particles5D:
 
-        ===== ===== ================ ========== ====== ============
-        index | 0 | | 1 | 2 | | 3 |      4        5         6
-        ===== ===== ================ ========== ====== ============
-        value  ID   guiding_center   v_parallel v_perp magn. moment
-        ===== ===== ================ ========== ====== ============
+        ===== ===== ================ ========== ====== ====== ============
+        index | 0 | | 1 | 2 | | 3 |      4        5    | 6 |  7
+        ===== ===== ================ ========== ====== ====== ============
+        value  ID   guiding_center   v_parallel v_perp weight magn. moment
+        ===== ===== ================ ========== ====== ====== ============
 
       * Particles3D:
 
-        ===== ===== ==============
-        index | 0 | | 1 | 2 | 3 |
-        ===== ===== ==============
-        value  ID   position (xyz)
-        ===== ===== ==============
+        ===== ===== ============== ======
+        index | 0 | | 1 | 2 | 3 |  | 4 |
+        ===== ===== ============== ======
+        value  ID   position (xyz) weight
+        ===== ===== ============== ======
 
     * ``.txt`` files :
 
-      ===== ===== ==============
-      index | 0 | | 1 | 2 | 3 |
-      ===== ===== ==============
-      value  ID   position (xyz)
-      ===== ===== ==============
+      ===== ===== ============== ======
+      index | 0 | | 1 | 2 | 3 |  | 4 |
+      ===== ===== ============== ======
+      value  ID   position (xyz) weight
+      ===== ===== ============== ======
 
     ``.txt`` files can be imported to e.g. Paraview, see `08 - Kinetic data <file:///home/spossann/git_repos/struphy/doc/_build/html/tutorials/tutorial_08_struphy_data_pproc.html#Kinetic-data>`_ for details.
 
@@ -445,17 +447,15 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
     log_nt = int(np.log10(int(((nt - 1) / step)))) + 1
 
     # directory for .txt files and marker index which will be saved
-    if kind == "Particles5D":
+    if "5D" in kind:
         path_orbits = os.path.join(path_out, "guiding_center")
-        save_index = list(range(0, 5)) + [10] + [-1]
-
-    elif kind == "Particles6D":
+        save_index = list(range(0, 6)) + [10] + [-1]
+    elif "6D" in kind or "SPH" in kind:
         path_orbits = os.path.join(path_out, "orbits")
-        save_index = list(range(0, 6)) + [-1]
-
+        save_index = list(range(0, 7)) + [-1]
     else:
         path_orbits = os.path.join(path_out, "orbits")
-        save_index = list(range(0, 3)) + [-1]
+        save_index = list(range(0, 4)) + [-1]
 
     try:
         os.mkdir(path_orbits)
@@ -467,7 +467,7 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
     temp = np.empty((n_markers, len(save_index)), order="C")
     lost_particles_mask = np.empty(n_markers, dtype=bool)
 
-    print("Evaluation of marker orbits for " + str(species))
+    print(f"Evaluation of {n_markers} marker orbits for {species}")
 
     # loop over time grid
     for n in tqdm(range(int((nt - 1) / step) + 1)):
@@ -512,8 +512,8 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
         # move ids to first column and save
         temp = np.roll(temp, 1, axis=1)
 
-        np.save(file_npy, temp[:, : len(save_index)])
-        np.savetxt(file_txt, temp[:, :4], fmt="%12.6f", delimiter=", ")
+        np.save(file_npy, temp)
+        np.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
 
     # close hdf5 files
     for file in files:
@@ -757,13 +757,23 @@ def post_process_n_sph(path_in, path_out, species, step=1, compute_bckgr=False):
         path_view = os.path.join(path_n_sph, view)
         os.mkdir(path_view)
 
-        # save grid
-        for _, grid in files[0]["kinetic/" + species + "/n_sph/" + view].attrs.items():
-            grid_path = os.path.join(
-                path_view,
-                "grid_n_sph.npy",
-            )
-            np.save(grid_path, grid[:])
+        # build meshgrid and save
+        eta1 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta1"]
+        eta2 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta2"]
+        eta3 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta3"]
+
+        ee1, ee2, ee3 = np.meshgrid(
+            eta1,
+            eta2,
+            eta3,
+            indexing="ij",
+        )
+
+        grid_path = os.path.join(
+            path_view,
+            "grid_n_sph.npy",
+        )
+        np.save(grid_path, (ee1, ee2, ee3))
 
         # load n_sph data
         data = files[0]["kinetic/" + species + "/n_sph/" + view][::step].copy()

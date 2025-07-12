@@ -53,7 +53,7 @@ kinetic :
             Z : 1 # signed charge number in units of elementary charge
         markers :
             Np      : 4 # alternative if ppc = null (total number of markers, must be larger or equal than # MPI processes)
-            eps     : 2.0 # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            bufsize : 2.0 # MPI send/receive buffer 
             bc : [remove, periodic, periodic]           
             loading : pseudo_random
             loading_params :

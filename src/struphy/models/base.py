@@ -116,8 +116,8 @@ class StruphyModel(metaclass=ABCMeta):
                 if key not in {"cx", "cy", "cz"}:
                     print((key + ":").ljust(25), val)
 
-            print("\nFIELDS BACKGROUND:")
-            if "fields_background" in params:
+            print("\nFLUID BACKGROUND:")
+            if "fluid_background" in params:
                 print("type:".ljust(25), self.equil.__class__.__name__)
                 for key, val in self.equil.params.items():
                     print((key + ":").ljust(25), val)
@@ -705,11 +705,31 @@ class StruphyModel(metaclass=ABCMeta):
             obj = val["obj"]
             assert isinstance(obj, Particles)
 
-            n_mks_save = val["params"]["save_data"].get("n_markers", 0)
-            if n_mks_save > 0:
+            # allocate array for saving markers if not present
+            if not hasattr(self, "_n_markers_saved"):
+                n_markers = val["params"]["save_data"].get("n_markers", 0)
+
+                if isinstance(n_markers, float):
+                    if n_markers > 1.0:
+                        self._n_markers_saved = int(n_markers)
+                    else:
+                        self._n_markers_saved = int(obj.n_mks_global * n_markers)
+                else:
+                    self._n_markers_saved = n_markers
+
+                assert self._n_markers_saved <= obj.Np, (
+                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.Np})"
+                )
+                if self._n_markers_saved > 0:
+                    val["kinetic_data"]["markers"] = np.zeros(
+                        (self._n_markers_saved, obj.markers.shape[1]),
+                        dtype=float,
+                    )
+
+            if self._n_markers_saved > 0:
                 markers_on_proc = np.logical_and(
                     obj.markers[:, -1] >= 0.0,
-                    obj.markers[:, -1] < n_mks_save,
+                    obj.markers[:, -1] < self._n_markers_saved,
                 )
                 n_markers_on_proc = np.count_nonzero(markers_on_proc)
                 val["kinetic_data"]["markers"][:] = -1.0
@@ -750,8 +770,13 @@ class StruphyModel(metaclass=ABCMeta):
                 h1 = 1 / obj.boxes_per_dim[0]
                 h2 = 1 / obj.boxes_per_dim[1]
                 h3 = 1 / obj.boxes_per_dim[2]
+
                 ndim = np.count_nonzero([d > 1 for d in obj.boxes_per_dim])
-                kernel_type = "gaussian_" + str(ndim) + "d"
+                if ndim == 0:
+                    kernel_type = "gaussian_3d"
+                else:
+                    kernel_type = "gaussian_" + str(ndim) + "d"
+
                 for i, pts in enumerate(val["plot_pts"]):
                     n_sph = obj.eval_density(
                         *pts,
@@ -944,7 +969,6 @@ class StruphyModel(metaclass=ABCMeta):
                         obj.initialize_weights(
                             reject_weights=obj.weights_params["reject_weights"],
                             threshold=obj.weights_params["threshold"],
-                            from_tesselation=obj.weights_params["from_tesselation"],
                         )
 
     def initialize_from_restart(self, data):
@@ -1167,7 +1191,13 @@ class StruphyModel(metaclass=ABCMeta):
                     for i, v1 in enumerate(val1):
                         key_n = key_dat + "/view_" + str(i)
                         data.add_data({key_n: v1})
-                        data.file[key_n].attrs["plot_pts"] = val["plot_pts"][i]
+                        # save 1d point values, not meshgrids, because attrs size is limited
+                        eta1 = val["plot_pts"][i][0][:, 0, 0]
+                        eta2 = val["plot_pts"][i][1][0, :, 0]
+                        eta3 = val["plot_pts"][i][2][0, 0, :]
+                        data.file[key_n].attrs["eta1"] = eta1
+                        data.file[key_n].attrs["eta2"] = eta2
+                        data.file[key_n].attrs["eta3"] = eta3
                 else:
                     data.add_data({key_dat: val1})
 
@@ -1295,7 +1325,7 @@ class StruphyModel(metaclass=ABCMeta):
         )
 
         # print to screen
-        if verbose and rank == 0:
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print("\nUNITS:")
             print(
                 f"Unit of length:".ljust(25),
@@ -1351,7 +1381,7 @@ class StruphyModel(metaclass=ABCMeta):
                 equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
                 equation_params[species]["kappa"] = om_p * units["t"]
 
-                if verbose and rank == 0:
+                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                     print("\nNORMALIZATION PARAMETERS:")
                     print("- " + species + ":")
                     for key, val in equation_params[species].items():
@@ -1370,7 +1400,7 @@ class StruphyModel(metaclass=ABCMeta):
                 equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
                 equation_params[species]["kappa"] = om_p * units["t"]
 
-                if verbose and rank == 0:
+                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                     if "fluid" not in params:
                         print("\nNORMALIZATION PARAMETERS:")
                     print("- " + species + ":")
@@ -1513,6 +1543,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         # load a standard parameter file
         with open(os.path.join(libpath, "io/inp/parameters.yml")) as tmp:
             parameters = yaml.load(tmp, Loader=yaml.FullLoader)
+
+        parameters["model"] = cls.__name__
 
         # extract default em_fields parameters
         bckgr_params_1_em = parameters["em_fields"]["background"]["var_1"]
@@ -1805,6 +1837,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 bckgr_params = val["params"].get("background", None)
                 pert_params = val["params"].get("perturbation", None)
                 boxes_per_dim = val["params"].get("boxes_per_dim", None)
+                mpi_dims_mask = val["params"].get("dims_mask", None)
                 weights_params = val["params"].get("weights", None)
 
                 if self.derham is None:
@@ -1822,6 +1855,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     **val["params"]["markers"],
                     weights_params=weights_params,
                     domain_decomp=domain_decomp,
+                    mpi_dims_mask=mpi_dims_mask,
                     boxes_per_dim=boxes_per_dim,
                     name=species,
                     equation_params=self.equation_params[species],
@@ -1839,16 +1873,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 # for storing markers
                 val["kinetic_data"] = {}
-
-                n_markers = val["params"]["save_data"].get("n_markers", 0)
-                assert n_markers <= obj.Np, (
-                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.Np})"
-                )
-                if n_markers > 0:
-                    val["kinetic_data"]["markers"] = np.zeros(
-                        (n_markers, obj.markers.shape[1]),
-                        dtype=float,
-                    )
 
                 # for storing the distribution function
                 if "f" in val["params"]["save_data"]:

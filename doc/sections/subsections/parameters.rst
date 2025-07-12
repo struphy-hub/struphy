@@ -440,7 +440,7 @@ Example (one kinetic species):
                 type    : full_f 
                 ppc     : null 
                 Np      : 1000
-                eps     : .25
+                bufsize     : .25
                 bc : 
                     type    : [remove, periodic, periodic] 
                     remove  : boundary_transfer
@@ -507,8 +507,8 @@ Parameters:
      - Number of markers per sorting box.
      - int
      - Takes effect only if both ``Np`` and ``ppc`` are absent.
-   * - ``eps``
-     - Size of MPI-buffer in markers array as fraction of markers per process (0.1 <= eps <= 1.0).
+   * - ``bufsize``
+     - Size of MPI-buffer in markers array as fraction of markers per process.
      - float
      - 
    * - ``bc``
