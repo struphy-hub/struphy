@@ -21,13 +21,6 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments, MarkerArguments
 
-
-def _tmp_floor_division_eval_kernels_gc(x: int):
-    y = zeros(10)
-    z = copy(y)
-    return x // 2
-
-
 @stack_array("eta_k", "eta_n", "eta")
 def driftkinetic_hamiltonian(
     alpha: "float[:]",

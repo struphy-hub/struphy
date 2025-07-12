@@ -193,15 +193,6 @@ class DomainArguments:
 # # from struphy.linear_algebra.linalg_kernels import matrix_inv, matrix_vector
 # # from struphy.geometry.evaluation_kernels import df
 
-
-
-def _tmp_floor_division_pusher_kernels(x: int):
-    y = zeros(10)
-    z = copy(y)
-
-    return floor(x // 2)
-
-
 def matmul_cpu(A: "float[:,:]", B: "float[:,:]", C: "float[:,:]"):
     N: int = shape(A)[0]
     s: float = 0.0

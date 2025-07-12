@@ -20,13 +20,6 @@ from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
-
-def _tmp_floor_division_evaluation_kernels_1d(x: int):
-    y = zeros(10)
-    z = copy(y)
-    return x // 2
-
-
 # =============================================================================
 @pure
 def evaluation_kernel_1d(p1: int, basis1: "Final[float[:]]", ind1: "Final[int[:]]", coeff: "Final[float[:]]") -> float:

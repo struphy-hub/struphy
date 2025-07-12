@@ -23,13 +23,6 @@ from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
-
-def _tmp_floor_division_evaluation_kernels_2d(x: int):
-    y = zeros(10)
-    z = copy(y)
-    return x // 2
-
-
 @pure
 def evaluation_kernel_2d(
     p1: int,

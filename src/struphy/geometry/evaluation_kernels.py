@@ -14,12 +14,6 @@ import struphy.linear_algebra.linalg_kernels as linalg_kernels
 from struphy.pic.pushing.pusher_kernels_gpu import DomainArguments
 
 
-def _tmp_floor_division_evaluation_kernels(x: int):
-    y = zeros(10)
-    z = copy(y)
-    return x // 2
-
-
 def f(
     eta1: float,
     eta2: float,

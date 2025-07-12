@@ -31,13 +31,6 @@ import struphy.pic.accumulation.filler_kernels as filler_kernels
 from struphy.bsplines.evaluation_kernels_3d import get_spans
 from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments
 
-
-def _tmp_floor_division_p2mat_kernels(x: int):
-    y = zeros(10)
-    z = copy(y)
-    return x // 2
-
-
 def mat_fill_b_v1_diag(
     args_derham: "DerhamArguments",
     eta1: float,

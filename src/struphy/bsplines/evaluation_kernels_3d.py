@@ -30,17 +30,6 @@ from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArgume
 ### Single process evaluation ###
 #################################
 
-
-def do_things(x: "float[:]"):
-    y = copy(x)
-
-
-def _tmp_floor_division_evaluation_kernels_3d(x: int):
-    y = zeros(10)
-    z = copy(y)
-    return x // 2
-
-
 def evaluation_kernel_3d(
     p1: int,
     p2: int,
