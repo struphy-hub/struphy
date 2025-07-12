@@ -208,8 +208,16 @@ def struphy():
         "--compiler",
         type=str,
         metavar="COMPILER",
-        help='either "GNU" (default), "intel", "PGI", "nvidia" or the path to a JSON compiler file.',
+        help='either "GNU" (default), "intel", "PGI", "nvidia" or "LLVM"',
         default="GNU",
+    )
+
+    parser_compile.add_argument(
+        "--compiler-config",
+        type=str,
+        metavar="COMPILER_CONFIG",
+        help="Path to a JSON compiler file.",
+        default=None,
     )
 
     parser_compile.add_argument(
@@ -276,12 +284,22 @@ def struphy():
         epilog="For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html",
     )
 
+    # parser_run.add_argument(
+    #     "model",
+    #     type=str,
+    #     default=None,
+    #     choices=list_models,
+    #     metavar="MODEL",
+    #     help=model_message,
+    # )
     parser_run.add_argument(
         "model",
         type=str,
+        nargs="?",  # makes it optional
+        default=None,  # fallback if nothing is passed
         choices=list_models,
         metavar="MODEL",
-        help=model_message,
+        help=model_message + f" (default: None)",
     )
     parser_run.add_argument(
         "-i",
@@ -501,7 +519,7 @@ def struphy():
         import pylikwid
 
         add_likwid_parser = True
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, ImportError):
         add_likwid_parser = False
 
     if add_likwid_parser:
@@ -620,13 +638,6 @@ def struphy():
         help="save (and dont display) the profile figure under NAME, relative to current output path.",
     )
 
-    try:
-        import pylikwid
-
-        add_likwid_parser = True
-    except ModuleNotFoundError:
-        add_likwid_parser = False
-
     if add_likwid_parser:
         parser_likwid_profile = subparsers.add_parser(
             "likwid_profile",
@@ -692,13 +703,13 @@ def struphy():
     )
 
     parser_pproc.add_argument(
-        "-d",
-        "--dirr",
+        "dirs",
         type=str,
+        nargs="*",
         choices=out_folders,
         metavar="DIR",
-        help="simulation output folder to post-process relative to current I/O path (default=sim_1)",
-        default="sim_1",
+        default=["sim_1"],
+        help=("Simulation output folders to post-process (relative to current I/O path) (default: [sim_1])."),
     )
 
     parser_pproc.add_argument(

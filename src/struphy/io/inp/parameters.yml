@@ -86,7 +86,7 @@ kinetic :
             ppc     : null  # number of markers per 3d grid cell
             ppb     : null  # number of markers per sorting box
             bc      : [periodic, periodic, periodic] # marker boundary conditions: remove, reflect or periodic
-            eps     : 1. # MPI send/receive buffer (0.1 <= eps <= 1.0)
+            bufsize : 1. # MPI send/receive buffer 
             loading : pseudo_random # particle loading mechanism 
             loading_params :
                 seed          : 1234 # seed for random number generator
@@ -97,10 +97,10 @@ kinetic :
         weights : 
             reject_weights : False
             threshold : 0.0
-            from_tesselation : False
         boxes_per_dim: [16, 16, 1] # for particle sorting and sph evaluations via smoothing kernels
+        dims_mask: [True, True, True] # which directions to use in domain decomposition (for meshless methods, otherwise given under grid)
         save_data :
-            n_markers : 3 # number of markers to be saved during simulation
+            n_markers : 3 # number of markers (int) to be saved during simulation; if float and <= 1.0, it is a perecentage of Np
             f :
                 slices : [e1, e1_e2] # in which directions to bin (e.g. [e1_e2, v1_v2_v3])
                 n_bins : [[32], [32, 32]] # number of bins in each direction (e.g. [[16, 20], [16, 18, 22]])

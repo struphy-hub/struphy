@@ -1,5 +1,6 @@
 "Only particle variables are updated."
 
+import numpy as np
 from numpy import array, polynomial, random
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -1541,20 +1542,6 @@ class PushVinSPHpressure(Propagator):
     Time stepping:
 
     * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
-
-    Parameters
-    ----------
-    particles : ParticlesSPH
-        SPH particles object.
-
-    kernel_type : str
-        The smoothing kernel, choose from :meth:`~struphy.pic.base.Particles.ker_dct`
-
-    kernel_width : tuple
-        Width of smoothing kernel in each direction.
-
-    algo : str
-        Algorithm for solving the ODE (see options below).
     """
 
     @staticmethod
@@ -1564,6 +1551,8 @@ class PushVinSPHpressure(Propagator):
         dct["algo"] = [
             "forward_euler",
         ]  # "heun2", "rk2", "heun3", "rk4"]
+        dct["gravity"] = (0.0, 0.0, 0.0)
+        dct["thermodynamics"] = ["isothermal", "polytropic"]
         if default:
             dct = descend_options_dict(dct, [])
         return dct
@@ -1576,6 +1565,8 @@ class PushVinSPHpressure(Propagator):
         kernel_width: tuple = None,
         algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
         gpu=True,
+        gravity: tuple = options(default=True)["gravity"],
+        thermodynamics: str = options(default=True)["thermodynamics"],
     ):
         # base class constructor call
         super().__init__(particles)
@@ -1586,9 +1577,11 @@ class PushVinSPHpressure(Propagator):
             # init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
         else:
             init_kernel = eval_kernels_gc.sph_isotherm_pressure_coeffs
+            init_kernel = eval_kernels_gc.sph_pressure_coeffs
         print(f"Loaded {init_kernel = }")
+
         first_free_idx = particles.args_markers.first_free_idx
-        comps = (0, 1)
+        comps = (0, 1, 2)
 
         boxes = particles.sorting_boxes.boxes
         neighbours = particles.sorting_boxes.neighbours
@@ -1601,7 +1594,7 @@ class PushVinSPHpressure(Propagator):
         else:
             assert all([hi <= 1 / ni for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)])
 
-        # collect arguments for init kernel
+        # init kernel
         args_init = (
             boxes,
             neighbours,
@@ -1633,10 +1626,27 @@ class PushVinSPHpressure(Propagator):
         if gpu:
             kernel = pusher_kernels_gpu.push_v_sph_pressure_gpu  # TODO: port2gpu
         else:
-            kernel = pusher_kernels.push_v_sph_pressure
+            # same arguments as init kernel
+            args_kernel = args_init
+            # pusher kernel
+            if thermodynamics == "isothermal":
+                kernel = pusher_kernels.push_v_sph_pressure
+            elif thermodynamics == "polytropic":
+                kernel = pusher_kernels.push_v_sph_pressure_ideal_gas
+        
         print(f"Loaded {kernel = }")
-        # same arguments as init kernel
-        args_kernel = args_init
+
+        gravity = np.array(gravity, dtype=float)
+
+        args_kernel = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *kernel_width,
+            gravity,
+        )
 
         # the Pusher class wraps around all kernels
         self._pusher = Pusher(

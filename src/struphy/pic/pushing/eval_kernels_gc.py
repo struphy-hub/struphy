@@ -476,7 +476,7 @@ def unit_b_1form(
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
-def sph_isotherm_pressure_coeffs(
+def sph_pressure_coeffs(
     alpha: "float[:]",
     column_nr: int,
     comps: "int[:]",
@@ -515,6 +515,8 @@ def sph_isotherm_pressure_coeffs(
     The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
     in markers array for each particle.
     """
+
+    gamma = 5 / 3
 
     # get marker arguments
     markers = args_markers.markers
@@ -556,6 +558,7 @@ def sph_isotherm_pressure_coeffs(
         # save
         markers[ip, column_nr] = n_at_eta
         markers[ip, column_nr + 1] = weight / n_at_eta
+        markers[ip, column_nr + 2] = weight * n_at_eta ** (gamma - 2)
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")

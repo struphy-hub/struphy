@@ -43,19 +43,13 @@
 - 2-form --> vector : (a_1, a_2, a_3) =          (a^2_1, a^2_2, a^2_3) / |det(DF)|
 """
 
-from numpy import copy, empty, shape, sqrt, zeros
+from numpy import empty, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
-# import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
-from struphy.pic.pushing.pusher_kernels_gpu import DerhamArguments, DomainArguments
-
-
-def _tmp_floor_division_transform_kernels(x: int):
-    y = zeros(10)
-    z = copy(y)
-    return x // 2
+import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
 @stack_array("dfmat1", "dfmat2")

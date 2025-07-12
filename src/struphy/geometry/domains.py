@@ -149,7 +149,7 @@ class Tokamak(PoloidalSplineTorus):
 
 
 class GVECunit(Spline):
-    """The mapping ``f_unit`` from `gvec_to_python <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_, computed by the GVEC MHD equilibrium code.
+    """The mapping from `pygvec <https://gvec.readthedocs.io/latest/index.html>`_, computed by the GVEC MHD equilibrium code.
 
     .. image:: ../../pics/mappings/gvec.png
 
@@ -167,6 +167,8 @@ class GVECunit(Spline):
     """
 
     def __init__(self, gvec_equil=None):
+        import gvec
+
         from struphy.fields_background.equils import GVECequilibrium
         from struphy.geometry.base import interp_mapping
 
@@ -188,14 +190,28 @@ class GVECunit(Spline):
         # project mapping to splines
         _rmin = gvec_equil.params["rmin"]
 
+        def XYZ(e1, e2, e3):
+            rho = _rmin + e1 * (1.0 - _rmin)
+            theta = 2 * np.pi * e2
+            zeta = 2 * np.pi * e3 / gvec_equil._nfp
+            if gvec_equil.params["use_boozer"]:
+                ev = gvec.EvaluationsBoozer(rho=rho, theta_B=theta, zeta_B=zeta, state=gvec_equil.state)
+            else:
+                ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=gvec_equil.state)
+            gvec_equil.state.compute(ev, "pos")
+            x = ev.pos.data[0]
+            y = ev.pos.data[1]
+            z = ev.pos.data[2]
+            return x, y, z
+
         def X(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[0]
+            return XYZ(e1, e2, e3)[0]
 
         def Y(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[1]
+            return XYZ(e1, e2, e3)[1]
 
         def Z(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[2]
+            return XYZ(e1, e2, e3)[2]
 
         cx, cy, cz = interp_mapping(
             params_map["Nel"],
