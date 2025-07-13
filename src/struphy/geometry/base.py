@@ -788,9 +788,9 @@ class Domain(metaclass=ABCMeta):
 
         # markers evaluation without matrices and tensor-product
         elif len(etas) == 3 and flat_eval:
-            assert etas[0].ndim == etas[1].ndim == etas[2].ndim == 1 
+            assert etas[0].ndim == etas[1].ndim == etas[2].ndim == 1
             assert etas[0].size == etas[1].size == etas[2].size
-            
+
             E1 = etas[0]
             E2 = etas[1]
             E3 = etas[2]
