@@ -44,6 +44,7 @@ from struphy.utils.clone_config import CloneConfig
 
 try:
     import amrex.space3d as amr
+    from amrex.space3d import ParIter_pureSoA_8_0_default
 except ImportError:
     amr = None
 
@@ -2409,7 +2410,7 @@ class Particles(metaclass=ABCMeta):
 
         return is_outside_left, is_outside_right, outside_inds
 
-    def get_amrex_markers_array(self, soa):
+    def get_amrex_markers_array(self, soa: ParIter_pureSoA_8_0_default):
         """
         Create a zero-copy view of the real components of a amrex particle container. Minimizes memory allocations.
         """
