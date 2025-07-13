@@ -2413,9 +2413,7 @@ class Particles(metaclass=ABCMeta):
         """
         Create a zero-copy view of the real components of a amrex particle container. Minimizes memory allocations.
         """
-        try:
-            self._markers_array
-        except AttributeError:
+        if not hasattr(self, "_markers_array"):
             self._markers_array = {}
 
         real_comp_names = soa.real_names
