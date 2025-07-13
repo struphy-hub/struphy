@@ -79,7 +79,7 @@ class RestelliForcingTerm:
         phi = np.arctan2(y, x)
         force_Z = self._nu * (
             self._alpha * (self._R0 - 4 * R) / (self._a * self._R0 * R)
-            - self._beta * self._Bp * self._R0**2 / (self._B0 * self._a * R**3 / self._eps_norm)
+            - self._beta * self._Bp * self._R0**2 / (self._B0 * self._a * R**3)
         )
 
         return force_Z
