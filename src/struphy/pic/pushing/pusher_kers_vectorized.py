@@ -9,7 +9,6 @@ from struphy.bsplines.evaluation_kernels_3d import (
 )
 from struphy.geometry.base import Domain
 from struphy.linear_algebra.linalg_kernels import cross_vectorized, cross_vectorized_flat, scalar_dot_vectorized_flat
-
 from struphy.pic.base import Particles
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
 
