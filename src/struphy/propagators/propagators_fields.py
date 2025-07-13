@@ -43,6 +43,8 @@ from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
+from line_profiler import profile
+
 
 class Maxwell(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
@@ -7435,7 +7437,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             dct = descend_options_dict(dct, [])
 
         return dct
-
+    @profile
     def __init__(
         self,
         u: BlockVector,
@@ -7755,7 +7757,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 max_iter=solver["maxiter"],
                 verbose=solver["verbose"],
             )
-
+    @profile
     def __call__(self, dt):
         # current variables
         unfeec = self.feec_vars[0]
