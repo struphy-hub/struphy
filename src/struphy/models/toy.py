@@ -1269,7 +1269,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params, comm, clone_config=None, amrex=False):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # get species paramaters
