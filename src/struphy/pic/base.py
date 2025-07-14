@@ -38,6 +38,7 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
 )
+from struphy.pic.utilities import amrex_reflect
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
 
