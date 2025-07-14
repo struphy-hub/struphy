@@ -1688,6 +1688,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         Initialize em-fields, fluid and kinetic dictionaries for information on the model variables.
         """
 
+        # from struphy.models.variables import Variable
+
         # electromagnetic fields, fluid and/or kinetic species
         self._em_fields = {}
         self._fluid = {}
@@ -1712,17 +1714,33 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
             # initial conditions
             if "background" in self.params["em_fields"]:
+                # background= self.params["em_fields"]["background"].get(var_name)
                 self._em_fields[var_name]["background"] = self.params["em_fields"]["background"].get(var_name)
+            # else:
+            #     background = None
+                
             if "perturbation" in self.params["em_fields"]:
+                # perturbation = self.params["em_fields"]["perturbation"].get(var_name)
                 self._em_fields[var_name]["perturbation"] = self.params["em_fields"]["perturbation"].get(var_name)
+            # else:
+            #     perturbation = None
 
             # which components to save
             if "save_data" in self.params["em_fields"]:
+                # save_data = self.params["em_fields"]["save_data"]["comps"][var_name]
                 self._em_fields[var_name]["save_data"] = self.params["em_fields"]["save_data"]["comps"][var_name]
             else:
                 self._em_fields[var_name]["save_data"] = True
+                # save_data = True
 
+            # self._em_fields[var_name] = Variable(name=var_name, 
+            #                                      space=space,
+            #                                      background=background,
+            #                                      perturbation=perturbation,
+            #                                      save_data=save_data,)
+            
             # overall parameters
+            # print(f'{self._em_fields = }')
             self._em_fields["params"] = self.params["em_fields"]
 
         for var_name, space in self.species()["fluid"].items():
