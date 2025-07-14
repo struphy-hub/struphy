@@ -708,7 +708,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         # Assert Maxwellian background (if list, the first entry is taken)
         bckgr_params = self._species_params["background"]
         li_bp = list(bckgr_params)
-        assert li_bp[0] == "Maxwellian3D", "The background distribution function must be a uniform Maxwellian!"
+        assert li_bp[0] == "Maxwellian3D" or li_bp[0][:-2] == "Maxwellian3D", "The background distribution function must be a uniform Maxwellian!"
         if len(li_bp) > 1:
             # overwrite f0 with single Maxwellian
             self._f0 = getattr(maxwellians, li_bp[0][:-2])(
@@ -1113,7 +1113,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # Assert Maxwellian background (if list, the first entry is taken)
         bckgr_params = self._species_params["background"]
         li_bp = list(bckgr_params)
-        assert li_bp[0] == "Maxwellian3D", "The background distribution function must be a uniform Maxwellian!"
+        assert li_bp[0] == "Maxwellian3D" or li_bp[0][:-2] == "Maxwellian3D", "The background distribution function must be a uniform Maxwellian!"
         if len(li_bp) > 1:
             # overwrite f0 with single Maxwellian
             self._f0 = getattr(maxwellians, li_bp[0][:-2])(
@@ -1219,8 +1219,12 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
+        self.add_scalar("en_c_ln_n")
+        self.add_scalar("en_c_v_2")
         self.add_scalar("en_w")
+        self.add_scalar("en_tot_p")
         self.add_scalar("en_tot")
+        self.add_scalar("gamma")
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
@@ -1228,7 +1232,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # temporaries
         self._en_e_tmp = self.mass_ops.M1.codomain.zeros()
-        self._tmp = np.empty(1, dtype=float)
+        self._tmp = np.empty(5, dtype=float)
         self.en_E = 0.0
 
     def initialize_from_params(self):
@@ -1296,36 +1300,41 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             *self.pointer["species1"].phasespace_coords[:, :3].T
         )
 
-        # alpha^2 * v_th^2 / N * sum_p ( - gamma_p * ln(n_{0,p}) + gamma_p |v_p|^2 / (2 vth^2) + f_{0,p} / s_{0,p} )
-        self._tmp[0] = (
-            self.alpha**2
-            * self.vth**2
-            / self.pointer["species1"].Np
-            * (
-                # - gamma_p * ln(n_{0,p})
-                (-1.) * np.dot(
+        # - gamma_p * ln(n_{0,p})
+        self._tmp[0] = self.alpha**2 * self.vth**2 / self.pointer["species1"].Np \
+                * (-1.) * np.dot(
                     self._gamma[self.pointer["species1"].valid_mks],
                     np.log(self._n0_values[self.pointer["species1"].valid_mks]),
                 )
-                +
-                # gamma_p |v_p|^2 / (2 vth^2)
-                np.dot(
+        self.update_scalar("en_c_ln_n", self._tmp[0])
+
+        # gamma_p |v_p|^2 / (2 vth^2)
+        self._tmp[1] = self.alpha**2 / self.pointer["species1"].Np \
+                * np.dot(
                     self.pointer["species1"].markers_wo_holes[:, 3] ** 2
                     + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
                     + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
                     self._gamma[self.pointer["species1"].valid_mks],
                 )
-                / (2. * self.vth**2)
-                -
-                # w_p
-                self.pointer["species1"].weights.sum()
-                # # f_{0,p} / s_{0,p}
-                # + np.divide(
-                #     self._f0_values[self.pointer["species1"].valid_mks],
-                #     self.pointer["species1"].sampling_density,
-                # ).sum()
-            )
-        )
+        self.update_scalar("en_c_v_2", self._tmp[1])
+
+        # w_p
+        self._tmp[2] = self.alpha**2 * self.vth**2 / self.pointer["species1"].Np * self.pointer["species1"].weights.sum()
+        self.update_scalar("en_w", self._tmp[2])
+
+        # total particle energy
+        self._tmp[3] = self._tmp[0] + self._tmp[1] + self._tmp[2]
+        self.update_scalar("en_tot_p", self._tmp[3])
+
+        # gamma
+        self._tmp[4] = self._gamma.sum()
+        self.update_scalar("gamma", self._tmp[4])
+
+        # # f_{0,p} / s_{0,p}
+        # + np.divide(
+        #     self._f0_values[self.pointer["species1"].valid_mks],
+        #     self.pointer["species1"].sampling_density,
+        # ).sum()
 
         self.derham.comm.Allreduce(
             self._mpi_in_place,
@@ -1333,11 +1342,9 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             op=self._mpi_sum,
         )
 
-        self.update_scalar("en_w", self._tmp[0])
-
-        # en_tot = en_w + en_e
+        # Compute total energy
         if not self._baseclass:
-            self.update_scalar("en_tot", self._tmp[0] + self.en_E)
+            self.update_scalar("en_tot", self._tmp[0] + self._tmp[1] + self._tmp[2] + self.en_E)
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
