@@ -227,7 +227,7 @@ def struphy():
 
 def get_params_files(i_path):
     if os.path.exists(i_path) and os.path.isdir(i_path):
-        params_files = recursive_get_files(i_path)
+        params_files = recursive_get_files(i_path, contains=(".yml", ".yaml", ".py"))
     else:
         print("Path to input files missing! Set it with `struphy --set-i PATH`")
         params_files = []
