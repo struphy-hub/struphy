@@ -174,9 +174,9 @@ class PushVxB(Propagator):
         # get kernel
         if particles.amrex:
             if algo == "analytic":
-                kernel = pusher_kers_vectorized.push_vxb_analytic
+                kernel = pusher_kers_vectorized.push_vxb_analytic(particles.Np)
             elif algo == "implicit":
-                kernel = pusher_kers_vectorized.push_vxb_implicit
+                kernel = pusher_kers_vectorized.push_vxb_implicit(particles.Np)
             else:
                 raise ValueError(f"{algo = } not supported.")
             self.amrex = True
@@ -271,7 +271,7 @@ class PushVinEfield(Propagator):
 
         # get kernel
         if particles.amrex:
-            kernel = pusher_kers_vectorized.push_v_with_efield
+            kernel = pusher_kers_vectorized.push_v_with_efield(particles.Np)
             self.amrex = True
         else:
             kernel = pusher_kernels.push_v_with_efield

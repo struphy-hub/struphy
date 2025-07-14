@@ -111,7 +111,7 @@ class Pusher:
     ):
         self._particles = particles
         self._kernel = kernel
-        self._newton = "newton" in kernel.__name__
+        self._newton = "newton" in kernel.__class__.__name__
         self._args_kernel = args_kernel
         self._args_domain = args_domain
 
