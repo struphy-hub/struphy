@@ -3,7 +3,7 @@ import numpy as np
 
 class TensorProductGrid:
     """Grid as a tensor product of 1d grids.
-    
+
     Parameters
     ----------
     Nel : tuple[int]
@@ -23,28 +23,29 @@ class TensorProductGrid:
 
     nq_pr : tuple[int]
         Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
-        
+
     mpi_dims_mask: Tuple of bool
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
     """
-    
-    def __init__(self, 
-                Nel: tuple,
-                p: tuple,
-                spl_kind: tuple,
-                *,
-                dirichlet_bc: tuple = None,
-                nquads: tuple = None,
-                nq_pr: tuple = None,
-                mpi_dims_mask: tuple = None,):
-        
+
+    def __init__(
+        self,
+        Nel: tuple,
+        p: tuple,
+        spl_kind: tuple,
+        *,
+        dirichlet_bc: tuple = None,
+        nquads: tuple = None,
+        nq_pr: tuple = None,
+        mpi_dims_mask: tuple = None,
+    ):
         assert len(Nel) == len(p) == len(spl_kind)
-        
+
         self._Nel = Nel
         self._p = p
         self._spl_kind = spl_kind
-        
+
         # boundary conditions at eta=0 and eta=1 in each direction (None for periodic, 'd' for homogeneous Dirichlet)
         if dirichlet_bc is not None:
             assert len(dirichlet_bc) == len(Nel)
@@ -69,7 +70,7 @@ class TensorProductGrid:
 
         # mpi domain decomposition directions
         if mpi_dims_mask is None:
-            self._mpi_dims_mask = (True,)*len(Nel)
+            self._mpi_dims_mask = (True,) * len(Nel)
         else:
             assert len(mpi_dims_mask) == len(Nel)
             self._mpi_dims_mask = mpi_dims_mask
@@ -105,7 +106,7 @@ class TensorProductGrid:
     def nq_pr(self):
         """Tuple of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction."""
         return self._nq_pr
-    
+
     @property
     def mpi_dims_mask(self):
         """Tuple of bool; whether to use direction in domain decomposition."""
