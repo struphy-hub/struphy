@@ -1,6 +1,8 @@
 "Particle and FEEC variables are updated."
 
 import numpy as np
+from mpi4py import MPI
+
 from psydac.linalg.block import BlockVector
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
@@ -574,7 +576,7 @@ class DeltaFVelocitiesEfield(Propagator):
         # Use predictor for velocities
         self._predict_velocities(dt)
 
-        converged = False
+        converged_glob = False
 
         # Store old velocities because free idx gets reset
         self._vel_diffs[:] *= 0.0
@@ -596,7 +598,7 @@ class DeltaFVelocitiesEfield(Propagator):
         # self._e_next.update_ghost_regions()
 
         k = 0
-        while not converged:
+        while not converged_glob:
             k += 1
 
             # Store old velocities because free idx gets reset
@@ -648,7 +650,9 @@ class DeltaFVelocitiesEfield(Propagator):
             max_diff_e = np.max(np.abs(self._e_curr.toarray() - self._e_next.toarray()))
 
             # Check if converged
-            converged = (max_diff_v < self._tol) and (max_diff_e < self._tol)
+            converged_loc = (max_diff_v < self._tol) and (max_diff_e < self._tol)
+            converged_glob = self.derham.comm.allreduce(converged_loc, op=MPI.LAND)
+
             # print(f"{converged=} with {max_diff_v=} and {max_diff_e=}")
 
             if k >= self._maxiter:
