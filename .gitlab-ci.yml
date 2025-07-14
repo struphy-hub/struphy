@@ -490,7 +490,7 @@ inspect_repo:
 check_struphy_simulation_params:
   stage: test
   extends:
-    - .rules_push
+    - .rules_mr_to_devel
     - .image_gitlab_mpcdf_struphy
     - .before_script_load_modules
     - .variables_push
