@@ -1,12 +1,13 @@
-import numpy as np
-from mpi4py import MPI
 import importlib.util
 import sys
 
-from struphy.utils.utils import dict_to_yaml, read_state
-from struphy.topology.grids import TensorProductGrid
-from struphy.io.parameters import StruphyParameters
+import numpy as np
+from mpi4py import MPI
+
 from struphy.io.options import DerhamOptions
+from struphy.io.parameters import StruphyParameters
+from struphy.topology.grids import TensorProductGrid
+from struphy.utils.utils import dict_to_yaml, read_state
 
 
 def derive_units(
@@ -162,7 +163,7 @@ def setup_domain_and_equil(params: StruphyParameters):
         #         equil = eq_class(**eq_params, units=units)
         #     else:
         #         equil = eq_class(**eq_params)
-        
+
         equil = params.equil
 
         # for numerical equilibria, the domain comes from the equilibrium
@@ -196,7 +197,7 @@ def setup_domain_and_equil(params: StruphyParameters):
 
 def setup_derham(
     grid: TensorProductGrid,
-    options: DerhamOptions, 
+    options: DerhamOptions,
     comm=None,
     domain=None,
     mpi_dims_mask=None,
@@ -429,64 +430,66 @@ def pre_processing(
             params_in = importlib.util.module_from_spec(spec)
             sys.modules["parameters"] = params_in
             spec.loader.exec_module(params_in)
-            
+
             if not hasattr(params_in, "model"):
                 params_in.model = None
-                
+
             if not hasattr(params_in, "domain"):
                 params_in.domain = None
-                
+
             if not hasattr(params_in, "grid"):
                 params_in.grid = None
-                
+
             if not hasattr(params_in, "equil"):
                 params_in.equil = None
-                
+
             if not hasattr(params_in, "units"):
                 params_in.units = None
-                
+
             if not hasattr(params_in, "time"):
                 params_in.time = None
-                
+
             if not hasattr(params_in, "derham"):
                 params_in.derham = None
-                
+
             if not hasattr(params_in, "em_fields"):
                 params_in.em_fields = None
-                
+
             if not hasattr(params_in, "fluid"):
                 params_in.fluid = None
-                
+
             if not hasattr(params_in, "kinetic"):
                 params_in.kinetic = None
-                
+
             if not hasattr(params_in, "diagnostic_fields"):
                 params_in.diagnostic_fields = None
-            
-            print(f'{params_in = }')
-            print(f'{params_in.model = }')
-            print(f'{params_in.domain = }')
-            print(f'{params_in.grid = }')
-            print(f'{params_in.equil = }')
-            print(f'{params_in.units = }')
-            print(f'{params_in.time = }')
-            print(f'{params_in.derham = }')
-            print(f'{params_in.em_fields = }')
-            print(f'{params_in.fluid = }')
-            print(f'{params_in.kinetic = }')
-            print(f'{params_in.diagnostic_fields = }')
-            
-            params = StruphyParameters(model=params_in.model,
-                                       domain=params_in.domain,
-                                       grid=params_in.grid,
-                                       equil=params_in.equil,
-                                       units=params_in.units,
-                                       time=params_in.time,
-                                       derham=params_in.derham,
-                                       em_fields=params_in.em_fields,
-                                       fluid=params_in.fluid,
-                                       kinetic=params_in.kinetic,
-                                       diagnostic_fields=params_in.diagnostic_fields,)
+
+            print(f"{params_in = }")
+            print(f"{params_in.model = }")
+            print(f"{params_in.domain = }")
+            print(f"{params_in.grid = }")
+            print(f"{params_in.equil = }")
+            print(f"{params_in.units = }")
+            print(f"{params_in.time = }")
+            print(f"{params_in.derham = }")
+            print(f"{params_in.em_fields = }")
+            print(f"{params_in.fluid = }")
+            print(f"{params_in.kinetic = }")
+            print(f"{params_in.diagnostic_fields = }")
+
+            params = StruphyParameters(
+                model=params_in.model,
+                domain=params_in.domain,
+                grid=params_in.grid,
+                equil=params_in.equil,
+                units=params_in.units,
+                time=params_in.time,
+                derham=params_in.derham,
+                em_fields=params_in.em_fields,
+                fluid=params_in.fluid,
+                kinetic=params_in.kinetic,
+                diagnostic_fields=params_in.diagnostic_fields,
+            )
 
     if model_name is None:
         assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"

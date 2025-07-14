@@ -4,10 +4,12 @@ from struphy.io import options
 model = "Maxwell"
 
 # units
-units = options.Units(x=1.0,
-                       B=1.0,
-                       n=1.0,
-                       kBT=1.0,)
+units = options.Units(
+    x=1.0,
+    B=1.0,
+    n=1.0,
+    kBT=1.0,
+)
 
 # time
 time = options.Time(split_algo="LieTrotter")
@@ -30,26 +32,31 @@ equil = options.equils.HomogenSlab()
 
 # FOR NOW: initial conditions and options
 em_fields = {}
-em_fields["background"] = {} 
-em_fields["perturbation"] = {} 
-em_fields["options"] = {} 
+em_fields["background"] = {}
+em_fields["perturbation"] = {}
+em_fields["options"] = {}
 
-em_fields["background"]["e_field"] = {"LogicalConst": {"values": [0.3, 0.15, None]}} 
+em_fields["background"]["e_field"] = {"LogicalConst": {"values": [0.3, 0.15, None]}}
 em_fields["background"]["b_field"] = {"LogicalConst": {"values": [0.3, 0.15, None]}}
 
-em_fields["perturbation"]["e_field"] = {} 
-em_fields["perturbation"]["b_field"] = {} 
-em_fields["perturbation"]["e_field"]["TorusModesCos"] = {"given_in_basis": [None, "v", None],
-                                                          "ms": [[None], [1, 3], [None]]}
-em_fields["perturbation"]["b_field"]["TorusModesCos"] = {"given_in_basis": [None, "v", None],
-                                                          "ms": [[None], [1, 3], [None]]} 
+em_fields["perturbation"]["e_field"] = {}
+em_fields["perturbation"]["b_field"] = {}
+em_fields["perturbation"]["e_field"]["TorusModesCos"] = {
+    "given_in_basis": [None, "v", None],
+    "ms": [[None], [1, 3], [None]],
+}
+em_fields["perturbation"]["b_field"]["TorusModesCos"] = {
+    "given_in_basis": [None, "v", None],
+    "ms": [[None], [1, 3], [None]],
+}
 
-solver = {"type": ["pcg", "MassMatrixPreconditioner"],
-        "tol": 1.0e-08,
-        "maxiter": 3000,
-        "info": False,
-        "verbose": False,
-        "recycle": True,}
+solver = {
+    "type": ["pcg", "MassMatrixPreconditioner"],
+    "tol": 1.0e-08,
+    "maxiter": 3000,
+    "info": False,
+    "verbose": False,
+    "recycle": True,
+}
 
-em_fields["options"]["Maxwell"] = {"algo": "implicit",
-                                   "solver": solver} 
+em_fields["options"]["Maxwell"] = {"algo": "implicit", "solver": solver}

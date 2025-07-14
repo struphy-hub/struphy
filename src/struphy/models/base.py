@@ -16,13 +16,13 @@ from struphy.fields_background.projected_equils import (
     ProjectedFluidEquilibriumWithB,
     ProjectedMHDequilibrium,
 )
+from struphy.io.parameters import StruphyParameters
 from struphy.io.setup import setup_derham, setup_domain_and_equil
 from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
-from struphy.io.parameters import StruphyParameters
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -1266,7 +1266,12 @@ class StruphyModel(metaclass=ABCMeta):
     ###################
 
     @classmethod
-    def model_units(cls, params: StruphyParameters, verbose: bool=False, comm: MPI.Intracomm=None,):
+    def model_units(
+        cls,
+        params: StruphyParameters,
+        verbose: bool = False,
+        comm: MPI.Intracomm = None,
+    ):
         """
         Return model units and print them to screen.
 
@@ -1714,7 +1719,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 self._em_fields[var_name]["background"] = self.params.em_fields["background"].get(var_name)
             # else:
             #     background = None
-                
+
             if "perturbation" in self.params.em_fields:
                 # perturbation = self.params.em_fields["perturbation"].get(var_name)
                 self._em_fields[var_name]["perturbation"] = self.params.em_fields["perturbation"].get(var_name)
@@ -1729,12 +1734,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 self._em_fields[var_name]["save_data"] = True
                 # save_data = True
 
-            # self._em_fields[var_name] = Variable(name=var_name, 
+            # self._em_fields[var_name] = Variable(name=var_name,
             #                                      space=space,
             #                                      background=background,
             #                                      perturbation=perturbation,
             #                                      save_data=save_data,)
-            
+
             # overall parameters
             # print(f'{self._em_fields = }')
             self._em_fields["params"] = self.params.em_fields
