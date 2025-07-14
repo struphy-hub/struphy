@@ -16,7 +16,7 @@ import yaml
 
 # struphy path
 import struphy
-import struphy.utils.utils as utils
+from struphy.utils import utils
 
 libpath = struphy.__path__[0]
 __version__ = importlib.metadata.version("struphy")

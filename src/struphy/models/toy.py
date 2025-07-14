@@ -59,8 +59,8 @@ class Maxwell(StruphyModel):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # extract necessary parameters
-        algo = params["em_fields"]["options"]["Maxwell"]["algo"]
-        solver = params["em_fields"]["options"]["Maxwell"]["solver"]
+        algo = params.em_fields["options"]["Maxwell"]["algo"]
+        solver = params.em_fields["options"]["Maxwell"]["solver"]
 
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.Maxwell] = {

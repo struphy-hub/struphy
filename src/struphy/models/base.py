@@ -22,6 +22,7 @@ from struphy.propagators.base import Propagator
 from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
+from struphy.io.parameters import StruphyParameters
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -30,8 +31,8 @@ class StruphyModel(metaclass=ABCMeta):
 
     Parameters
     ----------
-    params : dict
-        Simulation parameters, see from :ref:`params_yml`.
+    params : StruphyParameters
+        Simulation parameters.
 
     comm : mpi4py.MPI.Intracomm
         MPI communicator for parallel runs.
@@ -47,7 +48,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     def __init__(
         self,
-        params: dict,
+        params: StruphyParameters = None,
         comm: MPI.Intracomm = None,
         clone_config: CloneConfig = None,
     ):
@@ -87,28 +88,25 @@ class StruphyModel(metaclass=ABCMeta):
         )
 
         # create domain, equilibrium
-        self._domain, self._equil = setup_domain_and_equil(
-            params,
-            units=self.units,
-        )
+        self._domain, self._equil = setup_domain_and_equil(params)
 
         if self.rank_world == 0 and self.verbose:
             print("\nTIME:")
             print(
                 f"time step:".ljust(25),
                 "{0} ({1:4.2e} s)".format(
-                    params["time"]["dt"],
-                    params["time"]["dt"] * self.units["t"],
+                    params.time.dt,
+                    params.time.dt * self.units["t"],
                 ),
             )
             print(
                 f"final time:".ljust(25),
                 "{0} ({1:4.2e} s)".format(
-                    params["time"]["Tend"],
-                    params["time"]["Tend"] * self.units["t"],
+                    params.time.Tend,
+                    params.time.Tend * self.units["t"],
                 ),
             )
-            print(f"splitting algo:".ljust(25), params["time"]["split_algo"])
+            print(f"splitting algo:".ljust(25), params.time.split_algo)
 
             print("\nDOMAIN:")
             print(f"type:".ljust(25), self.domain.__class__.__name__)
@@ -117,7 +115,7 @@ class StruphyModel(metaclass=ABCMeta):
                     print((key + ":").ljust(25), val)
 
             print("\nFLUID BACKGROUND:")
-            if "fluid_background" in params:
+            if params.equil is not None:
                 print("type:".ljust(25), self.equil.__class__.__name__)
                 for key, val in self.equil.params.items():
                     print((key + ":").ljust(25), val)
@@ -125,8 +123,8 @@ class StruphyModel(metaclass=ABCMeta):
                 print("None.")
 
         # create discrete derham sequence
-        if "grid" in params:
-            dims_mask = params["grid"]["dims_mask"]
+        if params.grid is not None:
+            dims_mask = params.grid.mpi_dims_mask
             if dims_mask is None:
                 dims_mask = [True] * 3
 
@@ -136,7 +134,8 @@ class StruphyModel(metaclass=ABCMeta):
                 derham_comm = clone_config.sub_comm
 
             self._derham = setup_derham(
-                params["grid"],
+                params.grid,
+                params.derham,
                 comm=derham_comm,
                 domain=self.domain,
                 mpi_dims_mask=dims_mask,
@@ -1267,13 +1266,13 @@ class StruphyModel(metaclass=ABCMeta):
     ###################
 
     @classmethod
-    def model_units(cls, params, verbose=False, comm=None):
+    def model_units(cls, params: StruphyParameters, verbose: bool=False, comm: MPI.Intracomm=None,):
         """
         Return model units and print them to screen.
 
         Parameters
         ----------
-        params : dict
+        params : StruphyParameters
             model parameters.
 
         verbose : bool, optional
@@ -1301,27 +1300,24 @@ class StruphyModel(metaclass=ABCMeta):
         # look for bulk species in fluid OR kinetic parameter dictionaries
         Z_bulk = None
         A_bulk = None
-        if "fluid" in params:
+        if params.fluid is not None:
             if cls.bulk_species() in params["fluid"]:
                 Z_bulk = params["fluid"][cls.bulk_species()]["phys_params"]["Z"]
                 A_bulk = params["fluid"][cls.bulk_species()]["phys_params"]["A"]
-        if "kinetic" in params:
+        if params.kinetic is not None:
             if cls.bulk_species() in params["kinetic"]:
                 Z_bulk = params["kinetic"][cls.bulk_species()]["phys_params"]["Z"]
                 A_bulk = params["kinetic"][cls.bulk_species()]["phys_params"]["A"]
 
         # compute model units
-        if "kBT" in params["units"]:
-            kBT = params["units"]["kBT"]
-        else:
-            kBT = None
+        kBT = params.units.kBT
 
         units = derive_units(
             Z_bulk=Z_bulk,
             A_bulk=A_bulk,
-            x=params["units"]["x"],
-            B=params["units"]["B"],
-            n=params["units"]["n"],
+            x=params.units.x,
+            B=params.units.B,
+            n=params.units.n,
             kBT=kBT,
             velocity_scale=cls.velocity_scale(),
         )
@@ -1370,7 +1366,7 @@ class StruphyModel(metaclass=ABCMeta):
         eps0 = 8.8541878128e-12  # vacuum permittivity (F/m)
 
         equation_params = {}
-        if "fluid" in params:
+        if params.fluid is not None:
             for species in params["fluid"]:
                 Z = params["fluid"][species]["phys_params"]["Z"]
                 A = params["fluid"][species]["phys_params"]["A"]
@@ -1389,7 +1385,7 @@ class StruphyModel(metaclass=ABCMeta):
                     for key, val in equation_params[species].items():
                         print((key + ":").ljust(25), "{:4.3e}".format(val))
 
-        if "kinetic" in params:
+        if params.kinetic is not None:
             for species in params["kinetic"]:
                 Z = params["kinetic"][species]["phys_params"]["Z"]
                 A = params["kinetic"][species]["phys_params"]["A"]
@@ -1702,7 +1698,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         # create dictionaries for each em-field/species and fill in space/class name and parameters
         for var_name, space in self.species()["em_fields"].items():
             assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
-            assert "em_fields" in self.params, 'Top-level key "em_fields" is missing in parameter file.'
+            assert self.params.em_fields is not None, '"em_fields" is missing in parameter file.'
 
             if self.rank_world == 0 and self.verbose:
                 print("em_field:".ljust(25), f'"{var_name}" ({space})')
@@ -1713,22 +1709,22 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             self._em_fields[var_name]["space"] = space
 
             # initial conditions
-            if "background" in self.params["em_fields"]:
-                # background= self.params["em_fields"]["background"].get(var_name)
-                self._em_fields[var_name]["background"] = self.params["em_fields"]["background"].get(var_name)
+            if "background" in self.params.em_fields:
+                # background= self.params.em_fields["background"].get(var_name)
+                self._em_fields[var_name]["background"] = self.params.em_fields["background"].get(var_name)
             # else:
             #     background = None
                 
-            if "perturbation" in self.params["em_fields"]:
-                # perturbation = self.params["em_fields"]["perturbation"].get(var_name)
-                self._em_fields[var_name]["perturbation"] = self.params["em_fields"]["perturbation"].get(var_name)
+            if "perturbation" in self.params.em_fields:
+                # perturbation = self.params.em_fields["perturbation"].get(var_name)
+                self._em_fields[var_name]["perturbation"] = self.params.em_fields["perturbation"].get(var_name)
             # else:
             #     perturbation = None
 
             # which components to save
-            if "save_data" in self.params["em_fields"]:
-                # save_data = self.params["em_fields"]["save_data"]["comps"][var_name]
-                self._em_fields[var_name]["save_data"] = self.params["em_fields"]["save_data"]["comps"][var_name]
+            if "save_data" in self.params.em_fields:
+                # save_data = self.params.em_fields["save_data"]["comps"][var_name]
+                self._em_fields[var_name]["save_data"] = self.params.em_fields["save_data"]["comps"][var_name]
             else:
                 self._em_fields[var_name]["save_data"] = True
                 # save_data = True
@@ -1741,7 +1737,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             
             # overall parameters
             # print(f'{self._em_fields = }')
-            self._em_fields["params"] = self.params["em_fields"]
+            self._em_fields["params"] = self.params.em_fields
 
         for var_name, space in self.species()["fluid"].items():
             assert isinstance(space, dict)
@@ -1821,7 +1817,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         from struphy.pic.base import Particles
 
         # allocate memory for FE coeffs of electromagnetic fields/potentials
-        if "em_fields" in self.params:
+        if self.params.em_fields is not None:
             for variable, dct in self.em_fields.items():
                 if "params" in variable:
                     continue
@@ -1836,7 +1832,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     self._pointer[variable] = dct["obj"].vector
 
         # allocate memory for FE coeffs of fluid variables
-        if "fluid" in self.params:
+        if self.params.fluid is not None:
             for species, dct in self.fluid.items():
                 for variable, subdct in dct.items():
                     if "params" in variable:
@@ -1852,7 +1848,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                         self._pointer[species + "_" + variable] = subdct["obj"].vector
 
         # marker arrays and plasma parameters of kinetic species
-        if "kinetic" in self.params:
+        if self.params.kinetic is not None:
             for species, val in self.kinetic.items():
                 assert any([key in val["params"]["markers"] for key in ["Np", "ppc", "ppb"]])
 
@@ -1954,7 +1950,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 # TODO
 
         # allocate memory for FE coeffs of diagnostics
-        if "diagnostics" in self.params:
+        if self.params.diagnostic_fields is not None:
             for key, val in self.diagnostics.items():
                 if "params" in key:
                     continue

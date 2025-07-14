@@ -50,7 +50,6 @@ def main(
         Number of domain clones (default=1)
     """
 
-    import copy
     import os
     import time
 
@@ -106,8 +105,8 @@ def main(
     )
 
     if model_name is None:
-        assert "model" in params, "If model is not specified, then model: MODEL must be specified in the params!"
-        model_name = params["model"]
+        assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
+        model_name = params.model
 
     if rank < 32:
         print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
@@ -185,13 +184,16 @@ def main(
         data.add_data({key_time: val})
         data.add_data({key_time_restart: val})
 
-    time_params = params["time"]
+    # retrieve time parameters
+    dt = params.time.dt
+    Tend = params.time.Tend
+    split_algo = params.time.split_algo
 
     # set initial conditions for all variables
     if not restart:
         model.initialize_from_params()
 
-        total_steps = str(int(round(time_params["Tend"] / time_params["dt"])))
+        total_steps = str(int(round(Tend / dt)))
 
     else:
         model.initialize_from_restart(data)
@@ -200,7 +202,7 @@ def main(
         time_state["value_sec"][0] = data.file["restart/time/value_sec"][-1]
         time_state["index"][0] = data.file["restart/time/index"][-1]
 
-        total_steps = str(int(round((time_params["Tend"] - time_state["value"][0]) / time_params["dt"])))
+        total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
 
     # compute initial scalars and kinetic data, pass time state to all propagators
     model.update_scalar_quantities()
@@ -217,7 +219,7 @@ def main(
         print("\nINITIAL SCALAR QUANTITIES:")
         model.print_scalar_quantities()
 
-        split_algo = time_params["split_algo"]
+        split_algo = split_algo
         print(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
     # time loop
@@ -226,7 +228,7 @@ def main(
         Barrier()
 
         # stop time loop?
-        break_cond_1 = time_state["value"][0] >= time_params["Tend"]
+        break_cond_1 = time_state["value"][0] >= Tend
         break_cond_2 = run_time_now > runtime
 
         if break_cond_1 or break_cond_2:
@@ -258,12 +260,12 @@ def main(
         # perform one time step dt
         t0 = time.time()
         with ProfileManager.profile_region("model.integrate"):
-            model.integrate(time_params["dt"], time_params["split_algo"])
+            model.integrate(dt, split_algo)
         t1 = time.time()
 
         # update time and index (round time to 10 decimals for a clean time grid!)
-        time_state["value"][0] = round(time_state["value"][0] + time_params["dt"], 10)
-        time_state["value_sec"][0] = round(time_state["value_sec"][0] + time_params["dt"] * model.units["t"], 10)
+        time_state["value"][0] = round(time_state["value"][0] + dt, 10)
+        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units["t"], 10)
         time_state["index"][0] += 1
 
         run_time_now = (time.time() - start_simulation) / 60
@@ -306,9 +308,9 @@ def main(
                 step = str(time_state["index"][0]).zfill(len(total_steps))
 
                 message = "time step: " + step + "/" + str(total_steps)
-                message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], time_params["Tend"])
+                message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
                 message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
-                    time_state["value_sec"][0], time_params["Tend"] * model.units["t"]
+                    time_state["value_sec"][0], Tend * model.units["t"]
                 )
                 message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
                     run_time_now * 60, t1 - t0
@@ -346,7 +348,6 @@ if __name__ == "__main__":
 
     # Read struphy state file
     state = utils.read_state()
-
     o_path = state["o_path"]
 
     parser = argparse.ArgumentParser(description="Run an Struphy model.")

@@ -1,9 +1,12 @@
-from dataclasses import dataclass
+import numpy as np
+from mpi4py import MPI
+import importlib.util
+import sys
 
-from psydac.ddm.mpi import mpi as MPI
-
-from struphy.utils.arrays import xp as np
-from struphy.utils.utils import dict_to_yaml
+from struphy.utils.utils import dict_to_yaml, read_state
+from struphy.topology.grids import TensorProductGrid
+from struphy.io.parameters import StruphyParameters
+from struphy.io.options import DerhamOptions
 
 
 def derive_units(
@@ -126,7 +129,7 @@ def derive_units(
     return units
 
 
-def setup_domain_and_equil(params: dict, units: dict = None):
+def setup_domain_and_equil(params: StruphyParameters):
     """
     Creates the domain object and equilibrium for a given parameter file.
 
@@ -134,9 +137,6 @@ def setup_domain_and_equil(params: dict, units: dict = None):
     ----------
     params : dict
         The full simulation parameter dictionary.
-
-    units : dict
-        All Struphy units.
 
     Returns
     -------
@@ -147,51 +147,56 @@ def setup_domain_and_equil(params: dict, units: dict = None):
         The equilibrium object.
     """
 
-    from struphy.fields_background import equils
+    # from struphy.fields_background import equils
     from struphy.fields_background.base import (
         NumericalFluidEquilibrium,
         NumericalFluidEquilibriumWithB,
         NumericalMHDequilibrium,
     )
-    from struphy.geometry import domains
+    # from struphy.geometry import domains
 
-    if "fluid_background" in params:
-        for eq_type, eq_params in params["fluid_background"].items():
-            eq_class = getattr(equils, eq_type)
-            if eq_type in ("EQDSKequilibrium", "GVECequilibrium", "DESCequilibrium"):
-                equil = eq_class(**eq_params, units=units)
-            else:
-                equil = eq_class(**eq_params)
+    if params.equil is not None:
+        # for eq_type, eq_params in params["fluid_background"].items():
+        #     eq_class = getattr(equils, eq_type)
+        #     if eq_type in ("EQDSKequilibrium", "GVECequilibrium", "DESCequilibrium"):
+        #         equil = eq_class(**eq_params, units=units)
+        #     else:
+        #         equil = eq_class(**eq_params)
+        
+        equil = params.equil
 
         # for numerical equilibria, the domain comes from the equilibrium
         if isinstance(equil, (NumericalMHDequilibrium, NumericalFluidEquilibrium, NumericalFluidEquilibriumWithB)):
             domain = equil.domain
         # for all other equilibria, the domain can be chosen idependently
         else:
-            dom_type = params["geometry"]["type"]
-            dom_class = getattr(domains, dom_type)
+            # dom_type = params["geometry"]["type"]
+            # dom_class = getattr(domains, dom_type)
 
-            if dom_type == "Tokamak":
-                domain = dom_class(**params["geometry"][dom_type], equilibrium=equil)
-            else:
-                domain = dom_class(**params["geometry"][dom_type])
+            # if dom_type == "Tokamak":
+            #     domain = dom_class(**params["geometry"][dom_type], equilibrium=equil)
+            # else:
+            #     domain = dom_class(**params["geometry"][dom_type])
+            domain = params.domain
 
             # set domain attribute in mhd object
-            equil.domain = domain
+            equil.domain = params.domain
 
     # no equilibrium (just load domain)
     else:
-        dom_type = params["geometry"]["type"]
-        dom_class = getattr(domains, dom_type)
-        domain = dom_class(**params["geometry"][dom_type])
+        # dom_type = params["geometry"]["type"]
+        # dom_class = getattr(domains, dom_type)
+        # domain = dom_class(**params["geometry"][dom_type])
 
+        domain = params.domain
         equil = None
 
     return domain, equil
 
 
 def setup_derham(
-    params_grid,
+    grid: TensorProductGrid,
+    options: DerhamOptions, 
     comm=None,
     domain=None,
     mpi_dims_mask=None,
@@ -202,8 +207,8 @@ def setup_derham(
 
     Parameters
     ----------
-    params_grid : dict
-        Grid parameters dictionary.
+    grid : TensorProductGrid
+        The FEEC grid.
 
     comm: Intracomm
         MPI communicator (sub_comm if clones are used).
@@ -227,28 +232,28 @@ def setup_derham(
     from struphy.feec.psydac_derham import Derham
 
     # number of grid cells
-    Nel = params_grid["Nel"]
+    Nel = grid.Nel
     # spline degrees
-    p = params_grid["p"]
+    p = grid.p
     # spline types (clamped vs. periodic)
-    spl_kind = params_grid["spl_kind"]
+    spl_kind = grid.spl_kind
     # boundary conditions (Homogeneous Dirichlet or None)
-    dirichlet_bc = params_grid["dirichlet_bc"]
+    dirichlet_bc = grid.dirichlet_bc
     # Number of quadrature points per histopolation cell
-    nq_pr = params_grid["nq_pr"]
+    nq_pr = grid.nq_pr
     # Number of quadrature points per grid cell for L^2
-    nq_el = params_grid["nq_el"]
+    nquads = grid.nquads
     # C^k smoothness at eta_1=0 for polar domains
-    polar_ck = params_grid["polar_ck"]
+    polar_ck = options.polar_ck
     # local commuting projectors
-    local_projectors = params_grid["local_projectors"]
+    local_projectors = options.local_projectors
 
     derham = Derham(
         Nel,
         p,
         spl_kind,
         dirichlet_bc=dirichlet_bc,
-        nquads=nq_el,
+        nquads=nquads,
         nq_pr=nq_pr,
         comm=comm,
         mpi_dims_mask=mpi_dims_mask,
@@ -264,7 +269,7 @@ def setup_derham(
         print(f"spline degrees:".ljust(25), p)
         print(f"periodic bcs:".ljust(25), spl_kind)
         print(f"hom. Dirichlet bc:".ljust(25), dirichlet_bc)
-        print(f"GL quad pts (L2):".ljust(25), nq_el)
+        print(f"GL quad pts (L2):".ljust(25), nquads)
         print(f"GL quad pts (hist):".ljust(25), nq_pr)
         print(
             "MPI proc. per dir.:".ljust(25),
@@ -411,12 +416,81 @@ def pre_processing(
     else:
         parameters_path = parameters
 
-        with open(parameters) as file:
-            params = yaml.load(file, Loader=yaml.FullLoader)
+        if ".yml" in parameters or ".yaml" in parameters:
+            with open(parameters) as file:
+                params = yaml.load(file, Loader=yaml.FullLoader)
+        elif ".py" in parameters:
+            # print(f'{parameters = }')
+            # Read struphy state file
+            state = read_state()
+            i_path = state["i_path"]
+            # load parameter.py
+            spec = importlib.util.spec_from_file_location("parameters", parameters)
+            params_in = importlib.util.module_from_spec(spec)
+            sys.modules["parameters"] = params_in
+            spec.loader.exec_module(params_in)
+            
+            if not hasattr(params_in, "model"):
+                params_in.model = None
+                
+            if not hasattr(params_in, "domain"):
+                params_in.domain = None
+                
+            if not hasattr(params_in, "grid"):
+                params_in.grid = None
+                
+            if not hasattr(params_in, "equil"):
+                params_in.equil = None
+                
+            if not hasattr(params_in, "units"):
+                params_in.units = None
+                
+            if not hasattr(params_in, "time"):
+                params_in.time = None
+                
+            if not hasattr(params_in, "derham"):
+                params_in.derham = None
+                
+            if not hasattr(params_in, "em_fields"):
+                params_in.em_fields = None
+                
+            if not hasattr(params_in, "fluid"):
+                params_in.fluid = None
+                
+            if not hasattr(params_in, "kinetic"):
+                params_in.kinetic = None
+                
+            if not hasattr(params_in, "diagnostic_fields"):
+                params_in.diagnostic_fields = None
+            
+            print(f'{params_in = }')
+            print(f'{params_in.model = }')
+            print(f'{params_in.domain = }')
+            print(f'{params_in.grid = }')
+            print(f'{params_in.equil = }')
+            print(f'{params_in.units = }')
+            print(f'{params_in.time = }')
+            print(f'{params_in.derham = }')
+            print(f'{params_in.em_fields = }')
+            print(f'{params_in.fluid = }')
+            print(f'{params_in.kinetic = }')
+            print(f'{params_in.diagnostic_fields = }')
+            
+            params = StruphyParameters(model=params_in.model,
+                                       domain=params_in.domain,
+                                       grid=params_in.grid,
+                                       equil=params_in.equil,
+                                       units=params_in.units,
+                                       time=params_in.time,
+                                       derham=params_in.derham,
+                                       em_fields=params_in.em_fields,
+                                       fluid=params_in.fluid,
+                                       kinetic=params_in.kinetic,
+                                       diagnostic_fields=params_in.diagnostic_fields,)
 
     if model_name is None:
-        assert "model" in params, "If model is not specified, then model: MODEL must be specified in the params!"
-        model_name = params["model"]
+        assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
+        model_name = params.model
 
     if mpi_rank == 0:
         # copy parameter file to output folder
