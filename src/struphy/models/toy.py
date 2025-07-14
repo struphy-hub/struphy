@@ -1,7 +1,15 @@
+
 import numpy as np
+from dataclasses import dataclass
+from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
+from struphy.propagators.base import Propagator
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
+from struphy.models.species import KineticSpecies, FluidSpecies, FieldSpecies
+from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
+
+rank = MPI.COMM_WORLD.Get_rank()
 
 
 class Maxwell(StruphyModel):
@@ -27,64 +35,62 @@ class Maxwell(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    ## species
+    
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.e_field = FEECVariable(space="Hcurl")
+            self.b_field = FEECVariable(space="Hdiv")
+            self.init_variables()
+    
+    ## propagators
+    
+    class Propagators:
+        def __init__(self):
+            self.maxwell = propagators_fields.Maxwell()
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## abstract methods
 
-        dct["em_fields"]["e_field"] = "Hcurl"
-        dct["em_fields"]["b_field"] = "Hdiv"
-        return dct
+    def __init__(self):        
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+        
+        # 1. instantiate all species, variables
+        self.em_fields = self.EMFields()
 
-    @staticmethod
-    def bulk_species():
-        return None
-
-    @staticmethod
-    def velocity_scale():
-        return "light"
-
-    @staticmethod
-    def propagators_dct():
-        return {propagators_fields.Maxwell: ["e_field", "b_field"]}
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # extract necessary parameters
-        algo = params["em_fields"]["options"]["Maxwell"]["algo"]
-        solver = params["em_fields"]["options"]["Maxwell"]["solver"]
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Maxwell] = {
-            "algo": algo,
-            "solver": solver,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+        
+        # 3. assign variables to propagators
+        self.propagators.maxwell.assign_variables(
+            e = self.em_fields.e_field,
+            b = self.em_fields.b_field,
+            )
+        
+        # define scalars for update_scalar_quantities
         self.add_scalar("electric energy")
         self.add_scalar("magnetic energy")
         self.add_scalar("total energy")
+        
+    @property 
+    def bulk_species(self):
+        return None
+
+    @property
+    def velocity_scale(self):
+        return "light"
+
+    def allocate_helpers(self):
+        pass
 
     def update_scalar_quantities(self):
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.em_fields.e_field.spline.vector, self.em_fields.e_field.spline.vector)
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.em_fields.b_field.spline.vector, self.em_fields.b_field.spline.vector)
 
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)
         self.update_scalar("total energy", en_E + en_B)
-
+        
 
 class Vlasov(StruphyModel):
     r"""Vlasov equation in static background magnetic field.
@@ -108,84 +114,62 @@ class Vlasov(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    ## species
+    
+    class KineticIons(KineticSpecies):
+        def __init__(self):
+            self.var = PICVariable(space="Particles6D")
+            self.init_variables()
+        
+    ## propagators
+    
+    class Propagators:
+        def __init__(self):
+            self.push_vxb = propagators_markers.PushVxB()
+            self.push_eta = propagators_markers.PushEta()
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## abstract methods
 
-        dct["kinetic"]["ions"] = "Particles6D"
-        return dct
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}' ***")
+            
+        # 1. instantiate all species, variables
+        self.kinetic_ions = self.KineticIons()
 
-    @staticmethod
-    def bulk_species():
-        return "ions"
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+        
+        # 3. assign variables to propagators
+        self.propagators.push_vxb.assign_variables(
+            ions = self.kinetic_ions.var,
+            )
+        
+        self.propagators.push_eta.assign_variables(
+            var = self.kinetic_ions.var,
+            )
+        
+        # define scalars for update_scalar_quantities
+        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
 
-    @staticmethod
-    def velocity_scale():
+    @property
+    def bulk_species(self):
+        return self.kinetic_ions
+
+    @property
+    def velocity_scale(self):
         return "cyclotron"
-
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_markers.PushVxB: ["ions"],
-            propagators_markers.PushEta: ["ions"],
-        }
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from mpi4py.MPI import IN_PLACE, SUM
-
-        # prelim
-        ions_params = self.kinetic["ions"]["params"]
-
-        # project magnetic background
-        self._b_eq = self.derham.P["2"](
-            [
-                self.equil.b2_1,
-                self.equil.b2_2,
-                self.equil.b2_3,
-            ]
-        )
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushVxB] = {
-            "algo": ions_params["options"]["PushVxB"]["algo"],
-            "kappa": 1.0,
-            "b2": self._b_eq,
-            "b2_add": None,
-        }
-
-        self._kwargs[propagators_markers.PushEta] = {"algo": ions_params["options"]["PushEta"]["algo"]}
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
-        self.add_scalar("en_f", compute="from_particles", species="ions")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
-        self._tmp = np.empty(1, dtype=float)
+    
+    def allocate_helpers(self):
+        self._tmp = np.empty(1, dtype=float) 
 
     def update_scalar_quantities(self):
-        self._tmp[0] = self.pointer["ions"].markers_wo_holes[:, 6].dot(
-            self.pointer["ions"].markers_wo_holes[:, 3] ** 2
-            + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
-            + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
-        ) / (2 * self.pointer["ions"].Np)
-
-        # self.derham.comm.Allreduce(
-        #     self._mpi_in_place, self._tmp, op=self._mpi_sum)
+        particles = self.kinetic_ions.var.particles
+        self._tmp[0] = particles.markers_wo_holes[:, 6].dot(
+            particles.markers_wo_holes[:, 3] ** 2
+            + particles.markers_wo_holes[:, 4] ** 2
+            + particles.markers_wo_holes[:, 5] ** 2,
+        ) / (2 * particles.Np)
 
         self.update_scalar("en_f", self._tmp[0])
 

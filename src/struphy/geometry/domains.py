@@ -533,47 +533,33 @@ class Cuboid(Domain):
     l1 : float
         Start of x-interval (default: 0.).
     r1 : float
-        End of x-interval, r1>l1 (default: 2.).
+        End of x-interval, r1>l1 (default: 1.).
     l2 : float
         Start of y-interval (default: 0.).
     r2 : float
-        End of y-interval, r2>l2 (default: 3.).
+        End of y-interval, r2>l2 (default: 1.).
     l3 : float
         Start of z-interval (default: 0.).
     r3 : float
-        End of z-interval, r3>l3 (default: 6.).
-
-    Note
-    ----
-    In the parameter .yml, use the following in the section `geometry`::
-
-        geometry :
-            type : Cuboid
-            Cuboid :
-                l1 : 0. # start of x-interval
-                r1 : 2. # end of x-interval, r1>l1
-                l2 : 0. # start of y-interval
-                r2 : 2. # end of y-interval, r2>l2
-                l3 : 0. # start of z-interval
-                r3 : 1. # end of z-interval, r3>l3
+        End of z-interval, r3>l3 (default: 1.).
     """
 
-    def __init__(self, **params):
+    def __init__(self, l1: float = 0.0,
+                       r1: float = 1.0,
+                       l2: float = 0.0,
+                       r2: float = 1.0,
+                       l3: float = 0.0,
+                       r3: float = 1.0,):
+        
         self._kind_map = 10
 
-        # set default parameters and remove wrong/not needed keys
-        params_default = {
-            "l1": 0.0,
-            "r1": 2.0,
-            "l2": 0.0,
-            "r2": 3.0,
-            "l3": 0.0,
-            "r3": 6.0,
-        }
-
-        self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params,
-            params_default,
+        self._params_map, self._params_numpy = Domain.prepare_params_map_new(
+            l1=l1,
+            r1=r1,
+            l2=l2,
+            r2=r2,
+            l3=l3,
+            r3=r3,
         )
 
         # periodicity in eta3-direction and pole at eta1=0

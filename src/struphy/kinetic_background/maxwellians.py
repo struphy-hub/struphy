@@ -1,11 +1,13 @@
 "Maxwellian (Gaussian) distributions in velocity space."
 
 import numpy as np
+from typing import Callable
 
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.kinetic_background import moment_functions
 from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
+from struphy.initial.base import Perturbation
 
 
 class Maxwellian3D(Maxwellian):
@@ -13,40 +15,32 @@ class Maxwellian3D(Maxwellian):
 
     Parameters
     ----------
-    maxw_params : dict
-        Parameters for the kinetic background.
-
-    pert_params : dict
-        Parameters for the kinetic perturbation added to the background.
-
-    equil : FluidEquilibrium
-        One of :mod:`~struphy.fields_background.equils`.
+    n, ui, vthi : tuple
+        Moments of the Maxwellian as tuples. The first entry defines the background 
+        (float for constant background or callable), the second entry defines a Perturbation (can be None).
     """
-
-    @classmethod
-    def default_maxw_params(cls):
-        """Default parameters dictionary defining constant moments of the Maxwellian."""
-        return {
-            "n": 1.0,
-            "u1": 0.0,
-            "u2": 0.0,
-            "u3": 0.0,
-            "vth1": 1.0,
-            "vth2": 1.0,
-            "vth3": 1.0,
-        }
 
     def __init__(
         self,
-        maxw_params: dict = None,
-        pert_params: dict = None,
-        equil: FluidEquilibrium = None,
+        n: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
+        u1: tuple[float | Callable[..., float], Perturbation] = (0.0, None),
+        u2: tuple[float | Callable[..., float], Perturbation] = (0.0, None),
+        u3: tuple[float | Callable[..., float], Perturbation] = (0.0, None),
+        vth1: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
+        vth2: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
+        vth3: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
     ):
-        super().__init__(
-            maxw_params=maxw_params,
-            pert_params=pert_params,
-            equil=equil,
-        )
+
+        self._maxw_params = {}
+        self._maxw_params["n"] = n
+        self._maxw_params["u1"] = u1
+        self._maxw_params["u2"] = u2
+        self._maxw_params["u3"] = u3
+        self._maxw_params["vth1"] = vth1
+        self._maxw_params["vth2"] = vth2
+        self._maxw_params["vth3"] = vth3
+        
+        self.check_maxw_params()
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
         self._moment_factors = {
@@ -55,6 +49,10 @@ class Maxwellian3D(Maxwellian):
             "vth": [1.0, 1.0, 1.0],
         }
 
+    @property
+    def maxw_params(self):
+        return self._maxw_params
+    
     @property
     def coords(self):
         """Coordinates of the Maxwellian6D, :math:`(v_1, v_2, v_3)`."""

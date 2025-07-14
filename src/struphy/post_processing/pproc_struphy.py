@@ -1,3 +1,16 @@
+import os
+import pickle
+import shutil
+
+import h5py
+import numpy as np
+import yaml
+
+import struphy.post_processing.orbits.orbits_tools as orbits_pproc
+import struphy.post_processing.post_processing_tools as pproc
+from struphy.io.setup import import_parameters_py
+
+
 def main(
     path: str,
     *,
@@ -37,19 +50,6 @@ def main(
     time_trace : bool
         whether to plot the time trace of each measured region
     """
-
-    import os
-    import pickle
-    import shutil
-
-    import h5py
-    import numpy as np
-    import yaml
-
-    import struphy.post_processing.orbits.orbits_tools as orbits_pproc
-    import struphy.post_processing.post_processing_tools as pproc
-    from struphy.models import fluid, hybrid, kinetic, toy
-
     print("")
 
     # create post-processing folder
@@ -75,23 +75,6 @@ def main(
     # save time grid at which post-processing data is created
     np.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
-    # load parameters.yml
-    with open(os.path.join(path, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
-
-    # get model class from meta.txt file
-    with open(os.path.join(path, "meta.txt"), "r") as f:
-        lines = f.readlines()
-    model_name = lines[3].split()[-1]
-
-    objs = [fluid, kinetic, hybrid, toy]
-
-    for obj in objs:
-        try:
-            model_class = getattr(obj, model_name)
-        except AttributeError:
-            pass
-
     if "feec" in file.keys():
         exist_fields = True
     else:
@@ -99,42 +82,35 @@ def main(
 
     if "kinetic" in file.keys():
         exist_kinetic = {"markers": False, "f": False, "n_sph": False}
-
-        kinetic_species = []
-        kinetic_kinds = []
-
         for name in file["kinetic"].keys():
-            kinetic_species += [name]
-            kinetic_kinds += [model_class.species()["kinetic"][name]]
-
             # check for saved markers
             if "markers" in file["kinetic"][name]:
                 exist_kinetic["markers"] = True
-
             # check for saved distribution function
             if "f" in file["kinetic"][name]:
                 exist_kinetic["f"] = True
-
             # check for saved sph density
             if "n_sph" in file["kinetic"][name]:
                 exist_kinetic["n_sph"] = True
-
     else:
         exist_kinetic = None
-
+        
     file.close()
+    
+    # import parameters
+    params_in = import_parameters_py(os.path.join(path, "parameters.py"))
 
     # field post-processing
     if exist_fields:
-        fields, space_ids, _ = pproc.create_femfields(path, step=step)
+        fields, t_grid = pproc.create_femfields(path, params_in, step=step)
 
         point_data, grids_log, grids_phy = pproc.eval_femfields(
-            path, fields, space_ids, celldivide=[celldivide, celldivide, celldivide]
+            params_in, fields, celldivide=[celldivide, celldivide, celldivide]
         )
 
         if physical:
             point_data_phy, grids_log, grids_phy = pproc.eval_femfields(
-                path, fields, space_ids, celldivide=[celldivide, celldivide, celldivide], physical=True
+                params_in, fields, celldivide=[celldivide, celldivide, celldivide], physical=True
             )
 
         # directory for field data
@@ -147,38 +123,19 @@ def main(
             os.mkdir(path_fields)
 
         # save data dicts for each field
-        for name, val in point_data.items():
-            aux = name.split("_")
-            # is em field
-            if len(aux) == 1 or "field" in name:
-                subfolder = "em_fields"
-                new_name = name
+        for species, vars in point_data.items():
+            for name, val in vars.items():
                 try:
-                    os.mkdir(os.path.join(path_fields, subfolder))
+                    os.mkdir(os.path.join(path_fields, species))
                 except:
                     pass
 
-            # is fluid species
-            else:
-                subfolder = aux[0]
-                for au in aux[1:-1]:
-                    subfolder += "_" + au
-                new_name = aux[-1]
-                try:
-                    os.mkdir(os.path.join(path_fields, subfolder))
-                except:
-                    pass
+                with open(os.path.join(path_fields, species, name + "_log.bin"), "wb") as handle:
+                    pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            print(f"{name = }")
-            print(f"{subfolder = }")
-            print(f"{new_name = }")
-
-            with open(os.path.join(path_fields, subfolder, new_name + "_log.bin"), "wb") as handle:
-                pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-            if physical:
-                with open(os.path.join(path_fields, subfolder, new_name + "_phy.bin"), "wb") as handle:
-                    pickle.dump(point_data_phy[name], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                if physical:
+                    with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
+                        pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         # save grids
         with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
@@ -189,9 +146,9 @@ def main(
 
         # create vtk files
         if not no_vtk:
-            pproc.create_vtk(path_fields, grids_phy, point_data)
+            pproc.create_vtk(path_fields, t_grid, grids_phy, point_data)
             if physical:
-                pproc.create_vtk(path_fields, grids_phy, point_data_phy, physical=True)
+                pproc.create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
 
     # kinetic post-processing
     if exist_kinetic is not None:

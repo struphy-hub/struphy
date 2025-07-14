@@ -27,12 +27,11 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 
 def gc_density_0form(
-    markers: "float[:,:]",
-    n_markers_tot: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
@@ -44,6 +43,9 @@ def gc_density_0form(
 
         B_p^\mu = \frac{w_p}{N} \,.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -58,7 +60,7 @@ def gc_density_0form(
         eta3 = markers[ip, 2]
 
         # filling = w_p/N
-        filling = markers[ip, 5] / n_markers_tot
+        filling = markers[ip, 5] / Np
 
         particle_to_mat_kernels.vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling)
 
@@ -67,8 +69,7 @@ def gc_density_0form(
 
 @stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "tmp1", "tmp2", "b", "b_prod", "bstar", "norm_b1", "curl_norm_b")
 def cc_lin_mhd_5d_D(
-    markers: "float[:,:]",
-    n_markers_tot: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat12: "float[:,:,:,:,:,:]",
@@ -116,6 +117,9 @@ def cc_lin_mhd_5d_D(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -237,9 +241,9 @@ def cc_lin_mhd_5d_D(
 
     # -- removed omp: #$ omp end parallel
 
-    mat12 /= n_markers_tot
-    mat13 /= n_markers_tot
-    mat23 /= n_markers_tot
+    mat12 /= Np
+    mat13 /= Np
+    mat23 /= Np
 
 
 @stack_array(
@@ -261,8 +265,7 @@ def cc_lin_mhd_5d_D(
     "curl_norm_b",
 )
 def cc_lin_mhd_5d_J1(
-    markers: "float[:,:]",
-    n_markers_tot: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -316,6 +319,9 @@ def cc_lin_mhd_5d_J1(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -509,24 +515,23 @@ def cc_lin_mhd_5d_J1(
                 filling_v[2],
             )
 
-    mat11 /= n_markers_tot
-    mat12 /= n_markers_tot
-    mat13 /= n_markers_tot
-    mat22 /= n_markers_tot
-    mat23 /= n_markers_tot
-    mat33 /= n_markers_tot
+    mat11 /= Np
+    mat12 /= Np
+    mat13 /= Np
+    mat22 /= Np
+    mat23 /= Np
+    mat33 /= Np
 
-    vec1 /= n_markers_tot
-    vec2 /= n_markers_tot
-    vec3 /= n_markers_tot
+    vec1 /= Np
+    vec2 /= Np
+    vec3 /= Np
 
     # -- removed omp: #$ omp end parallel
 
 
 @stack_array("dfm", "norm_b1", "filling_v")
 def cc_lin_mhd_5d_M(
-    markers: "float[:,:]",
-    n_markers_tot: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -562,6 +567,9 @@ def cc_lin_mhd_5d_M(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for a field evaluation
     norm_b1 = empty(3, dtype=float)
@@ -612,9 +620,9 @@ def cc_lin_mhd_5d_M(
             args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
         )
 
-    vec1 /= n_markers_tot
-    vec2 /= n_markers_tot
-    vec3 /= n_markers_tot
+    vec1 /= Np
+    vec2 /= Np
+    vec3 /= Np
 
     # -- removed omp: #$ omp end parallel
 
@@ -638,8 +646,7 @@ def cc_lin_mhd_5d_M(
     "grad_PB",
 )
 def cc_lin_mhd_5d_J2(
-    markers: "float[:,:]",
-    n_markers_tot: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     mat11: "float[:,:,:,:,:,:]",
@@ -703,6 +710,9 @@ def cc_lin_mhd_5d_J2(
     ----
         The above parameter list contains only the model specific input arguments.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -843,8 +853,8 @@ def cc_lin_mhd_5d_J2(
                 args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
             )
 
-    vec1 /= n_markers_tot
-    vec2 /= n_markers_tot
-    vec3 /= n_markers_tot
+    vec1 /= Np
+    vec2 /= Np
+    vec3 /= Np
 
     # -- removed omp: #$ omp end parallel

@@ -31,6 +31,10 @@ from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+from struphy.io.options import FieldsBackground, NoiseDirections, GivenInBasis
+from struphy.initial.perturbations import Noise
+from struphy.initial.base import Perturbation
+from struphy.fields_background.base import FluidEquilibrium
 
 
 class Derham:
@@ -114,7 +118,7 @@ class Derham:
         if dirichlet_bc is not None:
             assert len(dirichlet_bc) == 3
             # make sure that boundary conditions are compatible with spline space
-            assert np.all([bc == [False, False] for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
+            assert np.all([bc == (False, False) for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
 
         self._dirichlet_bc = dirichlet_bc
 
@@ -871,8 +875,11 @@ class Derham:
         name: str,
         space_id: str,
         coeffs: StencilVector | BlockVector = None,
-        bckgr_params: dict = None,
-        pert_params: dict = None,
+        backgrounds: FieldsBackground | list = None,
+        perturbations: Perturbation | list = None,
+        domain: Domain = None,
+        equil: FluidEquilibrium = None,
+        verbose: bool = True,
     ):
         """Creat a callable spline function.
 
@@ -887,19 +894,28 @@ class Derham:
         coeffs : StencilVector | BlockVector
             The spline coefficients.
 
-        bckgr_params : dict
-            Field's background parameters.
+        backgrounds : FieldsBackground | list
+            For the initial condition.
 
-        pert_params : dict
-            Field's perturbation parameters for initial condition.
+        perturbations : Perturbation | list
+            For the initial condition.
+            
+        domain : Domain
+            Mapping for pullback/transform of initial condition.
+            
+        equil : FLuidEquilibrium
+            Fluid background used for inital condition.
         """
         return SplineFunction(
             name,
             space_id,
             self,
             coeffs,
-            bckgr_params=bckgr_params,
-            pert_params=pert_params,
+            backgrounds=backgrounds,
+            perturbations=perturbations,
+            domain=domain,
+            equil=equil,
+            verbose=verbose,
         )
 
     def prepare_eval_tp_fixed(self, grids_1d):
@@ -1392,11 +1408,14 @@ class SplineFunction:
     coeffs : StencilVector | BlockVector
         The spline coefficients (optional).
 
-    bckgr_params : dict
-        Field's background parameters.
+    backgrounds : FieldsBackground | list
+        For the initial condition.
 
-    pert_params : dict
-        Field's perturbation parameters for initial condition.
+    perturbations : Perturbation | list
+        For the initial condition.
+        
+    domain : Domain
+        Mapping for pullback/transform of initial condition.
     """
 
     def __init__(
@@ -1405,14 +1424,19 @@ class SplineFunction:
         space_id: str,
         derham: Derham,
         coeffs: StencilVector | BlockVector = None,
-        bckgr_params: dict = None,
-        pert_params: dict = None,
+        backgrounds: FieldsBackground | list = None,
+        perturbations: Perturbation | list = None,
+        domain: Domain = None,
+        equil: FluidEquilibrium = None,
+        verbose: bool = True,
     ):
         self._name = name
         self._space_id = space_id
         self._derham = derham
-        self._bckgr_params = bckgr_params
-        self._pert_params = pert_params
+        self._backgrounds = backgrounds
+        self._perturbations = perturbations
+        self._domain = domain
+        self._equil = equil
 
         # initialize field in memory (FEM space, vector and tensor product (stencil) vector)
         self._space_key = derham.space_to_form[space_id]
@@ -1451,6 +1475,12 @@ class SplineFunction:
             )
         else:
             self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self.fem_space.spaces]
+        
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:    
+            print(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
+
+        if self.backgrounds is not None or self.perturbations is not None:
+            self.initialize_coeffs(domain=self.domain, equil=self.equil)
 
     @property
     def name(self):
@@ -1471,6 +1501,16 @@ class SplineFunction:
     def derham(self):
         """3d Derham complex struphy.feec.psydac_derham.Derham."""
         return self._derham
+    
+    @property
+    def domain(self):
+        """Mapping for pullback/transform of initial condition."""
+        return self._domain
+    
+    @property
+    def equil(self):
+        """Fluid equilibirum used for initial condition."""
+        return self._equil
 
     @property
     def space(self):
@@ -1584,14 +1624,14 @@ class SplineFunction:
         return self._vector_stencil
 
     @property
-    def bckgr_params(self):
-        """Field's background parameters."""
-        return self._bckgr_params
+    def backgrounds(self) -> FieldsBackground | list:
+        """For the initial condition."""
+        return self._backgrounds
 
     @property
-    def pert_params(self):
-        """Field's perturbation parameters for initial condition."""
-        return self._pert_params
+    def perturbations(self) -> Perturbation | list:
+        """For the initial condition."""
+        return self._perturbations
 
     ###############
     ### Methods ###
@@ -1613,173 +1653,177 @@ class SplineFunction:
     def initialize_coeffs(
         self,
         *,
-        bckgr_params=None,
-        pert_params=None,
-        domain=None,
-        bckgr_obj=None,
-        species=None,
+        backgrounds: FieldsBackground | list = None,
+        perturbations: Perturbation | list = None,
+        domain: Domain = None,
+        equil: FluidEquilibrium = None,
     ):
         """
-        Sets the initial conditions for self.vector.
-
-        Parameters
-        ----------
-        bckgr_params : dict
-            Field's background parameters.
-
-        pert_params : dict
-            Field's perturbation parameters for initial condition.
-
-        domain : struphy.geometry.domains
-            Domain object for metric coefficients, only needed for transform of analytical perturbations.
-
-        bckgr_obj: FluidEquilibrium
-            Fields background object.
-
-        species : string
-            Species name (e.g. "mhd") the field belongs to.
+        Set the initial conditions for self.vector.
         """
 
         # set background paramters
-        if bckgr_params is not None:
-            if self._bckgr_params is not None:
-                print(f"Attention: overwriting background parameters for {self.name}")
-            self._bckgr_params = bckgr_params
+        if backgrounds is not None:
+            # if self.backgrounds is not None:
+            #     print(f"Attention: overwriting backgrounds for {self.name}")
+            self._backgrounds = backgrounds
 
         # set perturbation paramters
-        if pert_params is not None:
-            if self._pert_params is not None:
-                print(f"Attention: overwriting perturbation parameters for {self.name}")
-            self._pert_params = pert_params
+        if perturbations is not None:
+            # if self.perturbations is not None:
+            #     print(f"Attention: overwriting perturbation parameters for {self.name}")
+            self._perturbations = perturbations
+            
+        # set domain
+        if domain is not None:
+            # if self.domain is not None:
+            #     print(f"Attention: overwriting domain for {self.name}")
+            self._domain = domain
 
+        if isinstance(self.backgrounds, FieldsBackground):
+            self._backgrounds = [self.backgrounds]
+            
+        if isinstance(self.perturbations, Perturbation):
+            self._perturbations = [self.perturbations]
+
+        # start from zero coeffs
         self._vector *= 0.0
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"Initializing {self.name} ...")
 
-        # add background to initial vector
-        if self.bckgr_params is not None:
-            for _type in self.bckgr_params:
-                _params = self.bckgr_params[_type].copy()
-
+        # add backgrounds to initial vector
+        if self.backgrounds is not None:
+            for fb in self.backgrounds:
+                assert isinstance(fb, FieldsBackground)
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    print(f"Adding background {fb} ...")
+                
                 # special case of const
-                if "LogicalConst" in _type:
-                    _val = _params["values"]
+                if fb.type == "LogicalConst":
+                    vals = fb.values
+                    assert isinstance(vals, (list, tuple))
 
                     if self.space_id in {"H1", "L2"}:
-                        assert isinstance(_val, float) or isinstance(_val, int)
-
                         def f_tmp(e1, e2, e3):
-                            return _val + 0.0 * e1
+                            return vals[0] + 0.0 * e1
 
                         fun = f_tmp
                     else:
-                        assert isinstance(_val, list)
-                        assert len(_val) == 3
+                        assert len(vals) == 3
                         fun = []
-                        for i, _v in enumerate(_val):
-                            assert isinstance(_v, float) or isinstance(_v, int) or _v is None
 
-                        if _val[0] is not None:
-                            fun += [lambda e1, e2, e3: _val[0] + 0.0 * e1]
+                        if vals[0] is not None:
+                            fun += [lambda e1, e2, e3: vals[0] + 0.0 * e1]
                         else:
                             fun += [lambda e1, e2, e3: 0.0 * e1]
 
-                        if _val[1] is not None:
-                            fun += [lambda e1, e2, e3: _val[1] + 0.0 * e1]
+                        if vals[1] is not None:
+                            fun += [lambda e1, e2, e3: vals[1] + 0.0 * e1]
                         else:
                             fun += [lambda e1, e2, e3: 0.0 * e1]
 
-                        if _val[2] is not None:
-                            fun += [lambda e1, e2, e3: _val[2] + 0.0 * e1]
+                        if vals[2] is not None:
+                            fun += [lambda e1, e2, e3: vals[2] + 0.0 * e1]
                         else:
                             fun += [lambda e1, e2, e3: 0.0 * e1]
                 else:
-                    assert bckgr_obj is not None
-                    _var = _params["variable"]
-                    assert _var in dir(MHDequilibrium), f"{_var = } is not an attribute of any fields background."
+                    assert equil is not None
+                    var = fb.variable
+                    assert var in dir(MHDequilibrium), f"{var = } is not an attribute of any fields background."
 
                     if self.space_id in {"H1", "L2"}:
-                        fun = getattr(bckgr_obj, _var)
+                        fun = getattr(equil, var)
                     else:
-                        assert (_var + "_1") in dir(MHDequilibrium), (
-                            f"{(_var + '_1') = } is not an attribute of any fields background."
+                        assert (var + "_1") in dir(MHDequilibrium), (
+                            f"{(var + '_1') = } is not an attribute of any fields background."
                         )
                         fun = [
-                            getattr(bckgr_obj, _var + "_1"),
-                            getattr(bckgr_obj, _var + "_2"),
-                            getattr(bckgr_obj, _var + "_3"),
+                            getattr(equil, var + "_1"),
+                            getattr(equil, var + "_2"),
+                            getattr(equil, var + "_3"),
                         ]
 
-                # peform projection
+                # perform projection
                 self.vector += self.derham.P[self.space_key](fun)
 
         # add perturbations to coefficient vector
-        if self.pert_params is not None:
-            for _type in self.pert_params:
+        if self.perturbations is not None:
+            for ptb in self.perturbations:
                 if MPI.COMM_WORLD.Get_rank() == 0:
-                    print(f"Adding perturbation {_type} ...")
-
-                _params = self.pert_params[_type].copy()
+                    print(f"Adding perturbation {ptb} ...")
 
                 # special case of white noise in logical space for different components
-                if "noise" in _type:
-                    # component(s) to perturb
-                    if isinstance(_params["comps"], bool):
-                        comps = [_params["comps"]]
-                    else:
-                        comps = _params["comps"]
-                    _params.pop("comps")
-
+                if isinstance(ptb, Noise):
                     # set white noise FE coefficients
+                    self._add_noise(direction=ptb.direction,
+                                    amp=ptb.amp,
+                                    seed=ptb.seed,
+                                    n=ptb.comp,)
+                # perturbation class
+                elif isinstance(ptb, Perturbation):
                     if self.space_id in {"H1", "L2"}:
-                        if comps[0]:
-                            self._add_noise(**_params)
+                        fun = TransformedPformComponent(
+                            ptb,
+                            ptb.given_in_basis,
+                            self.space_key,
+                            domain=domain,
+                        )
                     elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
-                        for n, comp in enumerate(comps):
-                            if comp:
-                                self._add_noise(**_params, n=n)
-
-                # given function class
-                elif _type in dir(perturbations):
-                    fun = transform_perturbation(_type, _params, self.space_key, domain)
+                        fun_vec = [None]*3
+                        fun_vec[ptb.comp] = ptb
+                                                        
+                        # pullback callable for each component
+                        fun = []
+                        for comp in range(3):
+                            fun += [
+                                TransformedPformComponent(
+                                    fun_vec,
+                                    ptb.given_in_basis,
+                                    self.space_key,
+                                    comp=comp,
+                                    domain=domain,
+                                ),
+                            ]
 
                     # peform projection
                     self.vector += self.derham.P[self.space_key](fun)
 
+                # TODO: re-add Eigfun and InitFromOutput in new framework
+                
                 # loading of MHD eigenfunction (legacy code, might not be up to date)
-                elif "EigFun" in _type:
-                    print("Warning: Eigfun is not regularly tested ...")
-                    from struphy.initial import eigenfunctions
+                # elif "EigFun" in _type:
+                #     print("Warning: Eigfun is not regularly tested ...")
+                #     from struphy.initial import eigenfunctions
 
-                    # select class
-                    funs = getattr(eigenfunctions, _type)(
-                        self.derham,
-                        **_params,
-                    )
+                #     # select class
+                #     funs = getattr(eigenfunctions, _type)(
+                #         self.derham,
+                #         **_params,
+                #     )
 
-                    # select eigenvector and set coefficients
-                    if hasattr(funs, self.name):
-                        eig_vec = getattr(funs, self.name)
+                #     # select eigenvector and set coefficients
+                #     if hasattr(funs, self.name):
+                #         eig_vec = getattr(funs, self.name)
 
-                        self.vector += eig_vec
+                #         self.vector += eig_vec
 
-                # initialize from existing output file
-                elif "InitFromOutput" in _type:
-                    # select class
-                    o_data = getattr(utilities, _type)(
-                        self.derham,
-                        self.name,
-                        species,
-                        **_params,
-                    )
+                # # initialize from existing output file
+                # elif "InitFromOutput" in _type:
+                #     # select class
+                #     o_data = getattr(utilities, _type)(
+                #         self.derham,
+                #         self.name,
+                #         species,
+                #         **_params,
+                #     )
 
-                    if isinstance(self.vector, StencilVector):
-                        self.vector._data[:] += o_data.vector
+                #     if isinstance(self.vector, StencilVector):
+                #         self.vector._data[:] += o_data.vector
 
-                    else:
-                        for n in range(3):
-                            self.vector[n]._data[:] += o_data.vector[n]
+                #     else:
+                #         for n in range(3):
+                #             self.vector[n]._data[:] += o_data.vector[n]
 
         # apply boundary operator (in-place)
         self.derham.boundary_ops[self.space_key].dot(
@@ -2172,7 +2216,7 @@ class SplineFunction:
             E2[~E2_on_proc] = -1.0
             E3[~E3_on_proc] = -1.0
 
-    def _add_noise(self, direction="e3", amp=0.0001, seed=None, n=None):
+    def _add_noise(self, direction: NoiseDirections = "e3", amp: float = 0.0001, seed: int = None, n: int = None,):
         """Add noise to a vector component where init_comps==True, otherwise leave at zero.
 
         Parameters

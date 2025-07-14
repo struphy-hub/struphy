@@ -1,17 +1,21 @@
 "Propagator base class."
 
 from abc import ABCMeta, abstractmethod
-
 import numpy as np
+from mpi4py import MPI
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
+from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
+from psydac.linalg.stencil import StencilVector
+from psydac.linalg.block import BlockVector
+from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 
 
 class Propagator(metaclass=ABCMeta):
-    """Base class for Struphy propagators used in Struphy models.
+    """Base class for propagators used in StruphyModels.
 
     Note
     ----
@@ -20,55 +24,77 @@ class Propagator(metaclass=ABCMeta):
     Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
     """
 
-    def __init__(self, *vars):
-        """Create an instance of a Propagator.
+    @abstractmethod
+    def set_options(self, **kwargs):
+        """Set the dynamical options of the propagator (kwargs)."""
+        
+    @abstractmethod
+    def allocate():
+        """Allocate all data/objects of the instance."""
+    
+    @abstractmethod
+    def __call__(self, dt):
+        """Update variables from t -> t + dt.
+        Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
 
         Parameters
         ----------
-        vars : Vector or Particles
-            :attr:`struphy.models.base.StruphyModel.pointer` of variables to be updated.
+        dt : float
+            Time step size.
         """
-        from psydac.linalg.basic import Vector
 
-        from struphy.pic.particles import Particles
+    def assign_variables(self, **vars):
+        """Assign the variables to be updated by the propagator.
+        
+        Update variables in __dict__ and set self.variables with user-defined instance variables (allocated).
+        """
+        assert len(vars) == len(self.__dict__), f"Variables must be passed in the following order: {self.__dict__}, but is {vars}."
+        for ((k, v), (kp, vp)) in zip(vars.items(), self.__dict__.items()):
+            assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.__dict__}."
+            assert isinstance(v, Variable)
+            if isinstance(v, (PICVariable, SPHVariable)):
+                # comm = var.obj.mpi_comm
+                pass
+            elif isinstance(v, FEECVariable):
+                # comm = var.obj.comm
+                pass
+        self.__dict__.update(vars)
+        self._variables = vars
+        
+    def update_feec_variables(self, **new_coeffs):
+        r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
+        update feec coefficients and update ghost regions.
+        
+        Returns
+        -------
+        diffs : dict
+            max_diff for all feec variables.
+        """
+        diffs = {}
+        assert len(new_coeffs) == len(self.variables), f"Coefficients must be passed in the following order: {self.variables}, but is {new_coeffs}."
+        for ((k, new), (kp, vp)) in zip(new_coeffs.items(), self.variables.items()):
+            assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.variables}."
+            assert isinstance(new, (StencilVector, BlockVector))
+            assert isinstance(vp, FEECVariable)
+            old = vp.spline.vector
+            assert new.space == old.space
+ 
+            # calculate maximum of difference abs(new - old)
+            diffs[k] = np.max(np.abs(new.toarray() - old.toarray()))
 
-        self._feec_vars = []
-        self._particles = []
+            # copy new coeffs into old
+            new.copy(out=old)
 
-        for var in vars:
-            if isinstance(var, Vector):
-                self._feec_vars += [var]
-            elif isinstance(var, Particles):
-                self._particles += [var]
-            else:
-                ValueError(
-                    f'Variable {var} must be of type "Vector" or "Particles".',
-                )
+            # important: sync processes!
+            old.update_ghost_regions()
 
-        # for iterative particle push
-        self._init_kernels = []
-        self._eval_kernels = []
-
-        # mpi comm
-        if self.particles:
-            comm = self.particles[0].mpi_comm
-        else:
-            comm = self.derham.comm
-        self._rank = comm.Get_rank() if comm is not None else 0
+        return diffs
 
     @property
-    def feec_vars(self):
-        """List of FEEC variables (not particles) to be updated by the propagator.
-        Contains FE coefficients from :attr:`struphy.feec.SplineFunction.vector`.
+    def variables(self):
+        """Dict of Variables to be updated by the propagator.
         """
-        return self._feec_vars
-
-    @property
-    def particles(self):
-        """List of kinetic variables (not FEEC) to be updated by the propagator.
-        Contains :class:`struphy.pic.particles.Particles`.
-        """
-        return self._particles
+        return self._variables
 
     @property
     def init_kernels(self):
@@ -91,24 +117,6 @@ class Propagator(metaclass=ABCMeta):
     def rank(self):
         """MPI rank, is 0 if no communicator."""
         return self._rank
-
-    @abstractmethod
-    def __call__(self, dt):
-        """Update from t -> t + dt.
-        Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
-
-        Parameters
-        ----------
-        dt : float
-            Time step size.
-        """
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def options():
-        """Dictionary of available propagator options, as appearing under species/options in the parameter file."""
-        pass
 
     @property
     def derham(self):
@@ -158,7 +166,7 @@ class Propagator(metaclass=ABCMeta):
         self._basis_ops = basis_ops
 
     @property
-    def projected_equil(self):
+    def projected_equil(self) -> ProjectedFluidEquilibriumWithB:
         """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
         assert hasattr(
             self,
@@ -173,7 +181,7 @@ class Propagator(metaclass=ABCMeta):
     @property
     def time_state(self):
         """A pointer to the time variable of the dynamics ('t')."""
-        return self._time_state
+        return self._time_state 
 
     def add_time_state(self, time_state):
         """Add a pointer to the time variable of the dynamics ('t').
@@ -185,40 +193,6 @@ class Propagator(metaclass=ABCMeta):
         """
         assert time_state.size == 1
         self._time_state = time_state
-
-    def feec_vars_update(self, *variables_new):
-        r"""Return :math:`\textrm{max}_i |x_i(t + \Delta t) - x_i(t)|` for each unknown in list,
-        update :method:`~struphy.propagators.base.Propagator.feec_vars`
-        and update ghost regions.
-
-        Parameters
-        ----------
-        variables_new : list[StencilVector | BlockVector]
-            Same sequence as in :method:`~struphy.propagators.base.Propagator.feec_vars`
-            but with the updated variables,
-            i.e. for feec_vars = [e, b] we must have variables_new = [e_updated, b_updated].
-
-        Returns
-        -------
-        diffs : list
-            A list [max(abs(self.feec_vars - variables_new)), ...] for all variables in self.feec_vars and variables_new.
-        """
-
-        diffs = []
-
-        for i, new in enumerate(variables_new):
-            assert type(new) is type(self.feec_vars[i])
-
-            # calculate maximum of difference abs(old - new)
-            diffs += [np.max(np.abs(self.feec_vars[i].toarray() - new.toarray()))]
-
-            # copy new variables into self.feec_vars
-            new.copy(out=self.feec_vars[i])
-
-            # important: sync processes!
-            self.feec_vars[i].update_ghost_regions()
-
-        return diffs
 
     def add_init_kernel(
         self,
@@ -310,3 +284,26 @@ class Propagator(metaclass=ABCMeta):
                 args_eval,
             )
         ]
+       
+    @property
+    def options(self):
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        self._options = new
+       
+    class Options:
+        def __init__(self, prop, **kwargs):
+            self.__dict__.update(kwargs)
+            if MPI.COMM_WORLD.Get_rank() == 0:
+                print(f"\nInstance of propagator '{prop.__class__.__name__}' with:")
+                for k, v in self.__dict__.items():
+                    print(f'  {k}: {v}')
+            
+        # @property
+        # def kwargs(self):
+        #     return self._kwargs

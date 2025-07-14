@@ -12,15 +12,5 @@ They can thus be used for MPI parallel runs in HPC applications.
    :maxdepth: 1
    :caption: Notebook tutorials:
 
-   ../tutorials/tutorial_01_kinetic_particles
-   ../tutorials/tutorial_02_fluid_particles
-   ../tutorials/tutorial_03_discrete_derham
-   ../tutorials/tutorial_04_mapped_domains
-   ../tutorials/tutorial_05_mhd_equilibria
-   ../tutorials/tutorial_06_poisson
-   ../tutorials/tutorial_07_heat_equation
-   ../tutorials/tutorial_08_maxwell
-   ../tutorials/tutorial_09_vlasov_maxwell
-   ../tutorials/tutorial_10_linear_mhd
-   ../tutorials/tutorial_11_data_structures
-   ../tutorials/tutorial_12_struphy_data_pproc
+   ../tutorials/tutorial_01_parameter_files
+   ../tutorials/tutorial_02_test_particles

@@ -9,7 +9,7 @@ from mpi4py import MPI
 import struphy
 from struphy.console.main import recursive_get_files
 from struphy.io.setup import descend_options_dict
-from struphy.main import main
+from struphy.struphy import run
 from struphy.models.base import StruphyModel
 
 libpath = struphy.__path__[0]
@@ -181,7 +181,7 @@ def call_test(
             parameters["time"]["Tend"] = Tend
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print_test_params(parameters)
-            main(
+            run(
                 model_name,
                 parameters,
                 path_out,
@@ -196,7 +196,7 @@ def call_test(
             # run with default
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print_test_params(parameters)
-            main(
+            run(
                 model_name,
                 parameters,
                 path_out,
@@ -230,7 +230,7 @@ def call_test(
                         test_list += [opt]
                         if MPI.COMM_WORLD.Get_rank() == 0:
                             print_test_params(parameters)
-                        main(
+                        run(
                             model_name,
                             parameters,
                             path_out,
@@ -252,7 +252,7 @@ def call_test(
                             test_list += [opt]
                             if MPI.COMM_WORLD.Get_rank() == 0:
                                 print_test_params(parameters)
-                            main(
+                            run(
                                 model_name,
                                 parameters,
                                 path_out,
@@ -274,7 +274,7 @@ def call_test(
                             test_list += [opt]
                             if MPI.COMM_WORLD.Get_rank() == 0:
                                 print_test_params(parameters)
-                            main(
+                            run(
                                 model_name,
                                 parameters,
                                 path_out,

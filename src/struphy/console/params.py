@@ -1,34 +1,28 @@
-def struphy_params(model, file, yes=False, options=False):
+from struphy.models.base import StruphyModel
+from struphy.models import fluid, hybrid, kinetic, toy
+
+
+def struphy_params(model_name: str, params_path: str, yes: bool = False):
     """Create a model's default parameter file and save in current input path.
 
     Parameters
     ----------
-    model : str
+    model_name : str
         The name of the Struphy model.
 
+    params_path : str
+        An alternative file name to the default params_<model>.yml.
+        
     yes : bool
         If true, say yes on prompt to overwrite .yml FILE
-
-    file : str
-        An alternative file name to the default params_<model>.yml.
-
-    show_options : bool
-        Whether to print to screen all possible options for the model.
     """
-
-    from struphy.models import fluid, hybrid, kinetic, toy
-
-    # load model class
     objs = [fluid, kinetic, hybrid, toy]
     for obj in objs:
         try:
-            model_class = getattr(obj, model)
+            model_class = getattr(obj, model_name)
+            model: StruphyModel = model_class()
         except AttributeError:
             pass
-
-    # print units
-    if options:
-        model_class.show_options()
-    else:
-        prompt = not yes
-        params = model_class.generate_default_parameter_file(file=file, prompt=prompt)
+        
+    prompt = not yes
+    model.generate_default_parameter_file(path=params_path, prompt=prompt)

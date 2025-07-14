@@ -1,16 +1,97 @@
 import os
 import shutil
-
 import h5py
-import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 from tqdm import tqdm
+import pickle
 
-from struphy.feec.psydac_derham import Derham
-from struphy.io.setup import setup_domain_and_equil
 from struphy.kinetic_background import maxwellians
-from struphy.models import fluid, hybrid, kinetic, toy
+from struphy.io.setup import import_parameters_py
+from struphy.models.base import setup_derham
+from struphy.feec.psydac_derham import SplineFunction
+from struphy.io.options import EnvironmentOptions, Units, Time
+from struphy.topology.grids import TensorProductGrid
+from struphy.geometry import domains
+from struphy.geometry.base import Domain
+
+
+class ParamsIn:
+    """Holds the input parameters of a Struphy simulation as attributes."""
+    def __init__(self, 
+                 env: EnvironmentOptions = None,
+                 units: Units = None,
+                 time_opts: Time = None,
+                 domain = None,
+                 equil = None,
+                 grid: TensorProductGrid = None,
+                 derham_opts = None):
+        self.env = env
+        self.units = units
+        self.time_opts = time_opts
+        self.domain = domain
+        self.equil = equil
+        self.grid = grid
+        self.derham_opts = derham_opts
+
+
+def get_params_of_run(path: str) -> ParamsIn:
+    """Retrieve parameters of finished Struphy run.
+    
+    Parameters
+    ----------
+    path : str
+        Absolute path of simulation output folder.
+    """
+    
+    print(f"\nReading in paramters from {path} ... ")
+    
+    params_path = os.path.join(path, "parameters.py")
+    bin_path = os.path.join(path, "env.bin")
+
+    if os.path.exists(params_path):
+        params_in = import_parameters_py(params_path)
+        env = params_in.env
+        units = params_in.units
+        time_opts = params_in.time_opts
+        domain = params_in.domain
+        equil = params_in.equil
+        grid = params_in.grid
+        derham_opts = params_in.derham_opts
+        
+    elif os.path.exists(bin_path):
+        with open(os.path.join(path, "env.bin"), "rb") as f:
+            env = pickle.load(f)
+        with open(os.path.join(path, "units.bin"), "rb") as f:
+            units = pickle.load(f)
+        with open(os.path.join(path, "time_opts.bin"), "rb") as f:
+            time_opts = pickle.load(f)
+        with open(os.path.join(path, "domain.bin"), "rb") as f:
+            # WORKAROUND: cannot pickle pyccelized classes at the moment
+            domain_dct = pickle.load(f)
+            name = domain_dct["name"]
+            params_map = domain_dct["params_map"]
+            domain = getattr(domains, name)(**params_map)
+        with open(os.path.join(path, "equil.bin"), "rb") as f:
+            equil = pickle.load(f)
+        with open(os.path.join(path, "grid.bin"), "rb") as f:
+            grid = pickle.load(f)
+        with open(os.path.join(path, "derham_opts.bin"), "rb") as f:
+            derham_opts = pickle.load(f)
+            
+    else:
+        raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
+    
+    print("done.")
+    
+    return ParamsIn(env=env,
+                    units=units,
+                    time_opts=time_opts,
+                    domain=domain,
+                    equil=equil,
+                    grid=grid,
+                    derham_opts=derham_opts,
+                    )
 
 
 def create_femfields(
@@ -32,51 +113,49 @@ def create_femfields(
     -------
     fields : dict
         Nested dictionary holding :class:`~struphy.feec.psydac_derham.SplineFunction`: fields[t][name] contains the Field with the name "name" in the hdf5 file at time t.
-
-    space_ids : dict
-        The space IDs of the fields (H1, Hcurl, Hdiv, L2 or H1vec). space_ids[name] contains the space ID of the field with the name "name".
-
-    model : str
-        From which model in struphy/models the data has been obtained.
+    
+    t_grid : np.ndarray
+        Time grid.
     """
 
-    # get model name and # of MPI processes from meta.txt file
-    with open(os.path.join(path, "meta.txt"), "r") as f:
-        lines = f.readlines()
+    with open(os.path.join(path, "meta.yml"), "r") as f:
+        meta = yaml.load(f, Loader=yaml.FullLoader)
+    nproc = meta["MPI processes"]
+    
+    # import parameters
+    params_in = get_params_of_run(path)
 
-    model = lines[3].split()[-1]
-    nproc = lines[4].split()[-1]
-
-    # create Derham sequence from grid parameters
-    with open(os.path.join(path, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
-
-    derham = Derham(
-        params["grid"]["Nel"],
-        params["grid"]["p"],
-        params["grid"]["spl_kind"],
-    )
+    derham = setup_derham(params_in.grid,
+            params_in.derham_opts,
+            comm=None,
+            domain=params_in.domain,
+            )
 
     # get fields names, space IDs and time grid from 0-th rank hdf5 file
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
-
     space_ids = {}
-
-    for field_name, dset in file["feec"].items():
-        space_ids[field_name] = dset.attrs["space_id"]
+    print(f"\nReading hdf5 data of following species:")
+    for species, dset in file["feec"].items():
+        space_ids[species] = {}
+        print(f"{species}:")
+        for var, ddset in dset.items():
+            space_ids[species][var] = ddset.attrs["space_id"]
+            print(f"  {var}:", ddset)
 
     t_grid = file["time/value"][::step].copy()
-
     file.close()
 
     # create one FemField for each snapshot
     fields = {}
     for t in t_grid:
         fields[t] = {}
-        for field_name, ID in space_ids.items():
-            fields[t][field_name] = derham.create_spline_function(field_name, ID)
+        for species, vars in space_ids.items():
+            fields[t][species] = {}
+            for var, id in vars.items():
+                fields[t][species][var] = derham.create_spline_function(var, id, verbose=False,)
 
     # get hdf5 data
+    print("")
     for rank in range(int(nproc)):
         # open hdf5 file
         file = h5py.File(
@@ -88,67 +167,66 @@ def create_femfields(
             "r",
         )
 
-        for field_name, dset in tqdm(file["feec"].items()):
-            # get global start indices, end indices and pads
-            gl_s = dset.attrs["starts"]
-            gl_e = dset.attrs["ends"]
-            pads = dset.attrs["pads"]
+        for species, dset in file["feec"].items():
+            for var, ddset in tqdm(dset.items()):
+                # get global start indices, end indices and pads
+                gl_s = ddset.attrs["starts"]
+                gl_e = ddset.attrs["ends"]
+                pads = ddset.attrs["pads"]
 
-            assert gl_s.shape == (3,) or gl_s.shape == (3, 3)
-            assert gl_e.shape == (3,) or gl_e.shape == (3, 3)
-            assert pads.shape == (3,) or pads.shape == (3, 3)
+                assert gl_s.shape == (3,) or gl_s.shape == (3, 3)
+                assert gl_e.shape == (3,) or gl_e.shape == (3, 3)
+                assert pads.shape == (3,) or pads.shape == (3, 3)
 
-            # loop over time
-            for n, t in enumerate(t_grid):
-                # scalar field
-                if gl_s.shape == (3,):
-                    s1, s2, s3 = gl_s
-                    e1, e2, e3 = gl_e
-                    p1, p2, p3 = pads
+                # loop over time
+                for n, t in enumerate(t_grid):
+                    # scalar field
+                    if gl_s.shape == (3,):
+                        s1, s2, s3 = gl_s
+                        e1, e2, e3 = gl_e
+                        p1, p2, p3 = pads
 
-                    data = dset[n * step, p1:-p1, p2:-p2, p3:-p3].copy()
+                        data = ddset[n * step, p1:-p1, p2:-p2, p3:-p3].copy()
 
-                    fields[t][field_name].vector[
-                        s1 : e1 + 1,
-                        s2 : e2 + 1,
-                        s3 : e3 + 1,
-                    ] = data
-                    # update after each data addition, can be made more efficient
-                    fields[t][field_name].vector.update_ghost_regions()
-
-                # vector-valued field
-                else:
-                    for comp in range(3):
-                        s1, s2, s3 = gl_s[comp]
-                        e1, e2, e3 = gl_e[comp]
-                        p1, p2, p3 = pads[comp]
-
-                        data = dset[str(comp + 1)][
-                            n * step,
-                            p1:-p1,
-                            p2:-p2,
-                            p3:-p3,
-                        ].copy()
-
-                        fields[t][field_name].vector[comp][
+                        fields[t][species][var].vector[
                             s1 : e1 + 1,
                             s2 : e2 + 1,
                             s3 : e3 + 1,
                         ] = data
-                    # update after each data addition, can be made more efficient
-                    fields[t][field_name].vector.update_ghost_regions()
+                        # update after each data addition, can be made more efficient
+                        fields[t][species][var].vector.update_ghost_regions()
 
+                    # vector-valued field
+                    else:
+                        for comp in range(3):
+                            s1, s2, s3 = gl_s[comp]
+                            e1, e2, e3 = gl_e[comp]
+                            p1, p2, p3 = pads[comp]
+
+                            data = ddset[str(comp + 1)][
+                                n * step,
+                                p1:-p1,
+                                p2:-p2,
+                                p3:-p3,
+                            ].copy()
+
+                            fields[t][species][var].vector[comp][
+                                s1 : e1 + 1,
+                                s2 : e2 + 1,
+                                s3 : e3 + 1,
+                            ] = data
+                        # update after each data addition, can be made more efficient
+                        fields[t][species][var].vector.update_ghost_regions()
         file.close()
 
     print("Creation of Struphy Fields done.")
 
-    return fields, space_ids, model
+    return fields, t_grid
 
 
 def eval_femfields(
     path: str,
     fields: dict,
-    space_ids: dict,
     *,
     celldivide: list = [1, 1, 1],
     physical: bool = False,
@@ -161,9 +239,6 @@ def eval_femfields(
         Absolute path of simulation output folder.
 
     fields : dict
-        Obtained from struphy.diagnostics.post_processing.create_femfields.
-
-    space_ids : dict
         Obtained from struphy.diagnostics.post_processing.create_femfields.
 
     celldivide : list of ints
@@ -188,20 +263,18 @@ def eval_femfields(
         Mapped (physical) grids obtained by domain(*grids_log).
     """
 
-    assert isinstance(fields, dict)
-    assert isinstance(space_ids, dict)
+    # import parameters
+    params_in = get_params_of_run(path)
 
-    # domain object according to parameter file and grids
-    with open(os.path.join(path, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
-
-    domain = setup_domain_and_equil(params)[0]
+    # get domain
+    domain = params_in.domain
 
     # create logical and physical grids
+    assert isinstance(fields, dict)
     assert isinstance(celldivide, list)
     assert len(celldivide) == 3
 
-    Nel = params["grid"]["Nel"]
+    Nel = params_in.grid.Nel
 
     grids_log = [np.linspace(0.0, 1.0, Nel_i * n_i + 1) for Nel_i, n_i in zip(Nel, celldivide)]
     grids_phy = [
@@ -212,86 +285,87 @@ def eval_femfields(
 
     # evaluate fields at evaluation grid and push-forward
     point_data = {}
-
-    # one dict for each field
-    for name in space_ids:
-        point_data[name] = {}
-
-    # time loop
-    print("Evaluating fields ...")
+    for species, vars in fields[list(fields.keys())[0]].items():
+        point_data[species] = {}
+        for name, field in vars.items():
+            point_data[species][name] = {}
+    
+    print("\nEvaluating fields ...")
     for t in tqdm(fields):
-        # field loop
-        for name, field in fields[t].items():
-            # space ID
-            space_id = space_ids[name]
+        for species, vars in fields[t].items():
+            for name, field in vars.items():
+                
+                assert isinstance(field, SplineFunction)
+                space_id = field.space_id
 
-            # field evaluation
-            temp_val = field(*grids_log)
+                # field evaluation
+                temp_val = field(*grids_log)
 
-            point_data[name][t] = []
+                point_data[species][name][t] = []
 
-            # scalar spaces
-            if isinstance(temp_val, np.ndarray):
-                if physical:
-                    # push-forward
-                    if space_id == "H1":
-                        point_data[name][t].append(
-                            domain.push(
-                                temp_val,
-                                *grids_log,
-                                kind="0",
-                            ),
-                        )
-                    elif space_id == "L2":
-                        point_data[name][t].append(
-                            domain.push(
-                                temp_val,
-                                *grids_log,
-                                kind="3",
-                            ),
-                        )
-
-                else:
-                    point_data[name][t].append(temp_val)
-
-            # vector-valued spaces
-            else:
-                for j in range(3):
+                # scalar spaces
+                if isinstance(temp_val, np.ndarray):
                     if physical:
                         # push-forward
-                        if space_id == "Hcurl":
-                            point_data[name][t].append(
+                        if space_id == "H1":
+                            point_data[species][name][t].append(
                                 domain.push(
                                     temp_val,
                                     *grids_log,
-                                    kind="1",
-                                )[j],
+                                    kind="0",
+                                ),
                             )
-                        elif space_id == "Hdiv":
-                            point_data[name][t].append(
+                        elif space_id == "L2":
+                            point_data[species][name][t].append(
                                 domain.push(
                                     temp_val,
                                     *grids_log,
-                                    kind="2",
-                                )[j],
-                            )
-                        elif space_id == "H1vec":
-                            point_data[name][t].append(
-                                domain.push(
-                                    temp_val,
-                                    *grids_log,
-                                    kind="v",
-                                )[j],
+                                    kind="3",
+                                ),
                             )
 
                     else:
-                        point_data[name][t].append(temp_val[j])
+                        point_data[species][name][t].append(temp_val)
 
+                # vector-valued spaces
+                else:
+                    for j in range(3):
+                        if physical:
+                            # push-forward
+                            if space_id == "Hcurl":
+                                point_data[species][name][t].append(
+                                    domain.push(
+                                        temp_val,
+                                        *grids_log,
+                                        kind="1",
+                                    )[j],
+                                )
+                            elif space_id == "Hdiv":
+                                point_data[species][name][t].append(
+                                    domain.push(
+                                        temp_val,
+                                        *grids_log,
+                                        kind="2",
+                                    )[j],
+                                )
+                            elif space_id == "H1vec":
+                                point_data[species][name][t].append(
+                                    domain.push(
+                                        temp_val,
+                                        *grids_log,
+                                        kind="v",
+                                    )[j],
+                                )
+
+                        else:
+                            point_data[species][name][t].append(temp_val[j])
+                            
     return point_data, grids_log, grids_phy
 
 
 def create_vtk(
     path: str,
+    t_grid: np.ndarray,
     grids_phy: list,
     point_data: dict,
     *,
@@ -304,6 +378,9 @@ def create_vtk(
     path : str
         Absolute path of where to store the .vts files. Will then be in path/vtk/step_<step>.vts.
 
+    t_grid : np.ndarray
+        Time grid.
+
     grids_phy : 3-list
         Mapped (physical) grids obtained from struphy.diagnostics.post_processing.eval_femfields.
 
@@ -315,49 +392,46 @@ def create_vtk(
     """
 
     from pyevtk.hl import gridToVTK
-
-    # directory for vtk files
-    path_vtk = os.path.join(path, "vtk" + physical * "_phy")
-
-    try:
-        os.mkdir(path_vtk)
-    except:
-        shutil.rmtree(path_vtk)
-        os.mkdir(path_vtk)
-
-    # field names
-    names = list(point_data.keys())
+        
+    for species, vars in point_data.items():
+        species_path = os.path.join(path, species, "vtk" + physical * "_phy")
+        try:
+            os.mkdir(species_path)
+        except:
+            shutil.rmtree(species_path)
+            os.mkdir(species_path)
 
     # time loop
-    tgrid = list(point_data[names[0]].keys())
-
-    nt = len(tgrid) - 1
+    nt = len(t_grid) - 1
     log_nt = int(np.log10(nt)) + 1
 
-    print("Creating vtk ...")
-    for n, t in enumerate(tqdm(tgrid)):
+    print(f"\nCreating vtk in {path} ...")
+    for n, t in enumerate(tqdm(t_grid)):
         point_data_n = {}
 
-        for name in names:
-            points_list = point_data[name][t]
+        for species, vars in point_data.items():
+            species_path = os.path.join(path, species, "vtk" + physical * "_phy")
+            point_data_n[species] = {}
+            for name, data in vars.items():
+                points_list = data[t]
 
-            # scalar
-            if len(points_list) == 1:
-                point_data_n[name] = points_list[0]
+                # scalar
+                if len(points_list) == 1:
+                    point_data_n[species][name] = points_list[0]
 
-            # vector
-            else:
-                for j in range(3):
-                    point_data_n[name + f"_{j + 1}"] = points_list[j]
+                # vectorpoint_data[name]
+                else:
+                    for j in range(3):
+                        point_data_n[species][name + f"_{j + 1}"] = points_list[j]
 
-        gridToVTK(
-            os.path.join(path_vtk, "step_{0:0{1}d}".format(n, log_nt)),
-            *grids_phy,
-            pointData=point_data_n,
-        )
+            gridToVTK(
+                os.path.join(species_path, "step_{0:0{1}d}".format(n, log_nt)),
+                *grids_phy,
+                pointData=point_data_n[species],
+            )
 
 
-def post_process_markers(path_in, path_out, species, kind, step=1):
+def post_process_markers(path_in: str, path_out: str, species: str, domain: Domain, kind: str = "Particles6D", step: int = 1,):
     """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation
     and writes them to a .npy files and to .txt files.
     Also saves the weights.
@@ -408,6 +482,9 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
 
     species : str
         Name of the species for which the post processing should be performed.
+        
+    domain : Domain
+        Domain object.
 
     kind : str
         Name of the kinetic kind (Particles6D, Particles5D or Particles3D).
@@ -416,17 +493,12 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
     """
 
+    print(f"{domain = }")
+
     # get # of MPI processes from meta.txt file
-    with open(os.path.join(path_in, "meta.txt"), "r") as f:
-        lines = f.readlines()
-
-    nproc = lines[4].split()[-1]
-
-    with open(os.path.join(path_in, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
-
-    # create domain for calculating markers' physical coordinates
-    domain = setup_domain_and_equil(params)[0]
+    with open(os.path.join(path_in, "meta.yml"), "r") as f:
+        meta = yaml.load(f, Loader=yaml.FullLoader)
+    nproc = meta["MPI processes"]
 
     # open hdf5 files and get names and number of saved markers of kinetic species
     files = [
@@ -472,7 +544,7 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
     # loop over time grid
     for n in tqdm(range(int((nt - 1) / step) + 1)):
         # clear buffer
-        temp[:, :] = 0
+        temp[:, :] = 0.
 
         # create text file for this time step and this species
         file_npy = os.path.join(
@@ -493,6 +565,8 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
         # sorting out lost particles
         ids = temp[:, -1].astype("int")
         ids_lost_particles = np.setdiff1d(np.arange(n_markers), ids)
+        ids_removed_particles = np.nonzero(temp[:, 0] == -1.)[0]
+        ids_lost_particles = np.array(list(set(ids_lost_particles) | set(ids_removed_particles)), dtype=int)
         lost_particles_mask[:] = False
         lost_particles_mask[ids_lost_particles] = True
 
@@ -504,15 +578,13 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
         assert np.all(sorted(ids) == np.arange(n_markers))
 
         # compute physical positions (x, y, z)
-        temp[~lost_particles_mask, :3] = domain(
-            np.array(temp[~lost_particles_mask, :3]),
-            change_out_order=True,
-        )
+        pos_phys = domain(np.array(temp[~lost_particles_mask, :3]), change_out_order=True)
+        temp[~lost_particles_mask, :3] = pos_phys
 
-        # move ids to first column and save
-        temp = np.roll(temp, 1, axis=1)
-
+        # save numpy
         np.save(file_npy, temp)
+        # move ids to first column and save txt
+        temp = np.roll(temp, 1, axis=1)
         np.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
 
     # close hdf5 files

@@ -6,7 +6,6 @@ import numpy as np
 import yaml
 from tqdm import tqdm
 
-from struphy.io.setup import setup_domain_and_equil
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
 
 

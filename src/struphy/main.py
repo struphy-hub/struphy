@@ -1,110 +1,147 @@
 from typing import Optional
+import os
+import sysconfig
+import time
+import datetime
+import glob
+import numpy as np
+from mpi4py import MPI
+from pyevtk.hl import gridToVTK
+import shutil
+import pickle
+import h5py
+import copy
 
+from struphy.fields_background.base import FluidEquilibriumWithB
+from struphy.io.output_handling import DataContainer
+from struphy.io.setup import setup_folders
+from struphy.models.base import StruphyModel
+from struphy.profiling.profiling import ProfileManager
+from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import dict_to_yaml
+from struphy.pic.base import Particles
+from struphy.models.species import Species
+from struphy.models.variables import FEECVariable
+from struphy.io.options import BaseUnits, Units, Time, EnvironmentOptions
+from struphy.io.setup import import_parameters_py
+from struphy.geometry.base import Domain
+from struphy.geometry import domains
+from struphy.fields_background.base import FluidEquilibrium
+from struphy.fields_background.equils import HomogenSlab
+from struphy.topology.grids import TensorProductGrid
+from struphy.io.options import DerhamOptions
+from struphy.post_processing.post_processing_tools import create_femfields, eval_femfields, create_vtk
+from struphy.topology import grids
+from struphy.io.options import DerhamOptions
+from struphy.post_processing.post_processing_tools import (post_process_markers,
+                                                           post_process_f,
+                                                           post_process_n_sph)
+from struphy.post_processing.orbits import orbits_tools
+    
 
-def main(
-    model_name: Optional[str],
-    parameters: dict | str,
-    path_out: str,
+def run(
+    model: StruphyModel,
     *,
-    restart: bool = False,
-    runtime: int = 300,
-    save_step: int = 1,
+    params_path: str = None,
+    env: EnvironmentOptions = EnvironmentOptions(),
+    base_units: BaseUnits = BaseUnits(),
+    time_opts: Time = Time(),
+    domain: Domain = domains.Cuboid(),
+    equil: FluidEquilibrium = HomogenSlab(),
+    grid: TensorProductGrid = None,
+    derham_opts: DerhamOptions = None,
     verbose: bool = False,
-    supress_out: bool = False,
-    sort_step: int = 0,
-    num_clones: int = 1,
 ):
     """
     Run a Struphy model.
 
     Parameters
     ----------
-    model_name : str
-        The name of the model to run. Type "struphy run --help" in your terminal to see a list of available models.
+    model : StruphyModel
+        The model to run. Check https://struphy.pages.mpcdf.de/struphy/sections/models.html for available models.
 
-    parameters : dict | str
-        The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
-
-    path_out : str
-        The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
-
-    restart : bool, optional
-        Whether to restart a run (default=False).
-
-    runtime : int, optional
-        Maximum run time of simulation in minutes. Will finish the time integration once this limit is reached (default=300).
-
-    save_step : int, optional
-        When to save data output: every time step (save_step=1), every second time step (save_step=2), etc (default=1).
-
-    verbose : bool
-        Show full screen output.
-
-    supress_out : bool
-        Whether to supress screen output during time integration.
-
-    sort_step: int, optional
-        Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
-
-    num_clones: int, optional
-        Number of domain clones (default=1)
+    params_path : str
+        Absolute path to .py parameter file.
     """
-
-    import copy
-    import os
-    import time
-
-    import numpy as np
-    from mpi4py import MPI
-    from pyevtk.hl import gridToVTK
-
-    from struphy.feec.psydac_derham import SplineFunction
-    from struphy.fields_background.base import FluidEquilibriumWithB
-    from struphy.io.output_handling import DataContainer
-    from struphy.io.setup import pre_processing
-    from struphy.models import fluid, hybrid, kinetic, toy
-    from struphy.models.base import StruphyModel
-    from struphy.profiling.profiling import ProfileManager
-    from struphy.utils.clone_config import CloneConfig
-
-    if sort_step:
-        from struphy.pic.base import Particles
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    if rank == 0:
-        print("")
-    comm.Barrier()
-
-    # synchronize MPI processes to set same start time of simulation for all processes
-    comm.Barrier()
     start_simulation = time.time()
-
-    # loading of simulation parameters, creating output folder and printing information to screen
-    params = pre_processing(
-        model_name=model_name,
-        parameters=parameters,
-        path_out=path_out,
-        restart=restart,
-        max_sim_time=runtime,
-        save_step=save_step,
-        mpi_rank=rank,
-        mpi_size=size,
-        num_clones=num_clones,
-        verbose=verbose,
-    )
-
-    if model_name is None:
-        assert "model" in params, "If model is not specified, then model: MODEL must be specified in the params!"
-        model_name = params["model"]
-
-    if rank < 32:
-        print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
-    if size > 32 and rank == 32:
-        print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
-
+        
+    # check model
+    assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
+    model_name = model.__class__.__name__
+    model.verbose = verbose
+    
+    if rank == 0:
+        print(f"\n*** Starting run for model '{model_name}':")
+    
+    # meta-data
+    path_out = env.path_out
+    restart = env.restart
+    max_runtime = env.max_runtime
+    save_step = env.save_step
+    sort_step = env.sort_step
+    num_clones = env.num_clones
+    
+    meta = {}
+    meta["platform"] = sysconfig.get_platform()
+    meta["python version"] = sysconfig.get_python_version()
+    meta["model name"] = model_name
+    meta["parameter file"] = params_path
+    meta["output folder"] = path_out
+    meta["MPI processes"] = size
+    meta["number of domain clones"] = num_clones
+    meta["restart"] = restart
+    meta["max wall-clock [min]"] = max_runtime
+    meta["save interval [steps]"] = save_step
+    
+    if rank == 0:
+        print("\nMETADATA:")
+        for k, v in meta.items():
+            print(f'{k}:'.ljust(25), v) 
+        
+    # creating output folders
+    setup_folders(path_out=path_out, 
+                  restart=restart, 
+                  verbose=verbose,)
+    
+    # add derived units
+    units = Units(base_units)
+    
+    # save parameter file
+    if rank == 0:
+        # save python param file
+        if params_path is not None:
+            assert params_path[-3:] == ".py"
+            shutil.copy2(
+                params_path,
+                os.path.join(path_out, "parameters.py"),
+            )
+        # pickle struphy objects
+        else:
+            with open(os.path.join(path_out, "env.bin"), 'wb') as f:
+                pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "units.bin"), 'wb') as f:
+                pickle.dump(units, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "time_opts.bin"), 'wb') as f:
+                pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "domain.bin"), 'wb') as f:
+                # WORKAROUND: cannot pickle pyccelized classes at the moment
+                tmp_dct = {"name": domain.__class__.__name__, "params_map": domain.params_map}
+                pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "equil.bin"), 'wb') as f:
+                pickle.dump(equil, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "grid.bin"), 'wb') as f:
+                pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "derham_opts.bin"), 'wb') as f:
+                pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "model.bin"), 'wb') as f:
+                pickle.dump(model, f, pickle.HIGHEST_PROTOCOL)
+    
+    # config clones
     if comm is None:
         clone_config = None
     else:
@@ -115,25 +152,69 @@ def main(
             # MPI.COMM_WORLD     : comm
             # within a clone:    : sub_comm
             # between the clones : inter_comm
-            clone_config = CloneConfig(comm=comm, params=params, num_clones=num_clones)
+            clone_config = CloneConfig(comm=comm, params=None, num_clones=num_clones)
             clone_config.print_clone_config()
-            if "kinetic" in params:
+            if model.kinetic_species:
                 clone_config.print_particle_config()
+                
+    model.clone_config = clone_config
+    comm.Barrier()
+    
+    ## configure model instance
 
-    # instantiate Struphy model (will allocate model objects and associated memory)
-    StruphyModel.verbose = verbose
+    # units
+    model.units = units
+    if model.bulk_species is None:
+        A_bulk = None
+        Z_bulk = None
+    else:
+        A_bulk = model.bulk_species.mass_number
+        Z_bulk = model.bulk_species.charge_number
+    model.units.derive_units(velocity_scale=model.velocity_scale,
+                             A_bulk=A_bulk,
+                             Z_bulk=Z_bulk,
+                             verbose=verbose,)
+    
+    # domain and fluid bckground
+    model.setup_domain_and_equil(domain, equil)
+    
+    # default grid
+    if grid is None:
+        Nel = (16, 16, 16)
+        print(f"\nNo grid specified - using TensorProductGrid with {Nel = }.")
+        grid = grids.TensorProductGrid(Nel=Nel)
+    
+    # allocate derham-related objects
+    if derham_opts is not None:
+        model.allocate_feec(grid, derham_opts)
+    else:
+        p = (3, 3, 3)
+        spl_kind = (False, False, False)
+        print(f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium.")
+        derham_opts = DerhamOptions(p=p, spl_kind=spl_kind)
+    model.allocate_feec(grid, derham_opts)
+        
+    # equation paramters
+    model.setup_equation_params(units=model.units, verbose=verbose)
+        
+    # allocate variables
+    model.allocate_variables(verbose=verbose)
+    model.allocate_helpers()
+    
+    # pass info to propagators
+    model.allocate_propagators()
+    
+    # plasma parameters
+    model.compute_plasma_params(verbose=verbose)
+    
+    if rank < 32:
+        if rank == 0:
+            print("")
+        comm.Barrier()
+        print(f"Rank {rank}: executing main.run() for model {model_name} ...")
 
-    objs = [fluid, kinetic, hybrid, toy]
-    for obj in objs:
-        try:
-            model_class = getattr(obj, model_name)
-        except AttributeError:
-            pass
-
-    with ProfileManager.profile_region("model_class_setup"):
-        model = model_class(params=params, comm=comm, clone_config=clone_config)
-
-    assert isinstance(model, StruphyModel)
+    if size > 32 and rank == 32:
+        print(f"Ranks > 31: executing main.run() for model {model_name} ...")
 
     # store geometry vtk
     if rank == 0:
@@ -176,22 +257,22 @@ def main(
         data.add_data({key_time: val})
         data.add_data({key_time_restart: val})
 
-    time_params = params["time"]
+    # retrieve time parameters
+    dt = time_opts.dt
+    Tend = time_opts.Tend
+    split_algo = time_opts.split_algo
 
     # set initial conditions for all variables
-    if not restart:
-        model.initialize_from_params()
-
-        total_steps = str(int(round(time_params["Tend"] / time_params["dt"])))
-
-    else:
+    if restart:
         model.initialize_from_restart(data)
 
         time_state["value"][0] = data.file["restart/time/value"][-1]
         time_state["value_sec"][0] = data.file["restart/time/value_sec"][-1]
         time_state["index"][0] = data.file["restart/time/index"][-1]
 
-        total_steps = str(int(round((time_params["Tend"] - time_state["value"][0]) / time_params["dt"])))
+        total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
+    else:
+        total_steps = str(int(round(Tend / dt)))
 
     # compute initial scalars and kinetic data, pass time state to all propagators
     model.update_scalar_quantities()
@@ -208,7 +289,6 @@ def main(
         print("\nINITIAL SCALAR QUANTITIES:")
         model.print_scalar_quantities()
 
-        split_algo = time_params["split_algo"]
         print(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
     # time loop
@@ -217,8 +297,8 @@ def main(
         comm.Barrier()
 
         # stop time loop?
-        break_cond_1 = time_state["value"][0] >= time_params["Tend"]
-        break_cond_2 = run_time_now > runtime
+        break_cond_1 = time_state["value"][0] >= Tend
+        break_cond_2 = run_time_now > max_runtime
 
         if break_cond_1 or break_cond_2:
             # save restart data (other data already saved below)
@@ -226,6 +306,7 @@ def main(
             data.file.close()
             end_simulation = time.time()
             if rank == 0:
+                print(f"\nTime steps done: {time_state["index"][0]}")
                 print(
                     "wall-clock time of simulation [sec]: ",
                     end_simulation - start_simulation,
@@ -239,7 +320,7 @@ def main(
                 if isinstance(val, Particles):
                     val.do_sort()
             t1 = time.time()
-            if rank == 0 and not supress_out:
+            if rank == 0 and verbose:
                 message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
                     run_time_now * 60, t1 - t0
                 )
@@ -249,12 +330,12 @@ def main(
         # perform one time step dt
         t0 = time.time()
         with ProfileManager.profile_region("model.integrate"):
-            model.integrate(time_params["dt"], time_params["split_algo"])
+            model.integrate(dt, split_algo)
         t1 = time.time()
 
         # update time and index (round time to 10 decimals for a clean time grid!)
-        time_state["value"][0] = round(time_state["value"][0] + time_params["dt"], 10)
-        time_state["value_sec"][0] = round(time_state["value_sec"][0] + time_params["dt"] * model.units["t"], 10)
+        time_state["value"][0] = round(time_state["value"][0] + dt, 10)
+        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units.t, 10)
         time_state["index"][0] += 1
 
         run_time_now = (time.time() - start_simulation) / 60
@@ -266,40 +347,27 @@ def main(
             model.update_markers_to_be_saved()
             model.update_distr_functions()
 
-            # extract FEM coefficients
-            for key, val in model.em_fields.items():
-                if "params" not in key:
-                    field = val["obj"]
-                    assert isinstance(field, SplineFunction)
+            # extract FEEC coefficients
+            feec_species = model.field_species | model.fluid_species | model.diagnostic_species
+            for species, val in feec_species.items():
+                assert isinstance(val, Species)
+                for variable, subval in val.variables.items():
+                    assert isinstance(subval, FEECVariable)
+                    spline = subval.spline
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                    field.extract_coeffs(update_ghost_regions=False)
-
-            for _, val in model.fluid.items():
-                for variable, subval in val.items():
-                    if "params" not in variable:
-                        field = subval["obj"]
-                        assert isinstance(field, SplineFunction)
-                        # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                        field.extract_coeffs(update_ghost_regions=False)
-
-            for key, val in model.diagnostics.items():
-                if "params" not in key:
-                    field = val["obj"]
-                    assert isinstance(field, SplineFunction)
-                    # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                    field.extract_coeffs(update_ghost_regions=False)
+                    spline.extract_coeffs(update_ghost_regions=False)
 
             # save data (everything but restart data)
             data.save_data(keys=save_keys_all)
 
             # print current time and scalar quantities to screen
-            if rank == 0 and not supress_out:
+            if rank == 0 and verbose:
                 step = str(time_state["index"][0]).zfill(len(total_steps))
 
                 message = "time step: " + step + "/" + str(total_steps)
-                message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], time_params["Tend"])
+                message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
                 message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
-                    time_state["value_sec"][0], time_params["Tend"] * model.units["t"]
+                    time_state["value_sec"][0], Tend * model.units.t
                 )
                 message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
                     run_time_now * 60, t1 - t0
@@ -311,15 +379,343 @@ def main(
 
     # ===================================================================
 
-    with open(path_out + "/meta.txt", "a") as f:
-        # f.write('wall-clock time [min]:'.ljust(30) + str((end_simulation - start_simulation)/60.) + '\n')
-        f.write(f"{rank} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n")
+    meta["wall-clock time[min]"] = (end_simulation - start_simulation) / 60
     comm.Barrier()
+    
     if rank == 0:
+        # save meta-data
+        dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
         print("Struphy run finished.")
 
     if clone_config is not None:
         clone_config.free()
+
+
+def pproc(
+    path: str,
+    *,
+    step: int = 1,
+    celldivide: int = 1,
+    physical: bool = False,
+    guiding_center: bool = False,
+    classify: bool = False,
+    no_vtk: bool = False,
+    time_trace: bool = False,
+):
+    """Post-processing finished Struphy runs.
+
+    Parameters
+    ----------
+    path : str
+        Absolute path of simulation output folder to post-process.
+
+    step : int
+        Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
+
+    celldivide : int
+        Grid refinement in evaluation of FEM fields. E.g. celldivide=2 evaluates two points per grid cell.
+
+    physical : bool
+        Wether to do post-processing into push-forwarded physical (xyz) components of fields.
+
+    guiding_center : bool
+        Compute guiding-center coordinates (only from Particles6D).
+
+    classify : bool
+        Classify guiding-center trajectories (passing, trapped or lost).
+
+    no_vtk : bool
+        whether vtk files creation should be skipped
+
+    time_trace : bool
+        whether to plot the time trace of each measured region
+    """
+
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        print(f"\n*** Start post-processing of {path}:")
+        
+    # load light-weight model instance from simulation
+    try:
+        params_in = import_parameters_py(os.path.join(path, "parameters.py"))
+        model: StruphyModel = params_in.model
+        domain: Domain = params_in.domain
+    except FileNotFoundError:
+        with open(os.path.join(path, "model.bin"), 'rb') as f:
+            model: StruphyModel = pickle.load(f)
+        with open(os.path.join(path, "domain.bin"), 'rb') as f:
+            domain_dct: Domain = pickle.load(f)
+            domain = getattr(domains, domain_dct["name"])(**domain_dct["params_map"])
+
+    # create post-processing folder
+    path_pproc = os.path.join(path, "post_processing")
+
+    try:
+        os.mkdir(path_pproc)
+    except:
+        shutil.rmtree(path_pproc)
+        os.mkdir(path_pproc)
+
+    if time_trace:
+        from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart, plot_time_vs_duration
+
+        path_time_trace = os.path.join(path, "profiling_time_trace.pkl")
+        plot_time_vs_duration(path_time_trace, output_path=path_pproc)
+        plot_gantt_chart(path_time_trace, output_path=path_pproc)
+        return
+
+    # check for fields and kinetic data in hdf5 file that need post processing
+    file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
+
+    # save time grid at which post-processing data is created
+    np.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+
+    if "feec" in file.keys():
+        exist_fields = True
+    else:
+        exist_fields = False
+
+    if "kinetic" in file.keys():
+        exist_kinetic = {"markers": False, "f": False, "n_sph": False}
+        kinetic_species = []
+        kinetic_kinds = []
+        for name in file["kinetic"].keys():
+            kinetic_species += [name]
+            kinetic_kinds += [next(iter(model.species[name].variables.values())).space]
+            
+            # check for saved markers
+            if "markers" in file["kinetic"][name]:
+                exist_kinetic["markers"] = True
+            # check for saved distribution function
+            if "f" in file["kinetic"][name]:
+                exist_kinetic["f"] = True
+            # check for saved sph density
+            if "n_sph" in file["kinetic"][name]:
+                exist_kinetic["n_sph"] = True
+    else:
+        exist_kinetic = None
+        
+    file.close()
+
+    # field post-processing
+    if exist_fields:
+        fields, t_grid = create_femfields(path, step=step)
+
+        point_data, grids_log, grids_phy = eval_femfields(
+            path, fields, celldivide=[celldivide, celldivide, celldivide]
+        )
+
+        if physical:
+            point_data_phy, grids_log, grids_phy = eval_femfields(
+                path, fields, celldivide=[celldivide, celldivide, celldivide], physical=True
+            )
+
+        # directory for field data
+        path_fields = os.path.join(path_pproc, "fields_data")
+
+        try:
+            os.mkdir(path_fields)
+        except:
+            shutil.rmtree(path_fields)
+            os.mkdir(path_fields)
+
+        # save data dicts for each field
+        for species, vars in point_data.items():
+            for name, val in vars.items():
+                try:
+                    os.mkdir(os.path.join(path_fields, species))
+                except:
+                    pass
+
+                with open(os.path.join(path_fields, species, name + "_log.bin"), "wb") as handle:
+                    pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+                if physical:
+                    with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
+                        pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        # save grids
+        with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
+            pickle.dump(grids_log, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        with open(os.path.join(path_fields, "grids_phy.bin"), "wb") as handle:
+            pickle.dump(grids_phy, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        # create vtk files
+        if not no_vtk:
+            create_vtk(path_fields, t_grid, grids_phy, point_data)
+            if physical:
+                create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
+
+    # kinetic post-processing
+    if exist_kinetic is not None:
+        # directory for kinetic data
+        path_kinetics = os.path.join(path_pproc, "kinetic_data")
+
+        try:
+            os.mkdir(path_kinetics)
+        except:
+            shutil.rmtree(path_kinetics)
+            os.mkdir(path_kinetics)
+
+        # kinetic post-processing for each species
+        for n, species in enumerate(kinetic_species):
+            # directory for each species
+            path_kinetics_species = os.path.join(path_kinetics, species)
+
+            try:
+                os.mkdir(path_kinetics_species)
+            except:
+                shutil.rmtree(path_kinetics_species)
+                os.mkdir(path_kinetics_species)
+
+            # markers
+            if exist_kinetic["markers"]:
+                post_process_markers(path, path_kinetics_species, species, domain, kinetic_kinds[n], step,)
+
+                if guiding_center:
+                    assert kinetic_kinds[n] == "Particles6D"
+                    orbits_tools.post_process_orbit_guiding_center(path, path_kinetics_species, species)
+
+                if classify:
+                    orbits_tools.post_process_orbit_classification(path_kinetics_species, species)
+
+            # distribution function
+            if exist_kinetic["f"]:
+                if kinetic_kinds[n] == "DeltaFParticles6D":
+                    compute_bckgr = True
+                else:
+                    compute_bckgr = False
+
+                post_process_f(path, path_kinetics_species, species, step, compute_bckgr=compute_bckgr)
+
+            # sph density
+            if exist_kinetic["n_sph"]:
+                post_process_n_sph(path, path_kinetics_species, species, step, compute_bckgr=compute_bckgr)
+
+
+class SimData:
+    """Holds post-processed Struphy data as attributes.
+    
+    Parameters
+    ----------
+    path : str
+        Absolute path of simulation output folder to post-process.
+    """
+    def __init__(self, path: str):
+        self.path = path
+        self.feec_species = {}
+        self.pic_species = {}
+        self.sph_species = {}
+        self.grids_log: list[np.ndarray] = None
+        self.grids_phy: list[np.ndarray] = None
+        self.t_grid: np.ndarray = None
+        
+    @property
+    def spline_grid_resolution(self):
+        if self.grids_log is not None:
+            res = [x.size for x in self.grids_log]
+        else:
+            res = None
+        return res
+    
+    @property
+    def time_grid_size(self):
+        return self.t_grid.size
+
+
+def load_data(path: str) -> SimData:
+    """Load data generated during post-processing.
+    
+    Parameters
+    ----------
+    path : str
+        Absolute path of simulation output folder to post-process.
+    """
+
+    path_pproc = os.path.join(path, "post_processing")
+    assert os.path.exists(path_pproc), f"Path {path_pproc} does not exist, run 'pproc' first?"
+    print("\n*** Loading post-processed simulation data:")
+    print(f"{path = }")
+
+    simdata = SimData(path)
+    
+    # load time grid
+    simdata.t_grid = np.load(os.path.join(path_pproc, "t_grid.npy"))
+
+    # data paths
+    path_fields = os.path.join(path_pproc, "fields_data")
+    path_kinetic = os.path.join(path_pproc, "kinetic_data")
+    
+    # load point data
+    if os.path.exists(path_fields):
+        
+        # grids
+        with open(os.path.join(path_fields, "grids_log.bin"), "rb") as f:
+            simdata.grids_log = pickle.load(f)
+        with open(os.path.join(path_fields, "grids_phy.bin"), "rb") as f:
+            simdata.grids_phy = pickle.load(f)
+        
+        # species folders
+        species = next(os.walk(path_fields))[1]
+        for spec in species:
+            simdata.feec_species[spec] = {}
+            # simdata.arrays[spec] = {}
+            path_spec = os.path.join(path_fields, spec)
+            wlk = os.walk(path_spec)
+            files = next(wlk)[2]
+            print(f"\nFiles in {path_spec}: {files}")
+            for file in files:
+                if ".bin" in file:
+                    var = file.split(".")[0]
+                    with open(os.path.join(path_spec, file), "rb") as f:
+                        # try:
+                        simdata.feec_species[spec][var] = pickle.load(f)
+                        # simdata.arrays[spec][var] = pickle.load(f)
+                        
+    if os.path.exists(path_kinetic):
+        
+        # species folders
+        species = next(os.walk(path_kinetic))[1]
+        print(f"{species = }")
+        for spec in species:
+            simdata.pic_species[spec] = {}
+            path_spec = os.path.join(path_kinetic, spec)
+            wlk = os.walk(path_spec)
+            sub_folders = next(wlk)[1]
+            # print(f"{sub_folders = }")
+            for folder in sub_folders:
+                # simdata.pic_species[spec][folder] = {}
+                tmp = {}
+                path_dat = os.path.join(path_spec, folder)
+                sub_wlk = os.walk(path_dat)
+                files = next(sub_wlk)[2]
+                for file in files:
+                    # print(f"{file = }")
+                    if ".npy" in file:
+                        var = file.split(".")[0]
+                        tmp[var] = np.load(os.path.join(path_dat, file))
+                # sort dict
+                simdata.pic_species[spec][folder] = dict(sorted(tmp.items()))
+                        
+    print("\nThe following data has been loaded:")
+    print(f"{simdata.time_grid_size = }")
+    print(f"{simdata.spline_grid_resolution = }")
+    print(f"simdata.feec_species:")
+    for k, v in simdata.feec_species.items():
+        print(f"  {k}:")
+        for kk, vv in v.items():
+            print(f"    {kk}")
+    print(f"simdata.pic_species:")
+    for k, v in simdata.pic_species.items():
+        print(f"  {k}:")
+        for kk, vv in v.items():
+            print(f"    {kk}")
+    print(f"simdata.sph_species:")
+                        
+    return simdata
+
+
+
 
 
 if __name__ == "__main__":
@@ -337,7 +733,6 @@ if __name__ == "__main__":
 
     # Read struphy state file
     state = utils.read_state()
-
     o_path = state["o_path"]
 
     parser = argparse.ArgumentParser(description="Run an Struphy model.")
@@ -358,7 +753,7 @@ if __name__ == "__main__":
         "--input",
         type=str,
         metavar="FILE",
-        help="absolute path of parameter file (.yml)",
+        help="absolute path of parameter file",
     )
 
     # output (absolute path)
@@ -379,9 +774,9 @@ if __name__ == "__main__":
         action="store_true",
     )
 
-    # runtime
+    # max_runtime
     parser.add_argument(
-        "--runtime",
+        "--max-runtime",
         type=int,
         metavar="N",
         help="maximum wall-clock time of program in minutes (default=300)",
@@ -423,13 +818,6 @@ if __name__ == "__main__":
         action="store_true",
     )
 
-    # supress screen output
-    parser.add_argument(
-        "--supress-out",
-        help="supress screen output during time integration",
-        action="store_true",
-    )
-
     parser.add_argument(
         "--likwid",
         help="run with Likwid",
@@ -464,7 +852,7 @@ if __name__ == "__main__":
     pylikwid_markerinit()
     with ProfileManager.profile_region("main"):
         # solve the model
-        main(
+        run(
             args.model,
             args.input,
             args.output,
@@ -472,7 +860,6 @@ if __name__ == "__main__":
             runtime=args.runtime,
             save_step=args.save_step,
             verbose=args.verbose,
-            supress_out=args.supress_out,
             sort_step=args.sort_step,
             num_clones=args.nclones,
         )

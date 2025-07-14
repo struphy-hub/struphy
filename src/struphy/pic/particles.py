@@ -22,8 +22,8 @@ class Particles6D(Particles):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"Maxwellian3D": {}}
+    def default_background(cls):
+        return maxwellians.Maxwellian3D()
 
     def __init__(
         self,
@@ -31,8 +31,10 @@ class Particles6D(Particles):
     ):
         kwargs["type"] = "full_f"
 
-        if "bckgr_params" not in kwargs:
-            kwargs["bckgr_params"] = self.default_bckgr_params()
+        # if "backgrounds" not in kwargs:
+        #     kwargs["backgrounds"] = self.default_background()
+        # elif kwargs["backgrounds"] is None:
+        #     kwargs["backgrounds"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
@@ -41,7 +43,7 @@ class Particles6D(Particles):
         super().__init__(**kwargs)
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian
-        if "CanonicalMaxwellian" in kwargs["bckgr_params"]:
+        if isinstance(kwargs["background"], maxwellians.CanonicalMaxwellian):
             assert isinstance(self.equil, FluidEquilibriumWithB), (
                 "CanonicalMaxwellian needs background with magnetic field."
             )
@@ -89,16 +91,16 @@ class Particles6D(Particles):
         """
         # load sampling density svol (normalized to 1 in logical space)
         maxw_params = {
-            "n": 1.0,
-            "u1": self.loading_params["moments"][0],
-            "u2": self.loading_params["moments"][1],
-            "u3": self.loading_params["moments"][2],
-            "vth1": self.loading_params["moments"][3],
-            "vth2": self.loading_params["moments"][4],
-            "vth3": self.loading_params["moments"][5],
+            "n": (1.0, None),
+            "u1": (self.loading_params.moments[0], None),
+            "u2": (self.loading_params.moments[1], None),
+            "u3": (self.loading_params.moments[2], None),
+            "vth1": (self.loading_params.moments[3], None),
+            "vth2": (self.loading_params.moments[4], None),
+            "vth3": (self.loading_params.moments[5], None),
         }
 
-        fun = maxwellians.Maxwellian3D(maxw_params=maxw_params)
+        fun = maxwellians.Maxwellian3D(**maxw_params)
 
         if self.spatial == "uniform":
             return fun(eta1, eta2, eta3, *v)
@@ -398,10 +400,10 @@ class Particles5D(Particles):
         # load sampling density svol (normalized to 1 in logical space)
         maxw_params = {
             "n": 1.0,
-            "u_para": self.loading_params["moments"][0],
-            "u_perp": self.loading_params["moments"][1],
-            "vth_para": self.loading_params["moments"][2],
-            "vth_perp": self.loading_params["moments"][3],
+            "u_para": self.loading_params.moments[0],
+            "u_perp": self.loading_params.moments[1],
+            "vth_para": self.loading_params.moments[2],
+            "vth_perp": self.loading_params.moments[3],
         }
 
         self._svol = maxwellians.GyroMaxwellian2D(

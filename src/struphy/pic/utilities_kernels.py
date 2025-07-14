@@ -444,7 +444,7 @@ def eval_guiding_center_from_6d(
 @stack_array("grad_PB", "tmp")
 def accum_gradI_const(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     grad_PB1: "float[:,:,:]",
     grad_PB2: "float[:,:,:]",
@@ -494,12 +494,12 @@ def accum_gradI_const(
         tmp[:] = markers[ip, 15:18]
         res += linalg_kernels.scalar_dot(tmp, grad_PB) * weight * mu * scale
 
-    return res / n_markers_tot
+    return res / Np
 
 
 def accum_en_fB(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     PB: "float[:,:,:]",
 ):
@@ -538,7 +538,7 @@ def accum_en_fB(
 
         res += abs(B0) * mu * weight
 
-    return res / n_markers_tot
+    return res / Np
 
 
 @stack_array("e", "e_diff")

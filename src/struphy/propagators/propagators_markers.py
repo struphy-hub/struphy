@@ -2,6 +2,9 @@
 
 import numpy as np
 from numpy import array, polynomial, random
+from typing import Literal, get_args
+from dataclasses import dataclass
+
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
@@ -17,8 +20,12 @@ from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.models.variables import FEECVariable, PICVariable
+from struphy.io.options import check_option
+from psydac.linalg.basic import LinearOperator
 
 
+@dataclass
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -35,42 +42,29 @@ class PushEta(Propagator):
     Available algorithms:
 
     * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
-
-    Parameters
-    ----------
-    particles : Particles6D | ParticlesSPH
-        Particles object.
-
-    algo : str
-        Algorithm for solving the ODE (see options below).
-
-    density_field: StencilVector
-        Storage for density evaluation at each __call__.
     """
+    # variables to be updated
+    var: PICVariable = None
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["algo"] = ["rk4", "forward_euler", "heun2", "rk2", "heun3"]
-        if default:
-            dct = descend_options_dict(dct, [])
-        return dct
+    ## abstract methods
+    def set_options(self,
+                    butcher: ButcherTableau = None,
+                    ):
+        
+        if butcher is None:
+            butcher = ButcherTableau()
+        
+        # use setter for options
+        self.options = self.Options(self,
+                                    butcher=butcher,
+                                    )
 
-    def __init__(
-        self,
-        particles: Particles6D | ParticlesSPH,
-        *,
-        algo: str = options(default=True)["algo"],
-        density_field: StencilVector | None = None,
-    ):
-        # base class constructor call
-        super().__init__(particles)
-
+    def allocate(self):
         # get kernel
         kernel = pusher_kernels.push_eta_stage
 
         # define algorithm
-        butcher = ButcherTableau(algo)
+        butcher: ButcherTableau = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
         import numpy as np
 
@@ -84,7 +78,7 @@ class PushEta(Propagator):
         )
 
         self._pusher = Pusher(
-            particles,
+            self.var.particles,
             kernel,
             args_kernel,
             self.domain.args_domain,
@@ -93,30 +87,15 @@ class PushEta(Propagator):
             mpi_sort="each",
         )
 
-        self._eval_density = False
-        if density_field is not None:
-            self._eval_density = True
-            self._density_field = density_field
-
     def __call__(self, dt):
         self._pusher(dt)
 
         # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
-
-        if self._eval_density:
-            eval_density = lambda eta1, eta2, eta3: self.particles[0].eval_density(
-                eta1,
-                eta2,
-                eta3,
-                h1=0.1,
-                h2=0.1,
-                h3=0.1,
-            )
-            self.derham.P["3"](eval_density, out=self._density_field)
+        if self.var.particles.control_variate:
+            self.var.particles.update_weights()
 
 
+@dataclass
 class PushVxB(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -133,46 +112,54 @@ class PushVxB(Propagator):
 
     Available algorithms: ``analytic``, ``implicit``.
     """
+    # variables to be updated
+    ions: PICVariable = None
+    
+    # propagator specific options
+    OptsAlgo = Literal["analytic", "implicit"]
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["algo"] = ["analytic", "implicit"]
-        if default:
-            dct = descend_options_dict(dct, [])
-        return dct
+    ## abstract methods
+    def set_options(self,
+                    algo: OptsAlgo = "analytic",
+                    kappa: float = 1.0,
+                    b2_var: FEECVariable = None,
+                    ):
+    
+        # checks
+        check_option(algo, self.OptsAlgo)
+        
+        # use setter for options
+        self.options = self.Options(self,
+                                    algo=algo, 
+                                    kappa=kappa,
+                                    b2_var=b2_var,
+                                    )
 
-    def __init__(
-        self,
-        particles: Particles6D,
-        *,
-        algo: str = options(default=True)["algo"],
-        kappa: float = 1.0,
-        b2: BlockVector | PolarVector,
-        b2_add: BlockVector | PolarVector = None,
-    ):
+    def allocate(self):
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
-        assert b2.space == self.derham.Vh["2"]
-        if b2_add is not None:
-            assert b2_add.space == self.derham.Vh["2"]
-
-        # base class constructor call
-        super().__init__(particles)
-
-        # parameters that need to be exposed
-        self._kappa = kappa
-        self._b2 = b2
-        self._b2_add = b2_add
+        if self.projected_equil is not None:
+            self._b2 = self.projected_equil.b2
+            assert self._b2.space == self.derham.Vh["2"]
+        else:
+            self._b2 = self.derham.Vh["2"].zeros()
+        
+        if self.options.b2_var is None:
+            self._b2_var = None
+        else:
+            assert self.options.b2_var.spline.vector.space == self.derham.Vh["2"]
+            self._b2_var = self.options.b2_var.spline.vector
+        
+        # allocate dummy vectors to avoid temporary array allocations
         self._tmp = self.derham.Vh["2"].zeros()
         self._b_full = self.derham.Vh["2"].zeros()
 
         # define pusher kernel
-        if algo == "analytic":
+        if self.options.algo == "analytic":
             kernel = pusher_kernels.push_vxb_analytic
-        elif algo == "implicit":
+        elif self.options.algo == "implicit":
             kernel = pusher_kernels.push_vxb_implicit
         else:
-            raise ValueError(f"{algo = } not supported.")
+            raise ValueError(f"{self.options.algo = } not supported.")
 
         # instantiate Pusher
         args_kernel = (
@@ -183,7 +170,7 @@ class PushVxB(Propagator):
         )
 
         self._pusher = Pusher(
-            particles,
+            self.ions.particles,
             kernel,
             args_kernel,
             self.domain.args_domain,
@@ -191,24 +178,24 @@ class PushVxB(Propagator):
         )
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
-        self._E2T = self.derham.extraction_ops["2"].transpose()
+        self._E2T: LinearOperator = self.derham.extraction_ops["2"].transpose()
 
     def __call__(self, dt):
         # sum up total magnetic field
         tmp = self._b2.copy(out=self._tmp)
-        if self._b2_add is not None:
-            tmp += self._b2_add
+        if self._b2_var is not None:
+            tmp += self._b2_var
 
         # extract coefficients to tensor product space
-        b_full = self._E2T.dot(tmp, out=self._b_full)
+        b_full: BlockVector = self._E2T.dot(tmp, out=self._b_full)
         b_full.update_ghost_regions()
 
         # call pusher kernel
-        self._pusher(self._kappa * dt)
+        self._pusher(self.options.kappa * dt)
 
         # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if self.ions.particles.control_variate:
+            self.ions.particles.update_weights()
 
 
 class PushVinEfield(Propagator):

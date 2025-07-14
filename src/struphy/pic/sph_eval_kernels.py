@@ -2,6 +2,7 @@ from numpy import sqrt
 
 import struphy.pic.sorting_kernels as sorting_kernels
 import struphy.pic.sph_smoothing_kernels as sph_smoothing_kernels
+from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 
 
 def distance(x: "float", y: "float", periodic: "bool") -> float:
@@ -21,11 +22,10 @@ def distance(x: "float", y: "float", periodic: "bool") -> float:
 # single-point kernels #
 ########################
 def naive_evaluation_kernel(
+    args_markers: "MarkerArguments",
     eta1: "float",
     eta2: "float",
     eta3: "float",
-    markers: "float[:,:]",
-    Np: "int",
     holes: "bool[:]",
     periodic1: "bool",
     periodic2: "bool",
@@ -65,6 +65,10 @@ def naive_evaluation_kernel(
     h1, h2, h3 : float
         Kernel width in respective dimension.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
     n_particles = len(markers)
     out = 0.0
     for p in range(n_particles):
@@ -77,14 +81,13 @@ def naive_evaluation_kernel(
 
 
 def boxed_based_kernel(
+    args_markers: "MarkerArguments",
     eta1: "float",
     eta2: "float",
     eta3: "float",
     loc_box: "int",
     boxes: "int[:,:]",
     neighbours: "int[:,:]",
-    markers: "float[:,:]",
-    Np: "int",
     holes: "bool[:]",
     periodic1: "bool",
     periodic2: "bool",
@@ -134,6 +137,10 @@ def boxed_based_kernel(
     h1, h2, h3 : float
         Kernel width in respective dimension.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
     out = 0.0
     for neigh in range(27):
         box_to_search = neighbours[loc_box, neigh]
@@ -154,11 +161,10 @@ def boxed_based_kernel(
 # naive evaluation #
 ####################
 def naive_evaluation_flat(
+    args_markers: "MarkerArguments",
     eta1: "float[:]",
     eta2: "float[:]",
     eta3: "float[:]",
-    markers: "float[:,:]",
-    Np: "int",
     holes: "bool[:]",
     periodic1: "bool",
     periodic2: "bool",
@@ -202,6 +208,10 @@ def naive_evaluation_flat(
     out : array[float]
         Output array of same size as eta1, eta2, eta3.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
     n_eval = len(eta1)
     out[:] = 0.0
     for i in range(n_eval):
@@ -209,11 +219,10 @@ def naive_evaluation_flat(
         e2 = eta2[i]
         e3 = eta3[i]
         out[i] = naive_evaluation_kernel(
+            args_markers,
             e1,
             e2,
             e3,
-            markers,
-            Np,
             holes,
             periodic1,
             periodic2,
@@ -228,11 +237,10 @@ def naive_evaluation_flat(
 
 
 def naive_evaluation_meshgrid(
+    args_markers: "MarkerArguments",
     eta1: "float[:,:,:]",
     eta2: "float[:,:,:]",
     eta3: "float[:,:,:]",
-    markers: "float[:,:]",
-    Np: "int",
     holes: "bool[:]",
     periodic1: "bool",
     periodic2: "bool",
@@ -276,6 +284,10 @@ def naive_evaluation_meshgrid(
     out : array[float]
         Output array of same size as eta1, eta2, eta3.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
     n_eval_1 = eta1.shape[0]
     n_eval_2 = eta1.shape[1]
     n_eval_3 = eta1.shape[2]
@@ -287,7 +299,7 @@ def naive_evaluation_meshgrid(
                 e2 = eta2[i, j, k]
                 e3 = eta3[i, j, k]
                 out[i, j, k] = naive_evaluation_kernel(
-                    e1, e2, e3, markers, Np, holes, periodic1, periodic2, periodic3, index, kernel_type, h1, h2, h3
+                    args_markers, e1, e2, e3, holes, periodic1, periodic2, periodic3, index, kernel_type, h1, h2, h3
                 )
 
 
@@ -295,6 +307,7 @@ def naive_evaluation_meshgrid(
 # box-based evaluation #
 ########################
 def box_based_evaluation_flat(
+    args_markers: "MarkerArguments",
     eta1: "float[:]",
     eta2: "float[:]",
     eta3: "float[:]",
@@ -304,8 +317,6 @@ def box_based_evaluation_flat(
     domain_array: "float[:]",
     boxes: "int[:,:]",
     neighbours: "int[:,:]",
-    markers: "float[:,:]",
-    Np: "int",
     holes: "bool[:]",
     periodic1: "bool",
     periodic2: "bool",
@@ -362,6 +373,10 @@ def box_based_evaluation_flat(
     out : array[float]
         Output array of same size as eta1, eta2, eta3.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
     n_eval = len(eta1)
     out[:] = 0.0
     for i in range(n_eval):
@@ -381,14 +396,13 @@ def box_based_evaluation_flat(
             continue
         else:
             out[i] = boxed_based_kernel(
+                args_markers,
                 e1,
                 e2,
                 e3,
                 loc_box,
                 boxes,
                 neighbours,
-                markers,
-                Np,
                 holes,
                 periodic1,
                 periodic2,
@@ -402,6 +416,7 @@ def box_based_evaluation_flat(
 
 
 def box_based_evaluation_meshgrid(
+    args_markers: "MarkerArguments",
     eta1: "float[:,:,:]",
     eta2: "float[:,:,:]",
     eta3: "float[:,:,:]",
@@ -411,8 +426,6 @@ def box_based_evaluation_meshgrid(
     domain_array: "float[:]",
     boxes: "int[:,:]",
     neighbours: "int[:,:]",
-    markers: "float[:,:]",
-    Np: "int",
     holes: "bool[:]",
     periodic1: "bool",
     periodic2: "bool",
@@ -469,6 +482,10 @@ def box_based_evaluation_meshgrid(
     out : array[float]
         Output array of same size as eta1, eta2, eta3.
     """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
     n_eval_1 = eta1.shape[0]
     n_eval_2 = eta1.shape[1]
     n_eval_3 = eta1.shape[2]
@@ -498,14 +515,13 @@ def box_based_evaluation_meshgrid(
                     continue
                 else:
                     out[i, j, k] = boxed_based_kernel(
+                        args_markers,
                         e1,
                         e2,
                         e3,
                         loc_box,
                         boxes,
                         neighbours,
-                        markers,
-                        Np,
                         holes,
                         periodic1,
                         periodic2,

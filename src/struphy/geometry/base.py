@@ -156,13 +156,13 @@ class Domain(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def params_map(self):
+    def params_map(self) -> dict:
         """Mapping parameters as dictionary."""
         pass
 
     @property
     @abstractmethod
-    def params_numpy(self):
+    def params_numpy(self) -> np.ndarray:
         """Mapping parameters as numpy array (can be empty)."""
         pass
 
