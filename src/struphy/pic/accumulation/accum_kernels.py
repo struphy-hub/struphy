@@ -503,7 +503,6 @@ def dfva_accum_vec(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
-    f0_values_old: "float[:]",
     f0_values_curr: "float[:]",
     delta_v: "float[:,:]",
     delta_w: "float[:]",
@@ -544,7 +543,6 @@ def dfva_accum_vec(
         v_diff[2] = delta_v[ip, 2]
 
         # get f0 value
-        f0_old = f0_values_old[ip]
         f0_curr = f0_values_curr[ip]
 
         # compute sum
@@ -556,9 +554,9 @@ def dfva_accum_vec(
         v_tilde = 2. * linalg_kernels.scalar_dot(v_old, v_diff)
         v_tilde += linalg_kernels.scalar_dot(v_diff, v_diff)
 
-        factor = (f0_curr + f0_old) / (2. * markers[ip, 7]) \
+        factor = f0_curr / markers[ip, 7] \
             * utils.expm1_minus_x_over_x(- v_tilde / (2. * vth**2), n_terms=200) \
-            - markers[ip, 6] - 0.5 * delta_w[ip]
+            - markers[ip, 6] - delta_w[ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(

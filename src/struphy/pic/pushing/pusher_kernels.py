@@ -2913,7 +2913,6 @@ def push_weights_dfva(
     args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
-    f0_values_old: "float[:]",
     f0_values_curr: "float[:]",
     delta_v_curr: "float[:,:]",
     delta_w_next: "float[:]",
@@ -2933,7 +2932,6 @@ def push_weights_dfva(
             continue
 
         # f0 values for marker
-        f0_old = f0_values_old[ip]
         f0_curr = f0_values_curr[ip]
 
         # Get old and new velocities
@@ -2946,7 +2944,7 @@ def push_weights_dfva(
 
         # compute explicit velocity update
         arg = - v_tilde / (2. * vth**2)
-        factor = (f0_curr + f0_old) / (2. * markers[ip, 7])
+        factor = f0_curr / markers[ip, 7]
         update = factor * utils.expm1_taylor(arg, n_terms=200)
         delta_w_next[ip] = (-1.) * update
 

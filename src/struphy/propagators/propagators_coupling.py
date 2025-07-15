@@ -515,10 +515,9 @@ class DeltaFVelocitiesEfield(Propagator):
         self._delta_w_next = np.zeros((particles.markers.shape[0]), dtype=float)
         self._diff_delta_w = np.zeros((particles.markers.shape[0]), dtype=float)
 
-        self._f0_values_old = np.zeros((particles.markers.shape[0]), dtype=float)
-        self._f0_values_old[self.particles[0].valid_mks] = self._f0(*self.particles[0].phasespace_coords.T)
         self._f0_values = np.zeros((particles.markers.shape[0]), dtype=float)
-        self._f0_values[self.particles[0].valid_mks] = self._f0(*self._markers[self.particles[0].valid_mks].T)
+        self._f0_values[self.particles[0].valid_mks] = self._f0(*self.particles[0].phasespace_coords.T)
+        # self._f0_values[self.particles[0].valid_mks] = self._f0(*self._markers[self.particles[0].valid_mks].T)
 
         # Create buffers to store temporarily e and its sum with old e
         self._delta_e_temp = e.space.zeros()
@@ -548,7 +547,7 @@ class DeltaFVelocitiesEfield(Propagator):
             self.feec_vars[0].blocks[0]._data,
             self.feec_vars[0].blocks[1]._data,
             self.feec_vars[0].blocks[2]._data,
-            self._f0_values_old,
+            self._f0_values,
             self._delta_v_next,
             self._delta_w_next,
             self._epsilon,
@@ -567,7 +566,6 @@ class DeltaFVelocitiesEfield(Propagator):
         # Instantiate pusher for weights
         args_kernel_weights = (
             self.derham.args_derham,
-            self._f0_values_old,
             self._f0_values,
             self._delta_v_curr,
             self._delta_w_next,
@@ -604,9 +602,6 @@ class DeltaFVelocitiesEfield(Propagator):
         )
 
     def __call__(self, dt):
-        # Compute values of f_0
-        self._f0_values_old[self.particles[0].valid_mks] = self._f0(*self.particles[0].phasespace_coords.T)
-
         # Use predictor for weights and velocities
         self._predict_weights_velocities(dt)
 
@@ -622,7 +617,6 @@ class DeltaFVelocitiesEfield(Propagator):
 
         # Accumulate diff_e
         self._accum_vec(
-            self._f0_values_old,
             self._f0_values,
             self._delta_v_next,
             self._delta_w_next,
@@ -670,7 +664,6 @@ class DeltaFVelocitiesEfield(Propagator):
 
             # Accumulate diff_e
             self._accum_vec(
-                self._f0_values_old,
                 self._f0_values,
                 self._delta_v_curr,
                 self._delta_w_curr,
