@@ -642,15 +642,22 @@ class DeltaFVelocitiesEfield(Propagator):
             self._vel_diffs[:] *= 0.0
             self._vel_diffs[:] += \
                 self.particles[0].markers[:, self._first_free_idx:self._first_free_idx+3]
-            self._vel_diffs[:] -= self._old_vels[:]
+            self._vel_diffs[:] -= self._old_vels[:, :]
 
             # Compute error in delta v
             max_diff_v = np.max(
                 np.abs(
-                    np.sqrt(
-                        self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
-                        + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
-                        + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
+                    np.divide(
+                        np.sqrt(
+                            self._vel_diffs[self.particles[0].valid_mks, 0] ** 2
+                            + self._vel_diffs[self.particles[0].valid_mks, 1] ** 2
+                            + self._vel_diffs[self.particles[0].valid_mks, 2] ** 2
+                        ),
+                        np.sqrt(
+                            self._old_vels[self.particles[0].valid_mks, 0] ** 2
+                            + self._old_vels[self.particles[0].valid_mks, 1] ** 2
+                            + self._old_vels[self.particles[0].valid_mks, 2] ** 2
+                        ),
                     )
                 )
             )
@@ -658,12 +665,12 @@ class DeltaFVelocitiesEfield(Propagator):
             # Compute difference in e-field (not very efficient, find better way)
             max_diff_e = np.max(np.abs(self._e_curr.toarray() - self._e_next.toarray()))
 
-            # Check if converged
+            # Check if converged locally
             converged_loc = int((max_diff_v < self._tol) and (max_diff_e < self._tol))
             # print(f"{converged_loc=} with {max_diff_v=} and {max_diff_e=}")
 
+            # Check if converged globally
             converged_glob = self.derham.comm.allreduce(converged_loc, op=MPI.LAND)
-            # print(f"{converged_glob=}")
 
             if k >= self._maxiter:
                 print("Max number of iterations reached, breaking..")
