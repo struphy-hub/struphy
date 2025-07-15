@@ -503,8 +503,10 @@ def dfva_accum_vec(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
-    f0_values: "float[:]",
-    free_idx: "int",
+    f0_values_old: "float[:]",
+    f0_values_curr: "float[:]",
+    delta_v: "float[:,:]",
+    delta_w: "float[:]",
     vth: "float",
 ):
     r"""TODO"""
@@ -537,23 +539,26 @@ def dfva_accum_vec(
         v_old[2] = markers[ip, 5]
 
         # get current v^{n+1}
-        v_diff[0] = markers[ip, free_idx]
-        v_diff[1] = markers[ip, free_idx + 1]
-        v_diff[2] = markers[ip, free_idx + 2]
+        v_diff[0] = delta_v[ip, 0]
+        v_diff[1] = delta_v[ip, 1]
+        v_diff[2] = delta_v[ip, 2]
 
         # get f0 value
-        f0 = f0_values[ip]
+        f0_old = f0_values_old[ip]
+        f0_curr = f0_values_curr[ip]
 
         # compute sum
-        v_sum[0] = 2. * v_old[0] + v_diff[0]
-        v_sum[1] = 2. * v_old[1] + v_diff[1]
-        v_sum[2] = 2. * v_old[2] + v_diff[2]
+        v_sum[0] = v_old[0] + 0.5 * v_diff[0]
+        v_sum[1] = v_old[1] + 0.5 * v_diff[1]
+        v_sum[2] = v_old[2] + 0.5 * v_diff[2]
 
         # Norms of old and new velocities
         v_tilde = 2. * linalg_kernels.scalar_dot(v_old, v_diff)
         v_tilde += linalg_kernels.scalar_dot(v_diff, v_diff)
 
-        factor = f0 / markers[ip, 7] * utils.expm1_minus_x_over_x(- v_tilde / (2. * vth**2), n_terms=200) - markers[ip, 6]
+        factor = (f0_curr + f0_old) / (2. * markers[ip, 7]) \
+            * utils.expm1_minus_x_over_x(- v_tilde / (2. * vth**2), n_terms=200) \
+            - markers[ip, 6] - 0.5 * delta_w[ip]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -570,9 +575,9 @@ def dfva_accum_vec(
         # compute DF^{-1} v
         linalg_kernels.matrix_vector(df_inv, v_sum, df_inv_v)
 
-        fill_vec1 = df_inv_v[0] / 2. * factor
-        fill_vec2 = df_inv_v[1] / 2. * factor
-        fill_vec3 = df_inv_v[2] / 2. * factor
+        fill_vec1 = df_inv_v[0] * factor
+        fill_vec2 = df_inv_v[1] * factor
+        fill_vec3 = df_inv_v[2] * factor
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.vec_fill_b_v1(

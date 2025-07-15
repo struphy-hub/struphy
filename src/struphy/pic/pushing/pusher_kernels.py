@@ -2824,7 +2824,7 @@ def push_weights_with_efield_lin_va(
 
 
 @stack_array("e_vec", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
-def push_predict_velocities_dfva(
+def push_predict_v_w_dfva(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -2833,8 +2833,11 @@ def push_predict_velocities_dfva(
     e1_1: "float[:,:,:]",
     e1_2: "float[:,:,:]",
     e1_3: "float[:,:,:]",
-    free_idx: "int",
+    f0_values_old: "float[:]",
+    delta_v_next: "float[:,:]",
+    delta_w_next: "float[:]",
     epsilon: "float",
+    vth: "float",
 ):
     r"""TODO"""
     # Allocate some memory
@@ -2857,6 +2860,9 @@ def push_predict_velocities_dfva(
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
+
+        # f0(x_p, v_p)
+        f0 = f0_values_old[ip]
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -2892,9 +2898,12 @@ def push_predict_velocities_dfva(
         linalg_kernels.matrix_vector(df_inv_t, e_vec, df_inv_t_e)
 
         # compute explicit velocity update
-        markers[ip, free_idx] = dt / epsilon * df_inv_t_e[0]
-        markers[ip, free_idx + 1] = dt / epsilon * df_inv_t_e[1]
-        markers[ip, free_idx + 2] = dt / epsilon * df_inv_t_e[2]
+        delta_v_next[ip, 0] = dt / epsilon * df_inv_t_e[0]
+        delta_v_next[ip, 1] = dt / epsilon * df_inv_t_e[1]
+        delta_v_next[ip, 2] = dt / epsilon * df_inv_t_e[2]
+
+        delta_w_next[ip] = dt / (vth**2 * epsilon) * f0 / markers[ip, 7] \
+            * (markers[ip, 3] * df_inv_t_e[0] + markers[ip, 4] * df_inv_t_e[1] + markers[ip, 5] * df_inv_t_e[2])
 
 
 @stack_array("v_old", "v_next")
@@ -2904,8 +2913,10 @@ def push_weights_dfva(
     args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
-    f0_values: "float[:]",
-    vel_diffs: "float[:,:]",
+    f0_values_old: "float[:]",
+    f0_values_curr: "float[:]",
+    delta_v_curr: "float[:,:]",
+    delta_w_next: "float[:]",
     vth: "float",
 ):
     # Allocate memory
@@ -2921,12 +2932,13 @@ def push_weights_dfva(
         if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
             continue
 
-        # f0 value for marker
-        f0 = f0_values[ip]
+        # f0 values for marker
+        f0_old = f0_values_old[ip]
+        f0_curr = f0_values_curr[ip]
 
         # Get old and new velocities
         v_old[:] = markers[ip, 3:6]
-        v_diff[:] = vel_diffs[ip, :]
+        v_diff[:] = delta_v_curr[ip, :]
 
         # Norms of old and new velocities
         v_tilde = 2. * linalg_kernels.scalar_dot(v_old, v_diff)
@@ -2934,9 +2946,9 @@ def push_weights_dfva(
 
         # compute explicit velocity update
         arg = - v_tilde / (2. * vth**2)
-        factor = f0 / markers[ip, 7]
+        factor = (f0_curr + f0_old) / (2. * markers[ip, 7])
         update = factor * utils.expm1_taylor(arg, n_terms=200)
-        markers[ip, 6] -= update
+        delta_w_next[ip] = (-1.) * update
 
 
 @stack_array("e_old, e_next", "e_sum", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
@@ -2949,10 +2961,10 @@ def push_velocities_dfva(
     e1_old_1: "float[:,:,:]",
     e1_old_2: "float[:,:,:]",
     e1_old_3: "float[:,:,:]",
-    e1_next_1: "float[:,:,:]",
-    e1_next_2: "float[:,:,:]",
-    e1_next_3: "float[:,:,:]",
-    free_idx: "int",
+    delta_e1_curr_1: "float[:,:,:]",
+    delta_e1_curr_2: "float[:,:,:]",
+    delta_e1_curr_3: "float[:,:,:]",
+    delta_v_next: "float[:,:]",
     epsilon: "float",
 ):
     r"""TODO"""
@@ -2995,22 +3007,22 @@ def push_velocities_dfva(
             e_old,
         )
 
-        # next E-field (1-form) e^{n+1}
+        # delta E-field (1-form) delta e^{n+1}
         eval_1form_spline_mpi(
             span1,
             span2,
             span3,
             args_derham,
-            e1_next_1,
-            e1_next_2,
-            e1_next_3,
+            delta_e1_curr_1,
+            delta_e1_curr_2,
+            delta_e1_curr_3,
             e_next,
         )
 
         # compute sum of old and new e-field
-        e_sum[0] = e_old[0] + e_next[0]
-        e_sum[1] = e_old[1] + e_next[1]
-        e_sum[2] = e_old[2] + e_next[2]
+        e_sum[0] = e_old[0] + 0.5 * e_next[0]
+        e_sum[1] = e_old[1] + 0.5 * e_next[1]
+        e_sum[2] = e_old[2] + 0.5 * e_next[2]
 
         # Compute Jacobian matrix
         evaluation_kernels.df(
@@ -3031,9 +3043,9 @@ def push_velocities_dfva(
         linalg_kernels.matrix_vector(df_inv_t, e_sum, df_inv_t_e)
 
         # Compute only v_diff
-        markers[ip, free_idx] = dt / epsilon * df_inv_t_e[0] / 2.
-        markers[ip, free_idx + 1] = dt / epsilon * df_inv_t_e[1] / 2.
-        markers[ip, free_idx + 2] = dt / epsilon * df_inv_t_e[2] / 2.
+        delta_v_next[ip, 0] = dt / epsilon * df_inv_t_e[0]
+        delta_v_next[ip, 1] = dt / epsilon * df_inv_t_e[1]
+        delta_v_next[ip, 2] = dt / epsilon * df_inv_t_e[2]
 
 
 @stack_array("ginv", "k", "tmp", "pi_du_value")
