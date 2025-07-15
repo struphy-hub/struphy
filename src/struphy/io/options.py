@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 from typing import Literal, get_args
 
-from struphy.fields_background import equils
-
 # needed for import in StruphyParameters
+from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.topology import grids
 

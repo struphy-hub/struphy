@@ -1,7 +1,7 @@
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.geometry.base import Domain
-from struphy.io import options
 from struphy.topology import grids
+from struphy.io.options import Units, Time, DerhamOptions
 
 
 class StruphyParameters:
@@ -13,15 +13,14 @@ class StruphyParameters:
         domain: Domain = None,
         grid: grids.TensorProductGrid = None,
         equil: FluidEquilibrium = None,
-        units: options.Units = None,
-        time: options.Time = None,
-        derham: options.DerhamOptions = None,
+        units: Units = None,
+        time: Time = None,
+        derham: DerhamOptions = None,
         em_fields=None,
         fluid=None,
         kinetic=None,
         diagnostic_fields=None,
     ):
-        self._options = options
 
         self._model = model
         self._domain = domain
@@ -34,14 +33,6 @@ class StruphyParameters:
         self._fluid = fluid
         self._kinetic = kinetic
         self._diagnostic_fields = diagnostic_fields
-
-    ## possible inputs
-
-    @property
-    def options(self):
-        return self._options
-
-    ## parameters
 
     @property
     def model(self):

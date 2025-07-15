@@ -219,7 +219,6 @@ def main(
         print("\nINITIAL SCALAR QUANTITIES:")
         model.print_scalar_quantities()
 
-        split_algo = split_algo
         print(f"\nSTART TIME STEPPING WITH '{split_algo}' SPLITTING:")
 
     # time loop
