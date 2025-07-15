@@ -4,10 +4,13 @@ from typing import Literal, get_args
 # needed for import in StruphyParameters
 from struphy.fields_background import equils
 from struphy.geometry import domains
+from struphy.initial import perturbations
+from struphy.kinetic_background import maxwellians
 from struphy.topology import grids
 
 SplitAlgos = Literal["LieTrotter", "Strang"]
 PolarRegularity = Literal[-1, 1]
+BackgroundOpts = Literal["LogicalConst", "FluidEquilibrium"]
 
 
 @dataclass
@@ -61,3 +64,22 @@ class DerhamOptions:
     def __post_init__(self):
         options = get_args(PolarRegularity)
         assert self.polar_ck in options, f"'{self.polar_ck}' is not in {options}"
+        
+        
+@dataclass
+class FieldsBackground:
+    """...
+
+    Parameters
+    ----------
+    x : float
+        Unit of length in m.
+    """
+
+    kind: str = "LogicalConst"
+    values: tuple = (1.5,)
+    variable: str = None
+
+    def __post_init__(self):
+        options = get_args(BackgroundOpts)
+        assert self.kind in options, f"'{self.kind}' is not in {options}"
