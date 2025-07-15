@@ -162,22 +162,6 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         _A11np_pre = M2np / dt + nu * (Dnp.T @ M3np @ Dnp)
         Anppre = [_A11np_pre, _A22np_pre]
 
-        Czeros = np.zeros((np.shape(B1np)[0], np.shape(B1np)[0]))
-        Mnumpy = np.block([[A11np, 0*A11np, B1np.T], [0*A22np, A22np, B2np.T], [B1np, B2np, Czeros]])
-        ATA = Mnumpy.T @ Mnumpy
-        ATA_evals = np.linalg.eigvals(ATA)
-        #lambdamin = np.min(ATA_evals)
-        lambdamax = np.max(np.real(ATA_evals))
-        halfATA = 0.5*(Mnumpy.T + Mnumpy)
-        half_evals = np.linalg.eigvals(halfATA)
-        lambdamin = np.min(np.real(half_evals))
-        print(np.max(np.abs(np.imag(ATA_evals))))
-        print(np.max(np.abs(np.imag(half_evals))))
-        print(f"{lambdamin=}")
-        print(f"{lambdamax=}")
-        factor = 1 - lambdamin**2/lambdamax
-        print(f"{factor**1800=}")
-        exit()
 
     if method_for_solving in ("SaddlePointSolverGMRES", "SaddlePointSolverGMRESwithPC"):
         if A12 is not None:
@@ -276,6 +260,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             spectralanalysis=spectralanalysis,
             tol=tol,
             max_iter=max_iter,
+            verbose=verbose,
         )
         solver.A = Anp
         solver.B = Bnp
