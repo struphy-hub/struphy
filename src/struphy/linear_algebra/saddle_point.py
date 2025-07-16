@@ -6,6 +6,7 @@ from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.solvers import inverse
+
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
 
 
@@ -318,13 +319,11 @@ class SaddlePointSolver:
                 self._Unp = U_init.toarray() if U_init is not None else self._Unp
                 self._Uenp = Ue_init.toarray() if U_init is not None else self._Uenp
 
-            
-
             if self._verbose:
-                print( "Uzawa solver:" )
-                print( "+---------+---------------------+")
-                print( "+ Iter. # | L2-norm of residual |")
-                print( "+---------+---------------------+")
+                print("Uzawa solver:")
+                print("+---------+---------------------+")
+                print("+ Iter. # | L2-norm of residual |")
+                print("+---------+---------------------+")
                 template = "| {:7d} | {:19.2e} |"
 
             for iteration in range(self._max_iter):
@@ -371,10 +370,10 @@ class SaddlePointSolver:
                 self._Pnp += alpha.real * R.real
 
                 if self._verbose:
-                    print( template.format(iteration+1, residual_norm))
+                    print(template.format(iteration + 1, residual_norm))
 
             if self._verbose:
-                print( "+---------+---------------------+")
+                print("+---------+---------------------+")
 
             # Return with info if maximum iterations reached
             info["success"] = False

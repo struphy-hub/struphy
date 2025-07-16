@@ -309,7 +309,6 @@ def main(
                 model.print_scalar_quantities()
                 print()
 
-
     # ===================================================================
 
     with open(path_out + "/meta.txt", "a") as f:

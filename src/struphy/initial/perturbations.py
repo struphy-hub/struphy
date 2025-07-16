@@ -917,12 +917,12 @@ class RestelliAnalyticSolutionVelocity:
         ) * (-(R - self._R0))
         ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
 
-        #form normalized to cylindrical coordinates:
+        # form normalized to cylindrical coordinates:
         uR = ustarR
         uphi = ustarphi / R
         uZ = ustarZ
 
-        #from cylindrical to cartesian:
+        # from cylindrical to cartesian:
 
         if self._comp == "0":
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
@@ -1011,12 +1011,12 @@ class RestelliAnalyticSolutionVelocity_2:
         ) * (-(R - self._R0))
         ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
 
-        #form normalized to cylindrical coordinates:
+        # form normalized to cylindrical coordinates:
         uR = ustarR
         uphi = ustarphi / R
         uZ = ustarZ
 
-        #from cylindrical to cartesian:
+        # from cylindrical to cartesian:
 
         if self._comp == "0":
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
@@ -1105,12 +1105,12 @@ class RestelliAnalyticSolutionVelocity_3:
         ) * (-(R - self._R0))
         ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
 
-        #form normalized to cylindrical coordinates:
+        # form normalized to cylindrical coordinates:
         uR = ustarR
         uphi = ustarphi / R
         uZ = ustarZ
 
-        #from cylindrical to cartesian:
+        # from cylindrical to cartesian:
 
         if self._comp == "0":
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi

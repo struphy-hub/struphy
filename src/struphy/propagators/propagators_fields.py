@@ -7918,7 +7918,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         #     self._eps_norm
         # )
         # # 3. Append your iteration number
-        # iteration_log[key]["niter"].append(info["niter"])   
+        # iteration_log[key]["niter"].append(info["niter"])
         # if self._spectralanalysis == True and self._variant == "Uzawa":
         #     iteration_log[key]["A11_cdtnr"].append(spectralresult[2])
         #     iteration_log[key]["A22_cdtnr"].append(spectralresult[0])
@@ -7930,7 +7930,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
         # # 4. Save the updated data
         # save_iteration_log(iteration_log)
 
-
         if self._info and self._rank == 0:
             print("Status     for TwoFluidQuasiNeutralFull:", info["success"])
             print("Iterations for TwoFluidQuasiNeutralFull:", info["niter"])
@@ -7938,7 +7937,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
             print("Maxdiff u_e for TwoFluidQuasiNeutralFull:", max_due)
             print("Maxdiff phi for TwoFluidQuasiNeutralFull:", max_dphi)
             print()
-    
 
 
 # def default_entry():
@@ -7951,4 +7949,3 @@ class TwoFluidQuasiNeutralFull(Propagator):
 #         "A22_specnr_PC": [],
 #         "A11_cdtnr": [],
 #     }
-

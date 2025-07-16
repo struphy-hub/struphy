@@ -162,7 +162,6 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         _A11np_pre = M2np / dt + nu * (Dnp.T @ M3np @ Dnp)
         Anppre = [_A11np_pre, _A22np_pre]
 
-
     if method_for_solving in ("SaddlePointSolverGMRES", "SaddlePointSolverGMRESwithPC"):
         if A12 is not None:
             assert A11.codomain == A12.codomain
