@@ -1,7 +1,7 @@
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.geometry.base import Domain
+from struphy.io.options import DerhamOptions, Time, Units
 from struphy.topology import grids
-from struphy.io.options import Units, Time, DerhamOptions
 
 
 class StruphyParameters:
@@ -21,7 +21,6 @@ class StruphyParameters:
         kinetic=None,
         diagnostic_fields=None,
     ):
-
         self._model = model
         self._domain = domain
         self._grid = grid

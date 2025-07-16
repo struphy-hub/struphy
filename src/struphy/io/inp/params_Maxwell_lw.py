@@ -1,5 +1,10 @@
-from struphy.models import (toy, fluid, kinetic, hybrid,)
 from struphy.io import options
+from struphy.models import (
+    fluid,
+    hybrid,
+    kinetic,
+    toy,
+)
 
 # model class (do not instantiate)
 Model = toy.Maxwell
@@ -33,28 +38,48 @@ equil = options.equils.HomogenSlab()
 
 # light-weight instance of model
 model = Model()
-print(f'{model.__em_fields__ = }')
+print(f"{model.__em_fields__=}")
 
 # species parameters
 species = model.species()
-print(f'{species.em_fields = }')
-print(f'{species.fluid = }')
-print(f'{species.kinetic = }')
+print(f"{species.em_fields=}")
+print(f"{species.fluid=}")
+print(f"{species.kinetic=}")
 # species.em_fields.set_options(prop, prop.options())
 # model.fluid.set_phys_params("mhd", options.PhysParams())
 # model.fluid.set_propagator_options("mhd", prop, prop.options())
 # model.kinetic.set_phys_params("mhd", options.PhysParams())
 
 # initial conditions for model variables (background + perturbation)
-species.em_fields.add_background("e_ield", options.FieldsBackground(kind="LogicalConst", 
-                                                        values=(0.3, 0.15, None),),)
-species.em_fields.add_perturbation("e_field", options.perturbations.TorusModesCos(ms=[[None], [1, 3], [None]],),
-                                 given_in_basis=(None, "v", None),)
+species.em_fields.add_background(
+    "e_field",
+    options.FieldsBackground(
+        kind="LogicalConst",
+        values=(0.3, 0.15, None),
+    ),
+)
+species.em_fields.add_perturbation(
+    "e_field",
+    options.perturbations.TorusModesCos(
+        ms=[[None], [1, 3], [None]],
+    ),
+    given_in_basis=(None, "v", None),
+)
 
-species.em_fields.add_background("b_field", options.FieldsBackground(kind="LogicalConst", 
-                                                        values=(0.3, 0.15, None),),)
-species.em_fields.add_perturbation("b_field", options.perturbations.TorusModesCos(ms=[[None], [1, 3], [None]],),
-                                 given_in_basis=(None, "v", None),)
+species.em_fields.add_background(
+    "b_field",
+    options.FieldsBackground(
+        kind="LogicalConst",
+        values=(0.3, 0.15, None),
+    ),
+)
+species.em_fields.add_perturbation(
+    "b_field",
+    options.perturbations.TorusModesCos(
+        ms=[[None], [1, 3], [None]],
+    ),
+    given_in_basis=(None, "v", None),
+)
 
 # FOR NOW: initial conditions and options
 em_fields = {}
