@@ -492,8 +492,7 @@ def linear_vlasov_ampere(
 
 @stack_array("v_old", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
 def dfva_accum_vec(
-    markers: "float[:,:]",
-    n_markers_tot: "int",
+    args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     vec1: "float[:,:,:]",
@@ -505,6 +504,10 @@ def dfva_accum_vec(
     vth: "float",
 ):
     r"""TODO"""
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
     # Allocate memory
     v_old = empty(3, dtype=float)
     v_diff = empty(3, dtype=float)
