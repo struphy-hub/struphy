@@ -18,7 +18,7 @@ class ButcherTableau:
     """
 
     @staticmethod
-    def available_methods():
+    def available_methods() -> list:
         meth_avail = [
             "rk4",
             "forward_euler",

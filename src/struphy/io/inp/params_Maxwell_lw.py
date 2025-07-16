@@ -1,13 +1,13 @@
 from struphy.io import options
-from struphy.models import (
-    fluid,
-    hybrid,
-    kinetic,
-    toy,
-)
+# from struphy.models import (
+#     fluid,
+#     hybrid,
+#     kinetic,
+#     toy,
+# )
 
-# model class (do not instantiate)
-Model = toy.Maxwell
+# import model 
+from struphy.models.toy import Maxwell as Model
 
 # units
 units = options.Units(
@@ -38,13 +38,13 @@ equil = options.equils.HomogenSlab()
 
 # light-weight instance of model
 model = Model()
-print(f"{model.__em_fields__=}")
+species = model.species
+propagators = model.propagators
 
-# species parameters
-species = model.species()
 print(f"{species.em_fields=}")
 print(f"{species.fluid=}")
 print(f"{species.kinetic=}")
+
 # species.em_fields.set_options(prop, prop.options())
 # model.fluid.set_phys_params("mhd", options.PhysParams())
 # model.fluid.set_propagator_options("mhd", prop, prop.options())
@@ -80,6 +80,18 @@ species.em_fields.add_perturbation(
     ),
     given_in_basis=(None, "v", None),
 )
+
+# propagator options
+print(f'{model.propagators.Maxwell = }')
+print(f'{model.propagators.Maxwell.set_options = }')
+
+
+
+
+
+
+
+
 
 # FOR NOW: initial conditions and options
 em_fields = {}
