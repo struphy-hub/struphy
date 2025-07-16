@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 
 from struphy.kinetic_background.base import KineticBackground
@@ -1236,25 +1237,87 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         self.en_E = 0.0
 
     def initialize_from_params(self):
-        """Solve initial Poisson equation.
+        """ Solve initial Poisson equation. Subtract all Maxwellian backgrounds, then sample compute weights.
 
         :meta private:
         """
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+        from struphy.kinetic_background import maxwellians
 
         # Initialize fields and particles
         super().initialize_from_params()
+
+        bp_copy = copy.deepcopy(self._species_params["background"])
+        pp_copy = copy.deepcopy(self._species_params["perturbation"])
+
+        bckgr_params = self._species_params["background"]
+        li_bp = list(bckgr_params)
+
+        first_free_idx = self.pointer["species1"].first_free_idx
+
+        # In case of more Maxwellian backrounds, subtract them from the initialization
+        if len(li_bp) > 1:
+            for fi in bp_copy:
+                # Set background to zero
+                bp_copy[fi]["n"] = 0.0
+
+            # Get the initialization function and pass the correct arguments
+            _f_init = None
+            for fi, maxw_params in bp_copy.items():
+                if fi[-2] == "_":
+                    fi_type = fi[:-2]
+                else:
+                    fi_type = fi
+
+                pert_params = pp_copy
+                if pp_copy is not None:
+                    if fi in pp_copy:
+                        pert_params = pp_copy[fi]
+
+                if _f_init is None:
+                    _f_init = getattr(maxwellians, fi_type)(
+                        maxw_params=maxw_params,
+                        pert_params=pert_params,
+                        equil=self.pointer["species1"].equil,
+                    )
+                else:
+                    _f_init = _f_init + getattr(maxwellians, fi_type)(
+                        maxw_params=maxw_params,
+                        pert_params=pert_params,
+                        equil=self.pointer["species1"].equil,
+                    )
+
+                # Evaluate at f_coordinates
+                f_init = _f_init(*self.pointer["species1"].f_coords.T)
+
+                # if f_init is vol-form, transform to 0-form
+                if self.pointer["species1"].pforms[0] == "vol":
+                    f_init /= self.domain.jacobian_det(self.pointer["species1"].positions)
+
+                if self.pointer["species1"].pforms[1] == "vol":
+                    f_init /= self.pointer["species1"].f_init.velocity_jacobian_det(
+                        *self.pointer["species1"].f_jacobian_coords.T,
+                    )
+
+                # compute weights (with backgrounds substracted) and fill in first_free_idx
+                self.pointer["species1"].markers[self.pointer["species1"].valid_mks, first_free_idx] = \
+                    f_init / self.pointer["species1"].sampling_density
+
+        # Just use the weights (which already have background subtracted)
+        else:
+            self.pointer["species1"].markers[self.pointer["species1"].valid_mks, first_free_idx] = \
+                self.pointer["species1"].markers[self.pointer["species1"].valid_mks, 6]
 
         # Accumulate charge density
         charge_accum = AccumulatorVector(
             self.pointer["species1"],
             "H1",
-            accum_kernels.charge_density_0form,
+            accum_kernels.charge_density_dfvm,
             self.mass_ops,
             self.domain.args_domain,
         )
 
-        charge_accum(self.pointer["species1"].vdim)
+        charge_accum(first_free_idx)
 
         # Instantiate Poisson solver
         _phi = self.derham.Vh["0"].zeros()
@@ -1269,6 +1332,8 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # evaluate f0
         self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
+
+        # Compute gamma
         self._gamma[self.pointer["species1"].valid_mks] = self.pointer["species1"].weights + np.divide(
             self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
         )

@@ -47,8 +47,6 @@ def charge_density_0form(
         B_p^\mu = \frac{w_p}{N} \,.
     """
 
-    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
-    # -- removed omp: #$ omp for reduction ( + :vec)
     for ip in range(shape(markers)[0]):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -70,8 +68,6 @@ def charge_density_0form(
             vec,
             filling,
         )
-
-    # -- removed omp: #$ omp end parallel
 
 
 @stack_array(
@@ -492,6 +488,39 @@ def linear_vlasov_ampere(
         )
 
     # -- removed omp: #$ omp end parallel
+
+
+def charge_density_dfvm(
+    markers: "float[:,:]",
+    n_markers_tot: "int",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec: "float[:,:,:]",
+    first_fre_idx: "int",
+):
+    r""" TODO"""
+
+    for ip in range(shape(markers)[0]):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # filling = w_p / N
+        filling = markers[ip, first_fre_idx] / n_markers_tot
+
+        particle_to_mat_kernels.vec_fill_b_v0(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec,
+            filling,
+        )
 
 
 @stack_array("v_old", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
