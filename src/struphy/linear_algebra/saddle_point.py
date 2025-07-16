@@ -6,7 +6,7 @@ from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.solvers import inverse
-from line_profiler import profile
+from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
 
 
 class SaddlePointSolver:
@@ -77,7 +77,7 @@ class SaddlePointSolver:
     max_iter : int
         Maximum number of iterations allowed.
     """
-    @profile
+
     def __init__(
         self,
         A: Union[list, LinearOperator, BlockLinearOperator],
@@ -248,7 +248,7 @@ class SaddlePointSolver:
                 self._setup_inverses()
         elif self._variant == "Inverse_Solver":
             self._Apre = a
-    @profile
+
     def __call__(self, U_init=None, Ue_init=None, P_init=None, out=None):
         """
         Solves the saddle-point problem using the Uzawa algorithm.
@@ -318,23 +318,6 @@ class SaddlePointSolver:
                 self._Unp = U_init.toarray() if U_init is not None else self._Unp
                 self._Uenp = Ue_init.toarray() if U_init is not None else self._Uenp
 
-            Czeros = np.zeros((np.shape(self._B1np)[0], np.shape(self._B1np)[0]))
-            Mnumpy = np.block([[self._Anp, 0*self._Anp, self._B1np.T], [0*self._Aenp, self._Aenp, self._B2np.T], [self._B1np, self._B2np, Czeros]])
-            ATA = Mnumpy.T @ Mnumpy
-            ATA_evals = np.linalg.eigvals(ATA)
-            #lambdamin = np.min(ATA_evals)
-            lambdamax = np.max(np.real(ATA_evals))
-            halfATA = 0.5*(Mnumpy.T + Mnumpy)
-            half_evals = np.linalg.eigvals(halfATA)
-            lambdamin = np.min(np.real(half_evals))
-            print(np.max(np.abs(np.imag(ATA_evals))))
-            print(np.max(np.abs(np.imag(half_evals))))
-            print(f"{lambdamin=}")
-            print(f"{lambdamax=}")
-            factor = 1 - lambdamin**2/lambdamax
-            print(f"{factor=}")
-            exit()
-
             
 
             if self._verbose:
@@ -377,6 +360,8 @@ class SaddlePointSolver:
                 if residual_norm < self._tol:
                     info["success"] = True
                     info["niter"] = iteration + 1
+                    if self._verbose:
+                        _plot_residual_norms(self._residual_norms)
                     return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
                 # Steepest gradient
@@ -394,8 +379,10 @@ class SaddlePointSolver:
             # Return with info if maximum iterations reached
             info["success"] = False
             info["niter"] = iteration + 1
+            if self._verbose == True:
+                _plot_residual_norms(self._residual_norms)
             return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
-    @profile
+
     def _setup_inverses(self):
         A0 = self._A[0]
         A1 = self._A[1]
@@ -444,7 +431,7 @@ class SaddlePointSolver:
 
         # Precompute Schur complement
         self._Precnp = self._B1np @ self._Anpinv @ self._B1np.T + self._B2np @ self._Aenpinv @ self._B2np.T
-    @profile
+
     def _is_inverse_still_valid(self, inv, mat, name="", pre=None):
         # try:
         if pre is not None:
@@ -474,7 +461,7 @@ class SaddlePointSolver:
                 return False
             print(f"{name} inverse is still valid.")
             return True
-    @profile
+
     def _compute_inverse(self, mat, which="matrix"):
         print(f"Computing inverse for {which} using method {self._method_to_solve}")
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
