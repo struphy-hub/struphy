@@ -1,5 +1,6 @@
 import copy
 import os
+import warnings
 from abc import ABCMeta, abstractmethod
 
 import h5py
@@ -77,13 +78,17 @@ class Particles(metaclass=ABCMeta):
         The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
         the second entry is the number of MPI processes in each direction.
 
+    mpi_dims_mask: list | tuple of bool
+            True if the dimension is to be used in the domain decomposition (=default for each dimension).
+            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+
     ppb : int
         Particles per sorting box. Boxes are defined from ``boxes_per_dim``.
 
     boxes_per_dim : tuple
         Number of boxes in each logical direction (n_eta1, n_eta2, n_eta3).
 
-    box_buff_size : float
+    box_bufsize : float
         Between 0 and 1, relative buffer size for box array (default = 0.25).
 
     bc : list
@@ -111,8 +116,8 @@ class Particles(metaclass=ABCMeta):
     weights_params : dict
         Parameterts for initializing weights, see defaults below.
 
-    eps : float
-        Size of buffer (as fraction of total size, default=.25) in markers array.
+    bufsize : float
+        Size of buffer (as multiple of total size, default=.25) in markers array.
 
     domain : Domain
         Struphy domain object.
@@ -143,9 +148,10 @@ class Particles(metaclass=ABCMeta):
         Np: int = None,
         ppc: int = None,
         domain_decomp: tuple = None,
+        mpi_dims_mask: tuple | list = None,
         ppb: int = 10,
         boxes_per_dim: tuple | list = None,
-        box_buff_size: float = 0.25,
+        box_bufsize: float = 2.0,
         bc: list = None,
         bc_refill: str = None,
         type: str = "full_f",
@@ -154,7 +160,7 @@ class Particles(metaclass=ABCMeta):
         loading: str = "pseudo_random",
         loading_params: dict = None,
         weights_params: dict = None,
-        eps: float = 0.25,
+        bufsize: float = 0.25,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
@@ -166,10 +172,12 @@ class Particles(metaclass=ABCMeta):
         self._clone_config = clone_config
         if self.clone_config is None:
             self._mpi_comm = comm_world
-            num_clones = 1
+            self._num_clones = 1
+            self._clone_id = 0
         else:
             self._mpi_comm = self.clone_config.sub_comm
-            num_clones = self.clone_config.num_clones
+            self._num_clones = self.clone_config.num_clones
+            self._clone_id = self.clone_config.clone_id
 
         # other parameters
         self._name = name
@@ -178,8 +186,7 @@ class Particles(metaclass=ABCMeta):
         self._projected_equil = projected_equil
         self._equation_params = equation_params
 
-        # check for mpi communicator
-
+        # check for mpi communicator (i.e. sub_comm of clone)
         if self.mpi_comm is None:
             self._mpi_size = 1
             self._mpi_rank = 0
@@ -189,20 +196,22 @@ class Particles(metaclass=ABCMeta):
 
         # domain decomposition (MPI) and cell information
         self._boxes_per_dim = boxes_per_dim
+        self._box_bufsize = box_bufsize
+        self._mpi_dims_mask = mpi_dims_mask
         if domain_decomp is None:
-            self._domain_array, self._nprocs = self._get_domain_decomp()
+            self._domain_array, self._nprocs = self._get_domain_decomp(mpi_dims_mask)
         else:
             self._domain_array = domain_decomp[0]
             self._nprocs = domain_decomp[1]
 
         # total number of cells (equal to mpi_size if no grid)
-        n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * num_clones
+        n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * self.num_clones
         if verbose:
             print(f"{self.mpi_rank = }, {n_cells = }")
 
         # total number of boxes
         if self.boxes_per_dim is None:
-            n_boxes = self.mpi_size * num_clones
+            n_boxes = self.mpi_size * self.num_clones
         else:
             assert all([nboxes >= nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"There must be at least one box {self.boxes_per_dim = } on each process {self.nprocs = } in each direction."
@@ -210,7 +219,7 @@ class Particles(metaclass=ABCMeta):
             assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"Number of boxes {self.boxes_per_dim = } must be divisible by number of processes {self.nprocs = } in each direction."
             )
-            n_boxes = np.prod(self.boxes_per_dim, dtype=int) * num_clones
+            n_boxes = np.prod(self.boxes_per_dim, dtype=int) * self.num_clones
 
         if verbose:
             print(f"{self.mpi_rank = }, {n_boxes = }")
@@ -232,8 +241,8 @@ class Particles(metaclass=ABCMeta):
         assert self.Np >= self.mpi_size
 
         # create marker array
-        self._eps = eps
-        self._create_marker_array()
+        self._bufsize = bufsize
+        self._allocate_marker_array()
 
         # boundary conditions
         if bc is None:
@@ -292,7 +301,6 @@ class Particles(metaclass=ABCMeta):
         weights_params_default = {
             "reject_weights": False,
             "threshold": 0.0,
-            "from_tesselation": False,
         }
 
         self._weights_params = set_defaults(
@@ -413,7 +421,7 @@ class Particles(metaclass=ABCMeta):
         """Total number of rows in markers array."""
         if not hasattr(self, "_n_rows"):
             input("\nWarning: marker array not yet created, creating now ...")
-            self._create_marker_array()
+            self._allocate_marker_array()
         return self._n_rows
 
     @property
@@ -448,8 +456,14 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def Np(self):
-        """Total number of markers/particles."""
+        """Total number of markers/particles, from user input."""
         return self._Np
+
+    @property
+    def Np_per_clone(self):
+        """Array where i-th entry corresponds to the number of loaded particles on clone i.
+        (This is not necessarily the number of valid markers per clone, see self.n_mks_on_each_clone)."""
+        return self._Np_per_clone
 
     @property
     def ppc(self):
@@ -462,9 +476,9 @@ class Particles(metaclass=ABCMeta):
         return self._ppb
 
     @property
-    def eps(self):
+    def bufsize(self):
         """Relative size of buffer in markers array."""
-        return self._eps
+        return self._bufsize
 
     @property
     def mpi_comm(self):
@@ -483,7 +497,18 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def clone_config(self):
+        """Manages the configuration for clone-based (copied grids) parallel processing using MPI."""
         return self._clone_config
+
+    @property
+    def num_clones(self):
+        """Total number of clones."""
+        return self._num_clones
+
+    @property
+    def clone_id(self):
+        """Clone id of current process."""
+        return self._clone_id
 
     @property
     def bckgr_params(self):
@@ -562,6 +587,12 @@ class Particles(metaclass=ABCMeta):
             * domain_array[i, 3*n + 2] holds the number of cells of process i in direction eta_(n+1).
         """
         return self._domain_array
+
+    @property
+    def mpi_dims_mask(self):
+        """3-list | tuple; True if the dimension is to be used in the domain decomposition (=default for each dimension).
+        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed."""
+        return self._mpi_dims_mask
 
     @property
     def nprocs(self):
@@ -670,8 +701,28 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def n_mks_loc(self):
-        """Number of markers on process (without holes and ghosts)."""
+        """Number of valid markers on process (without holes and ghosts)."""
         return np.count_nonzero(self.valid_mks)
+
+    @property
+    def n_mks_on_each_proc(self):
+        """Array where i-th entry corresponds to the number of valid markers on i-th process (without holes and ghosts)."""
+        return self._gather_scalar_in_subcomm_array(self.n_mks_loc)
+
+    @property
+    def n_mks_on_clone(self):
+        """Number of valid markers on current clone (without holes and ghosts)."""
+        return np.sum(self.n_mks_on_each_proc)
+
+    @property
+    def n_mks_on_each_clone(self):
+        """Number of valid markers on current clone (without holes and ghosts)."""
+        return self._gather_scalar_in_intercomm_array(self.n_mks_on_clone)
+
+    @property
+    def n_mks_global(self):
+        """Number of valid markers on current clone (without holes and ghosts)."""
+        return np.sum(self.n_mks_on_each_clone)
 
     @property
     def positions(self):
@@ -835,9 +886,15 @@ class Particles(metaclass=ABCMeta):
             "linear_3d": 700,
         }
 
-    def _get_domain_decomp(self):
+    def _get_domain_decomp(self, mpi_dims_mask: tuple | list = None):
         """
         Compute domain decomposition for mesh-less methods (no Derham object).
+
+        Parameters
+        ----------
+        mpi_dims_mask: list | tuple of bool
+            True if the dimension is to be used in the domain decomposition (=default for each dimension).
+            If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
 
         Returns
         -------
@@ -850,6 +907,8 @@ class Particles(metaclass=ABCMeta):
         nprocs : tuple
             The number of processes in each direction.
         """
+        if mpi_dims_mask is None:
+            mpi_dims_mask = [True, True, True]
 
         dom_arr = np.zeros((self.mpi_size, 9), dtype=float)
 
@@ -871,7 +930,7 @@ class Particles(metaclass=ABCMeta):
         nprocs = [1, 1, 1]
         for m, fac in enumerate(factors_vec):
             mm = m % 3
-            while boxes_per_dim[mm] == 1 and skip_dims:
+            while (boxes_per_dim[mm] == 1 and skip_dims) or not mpi_dims_mask[mm]:
                 mm = (mm + 1) % 3
             nprocs[mm] *= fac
 
@@ -966,9 +1025,9 @@ class Particles(metaclass=ABCMeta):
                 self._f_coords_index = self.index["coords"]
                 self._f_jacobian_coords_index = self.index["coords"]
 
-    def _create_marker_array(self):
-        """Create marker array :attr:`~struphy.pic.base.Particles.markers`."""
-
+    def _n_mks_load_and_Np_per_clone(self):
+        """Return two arrays: 1) an array of sub_comm.size where the i-th entry corresponds to the number of markers drawn on process i,
+        and 2) an array of size num_clones where the i-th entry corresponds to the number of markers on clone i."""
         # number of cells on current process
         n_cells_loc = np.prod(
             self.domain_array[self.mpi_rank, 2::3],
@@ -976,40 +1035,48 @@ class Particles(metaclass=ABCMeta):
         )
 
         # array of number of markers on each process at loading stage
-        self._n_mks_load = np.zeros(self.mpi_size, dtype=int)
-
-        if self.mpi_comm is not None:
-            if self.clone_config is None:
-                _ppc = self.ppc
-                _n_mks_load_tot = self.Np
-            else:
-                _n_cells_clone = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int))
-                _n_mks_load_tot = self.clone_config.get_Np_clone(self.Np)
-                _ppc = _n_mks_load_tot / _n_cells_clone
-
-            self.mpi_comm.Allgather(
-                np.array([int(_ppc * n_cells_loc)]),
-                self._n_mks_load,
-            )
+        if self.clone_config is not None:
+            _n_cells_clone = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int))
+            _n_mks_load_tot = self.clone_config.get_Np_clone(self.Np)
+            _ppc = _n_mks_load_tot / _n_cells_clone
         else:
-            self._n_mks_load[0] = int(self.ppc * n_cells_loc)
             _n_mks_load_tot = self.Np
-            assert _n_mks_load_tot == self._n_mks_load[0]
+            _ppc = self.ppc
+
+        n_mks_load = self._gather_scalar_in_subcomm_array(int(_ppc * n_cells_loc))
 
         # add deviation from Np to rank 0
-        self._n_mks_load[0] += _n_mks_load_tot - np.sum(self._n_mks_load)
+        n_mks_load[0] += _n_mks_load_tot - np.sum(n_mks_load)
 
         # check if all markers are there
-        assert np.sum(self._n_mks_load) == _n_mks_load_tot
+        assert np.sum(n_mks_load) == _n_mks_load_tot
+
+        # Np on each clone
+        Np_per_clone = self._gather_scalar_in_intercomm_array(_n_mks_load_tot)
+        assert np.sum(Np_per_clone) == self.Np
+
+        return n_mks_load, Np_per_clone
+
+    def _allocate_marker_array(self):
+        """Create marker array :attr:`~struphy.pic.base.Particles.markers`."""
+        if not hasattr(self, "_n_mks_load"):
+            self._n_mks_load, self._Np_per_clone = self._n_mks_load_and_Np_per_clone()
 
         # number of markers on the local process at loading stage
-        n_mks_load_loc = self._n_mks_load[self._mpi_rank]
+        n_mks_load_loc = self.n_mks_load[self._mpi_rank]
+        bufsize = self.bufsize + 1.0 / np.sqrt(n_mks_load_loc)
 
-        # create markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with eps send/receive buffer
-        self._n_rows = round(
-            n_mks_load_loc * (1 + 1 / np.sqrt(n_mks_load_loc) + self.eps),
-        )
+        # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
+        self._n_rows = round(n_mks_load_loc * (1 + bufsize))
         self._markers = np.zeros((self.n_rows, self.n_cols), dtype=float)
+
+        # allocate auxiliary arrays
+        self._holes = np.zeros(self.n_rows, dtype=bool)
+        self._ghost_particles = np.zeros(self.n_rows, dtype=bool)
+        self._valid_mks = np.zeros(self.n_rows, dtype=bool)
+        self._is_outside_right = np.zeros(self.n_rows, dtype=bool)
+        self._is_outside_left = np.zeros(self.n_rows, dtype=bool)
+        self._is_outside = np.zeros(self.n_rows, dtype=bool)
 
         # create array container (3 x positions, vdim x velocities, weight, s0, w0, ID) for removed markers
         self._n_lost_markers = 0
@@ -1047,6 +1114,7 @@ class Particles(metaclass=ABCMeta):
                 nz=nboxes[2],
                 comm=self.mpi_comm,
                 verbose=self.verbose,
+                box_bufsize=self._box_bufsize,
             )
             if self.sorting_boxes.communicate:
                 self._get_neighbouring_proc()
@@ -1055,10 +1123,6 @@ class Particles(metaclass=ABCMeta):
             self._argsort_array = np.zeros(self.markers.shape[0], dtype=int)
         else:
             self._sorting_boxes = None
-
-        self._is_outside_right = np.zeros(self.n_rows, dtype=bool)
-        self._is_outside_left = np.zeros(self.n_rows, dtype=bool)
-        self._is_outside = np.zeros(self.n_rows, dtype=bool)
 
     def _auto_sampling_params(self):
         """Automatically determine sampling parameters from the background given"""
@@ -1312,6 +1376,7 @@ class Particles(metaclass=ABCMeta):
 
         # number of markers on the local process at loading stage
         n_mks_load_loc = self.n_mks_load[self.mpi_rank]
+        # Np_per_clone_loc = self.Np_per_clone[self.clone_id]
 
         # fill holes in markers array with -1 (all holes are at end of array at loading stage)
         self._markers[n_mks_load_loc:] = -1.0
@@ -1322,6 +1387,10 @@ class Particles(metaclass=ABCMeta):
 
         # cumulative sum of number of markers on each process at loading stage.
         n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
+        Np_per_clone_cum_sum = np.cumsum(self.Np_per_clone)
+        _first_marker_id = (Np_per_clone_cum_sum - self.Np_per_clone)[self.clone_id] + (
+            n_mks_load_cum_sum - self.n_mks_load
+        )[self._mpi_rank]
 
         if self.mpi_rank == 0 and verbose:
             print("\nMARKERS:")
@@ -1336,6 +1405,7 @@ class Particles(metaclass=ABCMeta):
             print(("control_variate:").ljust(25), self.control_variate)
             print(("domain_array[0]:").ljust(25), self.domain_array[0])
             print(("boxes_per_dim:").ljust(25), self.boxes_per_dim)
+            print(("mpi_dims_mask:").ljust(25), self.mpi_dims_mask)
 
         if self.loading == "external":
             self._load_external()
@@ -1347,9 +1417,7 @@ class Particles(metaclass=ABCMeta):
                 self._set_initial_condition()
                 self.velocities = np.array(self.u_init(self.positions)[0]).T
             # set markers ID in last column
-            self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] + np.arange(
-                n_mks_load_loc, dtype=float
-            )
+            self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
         else:
             if self.mpi_rank == 0 and verbose:
                 print("\nLoading fresh markers:")
@@ -1363,12 +1431,6 @@ class Particles(metaclass=ABCMeta):
                 if _seed is not None:
                     np.random.seed(_seed)
 
-                if self.clone_config is None:
-                    clone_id = 0
-                    num_clones = 1
-                else:
-                    clone_id = self.clone_config.clone_id
-                    num_clones = self.clone_config.num_clones
                 # counting integers
                 num_loaded_particles_loc = 0  # number of particles alreday loaded (local)
                 num_loaded_particles_glob = 0  # number of particles already loaded (each clone)
@@ -1386,7 +1448,7 @@ class Particles(metaclass=ABCMeta):
                     )
                     valid_idx = np.nonzero(np.all(is_on_proc_domain, axis=1))[0]
                     valid_particles = temp[valid_idx]
-                    valid_particles = np.array_split(valid_particles, num_clones)[clone_id]
+                    valid_particles = np.array_split(valid_particles, self.num_clones)[self.clone_id]
                     num_valid = valid_particles.shape[0]
 
                     # Add the valid particles to the phasespace_coords array
@@ -1401,12 +1463,8 @@ class Particles(metaclass=ABCMeta):
                 assert self.Np == int(num_loaded_particles_glob), f"{self.Np = }, {int(num_loaded_particles_glob) = }"
 
                 # set new n_mks_load
-                self.n_mks_load[self.mpi_rank] = num_loaded_particles_loc
-                # n_mks_load_loc = num_loaded_particles_loc
+                self._gather_scalar_in_subcomm_array(num_loaded_particles_loc, out=self.n_mks_load)
                 n_mks_load_loc = self.n_mks_load[self.mpi_rank]
-
-                if self.mpi_comm is not None:
-                    self.mpi_comm.Allgather(self._n_mks_load[self.mpi_rank], self._n_mks_load)
                 n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
 
                 # set new holes in markers array to -1
@@ -1497,9 +1555,7 @@ class Particles(metaclass=ABCMeta):
             else:
                 assert self.spatial == "uniform", f'Spatial drawing must be "uniform" or "disc", is {self.spatial}.'
 
-            self.marker_ids = (n_mks_load_cum_sum - self.n_mks_load)[self._mpi_rank] + np.arange(
-                n_mks_load_loc, dtype=float
-            )
+            self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
             if self.loading_params["initial"] is not None:
@@ -1518,7 +1574,7 @@ class Particles(metaclass=ABCMeta):
                         counter += 1
 
             # check if all particle positions are inside the unit cube [0, 1]^3
-            n_mks_load_loc = self._n_mks_load[self._mpi_rank]
+            n_mks_load_loc = self.n_mks_load[self._mpi_rank]
 
             assert np.all(~self.holes[:n_mks_load_loc])
             assert np.all(self.holes[n_mks_load_loc:])
@@ -1611,7 +1667,6 @@ class Particles(metaclass=ABCMeta):
         pert_params: dict = None,
         reject_weights: bool = False,
         threshold: float = 1e-8,
-        from_tesselation: bool = False,
     ):
         r"""
         Computes the initial weights
@@ -1637,13 +1692,10 @@ class Particles(metaclass=ABCMeta):
             Whether to use ``threshold`` for rejecting weights.
 
         threshold : float
-            Minimal value of a weight; below the marker is set to a hole.
-
-        from_tesselation : bool
-            Whether to compute weights as the cell averages over tiles.
+            Minimal value of a weight; below the marker is set to a hole.les.
         """
 
-        if from_tesselation:
+        if self.loading == "tesselation":
             if self.pforms[0] is None:
                 fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
             else:
@@ -1688,8 +1740,9 @@ class Particles(metaclass=ABCMeta):
             reject = self.markers[:, self.index["w0"]] < threshold
             self._markers[reject] = -1.0
             self.update_holes()
+            self.reset_marker_ids()
             print(
-                f"\nWeights < {threshold} have been rejected, number of valid markers on current process is {self.n_mks_loc}."
+                f"\nWeights < {threshold} have been rejected, number of valid markers on process {self.mpi_rank} is {self.n_mks_loc}."
             )
 
         # compute (time-dependent) weights at vdim + 3
@@ -1721,6 +1774,16 @@ class Particles(metaclass=ABCMeta):
             f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
         self.weights = self.weights0 - f0 / self.sampling_density
+
+    def reset_marker_ids(self):
+        """Reset the marker ids (last column in marker array) according to the current distribution of particles.
+        The first marker on rank 0 gets the id '0', the last marker on the last rank gets the id 'n_mks_global - 1'."""
+        n_mks_proc_cumsum = np.cumsum(self.n_mks_on_each_proc)
+        n_mks_clone_cumsum = np.cumsum(self.n_mks_on_each_clone)
+        first_marker_id = (n_mks_clone_cumsum - self.n_mks_on_each_clone)[self.clone_id] + (
+            n_mks_proc_cumsum - self.n_mks_on_each_proc
+        )[self.mpi_rank]
+        self.marker_ids = first_marker_id + np.arange(self.n_mks_loc, dtype=int)
 
     def binning(self, components, bin_edges, divide_by_jac=True):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
@@ -2101,7 +2164,7 @@ class Particles(metaclass=ABCMeta):
             Column index of the particles array to store the box number, counted from
             the end (e.g. -2 for the second-to-last).
 
-        box_buff_size : float
+        box_bufsize : float
             additional buffer space in the size of the boxes"""
 
         def __init__(
@@ -2114,7 +2177,7 @@ class Particles(metaclass=ABCMeta):
             nz: int = 1,
             comm: Intracomm = None,
             box_index: "int" = -2,
-            box_buff_size: "float" = 1.0,
+            box_bufsize: "float" = 2.0,
             verbose: str = False,
         ):
             self._markers_shape = markers_shape
@@ -2123,7 +2186,7 @@ class Particles(metaclass=ABCMeta):
             self._nz = nz
             self._comm = comm
             self._box_index = box_index
-            self._box_buff_size = box_buff_size
+            self._box_bufsize = box_bufsize
             self._verbose = verbose
 
             if comm is None:
@@ -2182,7 +2245,7 @@ class Particles(metaclass=ABCMeta):
             n_particles = self._markers_shape[0]
             n_mkr = int(n_particles / n_box_in) + 1
             n_cols = round(
-                n_mkr * (1 + 1 / np.sqrt(n_mkr) + self._box_buff_size),
+                n_mkr * (1 + 1 / np.sqrt(n_mkr) + self._box_bufsize),
             )
 
             # cartesian boxes
@@ -2742,13 +2805,34 @@ class Particles(metaclass=ABCMeta):
 
     def self_communication_boxes(self):
         """Communicate the particles in case a process is it's own neighbour
-        (in case of periodicity with low number of procs)"""
+        (in case of periodicity with low number of procs/boxes)"""
 
         if self._send_info_box[self.mpi_rank] > 0:
             self.update_holes()
             holes_inds = np.nonzero(self.holes)[0]
-            # print(f'{self.mpi_rank = }, {holes_inds.shape = }')
-            # print(f'{self.mpi_rank = }, {self._send_info_box = }')
+
+            if holes_inds.size < self._send_info_box[self.mpi_rank]:
+                warnings.warn(
+                    f'Strong load imbalance detected: \
+number of holes ({holes_inds.size}) on rank {self.mpi_rank} \
+is smaller than number of incoming particles ({self._send_info_box[self.mpi_rank]}). \
+Increasing the value of "bufsize" in the markers parameters for the next run.'
+                )
+                self.mpi_comm.Abort()
+
+                # _tmp = self.markers.copy()
+                # _n_rows_old = _tmp.shape[0]
+                # print(f"old: {self.markers.shape = }")
+                # self._bufsize *= 2.0
+                # self._allocate_marker_array()
+                # print(f"new: {self.markers.shape = }\n")
+                # self.markers[:] = -1.0
+                # self.markers[:_n_rows_old] = _tmp
+                # self.update_holes()
+                # self.update_ghost_particles()
+                # self.update_valid_mks()
+                # holes_inds = np.nonzero(self.holes)[0]
+
             self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
     def communicate_boxes(self, verbose=False):
@@ -2817,6 +2901,16 @@ class Particles(metaclass=ABCMeta):
                 else:
                     # check if data has been received
                     if req.Test():
+                        if hole_inds.size < first_hole[i] + self._recv_info_box[i]:
+                            warnings.warn(
+                                f'Strong load imbalance detected: \
+number of holes ({hole_inds.size}) on rank {self.mpi_rank} \
+is smaller than number of incoming particles ({first_hole[i] + self._recv_info_box[i]}). \
+Increasing the value of "bufsize" in the markers parameters for the next run.'
+                            )
+                            self.mpi_comm.Abort()
+                            # exit()
+
                         self._markers[hole_inds[first_hole[i] + np.arange(self._recv_info_box[i])]] = recvbufs[i]
 
                         test_reqs.pop()
@@ -3218,6 +3312,7 @@ class Particles(metaclass=ABCMeta):
                 func = box_based_evaluation_meshgrid
 
             func(
+                self.args_markers,
                 eta1,
                 eta2,
                 eta3,
@@ -3227,8 +3322,6 @@ class Particles(metaclass=ABCMeta):
                 self.domain_array[self.mpi_rank],
                 self.sorting_boxes.boxes,
                 self.sorting_boxes.neighbours,
-                self.markers,
-                self.Np,
                 self.holes,
                 periodic1,
                 periodic2,
@@ -3246,11 +3339,10 @@ class Particles(metaclass=ABCMeta):
             elif len(_shp) == 3:
                 func = naive_evaluation_meshgrid
             func(
+                args_markers,
                 eta1,
                 eta2,
                 eta3,
-                self.markers,
-                self.Np,
                 self.holes,
                 periodic1,
                 periodic2,
@@ -3273,6 +3365,8 @@ class Particles(metaclass=ABCMeta):
         """Compute new particles that belong to boundary processes needed for sph evaluation"""
         self._ghost_particles[:] = self.markers[:, -1] == -2.0
         self.update_valid_mks()
+
+    ### MPI comm for domain decomposition ###
 
     def sendrecv_determine_mtbs(
         self,
@@ -3418,10 +3512,75 @@ class Particles(metaclass=ABCMeta):
                 else:
                     # check if data has been received
                     if req.Test():
+                        if hole_inds_after_send.size < first_hole[i] + recv_info[i]:
+                            warnings.warn(
+                                f'Strong load imbalance detected: \
+number of holes ({hole_inds_after_send.size}) on rank {self.mpi_rank} \
+is smaller than number of incoming particles ({first_hole[i] + recv_info[i]}). \
+Increasing the value of "bufsize" in the markers parameters for the next run.'
+                            )
+                            self.mpi_comm.Abort()
+
                         self.markers[hole_inds_after_send[first_hole[i] + np.arange(recv_info[i])]] = self._recvbufs[i]
 
                         test_reqs.pop()
                         self._reqs[i] = None
+
+    def _gather_scalar_in_subcomm_array(self, scalar: int, out: np.ndarray = None):
+        """Return an array of length sub_comm.size, where the i-th entry corresponds to the value
+        of the scalar on process i.
+
+        Parameters
+        ----------
+        scalar : int
+            The scalar value on each process.
+
+        out : np.ndarray
+            The returned array (optional).
+        """
+        if out is None:
+            _tmp = np.zeros(self.mpi_size, dtype=int)
+        else:
+            assert out.size == self.mpi_size
+            _tmp = out
+
+        _tmp[self.mpi_rank] = scalar
+
+        if self.mpi_comm is not None:
+            self.mpi_comm.Allgather(
+                _tmp[self.mpi_rank],
+                _tmp,
+            )
+
+        return _tmp
+
+    def _gather_scalar_in_intercomm_array(self, scalar: int, out: np.ndarray = None):
+        """Return an array of length inter_comm.size, where the i-th entry corresponds to the value
+        of the scalar on clone i.
+
+        Parameters
+        ----------
+        scalar : int
+            The scalar value on each clone.
+
+        out : np.ndarray
+            The returned array (optional).
+        """
+        if out is None:
+            _tmp = np.zeros(self.num_clones, dtype=int)
+        else:
+            assert out.size == self.num_clones
+            _tmp = out
+
+        _tmp[self.clone_id] = scalar
+
+        if self.clone_config is not None:
+            self.clone_config.inter_comm.Allgather(
+                _tmp[self.clone_id],
+                _tmp,
+            )
+
+        return _tmp
 
 
 class Tesselation:

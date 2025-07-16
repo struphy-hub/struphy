@@ -1,37 +1,28 @@
-## Version 2.4.3
+## Version 2.4.5
 
 ### Headlines
 
-* New explicit s-stage Runge Kutta solvers for FEEC variables; takes ODE vector fields (right-hand sides) as Python callable inputs !677
-* Improved profiling: extended the profiling capabilities by including time traces which can be enabled with `--time-traces`; this generates some nice plots too !681
-* Added model `HasegawaWakatani` for plasma turbulence simulations !682
-
-
+* Enable `pyccel 2.0` (https://github.com/pyccel/pyccel) !678
+* New interface to `gvec` Python API (https://gitlab.mpcdf.mpg.de/gvec-group/gvec) !705 and !723
 
 ### Other user news
 
-* Update variational MHD with pressure variable, add linear and delta-f variational MHD models !683
-* Optional install of physics packages (like `gvec` and `desc`) via `[phys]`; this makes for an easier base install with less dependencies !688
-* Clean-up of variational propagators for MHD; readability is much improved !685
-* Include [PSYDAC update #493](https://github.com/pyccel/psydac/pull/493): `LinearOperator` now as the new method `dot_inner`; `Vector` has `dot` replaced by `inner` for the inner product !698
-
-
+* Rename `Particles` parameter `eps -> bufsize` for more clarity !690
+* Particle simulations: save weights together with orbits !690
+* Add `mpi_dims_mask` for mesh-less simulations !690
+* Added `gravity` and `thermodynamics` (isothermal or polytropic) options to `PushVinSPHpressure` !690
+* Add options `gaussian_xy` and `step_function_x` to the `ConstanVelocity` fluid background !690
+* Allow for running `struphy run` without specifying the model if `model: MODEL` is specified in the params !708
+* Remove the `-d` flag from `struphy pproc`, now just run `struphy pproc sim_1 sim_2 ...` !709
+* New variational MHD model with $q = \sqrt{p}$ as a variable !697
 
 ### Developer news
 
-* Faster push pipeline !674
-* Adding `local_projectors` to Derham setup !670
-* Make macOS jobs run concurrently in CI !671
-* move `Derham.Field` outside of Derham class; rename `Field` -> `SplineFunction`; rename `Derham.create_field` -> `Derham.create_spline_function` !682
-* allow for 5d array as list entry in weights for `create_weighted_mass` !682
-* added new pre-commit-hook `nbstripout` that checks for clean notebooks !682
-* allow for callable in right-hand-side of new `Poisson` propagator; the callable must return a V0 StencilVector !682
-* `WeightedMassOperators.toarray` now works if extraction and boundary operators are identity !667
-* replace `exit()` with `sys.exit(0)` for expected exit and `sys.exit(1)` for failures !696
-
+* New methods in `Particles`: `n_mks_on_each_proc`, `n_mks_on_clone`, `n_mks_on_each_clone` and `n_mks_global`; they refer to valid markers (not holes or ghosts) !690
+* The CI pipeline no longer runs on every push, only on pushes to branches which currently have a MR with devel or master !719
 
 ### Bug fixes
 
-* Resolve error in `reflect` particle boundary condition !672
-* Resolve bug in assembly of basis projection operators !680
-
+* Print user warning and temrinate MPI when out-of-bounds error occurs due to load imbalance in particles comm !690
+* Do NOT duplicate marker IDs when working with clones !690
+* Enable running `cprofile` without a grid !690
