@@ -8,9 +8,9 @@ from struphy.initial import perturbations
 from struphy.kinetic_background import maxwellians
 from struphy.topology import grids
 
+## generic options
+
 SplitAlgos = Literal["LieTrotter", "Strang"]
-PolarRegularity = Literal[-1, 1]
-BackgroundOpts = Literal["LogicalConst", "FluidEquilibrium"]
 
 
 @dataclass
@@ -48,6 +48,12 @@ class Time:
         assert self.split_algo in options, f"'{self.split_algo}' is not in {options}"
 
 
+## field options
+
+PolarRegularity = Literal[-1, 1]
+BackgroundOpts = Literal["LogicalConst", "FluidEquilibrium"]
+
+
 @dataclass
 class DerhamOptions:
     """...
@@ -64,8 +70,8 @@ class DerhamOptions:
     def __post_init__(self):
         options = get_args(PolarRegularity)
         assert self.polar_ck in options, f"'{self.polar_ck}' is not in {options}"
-        
-        
+
+
 @dataclass
 class FieldsBackground:
     """...
@@ -83,3 +89,6 @@ class FieldsBackground:
     def __post_init__(self):
         options = get_args(BackgroundOpts)
         assert self.kind in options, f"'{self.kind}' is not in {options}"
+
+
+## kinetic options
