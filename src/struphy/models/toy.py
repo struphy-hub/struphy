@@ -1,6 +1,7 @@
 from struphy.models.base import StruphyModel
+from struphy.models.species import Species
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-from struphy.utils.arrays import xp as np
+from struphy.propagators.base import Propagators
 
 
 class Maxwell(StruphyModel):
@@ -27,14 +28,17 @@ class Maxwell(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    def init_species(self):
+        self._species = Species(em_fields=True)
+        self._species.em_fields.add_variable(name="e_field", space="Hcurl")
+        self._species.em_fields.add_variable(name="b_field", space="Hdiv")
 
-        dct["em_fields"]["e_field"] = "Hcurl"
-        dct["em_fields"]["b_field"] = "Hdiv"
-        return dct
-
+    def init_propagators(self):
+        self._propagators = Propagators()
+        self._propagators.add(propagators_fields.Maxwell,
+                        self.species.em_fields.e_field,
+                        self.species.em_fields.b_field,)
+        
     @staticmethod
     def bulk_species():
         return None
@@ -43,38 +47,34 @@ class Maxwell(StruphyModel):
     def velocity_scale():
         return "light"
 
-    @staticmethod
-    def propagators_dct():
-        return {propagators_fields.Maxwell: ["e_field", "b_field"]}
+    # __em_fields__ = [(v.name, v.space) for k, v in species_static().em_fields.all.items() if k != "_name"]
+    # __fluid_species__ = species()["fluid"]
+    # __kinetic_species__ = species()["kinetic"]
+    # __bulk_species__ = bulk_species()
+    # __velocity_scale__ = velocity_scale()
+    # __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
+    def __init__(self, params=None, comm=None, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
         # extract necessary parameters
-        algo = params.em_fields["options"]["Maxwell"]["algo"]
-        solver = params.em_fields["options"]["Maxwell"]["solver"]
+        # algo = params.em_fields["options"]["Maxwell"]["algo"]
+        # solver = params.em_fields["options"]["Maxwell"]["solver"]
 
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Maxwell] = {
-            "algo": algo,
-            "solver": solver,
-        }
+        # # set keyword arguments for propagators
+        # self._kwargs[propagators_fields.Maxwell] = {
+        #     "algo": algo,
+        #     "solver": solver,
+        # }
 
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
+        # # Initialize propagators used in splitting substeps
+        # self.init_propagators()
 
-        # Scalar variables to be saved during simulation
-        self.add_scalar("electric energy")
-        self.add_scalar("magnetic energy")
-        self.add_scalar("total energy")
+        # # Scalar variables to be saved during simulation
+        # self.add_scalar("electric energy")
+        # self.add_scalar("magnetic energy")
+        # self.add_scalar("total energy")
 
     def update_scalar_quantities(self):
         en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])

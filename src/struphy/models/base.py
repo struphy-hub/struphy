@@ -2,6 +2,7 @@ import inspect
 import operator
 from abc import ABCMeta, abstractmethod
 from functools import reduce
+from typing import Callable
 
 import yaml
 from psydac.ddm.mpi import mpi as MPI
@@ -23,6 +24,8 @@ from struphy.propagators.base import Propagator
 from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
+from struphy.models.species import Species, SubSpecies
+from struphy.propagators.base import Propagators
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -48,41 +51,44 @@ class StruphyModel(metaclass=ABCMeta):
 
     def __init__(
         self,
-        params: StruphyParameters = None,
+        units=None,
+        time=None,
+        domain=None,
+        grid=None,
+        derham=None,
+        equil=None,
         comm: MPI.Intracomm = None,
         clone_config: CloneConfig = None,
     ):
-        assert "em_fields" in self.species()
-        assert "fluid" in self.species()
-        assert "kinetic" in self.species()
+        # assert "em_fields" in self.species()
+        # assert "fluid" in self.species()
+        # assert "kinetic" in self.species()
 
-        assert "em_fields" in self.options()
-        assert "fluid" in self.options()
-        assert "kinetic" in self.options()
+        # assert "em_fields" in self.options()
+        # assert "fluid" in self.options()
+        # assert "kinetic" in self.options()
 
-        if params is None:
-            params = self.generate_default_parameter_file(
-                save=False,
-                prompt=False,
-            )
+        # defaults
+        if units is None:
+            pass
 
+        # mpi config
         self._comm_world = comm
         self._clone_config = clone_config
 
-        self._params = params
-
-        # get rank and size
         if self.comm_world is None:
             self._rank_world = 0
         else:
             self._rank_world = self.comm_world.Get_rank()
 
-        # initialize model variable dictionaries
-        self._init_variable_dicts()
+        # initialize static version of species and propagators
+        self.init_species()
+        self.init_propagators()
+        return
 
         # compute model units
         self._units, self._equation_params = self.model_units(
-            self.params,
+            units,
             verbose=self.verbose,
             comm=self.comm_world,
         )
@@ -206,57 +212,48 @@ class StruphyModel(metaclass=ABCMeta):
 
         return params
 
+    ## abstract methods
+
+    @abstractmethod
+    def init_species() -> Species:
+        """Static version of the species of a model (no runtime parameters)."""
+
+    @abstractmethod
+    def init_propagators() -> Propagators:
+        """Static version of the propagators of a model (no runtime parameters)."""
+        
     @staticmethod
     @abstractmethod
-    def species():
-        """Species dictionary of the form {'em_fields': {}, 'fluid': {}, 'kinetic': {}}.
-
-        The dynamical fields and kinetic species of the model.
-
-        Keys of the three sub-dicts are either:
-
-        a) the electromagnetic field/potential names (b_field, e_field)
-        b) the fluid species names (e.g. mhd)
-        c) the names of the kinetic species (e.g. electrons, energetic_ions)
-
-        Corresponding values are:
-
-        a) a space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"),
-        b) a dict with key=variable_name (e.g. n, U, p, ...) and value=space ID ("H1", "Hcurl", "Hdiv", "L2" or "H1vec"),
-        c) the type of particles ("Particles6D", "Particles5D", ...)."""
-        pass
+    def bulk_species() -> SubSpecies:
+        """Bulk species of the plasma. Must be an attribute of species_static()."""
 
     @staticmethod
     @abstractmethod
-    def bulk_species():
-        """Name of the bulk species of the plasma. Must be a key of self.fluid or self.kinetic, or None."""
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def velocity_scale():
-        """String that sets the velocity scale unit of the model.
-        Must be one of "alfvén", "cyclotron" or "light"."""
-        pass
+    def velocity_scale() -> str:
+        """Velocity unit scale of the model.
+        Must be one of "alfvén", "cyclotron", "light" or "thermal"."""
 
     @staticmethod
     def diagnostics_dct():
         """Diagnostics dictionary.
         Model specific variables (FemField) which is going to be saved during the simulation.
         """
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def propagators_dct(cls):
-        """Dictionary holding the propagators of the model in the sequence they should be called.
-        Keys are the propagator classes and values are lists holding variable names (str) updated by the propagator."""
-        pass
-
+        
     @abstractmethod
     def update_scalar_quantities(self):
         """Specify an update rule for each item in ``scalar_quantities`` using :meth:`update_scalar`."""
         pass
+
+    ## basic properties
+
+    @property
+    def species(self) -> Species:
+        return self._species
+
+    @property
+    def propagators(self) -> Propagators:
+        """A list of propagator instances for the model."""
+        return self._propagators
 
     @property
     def params(self):
@@ -360,11 +357,6 @@ class StruphyModel(metaclass=ABCMeta):
     def prop_markers(self):
         """Module :mod:`struphy.propagators.propagators_markers`."""
         return self._prop_markers
-
-    @property
-    def propagators(self):
-        """A list of propagator instances for the model."""
-        return self._propagators
 
     @property
     def kwargs(self):
@@ -1688,8 +1680,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         """
         Initialize em-fields, fluid and kinetic dictionaries for information on the model variables.
         """
-
-        # from struphy.models.variables import Variable
 
         # electromagnetic fields, fluid and/or kinetic species
         self._em_fields = {}

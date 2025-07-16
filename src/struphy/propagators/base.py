@@ -6,11 +6,11 @@ from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
-from struphy.utils.arrays import xp as np
+from struphy.models.species import Variable
 
 
 class Propagator(metaclass=ABCMeta):
-    """Base class for Struphy propagators used in Struphy models.
+    """Base class for propagators used in StruphyModels.
 
     Note
     ----
@@ -24,50 +24,32 @@ class Propagator(metaclass=ABCMeta):
 
         Parameters
         ----------
-        vars : Vector or Particles
-            :attr:`struphy.models.base.StruphyModel.pointer` of variables to be updated.
+        vars : Variable
+            Variables to be updated.
         """
-        from psydac.linalg.basic import Vector
 
-        from struphy.pic.particles import Particles
-
-        self._feec_vars = []
-        self._particles = []
-
+        comm = None
         for var in vars:
-            if isinstance(var, Vector):
-                self._feec_vars += [var]
-            elif isinstance(var, Particles):
-                self._particles += [var]
+            assert isinstance(var, Variable)
+            if var.has_particles:
+                # comm = var.obj.mpi_comm
+                pass
             else:
-                ValueError(
-                    f'Variable {var} must be of type "Vector" or "Particles".',
-                )
+                # comm = var.obj.comm
+                pass
+        self._vars = vars
 
         # for iterative particle push
         self._init_kernels = []
         self._eval_kernels = []
 
-        # mpi comm
-        if self.particles:
-            comm = self.particles[0].mpi_comm
-        else:
-            comm = self.derham.comm
         self._rank = comm.Get_rank() if comm is not None else 0
 
     @property
-    def feec_vars(self):
-        """List of FEEC variables (not particles) to be updated by the propagator.
-        Contains FE coefficients from :attr:`struphy.feec.SplineFunction.vector`.
+    def vars(self):
+        """List of Variables to be updated by the propagator.
         """
-        return self._feec_vars
-
-    @property
-    def particles(self):
-        """List of kinetic variables (not FEEC) to be updated by the propagator.
-        Contains :class:`struphy.pic.particles.Particles`.
-        """
-        return self._particles
+        return self._vars
 
     @property
     def init_kernels(self):
@@ -92,8 +74,18 @@ class Propagator(metaclass=ABCMeta):
         return self._rank
 
     @abstractmethod
+    def set_options(self, **opts):
+        """Set the dynamical options of the propagator (kwargs).
+        """
+        
+    @abstractmethod
+    def allocate():
+        """Allocate all data/objects for an instance.
+        """
+    
+    @abstractmethod
     def __call__(self, dt):
-        """Update from t -> t + dt.
+        """Update variables from t -> t + dt.
         Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
 
         Parameters
@@ -101,13 +93,6 @@ class Propagator(metaclass=ABCMeta):
         dt : float
             Time step size.
         """
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def options():
-        """Dictionary of available propagator options, as appearing under species/options in the parameter file."""
-        pass
 
     @property
     def derham(self):
@@ -309,3 +294,31 @@ class Propagator(metaclass=ABCMeta):
                 args_eval,
             )
         ]
+
+
+class Propagators:
+    """Handels the Propagators of a StruphyModel."""
+    def __init__(self):
+        pass
+
+    @property
+    def all(self):
+        return self.__dict__
+
+    def add(self, prop: Propagator, *vars):
+        print(f'{prop = }')
+        print(f'{prop.__name__ = }')
+        for var in vars:
+            print(var)
+        setattr(self, prop.__name__, prop(*vars))
+        
+    def set_options(
+        self,
+        name: str,
+        **opts,
+    ):
+        print(f'{self.all = }')
+        assert name in self.all, f"Propagator {name} is not part of model propagators {self.all.keys()}"
+        prop = getattr(self, name)
+        assert isinstance(prop, Propagator)
+        prop.set_options(**opts)

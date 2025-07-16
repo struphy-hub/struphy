@@ -121,7 +121,10 @@ class Variable:
 
         self._background = []
         self._perturbation = []
-
+        
+        self._has_particles = False
+        if "Particles" in space:
+            self._has_particles = True
     ## attributes
 
     @property
@@ -143,6 +146,10 @@ class Variable:
     @property
     def perturbation(self):
         return self._perturbation
+    
+    @property
+    def has_particles(self):
+        return self._has_particles
 
     @property
     def initial_condition(self):

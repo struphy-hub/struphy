@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from copy import deepcopy
+from typing import Literal, get_args
 
 import scipy as sc
 from matplotlib import pyplot as plt
@@ -49,8 +50,8 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.utils.arrays import xp as np
-from struphy.utils.pyccel import Pyccelkernel
+from struphy.models.species import Variable
+from struphy.linear_algebra.solver import SolverParameters
 
 
 class Maxwell(Propagator):
@@ -66,38 +67,37 @@ class Maxwell(Propagator):
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["algo"] = ["implicit"] + ButcherTableau.available_methods()
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [], verbose=False)
-
-        return dct
-
     def __init__(
         self,
-        e: BlockVector,
-        b: BlockVector,
-        *,
-        algo: dict = options(default=True)["algo"],
-        solver: dict = options(default=True)["solver"],
+        e: Variable,
+        b: Variable,
     ):
         super().__init__(e, b)
 
-        self._algo = algo
+    OPTS_ALGO = Literal["implicit", *ButcherTableau.available_methods(),]
+    OPTS_SOLVER_TYPE = Literal[("pcg", "MassMatrixPreconditioner"), ("cg", None),]
+    
+    def set_options(self,
+                    algo: OPTS_ALGO = "implicit", 
+                    solver_type: OPTS_SOLVER_TYPE = ("pcg", "MassMatrixPreconditioner"),
+                    solver_params: SolverParameters = None,
+                    ):
+        options = get_args(self.OPTS_ALGO)
+        assert algo in options, f"'{algo}' is not in {options}"      
+        options = get_args(self.OPTS_SOLVER_TYPE)
+        assert solver_type in options, f"'{solver_type}' is not in {options}"  
 
+        self._algo = algo
+        self._solver = solver_type
+        
+        if solver_params is None:
+            solver_params = SolverParameters()
+        self._solver_params = solver_params
+
+
+    def allocate(self):
+        solver = {}
+        
         # obtain needed matrices
         M1 = self.mass_ops.M1
         M2 = self.mass_ops.M2
