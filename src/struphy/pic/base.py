@@ -1415,7 +1415,7 @@ class Particles(metaclass=ABCMeta):
         if not self.loading == "restart":
             self.weights = self.weights0 - f0 / self.sampling_density
         else:
-            self.weights = self.weights0 + self.markers_wo_holes[:,11] - f0 / self.sampling_density
+            self.weights = self.weights0 - self.markers_wo_holes[:,11] - f0 / self.sampling_density
 
     def binning(self, components, bin_edges, diagnostics=None):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.

@@ -497,13 +497,14 @@ class Particles5D(Particles):
 
     def draw_markers(self, sort: bool = True, verbose: bool = True):
         super().draw_markers(sort=sort, verbose=verbose)
-
-        utilities_kernels.eval_magnetic_moment_5d(
-            self.markers,
-            self.derham.args_derham,
-            self.first_diagnostics_idx,
-            self._absB0_h._data,
-        )
+        
+        if not self.loading == "restart":
+            utilities_kernels.eval_magnetic_moment_5d(
+                self.markers,
+                self.derham.args_derham,
+                self.first_diagnostics_idx,
+                self._absB0_h._data,
+            )
 
     def save_constants_of_motion(self):
         """
