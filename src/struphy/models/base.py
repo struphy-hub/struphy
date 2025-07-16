@@ -935,6 +935,7 @@ class StruphyModel(metaclass=ABCMeta):
                     obj.mpi_sort_markers(do_test=True)
 
                     if not val["params"]["markers"]["loading"] == "restart":
+
                         if obj.coords == "vpara_mu":
                             obj.save_magnetic_moment()
 
@@ -948,6 +949,17 @@ class StruphyModel(metaclass=ABCMeta):
 
                         if any(k.startswith("diag") for k in val["kinetic_data"]):
                             obj.save_energy_diff(init=True)
+
+                    else:
+                        if (
+                            val["params"]["markers"]["loading_params"]["moments"] != "degenerate"
+                            and obj.f0.coords == "constants_of_motion"
+                        ):
+                            obj.save_constants_of_motion()
+
+                        #obj.initialize_weights(reset_df=True)
+                        obj.markers[~obj.holes,11] = obj.markers_wo_holes[:,5]
+                        obj.update_weights(restart=True)
 
     def initialize_from_restart(self, data):
         """

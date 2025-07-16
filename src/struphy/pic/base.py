@@ -208,6 +208,8 @@ class Particles(metaclass=ABCMeta):
         loading_params_default = {
             "seed": 1234,
             "dir_particles": None,
+            "dir_particles_abs": None,
+            "key": None,
             "moments": None,
             "spatial": "uniform",
             "initial": None,
@@ -1008,6 +1010,8 @@ class Particles(metaclass=ABCMeta):
 
             self.markers[:, :] = data.file["restart/" + self.loading_params["key"]][-1, :, :]
 
+            self._spatial = self.loading_params["spatial"]
+
         # load fresh markers
         else:
             if self.mpi_rank == 0 and verbose:
@@ -1277,6 +1281,7 @@ class Particles(metaclass=ABCMeta):
         *,
         bckgr_params=None,
         pert_params=None,
+        reset_df=False,
     ):
         r"""
         Computes the initial weights
@@ -1310,7 +1315,8 @@ class Particles(metaclass=ABCMeta):
             self._pert_params = pert_params
 
         # compute s0 and save at vdim + 4
-        self.sampling_density = self.s0(*self.phasespace_coords.T)
+        if not reset_df:
+            self.sampling_density = self.s0(*self.phasespace_coords.T)
 
         # load distribution function (with given parameters or default parameters)
         bp_copy = copy.deepcopy(self.bckgr_params)
@@ -1406,8 +1412,10 @@ class Particles(metaclass=ABCMeta):
 
         if self.pforms[1] == "vol":
             f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
-
-        self.weights = self.weights0 - f0 / self.sampling_density
+        if not self.loading == "restart":
+            self.weights = self.weights0 - f0 / self.sampling_density
+        else:
+            self.weights = self.weights0 + self.markers_wo_holes[:,11] - f0 / self.sampling_density
 
     def binning(self, components, bin_edges, diagnostics=None):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
