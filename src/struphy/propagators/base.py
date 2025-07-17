@@ -1,6 +1,8 @@
 "Propagator base class."
 
 from abc import ABCMeta, abstractmethod
+import numpy as np
+from mpi4py import MPI
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
@@ -157,7 +159,7 @@ class Propagator(metaclass=ABCMeta):
     @property
     def time_state(self):
         """A pointer to the time variable of the dynamics ('t')."""
-        return self._time_state
+        return self._time_state 
 
     def add_time_state(self, time_state):
         """Add a pointer to the time variable of the dynamics ('t').
@@ -294,31 +296,23 @@ class Propagator(metaclass=ABCMeta):
                 args_eval,
             )
         ]
-
-
-class Propagators:
-    """Handels the Propagators of a StruphyModel."""
-    def __init__(self):
-        pass
-
+       
     @property
-    def all(self):
-        return self.__dict__
-
-    def add(self, prop: Propagator, *vars):
-        print(f'{prop = }')
-        print(f'{prop.__name__ = }')
-        for var in vars:
-            print(var)
-        setattr(self, prop.__name__, prop(*vars))
+    def opts(self):
+        if not hasattr(self, "_opts"):
+            self._opts = self.Options()
+        return self._opts
         
-    def set_options(
-        self,
-        name: str,
-        **opts,
-    ):
-        print(f'{self.all = }')
-        assert name in self.all, f"Propagator {name} is not part of model propagators {self.all.keys()}"
-        prop = getattr(self, name)
-        assert isinstance(prop, Propagator)
-        prop.set_options(**opts)
+    class Options:
+        def __init__(self, outer_prop, verbose=False):
+            self._outer_prop = outer_prop.__class__.__name__ # outer class
+            self._verbose = verbose
+        
+        @property
+        def all(self):
+            return self.__dict__
+        
+        def add(self, name: str, opt):
+            setattr(self, name, opt)
+            if self._verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                print(f"Propagator '{self._outer_prop}': added option '{name}' with value '{opt}'")
