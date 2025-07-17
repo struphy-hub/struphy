@@ -52,6 +52,7 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.models.species import Variable
 from struphy.linear_algebra.solver import SolverParameters
+from struphy.io.options import check_option
 
 
 class Maxwell(Propagator):
@@ -74,26 +75,29 @@ class Maxwell(Propagator):
     ):
         super().__init__(e, b)
 
-    OPTS_ALGO = Literal["implicit", *ButcherTableau.available_methods(),]
-    OPTS_SOLVER_TYPE = Literal[("pcg", "MassMatrixPreconditioner"), ("cg", None),]
+    OptsAlgo = Literal["implicit", *ButcherTableau.available_methods(),]
+    OptsSolverType = Literal[("pcg", "MassMatrixPreconditioner"), ("cg", None),]
     
     def set_options(self,
-                    algo: OPTS_ALGO = "implicit", 
-                    solver_type: OPTS_SOLVER_TYPE = ("pcg", "MassMatrixPreconditioner"),
+                    algo: OptsAlgo = "implicit", # type: ignore
+                    solver_type: OptsSolverType = ("pcg", "MassMatrixPreconditioner"), # type: ignore
                     solver_params: SolverParameters = None,
+                    verbose = False,
                     ):
-        options = get_args(self.OPTS_ALGO)
-        assert algo in options, f"'{algo}' is not in {options}"      
-        options = get_args(self.OPTS_SOLVER_TYPE)
-        assert solver_type in options, f"'{solver_type}' is not in {options}"  
-
-        self._algo = algo
-        self._solver = solver_type
+    
+        # checks
+        check_option(algo, self.OptsAlgo)
+        check_option(solver_type, self.OptsSolverType) 
         
+        # defaults
         if solver_params is None:
             solver_params = SolverParameters()
-        self._solver_params = solver_params
-
+        
+        # create options
+        self._opts = self.Options(self, verbose=verbose)
+        self.opts.add("algo", algo)
+        self.opts.add("solver", solver_type)
+        self.opts.add("solver_params", solver_params)
 
     def allocate(self):
         solver = {}
