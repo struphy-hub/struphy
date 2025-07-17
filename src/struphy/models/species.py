@@ -1,9 +1,13 @@
 from copy import deepcopy
 from typing import Callable
+import numpy as np
+from mpi4py import MPI
 
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.initial.base import InitialCondition
 from struphy.kinetic_background.base import KineticBackground
+from struphy.io.options import Units
+from struphy.physics.physics import ConstantsOfNature
 
 
 class Species:
@@ -87,17 +91,19 @@ class SubSpecies:
         self,
         variable: str,
         background,
+        verbose=False,
     ):
         assert variable in self.all, f"Variable {variable} is not part of model variables {self.all.keys()}"
         var = getattr(self, variable)
         assert isinstance(var, Variable)
-        var.add_background(background)
+        var.add_background(background, verbose=verbose)
 
     def add_perturbation(
         self,
         variable: str,
         perturbation: Callable,
         given_in_basis: tuple = None,
+        verbose=False,
     ):
         assert variable in self.all, f"Variable {variable} is not part of model variables {self.all.keys()}"
         var = getattr(self, variable)
@@ -105,10 +111,51 @@ class SubSpecies:
         var.add_perturbation(
             perturbation=perturbation,
             given_in_basis=given_in_basis,
+            verbose=verbose,
         )
 
-    def set_options(self, propagator):
-        pass
+    @property
+    def Z(self) -> int:
+        """Charge number in units of elementary charge."""
+        return self._Z
+    
+    @property
+    def A(self) -> int:
+        """Mass number in units of proton mass."""
+        return self._A
+
+    def set_phys_params(self, Z: int = 1, A: int = 1):
+        """Set charge- and mass number."""
+        self._Z = Z
+        self._A = A
+    
+    @property
+    def equation_params(self) -> dict:
+        if not hasattr(self, "_equation_params"):
+            self.set_equation_params()
+        return self._equation_params
+    
+    def set_equation_params(self, units: Units = None, verbose=False):
+        Z = self.Z
+        A = self.A
+        
+        if units is None:
+            units = Units()
+
+        con = ConstantsOfNature()
+        
+        # compute equation parameters
+        self._equation_params = {}
+        om_p = np.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
+        om_c = Z * con.e * units.B / (A * con.mH)
+        self._equation_params["alpha"] = om_p / om_c
+        self._equation_params["epsilon"] = 1.0 / (om_c * units["t"])
+        self._equation_params["kappa"] = om_p * units["t"]
+
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print(f'Set normalization parameters for speceis {self.name}:')
+            for key, val in self.equation_params.items():
+                print((key + ":").ljust(25), "{:4.3e}".format(val))
 
 
 class Variable:
@@ -159,17 +206,28 @@ class Variable:
 
     ## methods
 
-    def add_background(self, background):
+    def add_background(self, background, verbose=False,):
         # assert isinstance(...)
         self._background += [background]
+        
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"Variable '{self.name}': added background '{background.__class__.__name__}' with:")
+            for k, v in background.__dict__.items():
+                print(f'  {k}: {v}')
 
     def add_perturbation(
         self,
         perturbation: Callable = None,
         given_in_basis: tuple = None,
+        verbose=False,
     ):
         # assert isinstance(...)
         self._perturbation += [(perturbation, given_in_basis)]
+        
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"Variable '{self.name}': added perturbation '{perturbation.__class__.__name__}',{given_in_basis = }, with:")
+            for k, v in perturbation.__dict__.items():
+                print(f'  {k}: {v}')
 
     def set_initial_condition(self):
         self._initial_condition = InitialCondition(
