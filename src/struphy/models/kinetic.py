@@ -1306,7 +1306,6 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         self._tmp[0] = (
             self.alpha**2
             * self.vth**2
-            / self.pointer["species1"].Np
             * (-1.0)
             * np.dot(
                 self._gamma[self.pointer["species1"].valid_mks],
@@ -1318,7 +1317,6 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # gamma_p |v_p|^2 / (2 vth^2)
         self._tmp[1] = (
             self.alpha**2
-            / self.pointer["species1"].Np
             * np.dot(
                 self.pointer["species1"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
@@ -1330,7 +1328,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # w_p
         self._tmp[2] = (
-            self.alpha**2 * self.vth**2 / self.pointer["species1"].Np * self.pointer["species1"].weights.sum()
+            self.alpha**2 * self.vth**2 * self.pointer["species1"].weights.sum()
         )
         self.update_scalar("en_w", self._tmp[2])
 
