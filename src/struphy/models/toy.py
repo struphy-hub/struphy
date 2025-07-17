@@ -1,7 +1,10 @@
+from dataclasses import dataclass
+import numpy as np
+
 from struphy.models.base import StruphyModel
 from struphy.models.species import Species
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-from struphy.propagators.base import Propagators
+from struphy.propagators.hub import Propagators
 
 
 class Maxwell(StruphyModel):
@@ -38,13 +41,13 @@ class Maxwell(StruphyModel):
         self._propagators.add(propagators_fields.Maxwell,
                         self.species.em_fields.e_field,
                         self.species.em_fields.b_field,)
-        
-    @staticmethod
-    def bulk_species():
+    
+    @property 
+    def bulk_species(self):
         return None
 
-    @staticmethod
-    def velocity_scale():
+    @property
+    def velocity_scale(self):
         return "light"
 
     # __em_fields__ = [(v.name, v.space) for k, v in species_static().em_fields.all.items() if k != "_name"]
@@ -54,22 +57,9 @@ class Maxwell(StruphyModel):
     # __velocity_scale__ = velocity_scale()
     # __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params=None, comm=None, clone_config=None):
+    def __init__(self, params=None, comm=None, clone_config=None, verbose=False):
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # extract necessary parameters
-        # algo = params.em_fields["options"]["Maxwell"]["algo"]
-        # solver = params.em_fields["options"]["Maxwell"]["solver"]
-
-        # # set keyword arguments for propagators
-        # self._kwargs[propagators_fields.Maxwell] = {
-        #     "algo": algo,
-        #     "solver": solver,
-        # }
-
-        # # Initialize propagators used in splitting substeps
-        # self.init_propagators()
+        super().__init__(params, comm=comm, clone_config=clone_config, verbose=verbose)
 
         # # Scalar variables to be saved during simulation
         # self.add_scalar("electric energy")
