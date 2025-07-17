@@ -21,11 +21,15 @@ from struphy.io.parameters import StruphyParameters
 from struphy.io.setup import setup_derham, setup_domain_and_equil
 from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
-from struphy.utils.arrays import xp as np
+from struphy.propagators.hub import Propagators
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
-from struphy.models.species import Species, SubSpecies
-from struphy.propagators.base import Propagators
+from struphy.models.species import Species, SubSpecies 
+from struphy.io.setup import derive_units
+from struphy.io.options import Units
+from struphy.geometry.base import Domain
+from struphy.geometry.domains import Cuboid
+from struphy.fields_background.equils import HomogenSlab
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -51,26 +55,23 @@ class StruphyModel(metaclass=ABCMeta):
 
     def __init__(
         self,
-        units=None,
-        time=None,
-        domain=None,
-        grid=None,
-        derham=None,
-        equil=None,
+        units: Units = None,
+        domain: Domain = None,
+        equil: FluidEquilibrium = None,
         comm: MPI.Intracomm = None,
         clone_config: CloneConfig = None,
+        verbose: bool = False,
     ):
-        # assert "em_fields" in self.species()
-        # assert "fluid" in self.species()
-        # assert "kinetic" in self.species()
-
-        # assert "em_fields" in self.options()
-        # assert "fluid" in self.options()
-        # assert "kinetic" in self.options()
 
         # defaults
         if units is None:
-            pass
+            units = Units()
+            
+        if domain is None:
+            domain = Cuboid()
+        
+        if equil is None:
+            equil = HomogenSlab()
 
         # mpi config
         self._comm_world = comm
@@ -84,17 +85,54 @@ class StruphyModel(metaclass=ABCMeta):
         # initialize static version of species and propagators
         self.init_species()
         self.init_propagators()
-        return
 
-        # compute model units
-        self._units, self._equation_params = self.model_units(
-            units,
-            verbose=self.verbose,
-            comm=self.comm_world,
-        )
+        # other light-weight inits
+        self._units = units
+        self.units.derive_units(verbose=verbose)
+        self.init_equation_params(units=self.units, verbose=verbose)
+        
+        self.config_domain_and_equil(domain, equil)
+        
+    def init_equation_params(self, units: Units, verbose=False):
+        # set equation parameters for each species
+        if self.species.fluid is not None:
+            for _, species in self.species.fluid.all.items():
+                assert isinstance(species, SubSpecies)
+                species.set_equation_params(units=units, verbose=verbose)
 
-        # create domain, equilibrium
-        self._domain, self._equil = setup_domain_and_equil(params)
+        if self.species.kinetic is not None:
+            for name, species in self.species.kinetic.all.items():
+                assert isinstance(species, SubSpecies)
+                species.set_equation_params(units=units, verbose=verbose)
+        
+    def config_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
+        """If a numerical equilibirum is used, the domain is taken from this equilibirum. """
+        if equil is not None:
+            self._equil = equil
+            if "Numerical" in self.equil.__class__.__name__:
+                self._domain = self.equil.domain
+            else:
+                self._domain = domain
+                self._equil.domain = domain
+        else:
+            self._domain = domain
+            self._equil = None      
+             
+    def allocate(self,
+                 grid=None,
+                 derham_params=None,
+                 time=None,
+                 ):
+        
+        self.init_derham(grid, derham_params)
+    
+        self.allocate_species()
+        self.allocate_propagators()
+
+
+
+
+
 
         if self.rank_world == 0 and self.verbose:
             print("\nTIME:")
@@ -221,13 +259,13 @@ class StruphyModel(metaclass=ABCMeta):
     @abstractmethod
     def init_propagators() -> Propagators:
         """Static version of the propagators of a model (no runtime parameters)."""
-        
-    @staticmethod
+    
+    @property    
     @abstractmethod
     def bulk_species() -> SubSpecies:
         """Bulk species of the plasma. Must be an attribute of species_static()."""
 
-    @staticmethod
+    @property
     @abstractmethod
     def velocity_scale() -> str:
         """Velocity unit scale of the model.
@@ -1257,26 +1295,14 @@ class StruphyModel(metaclass=ABCMeta):
     # Class methods :
     ###################
 
-    @classmethod
     def model_units(
-        cls,
-        params: StruphyParameters,
+        self,
+        units: Units,
         verbose: bool = False,
         comm: MPI.Intracomm = None,
     ):
         """
         Return model units and print them to screen.
-
-        Parameters
-        ----------
-        params : StruphyParameters
-            model parameters.
-
-        verbose : bool, optional
-            print model units to screen.
-
-        comm : obj
-            MPI communicator.
 
         Returns
         -------
@@ -1287,36 +1313,26 @@ class StruphyModel(metaclass=ABCMeta):
             Derived units for velocity, pressure, mass density and particle density.
         """
 
-        from struphy.io.setup import derive_units
-
-        if comm is None:
-            rank = 0
-        else:
-            rank = comm.Get_rank()
+        print(f'{self.species.em_fields.all = }')
 
         # look for bulk species in fluid OR kinetic parameter dictionaries
         Z_bulk = None
         A_bulk = None
-        if params.fluid is not None:
-            if cls.bulk_species() in params["fluid"]:
-                Z_bulk = params["fluid"][cls.bulk_species()]["phys_params"]["Z"]
-                A_bulk = params["fluid"][cls.bulk_species()]["phys_params"]["A"]
-        if params.kinetic is not None:
-            if cls.bulk_species() in params["kinetic"]:
-                Z_bulk = params["kinetic"][cls.bulk_species()]["phys_params"]["Z"]
-                A_bulk = params["kinetic"][cls.bulk_species()]["phys_params"]["A"]
+        if self.bulk_species is not None:
+            Z_bulk = self.bulk_species.Z
+            A_bulk = self.bulk_species.A
 
         # compute model units
-        kBT = params.units.kBT
+        kBT = units.kBT
 
         units = derive_units(
             Z_bulk=Z_bulk,
             A_bulk=A_bulk,
-            x=params.units.x,
-            B=params.units.B,
-            n=params.units.n,
+            x=units.x,
+            B=units.B,
+            n=units.n,
             kBT=kBT,
-            velocity_scale=cls.velocity_scale(),
+            velocity_scale=self.velocity_scale,
         )
 
         # print to screen
@@ -1363,43 +1379,43 @@ class StruphyModel(metaclass=ABCMeta):
         eps0 = 8.8541878128e-12  # vacuum permittivity (F/m)
 
         equation_params = {}
-        if params.fluid is not None:
-            for species in params["fluid"]:
-                Z = params["fluid"][species]["phys_params"]["Z"]
-                A = params["fluid"][species]["phys_params"]["A"]
+        if self.species.fluid is not None:
+            for name, species in self.species.fluid.all.items():
+                Z = species.Z
+                A = species.A
 
                 # compute equation parameters
-                om_p = np.sqrt(units["n"] * (Z * e) ** 2 / (eps0 * A * mH))
-                om_c = Z * e * units["B"] / (A * mH)
-                equation_params[species] = {}
-                equation_params[species]["alpha"] = om_p / om_c
-                equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
-                equation_params[species]["kappa"] = om_p * units["t"]
+                om_p = np.sqrt(units.n * (Z * e) ** 2 / (eps0 * A * mH))
+                om_c = Z * e * units.B / (A * mH)
+                equation_params[name] = {}
+                equation_params[name]["alpha"] = om_p / om_c
+                equation_params[name]["epsilon"] = 1.0 / (om_c * units["t"])
+                equation_params[name]["kappa"] = om_p * units["t"]
 
                 if verbose and rank == 0:
                     print("\nNORMALIZATION PARAMETERS:")
-                    print("- " + species + ":")
-                    for key, val in equation_params[species].items():
+                    print("- " + name + ":")
+                    for key, val in equation_params[name].items():
                         print((key + ":").ljust(25), "{:4.3e}".format(val))
 
-        if params.kinetic is not None:
-            for species in params["kinetic"]:
-                Z = params["kinetic"][species]["phys_params"]["Z"]
-                A = params["kinetic"][species]["phys_params"]["A"]
+        if self.species.kinetic is not None:
+            for name, species in self.species.kinetic.all.items():
+                Z = species.Z
+                A = species.A
 
                 # compute equation parameters
-                om_p = np.sqrt(units["n"] * (Z * e) ** 2 / (eps0 * A * mH))
-                om_c = Z * e * units["B"] / (A * mH)
-                equation_params[species] = {}
-                equation_params[species]["alpha"] = om_p / om_c
-                equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
-                equation_params[species]["kappa"] = om_p * units["t"]
+                om_p = np.sqrt(units.n * (Z * e) ** 2 / (eps0 * A * mH))
+                om_c = Z * e * units.B / (A * mH)
+                equation_params[name] = {}
+                equation_params[name]["alpha"] = om_p / om_c
+                equation_params[name]["epsilon"] = 1.0 / (om_c * units["t"])
+                equation_params[name]["kappa"] = om_p * units["t"]
 
-                if verbose and rank == 0:
-                    if "fluid" not in params:
+                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                    if self.species.fluid is None:
                         print("\nNORMALIZATION PARAMETERS:")
-                    print("- " + species + ":")
-                    for key, val in equation_params[species].items():
+                    print("- " + name + ":")
+                    for key, val in equation_params[name].items():
                         print((key + ":").ljust(25), "{:4.3e}".format(val))
 
         return units, equation_params
