@@ -491,7 +491,210 @@ def linear_vlasov_ampere(
 
 
 @stack_array("v_old", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
-def dfva_accum_vec(
+def dfva_accum_explicit(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+    f0_values: "float[:]",
+    delta_v: "float[:,:]",
+    vth: "float",
+):
+    r"""TODO"""
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # Allocate memory
+    v_old = empty(3, dtype=float)
+    v_diff = empty(3, dtype=float)
+    v_sum = empty(3, dtype=float)
+
+    # allocate for metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # get old velocities v^n
+        v_old[0] = markers[ip, 3]
+        v_old[1] = markers[ip, 4]
+        v_old[2] = markers[ip, 5]
+
+        # get current v^{n+1}
+        v_diff[0] = delta_v[ip, 0]
+        v_diff[1] = delta_v[ip, 1]
+        v_diff[2] = delta_v[ip, 2]
+
+        # get f0 value
+        f0 = f0_values[ip]
+
+        # compute sum
+        v_sum[0] = v_old[0] + 0.5 * v_diff[0]
+        v_sum[1] = v_old[1] + 0.5 * v_diff[1]
+        v_sum[2] = v_old[2] + 0.5 * v_diff[2]
+
+        # Norms of old and new velocities
+        v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
+        v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
+
+        factor = f0 / markers[ip, 7] \
+            * utils.expm1_minus_x_over_x(- v_tilde / vth**2, n_terms=200) \
+            - markers[ip, 6]
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv, v_sum, df_inv_v)
+
+        fill_vec1 = df_inv_v[0] * factor
+        fill_vec2 = df_inv_v[1] * factor
+        fill_vec3 = df_inv_v[2] * factor
+
+        # call the appropriate matvec filler
+        particle_to_mat_kernels.vec_fill_b_v1(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec1,
+            vec2,
+            vec3,
+            fill_vec1,
+            fill_vec2,
+            fill_vec3,
+        )
+
+
+@stack_array("v_old", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
+def dfva_accum_midpoint(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+    f0_values: "float[:]",
+    f0_values_curr: "float[:]",
+    delta_v: "float[:,:]",
+    delta_w: "float[:]",
+    vth: "float",
+):
+    r"""TODO"""
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # Allocate memory
+    v_old = empty(3, dtype=float)
+    v_diff = empty(3, dtype=float)
+    v_sum = empty(3, dtype=float)
+
+    # allocate for metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # get old velocities v^n
+        v_old[0] = markers[ip, 3]
+        v_old[1] = markers[ip, 4]
+        v_old[2] = markers[ip, 5]
+
+        # get current v^{n+1}
+        v_diff[0] = delta_v[ip, 0]
+        v_diff[1] = delta_v[ip, 1]
+        v_diff[2] = delta_v[ip, 2]
+
+        # get f0 value
+        f0 = f0_values[ip]
+        f0_curr = f0_values_curr[ip]
+
+        # compute sum
+        v_sum[0] = v_old[0] + 0.5 * v_diff[0]
+        v_sum[1] = v_old[1] + 0.5 * v_diff[1]
+        v_sum[2] = v_old[2] + 0.5 * v_diff[2]
+
+        # Norms of old and new velocities
+        v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
+        v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
+
+        factor = (f0 + f0_curr) / (2. * markers[ip, 7]) \
+            * utils.expm1_minus_x_over_x(- v_tilde / vth**2, n_terms=200) \
+            - markers[ip, 6] - 0.5 * delta_w[ip]
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv, v_sum, df_inv_v)
+
+        fill_vec1 = df_inv_v[0] * factor
+        fill_vec2 = df_inv_v[1] * factor
+        fill_vec3 = df_inv_v[2] * factor
+
+        # call the appropriate matvec filler
+        particle_to_mat_kernels.vec_fill_b_v1(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec1,
+            vec2,
+            vec3,
+            fill_vec1,
+            fill_vec2,
+            fill_vec3,
+        )
+
+
+@stack_array("v_old", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
+def dfva_accum_implicit(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
@@ -550,11 +753,11 @@ def dfva_accum_vec(
         v_sum[2] = v_old[2] + 0.5 * v_diff[2]
 
         # Norms of old and new velocities
-        v_tilde = 2. * linalg_kernels.scalar_dot(v_old, v_diff)
-        v_tilde += linalg_kernels.scalar_dot(v_diff, v_diff)
+        v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
+        v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
 
         factor = f0_curr / markers[ip, 7] \
-            * utils.expm1_minus_x_over_x(- v_tilde / (2. * vth**2), n_terms=200) \
+            * utils.expm1_minus_x_over_x(- v_tilde / vth**2, n_terms=200) \
             - markers[ip, 6] - delta_w[ip]
 
         # evaluate Jacobian, result in dfm

@@ -2824,6 +2824,80 @@ def push_weights_with_efield_lin_va(
 
 
 @stack_array("e_vec", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
+def push_predict_v_dfva(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    e1_1: "float[:,:,:]",
+    e1_2: "float[:,:,:]",
+    e1_3: "float[:,:,:]",
+    delta_v_next: "float[:,:]",
+    epsilon: "float",
+):
+    r"""TODO"""
+    # Allocate some memory
+    e_vec = empty(3, dtype=float)
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    df_inv_t_e = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
+
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        # E-field (1-form)
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            e1_1,
+            e1_2,
+            e1_3,
+            e_vec,
+        )
+
+        # Compute Jacobian matrix
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # transpose matrix
+        linalg_kernels.transpose(df_inv, df_inv_t)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv_t, e_vec, df_inv_t_e)
+
+        # compute explicit velocity update
+        delta_v_next[ip, 0] = dt / epsilon * df_inv_t_e[0]
+        delta_v_next[ip, 1] = dt / epsilon * df_inv_t_e[1]
+        delta_v_next[ip, 2] = dt / epsilon * df_inv_t_e[2]
+
+
+@stack_array("e_vec", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
 def push_predict_v_w_dfva(
     dt: float,
     stage: int,
@@ -2907,7 +2981,92 @@ def push_predict_v_w_dfva(
 
 
 @stack_array("v_old", "v_next")
-def push_weights_dfva(
+def push_weights_dfva_explicit(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    f0_values: "float[:]",
+    delta_v: "float[:,:]",
+    vth: "float",
+):
+    # Allocate memory
+    v_old = empty(3, dtype=float)
+    v_diff = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
+
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # f0 values for marker
+        f0 = f0_values[ip]
+
+        # Get old and new velocities
+        v_old[:] = markers[ip, 3:6]
+        v_diff[:] = delta_v[ip, :]
+
+        # Norms of old and new velocities
+        v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
+        v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
+
+        # compute explicit velocity update
+        update = f0 / markers[ip, 7] * utils.expm1_taylor(- v_tilde / vth**2, n_terms=200)
+        markers[ip, 6] -= update
+
+
+@stack_array("v_old", "v_next")
+def push_weights_dfva_midpoint(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    f0_values_old: "float[:]",
+    f0_values_curr: "float[:]",
+    delta_v_curr: "float[:,:]",
+    delta_w_next: "float[:]",
+    vth: "float",
+):
+    # Allocate memory
+    v_old = empty(3, dtype=float)
+    v_diff = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
+
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # f0 values for marker
+        f0_old = f0_values_old[ip]
+        f0_curr = f0_values_curr[ip]
+
+        # Get old and new velocities
+        v_old[:] = markers[ip, 3:6]
+        v_diff[:] = delta_v_curr[ip, :]
+
+        # Norms of old and new velocities
+        v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
+        v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
+
+        # compute explicit velocity update
+        arg = - v_tilde / vth**2
+        factor = (f0_old + f0_curr) / (2. * markers[ip, 7])
+        update = factor * utils.expm1_taylor(arg, n_terms=200)
+        delta_w_next[ip] = (-1.) * update
+
+
+@stack_array("v_old", "v_next")
+def push_weights_dfva_implicit(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -2939,13 +3098,11 @@ def push_weights_dfva(
         v_diff[:] = delta_v_curr[ip, :]
 
         # Norms of old and new velocities
-        v_tilde = 2. * linalg_kernels.scalar_dot(v_old, v_diff)
-        v_tilde += linalg_kernels.scalar_dot(v_diff, v_diff)
+        v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
+        v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
 
-        # compute explicit velocity update
-        arg = - v_tilde / (2. * vth**2)
-        factor = f0_curr / markers[ip, 7]
-        update = factor * utils.expm1_taylor(arg, n_terms=200)
+        # compute velocity update
+        update = f0_curr / markers[ip, 7] * utils.expm1_taylor(- v_tilde / vth**2, n_terms=200)
         delta_w_next[ip] = (-1.) * update
 
 

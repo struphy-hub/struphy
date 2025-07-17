@@ -1056,7 +1056,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         return {
             propagators_markers.PushEta: ["species1"],
             propagators_markers.PushVinEfield: ["species1"],
-            propagators_coupling.DeltaFVelocitiesEfield: ["e_field", "species1"],
+            propagators_coupling.DeltaFVlasovAmpere: ["e_field", "species1"],
             propagators_markers.PushVxB: ["species1"],
         }
 
@@ -1177,7 +1177,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # propagator parameters
         self._poisson_params = params["em_fields"]["options"]["ImplicitDiffusion"]["solver"]
         algo_eta = params["kinetic"]["species1"]["options"]["PushEta"]["algo"]
-        params_coupling = params["em_fields"]["options"]["EfieldWeights"]["solver"]
+        options_coupling = params["em_fields"]["options"]["DeltaFVlasovAmpere"]
 
         # Initialize propagators/integrators used in splitting substeps
         self._kwargs[propagators_markers.PushEta] = {
@@ -1193,12 +1193,12 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         else:
             self._kwargs[propagators_markers.PushVinEfield] = None
 
-        self._kwargs[propagators_coupling.DeltaFVelocitiesEfield] = {
+        self._kwargs[propagators_coupling.DeltaFVlasovAmpere] = {
             "alpha": self.alpha,
             "epsilon": self.epsilon,
             "vth": self.vth,
             "f0": self._f0,
-            "solver": params_coupling,
+            "options": options_coupling,
         }
 
         # Only add PushVxB if magnetic field is not zero
