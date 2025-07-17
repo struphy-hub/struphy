@@ -1,3 +1,5 @@
+from struphy.models.species import SubSpecies, MultiSpecies, Variable, KineticSpecies, FluidSpecies
+
 from dataclasses import dataclass
 import numpy as np
 
@@ -30,14 +32,48 @@ class Maxwell(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
-
+    
     def init_species(self):
         self._species = Species(em_fields=True)
         self._species.em_fields.add_variable(name="e_field", space="Hcurl")
         self._species.em_fields.add_variable(name="b_field", space="Hdiv")
+    
+    
+    @dataclass
+    class MaxwellPropagators(Propagators):
+        # TODO: Make sure the propagators are in the right order
+        Maxwell = propagators_fields.Maxwell()
+
+    @dataclass
+    class EMFields:
+        e_field = Variable(space="Hcurl")
+        b_field = Variable(space="Hdiv")
+    
+    @dataclass
+    class Ions(KineticSpecies):
+        density = Variable(space="H0")
+        pressure = Variable(space="H0")
+    
+    @dataclass
+    class Electrons(FluidSpecies):
+        density = Variable(space="H0")
+        pressure = Variable(space="H0")
+
+    def __init__(self):
+        
+        self._em_fields = self.EMFields()
+        self._ions = self.Ions()
+        self._electrons = self.Electrons()
+
+        self._propagators = self.MaxwellPropagators()
+        self._propagators.Maxwell.set_variables(
+            e = self._em_fields.e_field,
+            b = self._em_fields.b_field,
+            )
 
     def init_propagators(self):
-        self._propagators = Propagators()
+        # self._propagators = Propagators()
+        
         self._propagators.add(propagators_fields.Maxwell,
                         self.species.em_fields.e_field,
                         self.species.em_fields.b_field,)

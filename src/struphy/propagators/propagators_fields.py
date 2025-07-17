@@ -70,14 +70,16 @@ class Maxwell(Propagator):
 
     def __init__(
         self,
-        e: Variable,
-        b: Variable,
+        # e: Variable,
+        # b: Variable,
     ):
-        super().__init__(e, b)
+        self.e = None
+        self.b = None
+        
 
     OptsAlgo = Literal["implicit", *ButcherTableau.available_methods(),]
     OptsSolverType = Literal[("pcg", "MassMatrixPreconditioner"), ("cg", None),]
-    
+
     def set_options(self,
                     algo: OptsAlgo = "implicit", # type: ignore
                     solver_type: OptsSolverType = ("pcg", "MassMatrixPreconditioner"), # type: ignore

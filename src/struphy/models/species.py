@@ -55,11 +55,6 @@ class Species:
 class MultiSpecies:
     """Handles multiple fluid or kinetic species."""
 
-    def __init__(
-        self,
-    ):
-        pass
-
     @property
     def all(self):
         return self.__dict__
@@ -157,6 +152,13 @@ class SubSpecies:
             for key, val in self.equation_params.items():
                 print((key + ":").ljust(25), "{:4.3e}".format(val))
 
+class FluidSpecies(SubSpecies):
+    def __init__(self):
+        pass
+
+class KineticSpecies(SubSpecies):
+    def __init__(self):
+        pass
 
 class Variable:
     """Single variable (unknown) of a StruphyModel."""
