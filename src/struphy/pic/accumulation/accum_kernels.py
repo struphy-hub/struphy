@@ -16,10 +16,10 @@ from pyccel.decorators import stack_array
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
-import struphy.pic.pushing.pusher_utilities_kernels as utils
 
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+import struphy.pic.pushing.pusher_utilities_kernels as utils
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -552,9 +552,7 @@ def dfva_accum_explicit(
         v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
 
-        factor = f0 / markers[ip, 7] \
-            * utils.expm1_minus_x_over_x(- v_tilde / vth**2, n_terms=200) \
-            - markers[ip, 6]
+        factor = f0 / markers[ip, 7] * utils.expm1_minus_x_over_x(-v_tilde / vth**2, n_terms=200) - markers[ip, 6]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -655,9 +653,10 @@ def dfva_accum_midpoint(
         v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
 
-        factor = (f0 + f0_curr) / (2. * markers[ip, 7]) \
-            * utils.expm1_minus_x_over_x(- v_tilde / vth**2, n_terms=200) \
+        factor = (
+            (f0 + f0_curr) / (2.0 * markers[ip, 7]) * utils.expm1_minus_x_over_x(-v_tilde / vth**2, n_terms=200)
             - markers[ip, 6] - 0.5 * delta_w[ip]
+        )
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -756,9 +755,10 @@ def dfva_accum_implicit(
         v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
 
-        factor = f0_curr / markers[ip, 7] \
-            * utils.expm1_minus_x_over_x(- v_tilde / vth**2, n_terms=200) \
+        factor = (
+            f0_curr / markers[ip, 7] * utils.expm1_minus_x_over_x(-v_tilde / vth**2, n_terms=200)
             - markers[ip, 6] - delta_w[ip]
+        )
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(

@@ -488,7 +488,7 @@ class DeltaFVlasovAmpere(Propagator):
         epsilon: float = 1.0,
         vth: float = 1.0,
         f0: Maxwellian = None,
-        options = options(default=True),
+        options=options(default=True),
     ):
         super().__init__(e, particles)
 
@@ -509,8 +509,9 @@ class DeltaFVlasovAmpere(Propagator):
             self._tol = method_options["atol"]
             self._tol_type = "absolute"
 
-        assert self._method_type in ["explicit", "midpoint", "implicit"], \
+        assert self._method_type in ["explicit", "midpoint", "implicit"], (
             "Only the options 'explicit', midpoint', and 'implicit' are implemented!"
+        )
 
         # Preconditioner
         solver_options = options["solver"]
@@ -540,7 +541,7 @@ class DeltaFVlasovAmpere(Propagator):
             self._setup_implicit()
 
     def _setup_explicit(self):
-        """ Set up propagator for explicit-like Picard iteration. Allocate only necessary memory."""
+        """Set up propagator for explicit-like Picard iteration. Allocate only necessary memory."""
         self._accum_vec = AccumulatorVector(
             self.particles[0],
             "Hcurl",
@@ -619,7 +620,7 @@ class DeltaFVlasovAmpere(Propagator):
         )
 
     def _setup_midpoint(self):
-        """ Set up propagator for midpoint-like Picard iteration. Allocate only necessary memory."""
+        """Set up propagator for midpoint-like Picard iteration. Allocate only necessary memory."""
         self._accum_vec = AccumulatorVector(
             self.particles[0],
             "Hcurl",
@@ -710,7 +711,7 @@ class DeltaFVlasovAmpere(Propagator):
         )
 
     def _setup_implicit(self):
-        """ Set up propagator for implicit-like Picard iteration. Allocate only necessary memory."""
+        """Set up propagator for implicit-like Picard iteration. Allocate only necessary memory."""
         self._accum_vec = AccumulatorVector(
             self.particles[0],
             "Hcurl",
@@ -806,7 +807,7 @@ class DeltaFVlasovAmpere(Propagator):
             self._call_implicit(dt)
 
     def _call_explicit(self, dt):
-        """ Do Picard iteration for substep using an explicit-like expression"""
+        """Do Picard iteration for substep using an explicit-like expression"""
         # Compute f0 at time n
         self._f0_values[self.particles[0].valid_mks] = self._f0(*self.particles[0].phasespace_coords.T)
 
@@ -881,10 +882,7 @@ class DeltaFVlasovAmpere(Propagator):
 
                 # Compute difference in e-field (not very efficient, find better way)
                 max_diff_e = np.max(
-                    # np.divide(
-                        np.abs(self._delta_e_curr.toarray() - self._delta_e_next.toarray()),
-                        # np.abs(self.feec_vars[0].toarray()),
-                    # )
+                    np.abs(self._delta_e_curr.toarray() - self._delta_e_next.toarray()),
                 )
 
             elif self._tol_type == "absolute":
@@ -927,7 +925,7 @@ class DeltaFVlasovAmpere(Propagator):
         # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
 
     def _call_midpoint(self, dt):
-        """ Do Picard iteration for substep using an midpoint-like expression"""
+        """Do Picard iteration for substep using an midpoint-like expression"""
         # Compute f0 at time n
         self._f0_values_old[self.particles[0].valid_mks] = self._f0(*self.particles[0].phasespace_coords.T)
 
@@ -935,10 +933,8 @@ class DeltaFVlasovAmpere(Propagator):
         self._predict_weights_velocities(dt)
 
         # Prepare markers at time n+1
-        self._markers[self.particles[0].valid_mks, :] = \
-            self._particles[0].markers[self.particles[0].valid_mks, :6]
-        self._markers[self.particles[0].valid_mks, 3:6] += \
-            self._delta_v_next[self.particles[0].valid_mks, :]
+        self._markers[self.particles[0].valid_mks, :] = self._particles[0].markers[self.particles[0].valid_mks, :6]
+        self._markers[self.particles[0].valid_mks, 3:6] += self._delta_v_next[self.particles[0].valid_mks, :]
 
         # Compute f0 at time n+1
         self._f0_values[self.particles[0].valid_mks] = self._f0(*self._markers[self.particles[0].valid_mks, :].T)
@@ -976,10 +972,8 @@ class DeltaFVlasovAmpere(Propagator):
             self._delta_w_curr[:] = self._delta_w_next[:]
 
             # Prepare markers at time n+1 (curr)
-            self._markers[self.particles[0].valid_mks, :] = \
-                self._particles[0].markers[self.particles[0].valid_mks, :6]
-            self._markers[self.particles[0].valid_mks, 3:6] += \
-                self._delta_v_curr[self.particles[0].valid_mks, :]
+            self._markers[self.particles[0].valid_mks, :] = self._particles[0].markers[self.particles[0].valid_mks, :6]
+            self._markers[self.particles[0].valid_mks, 3:6] += self._delta_v_curr[self.particles[0].valid_mks, :]
 
             # Compute f0 at time n+1 (curr)
             self._f0_values[self.particles[0].valid_mks] = self._f0(*self._markers[self.particles[0].valid_mks, :].T)
@@ -1044,10 +1038,7 @@ class DeltaFVlasovAmpere(Propagator):
 
                 # Compute difference in e-field (not very efficient, find better way)
                 max_diff_e = np.max(
-                    # np.divide(
-                        np.abs(self._delta_e_curr.toarray() - self._delta_e_next.toarray()),
-                        # np.abs(self.feec_vars[0].toarray()),
-                    # )
+                    np.abs(self._delta_e_curr.toarray() - self._delta_e_next.toarray()),
                 )
 
             elif self._tol_type == "absolute":
@@ -1061,11 +1052,7 @@ class DeltaFVlasovAmpere(Propagator):
                 )
 
                 # Compute error in delta w
-                max_diff_w = np.max(
-                    np.abs(
-                        self._diff_delta_w[self.particles[0].valid_mks]
-                    )
-                )
+                max_diff_w = np.max(np.abs(self._diff_delta_w[self.particles[0].valid_mks]))
 
                 # Compute difference in e-field (not very efficient, find better way)
                 max_diff_e = np.max(np.abs(self._delta_e_curr.toarray() - self._delta_e_next.toarray()))
@@ -1086,8 +1073,7 @@ class DeltaFVlasovAmpere(Propagator):
             self._delta_v_next[self.particles[0].valid_mks, :]
 
         # Update weights
-        self.particles[0].markers[self.particles[0].valid_mks, 6] += \
-            self._delta_w_next[self.particles[0].valid_mks]
+        self.particles[0].markers[self.particles[0].valid_mks, 6] += self._delta_w_next[self.particles[0].valid_mks]
 
         # Compute e^{n+1}
         self._delta_e_next += self.feec_vars[0]
@@ -1098,15 +1084,13 @@ class DeltaFVlasovAmpere(Propagator):
         # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
 
     def _call_implicit(self, dt):
-        """ Do Picard iteration for substep using an implicit-like expression"""
+        """Do Picard iteration for substep using an implicit-like expression"""
         # Use predictor for weights and velocities
         self._predict_weights_velocities(dt)
 
         # Prepare markers at time n+1
-        self._markers[self.particles[0].valid_mks, :] = \
-            self._particles[0].markers[self.particles[0].valid_mks, :6]
-        self._markers[self.particles[0].valid_mks, 3:6] += \
-            self._delta_v_next[self.particles[0].valid_mks, :]
+        self._markers[self.particles[0].valid_mks, :] = self._particles[0].markers[self.particles[0].valid_mks, :6]
+        self._markers[self.particles[0].valid_mks, 3:6] += self._delta_v_next[self.particles[0].valid_mks, :]
 
         # Compute f0 at time n+1
         self._f0_values[self.particles[0].valid_mks] = self._f0(*self._markers[self.particles[0].valid_mks, :].T)
@@ -1143,10 +1127,8 @@ class DeltaFVlasovAmpere(Propagator):
             self._delta_w_curr[:] = self._delta_w_next[:]
 
             # Prepare markers at time n+1 (curr)
-            self._markers[self.particles[0].valid_mks, :] = \
-                self._particles[0].markers[self.particles[0].valid_mks, :6]
-            self._markers[self.particles[0].valid_mks, 3:6] += \
-                self._delta_v_curr[self.particles[0].valid_mks, :]
+            self._markers[self.particles[0].valid_mks, :] = self._particles[0].markers[self.particles[0].valid_mks, :6]
+            self._markers[self.particles[0].valid_mks, 3:6] += self._delta_v_curr[self.particles[0].valid_mks, :]
 
             # Compute f0 at time n+1 (curr)
             self._f0_values[self.particles[0].valid_mks] = self._f0(*self._markers[self.particles[0].valid_mks, :].T)
@@ -1211,8 +1193,8 @@ class DeltaFVlasovAmpere(Propagator):
                 # Compute difference in e-field (not very efficient, find better way)
                 max_diff_e = np.max(
                     # np.divide(
-                        np.abs(self._delta_e_curr.toarray() - self._delta_e_next.toarray()),
-                        # np.abs(self.feec_vars[0].toarray()),
+                    np.abs(self._delta_e_curr.toarray() - self._delta_e_next.toarray()),
+                    # np.abs(self.feec_vars[0].toarray()),
                     # )
                 )
 
@@ -1227,11 +1209,7 @@ class DeltaFVlasovAmpere(Propagator):
                 )
 
                 # Compute error in delta w
-                max_diff_w = np.max(
-                    np.abs(
-                        self._diff_delta_w[self.particles[0].valid_mks]
-                    )
-                )
+                max_diff_w = np.max(np.abs(self._diff_delta_w[self.particles[0].valid_mks]))
 
                 # Compute difference in e-field (not very efficient, find better way)
                 max_diff_e = np.max(np.abs(self._delta_e_curr.toarray() - self._delta_e_next.toarray()))
@@ -1252,8 +1230,7 @@ class DeltaFVlasovAmpere(Propagator):
             self._delta_v_next[self.particles[0].valid_mks, :]
 
         # Update weights
-        self.particles[0].markers[self.particles[0].valid_mks, 6] += \
-            self._delta_w_next[self.particles[0].valid_mks]
+        self.particles[0].markers[self.particles[0].valid_mks, 6] += self._delta_w_next[self.particles[0].valid_mks]
 
         # Compute e^{n+1}
         self._delta_e_next += self.feec_vars[0]

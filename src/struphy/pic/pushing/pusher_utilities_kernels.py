@@ -10,14 +10,14 @@ from struphy.bsplines.evaluation_kernels_3d import get_spans
 from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
-@stack_array('dfm', 'dfinv', 'eta', 'v', 'v_logical')
+@stack_array("dfm", "dfinv", "eta", "v", "v_logical")
 def reflect(
-    markers: 'float[:,:]',
-    args_domain: 'DomainArguments',
-    outside_inds: 'int[:]',
-    axis: 'int',
+    markers: "float[:,:]",
+    args_domain: "DomainArguments",
+    outside_inds: "int[:]",
+    axis: "int",
 ):
-    r'''
+    r"""
     Reflect the particles which are pushed outside of the logical cube.
 
     .. math::
@@ -39,7 +39,7 @@ def reflect(
 
         axis : int
             0, 1 or 2
-    '''
+    """
 
     # allocate metric coeffs
     dfm = zeros((3, 3), dtype=float)
@@ -51,13 +51,14 @@ def reflect(
     v_logical = empty(3, dtype=float)
 
     for ip in outside_inds:
-
         eta[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
-            eta[0], eta[1], eta[2],
+            eta[0],
+            eta[1],
+            eta[2],
             args_domain,
             dfm,
         )
@@ -79,8 +80,8 @@ def reflect(
 
 @pure
 def expm1_taylor(x: "float", n_terms: "int" = 100) -> "float":
-    """ Taylor series computation for the expression exp(x) - 1
-    
+    """Taylor series computation for the expression exp(x) - 1
+
     Parameters
     ----------
     x : float
@@ -100,8 +101,8 @@ def expm1_taylor(x: "float", n_terms: "int" = 100) -> "float":
 
 @pure
 def expm1_minus_x_over_x(x: "float", n_terms: "int" = 100) -> "float":
-    """ Taylor series computation for the expression (exp(x) - 1 - x) / x
-    
+    """Taylor series computation for the expression (exp(x) - 1 - x) / x
+
     Parameters
     ----------
     x : float
@@ -110,7 +111,7 @@ def expm1_minus_x_over_x(x: "float", n_terms: "int" = 100) -> "float":
     n_terms : int
         How many terms to take in the series
     """
-    term = x / 2.
+    term = x / 2.0
     result = 0.0
     for n in range(1, n_terms):
         result += term

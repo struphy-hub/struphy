@@ -7,11 +7,11 @@ import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
-import struphy.pic.pushing.pusher_utilities_kernels as utils
 
 # do not remove; needed to identify dependencies
 import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
 import struphy.pic.pushing.pusher_utilities_kernels as pusher_utilities_kernels
+import struphy.pic.pushing.pusher_utilities_kernels as utils
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
@@ -2976,8 +2976,13 @@ def push_predict_v_w_dfva(
         delta_v_next[ip, 1] = dt / epsilon * df_inv_t_e[1]
         delta_v_next[ip, 2] = dt / epsilon * df_inv_t_e[2]
 
-        delta_w_next[ip] = dt / (vth**2 * epsilon) * f0 / markers[ip, 7] \
+        delta_w_next[ip] = (
+            dt
+            / (vth**2 * epsilon)
+            * f0
+            / markers[ip, 7]
             * (markers[ip, 3] * df_inv_t_e[0] + markers[ip, 4] * df_inv_t_e[1] + markers[ip, 5] * df_inv_t_e[2])
+        )
 
 
 @stack_array("v_old", "v_next")
@@ -3016,7 +3021,7 @@ def push_weights_dfva_explicit(
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
 
         # compute explicit velocity update
-        update = f0 / markers[ip, 7] * utils.expm1_taylor(- v_tilde / vth**2, n_terms=200)
+        update = f0 / markers[ip, 7] * utils.expm1_taylor(-v_tilde / vth**2, n_terms=200)
         markers[ip, 6] -= update
 
 
@@ -3059,10 +3064,10 @@ def push_weights_dfva_midpoint(
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
 
         # compute explicit velocity update
-        arg = - v_tilde / vth**2
-        factor = (f0_old + f0_curr) / (2. * markers[ip, 7])
+        arg = -v_tilde / vth**2
+        factor = (f0_old + f0_curr) / (2.0 * markers[ip, 7])
         update = factor * utils.expm1_taylor(arg, n_terms=200)
-        delta_w_next[ip] = (-1.) * update
+        delta_w_next[ip] = (-1.0) * update
 
 
 @stack_array("v_old", "v_next")
@@ -3102,8 +3107,8 @@ def push_weights_dfva_implicit(
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
 
         # compute velocity update
-        update = f0_curr / markers[ip, 7] * utils.expm1_taylor(- v_tilde / vth**2, n_terms=200)
-        delta_w_next[ip] = (-1.) * update
+        update = f0_curr / markers[ip, 7] * utils.expm1_taylor(-v_tilde / vth**2, n_terms=200)
+        delta_w_next[ip] = (-1.0) * update
 
 
 @stack_array("e_old, e_next", "e_sum", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")

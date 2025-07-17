@@ -706,7 +706,9 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         # Assert Maxwellian background (if list, the first entry is taken)
         bckgr_params = self._species_params["background"]
         li_bp = list(bckgr_params)
-        assert li_bp[0] == "Maxwellian3D" or li_bp[0][:-2] == "Maxwellian3D", "The background distribution function must be a uniform Maxwellian!"
+        assert li_bp[0] == "Maxwellian3D" or li_bp[0][:-2] == "Maxwellian3D", (
+            "The background distribution function must be a uniform Maxwellian!"
+        )
         if len(li_bp) > 1:
             # overwrite f0 with single Maxwellian
             self._f0 = getattr(maxwellians, li_bp[0][:-2])(
@@ -1109,7 +1111,9 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # Assert Maxwellian background (if list, the first entry is taken)
         bckgr_params = self._species_params["background"]
         li_bp = list(bckgr_params)
-        assert li_bp[0] == "Maxwellian3D" or li_bp[0][:-2] == "Maxwellian3D", "The background distribution function must be a uniform Maxwellian!"
+        assert li_bp[0] == "Maxwellian3D" or li_bp[0][:-2] == "Maxwellian3D", (
+            "The background distribution function must be a uniform Maxwellian!"
+        )
         if len(li_bp) > 1:
             # overwrite f0 with single Maxwellian
             self._f0 = getattr(maxwellians, li_bp[0][:-2])(
@@ -1295,25 +1299,35 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         )
 
         # - gamma_p * ln(n_{0,p})
-        self._tmp[0] = self.alpha**2 * self.vth**2 / self.pointer["species1"].Np \
-                * (-1.) * np.dot(
-                    self._gamma[self.pointer["species1"].valid_mks],
-                    np.log(self._n0_values[self.pointer["species1"].valid_mks]),
-                )
+        self._tmp[0] = (
+            self.alpha**2
+            * self.vth**2
+            / self.pointer["species1"].Np
+            * (-1.0)
+            * np.dot(
+                self._gamma[self.pointer["species1"].valid_mks],
+                np.log(self._n0_values[self.pointer["species1"].valid_mks]),
+            )
+        )
         self.update_scalar("en_c_ln_n", self._tmp[0])
 
         # gamma_p |v_p|^2 / (2 vth^2)
-        self._tmp[1] = self.alpha**2 / self.pointer["species1"].Np \
-                * np.dot(
-                    self.pointer["species1"].markers_wo_holes[:, 3] ** 2
-                    + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
-                    + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
-                    self._gamma[self.pointer["species1"].valid_mks],
-                )
+        self._tmp[1] = (
+            self.alpha**2
+            / self.pointer["species1"].Np
+            * np.dot(
+                self.pointer["species1"].markers_wo_holes[:, 3] ** 2
+                + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
+                + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
+                self._gamma[self.pointer["species1"].valid_mks],
+            )
+        )
         self.update_scalar("en_c_v_2", self._tmp[1])
 
         # w_p
-        self._tmp[2] = self.alpha**2 * self.vth**2 / self.pointer["species1"].Np * self.pointer["species1"].weights.sum()
+        self._tmp[2] = (
+            self.alpha**2 * self.vth**2 / self.pointer["species1"].Np * self.pointer["species1"].weights.sum()
+        )
         self.update_scalar("en_w", self._tmp[2])
 
         # total particle energy
