@@ -10,9 +10,31 @@ from struphy.kinetic_background import maxwellians
 from struphy.topology import grids
 from struphy.physics.physics import ConstantsOfNature
 
+
+def check_option(opt, options):
+    opts = get_args(options)
+    assert opt in opts, f"Option '{opt}' is not in {opts}." 
+
 ## generic options
 
 SplitAlgos = Literal["LieTrotter", "Strang"]
+
+@dataclass
+class Time:
+    """...
+
+    Parameters
+    ----------
+    x : float
+        Unit of length in m.
+    """
+
+    dt: float = 1.0
+    Tend: float = 1.0
+    split_algo: SplitAlgos = "LieTrotter"
+
+    def __post_init__(self):
+        check_option(self.split_algo, SplitAlgos)
 
 
 class Units:
@@ -138,7 +160,6 @@ class Units:
         # print to screen
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             units_used = (" m", " T", " m⁻³", "keV", " m/s", " s", " bar", " kg/m³", " A/m²",)
-            print("\nUNITS:")
             for (k, v), u in zip(self.__dict__.items(), units_used):
                 if v is None:
                     print(f"Unit of {k[1:]} not specified.")
@@ -149,30 +170,10 @@ class Units:
                     )
 
 
-@dataclass
-class Time:
-    """...
-
-    Parameters
-    ----------
-    x : float
-        Unit of length in m.
-    """
-
-    dt: float = 1.0
-    Tend: float = 1.0
-    split_algo: SplitAlgos = "LieTrotter"
-
-    def __post_init__(self):
-        options = get_args(SplitAlgos)
-        assert self.split_algo in options, f"'{self.split_algo}' is not in {options}"
-
-
 ## field options
 
 PolarRegularity = Literal[-1, 1]
 BackgroundOpts = Literal["LogicalConst", "FluidEquilibrium"]
-
 
 @dataclass
 class DerhamOptions:
@@ -188,8 +189,7 @@ class DerhamOptions:
     local_projectors: bool = False
 
     def __post_init__(self):
-        options = get_args(PolarRegularity)
-        assert self.polar_ck in options, f"'{self.polar_ck}' is not in {options}"
+        check_option(self.polar_ck, PolarRegularity)
 
 
 @dataclass
@@ -207,8 +207,7 @@ class FieldsBackground:
     variable: str = None
 
     def __post_init__(self):
-        options = get_args(BackgroundOpts)
-        assert self.kind in options, f"'{self.kind}' is not in {options}"
+        check_option(self.kind, BackgroundOpts)
 
 
 ## kinetic options
