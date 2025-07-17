@@ -31,6 +31,8 @@ model = Model(verbose=verbose)
 species = model.species
 propagators = model.propagators
 
+model.species2.em_fields.e_field.
+model.fluids.ions.add_variable()
 # model.fluid.set_phys_params("mhd", options.PhysParams())
 # model.kinetic.set_phys_params("mhd", options.PhysParams())
 

@@ -31,6 +31,14 @@ class Propagator(metaclass=ABCMeta):
         """
 
         comm = None
+
+        # for iterative particle push
+        self._init_kernels = []
+        self._eval_kernels = []
+
+        self._rank = comm.Get_rank() if comm is not None else 0
+
+    def set_variables(self, *vars):
         for var in vars:
             assert isinstance(var, Variable)
             if var.has_particles:
@@ -41,11 +49,6 @@ class Propagator(metaclass=ABCMeta):
                 pass
         self._vars = vars
 
-        # for iterative particle push
-        self._init_kernels = []
-        self._eval_kernels = []
-
-        self._rank = comm.Get_rank() if comm is not None else 0
 
     @property
     def vars(self):
