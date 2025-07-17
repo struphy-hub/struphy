@@ -1219,20 +1219,24 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
-        self.add_scalar("en_c_ln_n")
-        self.add_scalar("en_c_v_2")
-        self.add_scalar("en_w")
-        self.add_scalar("en_tot_p")
-        self.add_scalar("en_tot")
-        self.add_scalar("gamma")
+        self.add_scalar("en_c_ln_n", compute="from_particles", species="species1")
+        self.add_scalar("en_c_v_2", compute="from_particles", species="species1")
+        self.add_scalar("en_w", compute="from_particles", species="species1")
+        self.add_scalar(
+            "en_tot_p",
+            compute="from_particles",
+            species="species1",
+            summands=["en_c_ln_n", "en_c_v_2", "en_w"],
+        )
+        self.add_scalar("en_tot", summands=["en_E", "en_tot_p"])
+        self.add_scalar("gamma", compute="from_particles", species="species1")
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._tmp = np.empty(5, dtype=float)
-        self.en_E = 0.0
+        self._tmp = np.empty(4, dtype=float)
 
     def initialize_from_params(self):
         """Solve initial Poisson equation.
@@ -1331,18 +1335,11 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         self.update_scalar("en_w", self._tmp[2])
 
         # total particle energy
-        self._tmp[3] = self._tmp[0] + self._tmp[1] + self._tmp[2]
-        self.update_scalar("en_tot_p", self._tmp[3])
+        self.update_scalar("en_tot_p")
 
         # gamma
-        self._tmp[4] = self._gamma.sum()
-        self.update_scalar("gamma", self._tmp[4])
-
-        # # f_{0,p} / s_{0,p}
-        # + np.divide(
-        #     self._f0_values[self.pointer["species1"].valid_mks],
-        #     self.pointer["species1"].sampling_density,
-        # ).sum()
+        self._tmp[3] = self._gamma.sum()
+        self.update_scalar("gamma", self._tmp[3])
 
         self.derham.comm.Allreduce(
             self._mpi_in_place,
@@ -1352,7 +1349,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # Compute total energy
         if not self._baseclass:
-            self.update_scalar("en_tot", self._tmp[0] + self._tmp[1] + self._tmp[2] + self.en_E)
+            self.update_scalar("en_tot")
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
