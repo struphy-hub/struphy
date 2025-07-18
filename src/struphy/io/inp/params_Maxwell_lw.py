@@ -27,29 +27,23 @@ grid = options.grids.TensorProductGrid(
 derham = options.DerhamOptions()
 
 # light-weight instance of model
-model = Model(verbose=verbose)
-species = model.species
+model = Model(units, domain, equil, verbose=verbose)
 propagators = model.propagators
-
-model.species2.em_fields.e_field.
-model.fluids.ions.add_variable()
 # model.fluid.set_phys_params("mhd", options.PhysParams())
 # model.kinetic.set_phys_params("mhd", options.PhysParams())
 
 # propagator options
-propagators.Maxwell.set_options(verbose=verbose)
+propagators.maxwell.set_options(verbose=verbose)
 
 # initial conditions for model variables (background + perturbation)
-species.em_fields.add_background(
-    "e_field",
+model.em_fields.e_field.add_background(
     options.FieldsBackground(
         kind="LogicalConst",
         values=(0.3, 0.15, None),
     ),
     verbose=verbose,
 )
-species.em_fields.add_perturbation(
-    "e_field",
+model.em_fields.e_field.add_perturbation(
     options.perturbations.TorusModesCos(
         ms=[[None], [1, 3], [None]],
     ),
@@ -57,16 +51,14 @@ species.em_fields.add_perturbation(
     verbose=verbose,
 )
 
-species.em_fields.add_background(
-    "b_field",
+model.em_fields.b_field.add_background(
     options.FieldsBackground(
         kind="LogicalConst",
         values=(0.3, 0.15, None),
     ),
     verbose=verbose,
 )
-species.em_fields.add_perturbation(
-    "b_field",
+model.em_fields.b_field.add_perturbation(
     options.perturbations.TorusModesCos(
         ms=[[None], [1, 3], [None]],
     ),
