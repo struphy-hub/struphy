@@ -12,7 +12,7 @@ from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilMatrix, StencilVector
 
 from struphy.feec import mass_kernels
-from struphy.feec.local_projectors_args_kernels import LocalProjectorsArguments
+from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.feec.local_projectors_kernels import (
     compute_shifts,
     get_dofs_local_1_form_ec_component,
