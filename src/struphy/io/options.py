@@ -173,7 +173,6 @@ class Units:
 ## field options
 
 PolarRegularity = Literal[-1, 1]
-BackgroundOpts = Literal["LogicalConst", "FluidEquilibrium"]
 
 @dataclass
 class DerhamOptions:
@@ -191,6 +190,8 @@ class DerhamOptions:
     def __post_init__(self):
         check_option(self.polar_ck, PolarRegularity)
 
+
+BackgroundOpts = Literal["LogicalConst", "FluidEquilibrium"]
 
 @dataclass
 class FieldsBackground:
