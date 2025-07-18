@@ -922,8 +922,8 @@ lint_branch:
     - !reference [.scripts, create_venv]
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
-    # Lint changed files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
-    - struphy lint branch --output-format plain --verbose
+    # Lint all files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
+    - struphy lint all --output-format plain --verbose
   allow_failure: true
 
 # Lint struphy with `struphy lint`
