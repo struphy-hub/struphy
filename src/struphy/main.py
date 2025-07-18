@@ -1,4 +1,22 @@
 from typing import Optional
+import os
+import sysconfig
+import time
+import datetime
+import glob
+import numpy as np
+from mpi4py import MPI
+from pyevtk.hl import gridToVTK
+
+from struphy.feec.psydac_derham import SplineFunction
+from struphy.fields_background.base import FluidEquilibriumWithB
+from struphy.io.output_handling import DataContainer
+from struphy.io.setup import setup_folders, setup_parameters
+from struphy.models import fluid, hybrid, kinetic, toy
+from struphy.models.base import StruphyModel
+from struphy.profiling.profiling import ProfileManager
+from struphy.utils.clone_config import CloneConfig
+from struphy.pic.base import Particles
 
 
 def main(
@@ -50,36 +68,9 @@ def main(
         Number of domain clones (default=1)
     """
 
-    import os
-    import time
-
-    from psydac.ddm.mpi import MockMPI
-    from psydac.ddm.mpi import mpi as MPI
-    from pyevtk.hl import gridToVTK
-
-    from struphy.feec.psydac_derham import SplineFunction
-    from struphy.fields_background.base import FluidEquilibriumWithB
-    from struphy.io.output_handling import DataContainer
-    from struphy.io.setup import pre_processing
-    from struphy.models import fluid, hybrid, kinetic, toy
-    from struphy.models.base import StruphyModel
-    from struphy.profiling.profiling import ProfileManager
-    from struphy.utils.arrays import xp as np
-    from struphy.utils.clone_config import CloneConfig
-
-    if sort_step:
-        from struphy.pic.base import Particles
-
-    if isinstance(MPI, MockMPI):
-        comm = None
-        rank = 0
-        size = 1
-        Barrier = lambda: None
-    else:
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        size = comm.Get_size()
-        Barrier = comm.Barrier
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
 
     if rank == 0:
         print("")
@@ -90,19 +81,55 @@ def main(
     start_simulation = time.time()
 
     # loading of simulation parameters, creating output folder and printing information to screen
-    params = pre_processing(
-        model_name=model_name,
-        parameters=parameters,
-        path_out=path_out,
-        restart=restart,
-        max_sim_time=runtime,
-        save_step=save_step,
-        mpi_rank=rank,
-        mpi_size=size,
-        use_mpi=not comm is None,
-        num_clones=num_clones,
-        verbose=verbose,
-    )
+    setup_folders(path_out=path_out, 
+                  restart=restart, 
+                  verbose=False,)
+    
+    params, params_path = setup_parameters(model_name=model_name, 
+                                           parameters=parameters, 
+                                           path_out=path_out,
+                                           verbose=True,)
+    
+    # print simulation info
+    print("\nMETADATA:")
+    print("platform:".ljust(25), sysconfig.get_platform())
+    print("python version:".ljust(25), sysconfig.get_python_version())
+    print("model:".ljust(25), model_name)
+    print("parameter file:".ljust(25), params_path)
+    print("output folder:".ljust(25), path_out)
+    print("MPI processes:".ljust(25), size)
+    print("number of domain clones:".ljust(25), num_clones)
+    print("restart:".ljust(25), restart)
+    print("max wall-clock [min]:".ljust(25), runtime)
+    print("save interval [steps]:".ljust(25), save_step)
+
+    exit()
+    
+    # write meta data to output folder
+    with open(path_out + "/meta.txt", "w") as f:
+        f.write(
+            "date of simulation: ".ljust(
+                30,
+            )
+            + str(datetime.datetime.now())
+            + "\n",
+        )
+        f.write("platform: ".ljust(30) + sysconfig.get_platform() + "\n")
+        f.write(
+            "python version: ".ljust(
+                30,
+            )
+            + sysconfig.get_python_version()
+            + "\n",
+        )
+        f.write("model_name: ".ljust(30) + model_name + "\n")
+        f.write("processes: ".ljust(30) + str(mpi_size) + "\n")
+        f.write("output folder:".ljust(30) + path_out + "\n")
+        f.write("restart:".ljust(30) + str(restart) + "\n")
+        f.write(
+            "max wall-clock time [min]:".ljust(30) + str(max_sim_time) + "\n",
+        )
+        f.write("save interval (steps):".ljust(30) + str(save_step) + "\n")
 
     if model_name is None:
         assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
@@ -367,7 +394,7 @@ if __name__ == "__main__":
         "--input",
         type=str,
         metavar="FILE",
-        help="absolute path of parameter file (.yml)",
+        help="absolute path of parameter file",
     )
 
     # output (absolute path)

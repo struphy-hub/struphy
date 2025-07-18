@@ -18,14 +18,11 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.io.parameters import StruphyParameters
-from struphy.io.setup import setup_derham, setup_domain_and_equil
+from struphy.io.setup import setup_derham
 from struphy.profiling.profiling import ProfileManager
-from struphy.propagators.base import Propagator
-from struphy.propagators.hub import Propagators
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 from struphy.models.species import Species, FieldSpecies, FluidSpecies, KineticSpecies, SubSpecies 
-from struphy.io.setup import derive_units
 from struphy.io.options import Units
 from struphy.geometry.base import Domain
 from struphy.geometry.domains import Cuboid

@@ -1,7 +1,10 @@
 import importlib.util
 import sys
+import glob
+import os
+import shutil
+import yaml
 
-import numpy as np
 from mpi4py import MPI
 
 from struphy.io.options import DerhamOptions
@@ -10,189 +13,173 @@ from struphy.topology.grids import TensorProductGrid
 from struphy.utils.utils import dict_to_yaml, read_state
 
 
-def derive_units(
-    Z_bulk: int = None,
-    A_bulk: int = None,
-    x: float = 1.0,
-    B: float = 1.0,
-    n: float = 1.0,
-    kBT: float = None,
-    velocity_scale: str = "alfvén",
+def setup_folders(
+    path_out: str,
+    restart: bool,
+    verbose: bool = False,
 ):
-    """Computes units used in Struphy model's :ref:`normalization`.
-
-    Input units from parameter file:
-
-    * Length (m)
-    * Magnetic field (T)
-    * Number density (10^20 1/m^3)
-    * Thermal energy (keV), optional
-
-    Velocity unit is defined here:
-
-    * Velocity (m/s)
-
-    Derived units using mass and charge number of bulk species:
-
-    * Time (s)
-    * Pressure (Pa)
-    * Mass density (kg/m^3)
-    * Current density (A/m^2)
-
-    Parameters
-    ---------
-    Z_bulk : int
-        Charge number of bulk species.
-
-    A_bulk : int
-        Mass number of bulk species.
-
-    x : float
-        Unit of length (in meters).
-
-    B : float
-        Unit of magnetic field (in Tesla).
-
-    n : float
-        Unit of particle number density (in 1e20 per cubic meter).
-
-    kBT : float
-        Unit of internal energy (in keV). Only in effect if the velocity scale is set to 'thermal'.
-
-    velocity_scale : str
-        Velocity scale to be used ("alfvén", "cyclotron", "light" or "thermal").
-
-    Returns
-    -------
-    units : dict
-        The Struphy units defined above and some Physics constants.
     """
-
-    units = {}
-
-    # physics constants
-    units["elementary charge"] = 1.602176634e-19  # elementary charge (C)
-    units["proton mass"] = 1.67262192369e-27  # proton mass (kg)
-    units["mu0"] = 1.25663706212e-6  # magnetic constant (N/A^2)
-    units["eps0"] = 8.8541878128e-12  # vacuum permittivity (F/m)
-    units["kB"] = 1.380649e-23  # Boltzmann constant (J/K)
-    units["speed of light"] = 299792458  # speed of light (m/s)
-
-    e = units["elementary charge"]
-    mH = units["proton mass"]
-    mu0 = units["mu0"]
-    eps0 = units["eps0"]
-    kB = units["kB"]
-    c = units["speed of light"]
-
-    # length (m)
-    units["x"] = x
-    # magnetic field (T)
-    units["B"] = B
-    # number density (1/m^3)
-    units["n"] = n * 1e20
-
-    # velocity (m/s)
-    if velocity_scale is None:
-        units["v"] = 1.0
-
-    elif velocity_scale == "light":
-        units["v"] = 1.0 * c
-
-    elif velocity_scale == "alfvén":
-        assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
-        units["v"] = units["B"] / np.sqrt(units["n"] * A_bulk * mH * mu0)
-
-    elif velocity_scale == "cyclotron":
-        assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
-        assert A_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
-        units["v"] = Z_bulk * e * units["B"] / (A_bulk * mH) * units["x"]
-
-    elif velocity_scale == "thermal":
-        assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
-        assert kBT is not None
-        units["v"] = np.sqrt(kBT * 1000 * e / (mH * A_bulk))
-
-    # time (s)
-    units["t"] = units["x"] / units["v"]
-    if A_bulk is None:
-        return units
-
-    # pressure (Pa), equal to B^2/mu0 if velocity_scale='alfvén'
-    units["p"] = A_bulk * mH * units["n"] * units["v"] ** 2
-
-    # mass density (kg/m^3)
-    units["rho"] = A_bulk * mH * units["n"]
-
-    # current density (A/m^2)
-    units["j"] = e * units["n"] * units["v"]
-
-    return units
-
-
-def setup_domain_and_equil(params: StruphyParameters):
+    Setup output folders.
     """
-    Creates the domain object and equilibrium for a given parameter file.
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        if verbose:
+            print("\nPREPARATION AND CLEAN-UP:")
+
+        # create output folder if it does not exit
+        if not os.path.exists(path_out):
+            os.makedirs(path_out, exist_ok=True)
+            if verbose:
+                print("Created folder " + path_out)
+
+        # create data folder in output folder if it does not exist
+        if not os.path.exists(os.path.join(path_out, "data/")):
+            os.mkdir(os.path.join(path_out, "data/"))
+            if verbose:
+                print("Created folder " + os.path.join(path_out, "data/"))
+        else:
+            # remove post_processing folder
+            folder = os.path.join(path_out, "post_processing")
+            if os.path.exists(folder):
+                shutil.rmtree(folder)
+                if verbose:
+                    print("Removed existing folder " + folder)
+
+            # remove meta file
+            file = os.path.join(path_out, "meta.txt")
+            if os.path.exists(file):
+                os.remove(file)
+                if verbose:
+                    print("Removed existing file " + file)
+
+            # remove profiling file
+            file = os.path.join(path_out, "profile_tmp")
+            if os.path.exists(file):
+                os.remove(file)
+                if verbose:
+                    print("Removed existing file " + file)
+
+            # remove .png files (if NOT a restart)
+            if not restart:
+                files = glob.glob(os.path.join(path_out, "*.png"))
+                for n, file in enumerate(files):
+                    os.remove(file)
+                    if verbose and n < 10:  # print only ten statements in case of many processes
+                        print("Removed existing file " + file)
+
+                files = glob.glob(os.path.join(path_out, "data", "*.hdf5"))
+                for n, file in enumerate(files):
+                    os.remove(file)
+                    if verbose and n < 10:  # print only ten statements in case of many processes
+                        print("Removed existing file " + file)
+
+
+def setup_parameters(
+    model_name: str,
+    parameters: dict | str,
+    path_out: str,
+    verbose: bool = False,
+):
+    """
+    Prepare simulation parameters from .yml or .py file.
 
     Parameters
     ----------
-    params : dict
-        The full simulation parameter dictionary.
+    model_name : str
+        The name of the model to run.
+
+    parameters : dict | str
+        The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
+
+    path_out : str
+        The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
+
+    verbose : bool
+        Show full screen output.
 
     Returns
     -------
-    domain : Domain
-        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
-
-    equil : FluidEquilibrium
-        The equilibrium object.
+    params : StruphyParameters
+        The simulation parameters.
+        
+    params_path : str
+        The absolute path to the loaded parameter file.
     """
 
-    # from struphy.fields_background import equils
-    from struphy.fields_background.base import (
-        NumericalFluidEquilibrium,
-        NumericalFluidEquilibriumWithB,
-        NumericalMHDequilibrium,
-    )
-    # from struphy.geometry import domains
+    # save "parameters" dictionary as .yml file
+    if isinstance(parameters, dict):
+        params_path = os.path.join(path_out, "parameters.yml")
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            dict_to_yaml(parameters, params_path)
+        params = parameters
 
-    if params.equil is not None:
-        # for eq_type, eq_params in params["fluid_background"].items():
-        #     eq_class = getattr(equils, eq_type)
-        #     if eq_type in ("EQDSKequilibrium", "GVECequilibrium", "DESCequilibrium"):
-        #         equil = eq_class(**eq_params, units=units)
-        #     else:
-        #         equil = eq_class(**eq_params)
-
-        equil = params.equil
-
-        # for numerical equilibria, the domain comes from the equilibrium
-        if isinstance(equil, (NumericalMHDequilibrium, NumericalFluidEquilibrium, NumericalFluidEquilibriumWithB)):
-            domain = equil.domain
-        # for all other equilibria, the domain can be chosen idependently
-        else:
-            # dom_type = params["geometry"]["type"]
-            # dom_class = getattr(domains, dom_type)
-
-            # if dom_type == "Tokamak":
-            #     domain = dom_class(**params["geometry"][dom_type], equilibrium=equil)
-            # else:
-            #     domain = dom_class(**params["geometry"][dom_type])
-            domain = params.domain
-
-            # set domain attribute in mhd object
-            equil.domain = params.domain
-
-    # no equilibrium (just load domain)
+    # OR load parameters if "parameters" is a string (path)
     else:
-        # dom_type = params["geometry"]["type"]
-        # dom_class = getattr(domains, dom_type)
-        # domain = dom_class(**params["geometry"][dom_type])
+        params_path = parameters
 
-        domain = params.domain
-        equil = None
+        if ".yml" in parameters or ".yaml" in parameters:
+            with open(parameters) as file:
+                params = yaml.load(file, Loader=yaml.FullLoader)
+        elif ".py" in parameters:
+            # print(f'{parameters = }')
+            # Read struphy state file
+            # state = read_state()
+            # i_path = state["i_path"]
+            # load parameter.py
+            spec = importlib.util.spec_from_file_location("parameters", parameters)
+            params_in = importlib.util.module_from_spec(spec)
+            sys.modules["parameters"] = params_in
+            spec.loader.exec_module(params_in)
 
-    return domain, equil
+            if not hasattr(params_in, "model"):
+                params_in.model = None
+
+            if not hasattr(params_in, "domain"):
+                params_in.domain = None
+
+            if not hasattr(params_in, "grid"):
+                params_in.grid = None
+
+            if not hasattr(params_in, "equil"):
+                params_in.equil = None
+
+            if not hasattr(params_in, "units"):
+                params_in.units = None
+
+            if not hasattr(params_in, "time"):
+                params_in.time = None
+
+            if not hasattr(params_in, "derham"):
+                params_in.derham = None
+
+            params = StruphyParameters(
+                model=params_in.model,
+                units=params_in.units,
+                domain=params_in.domain,
+                equil=params_in.equil,
+                time=params_in.time,
+                grid=params_in.grid,
+                derham=params_in.derham,
+                verbose=verbose,
+            )
+
+    if model_name is None:
+        assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
+        model_name = params.model
+
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        # copy parameter file to output folder
+        filename = params_path.split("/")[-1]
+        ext = filename.split(".")[-1]
+        if params_path != os.path.join(path_out, "parameters." + ext):
+            shutil.copy2(
+                params_path,
+                os.path.join(
+                    path_out,
+                    "parameters." + ext,
+                ),
+            )
+
+    return params, params_path
 
 
 def setup_derham(
@@ -280,274 +267,6 @@ def setup_derham(
         print("domain on process 0:".ljust(25), derham.domain_array[0])
 
     return derham
-
-
-def pre_processing(
-    model_name: str,
-    parameters: dict | str,
-    path_out: str,
-    restart: bool,
-    max_sim_time: int,
-    save_step: int,
-    mpi_rank: int,
-    mpi_size: int,
-    use_mpi: bool,
-    num_clones: int,
-    verbose: bool = False,
-):
-    """
-    Prepares simulation parameters, output folder and prints some information of the run to the screen.
-
-    Parameters
-    ----------
-    model_name : str
-        The name of the model to run.
-
-    parameters : dict | str
-        The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
-
-    path_out : str
-        The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
-
-    restart : bool
-        Whether to restart a run.
-
-    max_sim_time : int
-        Maximum run time of simulation in minutes. Will finish the time integration once this limit is reached.
-
-    save_step : int
-        When to save data output: every time step (save_step=1), every second time step (save_step=2).
-
-    mpi_rank : int
-        The rank of the calling process.
-
-    mpi_size : int
-        Total number of MPI processes of the run.
-
-    use_mpi: bool
-        True if MPI.COMM_WORLD is not None.
-
-    num_clones: int
-        Number of domain clones.
-
-    verbose : bool
-        Show full screen output.
-
-    Returns
-    -------
-    params : dict
-        The simulation parameters.
-    """
-
-    import datetime
-    import glob
-    import os
-    import shutil
-    import sysconfig
-
-    import yaml
-
-    from struphy.models import fluid, hybrid, kinetic, toy
-
-    # prepare output folder
-    if mpi_rank == 0:
-        if verbose:
-            print("\nPREPARATION AND CLEAN-UP:")
-
-        # create output folder if it does not exit
-        if not os.path.exists(path_out):
-            os.makedirs(path_out, exist_ok=True)
-            if verbose:
-                print("Created folder " + path_out)
-
-        # create data folder in output folder if it does not exist
-        if not os.path.exists(os.path.join(path_out, "data/")):
-            os.mkdir(os.path.join(path_out, "data/"))
-            if verbose:
-                print("Created folder " + os.path.join(path_out, "data/"))
-
-        # clean output folder if it already exists
-        else:
-            # remove post_processing folder
-            folder = os.path.join(path_out, "post_processing")
-            if os.path.exists(folder):
-                shutil.rmtree(folder)
-                if verbose:
-                    print("Removed existing folder " + folder)
-
-            # remove meta file
-            file = os.path.join(path_out, "meta.txt")
-            if os.path.exists(file):
-                os.remove(file)
-                if verbose:
-                    print("Removed existing file " + file)
-
-            # remove profiling file
-            file = os.path.join(path_out, "profile_tmp")
-            if os.path.exists(file):
-                os.remove(file)
-                if verbose:
-                    print("Removed existing file " + file)
-
-            # remove .png files (if NOT a restart)
-            if not restart:
-                files = glob.glob(os.path.join(path_out, "*.png"))
-                for n, file in enumerate(files):
-                    os.remove(file)
-                    if verbose and n < 10:  # print only ten statements in case of many processes
-                        print("Removed existing file " + file)
-
-                files = glob.glob(os.path.join(path_out, "data", "*.hdf5"))
-                for n, file in enumerate(files):
-                    os.remove(file)
-                    if verbose and n < 10:  # print only ten statements in case of many processes
-                        print("Removed existing file " + file)
-
-    # save "parameters" dictionary as .yml file
-    if isinstance(parameters, dict):
-        parameters_path = os.path.join(path_out, "parameters.yml")
-
-        # write parameters to file and save it in output folder
-        if mpi_rank == 0:
-            dict_to_yaml(parameters, parameters_path)
-
-        params = parameters
-
-    # OR load parameters if "parameters" is a string (path)
-    else:
-        parameters_path = parameters
-
-        if ".yml" in parameters or ".yaml" in parameters:
-            with open(parameters) as file:
-                params = yaml.load(file, Loader=yaml.FullLoader)
-        elif ".py" in parameters:
-            # print(f'{parameters = }')
-            # Read struphy state file
-            state = read_state()
-            i_path = state["i_path"]
-            # load parameter.py
-            spec = importlib.util.spec_from_file_location("parameters", parameters)
-            params_in = importlib.util.module_from_spec(spec)
-            sys.modules["parameters"] = params_in
-            spec.loader.exec_module(params_in)
-
-            if not hasattr(params_in, "model"):
-                params_in.model = None
-
-            if not hasattr(params_in, "domain"):
-                params_in.domain = None
-
-            if not hasattr(params_in, "grid"):
-                params_in.grid = None
-
-            if not hasattr(params_in, "equil"):
-                params_in.equil = None
-
-            if not hasattr(params_in, "units"):
-                params_in.units = None
-
-            if not hasattr(params_in, "time"):
-                params_in.time = None
-
-            if not hasattr(params_in, "derham"):
-                params_in.derham = None
-
-            if not hasattr(params_in, "em_fields"):
-                params_in.em_fields = None
-
-            if not hasattr(params_in, "fluid"):
-                params_in.fluid = None
-
-            if not hasattr(params_in, "kinetic"):
-                params_in.kinetic = None
-
-            if not hasattr(params_in, "diagnostic_fields"):
-                params_in.diagnostic_fields = None
-
-            print(f"{params_in = }")
-            print(f"{params_in.model = }")
-            print(f"{params_in.domain = }")
-            print(f"{params_in.grid = }")
-            print(f"{params_in.equil = }")
-            print(f"{params_in.units = }")
-            print(f"{params_in.time = }")
-            print(f"{params_in.derham = }")
-            print(f"{params_in.em_fields = }")
-            print(f"{params_in.fluid = }")
-            print(f"{params_in.kinetic = }")
-            print(f"{params_in.diagnostic_fields = }")
-
-            params = StruphyParameters(
-                model=params_in.model,
-                domain=params_in.domain,
-                grid=params_in.grid,
-                equil=params_in.equil,
-                units=params_in.units,
-                time=params_in.time,
-                derham=params_in.derham,
-                em_fields=params_in.em_fields,
-                fluid=params_in.fluid,
-                kinetic=params_in.kinetic,
-                diagnostic_fields=params_in.diagnostic_fields,
-            )
-
-    if model_name is None:
-        assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
-        model_name = params.model
-
-    if mpi_rank == 0:
-        # copy parameter file to output folder
-        if parameters_path != os.path.join(path_out, "parameters.yml"):
-            shutil.copy2(
-                parameters_path,
-                os.path.join(
-                    path_out,
-                    "parameters.yml",
-                ),
-            )
-
-        # print simulation info
-        print("\nMETADATA:")
-        print("platform:".ljust(25), sysconfig.get_platform())
-        print("python version:".ljust(25), sysconfig.get_python_version())
-        print("model:".ljust(25), model_name)
-        print("MPI processes:".ljust(25), mpi_size)
-        print("use MPI.COMM_WORLD:".ljust(25), use_mpi)
-        print("number of domain clones:".ljust(25), num_clones)
-        print("parameter file:".ljust(25), parameters_path)
-        print("output folder:".ljust(25), path_out)
-        print("restart:".ljust(25), restart)
-        print("max wall-clock [min]:".ljust(25), max_sim_time)
-        print("save interval [steps]:".ljust(25), save_step)
-
-        # write meta data to output folder
-        with open(path_out + "/meta.txt", "w") as f:
-            f.write(
-                "date of simulation: ".ljust(
-                    30,
-                )
-                + str(datetime.datetime.now())
-                + "\n",
-            )
-            f.write("platform: ".ljust(30) + sysconfig.get_platform() + "\n")
-            f.write(
-                "python version: ".ljust(
-                    30,
-                )
-                + sysconfig.get_python_version()
-                + "\n",
-            )
-            f.write("model_name: ".ljust(30) + model_name + "\n")
-            f.write("processes: ".ljust(30) + str(mpi_size) + "\n")
-            f.write("use MPI.COMM_WORLD: ".ljust(30) + str(use_mpi) + "\n")
-            f.write("output folder:".ljust(30) + path_out + "\n")
-            f.write("restart:".ljust(30) + str(restart) + "\n")
-            f.write(
-                "max wall-clock time [min]:".ljust(30) + str(max_sim_time) + "\n",
-            )
-            f.write("save interval (steps):".ljust(30) + str(save_step) + "\n")
-
-    return params
 
 
 def descend_options_dict(
