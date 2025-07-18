@@ -227,8 +227,11 @@ Struphy enforces the following formatting standards:
 
 * `ruff <https://github.com/astral-sh/ruff>`_
 
-These standards are checked in the "linting" stage of the CI. When coding locally in a feature branch, 
-you can check the formatting via::
+These standards are checked in the "linting" stage of the CI. You can check the linting of all files with::
+
+    struphy lint all
+
+When coding locally in a feature branch, you can check the formatting only in your branch with::
 
     struphy lint branch
 
@@ -252,13 +255,11 @@ you can check the formatting via::
     +--------------------------------+---------+---------+-----------+--------+--------+-------------+
     Not all files will pass CI
 
-In the CI, the formatting standards are checked with ``ruff check`` and ``ruff format --check``.
-
-Note that you should always keep your local ``devel`` branch up to date with the one one remote, otherwise ``struphy lint branch`` might pass locally but not in the CI.
+In the CI, the formatting standards are checked for all source files with ``ruff check`` and ``ruff format --check``.
 
 In order to format the files that would not pass the CI::
 
-    struphy format branch
+    struphy format all
 
 You should format before pushing to origin. 
 Available options can be seen under ``struphy format -h`` and ``struphy lint -h``, respectively.
