@@ -18,7 +18,7 @@ import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
 
 # do not remove; needed to identify dependencies
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -27,7 +27,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 
 def gc_density_0form(

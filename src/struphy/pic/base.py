@@ -21,7 +21,7 @@ from struphy.initial import perturbations
 from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background import maxwellians
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
+from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     flatten_index,

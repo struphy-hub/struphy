@@ -6,9 +6,9 @@ import struphy.geometry.evaluation_kernels as evaluation_kernels
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 # do not remove; needed to identify dependencies
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
 from struphy.bsplines.evaluation_kernels_3d import get_spans
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
 @stack_array('dfm', 'dfinv', 'eta', 'v', 'v_logical')

@@ -23,8 +23,8 @@ from numpy import empty, shape, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 
 #################################
 ### Single process evaluation ###
