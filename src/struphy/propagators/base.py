@@ -8,7 +8,7 @@ from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
-from struphy.models.species import Variable
+from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
 
 
 class Propagator(metaclass=ABCMeta):
@@ -41,14 +41,13 @@ class Propagator(metaclass=ABCMeta):
     def set_variables(self, *vars):
         for var in vars:
             assert isinstance(var, Variable)
-            if var.has_particles:
+            if isinstance(var, (PICVariable, SPHVariable)):
                 # comm = var.obj.mpi_comm
                 pass
-            else:
+            elif isinstance(var, FEECVariable):
                 # comm = var.obj.comm
                 pass
         self._vars = vars
-
 
     @property
     def vars(self):

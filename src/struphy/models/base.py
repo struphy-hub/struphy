@@ -24,7 +24,7 @@ from struphy.propagators.base import Propagator
 from struphy.propagators.hub import Propagators
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
-from struphy.models.species import Species, SubSpecies 
+from struphy.models.species import Species, FieldSpecies, FluidSpecies, KineticSpecies, SubSpecies 
 from struphy.io.setup import derive_units
 from struphy.io.options import Units
 from struphy.geometry.base import Domain
@@ -53,15 +53,39 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.
     """
 
-    def __init__(
+    ## abstract methods
+
+    @abstractmethod
+    class Propagators:
+        pass
+    
+    @property    
+    @abstractmethod
+    def bulk_species() -> SubSpecies:
+        """Bulk species of the plasma. Must be an attribute of species_static()."""
+
+    @property
+    @abstractmethod
+    def velocity_scale() -> str:
+        """Velocity unit scale of the model.
+        Must be one of "alfvén", "cyclotron", "light" or "thermal"."""
+
+    @abstractmethod
+    def update_scalar_quantities(self):
+        """Specify an update rule for each item in ``scalar_quantities`` using :meth:`update_scalar`."""
+
+    ## setup methods
+
+    def setup(
         self,
         units: Units = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         comm: MPI.Intracomm = None,
         clone_config: CloneConfig = None,
-        verbose: bool = False,
+        verbose=False,
     ):
+        """Light-weight initialization of StruphyModel. Must be called in each Propagator.__init__()."""
 
         # defaults
         if units is None:
@@ -82,30 +106,23 @@ class StruphyModel(metaclass=ABCMeta):
         else:
             self._rank_world = self.comm_world.Get_rank()
 
-        # initialize static version of species and propagators
-        self.init_species()
-        self.init_propagators()
-
         # other light-weight inits
         self._units = units
         self.units.derive_units(verbose=verbose)
-        self.init_equation_params(units=self.units, verbose=verbose)
+        self.setup_equation_params(units=self.units, verbose=verbose)
+        self.setup_domain_and_equil(domain, equil)
         
-        self.config_domain_and_equil(domain, equil)
-        
-    def init_equation_params(self, units: Units, verbose=False):
-        # set equation parameters for each species
-        if self.species.fluid is not None:
-            for _, species in self.species.fluid.all.items():
-                assert isinstance(species, SubSpecies)
-                species.set_equation_params(units=units, verbose=verbose)
+    def setup_equation_params(self, units: Units, verbose=False):
+        """Set euqation parameters for each fluid and kinetic species."""
+        for _, species in self.fluid_species.items():
+            assert isinstance(species, FluidSpecies)
+            species.setup_equation_params(units=units, verbose=verbose)
 
-        if self.species.kinetic is not None:
-            for name, species in self.species.kinetic.all.items():
-                assert isinstance(species, SubSpecies)
-                species.set_equation_params(units=units, verbose=verbose)
-        
-    def config_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
+        for _, species in self.kinetic_species.items():
+            assert isinstance(species, KineticSpecies)
+            species.setup_equation_params(units=units, verbose=verbose)
+           
+    def setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
         """If a numerical equilibirum is used, the domain is taken from this equilibirum. """
         if equil is not None:
             self._equil = equil
@@ -117,6 +134,45 @@ class StruphyModel(metaclass=ABCMeta):
         else:
             self._domain = domain
             self._equil = None      
+     
+    ## species 
+     
+    @property
+    def field_species(self) -> dict:
+        spec = {}
+        for k, v in self.__dict__.items():
+            if isinstance(v, FieldSpecies):
+                spec[k] = v
+        return spec
+    
+    @property
+    def fluid_species(self) -> dict:
+        spec = {}
+        for k, v in self.__dict__.items():
+            if isinstance(v, FluidSpecies):
+                spec[k] = v
+        return spec
+    
+    @property
+    def kinetic_species(self) -> dict:
+        spec = {}
+        for k, v in self.__dict__.items():
+            if isinstance(v, KineticSpecies):
+                spec[k] = v
+        return spec
+    
+    @property
+    def all_species(self):
+        spec = {}
+        for k, v in self.field_species.items():
+            spec[k] = v
+        for k, v in self.fluid_species.items():
+            spec[k] = v
+        for k, v in self.kinetic_species.items():
+            spec[k] = v
+        return spec
+    
+    ## allocate methods
              
     def allocate(self,
                  grid=None,
@@ -244,54 +300,26 @@ class StruphyModel(metaclass=ABCMeta):
             Propagator.projected_equil = self.projected_equil
 
         # create dummy lists/dicts to be filled by the sub-class
-        self._propagators = []
+
         self._kwargs = {}
         self._scalar_quantities = {}
 
         return params
 
-    ## abstract methods
 
-    @abstractmethod
-    def init_species() -> Species:
-        """Static version of the species of a model (no runtime parameters)."""
-
-    @abstractmethod
-    def init_propagators() -> Propagators:
-        """Static version of the propagators of a model (no runtime parameters)."""
     
-    @property    
-    @abstractmethod
-    def bulk_species() -> SubSpecies:
-        """Bulk species of the plasma. Must be an attribute of species_static()."""
-
-    @property
-    @abstractmethod
-    def velocity_scale() -> str:
-        """Velocity unit scale of the model.
-        Must be one of "alfvén", "cyclotron", "light" or "thermal"."""
+    
 
     @staticmethod
     def diagnostics_dct():
         """Diagnostics dictionary.
         Model specific variables (FemField) which is going to be saved during the simulation.
         """
-        
-    @abstractmethod
-    def update_scalar_quantities(self):
-        """Specify an update rule for each item in ``scalar_quantities`` using :meth:`update_scalar`."""
-        pass
 
     ## basic properties
-
     @property
     def species(self) -> Species:
         return self._species
-
-    @property
-    def propagators(self) -> Propagators:
-        """A list of propagator instances for the model."""
-        return self._propagators
 
     @property
     def params(self):
@@ -330,21 +358,6 @@ class StruphyModel(metaclass=ABCMeta):
         The keys are the keys from the "species" property.
         In case of a fluid species, the keys are like "species_variable"."""
         return self._pointer
-
-    @property
-    def em_fields(self):
-        """Dictionary of electromagnetic field/potential variables."""
-        return self._em_fields
-
-    @property
-    def fluid(self):
-        """Dictionary of fluid species."""
-        return self._fluid
-
-    @property
-    def kinetic(self):
-        """Dictionary of kinetic species."""
-        return self._kinetic
 
     @property
     def diagnostics(self):
@@ -643,40 +656,6 @@ class StruphyModel(metaclass=ABCMeta):
         self._time_state = time_state
         for prop in self.propagators:
             prop.add_time_state(time_state)
-
-    def init_propagators(self):
-        """Initialize the propagator objects specified in :attr:`~propagators_cls`."""
-        if self.rank_world == 0 and self.verbose:
-            print("\nPROPAGATORS:")
-        for (prop, variables), (prop2, kwargs_i) in zip(self.propagators_dct().items(), self.kwargs.items()):
-            assert prop == prop2, (
-                f'Propagators {prop} from "self.propagators_dct()" and {prop2} from "self.kwargs" must be identical !!'
-            )
-
-            if kwargs_i is None:
-                if self.rank_world == 0:
-                    print(f'\n-> Propagator "{prop.__name__}" will not be used.')
-                continue
-            else:
-                if self.rank_world == 0 and self.verbose:
-                    print(f'\n-> Initializing propagator "{prop.__name__}"')
-                    print(f"-> for variables {variables}")
-                    print(f"-> with the following parameters:")
-                    for k, v in kwargs_i.items():
-                        if isinstance(v, StencilVector):
-                            print(f"{k}: {repr(v)}")
-                        else:
-                            print(f"{k}: {v}")
-
-                prop_instance = prop(
-                    *[self.pointer[var] for var in variables],
-                    **kwargs_i,
-                )
-                assert isinstance(prop_instance, Propagator)
-                self._propagators += [prop_instance]
-
-        if self.rank_world == 0 and self.verbose:
-            print("\nInitialization of propagators complete.")
 
     def integrate(self, dt, split_algo="LieTrotter"):
         """

@@ -50,7 +50,7 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.models.species import Variable
+from struphy.models.variables import Variable
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.io.options import check_option
 

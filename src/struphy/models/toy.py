@@ -1,12 +1,11 @@
-from struphy.models.species import SubSpecies, MultiSpecies, Variable, KineticSpecies, FluidSpecies
 
 from dataclasses import dataclass
 import numpy as np
 
 from struphy.models.base import StruphyModel
-from struphy.models.species import Species
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-from struphy.propagators.hub import Propagators
+from struphy.models.species import KineticSpecies, FluidSpecies, FieldSpecies
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 
 
 class Maxwell(StruphyModel):
@@ -33,50 +32,54 @@ class Maxwell(StruphyModel):
     :ref:`Model info <add_model>`:
     """
     
-    def init_species(self):
-        self._species = Species(em_fields=True)
-        self._species.em_fields.add_variable(name="e_field", space="Hcurl")
-        self._species.em_fields.add_variable(name="b_field", space="Hdiv")
-    
-    
     @dataclass
-    class MaxwellPropagators(Propagators):
-        # TODO: Make sure the propagators are in the right order
-        Maxwell = propagators_fields.Maxwell()
+    class Propagators:
+        maxwell = propagators_fields.Maxwell()
 
     @dataclass
-    class EMFields:
-        e_field = Variable(space="Hcurl")
-        b_field = Variable(space="Hdiv")
+    class EMFields(FieldSpecies):
+        e_field = FEECVariable(space="Hcurl")
+        b_field = FEECVariable(space="Hdiv")
     
-    @dataclass
-    class Ions(KineticSpecies):
-        density = Variable(space="H0")
-        pressure = Variable(space="H0")
+    # @dataclass
+    # class Ions(KineticSpecies):
+    #     distribution_function = PICVariable(type="Particles6D")
     
-    @dataclass
-    class Electrons(FluidSpecies):
-        density = Variable(space="H0")
-        pressure = Variable(space="H0")
+    # @dataclass
+    # class Electrons(FluidSpecies):
+    #     density = FEECVariable(space="H0")
+    #     pressure = FEECVariable(space="H0")
 
-    def __init__(self):
-        
+    def __init__(self, units, domain, equil, verbose=False):
+        # 1. instantiate all variales
         self._em_fields = self.EMFields()
-        self._ions = self.Ions()
-        self._electrons = self.Electrons()
+        # self._ions = self.Ions()
+        # self._electrons = self.Electrons()
 
-        self._propagators = self.MaxwellPropagators()
-        self._propagators.Maxwell.set_variables(
-            e = self._em_fields.e_field,
-            b = self._em_fields.b_field,
-            )
-
-    def init_propagators(self):
-        # self._propagators = Propagators()
+        # 2. instantiate all propagators
+        self._propagators = self.Propagators()
         
-        self._propagators.add(propagators_fields.Maxwell,
-                        self.species.em_fields.e_field,
-                        self.species.em_fields.b_field,)
+        # 3. assign variables to propagators
+        self.propagators.maxwell.set_variables(
+            self.em_fields.e_field,
+            self.em_fields.b_field,
+            )
+        
+        # setup rest of model
+        self.setup(units=units, domain=domain, equil=equil, verbose=verbose)
+    
+    ## variable and propagator attributes
+    
+    @property
+    def propagators(self) -> Propagators:
+        """A list of propagator instances for the model."""
+        return self._propagators
+    
+    @property
+    def em_fields(self) -> EMFields:
+        return self._em_fields
+    
+    ## abstract attributes
     
     @property 
     def bulk_species(self):
@@ -85,22 +88,6 @@ class Maxwell(StruphyModel):
     @property
     def velocity_scale(self):
         return "light"
-
-    # __em_fields__ = [(v.name, v.space) for k, v in species_static().em_fields.all.items() if k != "_name"]
-    # __fluid_species__ = species()["fluid"]
-    # __kinetic_species__ = species()["kinetic"]
-    # __bulk_species__ = bulk_species()
-    # __velocity_scale__ = velocity_scale()
-    # __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params=None, comm=None, clone_config=None, verbose=False):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config, verbose=verbose)
-
-        # # Scalar variables to be saved during simulation
-        # self.add_scalar("electric energy")
-        # self.add_scalar("magnetic energy")
-        # self.add_scalar("total energy")
 
     def update_scalar_quantities(self):
         en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
