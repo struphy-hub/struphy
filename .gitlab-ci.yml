@@ -911,7 +911,7 @@ lint_full_repo_report:
     expire_in: 1 month
 
 # Lint struphy with `struphy lint`
-lint_branch:
+lint_repo:
   stage: lint
   needs: []
   extends:
@@ -924,7 +924,6 @@ lint_branch:
     - !reference [.scripts, inspect_struphy]
     # Lint all files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
     - struphy lint all --output-format plain --verbose
-  allow_failure: true
 
 # Lint struphy with `struphy lint`
 lint_branch_report:
