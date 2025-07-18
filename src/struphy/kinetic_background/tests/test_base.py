@@ -1,19 +1,19 @@
 def test_kinetic_background_magics(show_plot=False):
-    '''Test the magic commands __sum__, __mul__ and __sub__ 
-    of the Maxwellian base class.'''
-    import numpy as np
+    """Test the magic commands __sum__, __mul__ and __sub__
+    of the Maxwellian base class."""
     import matplotlib.pyplot as plt
+    import numpy as np
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     Nel = [32, 1, 1]
-    e1 = np.linspace(0., 1., Nel[0])
-    e2 = np.linspace(0., 1., Nel[1])
-    e3 = np.linspace(0., 1., Nel[2])
-    v1 = np.linspace(-7., 7., 128)
+    e1 = np.linspace(0.0, 1.0, Nel[0])
+    e2 = np.linspace(0.0, 1.0, Nel[1])
+    e3 = np.linspace(0.0, 1.0, Nel[2])
+    v1 = np.linspace(-7.0, 7.0, 128)
 
-    m1_params = {'n': .5, 'u1': 3.}
-    m2_params = {'n': .5, 'u1': -3.}
+    m1_params = {"n": 0.5, "u1": 3.0}
+    m2_params = {"n": 0.5, "u1": -3.0}
 
     m1 = Maxwellian3D(maxw_params=m1_params)
     m2 = Maxwellian3D(maxw_params=m2_params)
@@ -26,10 +26,7 @@ def test_kinetic_background_magics(show_plot=False):
     m_sub = m1 - m2
 
     # compare distribution function
-    meshgrids = np.meshgrid(
-        e1, e2, e3,
-        v1, [0.], [0.]
-    )
+    meshgrids = np.meshgrid(e1, e2, e3, v1, [0.0], [0.0])
 
     m1_vals = m1(*meshgrids)
     m2_vals = m2(*meshgrids)
@@ -49,9 +46,7 @@ def test_kinetic_background_magics(show_plot=False):
     assert np.allclose(m1_vals - m2_vals, m_sub_vals)
 
     # compare first two moments
-    meshgrids = np.meshgrid(
-        e1, e2, e3
-    )
+    meshgrids = np.meshgrid(e1, e2, e3)
 
     n1_vals = m1.n(*meshgrids)
     n2_vals = m2.n(*meshgrids)
@@ -72,22 +67,22 @@ def test_kinetic_background_magics(show_plot=False):
         plt.figure(figsize=(12, 8))
         plt.subplot(3, 2, 1)
         plt.plot(v1, m1_vals[0, 0, 0, :, 0, 0])
-        plt.title('M1')
+        plt.title("M1")
         plt.subplot(3, 2, 3)
         plt.plot(v1, m2_vals[0, 0, 0, :, 0, 0])
-        plt.title('M2')
+        plt.title("M2")
         plt.subplot(3, 2, 5)
         plt.plot(v1, m_add_vals[0, 0, 0, :, 0, 0])
-        plt.title('M1 + M2')
+        plt.title("M1 + M2")
         plt.subplot(3, 2, 2)
         plt.plot(v1, m_mul_int_vals[0, 0, 0, :, 0, 0])
-        plt.title('2 * M1')
+        plt.title("2 * M1")
         plt.subplot(3, 2, 6)
         plt.plot(v1, m_sub_vals[0, 0, 0, :, 0, 0])
-        plt.title('M1 - M2')
+        plt.title("M1 - M2")
 
         plt.show()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_kinetic_background_magics(show_plot=True)
