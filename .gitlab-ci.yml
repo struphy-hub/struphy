@@ -373,10 +373,12 @@ stages:
     - struphy -h
   compile:
     - pyccel --version
+    - struphy compile -d -y
     - struphy compile --status
     - struphy compile -y
   compile_matrix:
     - pyccel --version
+    - struphy compile -d -y
     - struphy compile --status
     - echo ${LANGUAGE} && echo ${OMP}
     - struphy compile --language ${LANGUAGE} ${OMP} -y
@@ -555,6 +557,7 @@ pages_tests:
     - module load pandoc
     - module list
     - pip install -e .[doc]
+    - struphy compile -d -y
     - struphy compile -y
     - cd doc ; make html; cd ..
 
