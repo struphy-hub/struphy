@@ -7719,6 +7719,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             B1np = -self._M3np @ self._Dnp
             B2np = self._M3np @ self._Dnp
             self._B1np = B1np
+            self._B2np = B2np
             self._F1np = self._F1.toarray()
             self._F2np = self._F2.toarray()
             _Anp = [A11np, self.A22np]
@@ -7841,6 +7842,16 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 _Anppre = [_A11prenp, _A22prenp]
             _F1np = self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
             _Fnp = [_F1np, self._F2np]
+
+            # #check if input is solution
+            # diff1 = A11np.dot(unfeec.toarray()) + self._B1np.T.dot(phinfeec.toarray()) - _F1np
+            # diff2 = A22np.dot(uenfeec.toarray()) + self._B2np.T.dot(phinfeec.toarray()) - self._F2np
+            # print(f"{np.max(diff1)=}")
+            # print(f"{np.max(diff2)=}")
+            # print(f"{np.linalg.norm(diff1)=}")
+            # print(f"{np.linalg.norm(diff2)=}")
+            # exit()
+
 
             if self.rank == 0:
                 self._solver_UzawaNumpy.A = _Anp
