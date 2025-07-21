@@ -1,6 +1,6 @@
 "Pusher kernels for full orbit (6D) particles."
 
-from numpy import cos, empty, floor, shape, sin, sqrt, zeros
+from numpy import cos, empty, floor, shape, sin, sqrt, zeros, expm1
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -3017,12 +3017,16 @@ def push_weights_dfva_explicit(
         v_diff[:] = delta_v[ip, :]
 
         # Norms of old and new velocities
-        v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
-        v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
+        v_tilde = linalg_kernels.scalar_dot(v_diff, v_diff)
+        v_tilde *= 0.5
+        v_tilde += linalg_kernels.scalar_dot(v_old, v_diff)
+        v_tilde /= vth**2
+        v_tilde *= (-1.0)
 
         # compute explicit velocity update
-        update = f0 / markers[ip, 7] * utils.expm1_taylor(-v_tilde / vth**2, n_terms=200)
-        markers[ip, 6] -= update
+        markers[ip, 6] -= f0 / markers[ip, 7] \
+            * expm1(v_tilde)
+            # * utils.expm1_taylor(v_tilde, n_terms=200)
 
 
 @stack_array("v_old", "v_next")

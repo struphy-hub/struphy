@@ -1222,21 +1222,28 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         self.add_scalar("en_c_ln_n", compute="from_particles", species="species1")
         self.add_scalar("en_c_v_2", compute="from_particles", species="species1")
         self.add_scalar("en_w", compute="from_particles", species="species1")
+        self.add_scalar("en_c_ln_c", compute="from_particles", species="species1")
+        self.add_scalar("en_gamma", compute="from_particles", species="species1")
         self.add_scalar(
             "en_tot_p",
             compute="from_particles",
             species="species1",
-            summands=["en_c_ln_n", "en_c_v_2", "en_w"],
+            summands=[
+                "en_c_ln_n",
+                "en_c_v_2",
+                "en_w",
+                "en_c_ln_c",
+                "en_gamma",
+            ],
         )
         self.add_scalar("en_tot", summands=["en_E", "en_tot_p"])
-        self.add_scalar("gamma", compute="from_particles", species="species1")
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._tmp = np.empty(4, dtype=float)
+        self._tmp = np.empty(5, dtype=float)
 
     def initialize_from_params(self):
         """Solve initial Poisson equation.
@@ -1316,7 +1323,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # gamma_p |v_p|^2 / (2 vth^2)
         self._tmp[1] = (
-            self.alpha**2
+            self.alpha**2 / 2.
             * np.dot(
                 self.pointer["species1"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
@@ -1327,17 +1334,27 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         self.update_scalar("en_c_v_2", self._tmp[1])
 
         # w_p
-        self._tmp[2] = (
-            self.alpha**2 * self.vth**2 * self.pointer["species1"].weights.sum()
-        )
+        self._tmp[2] = self.alpha**2 * self.vth**2 * self.pointer["species1"].weights.sum()
         self.update_scalar("en_w", self._tmp[2])
+
+        # gamma_p * ln(gamma_p)
+        self._tmp[3] = (
+            self.alpha**2
+            * self.vth**2
+            * np.dot(
+                self._gamma[self.pointer["species1"].valid_mks],
+                np.log(self._gamma[self.pointer["species1"].valid_mks]),
+            )
+        )
+        self.update_scalar("en_c_ln_c", self._tmp[3])
+
+        # gamma * ln(1 / sqrt( (2*pi*vth^2)^3 ) )
+        self._tmp[4] = - self.alpha**2 * self.vth**2 * 1.5 * self._gamma[self.pointer["species1"].valid_mks].sum() * np.log(2 * np.pi * self.vth**2)
+        # self._tmp[4] = self._gamma[self.pointer["species1"].valid_mks].sum()
+        self.update_scalar("en_gamma", self._tmp[4])
 
         # total particle energy
         self.update_scalar("en_tot_p")
-
-        # gamma
-        self._tmp[3] = self._gamma.sum()
-        self.update_scalar("gamma", self._tmp[3])
 
         self.derham.comm.Allreduce(
             self._mpi_in_place,

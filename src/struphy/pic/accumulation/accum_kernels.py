@@ -10,7 +10,7 @@ These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.A
 
 from math import erf, pi
 
-from numpy import cosh, empty, exp, floor, shape, sinh, sqrt, zeros
+from numpy import cosh, empty, exp, floor, shape, sinh, sqrt, zeros, expm1
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
@@ -551,8 +551,11 @@ def dfva_accum_explicit(
         # Norms of old and new velocities
         v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
+        v_tilde /= vth**2
+        v_tilde *= (-1.0)
 
-        factor = f0 / markers[ip, 7] * utils.expm1_minus_x_over_x(-v_tilde / vth**2, n_terms=200) - markers[ip, 6]
+        # factor = f0 / markers[ip, 7] * utils.expm1_minus_x_over_x(-v_tilde / vth**2, n_terms=200) - markers[ip, 6]
+        factor = f0 / markers[ip, 7] * (expm1(v_tilde) / v_tilde - 1.0) - markers[ip, 6]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
