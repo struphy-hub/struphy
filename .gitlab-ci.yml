@@ -375,11 +375,22 @@ stages:
     - pyccel --version
     - struphy compile --status
     - struphy compile -y
+    - |
+      struphy compile -y || (
+        echo "Initial compile failed. Removing compiled kernels and trying again..." &&
+        struphy compile -d -y &&
+        struphy compile -y
+      )
   compile_matrix:
     - pyccel --version
     - struphy compile --status
     - echo ${LANGUAGE} && echo ${OMP}
-    - struphy compile --language ${LANGUAGE} ${OMP} -y
+    - |
+      struphy compile --language ${LANGUAGE} ${OMP} -y || (
+        echo "Initial compile failed. Removing compiled kernels and trying again..." &&
+        struphy compile -d -y &&
+        struphy compile --language ${LANGUAGE} ${OMP} -y
+      )
   build:
     - pip install -U build
     - python3 -m build
@@ -555,7 +566,12 @@ pages_tests:
     - module load pandoc
     - module list
     - pip install -e .[doc]
-    - struphy compile -y
+    - |
+      struphy compile -y || (
+        echo "Initial compile failed. Removing compiled kernels and trying again..." &&
+        struphy compile -d -y &&
+        struphy compile -y
+      )
     - cd doc ; make html; cd ..
 
 ubuntu_latest:
