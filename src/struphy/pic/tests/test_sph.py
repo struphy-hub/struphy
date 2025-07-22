@@ -211,12 +211,31 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, tesselation, show
     if not tesselation:
         assert np.abs(fit[0] + 0.5) < 0.1
     
+    exact_eval = fun_exact(ee1, ee2, ee3)
+    err_max_norm = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
+    
+    if comm.Get_rank() == 0:
+        print(f'{tesselation = }, {bc_x = }, {err_max_norm = }')
+        
+    if tesselation:
+        if bc_x == "periodic":
+            assert err_max_norm < 0.004
+        elif bc_x == "fixed":
+            assert err_max_norm < 0.004
+        else:
+            assert err_max_norm < 0.004
+    else:
+        if bc_x in ("periodic", "fixed"):
+            assert err_max_norm < 0.008
+        else: 
+            assert err_max_norm < 0.017
+    
 
 @pytest.mark.mpi(min_size=2)
 #@pytest.mark.parametrize("Np", [40000, 46200])
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1)])
 #@pytest.mark.parametrize("ppb", [4, 10])
-@pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
+@pytest.mark.parametrize("bc_x", ["periodic", "fixed", "mirror"])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, tesselation, show_plot=False):
     comm = MPI.COMM_WORLD
@@ -238,14 +257,19 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, tesselation, show_
         Np = 50000
         ppb = None
         
-    cst_vel = {"density_profile": "constant", "n": 1.0}
+    cst_vel = {"density_profile": "constant", "n": 1.5}
     bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
 
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-    modes = {"ModesSin": mode_params}
+    # perturbation and exact solution
+    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [-1e-0]}
+    if bc_x in ("periodic", "fixed"):
+        fun_exact = lambda e1, e2, e3: 1.5 - np.sin(2 * np.pi * e1)
+        modes = {"ModesSin": mode_params}
+    elif bc_x == "mirror":
+        fun_exact = lambda e1, e2, e3: 1.5 - np.cos(2 * np.pi * e1)
+        modes = {"ModesCos": mode_params}
     pert_params = {"n": modes}
 
-    fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1)
     
     #parameters
     h_vec = [((2**k)*10**-3*0.25) for k in range(2, 12)]
@@ -256,7 +280,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, tesselation, show_
         Np=Np,
         ppb = ppb, 
         boxes_per_dim=boxes_per_dim,
-        bc=[bc_x, "periodic", "periodic"],
+        bc_sph=[bc_x, "periodic", "periodic"],
         bufsize=1.0,
         loading=loading,
         loading_params=loading_params,
@@ -302,12 +326,34 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, tesselation, show_
         plt.show()
         plt.savefig("Convergence_SPH")
     
-    assert np.min(err_vec) < 0.03
+    if tesselation: 
+        assert np.min(err_vec) < 0.03
+    else: 
+        assert np.min(err_vec) < 0.094
+    
+    exact_eval = fun_exact(ee1, ee2, ee3)
+    err_max_norm = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
+    
+    if comm.Get_rank() == 0:
+        print(f'{tesselation = }, {bc_x = }, {err_max_norm = }')
+        
+    if tesselation:
+        if bc_x == "periodic":
+            assert err_max_norm < 0.22
+        elif bc_x == "fixed":
+            assert err_max_norm < 0.24
+        else:
+            assert err_max_norm < 0.22
+    else:
+        if bc_x in ("periodic", "fixed"):
+            assert err_max_norm < 0.24
+        else: 
+            assert err_max_norm < 0.23
 
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (16, 1, 1)])
-@pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
+@pytest.mark.parametrize("bc_x", ["periodic", "fixed", "mirror"])
 def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, tesselation, show_plot=False):
     comm = MPI.COMM_WORLD
 
@@ -330,13 +376,18 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, tesselation,
         Nps = [(2**k)*10**3 for k in range(-2, 9)]
         ppbs = [None]*len(Nps)
     
-    cst_vel = {"density_profile": "constant", "n": 1.0}
+    cst_vel = {"density_profile": "constant", "n": 1.5}
     bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
 
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-    modes = {"ModesSin": mode_params}
+    # perturbation and exact solution
+    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [-1e-0]}
+    if bc_x in ("periodic", "fixed"):
+        fun_exact = lambda e1, e2, e3: 1.5 - np.sin(2 * np.pi * e1)
+        modes = {"ModesSin": mode_params}
+    elif bc_x == "mirror":
+        fun_exact = lambda e1, e2, e3: 1.5 - np.cos(2 * np.pi * e1)
+        modes = {"ModesCos": mode_params}
     pert_params = {"n": modes}
-    fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1)
 
   
     h_arr = [((2**k)*10**-3*0.25) for k in range(2, 12)]
@@ -387,6 +438,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, tesselation,
             print(f'{Np = }, {ppb = }, {diff = }')
 
     err_vec = np.array(err_vec)
+    print(np.min(err_vec))
 
     if show_plot and comm.Get_rank() == 0:
         if tesselation: 
@@ -415,12 +467,33 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, tesselation,
         plt.show()
         
         assert np.min(err_vec) < 0.1
+    
+    
+    exact_eval = fun_exact(ee1, ee2, ee3)
+    err_max_norm = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
+    
+    if comm.Get_rank() == 0:
+        print(f'{tesselation = }, {bc_x = }, {err_max_norm = }')
+        
+    if tesselation:
+        if bc_x == "periodic":
+            assert err_max_norm < 0.47
+        elif bc_x == "fixed":
+            assert err_max_norm < 0.47
+        else:
+            assert err_max_norm < 0.47
+    else:
+        if bc_x in ("periodic", "fixed"):
+            assert err_max_norm < 0.47
+        else: 
+            assert err_max_norm < 0.47
+
 
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("boxes_per_dim", [(16, 1, 1)])
-@pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
-@pytest.mark.parametrize("bc_y", ["periodic", "reflect", "remove"])
+@pytest.mark.parametrize("bc_x", ["periodic", "fixed", "mirror"])
+@pytest.mark.parametrize("bc_y", ["periodic", "fixed", "mirror"])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation, show_plot=False):
     from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
@@ -444,8 +517,22 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         Nps = [(2**k)*10**3 for k in range(-2, 9)]
         ppbs = [None] * len(Nps) 
 
-    def n_fun(x, y, z):
-        return 1.0 + np.sin(2 * np.pi * x) * np.cos(2 * np.pi * y)
+
+    if bc_x in ("periodic", "fixed"):
+        fx = lambda x: np.sin(2 * np.pi * x)
+        
+    elif bc_x == "mirror":
+        fx = lambda x: np.cos(2 * np.pi * x)
+        
+
+    if bc_y in ("periodic", "fixed"):
+        fy = lambda y: np.sin(2 * np.pi * y)
+        
+    elif bc_y == "mirror":
+        fy = lambda y: np.cos(2 * np.pi * y)
+        
+    def n_fun(x,y,z):
+        return 1.0 + fx(x)*fy(y)
     
     bckgr = GenericCartesianFluidEquilibrium(n_xyz=n_fun)
     bckgr.domain = domain
@@ -496,6 +583,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         err_vec += [diff]
         print(f'{Np = }, {ppb = }, {diff = }')
         
+        
         if tesselation: 
             assert diff < 0.15
          
@@ -513,21 +601,47 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
     
     if not tesselation: 
         assert np.min(err_vec) < 0.2 
+    
+    exact_eval = n_fun(ee1, ee2, ee3)
+    err_max_norm = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
+    
+    if comm.Get_rank() == 0:
+        print(f'{tesselation = }, {bc_x = }, {err_max_norm = }')
+        
+    if tesselation:
+        if bc_x in ("periodic", "fixed") and bc_y in ("periodic", "fixed"):
+            assert err_max_norm < 0.099
+        elif bc_x in ("periodic", "fixed") and bc_y == "mirror":
+            assert err_max_norm < 0.031
+        elif bc_x == "mirror" and bc_y in ("periodic", "fixed"):
+            assert err_max_norm < 0.031
+        elif bc_x == "mirror" and bc_y == "mirror":
+            assert err_max_norm < 0.436
+    else:
+        if bc_x in ("periodic", "fixed") and bc_y in ("periodic", "fixed"):
+            assert err_max_norm < 0.099
+        elif bc_x in ("periodic", "fixed") and bc_y == "mirror":
+            assert err_max_norm < 0.101
+        elif bc_x == "mirror" and bc_y in ("periodic", "fixed"):
+            assert err_max_norm < 0.101
+        elif bc_x == "mirror" and bc_y == "mirror":
+            assert err_max_norm < 0.444
+
 
 
 
 if __name__ == "__main__":
     # test_sph_evaluation(
-    #     None,
-    #     (12, 1, 1),
-    #     4,
-    #     "periodic",
-    #     tesselation=True,
-    #     show_plot=True
-    # )
+    #      None,
+    #      (12, 1, 1),
+    #      4,
+    #      "periodic",
+    #      tesselation=True,
+    #      show_plot=True
+    #  )
     
-    #test_evaluation_SPH_Np_convergence_1d((12,1,1), "periodic", tesselation=True, show_plot=True)
-    #test_evaluation_SPH_h_convergence_1d((8,1,1), "periodic", tesselation = True, show_plot=True)
-    test_evaluation_mc_Np_and_h_convergence_1d((16,1,1),"periodic",tesselation = False,  show_plot=True)
-    #test_evaluation_SPH_Np_convergence_2d((16,16,1), "periodic", "periodic", tesselation = False , show_plot=True)
+    #test_evaluation_SPH_Np_convergence_1d((12,1,1), "mirror", tesselation=False, show_plot=True)
+    #test_evaluation_SPH_h_convergence_1d((8,1,1), "mirror", tesselation = True, show_plot=True)
+    #test_evaluation_mc_Np_and_h_convergence_1d((16,1,1),"fixed",tesselation = False,  show_plot=True)
+    test_evaluation_SPH_Np_convergence_2d((16,16,1), "periodic", "fixed", tesselation = True , show_plot=True)
     
