@@ -7892,54 +7892,54 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
 
-        # import os
-        # import pickle
-        # from collections import defaultdict, namedtuple
+        import os
+        import pickle
+        from collections import defaultdict, namedtuple
 
-        # def load_iteration_log(filename="iteration_log_sigma.pkl"):
-        #     if os.path.exists(filename) and os.path.getsize(filename) > 0:
-        #         with open(filename, "rb") as f:
-        #             data = pickle.load(f)
-        #         # Ensure it's a defaultdict for new keys
-        #         if not isinstance(data, defaultdict):
-        #             data = defaultdict(default_entry, data)
-        #         return data
-        #     else:
-        #         return defaultdict(default_entry)
+        def load_iteration_log(filename="iteration_log_sigma.pkl"):
+            if os.path.exists(filename) and os.path.getsize(filename) > 0:
+                with open(filename, "rb") as f:
+                    data = pickle.load(f)
+                # Ensure it's a defaultdict for new keys
+                if not isinstance(data, defaultdict):
+                    data = defaultdict(default_entry, data)
+                return data
+            else:
+                return defaultdict(default_entry)
 
-        # def save_iteration_log(data, filename="iteration_log_sigma.pkl"):
-        #     with open(filename, "wb") as f:
-        #         pickle.dump(data, f)
+        def save_iteration_log(data, filename="iteration_log_sigma.pkl"):
+            with open(filename, "wb") as f:
+                pickle.dump(data, f)
 
-        # # from struphy.params_2D_variation_run import load_iteration_log, save_iteration_log, default_entry
+        # from struphy.params_2D_variation_run import load_iteration_log, save_iteration_log, default_entry
 
-        # # 1. Load existing data
-        # iteration_log = load_iteration_log()
+        # 1. Load existing data
+        iteration_log = load_iteration_log()
 
-        # # 2. Define the key tuple using your parameters
-        # key = (
-        #     self._variant,
-        #     tuple(self.derham.Nel),
-        #     tuple(self.derham.p),
-        #     self._stab_sigma,
-        #     self._nu,
-        #     self._nu_e,
-        #     self._method_to_solve,
-        #     self._preconditioner,
-        #     self._eps_norm
-        # )
-        # # 3. Append your iteration number
-        # iteration_log[key]["niter"].append(info["niter"])
-        # if self._spectralanalysis == True and self._variant == "Uzawa":
-        #     iteration_log[key]["A11_cdtnr"].append(spectralresult[2])
-        #     iteration_log[key]["A22_cdtnr"].append(spectralresult[0])
-        #     iteration_log[key]["A22_specnr"].append(spectralresult[1])
-        #     if self._preconditioner == True:
-        #         iteration_log[key]["A22_cdtnr_PC"].append(spectralresult[3])
-        #         iteration_log[key]["A22_specnr_PC"].append(spectralresult[4])
+        # 2. Define the key tuple using your parameters
+        key = (
+            self._variant,
+            tuple(self.derham.Nel),
+            tuple(self.derham.p),
+            self._stab_sigma,
+            self._nu,
+            self._nu_e,
+            self._method_to_solve,
+            self._preconditioner,
+            self._eps_norm
+        )
+        # 3. Append your iteration number
+        iteration_log[key]["niter"].append(info["niter"])
+        if self._spectralanalysis == True and self._variant == "Uzawa":
+            iteration_log[key]["A11_cdtnr"].append(spectralresult[2])
+            iteration_log[key]["A22_cdtnr"].append(spectralresult[0])
+            iteration_log[key]["A22_specnr"].append(spectralresult[1])
+            if self._preconditioner == True:
+                iteration_log[key]["A22_cdtnr_PC"].append(spectralresult[3])
+                iteration_log[key]["A22_specnr_PC"].append(spectralresult[4])
 
-        # # 4. Save the updated data
-        # save_iteration_log(iteration_log)
+        # 4. Save the updated data
+        save_iteration_log(iteration_log)
 
         if self._info and self._rank == 0:
             print("Status     for TwoFluidQuasiNeutralFull:", info["success"])
@@ -7950,13 +7950,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
             print()
 
 
-# def default_entry():
-#     return {
-#         "niter": [],
-#         "timestep": [],
-#         "A22_cdtnr": [],
-#         "A22_specnr": [],
-#         "A22_cdtnr_PC": [],
-#         "A22_specnr_PC": [],
-#         "A11_cdtnr": [],
-#     }
+def default_entry():
+    return {
+        "niter": [],
+        "timestep": [],
+        "A22_cdtnr": [],
+        "A22_specnr": [],
+        "A22_cdtnr_PC": [],
+        "A22_specnr_PC": [],
+        "A11_cdtnr": [],
+    }
