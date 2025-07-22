@@ -1,11 +1,19 @@
+import os
+import shutil
 import subprocess
 import sys
 
+import yaml
+
 import struphy
+import struphy.utils.utils as utils
+from struphy.utils.utils import subp_run
+
+libpath = struphy.__path__[0]
 
 
 def struphy_run(
-    model,
+    model=None,
     inp=None,
     input_abs=None,
     output="sim_1",
@@ -18,7 +26,6 @@ def struphy_run(
     restart=False,
     mpi=1,
     nclones=1,
-    debug=False,
     cprofile=False,
     verbose=False,
     likwid=False,
@@ -72,9 +79,6 @@ def struphy_run(
     nclones : int
         Number of domain clones.
 
-    debug : bool
-        Whether to run in Cobra debug mode, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs'.
-
     verbose : bool
         Show full screen output.
 
@@ -94,32 +98,155 @@ def struphy_run(
         Number of repetitions for Likwid profiling. Default is 1.
     """
 
-    import os
-    import shutil
-    import subprocess
-
-    import yaml
-
-    import struphy
-    import struphy.utils.utils as utils
-
-    libpath = struphy.__path__[0]
-
     # Read struphy state file
     state = utils.read_state()
 
     # Struphy paths
-    i_path = state["i_path"]
-    o_path = state["o_path"]
-    b_path = state["b_path"]
+    i_path, o_path, b_path = utils.get_paths(state=state)
 
     assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
     if batch is not None or batch_abs is not None:
         assert os.path.exists(b_path), f"The path '{b_path}' does not exist. Set path with `struphy --set-b PATH`"
 
     # create absolute i/o paths
+    input_abs, output_abs, batch_abs = generate_absolute_io_paths(
+        model,
+        inp,
+        input_abs,
+        output,
+        output_abs,
+        batch,
+        batch_abs,
+        restart,
+    )
+
+    # Read likwid params
+    if likwid:
+        # if likwid_inp is None and likwid_input_abs is None:
+        #     # use default likwid parameters
+        likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, "-mpi", "openmpi"]
+        if nperdomain:
+            likwid_command += ["-nperdomain", nperdomain]
+        if stats:
+            likwid_command += ["-stats"]
+        if marker:
+            likwid_command += ["-marker"]
+
+    # command parts
+    cmd_python = ["python3"]
+    cmd_main = [f"{libpath}/main.py"]
+    if model is not None:
+        cmd_main += [model]
+    cmd_main += [
+        "-i",
+        input_abs,
+        "-o",
+        output_abs,
+        "--runtime",
+        str(runtime),
+        "-s",
+        str(save_step),
+        "--sort-step",
+        str(sort_step),
+        "--nclones",
+        str(nclones),
+    ]
+    if time_trace:
+        cmd_main += [
+            "--time-trace",
+            "--sample-duration",
+            str(sample_duration),
+            "--sample-interval",
+            str(sample_interval),
+        ]
+    if verbose:
+        cmd_main += ["-v"]
+
+    cmd_cprofile = ["-m", "cProfile", "-o", os.path.join(output_abs, "profile_tmp"), "-s", "time"]
+
+    # run in normal or debug mode
+    if batch_abs is None:
+        if likwid:
+            command = likwid_command + cmd_python + cprofile * cmd_cprofile + cmd_main + ["--likwid"]
+        else:
+            print("\nLaunching main() in normal mode ...")
+            command = ["mpirun", "-n", str(mpi)] + cmd_python + cprofile * cmd_cprofile + cmd_main
+
+        # add restart flag
+        if restart:
+            command += ["-r"]
+
+        print(f"\nCprofile turned {'on' if cprofile else 'off'}.")
+
+        # run command as subprocess
+        if likwid:
+            subp_run(command, cwd=None)
+        else:
+            subp_run(command)
+
+    # run in batch mode
+    else:
+        cleanup_batch_environment(output_abs)
+
+        # copy batch script to output folder
+        batch_abs_new = os.path.join(output_abs, "batch_script.sh")
+        shutil.copy2(batch_abs, batch_abs_new)
+
+        # delete srun command from batch script
+        with open(batch_abs_new, "r") as f:
+            lines = f.readlines()
+            if "srun" in lines[-1]:
+                lines = lines[:-2]
+
+        with open(batch_abs_new, "w") as f:
+            for line in lines:
+                f.write(line)
+            f.write("# Run command added by Struphy\n")
+
+            command = cmd_python + cprofile * cmd_cprofile + cmd_main
+            if restart:
+                command += ["-r"]
+
+            if likwid:
+                command = likwid_command + command + ["--likwid"]
+
+                print(f"Running with likwid with {likwid_repetitions = }")
+                f.write(f"# Launching likwid {likwid_repetitions} times with likwid-mpirun\n")
+                for i in range(likwid_repetitions):
+                    f.write(f"\n\n# Run number {i + 1:03}\n")
+                    f.write(" ".join(command) + " > " + os.path.join(output_abs, f"struphy_likwid_{i:03}.out"))
+            else:
+                print("Running with srun")
+                command = ["srun"] + command
+                f.write(" ".join(command) + " > " + os.path.join(output_abs, "struphy.out"))
+
+        # submit batch script in output folder
+        print("\nLaunching main() in batch mode ...")
+        cmd = ["sbatch", "batch_script.sh"]
+        subp_run(cmd, cwd=output_abs)
+    return command
+
+
+def generate_absolute_io_paths(
+    model,
+    inp,
+    input_abs,
+    output,
+    output_abs,
+    batch,
+    batch_abs,
+    restart,
+):
+    # Read struphy state file
+    state = utils.read_state()
+
+    i_path, o_path, b_path = utils.get_paths(state=state)
+
     if input_abs is None:
         if inp is None:
+            if model is None:
+                print("You have to either specify a struphy model or a parameter file which contains the model.")
+                sys.exit(0)
             default_yml = os.path.join(i_path, f"params_{model}.yml")
             if os.path.isfile(default_yml):
                 print(f"\nNo input file specified, running with default: {default_yml}")
@@ -151,166 +278,35 @@ def struphy_run(
     if restart:
         input_abs = os.path.join(output_abs, "parameters.yml")
 
-    # Read likwid params
-    if likwid:
-        # if likwid_inp is None and likwid_input_abs is None:
-        #     # use default likwid parameters
-        likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, "-mpi", "openmpi"]
-        if nperdomain:
-            likwid_command += ["-nperdomain", nperdomain]
-        if stats:
-            likwid_command += ["-stats"]
-        if marker:
-            likwid_command += ["-marker"]
-
-    # command parts
-    cmd_python = ["python3"]
-    cmd_main = [
-        f"{libpath}/main.py",
-        model,
-        "-i",
-        input_abs,
-        "-o",
-        output_abs,
-        "--runtime",
-        str(runtime),
-        "-s",
-        str(save_step),
-        "--sort-step",
-        str(sort_step),
-        "--nclones",
-        str(nclones),
-    ]
-    if time_trace:
-        cmd_main += [
-            "--time-trace",
-            "--sample-duration",
-            str(sample_duration),
-            "--sample-interval",
-            str(sample_interval),
-        ]
-    if verbose:
-        cmd_main += ["-v"]
-
-    cmd_cprofile = ["-m", "cProfile", "-o", os.path.join(output_abs, "profile_tmp"), "-s", "time"]
-
-    # run in normal or debug mode
-    if batch_abs is None:
-        if debug:
-            print("\nLaunching main() in Cobra debug mode ...")
-            command = (
-                [
-                    "srun",
-                    "-n",
-                    str(mpi),
-                    "-p",  # interactive commands
-                    "interactive",
-                    "--time",
-                    "119",
-                    "--mem",
-                    "2000",
-                ]
-                + cmd_python
-                + cprofile * cmd_cprofile
-                + cmd_main
-            )
-        elif likwid:
-            command = likwid_command + cmd_python + cprofile * cmd_cprofile + cmd_main + ["--likwid"]
-        else:
-            print("\nLaunching main() in normal mode ...")
-            command = ["mpirun", "-n", str(mpi)] + cmd_python + cprofile * cmd_cprofile + cmd_main
-
-        # add restart flag
-        if restart:
-            command += ["-r"]
-
-        if cprofile:
-            print("\nCprofile turned on.")
-        else:
-            print("\nCprofile turned off.")
-
-        # run command as subprocess
-        if likwid:
-            subp_run(command, cwd=None)
-        else:
-            subp_run(command)
-
-    # run in batch mode
-    else:
-        # create output folder if it does not exit
-        if not os.path.exists(output_abs):
-            os.mkdir(output_abs)
-            os.mkdir(os.path.join(output_abs, "data/"))
-
-        # remove sim.out file
-        file = os.path.join(output_abs, "sim.out")
-        if os.path.exists(file):
-            os.remove(file)
-            print("Removed file " + file)
-
-        # remove sim.err file
-        file = os.path.join(output_abs, "sim.err")
-        if os.path.exists(file):
-            os.remove(file)
-            print("Removed file " + file)
-
-        # remove old batch script
-        file = os.path.join(output_abs, "batch_script.sh")
-        if os.path.exists(file):
-            os.remove(file)
-            print("Removed file " + file)
-
-        # remove struphy.out file
-        file = os.path.join(output_abs, "sim.out")
-        if os.path.exists(file):
-            os.remove(file)
-            print("Removed file " + file)
-
-        # copy batch script to output folder
-        batch_abs_new = os.path.join(output_abs, "batch_script.sh")
-        shutil.copy2(batch_abs, batch_abs_new)
-
-        # delete srun command from batch script
-        with open(batch_abs_new, "r") as f:
-            lines = f.readlines()
-            if "srun" in lines[-1]:
-                lines = lines[:-2]
-
-        with open(batch_abs_new, "w") as f:
-            for line in lines:
-                f.write(line)
-            f.write("# Run command added by Struphy\n")
-
-            command = cmd_python + cprofile * cmd_cprofile + cmd_main
-            if restart:
-                command += ["-r"]
-
-            if likwid:
-                command = likwid_command + command + ["--likwid"]
-
-            if likwid:
-                print(f"Running with likwid with {likwid_repetitions = }")
-                f.write(f"# Launching likwid {likwid_repetitions} times with likwid-mpirun\n")
-                for i in range(likwid_repetitions):
-                    f.write(f"\n\n# Run number {i + 1:03}\n")
-                    f.write(" ".join(command) + " > " + os.path.join(output_abs, f"struphy_likwid_{i:03}.out"))
-            else:
-                print("Running with srun")
-                command = ["srun"] + command
-                f.write(" ".join(command) + " > " + os.path.join(output_abs, "struphy.out"))
-
-        # submit batch script in output folder
-        print("\nLaunching main() in batch mode ...")
-        cmd = ["sbatch", "batch_script.sh"]
-        subp_run(cmd, cwd=output_abs)
-    return command
+    return input_abs, output_abs, batch_abs
 
 
-def subp_run(cmd, cwd="libpath", check=True):
-    """Call subprocess.run and print run command."""
+def cleanup_batch_environment(output_abs):
+    # create output folder if it does not exit
+    if not os.path.exists(output_abs):
+        os.mkdir(output_abs)
+        os.mkdir(os.path.join(output_abs, "data/"))
 
-    if cwd == "libpath":
-        cwd = struphy.__path__[0]
+    # remove sim.out file
+    file = os.path.join(output_abs, "sim.out")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
 
-    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}")
-    subprocess.run(cmd, cwd=cwd, check=check)
+    # remove sim.err file
+    file = os.path.join(output_abs, "sim.err")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
+
+    # remove old batch script
+    file = os.path.join(output_abs, "batch_script.sh")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
+
+    # remove struphy.out file
+    file = os.path.join(output_abs, "sim.out")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)

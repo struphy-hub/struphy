@@ -1,4 +1,4 @@
-from struphy.console.run import subp_run
+from struphy.utils.utils import subp_run
 
 
 def struphy_pproc(
@@ -77,8 +77,8 @@ def struphy_pproc(
         if no_vtk:
             command += ["--no-vtk"]
 
-        if time_trace:
-            command += ["--time-trace"]
+        # if time_trace:
+        #     command += ["--time-trace"]
 
         command += ["--time-trace"] + time_trace
 

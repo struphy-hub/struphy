@@ -15,7 +15,7 @@ from struphy.console.params import struphy_params
 from struphy.console.pproc import struphy_pproc
 
 # from struphy.console.profile import struphy_profile
-from struphy.console.run import struphy_run
+from struphy.console.run import struphy_run, subp_run
 
 # from struphy.console.test import struphy_test
 # from struphy.console.units import struphy_units
@@ -23,6 +23,11 @@ from struphy.utils.utils import read_state
 
 libpath = struphy_lib.__path__[0]
 state = read_state()
+
+# Create models_list if it doesn't exist
+if not os.path.isfile(os.path.join(libpath, "models", "models_list")):
+    cmd = ["struphy", "--refresh-models"]
+    subp_run(cmd)
 
 with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
     struphy_models = pickle.load(fp)
@@ -59,7 +64,6 @@ def split_command(command):
         # ["run", "Maxwell", "--batch", "batch_cobra.sh"],
         ["run", "Maxwell", "--mpi", "4"],
         ["run", "Vlasov", "--restart"],
-        ["run", "Vlasov", "--debug"],
         # Test cases for 'compile' sub-command with options
         ["compile"],
         ["compile", "-y"],
@@ -256,6 +260,7 @@ def test_main_options(args_expected, capsys):
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("language", ["c", "fortran"])
 @pytest.mark.parametrize("compiler", ["gnu", "intel"])
+@pytest.mark.parametrize("compiler_config", [None])
 @pytest.mark.parametrize("omp_pic", [True, False])
 @pytest.mark.parametrize("omp_feec", [True, False])
 @pytest.mark.parametrize("delete", [True, False])
@@ -267,6 +272,7 @@ def test_main_options(args_expected, capsys):
 def test_struphy_compile(
     language,
     compiler,
+    compiler_config,
     omp_pic,
     omp_feec,
     delete,
@@ -302,6 +308,7 @@ def test_struphy_compile(
         struphy_compile(
             language=language,
             compiler=compiler,
+            compiler_config=compiler_config,
             omp_pic=omp_pic,
             omp_feec=omp_feec,
             delete=delete,
