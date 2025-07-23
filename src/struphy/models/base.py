@@ -947,8 +947,8 @@ class StruphyModel(metaclass=ABCMeta):
 
                         obj.initialize_weights()
 
-                        if any(k.startswith("diag") for k in val["kinetic_data"]):
-                            obj.save_energy_diff(init=True)
+                        #if any(k.startswith("diag") for k in val["kinetic_data"]):
+                        #    obj.save_energy_diff(init=True)
 
                     else:
                         if (

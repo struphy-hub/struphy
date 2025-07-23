@@ -447,7 +447,7 @@ def post_process_markers(path_in, path_out, species, kind, step=1):
     # directory for .txt files and marker index which will be saved
     if kind == "Particles5D":
         path_orbits = os.path.join(path_out, "guiding_center")
-        save_index = list(range(0, 5)) + [10] + [-1]
+        save_index = list(range(0, 4)) + list(range(8,11)) + [-1]
 
     elif kind == "Particles6D":
         path_orbits = os.path.join(path_out, "orbits")

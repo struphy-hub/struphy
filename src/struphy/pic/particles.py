@@ -552,6 +552,13 @@ class Particles5D(Particles):
             self.absB0_h._data,
         )
 
+        # diag4 - parallel flow
+        self.markers[~self.holes, self.first_diagnostics_idx + 4 - 1] = self.weights0 * self.markers[~self.holes, 3]
+
+        # diag5 - perpendicular pressure
+        m_energy = self.markers[~self.holes, self.first_diagnostics_idx] - 1/2*self.markers[~self.holes, 3]**2
+        self.markers[~self.holes, self.first_diagnostics_idx + 5 - 1] = self.weights0 * m_energy
+
     def save_magnetic_energy(self, PBb):
         r"""
         Calculate magnetic field energy at each particles' position and assign it into markers[:,self.first_diagnostics_idx].

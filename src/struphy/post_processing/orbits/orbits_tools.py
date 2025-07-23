@@ -171,7 +171,7 @@ def post_process_orbit_classification(path_kinetics_species, species):
     npy_files_list = sorted(npy_files_list)
 
     # temporary marker array
-    temp = np.empty((n_markers, 8), dtype=float)
+    temp = np.empty((n_markers, 9), dtype=float)
     v_parallel = np.empty(n_markers, dtype=float)
     trapped_particle_mask = np.empty(n_markers, dtype=bool)
     lost_particle_mask = np.empty(n_markers, dtype=bool)
@@ -191,8 +191,9 @@ def post_process_orbit_classification(path_kinetics_species, species):
         # initial time step
         if n == 0:
 
-            v_init = temp[:, 4]
+            v_init = temp[:, 4].copy()
             np.save(file_npy, temp)
+
             continue
 
         # synchronizing with former time step

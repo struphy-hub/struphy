@@ -1451,7 +1451,7 @@ class Particles(metaclass=ABCMeta):
         
         if diagnostics is not None:
             _weights = self.markers[~self.holes, self.first_diagnostics_idx + diagnostics - 1]
-
+            _weights /= self.domain.jacobian_det(self.markers_wo_holes, remove_outside=False)
             d_slice = np.histogramdd(
                 self.markers_wo_holes[:, slicing],
                 bins=bin_edges,
