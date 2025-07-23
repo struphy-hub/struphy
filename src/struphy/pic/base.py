@@ -19,9 +19,9 @@ from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations
 from struphy.io.output_handling import DataContainer
+from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background import maxwellians
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     flatten_index,
@@ -3313,6 +3313,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
                 func = box_based_evaluation_meshgrid
 
             func(
+                self.args_markers,
                 eta1,
                 eta2,
                 eta3,
@@ -3322,8 +3323,6 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
                 self.domain_array[self.mpi_rank],
                 self.sorting_boxes.boxes,
                 self.sorting_boxes.neighbours,
-                self.markers,
-                self.Np,
                 self.holes,
                 periodic1,
                 periodic2,
@@ -3341,11 +3340,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             elif len(_shp) == 3:
                 func = naive_evaluation_meshgrid
             func(
+                args_markers,
                 eta1,
                 eta2,
                 eta3,
-                self.markers,
-                self.Np,
                 self.holes,
                 periodic1,
                 periodic2,

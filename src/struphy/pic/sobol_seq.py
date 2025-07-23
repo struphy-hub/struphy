@@ -1,26 +1,26 @@
 """
-  Licensing:
-    This code is distributed under the MIT license.
+Licensing:
+  This code is distributed under the MIT license.
 
-  Authors:
-    Original FORTRAN77 version of i4_sobol by Bennett Fox.
-    MATLAB version by John Burkardt.
-    PYTHON version by Corrado Chisari
+Authors:
+  Original FORTRAN77 version of i4_sobol by Bennett Fox.
+  MATLAB version by John Burkardt.
+  PYTHON version by Corrado Chisari
 
-    Original Python version of is_prime by Corrado Chisari
+  Original Python version of is_prime by Corrado Chisari
 
-    Original MATLAB versions of other functions by John Burkardt.
-    PYTHON versions by Corrado Chisari
+  Original MATLAB versions of other functions by John Burkardt.
+  PYTHON versions by Corrado Chisari
 
-    Original code is available from http://people.sc.fsu.edu/~jburkardt/py_src/sobol/sobol.html
+  Original code is available from http://people.sc.fsu.edu/~jburkardt/py_src/sobol/sobol.html
 """
 
 from __future__ import division
+
 import numpy as np
 from scipy.stats import norm
 
-__all__ = ['i4_bit_hi1', 'i4_bit_lo0', 'i4_sobol_generate',
-           'i4_sobol', 'i4_uniform', 'prime_ge', 'is_prime']
+__all__ = ["i4_bit_hi1", "i4_bit_lo0", "i4_sobol_generate", "i4_sobol", "i4_uniform", "prime_ge", "is_prime"]
 
 
 def i4_bit_hi1(n):
@@ -209,7 +209,7 @@ def i4_sobol(dim_num, seed):
     global seed_save
     global v
 
-    if 'initialized' not in list(globals().keys()):
+    if "initialized" not in list(globals().keys()):
         initialized = 0
         dim_num_save = -1
 
@@ -222,57 +222,269 @@ def i4_sobol(dim_num, seed):
 
         #  Initialize (part of) V.
         v = np.zeros((dim_max, log_max))
-        v[0:40, 0] = np.transpose([
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-            1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+        v[0:40, 0] = np.transpose(
+            [
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+            ]
+        )
 
-        v[2:40, 1] = np.transpose([
-            1, 3, 1, 3, 1, 3, 3, 1,
-            3, 1, 3, 1, 3, 1, 1, 3, 1, 3,
-            1, 3, 1, 3, 3, 1, 3, 1, 3, 1,
-            3, 1, 1, 3, 1, 3, 1, 3, 1, 3])
+        v[2:40, 1] = np.transpose(
+            [
+                1,
+                3,
+                1,
+                3,
+                1,
+                3,
+                3,
+                1,
+                3,
+                1,
+                3,
+                1,
+                3,
+                1,
+                1,
+                3,
+                1,
+                3,
+                1,
+                3,
+                1,
+                3,
+                3,
+                1,
+                3,
+                1,
+                3,
+                1,
+                3,
+                1,
+                1,
+                3,
+                1,
+                3,
+                1,
+                3,
+                1,
+                3,
+            ]
+        )
 
-        v[3:40, 2] = np.transpose([
-            7, 5, 1, 3, 3, 7, 5,
-            5, 7, 7, 1, 3, 3, 7, 5, 1, 1,
-            5, 3, 3, 1, 7, 5, 1, 3, 3, 7,
-            5, 1, 1, 5, 7, 7, 5, 1, 3, 3])
+        v[3:40, 2] = np.transpose(
+            [
+                7,
+                5,
+                1,
+                3,
+                3,
+                7,
+                5,
+                5,
+                7,
+                7,
+                1,
+                3,
+                3,
+                7,
+                5,
+                1,
+                1,
+                5,
+                3,
+                3,
+                1,
+                7,
+                5,
+                1,
+                3,
+                3,
+                7,
+                5,
+                1,
+                1,
+                5,
+                7,
+                7,
+                5,
+                1,
+                3,
+                3,
+            ]
+        )
 
-        v[5:40, 3] = np.transpose([
-            1, 7,  9,  13, 11,
-            1, 3,  7,  9,  5,  13, 13, 11, 3,  15,
-            5, 3,  15, 7,  9,  13, 9,  1,  11, 7,
-            5, 15, 1,  15, 11, 5,  3,  1,  7,  9])
+        v[5:40, 3] = np.transpose(
+            [
+                1,
+                7,
+                9,
+                13,
+                11,
+                1,
+                3,
+                7,
+                9,
+                5,
+                13,
+                13,
+                11,
+                3,
+                15,
+                5,
+                3,
+                15,
+                7,
+                9,
+                13,
+                9,
+                1,
+                11,
+                7,
+                5,
+                15,
+                1,
+                15,
+                11,
+                5,
+                3,
+                1,
+                7,
+                9,
+            ]
+        )
 
-        v[7:40, 4] = np.transpose([
-            9,  3,  27,
-            15, 29, 21, 23, 19, 11, 25, 7,  13, 17,
-            1,  25, 29, 3,  31, 11, 5,  23, 27, 19,
-            21, 5,  1,  17, 13, 7,  15, 9,  31, 9])
+        v[7:40, 4] = np.transpose(
+            [
+                9,
+                3,
+                27,
+                15,
+                29,
+                21,
+                23,
+                19,
+                11,
+                25,
+                7,
+                13,
+                17,
+                1,
+                25,
+                29,
+                3,
+                31,
+                11,
+                5,
+                23,
+                27,
+                19,
+                21,
+                5,
+                1,
+                17,
+                13,
+                7,
+                15,
+                9,
+                31,
+                9,
+            ]
+        )
 
-        v[13:40, 5] = np.transpose([
-            37, 33, 7,  5,  11, 39, 63,
-            27, 17, 15, 23, 29, 3,  21, 13, 31, 25,
-            9,  49, 33, 19, 29, 11, 19, 27, 15, 25])
+        v[13:40, 5] = np.transpose(
+            [37, 33, 7, 5, 11, 39, 63, 27, 17, 15, 23, 29, 3, 21, 13, 31, 25, 9, 49, 33, 19, 29, 11, 19, 27, 15, 25]
+        )
 
-        v[19:40, 6] = np.transpose([
-            13,
-            33, 115, 41, 79, 17, 29,  119, 75, 73, 105,
-            7,  59,  65, 21, 3,  113, 61,  89, 45, 107])
+        v[19:40, 6] = np.transpose(
+            [13, 33, 115, 41, 79, 17, 29, 119, 75, 73, 105, 7, 59, 65, 21, 3, 113, 61, 89, 45, 107]
+        )
 
-        v[37:40, 7] = np.transpose([
-            7, 23, 39])
+        v[37:40, 7] = np.transpose([7, 23, 39])
 
         #  Set POLY.
         poly = [
-            1,   3,   7,   11,  13,  19,  25,  37,  59,  47,
-            61,  55,  41,  67,  97,  91,  109, 103, 115, 131,
-            193, 137, 145, 143, 241, 157, 185, 167, 229, 171,
-            213, 191, 253, 203, 211, 239, 247, 285, 369, 299]
+            1,
+            3,
+            7,
+            11,
+            13,
+            19,
+            25,
+            37,
+            59,
+            47,
+            61,
+            55,
+            41,
+            67,
+            97,
+            91,
+            109,
+            103,
+            115,
+            131,
+            193,
+            137,
+            145,
+            143,
+            241,
+            157,
+            185,
+            167,
+            229,
+            171,
+            213,
+            191,
+            253,
+            203,
+            211,
+            239,
+            247,
+            285,
+            369,
+            299,
+        ]
 
-        atmost = 2 ** log_max - 1
+        atmost = 2**log_max - 1
 
         #  Find the number of bits in ATMOST.
         maxcol = i4_bit_hi1(atmost)
@@ -282,20 +494,18 @@ def i4_sobol(dim_num, seed):
 
     #  Things to do only if the dimension changed.
     if dim_num != dim_num_save:
-
         #  Check parameters.
         if dim_num < 1 or dim_max < dim_num:
-            print('I4_SOBOL - Fatal error!')
-            print('  The spatial dimension DIM_NUM should satisfy:')
-            print('    1 <= DIM_NUM <= %d' % dim_max)
-            print('  But this input value is DIM_NUM = %d' % dim_num)
+            print("I4_SOBOL - Fatal error!")
+            print("  The spatial dimension DIM_NUM should satisfy:")
+            print("    1 <= DIM_NUM <= %d" % dim_max)
+            print("  But this input value is DIM_NUM = %d" % dim_num)
             return
 
         dim_num_save = dim_num
 
         #  Initialize the remaining rows of V.
         for i in range(2, dim_num + 1):
-
             #  The bits of the integer POLY(I) gives the form of polynomial I.
             #  Find the degree of polynomial I from binary encoding.
             j = poly[i - 1]
@@ -310,7 +520,7 @@ def i4_sobol(dim_num, seed):
             includ = np.zeros(m)
             for k in range(m, 0, -1):
                 j2 = j // 2
-                includ[k - 1] = (j != 2 * j2)
+                includ[k - 1] = j != 2 * j2
                 j = j2
 
             #  Calculate the remaining elements of row I as explained
@@ -321,8 +531,7 @@ def i4_sobol(dim_num, seed):
                 for k in range(1, m + 1):
                     l *= 2
                     if includ[k - 1]:
-                        newv = np.bitwise_xor(
-                            int(newv), int(l * v[i - 1, j - k - 1]))
+                        newv = np.bitwise_xor(int(newv), int(l * v[i - 1, j - k - 1]))
                 v[i - 1, j - 1] = newv
 
         #  Multiply columns of V by appropriate power of 2.
@@ -345,47 +554,41 @@ def i4_sobol(dim_num, seed):
         lastq = np.zeros(dim_num)
 
     elif seed == seed_save + 1:
-
         #  Find the position of the right-hand zero in SEED.
         l = i4_bit_lo0(seed)
 
     elif seed <= seed_save:
-
         seed_save = 0
         lastq = np.zeros(dim_num)
 
         for seed_temp in range(int(seed_save), int(seed)):
             l = i4_bit_lo0(seed_temp)
             for i in range(1, dim_num + 1):
-                lastq[i - 1] = np.bitwise_xor(
-                    int(lastq[i - 1]), int(v[i - 1, l - 1]))
+                lastq[i - 1] = np.bitwise_xor(int(lastq[i - 1]), int(v[i - 1, l - 1]))
 
         l = i4_bit_lo0(seed)
 
     elif seed_save + 1 < seed:
-
         for seed_temp in range(int(seed_save + 1), int(seed)):
             l = i4_bit_lo0(seed_temp)
             for i in range(1, dim_num + 1):
-                lastq[i - 1] = np.bitwise_xor(
-                    int(lastq[i - 1]), int(v[i - 1, l - 1]))
+                lastq[i - 1] = np.bitwise_xor(int(lastq[i - 1]), int(v[i - 1, l - 1]))
 
         l = i4_bit_lo0(seed)
 
     #  Check that the user is not calling too many times!
     if maxcol < l:
-        print('I4_SOBOL - Fatal error!')
-        print('  Too many calls!')
-        print('  MAXCOL = %d\n' % maxcol)
-        print('  L =      %d\n' % l)
+        print("I4_SOBOL - Fatal error!")
+        print("  Too many calls!")
+        print("  MAXCOL = %d\n" % maxcol)
+        print("  L =      %d\n" % l)
         return
 
     #  Calculate the new components of QUASI.
     quasi = np.zeros(dim_num)
     for i in range(1, dim_num + 1):
         quasi[i - 1] = lastq[i - 1] * recipd
-        lastq[i - 1] = np.bitwise_xor(
-            int(lastq[i - 1]), int(v[i - 1, l - 1]))
+        lastq[i - 1] = np.bitwise_xor(int(lastq[i - 1]), int(v[i - 1, l - 1]))
 
     seed_save = seed
     seed += 1
@@ -432,8 +635,8 @@ def i4_uniform(a, b, seed):
       Output, integer SEED, the updated seed.
     """
     if seed == 0:
-        print('I4_UNIFORM - Fatal error!')
-        print('  Input SEED = 0!')
+        print("I4_UNIFORM - Fatal error!")
+        print("  Input SEED = 0!")
 
     seed = np.floor(seed)
     a = round(a)
@@ -451,7 +654,7 @@ def i4_uniform(a, b, seed):
     if seed < 0:
         seed += 2147483647
 
-    r = seed * 4.656612875E-10
+    r = seed * 4.656612875e-10
 
     #  Scale R to lie between A-0.5 and B+0.5.
     r = (1.0 - r) * (min(a, b) - 0.5) + r * (max(a, b) + 0.5)
