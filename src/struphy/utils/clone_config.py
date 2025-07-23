@@ -112,14 +112,14 @@ class CloneConfig:
         """
         species = self.params["kinetic"][species_name]
         markers = species["markers"]
-        n_cells = np.sum(np.prod(self.params["grid"]["Nel"]))
 
         if "Np" in markers:
             return markers["Np"]
         elif "ppc" in markers:
+            n_cells = np.prod(self.params["grid"]["Nel"], dtype=int)
             return int(markers["ppc"] * n_cells)
         elif "ppb" in markers:
-            n_boxes = np.prod(species["boxes_per_dim"], dtype=int)
+            n_boxes = np.prod(species["boxes_per_dim"], dtype=int) * self.num_clones
             return int(markers["ppb"] * n_boxes)
 
     def print_clone_config(self):

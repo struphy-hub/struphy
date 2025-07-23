@@ -38,7 +38,7 @@ def test_evaluation_mc(Np, bc_x, show_plot=False):
         Np=Np,
         boxes_per_dim=boxes_per_dim,
         bc=[bc_x, "periodic", "periodic"],
-        eps=1.0,
+        bufsize=1.0,
         loading_params=loading_params,
         domain=domain,
         bckgr_params=bckgr_params,
@@ -105,7 +105,7 @@ def test_evaluation_tesselation(boxes_per_dim, ppb, bc_x, show_plot=False):
         ppb=ppb,
         boxes_per_dim=boxes_per_dim,
         bc=[bc_x, "periodic", "periodic"],
-        eps=1.0,
+        bufsize=1.0,
         loading=loading,
         loading_params=loading_params,
         domain=domain,
@@ -116,7 +116,7 @@ def test_evaluation_tesselation(boxes_per_dim, ppb, bc_x, show_plot=False):
 
     particles.draw_markers(sort=False)
     particles.mpi_sort_markers()
-    particles.initialize_weights(from_tesselation=True)
+    particles.initialize_weights()
     h1 = 1 / boxes_per_dim[0]
     h2 = 1 / boxes_per_dim[1]
     h3 = 1 / boxes_per_dim[2]

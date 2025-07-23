@@ -1,27 +1,24 @@
-from pyccel.decorators import types
-
 import struphy.geometry.mappings_3d as mapping
 import struphy.pic.equilibrium_PIC as eq_pic
 
 
 # ==========================================================================================
-@types(
-    "double",
-    "double",
-    "double",
-    "int",
-    "int",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "int[:]",
-    "int[:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-)
-def fun(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz):
+def fun(
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    kind_fun: int,
+    kind_map: int,
+    params_map: "float[:]",
+    tn1: "float[:]",
+    tn2: "float[:]",
+    tn3: "float[:]",
+    pn: "int[:]",
+    nbase_n: "int[:]",
+    cx: "float[:,:,:]",
+    cy: "float[:,:,:]",
+    cz: "float[:,:,:]",
+):
     # bulk velocity is a 0-form
     if kind_fun == 1:
         x = mapping.f(eta1, eta2, eta3, 1, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz)
@@ -142,27 +139,24 @@ def fun(eta1, eta2, eta3, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nba
 
 
 # ==========================================================================================
-@types(
-    "int[:]",
-    "int[:]",
-    "double[:,:]",
-    "double[:,:]",
-    "double[:,:]",
-    "double[:,:,:,:,:,:]",
-    "int",
-    "int",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "double[:]",
-    "int[:]",
-    "int[:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-    "double[:,:,:]",
-)
 def kernel_evaluation_quad(
-    nel, nq, eta1, eta2, eta3, mat_f, kind_fun, kind_map, params_map, tn1, tn2, tn3, pn, nbase_n, cx, cy, cz
+    nel: "int[:]",
+    nq: "int[:]",
+    eta1: "float[:,:]",
+    eta: "float[:,:]",
+    eta3: "float[:,:]",
+    mat_f: "float[:,:,:,:,:,:]",
+    kind_fun: int,
+    kind_map: int,
+    params_map: "float[:]",
+    tn1: "float[:]",
+    tn2: "float[:]",
+    tn3: "float[:]",
+    pn: "int[:]",
+    nbase_n: "int[:]",
+    cx: "float[:,:,:]",
+    cy: "float[:,:,:]",
+    cz: "float[:,:,:]",
 ):
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3)

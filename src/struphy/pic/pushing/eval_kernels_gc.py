@@ -6,10 +6,10 @@ from pyccel.decorators import stack_array
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 # do not remove; needed to identify dependencies
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
 import struphy.pic.sph_eval_kernels as sph_eval_kernels
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
@@ -19,7 +19,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 
 @stack_array("eta_k", "eta_n", "eta")
@@ -470,7 +470,7 @@ def unit_b_1form(
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
-def sph_isotherm_pressure_coeffs(
+def sph_pressure_coeffs(
     alpha: "float[:]",
     column_nr: int,
     comps: "int[:]",
@@ -510,6 +510,8 @@ def sph_isotherm_pressure_coeffs(
     in markers array for each particle.
     """
 
+    gamma = 5 / 3
+
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
@@ -528,14 +530,13 @@ def sph_isotherm_pressure_coeffs(
         eta3 = markers[ip, 2]
         loc_box = int(markers[ip, n_cols - 2])
         n_at_eta = sph_eval_kernels.boxed_based_kernel(
+            args_markers,
             eta1,
             eta2,
             eta3,
             loc_box,
             boxes,
             neighbours,
-            markers,
-            Np,
             holes,
             periodic1,
             periodic2,
@@ -550,6 +551,7 @@ def sph_isotherm_pressure_coeffs(
         # save
         markers[ip, column_nr] = n_at_eta
         markers[ip, column_nr + 1] = weight / n_at_eta
+        markers[ip, column_nr + 2] = weight * n_at_eta ** (gamma - 2)
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
