@@ -491,7 +491,7 @@ def linear_vlasov_ampere(
 
 
 @stack_array("v_old", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
-def dfva_accum_explicit(
+def dfva_e_v_gamma_w_accum_explicit(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
@@ -592,7 +592,7 @@ def dfva_accum_explicit(
 
 
 @stack_array("v_old", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
-def dfva_accum_midpoint(
+def dfva_e_v_gamma_w_accum_midpoint(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
@@ -663,7 +663,7 @@ def dfva_accum_midpoint(
             * (expm1(v_tilde) / v_tilde - 1.0)
             + f0 / (2.0 * markers[ip, 7]) 
             # * utils.expm1_minus_x_over_x(-v_tilde, n_terms=200)
-            * (- expm1(v_tilde) / v_tilde - 1.0)
+            * (- expm1(- v_tilde) / v_tilde - 1.0)
             - markers[ip, 6] - 0.5 * delta_w[ip]
         )
 
@@ -763,9 +763,12 @@ def dfva_accum_implicit(
         # Norms of old and new velocities
         v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
+        v_tilde /= vth**2
 
         factor = (
-            f0_curr / markers[ip, 7] * utils.expm1_minus_x_over_x(-v_tilde / vth**2, n_terms=200)
+            f0_curr / markers[ip, 7]
+            * (expm1(v_tilde) / v_tilde - 1.0)
+            # * utils.expm1_minus_x_over_x(v_tilde, n_terms=200)
             - markers[ip, 6] - delta_w[ip]
         )
 

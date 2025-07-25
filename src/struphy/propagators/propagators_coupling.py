@@ -545,7 +545,7 @@ class DeltaFVlasovAmpere(Propagator):
         self._accum_vec = AccumulatorVector(
             self.particles[0],
             "Hcurl",
-            accum_kernels.dfva_accum_explicit,
+            accum_kernels.dfva_e_v_gamma_w_accum_explicit,
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -624,7 +624,7 @@ class DeltaFVlasovAmpere(Propagator):
         self._accum_vec = AccumulatorVector(
             self.particles[0],
             "Hcurl",
-            accum_kernels.dfva_accum_midpoint,
+            accum_kernels.dfva_e_v_gamma_w_accum_midpoint,
             self.mass_ops,
             self.domain.args_domain,
         )
