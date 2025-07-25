@@ -1219,20 +1219,20 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
-        self.add_scalar("en_c_ln_n", compute="from_particles", species="species1")
+        # self.add_scalar("en_c_ln_n", compute="from_particles", species="species1")
         self.add_scalar("en_c_v_2", compute="from_particles", species="species1")
         self.add_scalar("en_w", compute="from_particles", species="species1")
-        self.add_scalar("en_c_ln_c", compute="from_particles", species="species1")
+        # self.add_scalar("en_c_ln_c", compute="from_particles", species="species1")
         self.add_scalar("en_gamma", compute="from_particles", species="species1")
         self.add_scalar(
             "en_tot_p",
             compute="from_particles",
             species="species1",
             summands=[
-                "en_c_ln_n",
+                # "en_c_ln_n",
                 "en_c_v_2",
                 "en_w",
-                "en_c_ln_c",
+                # "en_c_ln_c",
                 "en_gamma",
             ],
         )
@@ -1309,17 +1309,17 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             *self.pointer["species1"].phasespace_coords[:, :3].T
         )
 
-        # - gamma_p * ln(n_{0,p})
-        self._tmp[0] = (
-            self.alpha**2
-            * self.vth**2
-            * (-1.0)
-            * np.dot(
-                self._gamma[self.pointer["species1"].valid_mks],
-                np.log(self._n0_values[self.pointer["species1"].valid_mks]),
-            )
-        )
-        self.update_scalar("en_c_ln_n", self._tmp[0])
+        # # - gamma_p * ln(n_{0,p})
+        # self._tmp[0] = (
+        #     self.alpha**2
+        #     * self.vth**2
+        #     * (-1.0)
+        #     * np.dot(
+        #         self._gamma[self.pointer["species1"].valid_mks],
+        #         np.log(self._n0_values[self.pointer["species1"].valid_mks]),
+        #     )
+        # )
+        # self.update_scalar("en_c_ln_n", self._tmp[0])
 
         # gamma_p |v_p|^2 / (2 vth^2)
         self._tmp[1] = (
@@ -1337,16 +1337,16 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         self._tmp[2] = self.alpha**2 * self.vth**2 * self.pointer["species1"].weights.sum()
         self.update_scalar("en_w", self._tmp[2])
 
-        # gamma_p * ln(gamma_p)
-        self._tmp[3] = (
-            self.alpha**2
-            * self.vth**2
-            * np.dot(
-                self._gamma[self.pointer["species1"].valid_mks],
-                np.log(self._gamma[self.pointer["species1"].valid_mks]),
-            )
-        )
-        self.update_scalar("en_c_ln_c", self._tmp[3])
+        # # gamma_p * ln(gamma_p)
+        # self._tmp[3] = (
+        #     self.alpha**2
+        #     * self.vth**2
+        #     * np.dot(
+        #         self._gamma[self.pointer["species1"].valid_mks],
+        #         np.log(self._gamma[self.pointer["species1"].valid_mks]),
+        #     )
+        # )
+        # self.update_scalar("en_c_ln_c", self._tmp[3])
 
         # gamma * ln(1 / sqrt( (2*pi*vth^2)^3 ) )
         self._tmp[4] = - self.alpha**2 * self.vth**2 * 1.5 * self._gamma[self.pointer["species1"].valid_mks].sum() * np.log(2 * np.pi * self.vth**2)

@@ -452,7 +452,18 @@ class EfieldWeights(Propagator):
 
 
 class DeltaFVlasovAmpere(Propagator):
-    r"""TODO"""
+    r"""
+    
+    For e_v: the type options are Picard, Schur.
+
+    For e_v_gamma_w: the type options are explicit, midpoint, implicit.
+    
+
+    Parameters
+    ----------
+    gamma_values : np.ndarray (optional)
+        Only needed with variables e_v
+    """
 
     @staticmethod
     def options(default=False):
@@ -470,7 +481,7 @@ class DeltaFVlasovAmpere(Propagator):
         }
         dct["method"] = {
             "variables": "e_v_gamma_w",
-            "type": "explicit",
+            "type": "Picard",
             "rtol": 1.0e-12,
             "maxiter": 300,
             "info": False,
@@ -499,49 +510,69 @@ class DeltaFVlasovAmpere(Propagator):
         self._n0 = f0.maxw_params["n"]
         self._f0 = f0
 
-        assert options["variables"] in (
+        assert options["method"]["variables"] in (
                 "e_v",
                 "e_v_w",
                 "e_v_gamma",
                 "e_v_gamma_w",
-        ), f"Variable choice {options["variables"]} is not known!"
+        ), f"Variable choice {options["method"]["variables"]} is not known!"
 
-        self._variables = options["variables"]
+        self._variables = options["method"]["variables"]
 
-        if self._variables == "e_v_gamma_w":
-            # Get options for Picard iteration
-            method_options = options["method"]
+        # Preconditioner
+        solver_options = options["solver"]
+        self._info = solver_options["info"]
+
+        if solver_options["type"][1] == None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, solver_options["type"][1])
+            pc = pc_class(self.mass_ops.M1)
+
+        # Mass matrix solver (always needed)
+        self.solver = inverse(
+            A=self.mass_ops.M1,
+            solver=solver_options["type"][0],
+            pc=pc,
+            tol=solver_options["tol"],
+            maxiter=solver_options["maxiter"],
+            verbose=solver_options["verbose"],
+        )
+
+        # Get options for Picard iteration
+        method_options = options["method"]
+        self._method_type = method_options["type"]
+        self._maxiter = method_options["maxiter"]
+        if "rtol" in method_options.keys():
+            self._tol = method_options["rtol"]
+            self._tol_type = "relative"
+        else:
+            self._tol = method_options["atol"]
+            self._tol_type = "absolute"
+
+        if self._variables == "e_v":
             self._method_type = method_options["type"]
-            self._maxiter = method_options["maxiter"]
-            if "rtol" in method_options.keys():
-                self._tol = method_options["rtol"]
-                self._tol_type = "relative"
-            else:
-                self._tol = method_options["atol"]
-                self._tol_type = "absolute"
 
-            assert self._method_type in ["explicit", "midpoint", "implicit"], (
-                "Only the options 'explicit', midpoint', and 'implicit' are implemented!"
+            # Get options for solving either with Picard or Schur
+            assert self._method_type in (
+                "Picard",
+                "Schur",
+            ), (
+                "Only the options 'Picard' and 'Schur' are implemented!"
             )
 
-            # Preconditioner
-            solver_options = options["solver"]
-            self._info = solver_options["info"]
+            if self._method_type == "Picard":
+                self._setup_e_v_Picard()
+            elif self._method_type == "Schur":
+                self._setup_e_v_Schur()
 
-            if solver_options["type"][1] == None:
-                pc = None
-            else:
-                pc_class = getattr(preconditioner, solver_options["type"][1])
-                pc = pc_class(self.mass_ops.M1)
-
-            # Mass matrix solver
-            self.solver = inverse(
-                A=self.mass_ops.M1,
-                solver=solver_options["type"][0],
-                pc=pc,
-                tol=solver_options["tol"],
-                maxiter=solver_options["maxiter"],
-                verbose=solver_options["verbose"],
+        elif self._variables == "e_v_gamma_w":
+            assert self._method_type in (
+                "explicit",
+                "midpoint",
+                "implicit",
+            ), (
+                "Only the options 'explicit', midpoint', and 'implicit' are implemented!"
             )
 
             if self._method_type == "explicit":
@@ -550,6 +581,72 @@ class DeltaFVlasovAmpere(Propagator):
                 self._setup_e_v_gamma_w_midpoint()
             elif self._method_type == "implicit":
                 self._setup_e_v_gamma_w_implicit()
+
+    def _setup_e_v_Picard(self):
+        """Setup for solving e-v substep with a Picard iteration"""
+        self._accum_vec = AccumulatorVector(
+            self.particles[0],
+            "Hcurl",
+            accum_kernels.dfva_e_v_accum_chi,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
+
+        # marker storage
+        self._delta_v_curr = np.zeros((self.particles[0].markers.shape[0], 3), dtype=float)
+        self._delta_v_next = np.zeros((self.particles[0].markers.shape[0], 3), dtype=float)
+        self._diff_delta_v = np.zeros((self.particles[0].markers.shape[0], 3), dtype=float)
+
+        self._gamma_values = np.zeros((self.particles[0].markers.shape[0]), dtype=float)
+
+        # Create buffers to store temporarily e and its sum with old e
+        self._delta_e_temp = self.feec_vars[0].space.zeros()
+        self._delta_e_curr = self.feec_vars[0].space.zeros()
+        self._delta_e_next = self.feec_vars[0].space.zeros()
+        self._diff_delta_e = self.feec_vars[0].space.zeros()
+
+        # Instantiate predictor for velocities
+        args_kernel_predictor = (
+            self.derham.args_derham,
+            self.feec_vars[0].blocks[0]._data,
+            self.feec_vars[0].blocks[1]._data,
+            self.feec_vars[0].blocks[2]._data,
+            self._delta_v_next,
+            self._epsilon,
+        )
+
+        self._predict_velocities = Pusher(
+            self.particles[0],
+            pusher_kernels.push_predict_velocities_in_e_field,
+            args_kernel_predictor,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
+        # Instantiate pusher for velocities
+        args_kernel_pusher = (
+            self.derham.args_derham,
+            self.feec_vars[0].blocks[0]._data,
+            self.feec_vars[0].blocks[1]._data,
+            self.feec_vars[0].blocks[2]._data,
+            self._delta_e_curr.blocks[0]._data,
+            self._delta_e_curr.blocks[1]._data,
+            self._delta_e_curr.blocks[2]._data,
+            self._delta_v_next,
+            self._epsilon,
+        )
+
+        self._push_velocities = Pusher(
+            self.particles[0],
+            pusher_kernels.push_velocities_with_delta_e,
+            args_kernel_pusher,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
+    def _setup_e_v_Schur(self):
+        """Setup for solving e-v substep with a Schur solver"""
+        pass
 
     def _setup_e_v_gamma_w_explicit(self):
         """Set up propagator for explicit-like Picard iteration. Allocate only necessary memory."""
@@ -587,7 +684,7 @@ class DeltaFVlasovAmpere(Propagator):
         # Use an explicit Euler step to predict velocities
         self._predict_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_predict_v_dfva_e_v_gamma_w,
+            pusher_kernels.push_predict_velocities_in_e_field,
             args_kernel_predictor,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -608,7 +705,7 @@ class DeltaFVlasovAmpere(Propagator):
 
         self._push_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_velocities_dfva,
+            pusher_kernels.push_velocities_with_delta_e,
             args_kernel_pusher,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -715,7 +812,7 @@ class DeltaFVlasovAmpere(Propagator):
 
         self._push_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_velocities_dfva,
+            pusher_kernels.push_velocities_with_delta_e,
             args_kernel_pusher,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -803,20 +900,144 @@ class DeltaFVlasovAmpere(Propagator):
 
         self._push_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_velocities_dfva,
+            pusher_kernels.push_velocities_with_delta_e,
             args_kernel_pusher,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
         )
 
     def __call__(self, dt):
-        if self._variables == "e_v_gamma_w":
+        if self._variables == "e_v":
+            self._call_e_v(dt)
+        elif self._variables == "e_v_gamma_w":
             if self._method_type == "explicit":
                 self._call_e_v_gamma_w_explicit(dt)
             elif self._method_type == "midpoint":
                 self._call_e_v_gamma_w_midpoint(dt)
             elif self._method_type == "implicit":
                 self._call_e_v_gamma_w_implicit(dt)
+
+    def _call_e_v(self, dt):
+        """ TODO """
+        # Compute gamma at time n
+        self._gamma_values[self.particles[0].valid_mks] = \
+            self._f0(*self.particles[0].phasespace_coords.T) \
+            / self.particles[0].sampling_density \
+            + self.particles[0].weights \
+
+        # Use predictor for velocities
+        self._predict_velocities(dt)
+
+        converged_glob = False
+
+        # Accumulate
+        self._accum_vec(
+            self._delta_v_next,
+            self._gamma_values,
+            self._vth,
+            self._n0,
+        )
+
+        # compute next delta e
+        self._delta_e_temp *= 0.0
+        self._delta_e_temp += self._accum_vec.vectors[0]
+        self._delta_e_temp *= (-1.) * dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+
+        # Compute next iteration for E-field
+        self.solver.dot(self._delta_e_temp, out=self._delta_e_next)
+
+        k = 0
+        while not converged_glob:
+            k += 1
+
+            # Store current delta e
+            self._delta_e_curr *= 0.0
+            self._delta_e_curr += self._delta_e_next
+
+            # Store current delta v
+            self._delta_v_curr[:, :] = self._delta_v_next[:, :]
+
+            # Accumulate
+            self._accum_vec(
+                self._delta_v_next,
+                self._gamma_values,
+                self._vth,
+                self._n0,
+            )
+
+            # compute next e
+            self._delta_e_temp *= 0.0
+            self._delta_e_temp += self._accum_vec.vectors[0]
+            self._delta_e_temp *= (-1.) * dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+
+            # Compute next iteration for E-field
+            self.solver.dot(self._delta_e_temp, out=self._delta_e_next)
+
+            # Push velocities
+            self._push_velocities(dt)
+
+            # Compute difference in delta v
+            self._diff_delta_v[:, :] = self._delta_v_next[:, :]
+            self._diff_delta_v[:, :] -= self._delta_v_curr[:, :]
+
+            if self._tol_type == "relative":
+                # Compute error in delta v
+                max_diff_v = np.max(
+                    np.divide(
+                        np.sqrt(
+                            self._diff_delta_v[self.particles[0].valid_mks, 0] ** 2
+                            + self._diff_delta_v[self.particles[0].valid_mks, 1] ** 2
+                            + self._diff_delta_v[self.particles[0].valid_mks, 2] ** 2
+                        ),
+                        np.sqrt(
+                            self.particles[0].markers[self.particles[0].valid_mks, 3] ** 2
+                            + self.particles[0].markers[self.particles[0].valid_mks, 4] ** 2
+                            + self.particles[0].markers[self.particles[0].valid_mks, 5] ** 2
+                        ),
+                    )
+                )
+
+                # Compute difference in e-field (not very efficient, find better way)
+                max_diff_e = np.max(
+                    np.abs(self._delta_e_curr.toarray() - self._delta_e_next.toarray()),
+                )
+
+            elif self._tol_type == "absolute":
+                # Compute error in delta v
+                max_diff_v = np.max(
+                    np.sqrt(
+                        self._diff_delta_v[self.particles[0].valid_mks, 0] ** 2
+                        + self._diff_delta_v[self.particles[0].valid_mks, 1] ** 2
+                        + self._diff_delta_v[self.particles[0].valid_mks, 2] ** 2
+                    )
+                )
+
+                # Compute difference in e-field (not very efficient, find better way)
+                max_diff_e = np.max(np.abs(self._delta_e_curr.toarray() - self._delta_e_next.toarray()))
+
+            # Check if converged locally
+            converged_loc = int((max_diff_v < self._tol) and (max_diff_e < self._tol))
+            # print(f"{converged_loc=} with {max_diff_v=} and {max_diff_w=} and {max_diff_e=}")
+
+            # Check if converged globally
+            converged_glob = self.derham.comm.allreduce(converged_loc, op=MPI.LAND)
+
+            if k >= self._maxiter:
+                print("Max number of iterations reached, breaking..")
+                break
+
+        # Update velocities
+        self.particles[0].markers[self.particles[0].valid_mks, 3:6] += \
+            self._delta_v_next[self.particles[0].valid_mks, :]
+
+        # Compute e^{n+1}
+        self._delta_e_next += self.feec_vars[0]
+
+        # write new coeffs into self.variables
+        (max_diff_e,) = self.feec_vars_update(self._delta_e_next)
+
+        # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
+
 
     def _call_e_v_gamma_w_explicit(self, dt):
         """Do Picard iteration for substep using an explicit-like expression"""

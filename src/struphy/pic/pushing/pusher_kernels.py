@@ -2824,7 +2824,7 @@ def push_weights_with_efield_lin_va(
 
 
 @stack_array("e_vec", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
-def push_predict_v_dfva_e_v_gamma_w(
+def push_predict_velocities_in_e_field(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -3119,7 +3119,7 @@ def push_weights_dfva_e_v_gamma_w_implicit(
 
 
 @stack_array("e_old, e_next", "e_sum", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
-def push_velocities_dfva(
+def push_velocities_with_delta_e(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
