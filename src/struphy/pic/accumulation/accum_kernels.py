@@ -655,9 +655,15 @@ def dfva_accum_midpoint(
         # Norms of old and new velocities
         v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
+        v_tilde /= vth**2
 
         factor = (
-            (f0 + f0_curr) / (2.0 * markers[ip, 7]) * utils.expm1_minus_x_over_x(-v_tilde / vth**2, n_terms=200)
+            f0_curr / (2.0 * markers[ip, 7]) 
+            # * utils.expm1_minus_x_over_x(v_tilde, n_terms=200)
+            * (expm1(v_tilde) / v_tilde - 1.0)
+            + f0 / (2.0 * markers[ip, 7]) 
+            # * utils.expm1_minus_x_over_x(-v_tilde, n_terms=200)
+            * (- expm1(v_tilde) / v_tilde - 1.0)
             - markers[ip, 6] - 0.5 * delta_w[ip]
         )
 

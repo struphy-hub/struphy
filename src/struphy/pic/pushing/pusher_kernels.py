@@ -3066,12 +3066,10 @@ def push_weights_dfva_midpoint(
         # Norms of old and new velocities
         v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
+        v_tilde /= vth**2
 
         # compute explicit velocity update
-        arg = -v_tilde / vth**2
-        factor = (f0_old + f0_curr) / (2.0 * markers[ip, 7])
-        update = factor * utils.expm1_taylor(arg, n_terms=200)
-        delta_w_next[ip] = (-1.0) * update
+        delta_w_next[ip] = (f0_curr * expm1(v_tilde) - f0_old * expm1(-v_tilde)) / (2.0 * markers[ip, 7])
 
 
 @stack_array("v_old", "v_next")
