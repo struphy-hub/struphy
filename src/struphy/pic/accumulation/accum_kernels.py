@@ -702,7 +702,7 @@ def dfva_e_v_gamma_w_accum_midpoint(
 
 
 @stack_array("v_old", "v_diff", "v_sum", "dfm", "df_inv", "df_inv_v")
-def dfva_accum_implicit(
+def dfva_e_v_gamma_w_accum_implicit(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",

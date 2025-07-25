@@ -469,6 +469,7 @@ class DeltaFVlasovAmpere(Propagator):
             "recycle": True,
         }
         dct["method"] = {
+            "variables": "e_v_gamma_w",
             "type": "explicit",
             "rtol": 1.0e-12,
             "maxiter": 300,
@@ -498,49 +499,59 @@ class DeltaFVlasovAmpere(Propagator):
         self._n0 = f0.maxw_params["n"]
         self._f0 = f0
 
-        # Get options for Picard iteration
-        method_options = options["method"]
-        self._method_type = method_options["type"]
-        self._maxiter = method_options["maxiter"]
-        if "rtol" in method_options.keys():
-            self._tol = method_options["rtol"]
-            self._tol_type = "relative"
-        else:
-            self._tol = method_options["atol"]
-            self._tol_type = "absolute"
+        assert options["variables"] in (
+                "e_v",
+                "e_v_w",
+                "e_v_gamma",
+                "e_v_gamma_w",
+        ), f"Variable choice {options["variables"]} is not known!"
 
-        assert self._method_type in ["explicit", "midpoint", "implicit"], (
-            "Only the options 'explicit', midpoint', and 'implicit' are implemented!"
-        )
+        self._variables = options["variables"]
 
-        # Preconditioner
-        solver_options = options["solver"]
-        self._info = solver_options["info"]
+        if self._variables == "e_v_gamma_w":
+            # Get options for Picard iteration
+            method_options = options["method"]
+            self._method_type = method_options["type"]
+            self._maxiter = method_options["maxiter"]
+            if "rtol" in method_options.keys():
+                self._tol = method_options["rtol"]
+                self._tol_type = "relative"
+            else:
+                self._tol = method_options["atol"]
+                self._tol_type = "absolute"
 
-        if solver_options["type"][1] == None:
-            pc = None
-        else:
-            pc_class = getattr(preconditioner, solver_options["type"][1])
-            pc = pc_class(self.mass_ops.M1)
+            assert self._method_type in ["explicit", "midpoint", "implicit"], (
+                "Only the options 'explicit', midpoint', and 'implicit' are implemented!"
+            )
 
-        # Mass matrix solver
-        self.solver = inverse(
-            A=self.mass_ops.M1,
-            solver=solver_options["type"][0],
-            pc=pc,
-            tol=solver_options["tol"],
-            maxiter=solver_options["maxiter"],
-            verbose=solver_options["verbose"],
-        )
+            # Preconditioner
+            solver_options = options["solver"]
+            self._info = solver_options["info"]
 
-        if self._method_type == "explicit":
-            self._setup_explicit()
-        elif self._method_type == "midpoint":
-            self._setup_midpoint()
-        elif self._method_type == "implicit":
-            self._setup_implicit()
+            if solver_options["type"][1] == None:
+                pc = None
+            else:
+                pc_class = getattr(preconditioner, solver_options["type"][1])
+                pc = pc_class(self.mass_ops.M1)
 
-    def _setup_explicit(self):
+            # Mass matrix solver
+            self.solver = inverse(
+                A=self.mass_ops.M1,
+                solver=solver_options["type"][0],
+                pc=pc,
+                tol=solver_options["tol"],
+                maxiter=solver_options["maxiter"],
+                verbose=solver_options["verbose"],
+            )
+
+            if self._method_type == "explicit":
+                self._setup_e_v_gamma_w_explicit()
+            elif self._method_type == "midpoint":
+                self._setup_e_v_gamma_w_midpoint()
+            elif self._method_type == "implicit":
+                self._setup_e_v_gamma_w_implicit()
+
+    def _setup_e_v_gamma_w_explicit(self):
         """Set up propagator for explicit-like Picard iteration. Allocate only necessary memory."""
         self._accum_vec = AccumulatorVector(
             self.particles[0],
@@ -576,7 +587,7 @@ class DeltaFVlasovAmpere(Propagator):
         # Use an explicit Euler step to predict velocities
         self._predict_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_predict_v_dfva,
+            pusher_kernels.push_predict_v_dfva_e_v_gamma_w,
             args_kernel_predictor,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -613,13 +624,13 @@ class DeltaFVlasovAmpere(Propagator):
 
         self._push_weights = Pusher(
             self.particles[0],
-            pusher_kernels.push_weights_dfva_explicit,
+            pusher_kernels.push_weights_dfva_e_v_gamma_w_explicit,
             args_kernel_weights,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
         )
 
-    def _setup_midpoint(self):
+    def _setup_e_v_gamma_w_midpoint(self):
         """Set up propagator for midpoint-like Picard iteration. Allocate only necessary memory."""
         self._accum_vec = AccumulatorVector(
             self.particles[0],
@@ -665,7 +676,7 @@ class DeltaFVlasovAmpere(Propagator):
         # Use an explicit Euler step to predict weights and velocities
         self._predict_weights_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_predict_v_w_dfva,
+            pusher_kernels.push_predict_v_w_dfva_e_v_gamma_w,
             args_kernel_predictor,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -683,7 +694,7 @@ class DeltaFVlasovAmpere(Propagator):
 
         self._push_weights = Pusher(
             self.particles[0],
-            pusher_kernels.push_weights_dfva_midpoint,
+            pusher_kernels.push_weights_dfva_e_v_gamma_w_midpoint,
             args_kernel_weights,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -710,12 +721,12 @@ class DeltaFVlasovAmpere(Propagator):
             alpha_in_kernel=1.0,
         )
 
-    def _setup_implicit(self):
+    def _setup_e_v_gamma_w_implicit(self):
         """Set up propagator for implicit-like Picard iteration. Allocate only necessary memory."""
         self._accum_vec = AccumulatorVector(
             self.particles[0],
             "Hcurl",
-            accum_kernels.dfva_accum_implicit,
+            accum_kernels.dfva_e_v_gamma_w_accum_implicit,
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -754,7 +765,7 @@ class DeltaFVlasovAmpere(Propagator):
         # Use an explicit Euler step to predict weights and velocities
         self._predict_weights_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_predict_v_w_dfva,
+            pusher_kernels.push_predict_v_w_dfva_e_v_gamma_w,
             args_kernel_predictor,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -771,7 +782,7 @@ class DeltaFVlasovAmpere(Propagator):
 
         self._push_weights = Pusher(
             self.particles[0],
-            pusher_kernels.push_weights_dfva_implicit,
+            pusher_kernels.push_weights_dfva_e_v_gamma_w_implicit,
             args_kernel_weights,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -799,14 +810,15 @@ class DeltaFVlasovAmpere(Propagator):
         )
 
     def __call__(self, dt):
-        if self._method_type == "explicit":
-            self._call_explicit(dt)
-        elif self._method_type == "midpoint":
-            self._call_midpoint(dt)
-        elif self._method_type == "implicit":
-            self._call_implicit(dt)
+        if self._variables == "e_v_gamma_w":
+            if self._method_type == "explicit":
+                self._call_e_v_gamma_w_explicit(dt)
+            elif self._method_type == "midpoint":
+                self._call_e_v_gamma_w_midpoint(dt)
+            elif self._method_type == "implicit":
+                self._call_e_v_gamma_w_implicit(dt)
 
-    def _call_explicit(self, dt):
+    def _call_e_v_gamma_w_explicit(self, dt):
         """Do Picard iteration for substep using an explicit-like expression"""
         # Compute f0 at time n
         self._f0_values[self.particles[0].valid_mks] = self._f0(*self.particles[0].phasespace_coords.T)
@@ -924,7 +936,7 @@ class DeltaFVlasovAmpere(Propagator):
 
         # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
 
-    def _call_midpoint(self, dt):
+    def _call_e_v_gamma_w_midpoint(self, dt):
         """Do Picard iteration for substep using an midpoint-like expression"""
         # Compute f0 at time n
         self._f0_values_old[self.particles[0].valid_mks] = self._f0(*self.particles[0].phasespace_coords.T)
@@ -1083,7 +1095,7 @@ class DeltaFVlasovAmpere(Propagator):
 
         # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
 
-    def _call_implicit(self, dt):
+    def _call_e_v_gamma_w_implicit(self, dt):
         """Do Picard iteration for substep using an implicit-like expression"""
         # Use predictor for weights and velocities
         self._predict_weights_velocities(dt)

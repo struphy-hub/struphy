@@ -2824,7 +2824,7 @@ def push_weights_with_efield_lin_va(
 
 
 @stack_array("e_vec", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
-def push_predict_v_dfva(
+def push_predict_v_dfva_e_v_gamma_w(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -2898,7 +2898,7 @@ def push_predict_v_dfva(
 
 
 @stack_array("e_vec", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
-def push_predict_v_w_dfva(
+def push_predict_v_w_dfva_e_v_gamma_w(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -2986,7 +2986,7 @@ def push_predict_v_w_dfva(
 
 
 @stack_array("v_old", "v_next")
-def push_weights_dfva_explicit(
+def push_weights_dfva_e_v_gamma_w_explicit(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -3030,7 +3030,7 @@ def push_weights_dfva_explicit(
 
 
 @stack_array("v_old", "v_next")
-def push_weights_dfva_midpoint(
+def push_weights_dfva_e_v_gamma_w_midpoint(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -3073,7 +3073,7 @@ def push_weights_dfva_midpoint(
 
 
 @stack_array("v_old", "v_next")
-def push_weights_dfva_implicit(
+def push_weights_dfva_e_v_gamma_w_implicit(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -3107,10 +3107,15 @@ def push_weights_dfva_implicit(
         # Norms of old and new velocities
         v_tilde = linalg_kernels.scalar_dot(v_old, v_diff)
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
+        v_tilde /= vth**2
 
         # compute velocity update
-        update = f0_curr / markers[ip, 7] * utils.expm1_taylor(-v_tilde / vth**2, n_terms=200)
-        delta_w_next[ip] = (-1.0) * update
+        update = (
+            f0_curr / markers[ip, 7]
+            * expm1(v_tilde)
+            # * utils.expm1_taylor(v_tilde, n_terms=200)
+        )
+        delta_w_next[ip] = update
 
 
 @stack_array("e_old, e_next", "e_sum", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
