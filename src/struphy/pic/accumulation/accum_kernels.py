@@ -490,6 +490,103 @@ def linear_vlasov_ampere(
     # -- removed omp: #$ omp end parallel
 
 
+@stack_array("v_old", "dfm", "df_inv", "df_inv_t", "df_inv_v", "filling_m")
+def dfva_e_v_accum_AB_AV(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    mat11: "float[:,:,:,:,:,:]",
+    mat12: "float[:,:,:,:,:,:]",
+    mat13: "float[:,:,:,:,:,:]",
+    mat22: "float[:,:,:,:,:,:]",
+    mat23: "float[:,:,:,:,:,:]",
+    mat33: "float[:,:,:,:,:,:]",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+    gamma_values: "float[:]",
+):
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # Allocate memory
+    v_old = empty(3, dtype=float)
+
+    # allocate for metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    df_inv_v = empty(3, dtype=float)
+    filling_m = empty((3, 3), dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # get old velocities v^n
+        v_old[0] = markers[ip, 3]
+        v_old[1] = markers[ip, 4]
+        v_old[2] = markers[ip, 5]
+
+        # get gamma
+        gamma = gamma_values[ip]
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # transpose inverse Jacobian
+        linalg_kernels.transpose(df_inv, df_inv_t)
+
+        # compute DF^{-1} sum_vec
+        linalg_kernels.matrix_vector(df_inv, v_old, df_inv_v)
+
+        # filling for matrix
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, filling_m)
+
+        # call the appropriate matvec filler
+        particle_to_mat_kernels.m_v_fill_b_v1_symm(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            mat11,
+            mat12,
+            mat13,
+            mat22,
+            mat23,
+            mat33,
+            filling_m[0,0] * gamma,
+            filling_m[0,1] * gamma,
+            filling_m[0,2] * gamma,
+            filling_m[1,1] * gamma,
+            filling_m[1,2] * gamma,
+            filling_m[2,2] * gamma,
+            vec1,
+            vec2,
+            vec3,
+            gamma * df_inv_v[0],
+            gamma * df_inv_v[1],
+            gamma * df_inv_v[2],
+        )
+
 @stack_array("v_old", "v_diff", "chi", "sum_vec", "dfm", "df_inv", "df_inv_v")
 def dfva_e_v_accum_chi(
     args_markers: "MarkerArguments",
