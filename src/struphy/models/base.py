@@ -947,8 +947,8 @@ class StruphyModel(metaclass=ABCMeta):
 
                         obj.initialize_weights()
 
-                        #if any(k.startswith("diag") for k in val["kinetic_data"]):
-                        #    obj.save_energy_diff(init=True)
+                        if any(k.startswith("diag") for k in val["kinetic_data"]):
+                            obj.save_energy_diff(init=True)
 
                     else:
                         if (
@@ -959,7 +959,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                         #obj.initialize_weights(reset_df=True)
                         obj.markers[~obj.holes,11] = obj.markers_wo_holes[:,5]
-                        obj.update_weights(restart=True)
+                        obj.update_weights()
 
     def initialize_from_restart(self, data):
         """

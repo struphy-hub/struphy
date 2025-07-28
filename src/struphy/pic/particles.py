@@ -553,11 +553,11 @@ class Particles5D(Particles):
         )
 
         # diag4 - parallel flow
-        self.markers[~self.holes, self.first_diagnostics_idx + 4 - 1] = self.weights0 * self.markers[~self.holes, 3]
+        #self.markers[~self.holes, self.first_diagnostics_idx + 4 - 1] = self.weights0 * self.markers[~self.holes, 3]
 
         # diag5 - perpendicular pressure
-        m_energy = self.markers[~self.holes, self.first_diagnostics_idx] - 1/2*self.markers[~self.holes, 3]**2
-        self.markers[~self.holes, self.first_diagnostics_idx + 5 - 1] = self.weights0 * m_energy
+        #m_energy = self.markers[~self.holes, self.first_diagnostics_idx] - 1/2*self.markers[~self.holes, 3]**2
+        #self.markers[~self.holes, self.first_diagnostics_idx + 5 - 1] = self.weights0 * m_energy
 
     def save_magnetic_energy(self, PBb):
         r"""
