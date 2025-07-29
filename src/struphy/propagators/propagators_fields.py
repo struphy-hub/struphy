@@ -111,22 +111,20 @@ class Maxwell(Propagator):
                                     butcher=butcher,)
 
     def allocate(self):
-        solver = {}
-        
         # obtain needed matrices
         M1 = self.mass_ops.M1
         M2 = self.mass_ops.M2
         curl = self.derham.curl
 
         # Preconditioner for M1 + ...
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
-            pc = pc_class(self.mass_ops.M1)
+            pc_class = getattr(preconditioner, self.options.precond)
+            pc = pc_class(M1)
 
-        if self._algo == "implicit":
-            self._info = solver["info"]
+        if self.options.algo == "implicit":
+            self._info = self.options.solver_params.info
             # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
             _A = M1
 
@@ -140,11 +138,11 @@ class Maxwell(Propagator):
             self._schur_solver = SchurSolver(
                 _A,
                 _BC,
-                solver["type"][0],
+                self.options.solver,
                 pc=pc,
-                tol=solver["tol"],
-                maxiter=solver["maxiter"],
-                verbose=solver["verbose"],
+                tol=self.options.solver_params.tol,
+                maxiter=self.options.solver_params.maxiter,
+                verbose=self.options.solver_params.verbose,
             )
 
             # pre-allocate arrays
@@ -155,43 +153,43 @@ class Maxwell(Propagator):
             # define vector field
             M1_inv = inverse(
                 M1,
-                solver["type"][0],
+                self.options.solver,
                 pc=pc,
-                tol=solver["tol"],
-                maxiter=solver["maxiter"],
-                verbose=solver["verbose"],
+                tol=self.options.solver_params.tol,
+                maxiter=self.options.solver_params.maxiter,
+                verbose=self.options.solver_params.verbose,
             )
             weak_curl = M1_inv @ curl.T @ M2
 
             # allocate output of vector field
-            out1 = e.space.zeros()
-            out2 = b.space.zeros()
+            out1 = self.e.space.zeros()
+            out2 = self.b.space.zeros()
 
-            def f1(t, y1, y2, out=out1):
+            def f1(t, y1, y2, out: BlockVector = out1):
                 weak_curl.dot(y2, out=out)
                 out.update_ghost_regions()
                 return out
 
-            def f2(t, y1, y2, out=out2):
+            def f2(t, y1, y2, out: BlockVector = out2):
                 curl.dot(y1, out=out)
                 out *= -1.0
                 out.update_ghost_regions()
                 return out
 
-            vector_field = {e: f1, b: f2}
-            self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
+            vector_field = {self.e: f1, self.b: f2}
+            self._ode_solver = ODEsolverFEEC(vector_field, algo=self.options.butcher)
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
-        self._e_tmp1 = e.space.zeros()
-        self._e_tmp2 = e.space.zeros()
-        self._b_tmp1 = b.space.zeros()
+        self._e_tmp1 = self.e.space.zeros()
+        self._e_tmp2 = self.e.space.zeros()
+        self._b_tmp1 = self.b.space.zeros()
 
     def __call__(self, dt):
         # current variables
-        en = self.feec_vars[0]
-        bn = self.feec_vars[1]
+        en = self.e
+        bn = self.b
 
-        if self._algo == "implicit":
+        if self.options.algo == "implicit":
             # solve for new e coeffs
             self._B.dot(bn, out=self._byn)
 
