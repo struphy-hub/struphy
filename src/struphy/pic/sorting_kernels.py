@@ -29,6 +29,7 @@ def flatten_index(
         
     return n_glob
 
+
 def unflatten_index(
     n_glob: "int",
     nx: "int",
@@ -225,7 +226,43 @@ def sort_boxed_particles(
                 loc_i += 1
 
 
-def reassign_boxes(
+def assign_box_to_each_particle(
+    markers: "float[:,:]",
+    holes: "bool[:]",
+    nx: "int",
+    ny: "int",
+    nz: "int",
+    domain_array: "float[:]",
+    box_index: "int" = -2,
+):
+    """Assign the right box to each particle, written into column -2."""
+    # boxes[:, :] = -1
+    # next_index[:] = 0
+    l = markers.shape[1]
+    for p in range(markers.shape[0]):
+        if holes[p]:
+            n_box = (nx + 2) * (ny + 2) * (nz + 2)
+        else:
+            a = find_box(
+                markers[p, 0],
+                markers[p, 1],
+                markers[p, 2],
+                nx,
+                ny,
+                nz,
+                domain_array,
+            )
+            if a >= (nx + 2) * (ny + 2) * (nz + 2) or a < 0:
+                n_box = (nx + 2) * (ny + 2) * (nz + 2)
+            else:
+                n_box = a
+                #boxes[n_box, next_index[n_box]] = p
+        #next_index[n_box] += 1
+        b = float(n_box)
+        markers[p, l + box_index] = b
+
+
+def assign_particles_to_boxes(
     markers: "float[:,:]",
     holes: "bool[:]",
     boxes: "int[:,:]",

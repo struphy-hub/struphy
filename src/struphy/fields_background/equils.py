@@ -3028,7 +3028,7 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             # mask_x = np.logical_and(x < .6, x > .4)
             # mask_y = np.logical_and(y < .6, y > .4)
             # mask = np.logical_and(mask_x, mask_y)
-            mask = x < 0.0
+            mask = x < -2.0
             out[mask] = self.params["n"]
             return out
 

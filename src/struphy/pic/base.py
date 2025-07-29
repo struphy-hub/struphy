@@ -27,7 +27,8 @@ from struphy.pic.sorting_kernels import (
     flatten_index,
     initialize_neighbours,
     put_particles_in_boxes_kernel,
-    reassign_boxes,
+    assign_box_to_each_particle,
+    assign_particles_to_boxes,
     sort_boxed_particles,
 )
 from struphy.pic.sph_eval_kernels import (
@@ -2557,25 +2558,32 @@ class Particles(metaclass=ABCMeta):
         neighbouring boxes of neighbours processors or also communicated"""
         self.remove_ghost_particles()
 
-        put_particles_in_boxes_kernel(
-            self._markers,
+        # estimate max number of markers in a box
+        assign_box_to_each_particle(
+            self.markers,
             self.holes,
             self._sorting_boxes.nx,
             self._sorting_boxes.ny,
             self._sorting_boxes.nz,
-            self._sorting_boxes._boxes,
-            self._sorting_boxes._next_index,
             self.domain_array[self.mpi_rank],
         )
+        
+        self.check_and_assign_particles_to_boxes()
+
+        # put_particles_in_boxes_kernel(
+        #     self._markers,
+        #     self.holes,
+        #     self._sorting_boxes.nx,
+        #     self._sorting_boxes.ny,
+        #     self._sorting_boxes.nz,
+        #     self._sorting_boxes._boxes,
+        #     self._sorting_boxes._next_index,
+        #     self.domain_array[self.mpi_rank],
+        # )
 
         if self.sorting_boxes.communicate:
             self.communicate_boxes()
-            reassign_boxes(
-                self._markers,
-                self.holes,
-                self._sorting_boxes._boxes,
-                self._sorting_boxes._next_index,
-            )
+            self.check_and_assign_particles_to_boxes()
             self.update_ghost_particles()
             
         if self.verbose:
@@ -2584,6 +2592,28 @@ class Particles(metaclass=ABCMeta):
             for i in valid_box_ids:
                 n_mks_box = np.count_nonzero(self._sorting_boxes._boxes[i] != -1)
                 print(f'Number of markers in box {i} is {n_mks_box}')
+
+    def check_and_assign_particles_to_boxes(self):
+        """Check whether the box array has enough columns (detect load impbalance wrt to sorting boxes),
+        and then assigne the particles to boxes."""
+        
+        bcount = np.bincount(np.int64(self.markers_wo_holes[:, -2]))
+        max_in_box = np.max(bcount)
+        if max_in_box > self._sorting_boxes.boxes.shape[1]:
+            warnings.warn(
+                    f'Strong load imbalance detected in sorting boxes: \
+max number of markers in a box ({max_in_box}) on rank {self.mpi_rank} \
+exceeds the column-size of the box array ({self._sorting_boxes.boxes.shape[1]}). \
+Increasing the value of "box_bufsize" in the markers parameters for the next run.'
+                )
+            self.mpi_comm.Abort()
+
+        assign_particles_to_boxes(
+                self.markers,
+                self.holes,
+                self._sorting_boxes._boxes,
+                self._sorting_boxes._next_index,
+            )
 
     def do_sort(self, use_numpy_argsort=False):
         """Assign the particles to boxes and then sort them."""
