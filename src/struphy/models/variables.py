@@ -2,10 +2,19 @@ from abc import ABCMeta, abstractmethod
 from mpi4py import MPI
 
 from struphy.initial.base import InitialCondition
+from struphy.feec.psydac_derham import Derham, SplineFunction
+from struphy.io.options import FieldsBackground
+from struphy.initial.perturbations import Perturbation
+from struphy.geometry.base import Domain
+from struphy.fields_background.base import FluidEquilibrium
 
 
 class Variable(metaclass=ABCMeta):
     """Single variable (unknown) of a Species."""
+    
+    @abstractmethod
+    def allocate(self):
+        """Alocate object and memory for variable."""
     
     @property
     def backgrounds(self):
@@ -14,31 +23,49 @@ class Variable(metaclass=ABCMeta):
     @property
     def perturbations(self):
         return self._perturbations
+    
+    @property
+    def save_data(self):
+        """Store variable data during simulation (default=True)."""
+        if not hasattr(self, "_save_data"):
+            self._save_data = True
+        return self._save_data
+    
+    @save_data.setter
+    def save_data(self, new):
+        assert isinstance(new, bool)
+        self._save_data = new
+    
+    @property
+    def species(self):
+        if not hasattr(self, "_species"):
+            self._species = None
+        return self._species
 
-    def add_background(self, background = None, verbose=False,):
-        # assert isinstance(...)
+    def add_background(self, background, verbose=False):
+        """Type inference of added background done in sub class."""
         if not hasattr(self, "_backgrounds"):
-            self._backgrounds = []
-        self._backgrounds += [background]
+            self._backgrounds = background
+        else:
+            if not isinstance(self.backgrounds, list):
+                self._backgrounds = [self.backgrounds]
+            self._backgrounds += [background]
         
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"Variable '{self.__class__.__name__}': added background '{background.__class__.__name__}' with:")
+            print(f"\nVariable '{self.__name__}' of species '{self.species}' - added background '{background.__class__.__name__}' with:")
             for k, v in background.__dict__.items():
                 print(f'  {k}: {v}')
 
-    def add_perturbation(
-        self,
-        perturbation = None,
-        given_in_basis: tuple = None,
-        verbose=False,
-    ):
-        # assert isinstance(...)
+    def add_perturbation(self, perturbation: Perturbation, verbose=False):
         if not hasattr(self, "_perturbations"):
-            self._perturbations = []
-        self._perturbations += [(perturbation, given_in_basis)]
+            self._perturbations = perturbation
+        else:
+            if not isinstance(self.perturbations, list):
+                self._perturbations = [self.perturbations]
+            self._perturbations += [perturbation]
         
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"Variable '{self.__class__.__name__}': added perturbation '{perturbation.__class__.__name__}',{given_in_basis = }, with:")
+            print(f"\nVariable '{self.__name__}' of species '{self.species}' - added perturbation '{perturbation.__class__.__name__}' with:")
             for k, v in perturbation.__dict__.items():
                 print(f'  {k}: {v}')
 
@@ -50,13 +77,35 @@ class Variable(metaclass=ABCMeta):
 
     
 class FEECVariable(Variable):
-    def __init__(self, space: str = "H1"):
+    def __init__(self, name: str = "a_feec_var", space: str = "H1"):
         assert space in ("H1", "Hcurl", "Hdiv", "L2", "H1vec")
+        self._name = name
         self._space = space
+        
+    @property
+    def __name__(self):
+        return self._name
         
     @property
     def space(self):
         return self._space
+    
+    @property
+    def spline(self) -> SplineFunction:
+        return self._spline
+    
+    def add_background(self, background: FieldsBackground, verbose=False):
+        super().add_background(background, verbose=verbose)
+    
+    def allocate(self, derham: Derham, domain: Domain, equil: FluidEquilibrium,):
+        self._spline = derham.create_spline_function(
+                        name=self.__name__,
+                        space_id=self.space,
+                        backgrounds=self.backgrounds,
+                        perturbations=self.perturbations,
+                        domain=domain,
+                        equil=equil,
+                    )
     
     
 class PICVariable(Variable):
