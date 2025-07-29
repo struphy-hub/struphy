@@ -300,21 +300,23 @@ class Propagator(metaclass=ABCMeta):
         ]
        
     @property
-    def opts(self):
-        if not hasattr(self, "_opts"):
-            self._opts = self.Options()
-        return self._opts
-        
+    def options(self):
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        self._options = new
+       
     class Options:
-        def __init__(self, outer_prop, verbose=False):
-            self._outer_prop = outer_prop.__class__.__name__ # outer class
-            self._verbose = verbose
-        
+        def __init__(self, prop, **kwargs):
+            self._kwargs = kwargs
+            print(f"\nInstance of propagator '{prop.__class__.__name__}' with:")
+            for k, v in kwargs.items():
+                print(f'  {k}: {v}')
+            
         @property
-        def all(self):
-            return self.__dict__
-        
-        def add(self, name: str, opt):
-            setattr(self, name, opt)
-            if self._verbose and MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"Propagator '{self._outer_prop}': added option '{name}' with value '{opt}'")
+        def kwargs(self):
+            return self._kwargs
