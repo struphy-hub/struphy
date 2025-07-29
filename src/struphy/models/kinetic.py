@@ -1183,6 +1183,11 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         algo_eta = params["kinetic"]["species1"]["options"]["PushEta"]["algo"]
         options_coupling = params["em_fields"]["options"]["DeltaFVlasovAmpere"]
 
+        if "variables" in options_coupling["method"].keys():
+            self._variables = options_coupling["method"]["variables"]
+        else:
+            self._variables = propagators_coupling.DeltaFVlasovAmpere.options(default=True)["method"]["variables"]
+
         # Initialize propagators/integrators used in splitting substeps
         self._kwargs[propagators_markers.PushEta] = {
             "algo": algo_eta,
@@ -1202,6 +1207,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             "epsilon": self.epsilon,
             "vth": self.vth,
             "f0": self._f0,
+            "gamma": self._gamma,
             "options": options_coupling,
         }
 
@@ -1219,22 +1225,26 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
-        # self.add_scalar("en_c_ln_n", compute="from_particles", species="species1")
+        if self._has_background_e:
+            self.add_scalar("en_c_ln_n", compute="from_particles", species="species1")
         self.add_scalar("en_c_v_2", compute="from_particles", species="species1")
         self.add_scalar("en_w", compute="from_particles", species="species1")
         # self.add_scalar("en_c_ln_c", compute="from_particles", species="species1")
-        self.add_scalar("en_gamma", compute="from_particles", species="species1")
+        self.add_scalar("sum_gamma", compute="from_particles", species="species1")
+        summands = [
+                "en_c_v_2",
+                "en_w",
+        ]
+        if self._has_background_e:
+            summands += [
+                "en_c_ln_n",
+            ]
+
         self.add_scalar(
             "en_tot_p",
             compute="from_particles",
             species="species1",
-            summands=[
-                # "en_c_ln_n",
-                "en_c_v_2",
-                "en_w",
-                # "en_c_ln_c",
-                "en_gamma",
-            ],
+            summands=summands,
         )
         self.add_scalar("en_tot", summands=["en_E", "en_tot_p"])
 
@@ -1299,27 +1309,29 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # evaluate f0
         self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
 
-        # Compute gamma
-        self._gamma[self.pointer["species1"].valid_mks] = self.pointer["species1"].weights + np.divide(
-            self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
-        )
+        if self._variables == "e_v_gamma_w":
+            # Compute gamma
+            self._gamma[self.pointer["species1"].valid_mks] = self.pointer["species1"].weights + np.divide(
+                self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
+            )
 
-        # evaluate n0
-        self._n0_values[self.pointer["species1"].valid_mks] = self._f0.n(
-            *self.pointer["species1"].phasespace_coords[:, :3].T
-        )
+        if self._has_background_e:
+            # evaluate n0
+            self._n0_values[self.pointer["species1"].valid_mks] = self._f0.n(
+                *self.pointer["species1"].phasespace_coords[:, :3].T
+            )
 
-        # # - gamma_p * ln(n_{0,p})
-        # self._tmp[0] = (
-        #     self.alpha**2
-        #     * self.vth**2
-        #     * (-1.0)
-        #     * np.dot(
-        #         self._gamma[self.pointer["species1"].valid_mks],
-        #         np.log(self._n0_values[self.pointer["species1"].valid_mks]),
-        #     )
-        # )
-        # self.update_scalar("en_c_ln_n", self._tmp[0])
+            # - gamma_p * ln(n_{0,p})
+            self._tmp[0] = (
+                self.alpha**2
+                * self.vth**2
+                * (-1.0)
+                * np.dot(
+                    self._gamma[self.pointer["species1"].valid_mks],
+                    np.log(self._n0_values[self.pointer["species1"].valid_mks]),
+                )
+            )
+            self.update_scalar("en_c_ln_n", self._tmp[0])
 
         # gamma_p |v_p|^2 / (2 vth^2)
         self._tmp[1] = (
@@ -1334,7 +1346,14 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         self.update_scalar("en_c_v_2", self._tmp[1])
 
         # w_p
-        self._tmp[2] = self.alpha**2 * self.vth**2 * self.pointer["species1"].weights.sum()
+        if self._variables == "e_v_gamma_w":
+            self._tmp[2] = self.alpha**2 * self.vth**2 * self.pointer["species1"].weights.sum()
+        else:
+            self._tmp[2] = self.alpha**2 * self.vth**2 * \
+                np.divide(
+                    self._f0_values[self.pointer["species1"].valid_mks],
+                    self.pointer["species1"].sampling_density,
+                ).sum()
         self.update_scalar("en_w", self._tmp[2])
 
         # # gamma_p * ln(gamma_p)
@@ -1349,9 +1368,9 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # self.update_scalar("en_c_ln_c", self._tmp[3])
 
         # gamma * ln(1 / sqrt( (2*pi*vth^2)^3 ) )
-        self._tmp[4] = - self.alpha**2 * self.vth**2 * 1.5 * self._gamma[self.pointer["species1"].valid_mks].sum() * np.log(2 * np.pi * self.vth**2)
-        # self._tmp[4] = self._gamma[self.pointer["species1"].valid_mks].sum()
-        self.update_scalar("en_gamma", self._tmp[4])
+        # self._tmp[4] = - self.alpha**2 * self.vth**2 * 1.5 * self._gamma[self.pointer["species1"].valid_mks].sum() * np.log(2 * np.pi * self.vth**2)
+        self._tmp[4] = self._gamma[self.pointer["species1"].valid_mks].sum()
+        self.update_scalar("sum_gamma", self._tmp[4])
 
         # total particle energy
         self.update_scalar("en_tot_p")

@@ -500,6 +500,7 @@ class DeltaFVlasovAmpere(Propagator):
         epsilon: float = 1.0,
         vth: float = 1.0,
         f0: Maxwellian = None,
+        gamma: np.ndarray = None,
         options=options(default=True),
     ):
         super().__init__(e, particles)
@@ -552,6 +553,7 @@ class DeltaFVlasovAmpere(Propagator):
 
         if self._variables == "e_v":
             self._method_type = method_options["type"]
+            self._gamma_values = gamma
 
             # Get options for solving either with Picard or Schur
             assert self._method_type in (
@@ -596,8 +598,6 @@ class DeltaFVlasovAmpere(Propagator):
         self._delta_v_curr = np.zeros((self.particles[0].markers.shape[0], 3), dtype=float)
         self._delta_v_next = np.zeros((self.particles[0].markers.shape[0], 3), dtype=float)
         self._diff_delta_v = np.zeros((self.particles[0].markers.shape[0], 3), dtype=float)
-
-        self._gamma_values = np.zeros((self.particles[0].markers.shape[0]), dtype=float)
 
         # Create buffers to store temporarily e and its sum with old e
         self._delta_e_temp = self.feec_vars[0].space.zeros()
@@ -1007,12 +1007,6 @@ class DeltaFVlasovAmpere(Propagator):
 
     def _call_e_v_Picard(self, dt):
         """ TODO """
-        # Compute gamma at time n
-        self._gamma_values[self.particles[0].valid_mks] = \
-            self._f0(*self.particles[0].phasespace_coords.T) \
-            / self.particles[0].sampling_density \
-            + self.particles[0].weights \
-
         # Use predictor for velocities
         self._predict_velocities(dt)
 
@@ -1105,7 +1099,7 @@ class DeltaFVlasovAmpere(Propagator):
 
             # Check if converged locally
             converged_loc = int((max_diff_v < self._tol) and (max_diff_e < self._tol))
-            # print(f"{converged_loc=} with {max_diff_v=} and {max_diff_w=} and {max_diff_e=}")
+            # print(f"{converged_loc=} with {max_diff_v=} and {max_diff_e=}")
 
             # Check if converged globally
             converged_glob = self.derham.comm.allreduce(converged_loc, op=MPI.LAND)
@@ -1291,7 +1285,6 @@ class DeltaFVlasovAmpere(Propagator):
         (max_diff_e,) = self.feec_vars_update(self._delta_e_next)
 
         # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
-
 
     def _call_e_v_gamma_w_explicit(self, dt):
         """Do Picard iteration for substep using an explicit-like expression"""
