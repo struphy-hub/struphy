@@ -2982,9 +2982,9 @@ class ConstantVelocity(CartesianFluidEquilibrium):
 
     def __init__(self, **params):
         params_default = {
-            "ux": 1.0,
-            "uy": 1.0,
-            "uz": 1.0,
+            "ux": 0.0,
+            "uy": 0.0,
+            "uz": 0.0,
             "n": 1.0,
             "n1": 0.0,
             "density_profile": "affine",
@@ -3025,7 +3025,11 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             return self.params["n"] * np.exp(-(x**2 + y**2) / self.params["p0"])
         elif self.params["density_profile"] == "step_function_x":
             out = 1e-8 + 0 * x
-            out[x < 0.0] = self.params["n"]
+            # mask_x = np.logical_and(x < .6, x > .4)
+            # mask_y = np.logical_and(y < .6, y > .4)
+            # mask = np.logical_and(mask_x, mask_y)
+            mask = x < 0.0
+            out[mask] = self.params["n"]
             return out
 
 

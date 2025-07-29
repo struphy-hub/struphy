@@ -2027,8 +2027,9 @@ class Particles(metaclass=ABCMeta):
         for axis in self._reflect_axes:
             outside_inds = self._find_outside_particles(axis)
 
-            self.markers[self._is_outside_left, axis] = 1e-4
-            self.markers[self._is_outside_right, axis] = 1 - 1e-4
+            self.markers[self._is_outside_left, axis] *= -1.0 
+            self.markers[self._is_outside_right, axis] *= -1.0 
+            self.markers[self._is_outside_right, axis] += 2.0
 
             self.markers[self._is_outside, self.first_pusher_idx] = -1.0
 
@@ -2037,7 +2038,7 @@ class Particles(metaclass=ABCMeta):
         for axis in self._reflect_axes:
             if len(outside_inds_per_axis[axis]) == 0:
                 continue
-
+            # flip velocity
             reflect(
                 self.markers,
                 self.domain.args_domain,
