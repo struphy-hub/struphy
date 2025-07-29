@@ -12,6 +12,8 @@ from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpa
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
 
+from matplotlib import pyplot as plt
+
 import struphy.feec.utilities as util
 from struphy.examples.restelli2018 import callables
 from struphy.feec import preconditioner
@@ -7574,8 +7576,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
             )
             l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
-            self._F1 = l2_proj.get_dofs([funx, funy, _forceterm_logical])
-            self._F2 = l2_proj.get_dofs([fun_electronsx, fun_electronsy, _forceterm_logical])
+            self._F1 = l2_proj([funx, funy, _forceterm_logical])
+            self._F2 = l2_proj([fun_electronsx, fun_electronsy, _forceterm_logical])
 
         elif self._dimension == "Restelli":
             ### Restelli ###
@@ -7605,15 +7607,27 @@ class TwoFluidQuasiNeutralFull(Propagator):
             forcetermelectrons_class = [_forceterm_logical, _forceterm_logical, _funelectrons]
 
             # pullback callable
-            fun_pb = TransformedPformComponent(
+            fun_pb_1 = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+            )
+            fun_pb_2 = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            )
+            fun_pb_3 = TransformedPformComponent(
                 forceterm_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
             )
-            fun_electrons_pb = TransformedPformComponent(
+            fun_electrons_pb_1 = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+            )
+            fun_electrons_pb_2 = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            )
+            fun_electrons_pb_3 = TransformedPformComponent(
                 forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
             )
             l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
-            self._F1 = l2_proj.get_dofs([_forceterm_logical, _forceterm_logical, fun_pb])
-            self._F2 = l2_proj.get_dofs([_forceterm_logical, _forceterm_logical, fun_electrons_pb])
+            self._F1 = l2_proj([fun_pb_1, fun_pb_2, fun_pb_3])
+            self._F2 = l2_proj([fun_electrons_pb_1, fun_electrons_pb_2, fun_electrons_pb_3])
 
             ### End Restelli ###
 
@@ -7681,6 +7695,17 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 else:
                     self._Hodgenp = self.basis_ops.S21.toarray_struphy(is_sparse=True)
                 self._M2Bnp = -self.mass_ops.M2B._mat.tosparse()
+            self._A11UxBnp = (self._M2Bnp / self._eps_norm)
+            self._A11Laplacenp = -self._Dnp.T @ self._M3np @ self._Dnp - self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+            self._M2 = getattr(self.mass_ops, "M2")
+            self._M3 = getattr(self.mass_ops, "M3")
+            self._M2B = -getattr(self.mass_ops, "M2B")
+            self._A11Laplacebl = self.derham.div.T @ self._M3 @ self.derham.div + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+            self._A11Laplacebdivdiv = self.derham.div.T @ self._M3 @ self.derham.div 
+            self._A11Laplacecurlcurl =  self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+            self._uxbBl = self._M2B
+            self._B1bl = -self._M3 @ self.derham.div
+
             self._A11np_notimedependency = (
                 self._nu
                 * (
@@ -7714,7 +7739,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     )
                     + self._M2Bnp / self._eps_norm
                 )
-                self._A22prenp = sc.sparse.eye(self.A22np.shape[0], format="csr")
+                self._A22prenp =  self._stab_sigma * sc.sparse.eye(self.A22np.shape[0], format="csr")
 
             B1np = -self._M3np @ self._Dnp
             B2np = self._M3np @ self._Dnp
@@ -7745,10 +7770,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         elif self._variant == "Uzawa":
             self._solver_UzawaNumpy = SaddlePointSolver(
+                Apre=_Anppre,
                 A=_Anp,
                 B=_Bnp,
                 F=_Fnp,
-                Apre=_Anppre,
                 method_to_solve=self._method_to_solve,
                 preconditioner=self._preconditioner,
                 spectralanalysis=spectralanalysis,
@@ -7765,6 +7790,56 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         if self._variant == "GMRES":
             # Define block matrix [[A BT], [B 0]]
+
+
+            # Laplacian = self.derham.div.T @ self._M3 @ self.derham.div + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+            # uxB = self._M2B / self._eps_norm
+            # gradphi = self._M3 @ self.derham.div
+            # coeffs_ulapl = Laplacian.dot(unfeec)
+            # coeffs_uxB = uxB.dot(unfeec)
+            # coeffs_gradphi = gradphi.T.dot(phinfeec)
+
+            # field_Laplace = self.derham.create_spline_function('Laplace', 'Hdiv', coeffs = coeffs_ulapl)
+            # field_uxB = self.derham.create_spline_function('uxB', 'Hdiv', coeffs = coeffs_uxB)
+            # field_gradphi = self.derham.create_spline_function('gradphi', 'Hdiv', coeffs = coeffs_gradphi)
+            # field_F1 = self.derham.create_spline_function('F1', 'Hdiv', coeffs = self._F1)
+            # # field_Laplace.vector = coeffs_ulapl
+            # # field_uxB.vector = coeffs_uxB
+            # # field_gradphi.vector = coeffs_gradphi
+            # # field_F1.vector = self._F1
+            # eta1 = np.linspace(0.,1.,100)
+            # eta2 = np.linspace(0.,1.,100)
+            # eta3 = np.linspace(0.,1.,5)
+
+            # val_laplace = field_Laplace(eta1,eta2,eta3)
+            # val_uxB = field_uxB(eta1,eta2,eta3)
+            # val_gradphi = field_gradphi(eta1,eta2,eta3)
+            # val_F1 = field_F1(eta1,eta2,eta3)
+            # iplot=2
+            # plt.figure(figsize=(12, 14))
+            # plt.subplot(4, 3, 1)
+            # plt.contourf(eta1, eta2 , val_laplace[iplot][:, :,0])
+            # plt.colorbar()
+            # plt.title(f'Laplace[{iplot}]', fontsize=16)
+            # plt.subplot(4, 3, 2)
+            # plt.contourf(eta1, eta2 , val_F1[iplot][:, :,0])
+            # plt.colorbar()
+            # plt.title(f'F1[{iplot}]', fontsize=16)
+
+            # plt.subplot(4, 3, 4)
+            # plt.contourf(eta1, eta2 , val_uxB[iplot][:, :,0])
+            # plt.colorbar()
+            # plt.title(f'uxB[{iplot}]', fontsize=16)
+            # plt.subplot(4, 3, 5)
+            # plt.contourf(eta1, eta2 , val_gradphi[iplot][:, :,0])
+            # plt.colorbar()
+            # plt.title(f'$\nabla \phi[{iplot}]$', fontsize=16)
+           
+            # plt.savefig("Laplacian.png")
+
+            # exit()
+
+
             _A11 = (
                 self._M2 / dt
                 - self._M2B / self._eps_norm
@@ -7804,7 +7879,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
             _blocksB = [[_B1, _B2]]
             _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
-            _blocksF = [self._F1 + self._M2.dot(unfeec, out=self._untemp) / dt, self._F2]
+            _blocksF = [self._M2.dot(self._F1) + self._M2.dot(unfeec, out=self._untemp) / dt, self._M2.dot(self._F2)]
             _F = BlockVector(self._block_domainA, blocks=_blocksF)
 
             # Imported solver
@@ -7838,25 +7913,181 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # _Anp[1] and _Anppre[1] remain unchanged
             _Anp = [A11np, A22np]
             if self._preconditioner == True:
-                _A11prenp = self._M2np / dt + self._A11prenp_notimedependency
+                _A11prenp = self._M2np / dt #+ self._A11prenp_notimedependency
                 _Anppre = [_A11prenp, _A22prenp]
-            _F1np = self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
-            _Fnp = [_F1np, self._F2np]
+            _F1np = self._M2np.dot(self._F1np) + 1.0 / dt * self._M2np.dot(unfeec.toarray())
+            _Fnp = [_F1np, self._M2np.dot(self._F2np)]
+
+
+            # print(f"{unfeec[0].shape=}")
+            # print(f"{unfeec[1].shape=}")
+            # print(f"{unfeec[2].shape=}")
+
+            # laplace = self._A11Laplacebl.dot(unfeec)
+            # laplace0 = laplace[0].toarray()
+            # laplace1 = laplace[1].toarray()
+            # laplace2 = laplace[2].toarray()
+            # uxB = self._uxbBl.dot(unfeec)
+            # uxB0 = uxB[0].toarray()
+            # uxB1 = uxB[1].toarray()
+            # uxB2 = uxB[2].toarray()
+            # gradphi = self._B1bl.T.dot(phinfeec)
+            # gradphi0 = gradphi[0].toarray()
+            # gradphi1 = gradphi[1].toarray()
+            # gradphi2 = gradphi[2].toarray()
+            # F=self._M2@self._F1
+            # F0=F[0].toarray()
+            # F1=F[1].toarray()
+            # F2=F[2].toarray()
+            # laplacedivdiv = self._A11Laplacebdivdiv.dot(unfeec)
+            # laplacedivdiv0 = laplacedivdiv[0].toarray()
+            # laplacedivdiv1 = laplacedivdiv[1].toarray()
+            # laplacedivdiv2 = laplacedivdiv[2].toarray()
+            # laplacecurlcurl = self._A11Laplacecurlcurl.dot(unfeec)
+            # laplacecurlcurl0 = laplacecurlcurl[0].toarray()
+            # laplacecurlcurl1 = laplacecurlcurl[1].toarray()
+            # laplacecurlcurl2 = laplacecurlcurl[2].toarray()
+            
+        
+
+            # plt.figure(figsize=(20, 18))
+            # plt.subplot(8, 3, 1)
+            # plt.plot(laplace0, color='blue', label="Laplace0") 
+            # plt.plot(F0, color='red', label="F1[0]")
+            # plt.legend()
+            # plt.subplot(8, 3, 2)
+            # plt.plot(laplace1, color='blue', label="Laplace1")
+            # plt.plot(F1, color='red', label="F1[1]")
+            # plt.legend()
+            # plt.subplot(8, 3, 3)
+            # plt.plot(laplace2, color='blue', label="Laplace2")
+            # plt.plot(F2, color='red', label="F1[2]")
+            # plt.legend()
+            # plt.subplot(8, 3, 4)
+            # plt.plot(uxB0, color='blue', label="uxb0")
+            # plt.plot(gradphi0, color='red', label="gradphi0")
+            # plt.legend()
+            # plt.subplot(8, 3, 5)
+            # plt.plot(uxB1, color='blue', label="uxb1")
+            # plt.plot(gradphi1, color='red', label="gradphi1")
+            # plt.legend()
+            # plt.subplot(8, 3, 6)
+            # plt.plot(uxB2, color='blue', label="uxb1")
+            # plt.plot(gradphi2, color='red', label="gradphi2")
+            # plt.legend()
+            # plt.subplot(8, 3, 7)
+            # plt.plot(laplacedivdiv0, color='blue', label="divdiv") 
+            # plt.plot(F0, color='red', label="F1[0]")
+            # plt.legend()
+            # plt.subplot(8, 3, 8)
+            # plt.plot(laplacedivdiv1, color='blue', label="divdiv1")
+            # plt.plot(F1, color='red', label="F1[1]")
+            # plt.legend()
+            # plt.subplot(8, 3, 9)
+            # plt.plot(laplacedivdiv2, color='blue', label="divdiv2")
+            # plt.plot(F2, color='red', label="F1[2]")
+            # plt.legend()
+            # plt.subplot(8, 3, 10)
+            # plt.plot(laplacecurlcurl0, color='blue', label="curlcurl0") 
+            # plt.plot(F0, color='red', label="F1[0]")
+            # plt.legend()
+            # plt.subplot(8, 3, 11)
+            # plt.plot(laplacecurlcurl1, color='blue', label="curlcurl1")
+            # plt.plot(F1, color='red', label="F1[1]")
+            # plt.legend()
+            # plt.subplot(8, 3, 12)
+            # plt.plot(laplacecurlcurl2, color='blue', label="curlcurl2")
+            # plt.plot(F2, color='red', label="F1[2]")
+            # plt.legend()
+            # plt.subplot(8, 3, 13)
+            # plt.plot(laplace0+uxB0-gradphi0, color='blue', label="sum0") 
+            # plt.plot(F0, color='red', label="F1[0]")
+            # plt.legend()
+            # plt.subplot(8, 3, 14)
+            # plt.plot(laplace1+uxB1-gradphi1, color='blue', label="sum1")
+            # plt.plot(F1, color='red', label="F1[1]")
+            # plt.legend()
+            # plt.subplot(8, 3, 15)
+            # plt.plot(laplace2+uxB2-gradphi2, color='blue', label="sum2")
+            # plt.plot(F2, color='red', label="F1[2]")
+            # plt.legend()
+            # plt.subplot(8, 3, 16)
+            # plt.plot(unfeec[0].toarray(), color='blue', label="unfeec0") 
+            # plt.legend()
+            # plt.subplot(8, 3, 17)
+            # plt.plot(unfeec[1].toarray(), color='blue', label="unfeec1")
+            # plt.legend()
+            # plt.subplot(8, 3, 18)
+            # plt.plot(unfeec[2].toarray(), color='blue', label="unfeec2")
+            # plt.legend()
+            # plt.subplot(8, 3, 19)
+            # plt.plot(uenfeec[0].toarray(), color='blue', label="ele uenfeec0") 
+            # plt.legend()
+            # plt.subplot(8, 3, 20)
+            # plt.plot(uenfeec[1].toarray(), color='blue', label="ele uenfeec1")
+            # plt.legend()
+            # plt.subplot(8, 3, 21)
+            # plt.plot(uenfeec[2].toarray(), color='blue', label="ele uenfeec2")
+            # plt.legend()
+
+
+
+
+            # plt.savefig("Laplacian.png")
+
+
+            # exit()
+
+
 
             # #check if input is solution
+            # diffuxb_ele = -self._A11UxBnp.dot(unfeec.toarray()) - self._B2np.T.dot(phinfeec.toarray())
+            # diffuxb = -self._A11UxBnp.dot(unfeec.toarray()) + self._B1np.T.dot(phinfeec.toarray())
+            # diffLaplace = -self._A11Laplacenp.dot(unfeec.toarray()) + self._F1np #+ 1.0 / dt * self._M2np.dot(unfeec.toarray())
+            
+            # diffLaplace_ele = -self._A11Laplacenp.dot(uenfeec.toarray()) - self._F2np 
             # diff1 = A11np.dot(unfeec.toarray()) + self._B1np.T.dot(phinfeec.toarray()) - _F1np
             # diff2 = A22np.dot(uenfeec.toarray()) + self._B2np.T.dot(phinfeec.toarray()) - self._F2np
+            # diffdiv = self._B1np.dot(unfeec.toarray()) + self._B2np.dot(uenfeec.toarray())
+            # print(f"Ions:")
+            # print(f"{np.max(diffuxb)=}")
+            # print(f"{np.linalg.norm(diffuxb)=}")
+            # print(f"{np.max(diffLaplace)=}")
+            # print(f"{np.linalg.norm(diffLaplace)=}")
+
+            # print(f"Electrons")
+            # print(f"{np.max(diffuxb_ele)=}")
+            # print(f"{np.linalg.norm(diffuxb_ele)=}")
+            # print(f"{np.max(diffLaplace_ele)=}")
+            # print(f"{np.linalg.norm(diffLaplace_ele)=}")
+
+            # print(f"System")
             # print(f"{np.max(diff1)=}")
-            # print(f"{np.max(diff2)=}")
             # print(f"{np.linalg.norm(diff1)=}")
+            # print(f"{np.max(diff2)=}")
             # print(f"{np.linalg.norm(diff2)=}")
+            # print(f"{np.max(diffdiv)=}")
+            # print(f"{np.linalg.norm(diffdiv)=}")
+
+            # Laplacimpl = self._A11Laplacenp.dot(unfeec.toarray())
+            # # print(f"{self._F1np=}")
+
+            # plt.plot(Laplacimpl, color='blue', label="Laplace")
+            # plt.plot(self._F1np, color='red', label="F1np")
+            # plt.plot(-self._A11UxBnp.dot(unfeec.toarray()), color='green', label="UxB")
+            # plt.plot(self._B2np.T.dot(phinfeec.toarray()), color='black', label="GradPhi")
+            # plt.plot(unfeec.toarray(), color="orange", label ="unfeec")
+            # plt.legend()
+            # plt.savefig("Laplacian.png")
+
+
             # exit()
 
 
             if self.rank == 0:
-                self._solver_UzawaNumpy.A = _Anp
                 if self._preconditioner == True:
                     self._solver_UzawaNumpy.Apre = _Anppre
+                self._solver_UzawaNumpy.A = _Anp
                 self._solver_UzawaNumpy.F = _Fnp
                 un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(unfeec, uenfeec, phinfeec)
 
@@ -7892,54 +8123,54 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
 
-        import os
-        import pickle
-        from collections import defaultdict, namedtuple
+        # import os
+        # import pickle
+        # from collections import defaultdict, namedtuple
 
-        def load_iteration_log(filename="iteration_log_sigma.pkl"):
-            if os.path.exists(filename) and os.path.getsize(filename) > 0:
-                with open(filename, "rb") as f:
-                    data = pickle.load(f)
-                # Ensure it's a defaultdict for new keys
-                if not isinstance(data, defaultdict):
-                    data = defaultdict(default_entry, data)
-                return data
-            else:
-                return defaultdict(default_entry)
+        # def load_iteration_log(filename="iteration_log_sigma.pkl"):
+        #     if os.path.exists(filename) and os.path.getsize(filename) > 0:
+        #         with open(filename, "rb") as f:
+        #             data = pickle.load(f)
+        #         # Ensure it's a defaultdict for new keys
+        #         if not isinstance(data, defaultdict):
+        #             data = defaultdict(default_entry, data)
+        #         return data
+        #     else:
+        #         return defaultdict(default_entry)
 
-        def save_iteration_log(data, filename="iteration_log_sigma.pkl"):
-            with open(filename, "wb") as f:
-                pickle.dump(data, f)
+        # def save_iteration_log(data, filename="iteration_log_sigma.pkl"):
+        #     with open(filename, "wb") as f:
+        #         pickle.dump(data, f)
 
-        # from struphy.params_2D_variation_run import load_iteration_log, save_iteration_log, default_entry
+        # # from struphy.params_2D_variation_run import load_iteration_log, save_iteration_log, default_entry
 
-        # 1. Load existing data
-        iteration_log = load_iteration_log()
+        # # 1. Load existing data
+        # iteration_log = load_iteration_log()
 
-        # 2. Define the key tuple using your parameters
-        key = (
-            self._variant,
-            tuple(self.derham.Nel),
-            tuple(self.derham.p),
-            self._stab_sigma,
-            self._nu,
-            self._nu_e,
-            self._method_to_solve,
-            self._preconditioner,
-            self._eps_norm
-        )
-        # 3. Append your iteration number
-        iteration_log[key]["niter"].append(info["niter"])
-        if self._spectralanalysis == True and self._variant == "Uzawa":
-            iteration_log[key]["A11_cdtnr"].append(spectralresult[2])
-            iteration_log[key]["A22_cdtnr"].append(spectralresult[0])
-            iteration_log[key]["A22_specnr"].append(spectralresult[1])
-            if self._preconditioner == True:
-                iteration_log[key]["A22_cdtnr_PC"].append(spectralresult[3])
-                iteration_log[key]["A22_specnr_PC"].append(spectralresult[4])
+        # # 2. Define the key tuple using your parameters
+        # key = (
+        #     self._variant,
+        #     tuple(self.derham.Nel),
+        #     tuple(self.derham.p),
+        #     self._stab_sigma,
+        #     self._nu,
+        #     self._nu_e,
+        #     self._method_to_solve,
+        #     self._preconditioner,
+        #     self._eps_norm
+        # )
+        # # 3. Append your iteration number
+        # iteration_log[key]["niter"].append(info["niter"])
+        # if self._spectralanalysis == True and self._variant == "Uzawa":
+        #     iteration_log[key]["A11_cdtnr"].append(spectralresult[2])
+        #     iteration_log[key]["A22_cdtnr"].append(spectralresult[0])
+        #     iteration_log[key]["A22_specnr"].append(spectralresult[1])
+        #     if self._preconditioner == True:
+        #         iteration_log[key]["A22_cdtnr_PC"].append(spectralresult[3])
+        #         iteration_log[key]["A22_specnr_PC"].append(spectralresult[4])
 
-        # 4. Save the updated data
-        save_iteration_log(iteration_log)
+        # # 4. Save the updated data
+        # save_iteration_log(iteration_log)
 
         if self._info and self._rank == 0:
             print("Status     for TwoFluidQuasiNeutralFull:", info["success"])
