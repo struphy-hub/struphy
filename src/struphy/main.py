@@ -140,7 +140,7 @@ def main(
     model.allocate_variables()
     
     # pass info to propagators
-    model.set_propagators()
+    model.allocate_propagators()
     
     # plasma parameters
     model.compute_plasma_params(verbose=verbose)
@@ -150,6 +150,8 @@ def main(
         model_name = model.__class__.__name__
 
     if rank < 32:
+        if rank == 0:
+            print("")
         print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
     if size > 32 and rank == 32:
         print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")

@@ -57,7 +57,6 @@ from struphy.io.options import check_option
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 
 
-@dataclass
 class Maxwell(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf E \in H(\textnormal{curl})` and  :math:`\mathbf B \in H(\textnormal{div})` such that

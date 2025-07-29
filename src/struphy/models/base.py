@@ -259,7 +259,7 @@ class StruphyModel(metaclass=ABCMeta):
                 self.derham,
             )  
             
-    def set_propagators(self):
+    def allocate_propagators(self):
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
@@ -272,6 +272,12 @@ class StruphyModel(metaclass=ABCMeta):
                 eq_mhd=self.equil,
             )
             Propagator.projected_equil = self.projected_equil
+            
+        for prop in self.prop_list:
+            assert isinstance(prop, Propagator)
+            prop.allocate()
+            if self.verbose and self.rank_world == 0:
+                print(f"\nAllocated propagator {prop.__class__.__name__}.")
 
     @staticmethod
     def diagnostics_dct():
@@ -361,6 +367,13 @@ class StruphyModel(metaclass=ABCMeta):
             self._propagators = None
             raise NameError("Propagators object must be named 'self._propagators = ...' in model __init__().")
         return self._propagators
+    
+    @property
+    def prop_list(self):
+        """List of Propagator objects."""
+        if not hasattr(self, "_prop_list"):
+            self._prop_list = list(self.propagators.__dict__.values())
+        return self._prop_list
 
     @property
     def prop_fields(self):
@@ -793,12 +806,9 @@ class StruphyModel(metaclass=ABCMeta):
             Splitting algorithm. Currently available: "LieTrotter" and "Strang".
         """
 
-        if not hasattr(self, "_prop_list"):
-            self._prop_list = list(self.propagators.__dict__.values())
-
         # first order in time
         if split_algo == "LieTrotter":
-            for propagator in self._prop_list:
+            for propagator in self.prop_list:
                 prop_name = propagator.__class__.__name__
 
                 with ProfileManager.profile_region(prop_name):
@@ -808,17 +818,17 @@ class StruphyModel(metaclass=ABCMeta):
         elif split_algo == "Strang":
             assert len(self.propagators) > 1
 
-            for propagator in self._prop_list[:-1]:
+            for propagator in self.prop_list[:-1]:
                 prop_name = type(propagator).__name__
                 with ProfileManager.profile_region(prop_name):
                     propagator(dt / 2)
 
-            propagator = self._prop_list[-1]
+            propagator = self.prop_list[-1]
             prop_name = type(propagator).__name__
             with ProfileManager.profile_region(prop_name):
                 propagator(dt)
 
-            for propagator in self._prop_list[:-1][::-1]:
+            for propagator in self.prop_list[:-1][::-1]:
                 prop_name = type(propagator).__name__
                 with ProfileManager.profile_region(prop_name):
                     propagator(dt / 2)

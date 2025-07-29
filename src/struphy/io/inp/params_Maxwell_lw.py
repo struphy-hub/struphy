@@ -7,7 +7,7 @@ from struphy.topology import grids
 
 # import model 
 from struphy.models.toy import Maxwell as Model
-verbose = False
+verbose = True
 
 # units
 units = Units()

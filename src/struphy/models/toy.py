@@ -1,5 +1,4 @@
 
-from dataclasses import dataclass
 import numpy as np
 
 from struphy.models.base import StruphyModel
@@ -33,14 +32,14 @@ class Maxwell(StruphyModel):
     :ref:`Model info <add_model>`:
     """
     
-    @dataclass
     class Propagators:
-        maxwell = propagators_fields.Maxwell()
+        def __init__(self):
+            self.maxwell = propagators_fields.Maxwell()
 
-    @dataclass
     class EMFields(FieldSpecies):
-        e_field: FEECVariable = FEECVariable(name="e_field", space="Hcurl")
-        b_field: FEECVariable = FEECVariable(name="b_field", space="Hdiv")
+        def __init__(self):
+            self.e_field = FEECVariable(name="e_field", space="Hcurl")
+            self.b_field = FEECVariable(name="b_field", space="Hdiv")
     
     # @dataclass
     # class Ions(KineticSpecies):
