@@ -907,7 +907,7 @@ class RestelliAnalyticSolutionVelocity:
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(y, x)
+        phi = np.arctan2(-y, x)
         ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
@@ -928,7 +928,7 @@ class RestelliAnalyticSolutionVelocity:
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = np.sin(phi) * uR + R * np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1001,7 +1001,7 @@ class RestelliAnalyticSolutionVelocity_2:
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(y, x)
+        phi = np.arctan2(-y, x)
         ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
@@ -1022,7 +1022,7 @@ class RestelliAnalyticSolutionVelocity_2:
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = np.sin(phi) * uR + R * np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1095,7 +1095,7 @@ class RestelliAnalyticSolutionVelocity_3:
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(y, x)
+        phi = np.arctan2(-y, x)
         ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
@@ -1116,7 +1116,7 @@ class RestelliAnalyticSolutionVelocity_3:
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = np.sin(phi) * uR + R * np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ

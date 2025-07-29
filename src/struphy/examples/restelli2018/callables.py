@@ -76,7 +76,7 @@ class RestelliForcingTerm:
     def __call__(self, x, y, z):
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(y, x)
+        phi = np.arctan2(-y, x)
         force_Z = self._nu * (
             self._alpha * (self._R0 - 4 * R) / (self._a * self._R0 * R)
             - self._beta * self._Bp * self._R0**2 / (self._B0 * self._a * R**3)
