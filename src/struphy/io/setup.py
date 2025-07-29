@@ -11,6 +11,7 @@ from struphy.io.options import DerhamOptions
 from struphy.io.parameters import StruphyParameters
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.utils import dict_to_yaml, read_state
+from struphy.geometry.base import Domain
 
 
 def setup_folders(
@@ -75,20 +76,20 @@ def setup_folders(
 
 def setup_parameters(
     model_name: str,
-    parameters: dict | str,
+    params_path: str,
     path_out: str,
     verbose: bool = False,
 ):
     """
-    Prepare simulation parameters from .yml or .py file.
+    Prepare simulation parameters from .yml or .py file and save to output folder.
 
     Parameters
     ----------
     model_name : str
         The name of the model to run.
 
-    parameters : dict | str
-        The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
+    params_path : str
+        Path to .py parameter file.
 
     path_out : str
         The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
@@ -100,67 +101,53 @@ def setup_parameters(
     -------
     params : StruphyParameters
         The simulation parameters.
-        
-    params_path : str
-        The absolute path to the loaded parameter file.
     """
 
-    # save "parameters" dictionary as .yml file
-    if isinstance(parameters, dict):
-        params_path = os.path.join(path_out, "parameters.yml")
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            dict_to_yaml(parameters, params_path)
-        params = parameters
+    if ".yml" in params_path or ".yaml" in params_path:
+        with open(params_path) as file:
+            params = yaml.load(file, Loader=yaml.FullLoader)
+    elif ".py" in params_path:
+        # print(f'{params_path = }')
+        # Read struphy state file
+        # state = read_state()
+        # i_path = state["i_path"]
+        # load parameter.py
+        spec = importlib.util.spec_from_file_location("parameters", params_path)
+        params_in = importlib.util.module_from_spec(spec)
+        sys.modules["parameters"] = params_in
+        spec.loader.exec_module(params_in)
 
-    # OR load parameters if "parameters" is a string (path)
-    else:
-        params_path = parameters
+        if not hasattr(params_in, "model"):
+            params_in.model = None
 
-        if ".yml" in parameters or ".yaml" in parameters:
-            with open(parameters) as file:
-                params = yaml.load(file, Loader=yaml.FullLoader)
-        elif ".py" in parameters:
-            # print(f'{parameters = }')
-            # Read struphy state file
-            # state = read_state()
-            # i_path = state["i_path"]
-            # load parameter.py
-            spec = importlib.util.spec_from_file_location("parameters", parameters)
-            params_in = importlib.util.module_from_spec(spec)
-            sys.modules["parameters"] = params_in
-            spec.loader.exec_module(params_in)
+        if not hasattr(params_in, "domain"):
+            params_in.domain = None
 
-            if not hasattr(params_in, "model"):
-                params_in.model = None
+        if not hasattr(params_in, "grid"):
+            params_in.grid = None
 
-            if not hasattr(params_in, "domain"):
-                params_in.domain = None
+        if not hasattr(params_in, "equil"):
+            params_in.equil = None
 
-            if not hasattr(params_in, "grid"):
-                params_in.grid = None
+        if not hasattr(params_in, "units"):
+            params_in.units = None
 
-            if not hasattr(params_in, "equil"):
-                params_in.equil = None
+        if not hasattr(params_in, "time"):
+            params_in.time = None
 
-            if not hasattr(params_in, "units"):
-                params_in.units = None
+        if not hasattr(params_in, "derham"):
+            params_in.derham = None
 
-            if not hasattr(params_in, "time"):
-                params_in.time = None
-
-            if not hasattr(params_in, "derham"):
-                params_in.derham = None
-
-            params = StruphyParameters(
-                model=params_in.model,
-                units=params_in.units,
-                domain=params_in.domain,
-                equil=params_in.equil,
-                time=params_in.time,
-                grid=params_in.grid,
-                derham=params_in.derham,
-                verbose=verbose,
-            )
+        params = StruphyParameters(
+            model=params_in.model,
+            units=params_in.units,
+            domain=params_in.domain,
+            equil=params_in.equil,
+            time=params_in.time,
+            grid=params_in.grid,
+            derham=params_in.derham,
+            verbose=verbose,
+        )
 
     if model_name is None:
         assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
@@ -170,24 +157,20 @@ def setup_parameters(
         # copy parameter file to output folder
         filename = params_path.split("/")[-1]
         ext = filename.split(".")[-1]
-        if params_path != os.path.join(path_out, "parameters." + ext):
-            shutil.copy2(
-                params_path,
-                os.path.join(
-                    path_out,
-                    "parameters." + ext,
-                ),
-            )
+        shutil.copy2(
+            params_path,
+            os.path.join(path_out, "parameters." + ext),
+        )
 
-    return params, params_path
+    return params
 
 
 def setup_derham(
     grid: TensorProductGrid,
     options: DerhamOptions,
-    comm=None,
-    domain=None,
-    mpi_dims_mask=None,
+    comm: MPI.Intracomm = None,
+    domain: Domain = None,
+    mpi_dims_mask: tuple | list = None,
     verbose=False,
 ):
     """
@@ -201,10 +184,10 @@ def setup_derham(
     comm: Intracomm
         MPI communicator (sub_comm if clones are used).
 
-    domain : struphy.geometry.base.Domain, optional
+    domain : Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
 
-    mpi_dims_mask: list of bool
+    mpi_dims_mask: list | tuple[bool]
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
 
