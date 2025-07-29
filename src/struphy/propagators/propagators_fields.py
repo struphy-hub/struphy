@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Literal, get_args
 
 import scipy as sc
@@ -43,7 +44,7 @@ from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3
 from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.ode.solvers import ODEsolverFEEC
-from struphy.ode.utils import ButcherTableau
+from struphy.ode.utils import ButcherTableau, OptsButcher
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.base import Particles
@@ -53,8 +54,10 @@ from struphy.propagators.base import Propagator
 from struphy.models.variables import Variable
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.io.options import check_option
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 
 
+@dataclass
 class Maxwell(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf E \in H(\textnormal{curl})` and  :math:`\mathbf B \in H(\textnormal{div})` such that
@@ -67,39 +70,45 @@ class Maxwell(Propagator):
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
-
-    def __init__(
-        self,
-        # e: Variable,
-        # b: Variable,
-    ):
-        self.e = None
-        self.b = None
-        
-
-    OptsAlgo = Literal["implicit", *ButcherTableau.available_methods(),]
-    OptsSolverType = Literal[("pcg", "MassMatrixPreconditioner"), ("cg", None),]
+    e: FEECVariable = None
+    b: FEECVariable = None
+    
+    OptsAlgo = Literal["implicit", "explicit"]
+    OptsSolver = Literal["pcg", "cg"]
+    OptsPrecond = Literal["MassMatrixPreconditioner", None]
 
     def set_options(self,
-                    algo: OptsAlgo = "implicit", # type: ignore
-                    solver_type: OptsSolverType = ("pcg", "MassMatrixPreconditioner"), # type: ignore
+                    algo: OptsAlgo = "implicit", 
+                    solver: OptsSolver = "pcg", 
+                    precond: OptsPrecond = "MassMatrixPreconditioner", 
                     solver_params: SolverParameters = None,
-                    verbose = False,
+                    butcher: ButcherTableau = None,
                     ):
     
         # checks
         check_option(algo, self.OptsAlgo)
-        check_option(solver_type, self.OptsSolverType) 
+        check_option(solver, self.OptsSolver)
+        check_option(precond, self.OptsPrecond) 
         
         # defaults
-        if solver_params is None:
-            solver_params = SolverParameters()
+        if algo == "implicit":
+            butcher = None
+            if solver_params is None:
+                solver_params = SolverParameters()
+        elif algo == "explicit":
+            solver = None
+            precond = None
+            solver_params = None
+            if butcher is None:
+                butcher = ButcherTableau()
         
-        # create options
-        self._opts = self.Options(self, verbose=verbose)
-        self.opts.add("algo", algo)
-        self.opts.add("solver", solver_type)
-        self.opts.add("solver_params", solver_params)
+        # use setter for options
+        self.options = self.Options(self,
+                                    algo=algo, 
+                                    solver=solver, 
+                                    precond=precond,
+                                    solver_params=solver_params,
+                                    butcher=butcher,)
 
     def allocate(self):
         solver = {}
@@ -7208,7 +7217,7 @@ class HasegawaWakatani(Propagator):
         dct["c_fun"] = ["const"]
         dct["kappa"] = 1.0
         dct["nu"] = 0.01
-        dct["algo"] = ButcherTableau.available_methods()
+        dct["algo"] = get_args(OptsButcher)
         dct["M0_solver"] = {
             "type": [
                 ("pcg", "MassMatrixPreconditioner"),
