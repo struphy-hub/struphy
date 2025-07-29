@@ -3,21 +3,35 @@ from typing import Literal, get_args
 import numpy as np
 
 # needed for import in StruphyParameters
-from struphy.fields_background import equils
-from struphy.geometry import domains
-from struphy.initial import perturbations
-from struphy.kinetic_background import maxwellians
-from struphy.topology import grids
 from struphy.physics.physics import ConstantsOfNature
 
 
 def check_option(opt, options):
+    """Check if opt is contained in options; if opt is a list, checks for each element."""
     opts = get_args(options)
-    assert opt in opts, f"Option '{opt}' is not in {opts}." 
+    if not isinstance(opt, list):
+        opt = [opt]
+    for o in opt:
+        assert o in opts, f"Option '{o}' is not in {opts}." 
 
-## generic options
 
+## Literal options
+
+# time
 SplitAlgos = Literal["LieTrotter", "Strang"]
+
+# derham
+PolarRegularity = Literal[-1, 1]
+
+# fields background
+BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
+
+# perturbations
+NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
+GivenInBasis = Literal['0', '1', '2', '3', 'v', 'physical', 'physical_at_eta', 'norm', None]
+
+
+## Option classes
 
 @dataclass
 class Time:
@@ -25,12 +39,18 @@ class Time:
 
     Parameters
     ----------
-    x : float
-        Unit of length in m.
+    dt : float
+        Time step.
+        
+    Tend : float
+        End time.
+        
+    split_algo : SplitAlgos
+        Splitting algorithm (the order of the propagators is defined in the model).
     """
 
-    dt: float = 1.0
-    Tend: float = 1.0
+    dt: float = 0.01
+    Tend: float = 0.03
     split_algo: SplitAlgos = "LieTrotter"
 
     def __post_init__(self):
@@ -160,6 +180,7 @@ class Units:
         # print to screen
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             units_used = (" m", " T", " m⁻³", "keV", " m/s", " s", " bar", " kg/m³", " A/m²",)
+            print("")
             for (k, v), u in zip(self.__dict__.items(), units_used):
                 if v is None:
                     print(f"Unit of {k[1:]} not specified.")
@@ -169,10 +190,6 @@ class Units:
                         "{:4.3e}".format(v) + u,
                     )
 
-
-## field options
-
-PolarRegularity = Literal[-1, 1]
 
 @dataclass
 class DerhamOptions:
@@ -191,8 +208,6 @@ class DerhamOptions:
         check_option(self.polar_ck, PolarRegularity)
 
 
-BackgroundOpts = Literal["LogicalConst", "FluidEquilibrium"]
-
 @dataclass
 class FieldsBackground:
     """...
@@ -203,12 +218,10 @@ class FieldsBackground:
         Unit of length in m.
     """
 
-    kind: str = "LogicalConst"
+    type: BackgroundTypes = "LogicalConst"
     values: tuple = (1.5,)
     variable: str = None
 
     def __post_init__(self):
-        check_option(self.kind, BackgroundOpts)
+        check_option(self.type, BackgroundTypes)
 
-
-## kinetic options
