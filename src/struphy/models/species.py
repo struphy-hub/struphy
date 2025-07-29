@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-
+from dataclasses import dataclass
 from copy import deepcopy
 from typing import Callable
 import numpy as np
@@ -10,10 +10,27 @@ from struphy.initial.base import InitialCondition
 from struphy.kinetic_background.base import KineticBackground
 from struphy.io.options import Units
 from struphy.physics.physics import ConstantsOfNature
+from struphy.models.variables import Variable
 
 
 class Species(metaclass=ABCMeta):
     """Single species of a StruphyModel."""
+    
+    # set species attribute for each variable
+    def __post_init__(self):
+        for k, v in self.__dict__.items():
+            if isinstance(v, Variable):
+                v._species = self.__class__.__name__
+    
+    @property
+    def variables(self):
+        if not hasattr(self, "_variables"):
+            self._variables = {}
+            for k, v in self.__dict__.items():
+                if isinstance(v, Variable):
+                    self._variables[k] = v 
+        return self._variables
+    
     @property
     def charge_number(self) -> int:
         """Charge number in units of elementary charge."""
@@ -66,7 +83,6 @@ class Species(metaclass=ABCMeta):
 
 class FieldSpecies(Species):
     """Species without mass and charge (so-called 'fields')."""
-    pass
 
 
 class FluidSpecies(Species):
@@ -79,50 +95,8 @@ class KineticSpecies(Species):
     pass
 
 
-class SubSpecies:
-    """Handles the three species types in StruphyModel: em_fields, fluid, kinetic."""
-
-    def __init__(self, name: str = "mhd"):
-        self._name = name
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def all(self):
-        out = deepcopy(self.__dict__)
-        out.pop("_name")
-        return out
-
-    def add_variable(self, name: str = "velocity", space: str = "Hdiv"):
-        setattr(self, name, Variable(name, space))
-
-    def add_background(
-        self,
-        variable: str,
-        background,
-        verbose=False,
-    ):
-        assert variable in self.all, f"Variable {variable} is not part of model variables {self.all.keys()}"
-        var = getattr(self, variable)
-        assert isinstance(var, Variable)
-        var.add_background(background, verbose=verbose)
-
-    def add_perturbation(
-        self,
-        variable: str,
-        perturbation: Callable,
-        given_in_basis: tuple = None,
-        verbose=False,
-    ):
-        assert variable in self.all, f"Variable {variable} is not part of model variables {self.all.keys()}"
-        var = getattr(self, variable)
-        assert isinstance(var, Variable)
-        var.add_perturbation(
-            perturbation=perturbation,
-            given_in_basis=given_in_basis,
-            verbose=verbose,
-        )
+class DiagnosticSpecies(Species):
+    """Diagnostic species (fields) without mass and charge."""
+    pass
 
     
