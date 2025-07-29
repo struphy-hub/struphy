@@ -3,9 +3,10 @@ from dataclasses import dataclass
 import numpy as np
 
 from struphy.models.base import StruphyModel
+from struphy.propagators.base import Propagator
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 from struphy.models.species import KineticSpecies, FluidSpecies, FieldSpecies
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
+from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
 
 
 class Maxwell(StruphyModel):
@@ -38,8 +39,8 @@ class Maxwell(StruphyModel):
 
     @dataclass
     class EMFields(FieldSpecies):
-        e_field = FEECVariable(space="Hcurl")
-        b_field = FEECVariable(space="Hdiv")
+        e_field: FEECVariable = FEECVariable(name="e_field", space="Hcurl")
+        b_field: FEECVariable = FEECVariable(name="b_field", space="Hdiv")
     
     # @dataclass
     # class Ions(KineticSpecies):
@@ -65,8 +66,13 @@ class Maxwell(StruphyModel):
             self.em_fields.b_field,
             )
         
-        # setup rest of model
+        # light-weight setup of model
         self.setup(units=units, domain=domain, equil=equil, verbose=verbose)
+        
+        # define scalars for update_scalar_quantities
+        self.add_scalar("electric energy")
+        self.add_scalar("magnetic energy")
+        self.add_scalar("total energy")
     
     ## variable and propagator attributes
     
