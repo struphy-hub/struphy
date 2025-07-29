@@ -357,6 +357,9 @@ class SaddlePointSolver:
                 self._residual_norms.append(residual_normR1)  # Store residual norm
                 # Check for convergence based on residual norm
                 if residual_norm < self._tol:
+                    if self._verbose:
+                        print(template.format(iteration + 1, residual_norm))
+                        print("+---------+---------------------+")
                     info["success"] = True
                     info["niter"] = iteration + 1
                     if self._verbose:
@@ -388,18 +391,18 @@ class SaddlePointSolver:
 
         # === Preconditioner inverses, if used
         if self._preconditioner:
-            A11 = self._Apre[0]
-            A22 = self._Apre[1]
+            A11_pre = self._Apre[0]
+            A22_pre = self._Apre[1]
 
-            if hasattr(self, "_A11npinv") and self._is_inverse_still_valid(self._A11npinv, A11, "A11 pre"):
+            if hasattr(self, "_A11npinv") and self._is_inverse_still_valid(self._A11npinv, A11_pre, "A11 pre"):
                 pass
             else:
-                self._A11npinv = self._compute_inverse(A11, which="A11 pre")
+                self._A11npinv = self._compute_inverse(A11_pre, which="A11 pre")
 
-            if hasattr(self, "_A22npinv") and self._is_inverse_still_valid(self._A22npinv, A22, "A22 pre"):
+            if hasattr(self, "_A22npinv") and self._is_inverse_still_valid(self._A22npinv, A22_pre, "A22 pre"):
                 pass
             else:
-                self._A22npinv = self._compute_inverse(A22, which="A22 pre")
+                self._A22npinv = self._compute_inverse(A22_pre, which="A22 pre")
 
             # === Inverse for A[0] if preconditioned
             if hasattr(self, "_Anpinv") and self._is_inverse_still_valid(self._Anpinv, A0, "A[0]", pre=self._A11npinv):
