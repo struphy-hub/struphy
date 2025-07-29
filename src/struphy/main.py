@@ -16,12 +16,15 @@ from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel
 from struphy.profiling.profiling import ProfileManager
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import dict_to_yaml
 from struphy.pic.base import Particles
+from struphy.models.species import FieldSpecies
+from struphy.models.variables import FEECVariable
 
 
 def main(
     model_name: Optional[str],
-    parameters: dict | str,
+    params_path: Optional[str],
     path_out: str,
     *,
     restart: bool = False,
@@ -40,8 +43,8 @@ def main(
     model_name : str
         The name of the model to run. Type "struphy run --help" in your terminal to see a list of available models.
 
-    parameters : dict | str
-        The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
+    params_path : str
+        Path to .py parameter file.
 
     path_out : str
         The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
@@ -71,75 +74,43 @@ def main(
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
+    
+    # collect meta-data
+    meta = {}
+    meta["platform"] = sysconfig.get_platform()
+    meta["python version"] = sysconfig.get_python_version()
+    meta["model name"] = model_name
+    meta["parameter file"] = params_path
+    meta["output folder"] = path_out
+    meta["MPI processes"] = size
+    meta["number of domain clones"] = num_clones
+    meta["restart"] = restart
+    meta["max wall-clock [min]"] = runtime
+    meta["save interval [steps]"] = save_step
+    
+    # print meta-data on screen 
+    print("\nMETADATA:")
+    for k, v in meta.items():
+        print(f'{k}:'.ljust(25), v) 
+    
+    # store meta-data in output folder
+    dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
 
-    if rank == 0:
-        print("")
-    Barrier()
-
-    # synchronize MPI processes to set same start time of simulation for all processes
-    Barrier()
+    # start timing
     start_simulation = time.time()
 
-    # loading of simulation parameters, creating output folder and printing information to screen
+    # creating output folder, loading parameters, extract light-weight model instance 
     setup_folders(path_out=path_out, 
                   restart=restart, 
-                  verbose=False,)
+                  verbose=verbose,)
     
-    params, params_path = setup_parameters(model_name=model_name, 
-                                           parameters=parameters, 
-                                           path_out=path_out,
-                                           verbose=True,)
+    params = setup_parameters(model_name=model_name, 
+                            params_path=params_path, 
+                            path_out=path_out,
+                            verbose=verbose,)
+    model = params.model
     
-    # print simulation info
-    print("\nMETADATA:")
-    print("platform:".ljust(25), sysconfig.get_platform())
-    print("python version:".ljust(25), sysconfig.get_python_version())
-    print("model:".ljust(25), model_name)
-    print("parameter file:".ljust(25), params_path)
-    print("output folder:".ljust(25), path_out)
-    print("MPI processes:".ljust(25), size)
-    print("number of domain clones:".ljust(25), num_clones)
-    print("restart:".ljust(25), restart)
-    print("max wall-clock [min]:".ljust(25), runtime)
-    print("save interval [steps]:".ljust(25), save_step)
-
-    exit()
-    
-    # write meta data to output folder
-    with open(path_out + "/meta.txt", "w") as f:
-        f.write(
-            "date of simulation: ".ljust(
-                30,
-            )
-            + str(datetime.datetime.now())
-            + "\n",
-        )
-        f.write("platform: ".ljust(30) + sysconfig.get_platform() + "\n")
-        f.write(
-            "python version: ".ljust(
-                30,
-            )
-            + sysconfig.get_python_version()
-            + "\n",
-        )
-        f.write("model_name: ".ljust(30) + model_name + "\n")
-        f.write("processes: ".ljust(30) + str(mpi_size) + "\n")
-        f.write("output folder:".ljust(30) + path_out + "\n")
-        f.write("restart:".ljust(30) + str(restart) + "\n")
-        f.write(
-            "max wall-clock time [min]:".ljust(30) + str(max_sim_time) + "\n",
-        )
-        f.write("save interval (steps):".ljust(30) + str(save_step) + "\n")
-
-    if model_name is None:
-        assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
-        model_name = params.model
-
-    if rank < 32:
-        print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
-    if size > 32 and rank == 32:
-        print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
-
+    # config clones
     if comm is None:
         clone_config = None
     else:
@@ -152,23 +123,36 @@ def main(
             # between the clones : inter_comm
             clone_config = CloneConfig(comm=comm, params=params, num_clones=num_clones)
             clone_config.print_clone_config()
-            if "kinetic" in params:
+            if model.kinetic_species:
                 clone_config.print_particle_config()
+    comm.Barrier()
+    
+    # allocate derham-related objects
+    if params.grid is not None:
+        model.allocate_feec(params.grid, params.derham)
+    else:
+        model._derham = None
+        model._mass_ops = None
+        model._projected_equil = None
+        print("\nDERHAM:\nMeshless simulation - no Derham complex set up.")
+        
+    # allocate variables
+    model.allocate_variables()
+    
+    # pass info to propagators
+    model.set_propagators()
+    
+    # plasma parameters
+    model.compute_plasma_params(verbose=verbose)
 
-    # instantiate Struphy model (will allocate model objects and associated memory)
-    StruphyModel.verbose = verbose
+    if model_name is None:
+        assert model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
+        model_name = model.__class__.__name__
 
-    objs = [fluid, kinetic, hybrid, toy]
-    for obj in objs:
-        try:
-            model_class = getattr(obj, model_name)
-        except AttributeError:
-            pass
-
-    with ProfileManager.profile_region("model_class_setup"):
-        model = model_class(params=params, comm=comm, clone_config=clone_config)
-
-    assert isinstance(model, StruphyModel)
+    if rank < 32:
+        print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
+    if size > 32 and rank == 32:
+        print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
 
     # store geometry vtk
     if rank == 0:
@@ -217,12 +201,7 @@ def main(
     split_algo = params.time.split_algo
 
     # set initial conditions for all variables
-    if not restart:
-        model.initialize_from_params()
-
-        total_steps = str(int(round(Tend / dt)))
-
-    else:
+    if restart:
         model.initialize_from_restart(data)
 
         time_state["value"][0] = data.file["restart/time/value"][-1]
@@ -230,6 +209,8 @@ def main(
         time_state["index"][0] = data.file["restart/time/index"][-1]
 
         total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
+    else:
+        total_steps = str(int(round(Tend / dt)))
 
     # compute initial scalars and kinetic data, pass time state to all propagators
     model.update_scalar_quantities()
@@ -291,7 +272,7 @@ def main(
 
         # update time and index (round time to 10 decimals for a clean time grid!)
         time_state["value"][0] = round(time_state["value"][0] + dt, 10)
-        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units["t"], 10)
+        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units.t, 10)
         time_state["index"][0] += 1
 
         run_time_now = (time.time() - start_simulation) / 60
@@ -303,28 +284,15 @@ def main(
             model.update_markers_to_be_saved()
             model.update_distr_functions()
 
-            # extract FEM coefficients
-            for key, val in model.em_fields.items():
-                if "params" not in key:
-                    field = val["obj"]
-                    assert isinstance(field, SplineFunction)
+            # extract FEEC coefficients
+            feec_species = model.field_species | model.fluid_species | model.diagnostic_species
+            for species, val in feec_species.items():
+                assert isinstance(val, FieldSpecies)
+                for variable, subval in val.variables.items():
+                    assert isinstance(subval, FEECVariable)
+                    spline = subval.spline
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                    field.extract_coeffs(update_ghost_regions=False)
-
-            for _, val in model.fluid.items():
-                for variable, subval in val.items():
-                    if "params" not in variable:
-                        field = subval["obj"]
-                        assert isinstance(field, SplineFunction)
-                        # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                        field.extract_coeffs(update_ghost_regions=False)
-
-            for key, val in model.diagnostics.items():
-                if "params" not in key:
-                    field = val["obj"]
-                    assert isinstance(field, SplineFunction)
-                    # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                    field.extract_coeffs(update_ghost_regions=False)
+                    spline.extract_coeffs(update_ghost_regions=False)
 
             # save data (everything but restart data)
             data.save_data(keys=save_keys_all)
@@ -336,7 +304,7 @@ def main(
                 message = "time step: " + step + "/" + str(total_steps)
                 message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
                 message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
-                    time_state["value_sec"][0], Tend * model.units["t"]
+                    time_state["value_sec"][0], Tend * model.units.t
                 )
                 message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
                     run_time_now * 60, t1 - t0
