@@ -1,67 +1,76 @@
-from struphy.io import options
+from struphy.io.options import Units, Time, DerhamOptions, FieldsBackground
+from struphy.fields_background import equils
+from struphy.geometry import domains
+from struphy.initial import perturbations
+from struphy.kinetic_background import maxwellians
+from struphy.topology import grids
 
 # import model 
 from struphy.models.toy import Maxwell as Model
-verbose = True
+verbose = False
 
 # units
-units = options.Units(x=2.0,)
+units = Units()
 
 # geometry
-domain = options.domains.Cuboid()
+domain = domains.Cuboid()
 
 # fluid equilibrium (can be used as part of initial conditions)
-equil = options.equils.HomogenSlab()
+equil = equils.HomogenSlab()
 
 # time
-time = options.Time()
+time = Time()
 
 # grid
-grid = options.grids.TensorProductGrid(
+grid = grids.TensorProductGrid(
     Nel=(12, 14, 1),
     p=(2, 3, 1),
     spl_kind=(False, True, True),
 )
 
 # derham options
-derham = options.DerhamOptions()
+derham = DerhamOptions()
 
 # light-weight instance of model
 model = Model(units, domain, equil, verbose=verbose)
-propagators = model.propagators
 # model.fluid.set_phys_params("mhd", options.PhysParams())
 # model.kinetic.set_phys_params("mhd", options.PhysParams())
 
 # propagator options
-propagators.maxwell.set_options(verbose=verbose)
+model.propagators.maxwell.set_options(algo="explicit")
 
 # initial conditions for model variables (background + perturbation)
 model.em_fields.e_field.add_background(
-    options.FieldsBackground(
-        kind="LogicalConst",
+    FieldsBackground(
+        type="LogicalConst",
         values=(0.3, 0.15, None),
     ),
     verbose=verbose,
 )
 model.em_fields.e_field.add_perturbation(
-    options.perturbations.TorusModesCos(
-        ms=[[None], [1, 3], [None]],
+    perturbations.TorusModesCos(
+        ms=[1, 3],
+        given_in_basis="v",
+        comp=1,
     ),
-    given_in_basis=(None, "v", None),
     verbose=verbose,
 )
 
 model.em_fields.b_field.add_background(
-    options.FieldsBackground(
-        kind="LogicalConst",
+    FieldsBackground(
+        type="LogicalConst",
         values=(0.3, 0.15, None),
     ),
     verbose=verbose,
 )
 model.em_fields.b_field.add_perturbation(
-    options.perturbations.TorusModesCos(
-        ms=[[None], [1, 3], [None]],
+    perturbations.TorusModesCos(
+        ms=[1, 3],
+        given_in_basis="v",
+        comp=1,
     ),
-    given_in_basis=(None, "v", None),
     verbose=verbose,
 )
+
+# exclude variable from saving
+model.em_fields.e_field.save_data = False

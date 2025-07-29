@@ -73,7 +73,8 @@ def print_all_attr(obj):
             print(k.ljust(26), v)
 
 
-def dict_to_yaml(dictionary, output):
+def dict_to_yaml(dictionary: dict, output: str):
+    """Write dictionary to file and save in output."""
     with open(output, "w") as file:
         yaml.dump(
             dictionary,
