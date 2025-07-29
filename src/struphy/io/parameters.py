@@ -33,13 +33,13 @@ class StruphyParameters:
         self._derham = derham
         
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"{self.model = }")
+            print(f"\n{self.model = }")
             print(f"{self.units = }")
             print(f"{self.domain = }")
             print(f"{self.equil = }")
             print(f"{self.time = }")
             print(f"{self.grid = }")
-            print(f"{self.derham = }")
+            print(f"{self.derham = }\n")
 
     @property
     def model(self):

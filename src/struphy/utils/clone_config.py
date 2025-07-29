@@ -3,6 +3,8 @@ from psydac.ddm.mpi import mpi as MPI
 
 from struphy.utils.arrays import xp as np
 
+from struphy.io.parameters import StruphyParameters
+
 
 class CloneConfig:
     """
@@ -19,7 +21,7 @@ class CloneConfig:
     def __init__(
         self,
         comm: MPI.Intracomm,
-        params=None,
+        params: StruphyParameters,
         num_clones=1,
     ):
         """
@@ -28,8 +30,8 @@ class CloneConfig:
         Parameters:
             comm : (MPI.Intracomm)
                 The MPI communicator covering all processes.
-            params : dict, optional
-                Dictionary containing simulation parameters.
+            params : StruphyParameters
+                Struphy simulation parameters.
             num_clones : int, optional
                 The number of clones to create. The total number of MPI ranks must be divisible by this number.
         """

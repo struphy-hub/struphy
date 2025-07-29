@@ -2,8 +2,7 @@ from dataclasses import dataclass
 
 @dataclass
 class SolverParameters:
-    """
-    Parameters for psydac solvers."""
+    """Parameters for psydac solvers."""
 
     tol: float = 1e-8
     maxiter: int = 3000
