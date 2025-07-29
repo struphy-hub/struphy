@@ -5,14 +5,13 @@ from copy import deepcopy
 
 import numpy as np
 import scipy as sc
+from matplotlib import pyplot as plt
 from mpi4py import MPI
 from numpy import zeros
 from psydac.linalg.basic import IdentityOperator, ZeroOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
-
-from matplotlib import pyplot as plt
 
 import struphy.feec.utilities as util
 from struphy.examples.restelli2018 import callables
@@ -7695,14 +7694,22 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 else:
                     self._Hodgenp = self.basis_ops.S21.toarray_struphy(is_sparse=True)
                 self._M2Bnp = -self.mass_ops.M2B._mat.tosparse()
-            self._A11UxBnp = (self._M2Bnp / self._eps_norm)
-            self._A11Laplacenp = -self._Dnp.T @ self._M3np @ self._Dnp - self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+            self._A11UxBnp = self._M2Bnp / self._eps_norm
+            self._A11Laplacenp = (
+                -self._Dnp.T @ self._M3np @ self._Dnp
+                - self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+            )
             self._M2 = getattr(self.mass_ops, "M2")
             self._M3 = getattr(self.mass_ops, "M3")
             self._M2B = -getattr(self.mass_ops, "M2B")
-            self._A11Laplacebl = self.derham.div.T @ self._M3 @ self.derham.div + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
-            self._A11Laplacebdivdiv = self.derham.div.T @ self._M3 @ self.derham.div 
-            self._A11Laplacecurlcurl =  self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+            self._A11Laplacebl = (
+                self.derham.div.T @ self._M3 @ self.derham.div
+                + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+            )
+            self._A11Laplacebdivdiv = self.derham.div.T @ self._M3 @ self.derham.div
+            self._A11Laplacecurlcurl = (
+                self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
+            )
             self._uxbBl = self._M2B
             self._B1bl = -self._M3 @ self.derham.div
 
@@ -7739,7 +7746,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     )
                     + self._M2Bnp / self._eps_norm
                 )
-                self._A22prenp =  self._stab_sigma * sc.sparse.eye(self.A22np.shape[0], format="csr")
+                self._A22prenp = self._stab_sigma * sc.sparse.eye(self.A22np.shape[0], format="csr")
 
             B1np = -self._M3np @ self._Dnp
             B2np = self._M3np @ self._Dnp
@@ -7791,7 +7798,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
         if self._variant == "GMRES":
             # Define block matrix [[A BT], [B 0]]
 
-
             # Laplacian = self.derham.div.T @ self._M3 @ self.derham.div + self.basis_ops.S21.T @ self.derham.curl.T @ self._M2 @ self.derham.curl @ self.basis_ops.S21
             # uxB = self._M2B / self._eps_norm
             # gradphi = self._M3 @ self.derham.div
@@ -7834,11 +7840,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # plt.contourf(eta1, eta2 , val_gradphi[iplot][:, :,0])
             # plt.colorbar()
             # plt.title(f'$\nabla \phi[{iplot}]$', fontsize=16)
-           
+
             # plt.savefig("Laplacian.png")
 
             # exit()
-
 
             _A11 = (
                 self._M2 / dt
@@ -7913,11 +7918,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # _Anp[1] and _Anppre[1] remain unchanged
             _Anp = [A11np, A22np]
             if self._preconditioner == True:
-                _A11prenp = self._M2np / dt #+ self._A11prenp_notimedependency
+                _A11prenp = self._M2np / dt  # + self._A11prenp_notimedependency
                 _Anppre = [_A11prenp, _A22prenp]
             _F1np = self._M2np.dot(self._F1np) + 1.0 / dt * self._M2np.dot(unfeec.toarray())
             _Fnp = [_F1np, self._M2np.dot(self._F2np)]
-
 
             # print(f"{unfeec[0].shape=}")
             # print(f"{unfeec[1].shape=}")
@@ -7947,12 +7951,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # laplacecurlcurl0 = laplacecurlcurl[0].toarray()
             # laplacecurlcurl1 = laplacecurlcurl[1].toarray()
             # laplacecurlcurl2 = laplacecurlcurl[2].toarray()
-            
-        
 
             # plt.figure(figsize=(20, 18))
             # plt.subplot(8, 3, 1)
-            # plt.plot(laplace0, color='blue', label="Laplace0") 
+            # plt.plot(laplace0, color='blue', label="Laplace0")
             # plt.plot(F0, color='red', label="F1[0]")
             # plt.legend()
             # plt.subplot(8, 3, 2)
@@ -7976,7 +7978,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # plt.plot(gradphi2, color='red', label="gradphi2")
             # plt.legend()
             # plt.subplot(8, 3, 7)
-            # plt.plot(laplacedivdiv0, color='blue', label="divdiv") 
+            # plt.plot(laplacedivdiv0, color='blue', label="divdiv")
             # plt.plot(F0, color='red', label="F1[0]")
             # plt.legend()
             # plt.subplot(8, 3, 8)
@@ -7988,7 +7990,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # plt.plot(F2, color='red', label="F1[2]")
             # plt.legend()
             # plt.subplot(8, 3, 10)
-            # plt.plot(laplacecurlcurl0, color='blue', label="curlcurl0") 
+            # plt.plot(laplacecurlcurl0, color='blue', label="curlcurl0")
             # plt.plot(F0, color='red', label="F1[0]")
             # plt.legend()
             # plt.subplot(8, 3, 11)
@@ -8000,7 +8002,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # plt.plot(F2, color='red', label="F1[2]")
             # plt.legend()
             # plt.subplot(8, 3, 13)
-            # plt.plot(laplace0+uxB0-gradphi0, color='blue', label="sum0") 
+            # plt.plot(laplace0+uxB0-gradphi0, color='blue', label="sum0")
             # plt.plot(F0, color='red', label="F1[0]")
             # plt.legend()
             # plt.subplot(8, 3, 14)
@@ -8012,7 +8014,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # plt.plot(F2, color='red', label="F1[2]")
             # plt.legend()
             # plt.subplot(8, 3, 16)
-            # plt.plot(unfeec[0].toarray(), color='blue', label="unfeec0") 
+            # plt.plot(unfeec[0].toarray(), color='blue', label="unfeec0")
             # plt.legend()
             # plt.subplot(8, 3, 17)
             # plt.plot(unfeec[1].toarray(), color='blue', label="unfeec1")
@@ -8021,7 +8023,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # plt.plot(unfeec[2].toarray(), color='blue', label="unfeec2")
             # plt.legend()
             # plt.subplot(8, 3, 19)
-            # plt.plot(uenfeec[0].toarray(), color='blue', label="ele uenfeec0") 
+            # plt.plot(uenfeec[0].toarray(), color='blue', label="ele uenfeec0")
             # plt.legend()
             # plt.subplot(8, 3, 20)
             # plt.plot(uenfeec[1].toarray(), color='blue', label="ele uenfeec1")
@@ -8030,22 +8032,16 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # plt.plot(uenfeec[2].toarray(), color='blue', label="ele uenfeec2")
             # plt.legend()
 
-
-
-
             # plt.savefig("Laplacian.png")
 
-
             # exit()
-
-
 
             # #check if input is solution
             # diffuxb_ele = -self._A11UxBnp.dot(unfeec.toarray()) - self._B2np.T.dot(phinfeec.toarray())
             # diffuxb = -self._A11UxBnp.dot(unfeec.toarray()) + self._B1np.T.dot(phinfeec.toarray())
             # diffLaplace = -self._A11Laplacenp.dot(unfeec.toarray()) + self._F1np #+ 1.0 / dt * self._M2np.dot(unfeec.toarray())
-            
-            # diffLaplace_ele = -self._A11Laplacenp.dot(uenfeec.toarray()) - self._F2np 
+
+            # diffLaplace_ele = -self._A11Laplacenp.dot(uenfeec.toarray()) - self._F2np
             # diff1 = A11np.dot(unfeec.toarray()) + self._B1np.T.dot(phinfeec.toarray()) - _F1np
             # diff2 = A22np.dot(uenfeec.toarray()) + self._B2np.T.dot(phinfeec.toarray()) - self._F2np
             # diffdiv = self._B1np.dot(unfeec.toarray()) + self._B2np.dot(uenfeec.toarray())
@@ -8080,9 +8076,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # plt.legend()
             # plt.savefig("Laplacian.png")
 
-
             # exit()
-
 
             if self.rank == 0:
                 if self._preconditioner == True:

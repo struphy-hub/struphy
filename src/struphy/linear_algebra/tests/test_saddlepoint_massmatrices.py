@@ -136,9 +136,9 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
                 + nue * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np)
                 + M2Bnp
             )
-            #Preconditioner
-            _A22np_pre = stab_sigma*  np.identity(A22np.shape[0])  #+ nue*(Dnp.T @ M3np @ Dnp)
-            _A11np_pre = M2np/dt #+ nu * (Dnp.T @ M3np @ Dnp)
+            # Preconditioner
+            _A22np_pre = stab_sigma * np.identity(A22np.shape[0])  # + nue*(Dnp.T @ M3np @ Dnp)
+            _A11np_pre = M2np / dt  # + nu * (Dnp.T @ M3np @ Dnp)
         elif method_to_solve in ("SparseSolver", "ScipySparse"):
             A22np = (
                 stab_sigma * sc.sparse.identity(A11np.shape[0], format="csr")
@@ -146,10 +146,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
                 + M2Bnp
             )
             +nue * (Dnp.T @ M3np @ Dnp) + stab_sigma * sc.sparse.identity(A22np.shape[0], format="csr")  #
-            #Preconditioner
-            _A22np_pre =  stab_sigma* sc.sparse.identity(A22np.shape[0], format="csr")  # + nue*(Dnp.T @ M3np @ Dnp)
+            # Preconditioner
+            _A22np_pre = stab_sigma * sc.sparse.identity(A22np.shape[0], format="csr")  # + nue*(Dnp.T @ M3np @ Dnp)
             _A22np_pre = _A22np_pre.tocsr()
-            _A11np_pre = M2np/dt #+ nu * (Dnp.T @ M3np @ Dnp)
+            _A11np_pre = M2np / dt  # + nu * (Dnp.T @ M3np @ Dnp)
             _A11np_pre = _A11np_pre.tocsr()
         B1np = -M3np @ Dnp
         B2np = M3np @ Dnp
@@ -160,7 +160,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         Anp = [A11np, A22np]
         Bnp = [B1np, B2np]
         Fnp = [F1np, F2np]
-        #Preconditioner not inverted
+        # Preconditioner not inverted
         Anppre = [_A11np_pre, _A22np_pre]
 
     if method_for_solving in ("SaddlePointSolverGMRES", "SaddlePointSolverGMRESwithPC"):
