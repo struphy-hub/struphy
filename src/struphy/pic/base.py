@@ -26,7 +26,6 @@ from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     flatten_index,
     initialize_neighbours,
-    put_particles_in_boxes_kernel,
     assign_box_to_each_particle,
     assign_particles_to_boxes,
     sort_boxed_particles,
@@ -2558,7 +2557,6 @@ class Particles(metaclass=ABCMeta):
         neighbouring boxes of neighbours processors or also communicated"""
         self.remove_ghost_particles()
 
-        # estimate max number of markers in a box
         assign_box_to_each_particle(
             self.markers,
             self.holes,
@@ -2569,17 +2567,6 @@ class Particles(metaclass=ABCMeta):
         )
         
         self.check_and_assign_particles_to_boxes()
-
-        # put_particles_in_boxes_kernel(
-        #     self._markers,
-        #     self.holes,
-        #     self._sorting_boxes.nx,
-        #     self._sorting_boxes.ny,
-        #     self._sorting_boxes.nz,
-        #     self._sorting_boxes._boxes,
-        #     self._sorting_boxes._next_index,
-        #     self.domain_array[self.mpi_rank],
-        # )
 
         if self.sorting_boxes.communicate:
             self.communicate_boxes()

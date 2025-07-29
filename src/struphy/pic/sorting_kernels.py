@@ -136,44 +136,6 @@ def find_box(
     return flatten_index(n1, n2, n3, nx, ny, nz)
 
 
-def put_particles_in_boxes_kernel(
-    markers: "float[:,:]",
-    holes: "bool[:]",
-    nx: "int",
-    ny: "int",
-    nz: "int",
-    boxes: "int[:,:]",
-    next_index: "int[:]",
-    domain_array: "float[:]",
-    box_index: "int" = -2,
-):
-    """Assign the right box to all particles."""
-    boxes[:, :] = -1
-    next_index[:] = 0
-    l = markers.shape[1]
-    for p in range(markers.shape[0]):
-        if holes[p]:
-            n_box = (nx + 2) * (ny + 2) * (nz + 2)
-        else:
-            a = find_box(
-                markers[p, 0],
-                markers[p, 1],
-                markers[p, 2],
-                nx,
-                ny,
-                nz,
-                domain_array,
-            )
-            if a >= (nx + 2) * (ny + 2) * (nz + 2) or a < 0:
-                n_box = (nx + 2) * (ny + 2) * (nz + 2)
-            else:
-                n_box = a
-                boxes[n_box, next_index[n_box]] = p
-        next_index[n_box] += 1
-        b = float(n_box)
-        markers[p, l + box_index] = b
-
-
 def get_next_index(box_nb: "float", next_index: "int[:]", cumul_next_index: "int[:]"):
     """Utilities for sorting"""
     int_bnb = int(box_nb)
@@ -235,9 +197,7 @@ def assign_box_to_each_particle(
     domain_array: "float[:]",
     box_index: "int" = -2,
 ):
-    """Assign the right box to each particle, written into column -2."""
-    # boxes[:, :] = -1
-    # next_index[:] = 0
+    """Assign the right box to each particle, written into column -2 or marker array."""
     l = markers.shape[1]
     for p in range(markers.shape[0]):
         if holes[p]:
@@ -256,8 +216,6 @@ def assign_box_to_each_particle(
                 n_box = (nx + 2) * (ny + 2) * (nz + 2)
             else:
                 n_box = a
-                #boxes[n_box, next_index[n_box]] = p
-        #next_index[n_box] += 1
         b = float(n_box)
         markers[p, l + box_index] = b
 
@@ -269,8 +227,7 @@ def assign_particles_to_boxes(
     next_index: "int[:]",
     box_index: "int" = -2,
 ):
-    """Reloop over the particles after communication to update the neighbouring boxes
-    with the right particles and the next_index for later sorting."""
+    """Write particle indices into box array."""
     boxes[:, :] = -1
     next_index[:] = 0
     l = markers.shape[1]
