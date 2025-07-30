@@ -368,6 +368,10 @@ class StruphyModel(metaclass=ABCMeta):
             raise NameError("Propagators object must be named 'self._propagators = ...' in model __init__().")
         return self._propagators
     
+    @propagators.setter
+    def propagators(self, new):
+        self._propagators = new
+    
     @property
     def prop_list(self):
         """List of Propagator objects."""

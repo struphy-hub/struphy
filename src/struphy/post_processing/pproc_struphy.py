@@ -1,3 +1,16 @@
+import os
+import pickle
+import shutil
+
+import h5py
+import numpy as np
+import yaml
+
+import struphy.post_processing.orbits.orbits_tools as orbits_pproc
+import struphy.post_processing.post_processing_tools as pproc
+from struphy.io.setup import import_parameters_py
+
+
 def main(
     path: str,
     *,
@@ -36,19 +49,6 @@ def main(
     time_trace : bool
         whether to plot the time trace of each measured region
     """
-
-    import os
-    import pickle
-    import shutil
-
-    import h5py
-    import yaml
-
-    import struphy.post_processing.orbits.orbits_tools as orbits_pproc
-    import struphy.post_processing.post_processing_tools as pproc
-    from struphy.models import fluid, hybrid, kinetic, toy
-    from struphy.utils.arrays import xp as np
-
     print("")
 
     # create post-processing folder
@@ -66,23 +66,6 @@ def main(
     # save time grid at which post-processing data is created
     np.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
-    # load parameters.yml
-    with open(os.path.join(path, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
-
-    # get model class from meta.txt file
-    with open(os.path.join(path, "meta.txt"), "r") as f:
-        lines = f.readlines()
-    model_name = lines[3].split()[-1]
-
-    objs = [fluid, kinetic, hybrid, toy]
-
-    for obj in objs:
-        try:
-            model_class = getattr(obj, model_name)
-        except AttributeError:
-            pass
-
     if "feec" in file.keys():
         exist_fields = True
     else:
@@ -90,34 +73,27 @@ def main(
 
     if "kinetic" in file.keys():
         exist_kinetic = {"markers": False, "f": False, "n_sph": False}
-
-        kinetic_species = []
-        kinetic_kinds = []
-
         for name in file["kinetic"].keys():
-            kinetic_species += [name]
-            kinetic_kinds += [model_class.species()["kinetic"][name]]
-
             # check for saved markers
             if "markers" in file["kinetic"][name]:
                 exist_kinetic["markers"] = True
-
             # check for saved distribution function
             if "f" in file["kinetic"][name]:
                 exist_kinetic["f"] = True
-
             # check for saved sph density
             if "n_sph" in file["kinetic"][name]:
                 exist_kinetic["n_sph"] = True
-
     else:
         exist_kinetic = None
-
+        
     file.close()
+    
+    # import parameters
+    params_in = import_parameters_py(os.path.join(path, "parameters.py"))
 
     # field post-processing
     if exist_fields:
-        fields, space_ids, _ = pproc.create_femfields(path, step=step)
+        fields, space_ids = pproc.create_femfields(path, step=step)
 
         point_data, grids_log, grids_phy = pproc.eval_femfields(
             path, fields, space_ids, celldivide=[celldivide, celldivide, celldivide]
@@ -140,25 +116,25 @@ def main(
         # save data dicts for each field
         for name, val in point_data.items():
             aux = name.split("_")
-            # is em field
-            if len(aux) == 1 or "field" in name:
-                subfolder = "em_fields"
-                new_name = name
-                try:
-                    os.mkdir(os.path.join(path_fields, subfolder))
-                except:
-                    pass
+            # # is em field
+            # if len(aux) == 1 or "field" in name:
+            #     subfolder = "em_fields"
+            #     new_name = name
+            #     try:
+            #         os.mkdir(os.path.join(path_fields, subfolder))
+            #     except:
+            #         pass
 
-            # is fluid species
-            else:
-                subfolder = aux[0]
-                for au in aux[1:-1]:
-                    subfolder += "_" + au
-                new_name = aux[-1]
-                try:
-                    os.mkdir(os.path.join(path_fields, subfolder))
-                except:
-                    pass
+            # # is fluid species
+            # else:
+            subfolder = aux[0]
+            for au in aux[1:-1]:
+                subfolder += "_" + au
+            new_name = aux[-1]
+            try:
+                os.mkdir(os.path.join(path_fields, subfolder))
+            except:
+                pass
 
             print(f"{name = }")
             print(f"{subfolder = }")

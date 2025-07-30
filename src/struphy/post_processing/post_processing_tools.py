@@ -7,10 +7,10 @@ import yaml
 from tqdm import tqdm
 
 from struphy.feec.psydac_derham import Derham
-from struphy.io.setup import setup_domain_and_equil
 from struphy.kinetic_background import maxwellians
 from struphy.models import fluid, hybrid, kinetic, toy
-from struphy.utils.arrays import xp as np
+from struphy.io.setup import import_parameters_py
+from struphy.models.base import setup_derham
 
 
 def create_femfields(
@@ -35,38 +35,28 @@ def create_femfields(
 
     space_ids : dict
         The space IDs of the fields (H1, Hcurl, Hdiv, L2 or H1vec). space_ids[name] contains the space ID of the field with the name "name".
-
-    model : str
-        From which model in struphy/models the data has been obtained.
     """
 
-    # get model name and # of MPI processes from meta.txt file
-    with open(os.path.join(path, "meta.txt"), "r") as f:
-        lines = f.readlines()
+    with open(os.path.join(path, "meta.yml"), "r") as f:
+        meta = yaml.load(f, Loader=yaml.FullLoader)
+    nproc = meta["MPI processes"]
 
-    model = lines[3].split()[-1]
-    nproc = lines[4].split()[-1]
+    params_in = import_parameters_py(os.path.join(path, "parameters.py"))
 
-    # create Derham sequence from grid parameters
-    with open(os.path.join(path, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
-
-    derham = Derham(
-        params["grid"]["Nel"],
-        params["grid"]["p"],
-        params["grid"]["spl_kind"],
-    )
+    derham = setup_derham(params_in.grid,
+            params_in.derham,
+            comm=None,
+            domain=params_in.domain,
+            mpi_dims_mask=params_in.grid.mpi_dims_mask,
+            )
 
     # get fields names, space IDs and time grid from 0-th rank hdf5 file
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
-
     space_ids = {}
-
     for field_name, dset in file["feec"].items():
         space_ids[field_name] = dset.attrs["space_id"]
 
     t_grid = file["time/value"][::step].copy()
-
     file.close()
 
     # create one FemField for each snapshot
@@ -74,9 +64,10 @@ def create_femfields(
     for t in t_grid:
         fields[t] = {}
         for field_name, ID in space_ids.items():
-            fields[t][field_name] = derham.create_spline_function(field_name, ID)
+            fields[t][field_name] = derham.create_spline_function(field_name, ID, verbose=False,)
 
     # get hdf5 data
+    print("")
     for rank in range(int(nproc)):
         # open hdf5 file
         file = h5py.File(
@@ -142,7 +133,7 @@ def create_femfields(
 
     print("Creation of Struphy Fields done.")
 
-    return fields, space_ids, model
+    return fields, space_ids
 
 
 def eval_femfields(
@@ -191,17 +182,16 @@ def eval_femfields(
     assert isinstance(fields, dict)
     assert isinstance(space_ids, dict)
 
-    # domain object according to parameter file and grids
-    with open(os.path.join(path, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
+    params_in = import_parameters_py(os.path.join(path, "parameters.py"))
 
-    domain = setup_domain_and_equil(params)[0]
+    # get domain
+    domain = params_in.domain
 
     # create logical and physical grids
     assert isinstance(celldivide, list)
     assert len(celldivide) == 3
 
-    Nel = params["grid"]["Nel"]
+    Nel = params_in.grid.Nel
 
     grids_log = [np.linspace(0.0, 1.0, Nel_i * n_i + 1) for Nel_i, n_i in zip(Nel, celldivide)]
     grids_phy = [

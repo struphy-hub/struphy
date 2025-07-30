@@ -58,12 +58,12 @@ class Maxwell(StruphyModel):
 
     def __init__(self, units, domain, equil, verbose=False):
         # 1. instantiate all variales
-        self._em_fields = self.EMFields()
+        self.em_fields = self.EMFields()
         # self._ions = self.Ions()
         # self._electrons = self.Electrons()
 
         # 2. instantiate all propagators
-        self._propagators = self.Propagators()
+        self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
         self.propagators.maxwell.set_variables(
@@ -78,17 +78,6 @@ class Maxwell(StruphyModel):
         self.add_scalar("electric energy")
         self.add_scalar("magnetic energy")
         self.add_scalar("total energy")
-    
-    ## variable and propagator attributes
-    
-    @property
-    def propagators(self) -> Propagators:
-        """A list of propagator instances for the model."""
-        return self._propagators
-    
-    @property
-    def em_fields(self) -> EMFields:
-        return self._em_fields
     
     ## abstract attributes
     

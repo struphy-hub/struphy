@@ -74,6 +74,17 @@ def main(
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
+
+    start_simulation = time.time()
+    
+    # read in paramaters
+    params = setup_parameters(params_path=params_path, 
+                            path_out=path_out,
+                            verbose=verbose,)
+    
+    if model_name is None:
+        assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
+        model_name = params.model.__class__.__name__
     
     # collect meta-data
     meta = {}
@@ -96,18 +107,13 @@ def main(
     # store meta-data in output folder
     dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
 
-    # start timing
-    start_simulation = time.time()
 
     # creating output folder, loading parameters, extract light-weight model instance 
     setup_folders(path_out=path_out, 
                   restart=restart, 
                   verbose=verbose,)
     
-    params = setup_parameters(model_name=model_name, 
-                            params_path=params_path, 
-                            path_out=path_out,
-                            verbose=verbose,)
+    # get model instance
     model = params.model
     
     # config clones
