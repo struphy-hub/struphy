@@ -1212,8 +1212,8 @@ class StruphyModel(metaclass=ABCMeta):
             
             assert isinstance(val, FieldSpecies)
             
-            species_path = "feec/" + species + "_"
-            species_path_restart = "restart/" + species + "_"
+            species_path = os.path.join("feec", species)
+            species_path_restart = os.path.join("restart", species)
 
             for variable, subval in val.variables.items():
                 assert isinstance(subval, FEECVariable)
@@ -1224,7 +1224,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                 # save numpy array to be updated each time step.
                 if subval.save_data:
-                    key_field = species_path + variable
+                    key_field = os.path.join(species_path, variable)
 
                     if isinstance(spline.vector_stencil, StencilVector):
                         data.add_data(
@@ -1233,7 +1233,7 @@ class StruphyModel(metaclass=ABCMeta):
 
                     else:
                         for n in range(3):
-                            key_component = key_field + "/" + str(n + 1)
+                            key_component = os.path.join(key_field, str(n + 1))
                             data.add_data(
                                 {key_component: spline.vector_stencil[n]._data},
                             )
@@ -1245,7 +1245,7 @@ class StruphyModel(metaclass=ABCMeta):
                     data.file[key_field].attrs["pads"] = spline.pads
 
                 # save numpy array to be updated only at the end of the simulation for restart.
-                key_field_restart = species_path_restart + variable
+                key_field_restart = os.path.join(species_path_restart, variable)
 
                 if isinstance(spline.vector_stencil, StencilVector):
                     data.add_data(
@@ -1253,7 +1253,7 @@ class StruphyModel(metaclass=ABCMeta):
                     )
                 else:
                     for n in range(3):
-                        key_component_restart = key_field_restart + "/" + str(n + 1)
+                        key_component_restart = os.path.join(key_field_restart, str(n + 1))
                         data.add_data(
                             {key_component_restart: spline.vector_stencil[n]._data},
                         )

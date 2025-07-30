@@ -93,15 +93,15 @@ def main(
 
     # field post-processing
     if exist_fields:
-        fields, space_ids = pproc.create_femfields(path, step=step)
+        fields, t_grid = pproc.create_femfields(path, params_in, step=step)
 
         point_data, grids_log, grids_phy = pproc.eval_femfields(
-            path, fields, space_ids, celldivide=[celldivide, celldivide, celldivide]
+            params_in, fields, celldivide=[celldivide, celldivide, celldivide]
         )
 
         if physical:
             point_data_phy, grids_log, grids_phy = pproc.eval_femfields(
-                path, fields, space_ids, celldivide=[celldivide, celldivide, celldivide], physical=True
+                params_in, fields, celldivide=[celldivide, celldivide, celldivide], physical=True
             )
 
         # directory for field data
@@ -114,38 +114,19 @@ def main(
             os.mkdir(path_fields)
 
         # save data dicts for each field
-        for name, val in point_data.items():
-            aux = name.split("_")
-            # # is em field
-            # if len(aux) == 1 or "field" in name:
-            #     subfolder = "em_fields"
-            #     new_name = name
-            #     try:
-            #         os.mkdir(os.path.join(path_fields, subfolder))
-            #     except:
-            #         pass
+        for species, vars in point_data.items():
+            for name, val in vars.items():
+                try:
+                    os.mkdir(os.path.join(path_fields, species))
+                except:
+                    pass
 
-            # # is fluid species
-            # else:
-            subfolder = aux[0]
-            for au in aux[1:-1]:
-                subfolder += "_" + au
-            new_name = aux[-1]
-            try:
-                os.mkdir(os.path.join(path_fields, subfolder))
-            except:
-                pass
+                with open(os.path.join(path_fields, species, name + "_log.bin"), "wb") as handle:
+                    pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            print(f"{name = }")
-            print(f"{subfolder = }")
-            print(f"{new_name = }")
-
-            with open(os.path.join(path_fields, subfolder, new_name + "_log.bin"), "wb") as handle:
-                pickle.dump(val, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-            if physical:
-                with open(os.path.join(path_fields, subfolder, new_name + "_phy.bin"), "wb") as handle:
-                    pickle.dump(point_data_phy[name], handle, protocol=pickle.HIGHEST_PROTOCOL)
+                if physical:
+                    with open(os.path.join(path_fields, species, name + "_phy.bin"), "wb") as handle:
+                        pickle.dump(point_data_phy[species][name], handle, protocol=pickle.HIGHEST_PROTOCOL)
 
         # save grids
         with open(os.path.join(path_fields, "grids_log.bin"), "wb") as handle:
@@ -156,9 +137,9 @@ def main(
 
         # create vtk files
         if not no_vtk:
-            pproc.create_vtk(path_fields, grids_phy, point_data)
+            pproc.create_vtk(path_fields, t_grid, grids_phy, point_data)
             if physical:
-                pproc.create_vtk(path_fields, grids_phy, point_data_phy, physical=True)
+                pproc.create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
 
     # kinetic post-processing
     if exist_kinetic is not None:
