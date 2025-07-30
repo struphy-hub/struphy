@@ -43,7 +43,7 @@ class Propagator(metaclass=ABCMeta):
         """
 
     def set_variables(self, **vars):
-        """Update variables in __dict__ with user-defined instance variables (allocated)."""
+        """Update variables in __dict__ and set self.variables with user-defined instance variables (allocated)."""
         assert len(vars) == len(self.__dict__), f"Variables must be passed in the following order: {self.__dict__}, but is {vars}."
         for ((k, v), (kp, vp)) in zip(vars.items(), self.__dict__.items()):
             assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.__dict__}."
@@ -55,6 +55,7 @@ class Propagator(metaclass=ABCMeta):
                 # comm = var.obj.comm
                 pass
         self.__dict__.update(vars)
+        self._variables = vars
         
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
@@ -66,9 +67,9 @@ class Propagator(metaclass=ABCMeta):
             max_diff for all feec variables.
         """
         diffs = {}
-        assert len(new_coeffs) == len(self.__dict__), f"Coefficients must be passed in the following order: {self.__dict__}, but is {new_coeffs}."
-        for ((k, new), (kp, vp)) in zip(new_coeffs.items(), self.__dict__.items()):
-            assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.__dict__}."
+        assert len(new_coeffs) == len(self.variables), f"Coefficients must be passed in the following order: {self.variables}, but is {new_coeffs}."
+        for ((k, new), (kp, vp)) in zip(new_coeffs.items(), self.variables.items()):
+            assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.variables}."
             assert isinstance(new, (StencilVector, BlockVector))
             assert isinstance(vp, FEECVariable)
             old = vp.spline.vector
@@ -86,10 +87,10 @@ class Propagator(metaclass=ABCMeta):
         return diffs
 
     @property
-    def vars(self):
-        """List of Variables to be updated by the propagator.
+    def variables(self):
+        """Dict of Variables to be updated by the propagator.
         """
-        return self._vars
+        return self._variables
 
     @property
     def init_kernels(self):

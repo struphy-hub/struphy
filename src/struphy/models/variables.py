@@ -18,10 +18,14 @@ class Variable(metaclass=ABCMeta):
     
     @property
     def backgrounds(self):
+        if not hasattr(self, "_backgrounds"):
+            self._backgrounds = None
         return self._backgrounds
     
     @property
     def perturbations(self):
+        if not hasattr(self, "_perturbations"):
+            self._perturbations = None
         return self._perturbations
     
     @property
@@ -44,7 +48,7 @@ class Variable(metaclass=ABCMeta):
 
     def add_background(self, background, verbose=False):
         """Type inference of added background done in sub class."""
-        if not hasattr(self, "_backgrounds"):
+        if not hasattr(self, "_backgrounds") or self.backgrounds is None:
             self._backgrounds = background
         else:
             if not isinstance(self.backgrounds, list):
@@ -57,7 +61,7 @@ class Variable(metaclass=ABCMeta):
                 print(f'  {k}: {v}')
 
     def add_perturbation(self, perturbation: Perturbation, verbose=False):
-        if not hasattr(self, "_perturbations"):
+        if not hasattr(self, "_perturbations") or self.perturbations is None:
             self._perturbations = perturbation
         else:
             if not isinstance(self.perturbations, list):
