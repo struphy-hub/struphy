@@ -208,7 +208,7 @@ class ModesCos:
                 Lz : 1.
     """
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=(1e-4,), Lx=1.0, Ly=1.0, Lz=1.0):
+    def __init__(self, ls=None, ms=None, ns=None, amps=(1e-4,), Lx=1.0, Ly=1.0, Lz=1.0, pfuns=("sin",), pfun_params=None):
         """
         Parameters
         ----------
@@ -258,6 +258,14 @@ class ModesCos:
         else:
             assert len(amps) == n_modes
 
+        if len(pfuns) == 1:
+            pfuns = [pfuns[0]] * n_modes
+        else:
+            assert len(pfuns) == n_modes
+
+        if pfun_params is None:
+            pfun_params = [None] * n_modes
+
         self._ls = ls
         self._ms = ms
         self._ns = ns
@@ -266,11 +274,34 @@ class ModesCos:
         self._Ly = Ly
         self._Lz = Lz
 
+        self._pfuns = []
+        for pfun, params in zip(pfuns, pfun_params):
+            if pfun == "sin":
+                if params is None:
+                    ls = 1
+                else:
+                    ls = params
+                self._pfuns += [lambda x: np.sin(ls * np.pi * x)]
+            elif pfun == "cos":
+                self._pfuns += [lambda x: np.cos(np.pi * x)]
+            elif pfun == "exp":
+                self._pfuns += [
+                    lambda x: np.exp(-((x - params[0]) ** 2) / params[1]),
+                ]
+            elif pfun == "d_exp":
+                self._pfuns += [
+                    lambda x: -2 * (x - params[0]) / params[1] * np.exp(-((x - params[0]) ** 2) / params[1]),
+                ]
+            else:
+                raise ValueError(
+                    'Profile function must be "sin" or "cos" or "exp".',
+                )
+
     def __call__(self, x, y, z):
         val = 0.0
 
-        for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
-            val += amp * np.cos(
+        for amp, l, m, n, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._pfuns):
+            val += amp * pfun(x) *np.cos(
                 l * 2.0 * np.pi / self._Lx * x + m * 2.0 * np.pi / self._Ly * y + n * 2.0 * np.pi / self._Lz * z,
             )
 
