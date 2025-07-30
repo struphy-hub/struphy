@@ -879,6 +879,7 @@ class Derham:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
+        verbose: bool = True,
     ):
         """Creat a callable spline function.
 
@@ -914,6 +915,7 @@ class Derham:
             perturbations=perturbations,
             domain=domain,
             equil=equil,
+            verbose=verbose,
         )
 
     def prepare_eval_tp_fixed(self, grids_1d):
@@ -1426,6 +1428,7 @@ class SplineFunction:
         perturbations: Perturbation | list = None,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
+        verbose: bool = True,
     ):
         self._name = name
         self._space_id = space_id
@@ -1472,8 +1475,9 @@ class SplineFunction:
             )
         else:
             self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self.fem_space.spaces]
-            
-        print(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
+        
+        if verbose:    
+            print(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
             self.initialize_coeffs(domain=self.domain, equil=self.equil)

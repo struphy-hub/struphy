@@ -14,6 +14,16 @@ from struphy.utils.utils import dict_to_yaml, read_state
 from struphy.geometry.base import Domain
 
 
+def import_parameters_py(params_path: str):
+    """Import a .py parameter file under the module name 'parameters' and return it."""
+    assert ".py" in params_path
+    spec = importlib.util.spec_from_file_location("parameters", params_path)
+    params_in = importlib.util.module_from_spec(spec)
+    sys.modules["parameters"] = params_in
+    spec.loader.exec_module(params_in)
+    return params_in
+
+
 def setup_folders(
     path_out: str,
     restart: bool,
@@ -75,7 +85,6 @@ def setup_folders(
 
 
 def setup_parameters(
-    model_name: str,
     params_path: str,
     path_out: str,
     verbose: bool = False,
@@ -112,10 +121,7 @@ def setup_parameters(
         # state = read_state()
         # i_path = state["i_path"]
         # load parameter.py
-        spec = importlib.util.spec_from_file_location("parameters", params_path)
-        params_in = importlib.util.module_from_spec(spec)
-        sys.modules["parameters"] = params_in
-        spec.loader.exec_module(params_in)
+        params_in = import_parameters_py(params_path)
 
         if not hasattr(params_in, "model"):
             params_in.model = None
@@ -148,10 +154,6 @@ def setup_parameters(
             derham=params_in.derham,
             verbose=verbose,
         )
-
-    if model_name is None:
-        assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
-        model_name = params.model
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         # copy parameter file to output folder
