@@ -65,7 +65,7 @@ class ButcherTableau:
             c = (0.0, 1 / 3, 2 / 3, 1.0)
             conv_rate = 4
         else:
-            raise NotImplementedError("Chosen algorithm is not implemented.")
+            raise NotImplementedError(f"Chosen algorithm {self.algo} is not implemented.")
 
         self._b = np.array(b)
         self._c = np.array(c)

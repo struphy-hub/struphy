@@ -30,6 +30,10 @@ BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
 NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
 GivenInBasis = Literal['0', '1', '2', '3', 'v', 'physical', 'physical_at_eta', 'norm', None]
 
+# solvers
+OptsSymmSolver = Literal["pcg", "cg"]
+OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
+
 
 ## Option classes
 

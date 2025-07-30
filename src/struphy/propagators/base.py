@@ -9,6 +9,8 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
 from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
+from psydac.linalg.stencil import StencilVector
+from psydac.linalg.block import BlockVector
 
 
 class Propagator(metaclass=ABCMeta):
@@ -21,33 +23,67 @@ class Propagator(metaclass=ABCMeta):
     Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
     """
 
-    def __init__(self, *vars):
-        """Create an instance of a Propagator.
+    @abstractmethod
+    def set_options(self, **kwargs):
+        """Set the dynamical options of the propagator (kwargs)."""
+        
+    @abstractmethod
+    def allocate():
+        """Allocate all data/objects of the instance."""
+    
+    @abstractmethod
+    def __call__(self, dt):
+        """Update variables from t -> t + dt.
+        Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
 
         Parameters
         ----------
-        vars : Variable
-            Variables to be updated.
+        dt : float
+            Time step size.
         """
 
-        comm = None
-
-        # for iterative particle push
-        self._init_kernels = []
-        self._eval_kernels = []
-
-        self._rank = comm.Get_rank() if comm is not None else 0
-
-    def set_variables(self, *vars):
-        for var in vars:
-            assert isinstance(var, Variable)
-            if isinstance(var, (PICVariable, SPHVariable)):
+    def set_variables(self, **vars):
+        """Update variables in __dict__ with user-defined instance variables (allocated)."""
+        assert len(vars) == len(self.__dict__), f"Variables must be passed in the following order: {self.__dict__}, but is {vars}."
+        for ((k, v), (kp, vp)) in zip(vars.items(), self.__dict__.items()):
+            assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.__dict__}."
+            assert isinstance(v, Variable)
+            if isinstance(v, (PICVariable, SPHVariable)):
                 # comm = var.obj.mpi_comm
                 pass
-            elif isinstance(var, FEECVariable):
+            elif isinstance(v, FEECVariable):
                 # comm = var.obj.comm
                 pass
-        self._vars = vars
+        self.__dict__.update(vars)
+        
+    def update_feec_variables(self, **new_coeffs):
+        r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
+        update feec coefficients and update ghost regions.
+        
+        Returns
+        -------
+        diffs : dict
+            max_diff for all feec variables.
+        """
+        diffs = {}
+        assert len(new_coeffs) == len(self.__dict__), f"Coefficients must be passed in the following order: {self.__dict__}, but is {new_coeffs}."
+        for ((k, new), (kp, vp)) in zip(new_coeffs.items(), self.__dict__.items()):
+            assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.__dict__}."
+            assert isinstance(new, (StencilVector, BlockVector))
+            assert isinstance(vp, FEECVariable)
+            old = vp.spline.vector
+            assert new.space == old.space
+ 
+            # calculate maximum of difference abs(new - old)
+            diffs[k] = np.max(np.abs(new.toarray() - old.toarray()))
+
+            # copy new coeffs into old
+            new.copy(out=old)
+
+            # important: sync processes!
+            old.update_ghost_regions()
+
+        return diffs
 
     @property
     def vars(self):
@@ -76,27 +112,6 @@ class Propagator(metaclass=ABCMeta):
     def rank(self):
         """MPI rank, is 0 if no communicator."""
         return self._rank
-
-    @abstractmethod
-    def set_options(self, **opts):
-        """Set the dynamical options of the propagator (kwargs).
-        """
-        
-    @abstractmethod
-    def allocate():
-        """Allocate all data/objects for an instance.
-        """
-    
-    @abstractmethod
-    def __call__(self, dt):
-        """Update variables from t -> t + dt.
-        Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
-
-        Parameters
-        ----------
-        dt : float
-            Time step size.
-        """
 
     @property
     def derham(self):
@@ -173,40 +188,6 @@ class Propagator(metaclass=ABCMeta):
         """
         assert time_state.size == 1
         self._time_state = time_state
-
-    def feec_vars_update(self, *variables_new):
-        r"""Return :math:`\textrm{max}_i |x_i(t + \Delta t) - x_i(t)|` for each unknown in list,
-        update :method:`~struphy.propagators.base.Propagator.feec_vars`
-        and update ghost regions.
-
-        Parameters
-        ----------
-        variables_new : list[StencilVector | BlockVector]
-            Same sequence as in :method:`~struphy.propagators.base.Propagator.feec_vars`
-            but with the updated variables,
-            i.e. for feec_vars = [e, b] we must have variables_new = [e_updated, b_updated].
-
-        Returns
-        -------
-        diffs : list
-            A list [max(abs(self.feec_vars - variables_new)), ...] for all variables in self.feec_vars and variables_new.
-        """
-
-        diffs = []
-
-        for i, new in enumerate(variables_new):
-            assert type(new) is type(self.feec_vars[i])
-
-            # calculate maximum of difference abs(old - new)
-            diffs += [np.max(np.abs(self.feec_vars[i].toarray() - new.toarray()))]
-
-            # copy new variables into self.feec_vars
-            new.copy(out=self.feec_vars[i])
-
-            # important: sync processes!
-            self.feec_vars[i].update_ghost_regions()
-
-        return diffs
 
     def add_init_kernel(
         self,
@@ -312,11 +293,11 @@ class Propagator(metaclass=ABCMeta):
        
     class Options:
         def __init__(self, prop, **kwargs):
-            self._kwargs = kwargs
+            self.__dict__.update(kwargs)
             print(f"\nInstance of propagator '{prop.__class__.__name__}' with:")
-            for k, v in kwargs.items():
+            for k, v in self.__dict__.items():
                 print(f'  {k}: {v}')
             
-        @property
-        def kwargs(self):
-            return self._kwargs
+        # @property
+        # def kwargs(self):
+        #     return self._kwargs
