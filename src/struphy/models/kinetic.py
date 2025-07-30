@@ -1229,16 +1229,20 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             self.add_scalar("en_c_ln_n", compute="from_particles", species="species1")
         self.add_scalar("en_c_v_2", compute="from_particles", species="species1")
         self.add_scalar("en_w", compute="from_particles", species="species1")
-        self.add_scalar("en_c_ln_c", compute="from_particles", species="species1")
+        if self._variables == "e_v":
+            self.add_scalar("en_c_ln_c", compute="from_particles", species="species1")
         self.add_scalar("sum_gamma", compute="from_particles", species="species1")
         summands = [
                 "en_c_v_2",
                 "en_w",
-                "en_c_ln_c",
         ]
         if self._has_background_e:
             summands += [
                 "en_c_ln_n",
+            ]
+        if self._variables == "e_v":
+            summands += [
+                "en_c_ln_c",
             ]
 
         self.add_scalar(
@@ -1358,31 +1362,34 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         self.update_scalar("en_w", self._tmp[2])
 
         # gamma_p * ln(gamma_p) - gamma_p
-        temp = - (
-            self.alpha**2
-            * self.vth**2
-            * (
-                np.multiply(
-                    self._gamma[self.pointer["species1"].valid_mks],
-                    np.log(self._gamma[self.pointer["species1"].valid_mks]),
+        if self._variables == "e_v":
+            temp = - (
+                self.alpha**2
+                * self.vth**2
+                * (
+                    np.multiply(
+                        self._gamma[self.pointer["species1"].valid_mks],
+                        np.log(self._gamma[self.pointer["species1"].valid_mks]),
+                    )
+                    - self._gamma[self.pointer["species1"].valid_mks]
                 )
-                - self._gamma[self.pointer["species1"].valid_mks]
             )
-        )
-        temp[np.isnan(temp)] = 0.
-        self._tmp[3] = temp.sum()
-        self.update_scalar("en_c_ln_c", self._tmp[3])
+            temp[np.isnan(temp)] = 0.
+            self._tmp[3] = temp.sum()
+            self.update_scalar("en_c_ln_c", self._tmp[3])
 
         # gamma * ln(1 / sqrt( (2*pi*vth^2)^3 ) )
         # self._tmp[4] = - self.alpha**2 * self.vth**2 * 1.5 * self._gamma[self.pointer["species1"].valid_mks].sum() * np.log(2 * np.pi * self.vth**2)
-        # self._tmp[4] = self._gamma[self.pointer["species1"].valid_mks].sum()
-        self._tmp[4] = (
-            self.alpha**2
-            * self.vth**2
-            * np.divide(
-                self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
-            ).sum()
-        )
+        if self._variables == "e_v":
+            self._tmp[4] = (
+                self.alpha**2
+                * self.vth**2
+                * np.divide(
+                    self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
+                ).sum()
+            )
+        elif self._variables == "e_v_gamma_w":
+            self._tmp[4] = self._gamma[self.pointer["species1"].valid_mks].sum()
         self.update_scalar("sum_gamma", self._tmp[4])
 
         # total particle energy

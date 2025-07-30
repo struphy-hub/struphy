@@ -1389,12 +1389,12 @@ class DeltaFVlasovAmpere(Propagator):
                 print("Max number of iterations reached, breaking..")
                 break
 
+        # Update weights
+        self._push_weights(dt)
+
         # Update velocities
         self.particles[0].markers[self.particles[0].valid_mks, 3:6] += \
             self._delta_v_next[self.particles[0].valid_mks, :]
-
-        # Update weights
-        self._push_weights(dt)
 
         # Compute e^{n+1}
         self._delta_e_next += self.feec_vars[0]
