@@ -53,10 +53,11 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.models.variables import Variable
 from struphy.linear_algebra.solver import SolverParameters
-from struphy.io.options import check_option
+from struphy.io.options import check_option, OptsSymmSolver, OptsMassPrecond
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 
 
+@dataclass
 class Maxwell(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf E \in H(\textnormal{curl})` and  :math:`\mathbf B \in H(\textnormal{div})` such that
@@ -69,37 +70,33 @@ class Maxwell(Propagator):
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
+    # variables to be updated
     e: FEECVariable = None
     b: FEECVariable = None
     
+    # propagator specific options
     OptsAlgo = Literal["implicit", "explicit"]
-    OptsSolver = Literal["pcg", "cg"]
-    OptsPrecond = Literal["MassMatrixPreconditioner", None]
 
+    # abstract methods
     def set_options(self,
                     algo: OptsAlgo = "implicit", 
-                    solver: OptsSolver = "pcg", 
-                    precond: OptsPrecond = "MassMatrixPreconditioner", 
+                    solver: OptsSymmSolver = "pcg", 
+                    precond: OptsMassPrecond = "MassMatrixPreconditioner", 
                     solver_params: SolverParameters = None,
                     butcher: ButcherTableau = None,
                     ):
     
         # checks
         check_option(algo, self.OptsAlgo)
-        check_option(solver, self.OptsSolver)
-        check_option(precond, self.OptsPrecond) 
+        check_option(solver, OptsSymmSolver)
+        check_option(precond, OptsMassPrecond) 
         
         # defaults
-        if algo == "implicit":
-            butcher = None
-            if solver_params is None:
-                solver_params = SolverParameters()
-        elif algo == "explicit":
-            solver = None
-            precond = None
-            solver_params = None
-            if butcher is None:
-                butcher = ButcherTableau()
+        if solver_params is None:
+            solver_params = SolverParameters()
+            
+        if algo == "explicit" and butcher is None:
+            butcher = ButcherTableau()
         
         # use setter for options
         self.options = self.Options(self,
@@ -161,8 +158,8 @@ class Maxwell(Propagator):
             weak_curl = M1_inv @ curl.T @ M2
 
             # allocate output of vector field
-            out1 = self.e.space.zeros()
-            out2 = self.b.space.zeros()
+            out1 = self.e.spline.vector.space.zeros()
+            out2 = self.b.spline.vector.space.zeros()
 
             def f1(t, y1, y2, out: BlockVector = out1):
                 weak_curl.dot(y2, out=out)
@@ -175,18 +172,18 @@ class Maxwell(Propagator):
                 out.update_ghost_regions()
                 return out
 
-            vector_field = {self.e: f1, self.b: f2}
-            self._ode_solver = ODEsolverFEEC(vector_field, algo=self.options.butcher)
+            vector_field = {self.e.spline.vector: f1, self.b.spline.vector: f2}
+            self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
-        self._e_tmp1 = self.e.space.zeros()
-        self._e_tmp2 = self.e.space.zeros()
-        self._b_tmp1 = self.b.space.zeros()
+        self._e_tmp1 = self.e.spline.vector.space.zeros()
+        self._e_tmp2 = self.e.spline.vector.space.zeros()
+        self._b_tmp1 = self.b.spline.vector.space.zeros()
 
     def __call__(self, dt):
-        # current variables
-        en = self.e
-        bn = self.b
+        # current FE coeffs
+        en = self.e.spline.vector
+        bn = self.b.spline.vector
 
         if self.options.algo == "implicit":
             # solve for new e coeffs
@@ -202,7 +199,7 @@ class Maxwell(Propagator):
             bn1 += bn
 
             # write new coeffs into self.feec_vars
-            max_de, max_db = self.feec_vars_update(en1, bn1)
+            diffs = self.update_feec_variables(e=en1, b=bn1)
         else:
             self._ode_solver(0.0, dt)
 
@@ -210,8 +207,8 @@ class Maxwell(Propagator):
             if self._algo == "implicit":
                 print("Status     for Maxwell:", info["success"])
                 print("Iterations for Maxwell:", info["niter"])
-                print("Maxdiff e1 for Maxwell:", max_de)
-                print("Maxdiff b2 for Maxwell:", max_db)
+                print("Maxdiff e for Maxwell:", diffs["e"])
+                print("Maxdiff b for Maxwell:", diffs["b"])
                 print()
 
 

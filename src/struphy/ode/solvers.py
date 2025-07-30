@@ -31,10 +31,10 @@ class ODEsolverFEEC:
     def __init__(
         self,
         vector_field: dict,
-        algo: str = "rk4",
+        butcher: ButcherTableau = ButcherTableau(),
     ):
         # get algorithm
-        self._butcher = ButcherTableau(algo=algo)
+        self._butcher = butcher
 
         # check arguments and allocate k for each stage
         self._k = {}
@@ -51,7 +51,6 @@ class ODEsolverFEEC:
                 self._k[vec] += [vec.space.zeros()]
 
         self._vector_field = vector_field
-        self._algo = algo
 
         # collect unknows in list
         self._y = list(self.vector_field.keys())
@@ -95,11 +94,6 @@ class ODEsolverFEEC:
         Keys are the variables to be updated (i.e. Stencil- or BlockVectors),
         values are callables representing the respective component of the vector field."""
         return self._vector_field
-
-    @property
-    def algo(self):
-        """See :class:`~struphy.ode.utils.ButcherTableau` for available algorithms."""
-        return self._algo
 
     @property
     def y(self):

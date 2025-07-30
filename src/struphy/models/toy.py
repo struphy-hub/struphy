@@ -61,8 +61,8 @@ class Maxwell(StruphyModel):
         
         # 3. assign variables to propagators
         self.propagators.maxwell.set_variables(
-            self.em_fields.e_field,
-            self.em_fields.b_field,
+            e = self.em_fields.e_field,
+            b = self.em_fields.b_field,
             )
         
         # light-weight setup of model
