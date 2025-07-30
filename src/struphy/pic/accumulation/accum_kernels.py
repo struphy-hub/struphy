@@ -646,9 +646,9 @@ def dfva_e_v_accum_chi(
         c = linalg_kernels.scalar_dot(v_old, v_old)
         nu = 1.0 / (2.0 * vth**2)
 
-        pre_factor = exp(-(a + b + c) / nu) * n0 / sqrt((2.0 * pi)**3)
-        factor_first_summand = expm1((a + b) / nu) / (2.0 * a * nu)
-        factor_second_summand = exp((2.0 * a + b)**2 * nu / (4.0 * a)) * sqrt(pi / a * nu) / 2.0
+        pre_factor = exp(-(a + b + c) * nu) * n0 / sqrt((2.0 * pi)**3)
+        factor_first_summand = expm1((a + b) * nu) / (2.0 * a * nu)
+        factor_second_summand = exp((2.0 * a + b)**2 * nu / (4.0 * a)) * sqrt(pi / (a * nu)) / 2.0
         factor_erf = erf(b * sqrt(nu) / (2.0 * sqrt(a))) - erf((2.0 * a + b) * sqrt(nu) / (2.0 * sqrt(a)))
 
         # compute chi
