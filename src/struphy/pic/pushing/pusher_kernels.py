@@ -3118,7 +3118,7 @@ def push_weights_dfva_e_v_gamma_w_implicit(
         delta_w_next[ip] = update
 
 
-@stack_array("e_old, e_next", "e_sum", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
+@stack_array("e_old, delta_e", "e_midpoint", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
 def push_velocities_with_delta_e(
     dt: float,
     stage: int,
@@ -3138,8 +3138,8 @@ def push_velocities_with_delta_e(
 
     # Allocate memory
     e_old = empty(3, dtype=float)
-    e_next = empty(3, dtype=float)
-    e_sum = empty(3, dtype=float)
+    delta_e = empty(3, dtype=float)
+    e_midpoint = empty(3, dtype=float)
     dfm = empty((3, 3), dtype=float)
     df_inv = empty((3, 3), dtype=float)
     df_inv_t = empty((3, 3), dtype=float)
@@ -3183,13 +3183,13 @@ def push_velocities_with_delta_e(
             delta_e1_curr_1,
             delta_e1_curr_2,
             delta_e1_curr_3,
-            e_next,
+            delta_e,
         )
 
         # compute sum of old and new e-field
-        e_sum[0] = e_old[0] + 0.5 * e_next[0]
-        e_sum[1] = e_old[1] + 0.5 * e_next[1]
-        e_sum[2] = e_old[2] + 0.5 * e_next[2]
+        e_midpoint[0] = e_old[0] + 0.5 * delta_e[0]
+        e_midpoint[1] = e_old[1] + 0.5 * delta_e[1]
+        e_midpoint[2] = e_old[2] + 0.5 * delta_e[2]
 
         # Compute Jacobian matrix
         evaluation_kernels.df(
@@ -3207,7 +3207,7 @@ def push_velocities_with_delta_e(
         linalg_kernels.transpose(df_inv, df_inv_t)
 
         # compute DF^{-1} v
-        linalg_kernels.matrix_vector(df_inv_t, e_sum, df_inv_t_e)
+        linalg_kernels.matrix_vector(df_inv_t, e_midpoint, df_inv_t_e)
 
         # Compute only v_diff
         delta_v_next[ip, 0] = dt / epsilon * df_inv_t_e[0]
