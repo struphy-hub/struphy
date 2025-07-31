@@ -1,6 +1,6 @@
 import pytest
 
-from struphy.ode.utils import ButcherTableau
+from struphy.ode.utils import OptsButcher
 
 
 @pytest.mark.parametrize(
@@ -13,7 +13,7 @@ from struphy.ode.utils import ButcherTableau
         ("1", "0", "2"),
     ],
 )
-@pytest.mark.parametrize("algo", ButcherTableau.available_methods())
+@pytest.mark.parametrize("algo", OptsButcher)
 def test_exp_growth(spaces, algo, show_plots=False):
     """Solve dy/dt = omega*y for different feec variables y and with all available solvers
     from the ButcherTableau."""

@@ -21,6 +21,8 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
     from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
+    from struphy.models.variables import FEECVariable
+    from struphy.initial import perturbations
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -57,42 +59,57 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     bas_ops = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
     # Manufactured solutions
-    uvec = derham.create_spline_function("u", "Hdiv")
-    u_evec = derham.create_spline_function("u_e", "Hdiv")
-    potentialvec = derham.create_spline_function("potential", "L2")
-    uinitial = derham.create_spline_function("u", "Hdiv")
+    uvec = FEECVariable("u", "Hdiv")
+    u_evec = FEECVariable("u_e", "Hdiv")
+    potentialvec = FEECVariable("potential", "L2")
+    uinitial = FEECVariable("u", "Hdiv")
 
-    pp_u = {
-        "ManufacturedSolutionVelocity": {
-            "given_in_basis": ["physical", None, None],
-            "species": "Ions",
-            "comp": "0",
-            "dimension": "1D",
-        }
-    }
-    pp_ue = {
-        "ManufacturedSolutionVelocity": {
-            "given_in_basis": ["physical", None, None],
-            "species": "Electrons",
-            "comp": "0",
-            "dimension": "1D",
-        }
-    }
-    pp_potential = {
-        "ManufacturedSolutionPotential": {
-            "given_in_basis": "physical",
-            "dimension": "1D",
-        }
-    }
+    pp_u = perturbations.ManufacturedSolutionVelocity()
+    pp_ue = perturbations.ManufacturedSolutionVelocity(species="Electrons")
+    pp_potential = perturbations.ManufacturedSolutionPotential()
 
-    uvec.initialize_coeffs(domain=domain, pert_params=pp_u)
-    u_evec.initialize_coeffs(domain=domain, pert_params=pp_ue)
-    potentialvec.initialize_coeffs(domain=domain, pert_params=pp_potential)
+    # pp_u = {
+    #     "ManufacturedSolutionVelocity": {
+    #         "given_in_basis": ["physical", None, None],
+    #         "species": "Ions",
+    #         "comp": "0",
+    #         "dimension": "1D",
+    #     }
+    # }
+    # pp_ue = {
+    #     "ManufacturedSolutionVelocity": {
+    #         "given_in_basis": ["physical", None, None],
+    #         "species": "Electrons",
+    #         "comp": "0",
+    #         "dimension": "1D",
+    #     }
+    # }
+    # pp_potential = {
+    #     "ManufacturedSolutionPotential": {
+    #         "given_in_basis": "physical",
+    #         "dimension": "1D",
+    #     }
+    # }
+
+    uvec.add_perturbation(pp_u)
+    uvec.allocate(derham, domain, eq_mhd)
+    
+    u_evec.add_perturbation(pp_ue)
+    u_evec.allocate(derham, domain, eq_mhd)
+    
+    potentialvec.add_perturbation(pp_potential)
+    potentialvec.allocate(derham, domain, eq_mhd)
+    
+    uinitial.allocate(derham, domain, eq_mhd)
+
+    # uvec.initialize_coeffs(domain=domain, pert_params=pp_u)
+    # u_evec.initialize_coeffs(domain=domain, pert_params=pp_ue)
+    # potentialvec.initialize_coeffs(domain=domain, pert_params=pp_potential)
 
     # Save manufactured solution to compare it later with the outcome of the propagator
-    uvec_initial = uvec.vector.copy()
-    u_evec_initial = u_evec.vector.copy()
-    potentialvec_initial = potentialvec.vector.copy()
+    uvec_initial = uvec.spline.vector.copy()
+    u_evec_initial = u_evec.spline.vector.copy()
+    potentialvec_initial = potentialvec.spline.vector.copy()
 
     solver = {}
     solver["type"] = ["gmres", None]
@@ -109,9 +126,9 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
 
     # Starting with initial condition u=0 and ue and phi start with manufactured solution
     prop = TwoFluidQuasiNeutralFull(
-        uinitial.vector,
-        u_evec.vector,
-        potentialvec.vector,
+        uinitial.spline.vector,
+        u_evec.spline.vector,
+        potentialvec.spline.vector,
         stab_sigma=epsilon,
         D1_dt=dt,
         variant="Uzawa",
@@ -250,9 +267,9 @@ def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     bas_ops = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
     # Manufactured solutions
-    uvec = derham.create_spline_function("u", "Hdiv")
-    u_evec = derham.create_spline_function("u_e", "Hdiv")
-    potentialvec = derham.create_spline_function("potential", "L2")
+    uvec = FEECVariable("u", "Hdiv")
+    u_evec = FEECVariable("u_e", "Hdiv")
+    potentialvec = FEECVariable("potential", "L2")
 
     pp_u = {
         "ManufacturedSolutionVelocity": {
@@ -386,6 +403,15 @@ def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
 
 
 if __name__ == "__main__":
+    test_propagator1D(
+        [16, 1, 1],
+        [2, 2, 1],
+        [True, True, True],
+        [[False, False], [False, False], [False, False]],
+        ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
+        0.001,
+        0.01,
+    )
     # test_propagator2D(
     #     [16, 16, 1],
     #     [1, 1, 1],
@@ -395,15 +421,15 @@ if __name__ == "__main__":
     #     0.001,
     #     0.01,
     # )
-    test_propagator2D(
-        [16, 16, 1],
-        [2, 2, 1],
-        [True, True, True],
-        [[False, False], [False, False], [False, False]],
-        ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
-        0.001,
-        0.01,
-    )
+    # test_propagator2D(
+    #     [16, 16, 1],
+    #     [2, 2, 1],
+    #     [True, True, True],
+    #     [[False, False], [False, False], [False, False]],
+    #     ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
+    #     0.001,
+    #     0.01,
+    # )
     # test_propagator2D(
     #     [32, 32, 1],
     #     [2, 2, 1],

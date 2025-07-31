@@ -41,26 +41,10 @@ class Maxwell(StruphyModel):
     class EMFields(FieldSpecies):
         e_field: FEECVariable = FEECVariable(name="e_field", space="Hcurl")
         b_field: FEECVariable = FEECVariable(name="b_field", space="Hdiv")
-    
-    # class EMFields(FieldSpecies):
-    #     def __init__(self):
-    #         self.e_field = FEECVariable(name="e_field", space="Hcurl")
-    #         self.b_field = FEECVariable(name="b_field", space="Hdiv")
-    
-    # @dataclass
-    # class Ions(KineticSpecies):
-    #     distribution_function = PICVariable(type="Particles6D")
-    
-    # @dataclass
-    # class Electrons(FluidSpecies):
-    #     density = FEECVariable(space="H0")
-    #     pressure = FEECVariable(space="H0")
 
     def __init__(self, units, domain, equil, verbose=False):
         # 1. instantiate all variales
         self.em_fields = self.EMFields()
-        # self._ions = self.Ions()
-        # self._electrons = self.Electrons()
 
         # 2. instantiate all propagators
         self.propagators = self.Propagators()
@@ -79,7 +63,7 @@ class Maxwell(StruphyModel):
         self.add_scalar("magnetic energy")
         self.add_scalar("total energy")
     
-    ## abstract attributes
+    ## abstract methods
     
     @property 
     def bulk_species(self):

@@ -7419,6 +7419,12 @@ class TwoFluidQuasiNeutralFull(Propagator):
     :ref:`time_discret`: fully implicit.
     """
 
+    def allocate(self):
+        pass
+    
+    def set_options(self, **kwargs):
+        pass
+
     @staticmethod
     def options(default=False):
         dct = {}

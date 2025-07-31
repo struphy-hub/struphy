@@ -32,6 +32,9 @@ class Noise(Perturbation):
     
     def __post_init__(self,): 
         check_option(self.direction, NoiseDirections)
+        
+    def __call__(self):
+        pass
 
 
 class ModesSin(Perturbation):
