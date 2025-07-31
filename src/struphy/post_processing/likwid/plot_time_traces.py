@@ -25,7 +25,7 @@ def plot_time_vs_duration(
         profiling_data = pickle.load(file)
 
     # Create a color map for each unique region
-    unique_regions = set(region_name for rank_data in profiling_data["rank_data"].values() for region_name in rank_data)
+    unique_regions = sorted(set(region_name for rank_data in profiling_data["rank_data"].values() for region_name in rank_data))
     color_map = {region_name: plt.cm.tab10(i % 10) for i, region_name in enumerate(unique_regions)}
     plt.figure(figsize=(10, 6))
 
