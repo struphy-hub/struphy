@@ -22,6 +22,7 @@ SplitAlgos = Literal["LieTrotter", "Strang"]
 
 # derham
 PolarRegularity = Literal[-1, 1]
+OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
 
 # fields background
 BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
@@ -32,6 +33,7 @@ GivenInBasis = Literal['0', '1', '2', '3', 'v', 'physical', 'physical_at_eta', '
 
 # solvers
 OptsSymmSolver = Literal["pcg", "cg"]
+OptsGenSolver = Literal["pbicgstab", "bicgstab"]
 OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
 
 

@@ -82,42 +82,6 @@ class StruphyModel(metaclass=ABCMeta):
 
     ## setup methods
 
-    def setup(
-        self,
-        units: Units = None,
-        domain: Domain = None,
-        equil: FluidEquilibrium = None,
-        comm: MPI.Intracomm = None,
-        clone_config: CloneConfig = None,
-        verbose=False,
-    ):
-        """Light-weight initialization of StruphyModel. Must be called in each Propagator.__init__()."""
-
-        # defaults
-        if units is None:
-            units = Units()
-            
-        if domain is None:
-            domain = Cuboid()
-        
-        if equil is None:
-            equil = HomogenSlab()
-
-        # mpi config
-        self._comm_world = comm
-        self._clone_config = clone_config
-
-        if self.comm_world is None:
-            self._rank_world = 0
-        else:
-            self._rank_world = self.comm_world.Get_rank()
-
-        # other light-weight inits
-        self._units = units
-        self.units.derive_units(verbose=verbose)
-        self.setup_equation_params(units=self.units, verbose=verbose)
-        self.setup_domain_and_equil(domain, equil)
-        
     def setup_equation_params(self, units: Units, verbose=False):
         """Set euqation parameters for each fluid and kinetic species."""
         for _, species in self.fluid_species.items():
@@ -318,14 +282,6 @@ class StruphyModel(metaclass=ABCMeta):
         return self._clone_config
 
     @property
-    def pointer(self):
-        """Dictionary pointing to the data structures of the species (Stencil/BlockVector or "Particle" class).
-
-        The keys are the keys from the "species" property.
-        In case of a fluid species, the keys are like "species_variable"."""
-        return self._pointer
-
-    @property
     def diagnostics(self):
         """Dictionary of diagnostics."""
         return self._diagnostics
@@ -359,18 +315,6 @@ class StruphyModel(metaclass=ABCMeta):
     def mass_ops(self):
         """WeighteMassOperators object, see :ref:`mass_ops`."""
         return self._mass_ops
-
-    @property
-    def propagators(self):
-        """Return object that has model propagators in its __dict__."""
-        if not hasattr (self, "_propagators"):
-            self._propagators = None
-            raise NameError("Propagators object must be named 'self._propagators = ...' in model __init__().")
-        return self._propagators
-    
-    @propagators.setter
-    def propagators(self, new):
-        self._propagators = new
     
     @property
     def prop_list(self):
@@ -650,34 +594,21 @@ class StruphyModel(metaclass=ABCMeta):
         """
         Allocate memory for model variables and set initial conditions.
         """
-
-        # pointer directly to data structs of Variables
-        self._pointer = {}
-
         # allocate memory for FE coeffs of electromagnetic fields/potentials
         if self.field_species:
-            for _, spec in self.field_species.items():
+            for species, spec in self.field_species.items():
                 assert isinstance(spec, FieldSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
                     v.allocate(derham=self.derham, domain=self.domain, equil=self.equil,)
-                    self._pointer[k] = v.spline.vector
 
         # allocate memory for FE coeffs of fluid variables
         if self.fluid_species:
-            for species, dct in self.fluid.items():
-                for variable, subdct in dct.items():
-                    if "params" in variable:
-                        continue
-                    else:
-                        subdct["obj"] = self.derham.create_spline_function(
-                            variable,
-                            subdct["space"],
-                            bckgr_params=subdct.get("background"),
-                            pert_params=subdct.get("perturbation"),
-                        )
-
-                        self._pointer[species + "_" + variable] = subdct["obj"].vector
+            for species, spec in self.fluid_species.items():
+                assert isinstance(spec, FluidSpecies)
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    v.allocate(derham=self.derham, domain=self.domain, equil=self.equil,)
 
         # marker arrays and plasma parameters of kinetic species
         if self.kinetic_species:

@@ -46,7 +46,7 @@ class Variable(metaclass=ABCMeta):
             self._species = None
         return self._species
 
-    def add_background(self, background, verbose=False):
+    def add_background(self, background, verbose=True):
         """Type inference of added background done in sub class."""
         if not hasattr(self, "_backgrounds") or self.backgrounds is None:
             self._backgrounds = background
@@ -60,7 +60,7 @@ class Variable(metaclass=ABCMeta):
             for k, v in background.__dict__.items():
                 print(f'  {k}: {v}')
 
-    def add_perturbation(self, perturbation: Perturbation, verbose=False):
+    def add_perturbation(self, perturbation: Perturbation, verbose=True):
         if not hasattr(self, "_perturbations") or self.perturbations is None:
             self._perturbations = perturbation
         else:
@@ -98,7 +98,7 @@ class FEECVariable(Variable):
     def spline(self) -> SplineFunction:
         return self._spline
     
-    def add_background(self, background: FieldsBackground, verbose=False):
+    def add_background(self, background: FieldsBackground, verbose=True):
         super().add_background(background, verbose=verbose)
     
     def allocate(self, derham: Derham, domain: Domain = None, equil: FluidEquilibrium = None,):
