@@ -32,17 +32,16 @@ class Maxwell(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    @dataclass
+    class EMFields(FieldSpecies):
+        e_field: FEECVariable = FEECVariable(name="e_field", space="Hcurl")
+        b_field: FEECVariable = FEECVariable(name="b_field", space="Hdiv")
     
     class Propagators:
         def __init__(self):
             self.maxwell = propagators_fields.Maxwell()
 
-    @dataclass
-    class EMFields(FieldSpecies):
-        e_field: FEECVariable = FEECVariable(name="e_field", space="Hcurl")
-        b_field: FEECVariable = FEECVariable(name="b_field", space="Hdiv")
-
-    def __init__(self, units, domain, equil, verbose=False):
+    def __init__(self):
         # 1. instantiate all variales
         self.em_fields = self.EMFields()
 
@@ -55,16 +54,13 @@ class Maxwell(StruphyModel):
             b = self.em_fields.b_field,
             )
         
-        # light-weight setup of model
-        self.setup(units=units, domain=domain, equil=equil, verbose=verbose)
-        
         # define scalars for update_scalar_quantities
         self.add_scalar("electric energy")
         self.add_scalar("magnetic energy")
         self.add_scalar("total energy")
     
     ## abstract methods
-    
+        
     @property 
     def bulk_species(self):
         return None
@@ -74,8 +70,8 @@ class Maxwell(StruphyModel):
         return "light"
 
     def update_scalar_quantities(self):
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.em_fields.e_field.spline.vector, self.em_fields.e_field.spline.vector)
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.em_fields.b_field.spline.vector, self.em_fields.b_field.spline.vector)
 
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)

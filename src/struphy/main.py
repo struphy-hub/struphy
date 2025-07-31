@@ -77,16 +77,20 @@ def main(
 
     start_simulation = time.time()
     
-    # read in paramaters
+    # load paramaters and set defaults
     params = setup_parameters(params_path=params_path, 
                             path_out=path_out,
                             verbose=verbose,)
     
-    if model_name is None:
-        assert params.model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
-        model_name = params.model.__class__.__name__
+    # check model
+    model = params.model
+    assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
     
-    # collect meta-data
+    if model_name is None:
+        assert model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
+        model_name = model.__class__.__name__
+    
+    # meta-data
     meta = {}
     meta["platform"] = sysconfig.get_platform()
     meta["python version"] = sysconfig.get_python_version()
@@ -99,22 +103,16 @@ def main(
     meta["max wall-clock [min]"] = runtime
     meta["save interval [steps]"] = save_step
     
-    # print meta-data on screen 
     print("\nMETADATA:")
     for k, v in meta.items():
         print(f'{k}:'.ljust(25), v) 
     
-    # store meta-data in output folder
     dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
 
-
-    # creating output folder, loading parameters, extract light-weight model instance 
+    # creating output folders
     setup_folders(path_out=path_out, 
                   restart=restart, 
                   verbose=verbose,)
-    
-    # get model instance
-    model = params.model
     
     # config clones
     if comm is None:
@@ -133,6 +131,33 @@ def main(
                 clone_config.print_particle_config()
     comm.Barrier()
     
+    ## configure model instance
+    
+    # mpi config
+    model._comm_world = comm
+    model._clone_config = clone_config
+
+    if model.comm_world is None:
+        model._rank_world = 0
+    else:
+        model._rank_world = model.comm_world.Get_rank()
+
+    # units
+    model._units = params.units
+    if model.bulk_species is None:
+        A_bulk = None
+        Z_bulk = None
+    else:
+        A_bulk = model.bulk_species.mass_number
+        Z_bulk = model.bulk_species.charge_number
+    model.units.derive_units(velocity_scale=model.velocity_scale,
+                             A_bulk=A_bulk,
+                             Z_bulk=Z_bulk,
+                             verbose=verbose,)
+    
+    # domain and fluid bckground
+    model.setup_domain_and_equil(params.domain, params.equil)
+    
     # allocate derham-related objects
     if params.grid is not None:
         model.allocate_feec(params.grid, params.derham)
@@ -150,6 +175,7 @@ def main(
     
     # plasma parameters
     model.compute_plasma_params(verbose=verbose)
+    model.setup_equation_params(units=model.units, verbose=verbose)
 
     if model_name is None:
         assert model is not None, "If model is not specified, then model: MODEL must be specified in the params!"

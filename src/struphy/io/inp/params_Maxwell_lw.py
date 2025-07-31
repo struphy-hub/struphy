@@ -7,7 +7,9 @@ from struphy.topology import grids
 
 # import model 
 from struphy.models.toy import Maxwell as Model
-verbose = True
+
+# light-weight model instance
+model = Model()
 
 # units
 units = Units()
@@ -31,21 +33,15 @@ grid = grids.TensorProductGrid(
 # derham options
 derham = DerhamOptions()
 
-# light-weight instance of model
-model = Model(units, domain, equil, verbose=verbose)
-# model.fluid.set_phys_params("mhd", options.PhysParams())
-# model.kinetic.set_phys_params("mhd", options.PhysParams())
-
 # propagator options
 model.propagators.maxwell.set_options(algo="explicit")
 
-# initial conditions for model variables (background + perturbation)
+# initial conditions (background + perturbation)
 model.em_fields.e_field.add_background(
     FieldsBackground(
         type="LogicalConst",
         values=(0.3, 0.15, None),
     ),
-    verbose=verbose,
 )
 model.em_fields.e_field.add_perturbation(
     perturbations.TorusModesCos(
@@ -53,7 +49,6 @@ model.em_fields.e_field.add_perturbation(
         given_in_basis="v",
         comp=1,
     ),
-    verbose=verbose,
 )
 
 model.em_fields.b_field.add_background(
@@ -61,7 +56,6 @@ model.em_fields.b_field.add_background(
         type="LogicalConst",
         values=(0.3, 0.15, None),
     ),
-    verbose=verbose,
 )
 model.em_fields.b_field.add_perturbation(
     perturbations.TorusModesCos(
@@ -69,8 +63,8 @@ model.em_fields.b_field.add_perturbation(
         given_in_basis="v",
         comp=1,
     ),
-    verbose=verbose,
 )
 
-# exclude variable from saving
-model.em_fields.e_field.save_data = False
+# exclude variables from saving
+# model.em_fields.e_field.save_data = False
+# model.em_fields.b_field.save_data = False
