@@ -18,7 +18,7 @@ from struphy.profiling.profiling import ProfileManager
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 from struphy.pic.base import Particles
-from struphy.models.species import FieldSpecies
+from struphy.models.species import Species
 from struphy.models.variables import FEECVariable
 
 
@@ -321,7 +321,7 @@ def main(
             # extract FEEC coefficients
             feec_species = model.field_species | model.fluid_species | model.diagnostic_species
             for species, val in feec_species.items():
-                assert isinstance(val, FieldSpecies)
+                assert isinstance(val, Species)
                 for variable, subval in val.variables.items():
                     assert isinstance(subval, FEECVariable)
                     spline = subval.spline

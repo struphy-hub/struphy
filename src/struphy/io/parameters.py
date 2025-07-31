@@ -39,7 +39,7 @@ class StruphyParameters:
             print(f"{self.equil = }")
             print(f"{self.time = }")
             print(f"{self.grid = }")
-            print(f"{self.derham = }\n")
+            print(f"{self.derham = }")
 
     @property
     def model(self):
