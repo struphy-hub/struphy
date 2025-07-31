@@ -101,7 +101,7 @@ class FEECVariable(Variable):
     def add_background(self, background: FieldsBackground, verbose=False):
         super().add_background(background, verbose=verbose)
     
-    def allocate(self, derham: Derham, domain: Domain, equil: FluidEquilibrium,):
+    def allocate(self, derham: Derham, domain: Domain = None, equil: FluidEquilibrium = None,):
         self._spline = derham.create_spline_function(
                         name=self.__name__,
                         space_id=self.space,

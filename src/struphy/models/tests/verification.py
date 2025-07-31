@@ -1,6 +1,7 @@
 import os
 import pickle
 from pathlib import Path
+from mpi4py import MPI
 
 import h5py
 import numpy as np
@@ -238,7 +239,6 @@ def IsothermalEulerSPH_soundwave(
 
 def Maxwell_coaxial(
     path_out: str,
-    rank: int,
     show_plots: bool = False,
 ):
     """Verification test for coaxial cable with Maxwell equations. Comparison w.r.t analytic solution.
@@ -251,11 +251,10 @@ def Maxwell_coaxial(
     path_out : str
         Simulation output folder (absolute path).
 
-    rank : int
-        MPI rank.
-
     show_plots: bool
         Whether to show plots."""
+
+    rank = MPI.COMM_WORLD.Get_rank()
 
     if rank == 0:
         pproc_struphy.main(path_out, physical=True)
