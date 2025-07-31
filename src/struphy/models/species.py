@@ -72,11 +72,11 @@ class Species(metaclass=ABCMeta):
         om_p = np.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
         om_c = Z * con.e * units.B / (A * con.mH)
         self._equation_params["alpha"] = om_p / om_c
-        self._equation_params["epsilon"] = 1.0 / (om_c * units["t"])
-        self._equation_params["kappa"] = om_p * units["t"]
+        self._equation_params["epsilon"] = 1.0 / (om_c * units.t)
+        self._equation_params["kappa"] = om_p * units.t
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f'Set normalization parameters for speceis {self.name}:')
+            print(f'Set normalization parameters for species {self.__class__.__name__}:')
             for key, val in self.equation_params.items():
                 print((key + ":").ljust(25), "{:4.3e}".format(val))
 
