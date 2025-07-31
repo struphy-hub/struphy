@@ -1217,11 +1217,35 @@ class Particles(metaclass=ABCMeta):
         ba.max_size(SINGLE_CELL_SIZE)  # max size of a rectangular domain, results in auto-chopping
 
         assert ba.size == np.prod(self._nprocs)
+        
+        amrex_domain_array = []
+        
+        for i in range(ba.size):
+            low = [float(val)/(TOTAL_SIZE[i]+1) for i, val in enumerate(ba.get(i).lo_vect)]
+            high = [(float(val)+1)/(TOTAL_SIZE[i]+1) for i, val in enumerate(ba.get(i).hi_vect)]
+            amrex_domain_array.append(np.array([low, high]))
+                
+        struphy_domain_array = []
+        
+        for division in self._domain_array:
+            low = [division[0], division[3], division[6]]
+            high = [division[1], division[4], division[7]]
+            struphy_domain_array.append(np.array([low, high]))
 
+        distribution_mapping_array = amr.Vector_int()
+        
+        for division in amrex_domain_array:
+            for index, target in enumerate(struphy_domain_array):
+                if np.isclose(target, division, atol=0.1).all():
+                    distribution_mapping_array.append(index)
+                    break
+            else:
+                raise RuntimeError()
+
+        dm = amr.DistributionMapping(distribution_mapping_array)
+        
         # Geometry contains all information regarding domain, coordinates, periodicity
         gm = amr.Geometry(big_box, rb, coord_int, periodicity)
-
-        dm = amr.DistributionMapping(ba)
 
         pc.Define(gm, dm, ba)  # geometry, distribution mapping, box array
         assert pc.OK()  # OK checks that all particles are in the right places (for some value of right)
