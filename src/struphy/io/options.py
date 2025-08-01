@@ -199,15 +199,37 @@ class Units:
 
 @dataclass
 class DerhamOptions:
-    """...
+    """Options for the Derham spaces.
 
     Parameters
     ----------
-    x : float
-        Unit of length in m.
-    """
+    p : tuple[int]
+        Spline degree in each direction.
 
-    polar_ck: int = -1
+    spl_kind : tuple[bool]
+        Kind of spline in each direction (True=periodic, False=clamped).
+
+    dirichlet_bc : tuple[tuple[bool]]
+        Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
+        
+    nquads : tuple[int]
+        Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
+
+    nq_pr : tuple[int]
+        Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
+    
+    polar_ck : PolarRegularity
+        Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
+
+    local_projectors : bool
+        Whether to build the local commuting projectors based on quasi-inter-/histopolation.
+    """
+    p: tuple = (1, 1, 1)
+    spl_kind: tuple = (True, True, True)
+    dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
+    nquads: tuple = None
+    nq_pr: tuple = None
+    polar_ck: PolarRegularity = -1
     local_projectors: bool = False
 
     def __post_init__(self):

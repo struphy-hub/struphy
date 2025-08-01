@@ -294,7 +294,7 @@ class BoundaryOperator(LinOpWithTransp):
     space_id : str
         Symbolic space ID of vector_space (H1, Hcurl, Hdiv, L2 or H1vec).
 
-    dirichlet_bc : list[list[bool]]
+    dirichlet_bc : tuple[tuple[bool]]
         Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
     """
 
@@ -310,7 +310,7 @@ class BoundaryOperator(LinOpWithTransp):
         self._space_id = space_id
         self._bc = dirichlet_bc
 
-        assert isinstance(dirichlet_bc, list)
+        assert isinstance(dirichlet_bc, tuple)
         assert len(dirichlet_bc) == 3
 
         # number of non-zero elements in poloidal/toroidal direction

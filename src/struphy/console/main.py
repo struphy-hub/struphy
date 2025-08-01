@@ -690,7 +690,7 @@ def add_parser_params(subparsers, list_models, model_message):
     )
 
     parser_params.add_argument(
-        "model",
+        "model_name",
         type=str,
         choices=list_models,
         metavar="MODEL",

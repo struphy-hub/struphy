@@ -24,14 +24,10 @@ equil = equils.HomogenSlab()
 time = Time()
 
 # grid
-grid = grids.TensorProductGrid(
-    Nel=(12, 14, 1),
-    p=(2, 3, 1),
-    spl_kind=(False, True, True),
-)
+grid = grids.TensorProductGrid(Nel=(12, 14, 1))
 
 # derham options
-derham = DerhamOptions()
+derham = DerhamOptions(p=(2, 3, 1), spl_kind=(False, True, True))
 
 # propagator options
 model.propagators.maxwell.set_options(algo="explicit")
