@@ -1232,15 +1232,7 @@ class Particles(metaclass=ABCMeta):
             high = [division[1], division[4], division[7]]
             struphy_domain_array.append(np.array([low, high]))
 
-        distribution_mapping_array = amr.Vector_int()
-        
-        for division in amrex_domain_array:
-            for index, target in enumerate(struphy_domain_array):
-                if np.isclose(target, division, atol=0.1).all():
-                    distribution_mapping_array.append(index)
-                    break
-            else:
-                raise RuntimeError()
+        distribution_mapping_array = amr.Vector_int(np.argmin([np.linalg.norm(division-target) for target in struphy_domain_array])for division in amrex_domain_array)
 
         dm = amr.DistributionMapping(distribution_mapping_array)
         
