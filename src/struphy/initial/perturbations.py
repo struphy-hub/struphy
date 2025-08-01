@@ -137,10 +137,13 @@ class ModesSin:
         else:
             assert len(pfuns) == n_modes
 
-        if len(pfuns_params) == 1:
-            pfuns_params = [pfuns_params[0]] * n_modes
-        else:
-            assert len(pfuns_params) == n_modes
+        # if len(pfuns_params) == 1:
+        #     pfuns_params = [pfuns_params[0]] * n_modes
+        # else:
+        #     assert len(pfuns_params) == n_modes
+
+        if pfuns_params is None:
+            pfuns_params = [None] * n_modes
 
         self._ls = ls
         self._ms = ms
@@ -184,7 +187,7 @@ class ModesSin:
         for amp, l, m, n, t, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._theta, self._pfuns):
             val += (
                 amp
-                * pfun(z)
+                * pfun(x)
                 * np.sin(
                     l * 2.0 * np.pi / self._Lx * x
                     + m * 2.0 * np.pi / self._Ly * y
