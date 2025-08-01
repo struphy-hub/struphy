@@ -1,62 +1,41 @@
-from struphy.io import options
+from struphy.io.options import Units, Time
+from struphy.geometry import domains
+from struphy.fields_background import equils
+from struphy.initial import perturbations
+from struphy.topology import grids
+from struphy.io.options import DerhamOptions
+from struphy.io.options import FieldsBackground
 
-# model
-model = "Maxwell"
+# import model
+from struphy.models.toy import Maxwell as Model
+
+# light-weight model instance
+model = Model()
 
 # units
-units = options.Units(
-    x=1.0,
-    B=1.0,
-    n=1.0,
-    kBT=1.0,
-)
+units = Units()
 
-# time
-time = options.Time(split_algo="LieTrotter")
+# time stepping
+time = Time()
 
 # geometry
-domain = options.domains.Cuboid()
+domain = domains.Cuboid()
+
+# fluid equilibrium (can be used as part of initial conditions)
+equil = equils.HomogenSlab()
 
 # grid
-grid = options.grids.TensorProductGrid(
-    Nel=(12, 14, 1),
-    p=(2, 3, 1),
-    spl_kind=(False, True, True),
-)
+grid = grids.TensorProductGrid()
 
 # derham options
-derham = options.DerhamOptions()
+derham = DerhamOptions()
 
-# fluid equilibrium
-equil = options.equils.HomogenSlab()
+# propagator options
+model.propagators.maxwell.set_options()
 
-# FOR NOW: initial conditions and options
-em_fields = {}
-em_fields["background"] = {}
-em_fields["perturbation"] = {}
-em_fields["options"] = {}
+# initial conditions (background + perturbation)
+model.em_fields.b_field.add_background(FieldsBackground())
+model.em_fields.b_field.add_perturbation(perturbations.TorusModesCos())
 
-em_fields["background"]["e_field"] = {"LogicalConst": {"values": [0.3, 0.15, None]}}
-em_fields["background"]["b_field"] = {"LogicalConst": {"values": [0.3, 0.15, None]}}
-
-em_fields["perturbation"]["e_field"] = {}
-em_fields["perturbation"]["b_field"] = {}
-em_fields["perturbation"]["e_field"]["TorusModesCos"] = {
-    "given_in_basis": [None, "v", None],
-    "ms": [[None], [1, 3], [None]],
-}
-em_fields["perturbation"]["b_field"]["TorusModesCos"] = {
-    "given_in_basis": [None, "v", None],
-    "ms": [[None], [1, 3], [None]],
-}
-
-solver = {
-    "type": ["pcg", "MassMatrixPreconditioner"],
-    "tol": 1.0e-08,
-    "maxiter": 3000,
-    "info": False,
-    "verbose": False,
-    "recycle": True,
-}
-
-em_fields["options"]["Maxwell"] = {"algo": "implicit", "solver": solver}
+# optional: exclude variables from saving
+# model.em_fields.b_field.save_data = False

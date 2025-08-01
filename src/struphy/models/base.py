@@ -23,7 +23,7 @@ from struphy.fields_background.projected_equils import (
 from struphy.io.setup import setup_derham, descend_options_dict
 from struphy.profiling.profiling import ProfileManager
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml
+from struphy.utils.utils import dict_to_yaml, read_state
 from struphy.models.species import Species, FieldSpecies, FluidSpecies, KineticSpecies, DiagnosticSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.io.options import Units
@@ -165,29 +165,19 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def species(self):
         if not hasattr(self, "_species"):
-            self._species = {}
-            for k, v in self.field_species.items():
-                self._species[k] = v
-            for k, v in self.fluid_species.items():
-                self._species[k] = v
-            for k, v in self.kinetic_species.items():
-                self._species[k] = v
+            self._species = self.field_species | self.fluid_species | self.kinetic_species
         return self._species
     
     ## allocate methods
              
     def allocate_feec(self,
                  grid: TensorProductGrid,
-                 derham_params: DerhamOptions=None,
+                 derham_params: DerhamOptions,
                  comm: MPI.Intracomm = None,
                  clone_config: CloneConfig = None,
                  ):
 
         # create discrete derham sequence
-        dims_mask = grid.mpi_dims_mask
-        if dims_mask is None:
-            dims_mask = [True] * 3
-
         if clone_config is None:
             derham_comm = self.comm_world
         else:
@@ -198,7 +188,6 @@ class StruphyModel(metaclass=ABCMeta):
             derham_params,
             comm=derham_comm,
             domain=self.domain,
-            mpi_dims_mask=dims_mask,
             verbose=self.verbose,
         )
         
@@ -1345,11 +1334,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             else:
                 pass
 
-    @classmethod
     def generate_default_parameter_file(
-        cls,
-        file: str = None,
-        save: bool = True,
+        self,
+        file_name: str = None,
         prompt: bool = True,
     ):
         """Generate a parameter file with default options for each species,
@@ -1359,156 +1346,105 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         Parameters
         ----------
-        file : str
-            Alternative filename to params_<model_name>.yml.
-
-        save : bool
-            Whether to save the parameter file in the current input path.
+        file_name : str
+            Alternative filename to params_<model_name>.py.
 
         prompt : bool
             Whether to prompt for overwriting the specified .yml file.
+        """
 
-        Returns
-        -------
-        The default parameter dictionary."""
+        # Read struphy state file
+        state = read_state()
+        i_path = state["i_path"]
+        assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
+        
+        if file_name is None:
+            file_name = os.path.join(i_path, f"params_{self.__class__.__name__}.py")
 
-        libpath = struphy.__path__[0]
-
-        # load a standard parameter file
-        with open(os.path.join(libpath, "io/inp/parameters.yml")) as tmp:
-            parameters = yaml.load(tmp, Loader=yaml.FullLoader)
-
-        parameters["model"] = cls.__name__
-
-        # extract default em_fields parameters
-        bckgr_params_1_em = parameters["em_fields"]["background"]["var_1"]
-        bckgr_params_2_em = parameters["em_fields"]["background"]["var_2"]
-        parameters["em_fields"].pop("background")
-
-        pert_params_1_em = parameters["em_fields"]["perturbation"]["var_1"]
-        pert_params_2_em = parameters["em_fields"]["perturbation"]["var_2"]
-        parameters["em_fields"].pop("perturbation")
-
-        # extract default fluid parameters
-        bckgr_params_1_fluid = parameters["fluid"]["species_name"]["background"]["var_1"]
-        bckgr_params_2_fluid = parameters["fluid"]["species_name"]["background"]["var_2"]
-        parameters["fluid"]["species_name"].pop("background")
-
-        pert_params_1_fluid = parameters["fluid"]["species_name"]["perturbation"]["var_1"]
-        pert_params_2_fluid = parameters["fluid"]["species_name"]["perturbation"]["var_2"]
-        parameters["fluid"]["species_name"].pop("perturbation")
-
-        # standard Maxwellians
-        parameters["kinetic"]["species_name"].pop("background")
-        maxw_name = {
-            "6D": "Maxwellian3D",
-            "5D": "GyroMaxwellian2D",
-            "4D": "Maxwellian1D",
-            "3D": "ColdPlasma",
-            "PH": "ConstantVelocity",
-        }
-
-        # init options dicts
-        d_opts = {"em_fields": [], "fluid": {}, "kinetic": {}}
-
-        # set the correct names in the parameter file
-        if len(cls.species()["em_fields"]) > 0:
-            parameters["em_fields"]["background"] = {}
-            parameters["em_fields"]["perturbation"] = {}
-            for name, space in cls.species()["em_fields"].items():
-                if space in {"H1", "L2"}:
-                    parameters["em_fields"]["background"][name] = bckgr_params_1_em
-                    parameters["em_fields"]["perturbation"][name] = pert_params_1_em
-                elif space in {"Hcurl", "Hdiv", "H1vec"}:
-                    parameters["em_fields"]["background"][name] = bckgr_params_2_em
-                    parameters["em_fields"]["perturbation"][name] = pert_params_2_em
-        else:
-            parameters.pop("em_fields")
-
-        # find out the default em_fields options of the model
-        if "options" in cls.options()["em_fields"]:
-            # create the default options parameters
-            d_default = descend_options_dict(
-                cls.options()["em_fields"]["options"],
-                d_opts["em_fields"],
-            )
-            parameters["em_fields"]["options"] = d_default
-
-        # fluid
-        fluid_params = parameters["fluid"].pop("species_name")
-
-        if len(cls.species()["fluid"]) > 0:
-            for name, dct in cls.species()["fluid"].items():
-                parameters["fluid"][name] = fluid_params
-                parameters["fluid"][name]["background"] = {}
-                parameters["fluid"][name]["perturbation"] = {}
-
-                # find out the default fluid options of the model
-                if name in cls.options()["fluid"]:
-                    d_opts["fluid"][name] = []
-
-                    # create the default options parameters
-                    d_default = descend_options_dict(
-                        cls.options()["fluid"][name]["options"],
-                        d_opts["fluid"][name],
-                    )
-
-                    parameters["fluid"][name]["options"] = d_default
-
-                # set the correct names parameter file
-                for sub_name, space in dct.items():
-                    if space in {"H1", "L2"}:
-                        parameters["fluid"][name]["background"][sub_name] = bckgr_params_1_fluid
-                        parameters["fluid"][name]["perturbation"][sub_name] = pert_params_1_fluid
-                    elif space in {"Hcurl", "Hdiv", "H1vec"}:
-                        parameters["fluid"][name]["background"][sub_name] = bckgr_params_2_fluid
-                        parameters["fluid"][name]["perturbation"][sub_name] = pert_params_2_fluid
-        else:
-            parameters.pop("fluid")
-
-        # kinetic
-        kinetic_params = parameters["kinetic"].pop("species_name")
-
-        if len(cls.species()["kinetic"]) > 0:
-            parameters["kinetic"] = {}
-
-            for name, kind in cls.species()["kinetic"].items():
-                parameters["kinetic"][name] = kinetic_params
-
-                # find out the default kinetic options of the model
-                if name in cls.options()["kinetic"]:
-                    d_opts["kinetic"][name] = []
-
-                    # create the default options parameters
-                    d_default = descend_options_dict(
-                        cls.options()["kinetic"][name]["options"],
-                        d_opts["kinetic"][name],
-                    )
-
-                    parameters["kinetic"][name]["options"] = d_default
-
-                # set the background
-                dim = kind[-2:]
-                parameters["kinetic"][name]["background"] = {
-                    maxw_name[dim]: {"n": 0.05},
-                }
-        else:
-            parameters.pop("kinetic")
-
-        # diagnostics
-        if cls.diagnostics_dct() is not None:
-            parameters["diagnostics"] = {}
-            for name, space in cls.diagnostics_dct().items():
-                parameters["diagnostics"][name] = {"save_data": True}
-
-        cls.write_parameters_to_file(
-            parameters=parameters,
-            file=file,
-            save=save,
-            prompt=prompt,
-        )
-
-        return parameters
+        # create new default file
+        try:
+            file =  open(file_name, "x")
+        except FileExistsError:
+            if not prompt:
+                yn = "Y"
+            else:
+                yn = input(f"File {file_name} exists, overwrite (Y/n)? ")
+                if yn in ("", "Y", "y", "yes", "Yes"):
+                    file =  open(file_name, "w")
+                else:
+                    print("exiting ...")
+                    return
+                    
+        
+        # generic options for all models
+        file.write("from struphy.io.options import Units, Time\n")
+        file.write("from struphy.geometry import domains\n")
+        file.write("from struphy.fields_background import equils\n")
+        file.write("from struphy.initial import perturbations\n")
+        
+        has_feec = False
+        has_pic = False
+        has_sph = False
+        for sn, species in self.species.items():
+            assert isinstance(species, Species)
+            for vn, var in species.variables.items():
+                if isinstance(var, FEECVariable):
+                    has_feec = True
+                    init_bckgr_feec = f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
+                    init_pert_feec = f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos())\n"
+                    exclude_feec = f"# model.{sn}.{vn}.save_data = False\n"
+                elif isinstance(var, PICVariable):
+                    has_pic = True
+                elif isinstance(var, SPHVariable):
+                    has_sph = True
+        
+        if has_feec:
+            file.write("from struphy.topology import grids\n") 
+            file.write("from struphy.io.options import DerhamOptions\n")
+            file.write("from struphy.io.options import FieldsBackground\n")
+        
+        if has_pic or has_sph:
+            file.write("from struphy.kinetic_background import maxwellians\n")
+            
+        file.write("\n# import model\n")
+        file.write(f"from {self.__module__} import {self.__class__.__name__} as Model\n")
+        
+        file.write("\n# light-weight model instance\n")
+        file.write("model = Model()\n")
+        
+        file.write("\n# units\n")
+        file.write("units = Units()\n")
+        
+        file.write("\n# time stepping\n")
+        file.write("time = Time()\n")
+        
+        file.write("\n# geometry\n")
+        file.write("domain = domains.Cuboid()\n")
+        
+        file.write("\n# fluid equilibrium (can be used as part of initial conditions)\n")
+        file.write("equil = equils.HomogenSlab()\n")
+        
+        if has_feec:
+            file.write("\n# grid\n")
+            file.write("grid = grids.TensorProductGrid()\n")
+            
+            file.write("\n# derham options\n")
+            file.write("derham = DerhamOptions()\n")
+            
+        file.write("\n# propagator options\n")
+        for prop in self.propagators.__dict__:
+            file.write(f"model.propagators.{prop}.set_options()\n")
+            
+        file.write("\n# initial conditions (background + perturbation)\n")
+        if has_feec:
+            file.write(init_bckgr_feec)
+            file.write(init_pert_feec)
+            
+        file.write("\n# optional: exclude variables from saving\n")
+        file.write(exclude_feec)
+        
+        print(f"Default parameter file for '{self.__class__.__name__}' has been created.\n\
+You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy run -i params_{self.__class__.__name__}.py'")
 
     ###################
     # Private methods :

@@ -12,6 +12,8 @@ from struphy.io.parameters import StruphyParameters
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.utils import dict_to_yaml, read_state
 from struphy.geometry.base import Domain
+from struphy.geometry.domains import Cuboid
+from struphy.io.options import Units, Time
 
 
 def import_parameters_py(params_path: str):
@@ -127,7 +129,7 @@ def setup_parameters(
             params_in.model = None
 
         if not hasattr(params_in, "domain"):
-            params_in.domain = None
+            params_in.domain = Cuboid()
 
         if not hasattr(params_in, "grid"):
             params_in.grid = None
@@ -136,10 +138,10 @@ def setup_parameters(
             params_in.equil = None
 
         if not hasattr(params_in, "units"):
-            params_in.units = None
+            params_in.units = Units()
 
         if not hasattr(params_in, "time"):
-            params_in.time = None
+            params_in.time = Time()
 
         if not hasattr(params_in, "derham"):
             params_in.derham = None
@@ -172,7 +174,6 @@ def setup_derham(
     options: DerhamOptions,
     comm: MPI.Intracomm = None,
     domain: Domain = None,
-    mpi_dims_mask: tuple | list = None,
     verbose=False,
 ):
     """
@@ -189,10 +190,6 @@ def setup_derham(
     domain : Domain, optional
         The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
 
-    mpi_dims_mask: list | tuple[bool]
-        True if the dimension is to be used in the domain decomposition (=default for each dimension).
-        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-
     verbose : bool
         Show info on screen.
 
@@ -206,16 +203,19 @@ def setup_derham(
 
     # number of grid cells
     Nel = grid.Nel
+    # mpi
+    mpi_dims_mask = grid.mpi_dims_mask
+    
     # spline degrees
-    p = grid.p
+    p = options.p
     # spline types (clamped vs. periodic)
-    spl_kind = grid.spl_kind
+    spl_kind = options.spl_kind
     # boundary conditions (Homogeneous Dirichlet or None)
-    dirichlet_bc = grid.dirichlet_bc
+    dirichlet_bc = options.dirichlet_bc
     # Number of quadrature points per histopolation cell
-    nq_pr = grid.nq_pr
+    nq_pr = options.nq_pr
     # Number of quadrature points per grid cell for L^2
-    nquads = grid.nquads
+    nquads = options.nquads
     # C^k smoothness at eta_1=0 for polar domains
     polar_ck = options.polar_ck
     # local commuting projectors

@@ -436,20 +436,23 @@ class Cuboid(Domain):
                 r3 : 1. # end of z-interval, r3>l3
     """
 
-    def __init__(
-        self,
-        l1: float = 0.0,
-        r1: float = 1.0,
-        l2: float = 0.0,
-        r2: float = 1.0,
-        l3: float = 0.0,
-        r3: float = 1.0,
-    ):
-        self.kind_map = 10
+    def __init__(self, l1: float = 0.0,
+                       r1: float = 2.0,
+                       l2: float = 0.0,
+                       r2: float = 3.0,
+                       l3: float = 0.0,
+                       r3: float = 6.0,):
+        
+        self._kind_map = 10
 
-        # use params setter
-        self.params = copy.deepcopy(locals())
-        self.params_numpy = self.get_params_numpy()
+        self._params_map, self._params_numpy = Domain.prepare_params_map_new(
+            l1=l1,
+            r1=r1,
+            l2=l2,
+            r2=r2,
+            l3=l3,
+            r3=r3,
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self.periodic_eta3 = False

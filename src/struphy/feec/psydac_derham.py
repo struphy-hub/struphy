@@ -117,7 +117,7 @@ class Derham:
         if dirichlet_bc is not None:
             assert len(dirichlet_bc) == 3
             # make sure that boundary conditions are compatible with spline space
-            assert np.all([bc == [False, False] for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
+            assert np.all([bc == (False, False) for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
 
         self._dirichlet_bc = dirichlet_bc
 

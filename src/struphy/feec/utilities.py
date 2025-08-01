@@ -3,6 +3,7 @@ from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.stencil import StencilMatrix, StencilVector
+from psydac.linalg.basic import Vector
 
 import struphy.feec.utilities_kernels as kernels
 from struphy.feec import banded_to_stencil_kernels as bts
@@ -283,7 +284,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         )
 
 
-def apply_essential_bc_to_array(space_id, vector, bc):
+def apply_essential_bc_to_array(space_id: str, vector: Vector, bc: tuple):
     """
     Sets entries corresponding to boundary B-splines to zero.
 
@@ -292,15 +293,15 @@ def apply_essential_bc_to_array(space_id, vector, bc):
         space_id : str
             The name of the continuous functions space the given vector belongs to (H1, Hcurl, Hdiv, L2 or H1vec).
 
-        vector : StencilVector | BlockVector
+        vector : Vector
             The vector whose boundary values shall be set to zero.
 
-        bc : list[list[bool]]
+        bc : tuple[tuple[bool]]
             Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
     """
 
     assert isinstance(vector, (StencilVector, BlockVector, PolarVector))
-    assert isinstance(bc, list)
+    assert isinstance(bc, tuple)
     assert len(bc) == 3
 
     if isinstance(vector, PolarVector):

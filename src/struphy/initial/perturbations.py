@@ -561,16 +561,16 @@ class TorusModesCos(Perturbation):
 
     Parameters
     ----------
-    ms : tuple | list[int]
+    ms : tuple[int]
         Poloidal mode numbers.
 
-    ns : tuple | list[int]
+    ns : tuple[int]
         Toroidal mode numbers.
 
-    pfuns : tuple | list[str]
+    pfuns : tuple[str]
         "sin" or "cos" or "exp" to define the profile functions.
 
-    amps : tuple | list[float]
+    amps : tuple[float]
         Amplitudes of each mode (m_i, n_i).
 
     pfun_params : tuple | list
@@ -583,7 +583,8 @@ class TorusModesCos(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, ms=None, ns=None, amps=(1e-4,), pfuns=("sin",), pfun_params=None,
+    def __init__(self, ms: tuple = (2,), ns: tuple = (1,), amps: tuple = (1e-4,), 
+                 pfuns: tuple = ("sin",), pfun_params=None,
                  given_in_basis: GivenInBasis = "0",
                  comp: int = 0,):
         

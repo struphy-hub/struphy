@@ -32,14 +32,20 @@ class Maxwell(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    ## species
+    
     @dataclass
     class EMFields(FieldSpecies):
         e_field: FEECVariable = FEECVariable(name="e_field", space="Hcurl")
         b_field: FEECVariable = FEECVariable(name="b_field", space="Hdiv")
     
+    ## propagators
+    
     class Propagators:
         def __init__(self):
             self.maxwell = propagators_fields.Maxwell()
+
+    ## abstract methods
 
     def __init__(self):
         # 1. instantiate all variales
@@ -58,8 +64,6 @@ class Maxwell(StruphyModel):
         self.add_scalar("electric energy")
         self.add_scalar("magnetic energy")
         self.add_scalar("total energy")
-    
-    ## abstract methods
         
     @property 
     def bulk_species(self):
@@ -68,6 +72,9 @@ class Maxwell(StruphyModel):
     @property
     def velocity_scale(self):
         return "light"
+
+    def allocate_helpers(self):
+        pass
 
     def update_scalar_quantities(self):
         en_E = 0.5 * self.mass_ops.M1.dot_inner(self.em_fields.e_field.spline.vector, self.em_fields.e_field.spline.vector)
