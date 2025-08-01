@@ -159,6 +159,22 @@ class ModesSin:
                 self._pfuns += [
                     lambda eta3: np.tanh((eta3 - 0.5) / params) / np.cosh((eta3 - 0.5) / params),
                 ]
+            elif pfun == "sin":
+                if params is None:
+                    ls = 1
+                else:
+                    ls = params
+                self._pfuns += [lambda x: np.sin(ls * np.pi * x)]
+            elif pfun == "cos":
+                self._pfuns += [lambda x: np.cos(np.pi * x)]
+            elif pfun == "exp":
+                self._pfuns += [
+                    lambda x, params=params: np.exp(-((x - params[0]) ** 2) / params[1]),
+                ]
+            elif pfun == "d_exp":
+                self._pfuns += [
+                    lambda x, params=params: -2 * (x - params[0]) / params[1] * np.exp(-((x - params[0]) ** 2) / params[1]),
+                ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
@@ -286,11 +302,11 @@ class ModesCos:
                 self._pfuns += [lambda x: np.cos(np.pi * x)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda x: np.exp(-((x - params[0]) ** 2) / params[1]),
+                    lambda x, params=params: np.exp(-((x - params[0]) ** 2) / params[1]),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
-                    lambda x: -2 * (x - params[0]) / params[1] * np.exp(-((x - params[0]) ** 2) / params[1]),
+                    lambda x, params=params: -2 * (x - params[0]) / params[1] * np.exp(-((x - params[0]) ** 2) / params[1]),
                 ]
             else:
                 raise ValueError(
@@ -301,6 +317,7 @@ class ModesCos:
         val = 0.0
 
         for amp, l, m, n, pfun in zip(self._amps, self._ls, self._ms, self._ns, self._pfuns):
+
             val += amp * pfun(x) *np.cos(
                 l * 2.0 * np.pi / self._Lx * x + m * 2.0 * np.pi / self._Ly * y + n * 2.0 * np.pi / self._Lz * z,
             )
