@@ -77,6 +77,10 @@ class StruphyModel(metaclass=ABCMeta):
         Must be one of "alfvén", "cyclotron", "light" or "thermal"."""
 
     @abstractmethod
+    def allocate_helpers(self):
+        """Allocate helper arrays that are needed during simulation."""
+
+    @abstractmethod
     def update_scalar_quantities(self):
         """Specify an update rule for each item in ``scalar_quantities`` using :meth:`update_scalar`."""
 
