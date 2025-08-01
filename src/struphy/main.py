@@ -169,6 +169,7 @@ def main(
         
     # allocate variables
     model.allocate_variables()
+    model.allocate_helpers()
     
     # pass info to propagators
     model.allocate_propagators()
