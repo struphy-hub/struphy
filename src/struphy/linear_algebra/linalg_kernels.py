@@ -1,10 +1,11 @@
 from typing import Final
 
-from numpy import zeros
-from pyccel.decorators import pure, stack_array
+from numpy import zeros, empty
+from pyccel.decorators import pure, stack_array, inline
 
 
 @pure
+@inline
 def matrix_vector(a: "float[:,:]", b: "float[:]", c: "float[:]"):
     """
     Performs the matrix-vector product of a 3x3 matrix with a vector.
@@ -29,6 +30,7 @@ def matrix_vector(a: "float[:,:]", b: "float[:]", c: "float[:]"):
 
 
 @pure
+@inline
 def matrix_matrix(a: "float[:,:]", b: "float[:,:]", c: "float[:,:]"):
     """
     Performs the matrix-matrix product of a 3x3 matrix with another 3x3 matrix.
@@ -54,6 +56,7 @@ def matrix_matrix(a: "float[:,:]", b: "float[:,:]", c: "float[:,:]"):
 
 
 @pure
+@inline
 def transpose(a: "float[:,:]", b: "float[:,:]"):
     """
     Assembles the transposed of a 3x3 matrix.
@@ -73,6 +76,7 @@ def transpose(a: "float[:,:]", b: "float[:,:]"):
 
 
 @pure
+@inline
 def scalar_dot(a: "Final[float[:]]", b: "Final[float[:]]") -> float:
     """
     Computes scalar (dot) product of two vectors of length 3.
@@ -97,6 +101,7 @@ def scalar_dot(a: "Final[float[:]]", b: "Final[float[:]]") -> float:
 
 
 @pure
+@inline
 def det(a: "Final[float[:,:]]") -> float:
     """
     Computes the determinant of a 3x3 matrix.
@@ -119,9 +124,9 @@ def det(a: "Final[float[:,:]]") -> float:
 
     return det_a
 
-
 @pure
-def cross(a: "float[:]", b: "float[:]", c: "float[:]"):
+@inline
+def cross(a: "Final[float[:]]", b: "Final[float[:]]", c: "float[:]"):
     """
     Computes the vector (cross) product of two vectors of length 3.
 
@@ -132,9 +137,6 @@ def cross(a: "float[:]", b: "float[:]", c: "float[:]"):
 
         b : array[float]
             The second input array (vector) of shape (3,).
-
-        c : array[float]
-            The output array (vector) of shape (3,) which is the vector product a x b.
     """
 
     c[0] = a[1] * b[2] - a[2] * b[1]
@@ -143,6 +145,7 @@ def cross(a: "float[:]", b: "float[:]", c: "float[:]"):
 
 
 @pure
+@inline
 def outer(a: "float[:]", b: "float[:]", c: "float[:,:]"):
     """
     Computes the outer product of two vectors of length 3.
@@ -167,6 +170,7 @@ def outer(a: "float[:]", b: "float[:]", c: "float[:,:]"):
 
 
 @stack_array("det_a")
+@inline
 def matrix_inv(a: "float[:,:]", b: "float[:,:]"):
     """
     Computes the inverse of a 3x3 matrix.
@@ -196,6 +200,7 @@ def matrix_inv(a: "float[:,:]", b: "float[:,:]"):
 
 
 @pure
+@inline
 def matrix_inv_with_det(a: "float[:,:]", det_a: float, b: "float[:,:]"):
     """
     Computes the inverse of a 3x3 matrix for the case that the determinant is already known such that its extra compuation can be avoided.
@@ -226,6 +231,7 @@ def matrix_inv_with_det(a: "float[:,:]", det_a: float, b: "float[:,:]"):
 
 
 @pure
+@inline
 def matrix_vector4(a: "float[:,:]", b: "float[:]", c: "float[:]"):
     """
     Performs the matrix-vector product of a 4x4 matrix with a vector.
@@ -250,6 +256,7 @@ def matrix_vector4(a: "float[:,:]", b: "float[:]", c: "float[:]"):
 
 
 @pure
+@inline
 def matrix_matrix4(a: "float[:,:]", b: "float[:,:]", c: "float[:,:]"):
     """
     Performs the matrix-matrix product of a 4x4 matrix with another 4x4 matrix.
@@ -275,6 +282,7 @@ def matrix_matrix4(a: "float[:,:]", b: "float[:,:]", c: "float[:,:]"):
 
 
 @stack_array("tmp1", "tmp2")
+@inline
 def det4(a: "float[:,:]") -> float:
     """
     Computes the determinant of a 4x4 matrix.
