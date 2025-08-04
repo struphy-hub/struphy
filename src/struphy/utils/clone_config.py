@@ -1,8 +1,6 @@
 import numpy as np
 from mpi4py import MPI
 
-from struphy.io.parameters import StruphyParameters
-
 
 class CloneConfig:
     """
@@ -19,7 +17,7 @@ class CloneConfig:
     def __init__(
         self,
         comm: MPI.Intracomm,
-        params: StruphyParameters,
+        params: None,
         num_clones=1,
     ):
         """
