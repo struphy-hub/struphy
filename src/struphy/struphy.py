@@ -24,7 +24,7 @@ from struphy.models.variables import FEECVariable
 from struphy.io.options import Units, Time, MetaOptions
 
 
-def main(
+def run(
     model: StruphyModel,
     params_path: str,
     *,
@@ -476,8 +476,8 @@ if __name__ == "__main__":
     config.simulation_label = ""
     pylikwid_markerinit()
     with ProfileManager.profile_region("main"):
-        # Call main
-        main(
+        # solve the model
+        run(
             args.model,
             args.input,
             args.output,

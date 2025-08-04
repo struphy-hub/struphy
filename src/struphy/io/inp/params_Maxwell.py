@@ -6,7 +6,7 @@ from struphy.topology import grids
 from struphy.io.options import DerhamOptions
 from struphy.io.options import FieldsBackground
 from struphy.kinetic_background import maxwellians
-from struphy import main
+from struphy import struphy
 
 # import model, set verbosity
 from struphy.models.toy import Maxwell as Model
@@ -47,14 +47,14 @@ model.em_fields.b_field.add_perturbation(perturbations.TorusModesCos())
 # model.em_fields.b_field.save_data = False
 
 # start run
-main.main(model, 
-          params_path=__file__, 
-          units=units, 
-          time_opts=time, 
-          domain=domain, 
-          equil=equil, 
-          grid=grid, 
-          derham=derham, 
-          meta=meta, 
-          verbose=verbose, 
-          )
+struphy.run(model, 
+            params_path=__file__, 
+            units=units, 
+            time_opts=time, 
+            domain=domain, 
+            equil=equil, 
+            grid=grid, 
+            derham=derham, 
+            meta=meta, 
+            verbose=verbose, 
+            )
