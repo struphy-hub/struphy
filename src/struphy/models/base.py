@@ -179,7 +179,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         # create discrete derham sequence
         if clone_config is None:
-            derham_comm = self.comm_world
+            derham_comm = MPI.COMM_WORLD
         else:
             derham_comm = clone_config.sub_comm
 
@@ -261,19 +261,14 @@ class StruphyModel(metaclass=ABCMeta):
         return self._equation_params
 
     @property
-    def comm_world(self):
-        """MPI_COMM_WORLD communicator."""
-        return self._comm_world
-
-    @property
-    def rank_world(self):
-        """Global rank."""
-        return self._rank_world
-
-    @property
     def clone_config(self):
         """Config in case domain clones are used."""
         return self._clone_config
+    
+    @clone_config.setter
+    def clone_config(self, new):
+        assert isinstance(new, CloneConfig) or new is None
+        self._clone_config = new
 
     @property
     def diagnostics(self):
@@ -304,6 +299,11 @@ class StruphyModel(metaclass=ABCMeta):
     def units(self) -> Units:
         """All Struphy units."""
         return self._units
+    
+    @units.setter
+    def units(self, new) :
+        assert isinstance(new, Units)
+        self._units = new
 
     @property
     def mass_ops(self):
@@ -1377,7 +1377,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     
         
         # generic options for all models
-        file.write("from struphy.io.options import Units, Time\n")
+        file.write("from struphy.io.options import Units, Time, MetaOptions\n")
         file.write("from struphy.geometry import domains\n")
         file.write("from struphy.fields_background import equils\n")
         file.write("from struphy.initial import perturbations\n")
@@ -1398,19 +1398,21 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 elif isinstance(var, SPHVariable):
                     has_sph = True
         
-        if has_feec:
-            file.write("from struphy.topology import grids\n") 
-            file.write("from struphy.io.options import DerhamOptions\n")
-            file.write("from struphy.io.options import FieldsBackground\n")
+        # if has_feec:
+        file.write("from struphy.topology import grids\n") 
+        file.write("from struphy.io.options import DerhamOptions\n")
+        file.write("from struphy.io.options import FieldsBackground\n")
         
-        if has_pic or has_sph:
-            file.write("from struphy.kinetic_background import maxwellians\n")
+        # if has_pic or has_sph:
+        file.write("from struphy.kinetic_background import maxwellians\n")
+        file.write("from struphy import main\n")
             
-        file.write("\n# import model\n")
+        file.write("\n# import model, set verbosity\n")
         file.write(f"from {self.__module__} import {self.__class__.__name__} as Model\n")
+        file.write("verbose = False\n")
         
-        file.write("\n# light-weight model instance\n")
-        file.write("model = Model()\n")
+        file.write("\n# meta options\n")
+        file.write("meta = MetaOptions()\n")
         
         file.write("\n# units\n")
         file.write("units = Units()\n")
@@ -1425,11 +1427,20 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         file.write("equil = equils.HomogenSlab()\n")
         
         if has_feec:
-            file.write("\n# grid\n")
-            file.write("grid = grids.TensorProductGrid()\n")
+            grid = "grid = grids.TensorProductGrid()\n"
+            derham = "derham = DerhamOptions()\n"
+        else:
+            grid = "grid = None\n"
+            derham = "derham = None\n"
             
-            file.write("\n# derham options\n")
-            file.write("derham = DerhamOptions()\n")
+        file.write("\n# grid\n")
+        file.write(grid)
+            
+        file.write("\n# derham options\n")
+        file.write(derham)
+        
+        file.write("\n# light-weight model instance\n")
+        file.write("model = Model()\n")
             
         file.write("\n# propagator options\n")
         for prop in self.propagators.__dict__:
@@ -1442,6 +1453,19 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             
         file.write("\n# optional: exclude variables from saving\n")
         file.write(exclude_feec)
+        
+        file.write("\n# start run\n")
+        file.write("main.main(model, \n\
+          params_path=__file__, \n\
+          units=units, \n\
+          time_opts=time, \n\
+          domain=domain, \n\
+          equil=equil, \n\
+          grid=grid, \n\
+          derham=derham, \n\
+          meta=meta, \n\
+          verbose=verbose, \n\
+          )")
         
         print(f"Default parameter file for '{self.__class__.__name__}' has been created.\n\
 You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy run -i params_{self.__class__.__name__}.py'")
