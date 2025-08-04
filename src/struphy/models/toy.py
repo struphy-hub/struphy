@@ -1,6 +1,7 @@
 
 import numpy as np
 from dataclasses import dataclass
+import inspect
 
 from struphy.models.base import StruphyModel
 from struphy.propagators.base import Propagator
@@ -83,7 +84,7 @@ class Maxwell(StruphyModel):
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)
         self.update_scalar("total energy", en_E + en_B)
-
+        
 
 class Vlasov(StruphyModel):
     r"""Vlasov equation in static background magnetic field.
