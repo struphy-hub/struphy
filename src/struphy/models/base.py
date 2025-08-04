@@ -1405,7 +1405,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         
         # if has_pic or has_sph:
         file.write("from struphy.kinetic_background import maxwellians\n")
-        file.write("from struphy import main\n")
+        file.write("from struphy import struphy\n")
             
         file.write("\n# import model, set verbosity\n")
         file.write(f"from {self.__module__} import {self.__class__.__name__} as Model\n")
@@ -1455,17 +1455,17 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         file.write(exclude_feec)
         
         file.write("\n# start run\n")
-        file.write("main.main(model, \n\
-          params_path=__file__, \n\
-          units=units, \n\
-          time_opts=time, \n\
-          domain=domain, \n\
-          equil=equil, \n\
-          grid=grid, \n\
-          derham=derham, \n\
-          meta=meta, \n\
-          verbose=verbose, \n\
-          )")
+        file.write("struphy.run(model, \n\
+            params_path=__file__, \n\
+            units=units, \n\
+            time_opts=time, \n\
+            domain=domain, \n\
+            equil=equil, \n\
+            grid=grid, \n\
+            derham=derham, \n\
+            meta=meta, \n\
+            verbose=verbose, \n\
+            )")
         
         print(f"Default parameter file for '{self.__class__.__name__}' has been created.\n\
 You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy run -i params_{self.__class__.__name__}.py'")
