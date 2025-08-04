@@ -7,6 +7,7 @@ import glob
 import numpy as np
 from mpi4py import MPI
 from pyevtk.hl import gridToVTK
+import shutil
 
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.fields_background.base import FluidEquilibriumWithB
@@ -20,56 +21,42 @@ from struphy.utils.utils import dict_to_yaml
 from struphy.pic.base import Particles
 from struphy.models.species import Species
 from struphy.models.variables import FEECVariable
+from struphy.io.options import Units, Time, MetaOptions
 
 
 def main(
-    model_name: Optional[str],
-    params_path: Optional[str],
-    path_out: str,
+    model: StruphyModel,
+    params_path: str,
     *,
-    restart: bool = False,
-    runtime: int = 300,
-    save_step: int = 1,
+    path_out: str = None,
+    units: Units = None,
+    time_opts: Time = None,
+    domain = None,
+    equil = None,
+    grid = None,
+    derham = None,
+    meta: MetaOptions = None,
     verbose: bool = False,
-    supress_out: bool = False,
-    sort_step: int = 0,
-    num_clones: int = 1,
 ):
     """
     Run a Struphy model.
 
     Parameters
     ----------
-    model_name : str
-        The name of the model to run. Type "struphy run --help" in your terminal to see a list of available models.
+    model : StruphyModel
+        The model to run. Check https://struphy.pages.mpcdf.de/struphy/sections/models.html for available models.
 
     params_path : str
-        Path to .py parameter file.
-
+        Absolute path to .py parameter file.
+        
     path_out : str
-        The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
+        The output directory (default is 'sim_1' in cwd). Will create a folder if it does not exist OR cleans the folder for new runs.
 
-    restart : bool, optional
-        Whether to restart a run (default=False).
-
-    runtime : int, optional
-        Maximum run time of simulation in minutes. Will finish the time integration once this limit is reached (default=300).
-
-    save_step : int, optional
-        When to save data output: every time step (save_step=1), every second time step (save_step=2), etc (default=1).
-
-    verbose : bool
-        Show full screen output.
-
-    supress_out : bool
-        Whether to supress screen output during time integration.
-
-    sort_step: int, optional
-        Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
-
-    num_clones: int, optional
-        Number of domain clones (default=1)
     """
+    
+    # check model
+    assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
+    model_name = model.__class__.__name__
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -77,42 +64,47 @@ def main(
 
     start_simulation = time.time()
     
-    # load paramaters and set defaults
-    params = setup_parameters(params_path=params_path, 
-                            path_out=path_out,
-                            verbose=verbose,)
-    
-    # check model
-    model = params.model
-    assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
-    
-    if model_name is None:
-        assert model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
-        model_name = model.__class__.__name__
-    
     # meta-data
-    meta = {}
-    meta["platform"] = sysconfig.get_platform()
-    meta["python version"] = sysconfig.get_python_version()
-    meta["model name"] = model_name
-    meta["parameter file"] = params_path
-    meta["output folder"] = path_out
-    meta["MPI processes"] = size
-    meta["number of domain clones"] = num_clones
-    meta["restart"] = restart
-    meta["max wall-clock [min]"] = runtime
-    meta["save interval [steps]"] = save_step
+    out_folders = meta.out_folders
+    sim_folder = meta.sim_folder
+    path_out = os.path.join(out_folders, sim_folder)
+    
+    restart = meta.restart
+    max_runtime = meta.max_runtime
+    save_step = meta.save_step
+    sort_step = meta.sort_step
+    num_clones = meta.num_clones
+    
+    meta_dct = {}
+    meta_dct["platform"] = sysconfig.get_platform()
+    meta_dct["python version"] = sysconfig.get_python_version()
+    meta_dct["model name"] = model_name
+    meta_dct["parameter file"] = params_path
+    meta_dct["output folder"] = path_out
+    meta_dct["MPI processes"] = size
+    meta_dct["number of domain clones"] = num_clones
+    meta_dct["restart"] = restart
+    meta_dct["max wall-clock [min]"] = max_runtime
+    meta_dct["save interval [steps]"] = save_step
     
     print("\nMETADATA:")
-    for k, v in meta.items():
+    for k, v in meta_dct.items():
         print(f'{k}:'.ljust(25), v) 
-    
-    dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
-
+        
     # creating output folders
     setup_folders(path_out=path_out, 
                   restart=restart, 
                   verbose=verbose,)
+    
+    # save meta-data
+    dict_to_yaml(meta_dct, os.path.join(path_out, "meta.yml"))
+    
+    # save parameter file
+    if rank == 0:
+        shutil.copy2(
+            params_path,
+            os.path.join(path_out, "parameters.py"),
+        )
     
     # config clones
     if comm is None:
@@ -125,25 +117,18 @@ def main(
             # MPI.COMM_WORLD     : comm
             # within a clone:    : sub_comm
             # between the clones : inter_comm
-            clone_config = CloneConfig(comm=comm, params=params, num_clones=num_clones)
+            clone_config = CloneConfig(comm=comm, params=None, num_clones=num_clones)
             clone_config.print_clone_config()
             if model.kinetic_species:
                 clone_config.print_particle_config()
+                
+    model.clone_config = clone_config
     comm.Barrier()
     
     ## configure model instance
-    
-    # mpi config
-    model._comm_world = comm
-    model._clone_config = clone_config
-
-    if model.comm_world is None:
-        model._rank_world = 0
-    else:
-        model._rank_world = model.comm_world.Get_rank()
 
     # units
-    model._units = params.units
+    model.units = units
     if model.bulk_species is None:
         A_bulk = None
         Z_bulk = None
@@ -156,11 +141,11 @@ def main(
                              verbose=verbose,)
     
     # domain and fluid bckground
-    model.setup_domain_and_equil(params.domain, params.equil)
+    model.setup_domain_and_equil(domain, equil)
     
     # allocate derham-related objects
-    if params.grid is not None:
-        model.allocate_feec(params.grid, params.derham)
+    if grid is not None:
+        model.allocate_feec(grid, derham)
     else:
         model._derham = None
         model._mass_ops = None
@@ -177,11 +162,7 @@ def main(
     # plasma parameters
     model.compute_plasma_params(verbose=verbose)
     model.setup_equation_params(units=model.units, verbose=verbose)
-
-    if model_name is None:
-        assert model is not None, "If model is not specified, then model: MODEL must be specified in the params!"
-        model_name = model.__class__.__name__
-
+    
     if rank < 32:
         if rank == 0:
             print("")
@@ -231,9 +212,9 @@ def main(
         data.add_data({key_time_restart: val})
 
     # retrieve time parameters
-    dt = params.time.dt
-    Tend = params.time.Tend
-    split_algo = params.time.split_algo
+    dt = time_opts.dt
+    Tend = time_opts.Tend
+    split_algo = time_opts.split_algo
 
     # set initial conditions for all variables
     if restart:
@@ -271,7 +252,7 @@ def main(
 
         # stop time loop?
         break_cond_1 = time_state["value"][0] >= Tend
-        break_cond_2 = run_time_now > runtime
+        break_cond_2 = run_time_now > max_runtime
 
         if break_cond_1 or break_cond_2:
             # save restart data (other data already saved below)
@@ -292,7 +273,7 @@ def main(
                 if isinstance(val, Particles):
                     val.do_sort()
             t1 = time.time()
-            if rank == 0 and not supress_out:
+            if rank == 0 and verbose:
                 message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
                     run_time_now * 60, t1 - t0
                 )
@@ -333,7 +314,7 @@ def main(
             data.save_data(keys=save_keys_all)
 
             # print current time and scalar quantities to screen
-            if rank == 0 and not supress_out:
+            if rank == 0 and verbose:
                 step = str(time_state["index"][0]).zfill(len(total_steps))
 
                 message = "time step: " + step + "/" + str(total_steps)
@@ -418,9 +399,9 @@ if __name__ == "__main__":
         action="store_true",
     )
 
-    # runtime
+    # max_runtime
     parser.add_argument(
-        "--runtime",
+        "--max-runtime",
         type=int,
         metavar="N",
         help="maximum wall-clock time of program in minutes (default=300)",
@@ -458,13 +439,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v",
         "--verbose",
-        help="supress screen output during time integration",
-        action="store_true",
-    )
-
-    # supress screen output
-    parser.add_argument(
-        "--supress-out",
         help="supress screen output during time integration",
         action="store_true",
     )
@@ -511,7 +485,6 @@ if __name__ == "__main__":
             runtime=args.runtime,
             save_step=args.save_step,
             verbose=args.verbose,
-            supress_out=args.supress_out,
             sort_step=args.sort_step,
             num_clones=args.nclones,
         )

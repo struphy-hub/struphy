@@ -1,18 +1,10 @@
 from dataclasses import dataclass
 from typing import Literal, get_args
 import numpy as np
+import os
 
 # needed for import in StruphyParameters
 from struphy.physics.physics import ConstantsOfNature
-
-
-def check_option(opt, options):
-    """Check if opt is contained in options; if opt is a list, checks for each element."""
-    opts = get_args(options)
-    if not isinstance(opt, list):
-        opt = [opt]
-    for o in opt:
-        assert o in opts, f"Option '{o}' is not in {opts}." 
 
 
 ## Literal options
@@ -41,7 +33,7 @@ OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
 
 @dataclass
 class Time:
-    """...
+    """Time stepping options.
 
     Parameters
     ----------
@@ -238,12 +230,18 @@ class DerhamOptions:
 
 @dataclass
 class FieldsBackground:
-    """...
-
+    """Options for backgrounds in configuration (=position) space.
+ 
     Parameters
     ----------
-    x : float
-        Unit of length in m.
+    type : BackgroundTypes
+        Type of background.
+        
+    values : tuple[float]
+        Values for LogicalConst on the unit cube.
+        
+    variable : str
+        Name of the function in FluidEquilibrium that should be the background.
     """
 
     type: BackgroundTypes = "LogicalConst"
@@ -252,4 +250,52 @@ class FieldsBackground:
 
     def __post_init__(self):
         check_option(self.type, BackgroundTypes)
+        
+        
+@dataclass
+class MetaOptions:
+    """Meta options for launching run on current architecture 
+    (these options do not influence the simulation result). 
+
+    Parameters
+    ----------
+    out_folders : str
+        The directory where all sim_folders are stored. 
+        
+    sim_folder : str
+        Folder in 'out_folders/' for the current simulation (default='sim_1').
+        Will create the folder if it does not exist OR cleans the folder for new runs.
+        
+    restart : bool
+        Whether to restart a run (default=False).
+
+    max_runtime : int,
+        Maximum run time of simulation in minutes. Will finish the time integration once this limit is reached (default=300).
+
+    save_step : int
+        When to save data output: every time step (save_step=1), every second time step (save_step=2), etc (default=1).
+
+    sort_step: int, optional
+        Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
+
+    num_clones: int, optional
+        Number of domain clones (default=1)
+    """
+
+    out_folders: str = os.getcwd()
+    sim_folder: str = "sim_1"
+    restart: bool = False
+    max_runtime: int = 300
+    save_step: int = 1
+    sort_step: int = 0
+    num_clones: int = 1
+    
+    
+def check_option(opt, options):
+    """Check if opt is contained in options; if opt is a list, checks for each element."""
+    opts = get_args(options)
+    if not isinstance(opt, list):
+        opt = [opt]
+    for o in opt:
+        assert o in opts, f"Option '{o}' is not in {opts}." 
 
