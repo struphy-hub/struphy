@@ -21,21 +21,26 @@ from struphy.utils.utils import dict_to_yaml
 from struphy.pic.base import Particles
 from struphy.models.species import Species
 from struphy.models.variables import FEECVariable
-from struphy.io.options import Units, Time, MetaOptions
+from struphy.io.options import Units, Time, EnvironmentOptions
+from struphy.geometry.base import Domain
+from struphy.geometry.domains import Cuboid
+from struphy.fields_background.base import FluidEquilibrium
+from struphy.fields_background.equils import HomogenSlab
+from struphy.topology.grids import TensorProductGrid
+from struphy.io.options import DerhamOptions
 
 
 def run(
     model: StruphyModel,
     params_path: str,
     *,
-    path_out: str = None,
-    units: Units = None,
-    time_opts: Time = None,
-    domain = None,
-    equil = None,
-    grid = None,
-    derham = None,
-    meta: MetaOptions = None,
+    env: EnvironmentOptions = EnvironmentOptions(),
+    units: Units = Units(),
+    time_opts: Time = Time(),
+    domain: Domain = Cuboid(),
+    equil: FluidEquilibrium = HomogenSlab(),
+    grid: TensorProductGrid = None,
+    derham: DerhamOptions = None,
     verbose: bool = False,
 ):
     """
@@ -48,10 +53,6 @@ def run(
 
     params_path : str
         Absolute path to .py parameter file.
-        
-    path_out : str
-        The output directory (default is 'sim_1' in cwd). Will create a folder if it does not exist OR cleans the folder for new runs.
-
     """
     
     # check model
@@ -65,30 +66,30 @@ def run(
     start_simulation = time.time()
     
     # meta-data
-    out_folders = meta.out_folders
-    sim_folder = meta.sim_folder
+    out_folders = env.out_folders
+    sim_folder = env.sim_folder
     path_out = os.path.join(out_folders, sim_folder)
     
-    restart = meta.restart
-    max_runtime = meta.max_runtime
-    save_step = meta.save_step
-    sort_step = meta.sort_step
-    num_clones = meta.num_clones
+    restart = env.restart
+    max_runtime = env.max_runtime
+    save_step = env.save_step
+    sort_step = env.sort_step
+    num_clones = env.num_clones
     
-    meta_dct = {}
-    meta_dct["platform"] = sysconfig.get_platform()
-    meta_dct["python version"] = sysconfig.get_python_version()
-    meta_dct["model name"] = model_name
-    meta_dct["parameter file"] = params_path
-    meta_dct["output folder"] = path_out
-    meta_dct["MPI processes"] = size
-    meta_dct["number of domain clones"] = num_clones
-    meta_dct["restart"] = restart
-    meta_dct["max wall-clock [min]"] = max_runtime
-    meta_dct["save interval [steps]"] = save_step
+    meta = {}
+    meta["platform"] = sysconfig.get_platform()
+    meta["python version"] = sysconfig.get_python_version()
+    meta["model name"] = model_name
+    meta["parameter file"] = params_path
+    meta["output folder"] = path_out
+    meta["MPI processes"] = size
+    meta["number of domain clones"] = num_clones
+    meta["restart"] = restart
+    meta["max wall-clock [min]"] = max_runtime
+    meta["save interval [steps]"] = save_step
     
     print("\nMETADATA:")
-    for k, v in meta_dct.items():
+    for k, v in meta.items():
         print(f'{k}:'.ljust(25), v) 
         
     # creating output folders
@@ -97,7 +98,7 @@ def run(
                   verbose=verbose,)
     
     # save meta-data
-    dict_to_yaml(meta_dct, os.path.join(path_out, "meta.yml"))
+    dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
     
     # save parameter file
     if rank == 0:
