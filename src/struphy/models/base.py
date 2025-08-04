@@ -41,17 +41,6 @@ class StruphyModel(metaclass=ABCMeta):
     """
     Base class for all Struphy models.
 
-    Parameters
-    ----------
-    params : StruphyParameters
-        Simulation parameters.
-
-    comm : mpi4py.MPI.Intracomm
-        MPI communicator for parallel runs.
-
-    clone_config: struphy.utils.CloneConfig
-        Contains the # TODO
-
     Note
     ----
     All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/``

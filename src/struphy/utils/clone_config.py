@@ -3,8 +3,6 @@ from psydac.ddm.mpi import mpi as MPI
 
 from struphy.utils.arrays import xp as np
 
-from struphy.io.parameters import StruphyParameters
-
 
 class CloneConfig:
     """
@@ -21,7 +19,7 @@ class CloneConfig:
     def __init__(
         self,
         comm: MPI.Intracomm,
-        params: StruphyParameters,
+        params: None,
         num_clones=1,
     ):
         """

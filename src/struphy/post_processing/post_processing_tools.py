@@ -16,7 +16,6 @@ from struphy.feec.psydac_derham import SplineFunction
 
 def create_femfields(
     path: str,
-    params_in,
     *,
     step: int = 1,
 ):
@@ -26,9 +25,6 @@ def create_femfields(
     ----------
     path : str
         Absolute path of simulation output folder.
-        
-    params_in : parameter module
-        Imported parameter .py module.
 
     step : int
         Whether to create FEM fields at every time step (step=1, default), every second time step (step=2), etc.
@@ -45,6 +41,11 @@ def create_femfields(
     with open(os.path.join(path, "meta.yml"), "r") as f:
         meta = yaml.load(f, Loader=yaml.FullLoader)
     nproc = meta["MPI processes"]
+    
+    with open(os.path.join(path, "parameters.py"), "r") as params:
+        print(f"{params = }")
+
+    exit()
 
     derham = setup_derham(params_in.grid,
             params_in.derham,

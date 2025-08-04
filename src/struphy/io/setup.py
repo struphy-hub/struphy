@@ -8,9 +8,7 @@ import yaml
 from mpi4py import MPI
 
 from struphy.io.options import DerhamOptions
-from struphy.io.parameters import StruphyParameters
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.utils import dict_to_yaml, read_state
 from struphy.geometry.base import Domain
 from struphy.geometry.domains import Cuboid
 from struphy.io.options import Units, Time
@@ -84,89 +82,6 @@ def setup_folders(
                     os.remove(file)
                     if verbose and n < 10:  # print only ten statements in case of many processes
                         print("Removed existing file " + file)
-
-
-def setup_parameters(
-    params_path: str,
-    path_out: str,
-    verbose: bool = False,
-):
-    """
-    Prepare simulation parameters from .yml or .py file and save to output folder.
-
-    Parameters
-    ----------
-    model_name : str
-        The name of the model to run.
-
-    params_path : str
-        Path to .py parameter file.
-
-    path_out : str
-        The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
-
-    verbose : bool
-        Show full screen output.
-
-    Returns
-    -------
-    params : StruphyParameters
-        The simulation parameters.
-    """
-
-    if ".yml" in params_path or ".yaml" in params_path:
-        with open(params_path) as file:
-            params = yaml.load(file, Loader=yaml.FullLoader)
-    elif ".py" in params_path:
-        # print(f'{params_path = }')
-        # Read struphy state file
-        # state = read_state()
-        # i_path = state["i_path"]
-        # load parameter.py
-        params_in = import_parameters_py(params_path)
-
-        if not hasattr(params_in, "model"):
-            params_in.model = None
-
-        if not hasattr(params_in, "domain"):
-            params_in.domain = Cuboid()
-
-        if not hasattr(params_in, "grid"):
-            params_in.grid = None
-
-        if not hasattr(params_in, "equil"):
-            params_in.equil = None
-
-        if not hasattr(params_in, "units"):
-            params_in.units = Units()
-
-        if not hasattr(params_in, "time"):
-            params_in.time = Time()
-
-        if not hasattr(params_in, "derham"):
-            params_in.derham = None
-
-        params = StruphyParameters(
-            model=params_in.model,
-            units=params_in.units,
-            domain=params_in.domain,
-            equil=params_in.equil,
-            time=params_in.time,
-            grid=params_in.grid,
-            derham=params_in.derham,
-            verbose=verbose,
-        )
-
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        # copy parameter file to output folder
-        filename = params_path.split("/")[-1]
-        ext = filename.split(".")[-1]
-        shutil.copy2(
-            params_path,
-            os.path.join(path_out, "parameters." + ext),
-        )
-
-    return params
 
 
 def setup_derham(

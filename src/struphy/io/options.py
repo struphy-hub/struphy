@@ -3,7 +3,6 @@ from typing import Literal, get_args
 import numpy as np
 import os
 
-# needed for import in StruphyParameters
 from struphy.physics.physics import ConstantsOfNature
 
 

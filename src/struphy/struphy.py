@@ -12,7 +12,7 @@ import shutil
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.io.output_handling import DataContainer
-from struphy.io.setup import setup_folders, setup_parameters
+from struphy.io.setup import setup_folders
 from struphy.models.base import StruphyModel
 from struphy.profiling.profiling import ProfileManager
 from struphy.utils.clone_config import CloneConfig
@@ -27,7 +27,6 @@ from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import HomogenSlab
 from struphy.topology.grids import TensorProductGrid
 from struphy.io.options import DerhamOptions
-from struphy.models.tests.base_test import ModelTest
 
 
 def run(
@@ -42,7 +41,6 @@ def run(
     grid: TensorProductGrid = None,
     derham_opts: DerhamOptions = None,
     verbose: bool = False,
-    test: ModelTest = None,
 ):
     """
     Run a Struphy model.
@@ -61,23 +59,6 @@ def run(
     size = comm.Get_size()
 
     start_simulation = time.time()
-    
-    # check for test run
-    if test is not None:
-        model = test.model
-        units = test.units
-        time_opts = test.time_opts
-        domain = test.domain
-        equil = test.equil
-        grid = test.grid
-        derham_opts = test.derham_opts
-        
-        print(f"\nRunning test '{test.__class__.__name__}':")
-        for k, v in test.__dict__.items():
-            print(f"  {k}: {v}")
-            
-        test.set_propagator_opts()
-        test.set_variables_inits()
         
     # check model
     assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"

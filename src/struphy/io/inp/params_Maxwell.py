@@ -15,50 +15,46 @@ verbose = True
 # environment options
 env = EnvironmentOptions()
 
-# # units
-# units = Units()
+# units
+units = Units()
 
-# # time stepping
-# time = Time()
+# time stepping
+time = Time()
 
-# # geometry
-# domain = domains.Cuboid()
+# geometry
+domain = domains.Cuboid()
 
-# # fluid equilibrium (can be used as part of initial conditions)
-# equil = equils.HomogenSlab()
+# fluid equilibrium (can be used as part of initial conditions)
+equil = equils.HomogenSlab()
 
-# # grid
-# grid = grids.TensorProductGrid()
+# grid
+grid = grids.TensorProductGrid()
 
-# # derham options
-# derham_opts = DerhamOptions()
+# derham options
+derham_opts = DerhamOptions()
 
 # light-weight model instance
 model = Model()
 
-# # propagator options
-# model.propagators.maxwell.set_options()
+# propagator options
+model.propagators.maxwell.set_options()
 
-# # initial conditions (background + perturbation)
-# model.em_fields.b_field.add_background(FieldsBackground())
-# model.em_fields.b_field.add_perturbation(perturbations.TorusModesCos())
+# initial conditions (background + perturbation)
+model.em_fields.b_field.add_background(FieldsBackground())
+model.em_fields.b_field.add_perturbation(perturbations.TorusModesCos())
 
 # optional: exclude variables from saving
 # model.em_fields.b_field.save_data = False
-
-from struphy.models.tests import test_toy
-test = test_toy.LightWaveDispersion(model)
 
 # start run
 struphy.run(model, 
             __file__, 
             env=env, 
-            # units=units, 
-            # time_opts=time, 
-            # domain=domain, 
-            # equil=equil, 
-            # grid=grid, 
-            # derham_opts=derham_opts, 
+            units=units, 
+            time_opts=time, 
+            domain=domain, 
+            equil=equil, 
+            grid=grid, 
+            derham_opts=derham_opts, 
             verbose=verbose, 
-            test=test,
             )
