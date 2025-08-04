@@ -1758,20 +1758,10 @@ class SplineFunction:
                 # special case of white noise in logical space for different components
                 if isinstance(ptb, Noise):
                     # set white noise FE coefficients
-                    if self.space_id in {"H1", "L2"}:
-                        assert isinstance(ptb.given_in_basis, str)
-                        self._add_noise(direction=ptb.direction,
-                                        amp=ptb.amp,
-                                        seed=ptb.seed,)
-                    elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
-                        assert isinstance(ptb.given_in_basis, list)
-                        assert len(ptb.given_in_basis) == 3
-                        for n, comp in enumerate(ptb.given_in_basis):
-                            if comp is not None:
-                                self._add_noise(direction=ptb.direction,
-                                                amp=ptb.amp,
-                                                seed=ptb.seed,
-                                                n=n)
+                    self._add_noise(direction=ptb.direction,
+                                    amp=ptb.amp,
+                                    seed=ptb.seed,
+                                    n=ptb.comp,)
                 # perturbation class
                 elif isinstance(ptb, Perturbation):
                     if self.space_id in {"H1", "L2"}:

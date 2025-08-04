@@ -26,8 +26,7 @@ from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml, read_state
 from struphy.models.species import Species, FieldSpecies, FluidSpecies, KineticSpecies, DiagnosticSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
-from struphy.io.options import Units
-from struphy.io.options import Time, DerhamOptions
+from struphy.io.options import Units, Time, DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 from struphy.geometry.base import Domain
 from struphy.geometry.domains import Cuboid
@@ -172,7 +171,7 @@ class StruphyModel(metaclass=ABCMeta):
              
     def allocate_feec(self,
                  grid: TensorProductGrid,
-                 derham_params: DerhamOptions,
+                 derham_opts: DerhamOptions,
                  comm: MPI.Intracomm = None,
                  clone_config: CloneConfig = None,
                  ):
@@ -185,7 +184,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         self._derham = setup_derham(
             grid,
-            derham_params,
+            derham_opts,
             comm=derham_comm,
             domain=self.domain,
             verbose=self.verbose,
@@ -215,6 +214,8 @@ class StruphyModel(metaclass=ABCMeta):
                 self.equil,
                 self.derham,
             )  
+        else:
+            self._projected_equil = None
             
     def allocate_propagators(self):
         # set propagators base class attributes (then available to all propagators)
@@ -234,7 +235,7 @@ class StruphyModel(metaclass=ABCMeta):
         for prop in self.prop_list:
             assert isinstance(prop, Propagator)
             prop.allocate()
-            if self.rank_world == 0:
+            if MPI.COMM_WORLD.Get_rank() == 0:
                 print(f"\nAllocated propagator '{prop.__class__.__name__}'.")
 
     @staticmethod
@@ -1375,12 +1376,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     print("exiting ...")
                     return
                     
-        
-        # generic options for all models
-        file.write("from struphy.io.options import Units, Time, MetaOptions\n")
+        file.write("from struphy.io.options import EnvironmentOptions, Units, Time\n")
         file.write("from struphy.geometry import domains\n")
         file.write("from struphy.fields_background import equils\n")
-        file.write("from struphy.initial import perturbations\n")
         
         has_feec = False
         has_pic = False
@@ -1398,12 +1396,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 elif isinstance(var, SPHVariable):
                     has_sph = True
         
-        # if has_feec:
         file.write("from struphy.topology import grids\n") 
         file.write("from struphy.io.options import DerhamOptions\n")
         file.write("from struphy.io.options import FieldsBackground\n")
+        file.write("from struphy.initial import perturbations\n")
         
-        # if has_pic or has_sph:
         file.write("from struphy.kinetic_background import maxwellians\n")
         file.write("from struphy import struphy\n")
             
@@ -1411,8 +1408,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         file.write(f"from {self.__module__} import {self.__class__.__name__} as Model\n")
         file.write("verbose = False\n")
         
-        file.write("\n# meta options\n")
-        file.write("meta = MetaOptions()\n")
+        file.write("\n# environment options\n")
+        file.write("env = EnvironmentOptions()\n")
         
         file.write("\n# units\n")
         file.write("units = Units()\n")
@@ -1428,10 +1425,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         
         if has_feec:
             grid = "grid = grids.TensorProductGrid()\n"
-            derham = "derham = DerhamOptions()\n"
+            derham = "derham_opts = DerhamOptions()\n"
         else:
             grid = "grid = None\n"
-            derham = "derham = None\n"
+            derham = "derham_opts = None\n"
             
         file.write("\n# grid\n")
         file.write(grid)
@@ -1456,14 +1453,14 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         
         file.write("\n# start run\n")
         file.write("struphy.run(model, \n\
-            params_path=__file__, \n\
+            __file__, \n\
+            env=env, \n\
             units=units, \n\
             time_opts=time, \n\
             domain=domain, \n\
             equil=equil, \n\
             grid=grid, \n\
-            derham=derham, \n\
-            meta=meta, \n\
+            derham_opts=derham_opts, \n\
             verbose=verbose, \n\
             )")
         
@@ -1679,7 +1676,7 @@ You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy
             magnetic_field = np.nan
             # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
 
-        if verbose and self.rank_world == 0:
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print("\nPLASMA PARAMETERS:")
             print(
                 f"Plasma volume:".ljust(25),

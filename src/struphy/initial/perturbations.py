@@ -29,6 +29,7 @@ class Noise(Perturbation):
     amp: float = 0.0001
     seed: int = None
     comp: int = 0 
+    given_in_basis: GivenInBasis = "0"
     
     def __post_init__(self,): 
         check_option(self.direction, NoiseDirections)

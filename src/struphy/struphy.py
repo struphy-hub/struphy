@@ -13,7 +13,6 @@ from struphy.feec.psydac_derham import SplineFunction
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_folders, setup_parameters
-from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel
 from struphy.profiling.profiling import ProfileManager
 from struphy.utils.clone_config import CloneConfig
@@ -28,6 +27,7 @@ from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import HomogenSlab
 from struphy.topology.grids import TensorProductGrid
 from struphy.io.options import DerhamOptions
+from struphy.models.tests.base_test import ModelTest
 
 
 def run(
@@ -40,8 +40,9 @@ def run(
     domain: Domain = Cuboid(),
     equil: FluidEquilibrium = HomogenSlab(),
     grid: TensorProductGrid = None,
-    derham: DerhamOptions = None,
+    derham_opts: DerhamOptions = None,
     verbose: bool = False,
+    test: ModelTest = None,
 ):
     """
     Run a Struphy model.
@@ -55,15 +56,32 @@ def run(
         Absolute path to .py parameter file.
     """
     
-    # check model
-    assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
-    model_name = model.__class__.__name__
-
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
 
     start_simulation = time.time()
+    
+    # check for test run
+    if test is not None:
+        model = test.model
+        units = test.units
+        time_opts = test.time_opts
+        domain = test.domain
+        equil = test.equil
+        grid = test.grid
+        derham_opts = test.derham_opts
+        
+        print(f"\nRunning test '{test.__class__.__name__}':")
+        for k, v in test.__dict__.items():
+            print(f"  {k}: {v}")
+            
+        test.set_propagator_opts()
+        test.set_variables_inits()
+        
+    # check model
+    assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
+    model_name = model.__class__.__name__
     
     # meta-data
     out_folders = env.out_folders
@@ -146,12 +164,12 @@ def run(
     
     # allocate derham-related objects
     if grid is not None:
-        model.allocate_feec(grid, derham)
+        model.allocate_feec(grid, derham_opts)
     else:
         model._derham = None
         model._mass_ops = None
         model._projected_equil = None
-        print("\nDERHAM:\nMeshless simulation - no Derham complex set up.")
+        print("GRID:\nNo grid specified - no Derham complex set up.")
         
     # allocate variables
     model.allocate_variables()
