@@ -253,8 +253,8 @@ class FieldsBackground:
         
         
 @dataclass
-class MetaOptions:
-    """Meta options for launching run on current architecture 
+class EnvironmentOptions:
+    """Environment options for launching run on current architecture 
     (these options do not influence the simulation result). 
 
     Parameters

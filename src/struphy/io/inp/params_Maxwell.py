@@ -1,4 +1,4 @@
-from struphy.io.options import Units, Time, MetaOptions
+from struphy.io.options import Units, Time, EnvironmentOptions
 from struphy.geometry import domains
 from struphy.fields_background import equils
 from struphy.initial import perturbations
@@ -13,7 +13,7 @@ from struphy.models.toy import Maxwell as Model
 verbose = False
 
 # meta options
-meta = MetaOptions()
+meta = EnvironmentOptions()
 
 # units
 units = Units()
