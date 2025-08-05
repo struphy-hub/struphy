@@ -10,7 +10,7 @@ from struphy import struphy
 
 # import model, set verbosity
 from struphy.models.toy import Maxwell as Model
-verbose = True
+verbose = False
 
 # environment options
 env = EnvironmentOptions()
@@ -46,15 +46,16 @@ model.em_fields.b_field.add_perturbation(perturbations.TorusModesCos())
 # optional: exclude variables from saving
 # model.em_fields.b_field.save_data = False
 
-# start run
-struphy.run(model, 
-            __file__, 
-            env=env, 
-            units=units, 
-            time_opts=time, 
-            domain=domain, 
-            equil=equil, 
-            grid=grid, 
-            derham_opts=derham_opts, 
-            verbose=verbose, 
-            )
+if __name__ == "__main__":
+    # start run
+    struphy.run(model, 
+                __file__, 
+                env=env, 
+                units=units, 
+                time_opts=time, 
+                domain=domain, 
+                equil=equil, 
+                grid=grid, 
+                derham_opts=derham_opts, 
+                verbose=verbose, 
+                )

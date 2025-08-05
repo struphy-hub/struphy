@@ -15,10 +15,10 @@ import argcomplete
 import yaml
 
 # struphy path
-import struphy
+import struphy as _
 from struphy.utils import utils
 
-libpath = struphy.__path__[0]
+libpath = _.__path__[0]
 __version__ = importlib.metadata.version("struphy")
 
 # version message

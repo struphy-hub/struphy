@@ -1404,7 +1404,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         file.write("units = Units()\n")
         
         file.write("\n# time stepping\n")
-        file.write("time = Time()\n")
+        file.write("time_opts = Time()\n")
         
         file.write("\n# geometry\n")
         file.write("domain = domains.Cuboid()\n")
@@ -1440,18 +1440,19 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         file.write("\n# optional: exclude variables from saving\n")
         file.write(exclude_feec)
         
-        file.write("\n# start run\n")
-        file.write("struphy.run(model, \n\
-            __file__, \n\
-            env=env, \n\
-            units=units, \n\
-            time_opts=time, \n\
-            domain=domain, \n\
-            equil=equil, \n\
-            grid=grid, \n\
-            derham_opts=derham_opts, \n\
-            verbose=verbose, \n\
-            )")
+        file.write('\nif __name__ == "__main__":\n')
+        file.write("    # start run\n")
+        file.write("    struphy.run(model, \n\
+                params_path=__file__, \n\
+                env=env, \n\
+                units=units, \n\
+                time_opts=time_opts, \n\
+                domain=domain, \n\
+                equil=equil, \n\
+                grid=grid, \n\
+                derham_opts=derham_opts, \n\
+                verbose=verbose, \n\
+                )")
         
         print(f"Default parameter file for '{self.__class__.__name__}' has been created.\n\
 You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy run -i params_{self.__class__.__name__}.py'")
