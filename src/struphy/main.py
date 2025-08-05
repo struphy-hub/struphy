@@ -29,7 +29,7 @@ from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import HomogenSlab
 from struphy.topology.grids import TensorProductGrid
 from struphy.io.options import DerhamOptions
-from struphy.post_processing.post_processing_tools import create_femfields, eval_femfields
+from struphy.post_processing.post_processing_tools import create_femfields, eval_femfields, create_vtk
 
 
 def run(
@@ -117,7 +117,9 @@ def run(
             with open(os.path.join(path_out, "time_opts.bin"), 'wb') as f:
                 pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "domain.bin"), 'wb') as f:
-                pickle.dump(domain, f, pickle.HIGHEST_PROTOCOL)
+                # WORKAROUND: cannot pickle pyccelized classes at the moment
+                tmp_dct = {"name": domain.__class__.__name__, "params_map": domain.params_map}
+                pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "equil.bin"), 'wb') as f:
                 pickle.dump(equil, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "grid.bin"), 'wb') as f:
@@ -401,7 +403,6 @@ def pproc(
     time_trace : bool
         whether to plot the time trace of each measured region
     """
-    print("")
 
     # create post-processing folder
     path_pproc = os.path.join(path, "post_processing")
@@ -451,8 +452,6 @@ def pproc(
     # field post-processing
     if exist_fields:
         fields, t_grid = create_femfields(path, step=step)
-        print("exiting after fem_fields ...")
-        exit()
 
         point_data, grids_log, grids_phy = eval_femfields(
             path, fields, celldivide=[celldivide, celldivide, celldivide]
@@ -496,9 +495,9 @@ def pproc(
 
         # create vtk files
         if not no_vtk:
-            pproc.create_vtk(path_fields, t_grid, grids_phy, point_data)
+            create_vtk(path_fields, t_grid, grids_phy, point_data)
             if physical:
-                pproc.create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
+                create_vtk(path_fields, t_grid, grids_phy, point_data_phy, physical=True)
 
     # kinetic post-processing
     if exist_kinetic is not None:
