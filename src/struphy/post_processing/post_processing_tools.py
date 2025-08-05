@@ -1,10 +1,10 @@
 import os
 import shutil
-
 import h5py
 import matplotlib.pyplot as plt
 import yaml
 from tqdm import tqdm
+import pickle
 
 from struphy.feec.psydac_derham import Derham
 from struphy.kinetic_background import maxwellians
@@ -12,6 +12,73 @@ from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import setup_derham
 from struphy.feec.psydac_derham import SplineFunction
+from struphy.io.options import EnvironmentOptions, Units, Time
+from struphy.topology.grids import TensorProductGrid
+
+
+class ParamsIn:
+    """Holds the input parameters of a Struphy simulation as attributes."""
+    def __init__(self, 
+                 env: EnvironmentOptions = None,
+                 units: Units = None,
+                 time_opts: Time = None,
+                 equil = None,
+                 grid: TensorProductGrid = None,
+                 derham_opts = None):
+        self.env = env
+        self.units = units
+        self.time_opts = time_opts
+        self.equil = equil
+        self.grid = grid
+        self.derham_opts = derham_opts
+
+
+def get_params_of_run(path: str) -> ParamsIn:
+    """Retrieve parameters of finished Struphy run.
+    
+    Parameters
+    ----------
+    path : str
+        Absolute path of simulation output folder.
+    """
+    
+    params_path = os.path.join(path, "parameters.py")
+    bin_path = os.path.join(path, "env.bin")
+
+    if os.path.exists(params_path):
+        params_in = import_parameters_py(params_path)
+        env = params_in.env
+        units = params_in.units
+        time_opts = params_in.time_opts
+        domain = params_in.domain
+        equil = params_in.equil
+        grid = params_in.grid
+        derham_opts = params_in.derham_opts
+        
+    elif os.path.exists(bin_path):
+        with open(os.path.join(path, "env.bin"), "rb") as f:
+            env = pickle.load(f)
+        with open(os.path.join(path, "units.bin"), "rb") as f:
+            units = pickle.load(f)
+        with open(os.path.join(path, "time_opts.bin"), "rb") as f:
+            time_opts = pickle.load(f)
+        with open(os.path.join(path, "equil.bin"), "rb") as f:
+            equil = pickle.load(f)
+        with open(os.path.join(path, "grid.bin"), "rb") as f:
+            grid = pickle.load(f)
+        with open(os.path.join(path, "derham_opts.bin"), "rb") as f:
+            derham_opts = pickle.load(f)
+            
+    else:
+        raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
+    
+    return ParamsIn(env=env,
+                    units=units,
+                    time_opts=time_opts,
+                    equil=equil,
+                    grid=grid,
+                    derham_opts=derham_opts,
+                    )
 
 
 def create_femfields(
@@ -42,13 +109,11 @@ def create_femfields(
         meta = yaml.load(f, Loader=yaml.FullLoader)
     nproc = meta["MPI processes"]
     
-    with open(os.path.join(path, "parameters.py"), "r") as params:
-        print(f"{params = }")
-
-    exit()
+    # import parameters
+    params_in = get_params_of_run(path)
 
     derham = setup_derham(params_in.grid,
-            params_in.derham,
+            params_in.derham_opts,
             comm=None,
             domain=params_in.domain,
             mpi_dims_mask=params_in.grid.mpi_dims_mask,

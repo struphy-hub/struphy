@@ -283,11 +283,15 @@ class EnvironmentOptions:
 
     out_folders: str = os.getcwd()
     sim_folder: str = "sim_1"
+    path_out: str = None
     restart: bool = False
     max_runtime: int = 300
     save_step: int = 1
     sort_step: int = 0
     num_clones: int = 1
+    
+    def __post_init__(self):
+        self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
     
     
 def check_option(opt, options):
