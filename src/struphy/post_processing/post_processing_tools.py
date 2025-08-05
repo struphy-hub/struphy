@@ -22,12 +22,14 @@ class ParamsIn:
                  env: EnvironmentOptions = None,
                  units: Units = None,
                  time_opts: Time = None,
+                 domain = None,
                  equil = None,
                  grid: TensorProductGrid = None,
                  derham_opts = None):
         self.env = env
         self.units = units
         self.time_opts = time_opts
+        self.domain = domain
         self.equil = equil
         self.grid = grid
         self.derham_opts = derham_opts
@@ -62,6 +64,8 @@ def get_params_of_run(path: str) -> ParamsIn:
             units = pickle.load(f)
         with open(os.path.join(path, "time_opts.bin"), "rb") as f:
             time_opts = pickle.load(f)
+        with open(os.path.join(path, "domain.bin"), "rb") as f:
+            domain = pickle.load(f)
         with open(os.path.join(path, "equil.bin"), "rb") as f:
             equil = pickle.load(f)
         with open(os.path.join(path, "grid.bin"), "rb") as f:
@@ -116,7 +120,6 @@ def create_femfields(
             params_in.derham_opts,
             comm=None,
             domain=params_in.domain,
-            mpi_dims_mask=params_in.grid.mpi_dims_mask,
             )
 
     # get fields names, space IDs and time grid from 0-th rank hdf5 file
