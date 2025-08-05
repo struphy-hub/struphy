@@ -149,22 +149,13 @@ class Domain(metaclass=ABCMeta):
         self._kind_map = new
 
     @property
-    def params(self) -> dict:
-        """Mapping parameters passed to __init__() of the class in domains.py, as dictionary."""
-        if not hasattr(self, "_params"):
-            self._params = {}
-        return self._params
-
-    @params.setter
-    def params(self, new):
-        assert isinstance(new, dict)
-        if "self" in new:
-            new.pop("self")
-        if "__class__" in new:
-            new.pop("__class__")
-        self._params = new
+    @abstractmethod
+    def params_map(self) -> dict:
+        """Mapping parameters as dictionary."""
+        pass
 
     @property
+    @abstractmethod
     def params_numpy(self) -> np.ndarray:
         """Mapping parameters as numpy array (can be empty)."""
         if not hasattr(self, "_params_numpy"):

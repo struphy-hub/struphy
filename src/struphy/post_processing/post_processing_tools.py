@@ -14,6 +14,7 @@ from struphy.models.base import setup_derham
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.io.options import EnvironmentOptions, Units, Time
 from struphy.topology.grids import TensorProductGrid
+from struphy.geometry import domains
 
 
 class ParamsIn:
@@ -44,6 +45,8 @@ def get_params_of_run(path: str) -> ParamsIn:
         Absolute path of simulation output folder.
     """
     
+    print(f"\nReading in paramters from {path} ... ")
+    
     params_path = os.path.join(path, "parameters.py")
     bin_path = os.path.join(path, "env.bin")
 
@@ -65,7 +68,11 @@ def get_params_of_run(path: str) -> ParamsIn:
         with open(os.path.join(path, "time_opts.bin"), "rb") as f:
             time_opts = pickle.load(f)
         with open(os.path.join(path, "domain.bin"), "rb") as f:
-            domain = pickle.load(f)
+            # WORKAROUND: cannot pickle pyccelized classes at the moment
+            domain_dct = pickle.load(f)
+            name = domain_dct["name"]
+            params_map = domain_dct["params_map"]
+            domain = getattr(domains, name)(**params_map)
         with open(os.path.join(path, "equil.bin"), "rb") as f:
             equil = pickle.load(f)
         with open(os.path.join(path, "grid.bin"), "rb") as f:
@@ -76,9 +83,12 @@ def get_params_of_run(path: str) -> ParamsIn:
     else:
         raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
     
+    print("done.")
+    
     return ParamsIn(env=env,
                     units=units,
                     time_opts=time_opts,
+                    domain=domain,
                     equil=equil,
                     grid=grid,
                     derham_opts=derham_opts,
@@ -216,7 +226,7 @@ def create_femfields(
 
 
 def eval_femfields(
-    params_in,
+    path: str,
     fields: dict,
     *,
     celldivide: list = [1, 1, 1],
@@ -226,8 +236,8 @@ def eval_femfields(
 
     Parameters
     ----------
-    params_in : parameter module
-        Imported parameter .py module.
+    path : str
+        Absolute path of simulation output folder.
 
     fields : dict
         Obtained from struphy.diagnostics.post_processing.create_femfields.
@@ -254,6 +264,9 @@ def eval_femfields(
         Mapped (physical) grids obtained by domain(*grids_log).
     """
 
+    # import parameters
+    params_in = get_params_of_run(path)
+
     # get domain
     domain = params_in.domain
 
@@ -278,7 +291,7 @@ def eval_femfields(
         for name, field in vars.items():
             point_data[species][name] = {}
     
-    print("Evaluating fields ...")
+    print("\nEvaluating fields ...")
     for t in tqdm(fields):
         for species, vars in fields[t].items():
             for name, field in vars.items():
@@ -393,7 +406,7 @@ def create_vtk(
     nt = len(t_grid) - 1
     log_nt = int(np.log10(nt)) + 1
 
-    print("Creating vtk ...")
+    print("\nCreating vtk ...")
     for n, t in enumerate(tqdm(t_grid)):
         point_data_n = {}
 
