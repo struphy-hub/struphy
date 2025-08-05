@@ -1391,7 +1391,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         file.write("from struphy.initial import perturbations\n")
         
         file.write("from struphy.kinetic_background import maxwellians\n")
-        file.write("from struphy import struphy\n")
+        file.write("from struphy import main\n")
             
         file.write("\n# import model, set verbosity\n")
         file.write(f"from {self.__module__} import {self.__class__.__name__} as Model\n")
@@ -1442,7 +1442,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         
         file.write('\nif __name__ == "__main__":\n')
         file.write("    # start run\n")
-        file.write("    struphy.run(model, \n\
+        file.write("    main.run(model, \n\
                 params_path=__file__, \n\
                 env=env, \n\
                 units=units, \n\
