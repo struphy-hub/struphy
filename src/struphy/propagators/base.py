@@ -295,9 +295,10 @@ class Propagator(metaclass=ABCMeta):
     class Options:
         def __init__(self, prop, **kwargs):
             self.__dict__.update(kwargs)
-            print(f"\nInstance of propagator '{prop.__class__.__name__}' with:")
-            for k, v in self.__dict__.items():
-                print(f'  {k}: {v}')
+            if MPI.COMM_WORLD.Get_rank() == 0:
+                print(f"\nInstance of propagator '{prop.__class__.__name__}' with:")
+                for k, v in self.__dict__.items():
+                    print(f'  {k}: {v}')
             
         # @property
         # def kwargs(self):

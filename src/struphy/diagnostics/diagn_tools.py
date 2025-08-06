@@ -25,7 +25,7 @@ def power_spectrum_2d(
     disp_params: dict = {},
     fit_branches: int = 0,
     noise_level: float = 0.1,
-    extr_order: int = 3,
+    extr_order: int = 10,
     fit_degree: tuple = (1,),
     save_plot: bool = False,
     save_name: str = None,
@@ -99,6 +99,9 @@ def power_spectrum_2d(
 
     dispersion : np.array
         2d array of shape (omega.size, kvec.size) holding the fft.
+        
+    coeffs : list[list]
+        List of fitting coefficients (lenght is fit_branches).
     """
 
     keys = list(values.keys())
@@ -148,6 +151,7 @@ def power_spectrum_2d(
     kvec = 2 * np.pi * fftfreq(Nx, dx)[: Nx // 2]
     omega = 2 * np.pi * fftfreq(Nt, dt)[: Nt // 2]
 
+    coeffs = None
     if fit_branches > 0:
         assert len(fit_degree) == fit_branches
         # determine maxima for each k
@@ -158,14 +162,14 @@ def power_spectrum_2d(
             omega_fit[n] = []
         for k, f_of_omega in zip(kvec[:siz], dispersion[:, :siz].T):
             threshold = np.max(f_of_omega) * noise_level
-            extrms = argrelextrema(f_of_omega, np.greater, order=3)[0]
+            extrms = argrelextrema(f_of_omega, np.greater, order=extr_order)[0]
             above_noise = np.nonzero(f_of_omega > threshold)[0]
             intersec = list(set(extrms) & set(above_noise))
             if not intersec:
                 continue
+            print(f"{intersec = }, {omega[intersec[0]] = }")
             assert len(intersec) == fit_branches, f"Number of found branches {len(intersec)} is not {fit_branches = }! \
                 Try to lower 'noise_level' or increase 'extr_order'."
-            # print(f"{intersec = }, {omega[intersec[0]] = }")
             k_fit += [k]
             for n in range(fit_branches):
                 omega_fit[n] += [omega[intersec[n]]]
@@ -235,7 +239,7 @@ def power_spectrum_2d(
         else:
             plt.show()
 
-    return omega, kvec, dispersion
+    return omega, kvec, dispersion, coeffs
 
 
 def plot_scalars(

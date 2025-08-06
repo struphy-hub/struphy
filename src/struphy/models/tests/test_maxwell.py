@@ -53,25 +53,22 @@ def test_light_wave_1d(do_plot: bool = False):
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=0))
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1))
 
-    # optional: exclude variables from saving
-    # model.em_fields.b_field.save_data = False
-
     # start run
-    # main.run(model, 
-    #         params_path=None, 
-    #         env=env, 
-    #         units=units, 
-    #         time_opts=time_opts, 
-    #         domain=domain, 
-    #         equil=equil, 
-    #         grid=grid, 
-    #         derham_opts=derham_opts, 
-    #         verbose=verbose, 
-    #         )
+    main.run(model, 
+            params_path=None, 
+            env=env, 
+            units=units, 
+            time_opts=time_opts, 
+            domain=domain, 
+            equil=equil, 
+            grid=grid, 
+            derham_opts=derham_opts, 
+            verbose=verbose, 
+            )
     
-    # # post processing
-    # if MPI.COMM_WORLD.Get_rank() == 0:
-    #     main.pproc(env.path_out)
+    # post processing
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        main.pproc(env.path_out)
         
     # diagnostics
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -79,7 +76,7 @@ def test_light_wave_1d(do_plot: bool = False):
 
         # fft in (t, z) of first component of e_field on physical grid
         Ex_of_t = simdata.arrays["em_fields"]["e_field_log"]
-        power_spectrum_2d(Ex_of_t,
+        _1, _2, _3, coeffs = power_spectrum_2d(Ex_of_t,
                     "e_field_log", 
                     grids=simdata.grids_log,
                     grids_mapped=simdata.grids_phy,
@@ -87,8 +84,14 @@ def test_light_wave_1d(do_plot: bool = False):
                     slice_at=[0, 0, None],
                     do_plot=do_plot,
                     disp_name='Maxwell1D',
-                    fit_branches=True,
-                    noise_level=0.5,)
+                    fit_branches=1,
+                    noise_level=0.5,
+                    extr_order=10,
+                    fit_degree=(1,),
+        )
+        
+        # test
+        assert np.abs(coeffs[0][0] - 1.0) < 0.02
 
         
 if __name__ == "__main__":
