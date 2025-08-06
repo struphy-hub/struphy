@@ -18,7 +18,7 @@ from struphy.diagnostics.diagn_tools import power_spectrum_2d
 test_folder = os.path.join(os.getcwd(), "verification_tests")
 
 
-@pytest.mark.mpi(min_size=2)
+@pytest.mark.mpi(min_size=3)
 @pytest.mark.parametrize('algo', ["implicit", "explicit"])
 def test_light_wave_1d(algo: str, do_plot: bool = False):
     # import model, set verbosity
@@ -98,7 +98,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         assert np.abs(coeffs[0][0] - 1.0) < 0.02
         
         
-@pytest.mark.mpi(min_size=1)
+@pytest.mark.mpi(min_size=4)
 def test_coaxial(do_plot: bool = False):
     # import model, set verbosity 
     from struphy.models.toy import Maxwell as Model
@@ -177,6 +177,9 @@ def test_coaxial(do_plot: bool = False):
         e_field_phy = simdata.arrays["em_fields"]["e_field_phy"]
         b_field_phy = simdata.arrays["em_fields"]["b_field_phy"]
 
+        X = grids_phy[0][:, :, 0]
+        Y = grids_phy[1][:, :, 0]
+
         # define analytic solution
         def B_z(X, Y, Z, m, t):
             """Magnetic field in z direction of coaxial cabel"""
@@ -208,9 +211,6 @@ def test_coaxial(do_plot: bool = False):
         
         # plot
         if do_plot:
-            X = grids_phy[0][:, :, 0]
-            Y = grids_phy[1][:, :, 0]
-            
             vmin = E_theta(X, Y, grids_phy[0], modes, 0).min()
             vmax = E_theta(X, Y, grids_phy[0], modes, 0).max()
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))

@@ -54,7 +54,7 @@ class Maxwell(StruphyModel):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
         
-        # 1. instantiate all variales
+        # 1. instantiate all species, variables
         self.em_fields = self.EMFields()
 
         # 2. instantiate all propagators
