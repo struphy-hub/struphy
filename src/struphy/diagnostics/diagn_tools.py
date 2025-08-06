@@ -167,7 +167,7 @@ def power_spectrum_2d(
             intersec = list(set(extrms) & set(above_noise))
             if not intersec:
                 continue
-            print(f"{intersec = }, {omega[intersec[0]] = }")
+            # print(f"{intersec = }, {omega[intersec[0]] = }")
             assert len(intersec) == fit_branches, f"Number of found branches {len(intersec)} is not {fit_branches = }! \
                 Try to lower 'noise_level' or increase 'extr_order'."
             k_fit += [k]

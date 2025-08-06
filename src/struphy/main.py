@@ -31,6 +31,10 @@ from struphy.topology.grids import TensorProductGrid
 from struphy.io.options import DerhamOptions
 from struphy.post_processing.post_processing_tools import create_femfields, eval_femfields, create_vtk
 
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
+    
 
 def run(
     model: StruphyModel,
@@ -56,16 +60,15 @@ def run(
     params_path : str
         Absolute path to .py parameter file.
     """
-    
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
 
     start_simulation = time.time()
         
     # check model
     assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
     model_name = model.__class__.__name__
+    
+    if rank == 0:
+        print(f"\n*** Starting run for model '{model_name}':")
     
     # meta-data
     path_out = env.path_out
@@ -405,6 +408,9 @@ def pproc(
         whether to plot the time trace of each measured region
     """
 
+    if rank == 0:
+        print(f"\n*** Start post-processing of {path}:")
+
     # create post-processing folder
     path_pproc = os.path.join(path, "post_processing")
 
@@ -585,7 +591,7 @@ def load_data(path: str) -> SimData:
 
     path_pproc = os.path.join(path, "post_processing")
     assert os.path.exists(path_pproc), f"Path {path_pproc} does not exist, run 'pproc' first?"
-    print("\nLoading post-processed simulation data ...")
+    print("\n*** Loading post-processed simulation data:")
 
     path_fields = os.path.join(path_pproc, "fields_data")
 
@@ -614,7 +620,7 @@ def load_data(path: str) -> SimData:
                         simdata.feec_species[spec] += [var]
                         simdata.arrays[spec][var] = pickle.load(f)
                         
-    print("Done - the following data has been loaded:")
+    print("\nThe following data has been loaded:")
     print(f"{simdata.spline_grid_resolution = }")
     print(f"{simdata.feec_species = }")
     print(f"{simdata.pic_species = }")
