@@ -1,13 +1,13 @@
 from mpi4py import MPI
 import os
 import numpy as np
+import pytest
 
 from struphy.io.options import EnvironmentOptions, Units, Time
 from struphy.geometry import domains
 from struphy.fields_background import equils
 from struphy.topology import grids
-from struphy.io.options import DerhamOptions
-from struphy.io.options import FieldsBackground
+from struphy.io.options import DerhamOptions, FieldsBackground
 from struphy.initial import perturbations
 from struphy.kinetic_background import maxwellians
 from struphy import main
@@ -16,7 +16,9 @@ from struphy.diagnostics.diagn_tools import power_spectrum_2d
 test_folder = os.path.join(os.getcwd(), "verification_tests")
 
 
-def test_light_wave_1d(do_plot: bool = False):
+@pytest.mark.mpi(min_size=2)
+@pytest.mark.parametrize('algo', ["implicit", "explicit"])
+def test_light_wave_1d(algo: str, do_plot: bool = False):
     # import model, set verbosity
     from struphy.models.toy import Maxwell as Model
     verbose = True
@@ -47,11 +49,11 @@ def test_light_wave_1d(do_plot: bool = False):
     model = Model()
 
     # propagator options
-    model.propagators.maxwell.set_options()
+    model.propagators.maxwell.set_options(algo=algo)
 
     # initial conditions (background + perturbation)
-    model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=0))
-    model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1))
+    model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
+    model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=123))
 
     # start run
     main.run(model, 
@@ -95,4 +97,4 @@ def test_light_wave_1d(do_plot: bool = False):
 
         
 if __name__ == "__main__":
-    test_light_wave_1d(do_plot=True)
+    test_light_wave_1d(algo="explicit", do_plot=True)
