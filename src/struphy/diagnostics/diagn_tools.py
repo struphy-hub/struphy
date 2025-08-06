@@ -155,19 +155,23 @@ def power_spectrum_2d(
     if fit_branches > 0:
         assert len(fit_degree) == fit_branches
         # determine maxima for each k
-        siz = kvec.size // 2 # take only first half of k-vector
+        k_start = kvec.size // 8 # take only first half of k-vector
+        k_end = kvec.size // 2 # take only first half of k-vector
         k_fit = []
         omega_fit = {}
         for n in range(fit_branches):
             omega_fit[n] = []
-        for k, f_of_omega in zip(kvec[:siz], dispersion[:, :siz].T):
+        for k, f_of_omega in zip(kvec[k_start:k_end], dispersion[:, k_start:k_end].T):
             threshold = np.max(f_of_omega) * noise_level
             extrms = argrelextrema(f_of_omega, np.greater, order=extr_order)[0]
             above_noise = np.nonzero(f_of_omega > threshold)[0]
             intersec = list(set(extrms) & set(above_noise))
+            # intersec = list(set(extrms))
             if not intersec:
                 continue
-            # print(f"{intersec = }, {omega[intersec[0]] = }")
+            intersec.sort()
+            # print(f"{intersec = }")
+            # print(f"{[omega[intersec[n]] for n in range(fit_branches)]}")
             assert len(intersec) == fit_branches, f"Number of found branches {len(intersec)} is not {fit_branches = }! \
                 Try to lower 'noise_level' or increase 'extr_order'."
             k_fit += [k]
@@ -177,8 +181,8 @@ def power_spectrum_2d(
         # fit
         coeffs = []
         for m, om in omega_fit.items():
-            coeffs += [np.polyfit(k_fit, om, deg=fit_degree[n])]
-            print(f"\nFitted {coeffs = }")
+            coeffs += [np.polyfit(k_fit, om, deg=fit_degree[n])]    
+        print(f"\nFitted {coeffs = }")
 
     if do_plot:
         _, ax = plt.subplots(1, 1, figsize=(10, 10))
@@ -202,13 +206,15 @@ def power_spectrum_2d(
         ax.set_title(title)
         ax.set_xlabel("$k$ [a.u.]")
         ax.set_ylabel(r"$\omega$ [a.u.]")
-        for cs in coeffs:
-            def fun(k):
-                out = k*0.0
-                for i, c in enumerate(np.flip(cs)):
-                    out += c * k**i
-                return out
-            ax.plot(kvec, fun(kvec), "r:", label="fit")
+        
+        if fit_branches > 0:
+            for n, cs in enumerate(coeffs):
+                def fun(k):
+                    out = k*0.0
+                    for i, c in enumerate(np.flip(cs)):
+                        out += c * k**i
+                    return out
+                ax.plot(kvec, fun(kvec), "r:", label=f"fit_{n + 1}")
 
         # analytic solution:
         disp_class = getattr(analytic, disp_name)

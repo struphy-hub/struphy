@@ -1373,11 +1373,18 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         file.write("from struphy.geometry import domains\n")
         file.write("from struphy.fields_background import equils\n")
         
+        species_params = "\n# species parameters"
+        has_plasma = False
         has_feec = False
         has_pic = False
         has_sph = False
         for sn, species in self.species.items():
             assert isinstance(species, Species)
+            
+            if isinstance(species, (FluidSpecies, KineticSpecies)):
+                has_plasma = True
+                species_params += f"\nmodel.{sn}.set_phys_params()"
+                
             for vn, var in species.variables.items():
                 if isinstance(var, FEECVariable):
                     has_feec = True
@@ -1431,6 +1438,9 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         
         file.write("\n# light-weight model instance\n")
         file.write("model = Model()\n")
+        
+        if has_plasma:
+            file.write(species_params)
             
         file.write("\n# propagator options\n")
         for prop in self.propagators.__dict__:
