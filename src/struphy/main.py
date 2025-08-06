@@ -30,10 +30,6 @@ from struphy.fields_background.equils import HomogenSlab
 from struphy.topology.grids import TensorProductGrid
 from struphy.io.options import DerhamOptions
 from struphy.post_processing.post_processing_tools import create_femfields, eval_femfields, create_vtk
-
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-size = comm.Get_size()
     
 
 def run(
@@ -60,6 +56,10 @@ def run(
     params_path : str
         Absolute path to .py parameter file.
     """
+
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
 
     start_simulation = time.time()
         
@@ -408,7 +408,7 @@ def pproc(
         whether to plot the time trace of each measured region
     """
 
-    if rank == 0:
+    if MPI.COMM_WORLD.Get_rank() == 0:
         print(f"\n*** Start post-processing of {path}:")
 
     # create post-processing folder
