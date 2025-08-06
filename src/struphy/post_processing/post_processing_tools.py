@@ -406,7 +406,7 @@ def create_vtk(
     nt = len(t_grid) - 1
     log_nt = int(np.log10(nt)) + 1
 
-    print("\nCreating vtk ...")
+    print(f"\nCreating vtk in {path} ...")
     for n, t in enumerate(tqdm(t_grid)):
         point_data_n = {}
 
@@ -430,9 +430,6 @@ def create_vtk(
                 *grids_phy,
                 pointData=point_data_n[species],
             )
-            
-            if n==0:
-                print(f"  saving .vtk files to {species_path}")
 
 
 def post_process_markers(path_in, path_out, species, kind, step=1):

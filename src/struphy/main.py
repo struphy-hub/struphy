@@ -87,9 +87,10 @@ def run(
     meta["max wall-clock [min]"] = max_runtime
     meta["save interval [steps]"] = save_step
     
-    print("\nMETADATA:")
-    for k, v in meta.items():
-        print(f'{k}:'.ljust(25), v) 
+    if rank == 0:
+        print("\nMETADATA:")
+        for k, v in meta.items():
+            print(f'{k}:'.ljust(25), v) 
         
     # creating output folders
     setup_folders(path_out=path_out, 
@@ -184,7 +185,9 @@ def run(
     if rank < 32:
         if rank == 0:
             print("")
+        comm.Barrier()
         print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
+
     if size > 32 and rank == 32:
         print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
 

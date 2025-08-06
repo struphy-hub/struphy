@@ -1474,7 +1474,7 @@ class SplineFunction:
         else:
             self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self.fem_space.spaces]
         
-        if verbose:    
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:    
             print(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
