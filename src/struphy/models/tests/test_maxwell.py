@@ -1,5 +1,6 @@
 from mpi4py import MPI
 import os
+import numpy as np
 
 from struphy.io.options import EnvironmentOptions, Units, Time
 from struphy.geometry import domains
@@ -10,12 +11,12 @@ from struphy.io.options import FieldsBackground
 from struphy.initial import perturbations
 from struphy.kinetic_background import maxwellians
 from struphy import main
-from struphy.post_processing.post_processing_tools import create_femfields
+from struphy.diagnostics.diagn_tools import power_spectrum_2d
 
 test_folder = os.path.join(os.getcwd(), "verification_tests")
 
 
-def test_light_wave_1d():
+def test_light_wave_1d(do_plot: bool = False):
     # import model, set verbosity
     from struphy.models.toy import Maxwell as Model
     verbose = True
@@ -28,7 +29,7 @@ def test_light_wave_1d():
     units = Units()
 
     # time stepping
-    time_opts = Time(dt=0.05, Tend=1.0 - 1e-6)
+    time_opts = Time(dt=0.05, Tend=50.0)
 
     # geometry
     domain = domains.Cuboid(r3=20.0)
@@ -56,24 +57,39 @@ def test_light_wave_1d():
     # model.em_fields.b_field.save_data = False
 
     # start run
-    main.run(model, 
-                params_path=None, 
-                env=env, 
-                units=units, 
-                time_opts=time_opts, 
-                domain=domain, 
-                equil=equil, 
-                grid=grid, 
-                derham_opts=derham_opts, 
-                verbose=verbose, 
-                )
+    # main.run(model, 
+    #         params_path=None, 
+    #         env=env, 
+    #         units=units, 
+    #         time_opts=time_opts, 
+    #         domain=domain, 
+    #         equil=equil, 
+    #         grid=grid, 
+    #         derham_opts=derham_opts, 
+    #         verbose=verbose, 
+    #         )
     
-    # post processing
-    if MPI.COMM_WORLD.Get_rank() == 0:
-        main.pproc(env.path_out)
+    # # post processing
+    # if MPI.COMM_WORLD.Get_rank() == 0:
+    #     main.pproc(env.path_out)
         
     # diagnostics
-        
+    if MPI.COMM_WORLD.Get_rank() == 0:
+        simdata = main.load_data(env.path_out)
+
+        # fft in (t, z) of first component of e_field on physical grid
+        Ex_of_t = simdata.arrays["em_fields"]["e_field_log"]
+        power_spectrum_2d(Ex_of_t,
+                    "e_field_log", 
+                    grids=simdata.grids_log,
+                    grids_mapped=simdata.grids_phy,
+                    component=0,
+                    slice_at=[0, 0, None],
+                    do_plot=do_plot,
+                    disp_name='Maxwell1D',
+                    fit_branches=True,
+                    noise_level=0.5,)
+
         
 if __name__ == "__main__":
-    test_light_wave_1d()
+    test_light_wave_1d(do_plot=True)

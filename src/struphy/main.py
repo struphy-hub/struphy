@@ -96,9 +96,6 @@ def run(
                   restart=restart, 
                   verbose=verbose,)
     
-    # save meta-data
-    dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
-    
     # save parameter file
     if rank == 0:
         # save python param file
@@ -353,11 +350,12 @@ def run(
 
     # ===================================================================
 
-    with open(path_out + "/meta.txt", "a") as f:
-        # f.write('wall-clock time [min]:'.ljust(30) + str((end_simulation - start_simulation)/60.) + '\n')
-        f.write(f"{rank} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n")
-    Barrier()
+    meta["wall-clock time[min]"] = (end_simulation - start_simulation) / 60
+    comm.Barrier()
+    
     if rank == 0:
+        # save meta-data
+        dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
         print("Struphy run finished.")
 
     if clone_config is not None:
@@ -544,6 +542,84 @@ def pproc(
             # sph density
             if exist_kinetic["n_sph"]:
                 pproc.post_process_n_sph(path, path_kinetics_species, species, step, compute_bckgr=compute_bckgr)
+
+
+class SimData:
+    """Holds post-processed Struphy data as attributes.
+    
+    Parameters
+    ----------
+    path : str
+        Absolute path of simulation output folder to post-process.
+    """
+    def __init__(self, path: str):
+        self.path = path
+        self.feec_species = {}
+        self.pic_species = {}
+        self.sph_species = {}
+        self.arrays = {}
+        self.grids_log = None
+        self.grids_phy = None
+        
+    @property
+    def spline_grid_resolution(self):
+        if self.grids_log is not None:
+            res = [x.size for x in self.grids_log]
+        else:
+            res = None
+        return res
+
+
+def load_data(path: str) -> SimData:
+    """Load data generated during post-processing.
+    
+    Parameters
+    ----------
+    path : str
+        Absolute path of simulation output folder to post-process.
+    """
+
+
+    path_pproc = os.path.join(path, "post_processing")
+    assert os.path.exists(path_pproc), f"Path {path_pproc} does not exist, run 'pproc' first?"
+    print("\nLoading post-processed simulation data ...")
+
+    path_fields = os.path.join(path_pproc, "fields_data")
+
+    simdata = SimData(path)
+    
+    if os.path.exists(path_fields):
+        
+        # grids
+        with open(os.path.join(path_fields, "grids_log.bin"), "rb") as f:
+            simdata.grids_log = pickle.load(f)
+        with open(os.path.join(path_fields, "grids_phy.bin"), "rb") as f:
+            simdata.grids_phy = pickle.load(f)
+        
+        # species folders
+        species = next(os.walk(path_fields))[1]
+        for spec in species:
+            simdata.feec_species[spec] = []
+            simdata.arrays[spec] = {}
+            path_spec = os.path.join(path_fields, spec)
+            wlk = os.walk(path_spec)
+            files = next(wlk)[2]
+            for file in files:
+                if ".bin" in file:
+                    var = file.split(".")[0]
+                    with open(os.path.join(path_spec, file), "rb") as f:
+                        simdata.feec_species[spec] += [var]
+                        simdata.arrays[spec][var] = pickle.load(f)
+                        
+    print("Done - the following data has been loaded:")
+    print(f"{simdata.spline_grid_resolution = }")
+    print(f"{simdata.feec_species = }")
+    print(f"{simdata.pic_species = }")
+    print(f"{simdata.sph_species = }")
+                        
+    return simdata
+
+
 
 
 

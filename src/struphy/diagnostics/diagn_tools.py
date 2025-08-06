@@ -14,19 +14,22 @@ from struphy.utils.arrays import xp as np
 
 
 def power_spectrum_2d(
-    values,
-    name,
-    code,
-    grids,
-    grids_mapped=None,
-    component=0,
-    slice_at=(None, 0, 0),
-    do_plot=False,
-    disp_name=None,
-    disp_params={},
-    save_plot=False,
-    save_name=None,
-    file_format="png",
+    values: dict,
+    name: str,
+    grids: tuple,
+    grids_mapped: tuple = None,
+    component: int = 0,
+    slice_at: tuple = (None, 0, 0),
+    do_plot: bool = False,
+    disp_name: str = None,
+    disp_params: dict = {},
+    fit_branches: int = 0,
+    noise_level: float = 0.1,
+    extr_order: int = 3,
+    fit_degree: tuple = (1,),
+    save_plot: bool = False,
+    save_name: str = None,
+    file_format: str = "png",
 ):
     """Perform fft in space-time, (t, x) -> (omega, k), where x can be a logical or physical coordinate.
     Returns values if plot=False.
@@ -40,19 +43,16 @@ def power_spectrum_2d(
     name : str
         Name of the FemField.
 
-    code : str
-        From which code the data has been obtained.
-
-    grids : 3-list
+    grids : 3-tuple
         1d logical grids in each eta-direction with Nel[i]*npts_per_cell[i] + 1 entries in each direction.
 
-    grids_mapped : 3-list
+    grids_mapped : 3-tuple
         Mapped grids obtained by domain(). If None, the fft is performed on the logical grids.
 
     component : int
         Which component of a FemField to consider; is 0 for 0-and 3-forms, is in {0, 1, 2} for 1- and 2-forms.
 
-    slice_at : 3-list
+    slice_at : 3-tuple
         At which indices i, j the 1d slice data (t, eta)_(i, j) should be obtained.
         One entry must be "None"; this is the direction of the fft.
         Default: [None, 0, 0] performs the eta1-fft at (eta2[0], eta3[0]).
@@ -65,6 +65,20 @@ def power_spectrum_2d(
 
     disp_params : dict
         Parameters needed for analytical dispersion relation, see struphy.dispersion_relations.analytic.
+
+    fit_branches: int
+        How many branches to fit in the dispersion relation.
+        Default=0 means no fits are made.
+        
+    noise_level: float
+        Sets the threshold above which local maxima in the power spectrum are taken into account.
+        Computed as threshold = max(spectrum) * noise_level. 
+        
+    extr_oder: int
+        Order given to argrelextrema.
+        
+    fit_degree: tuple[int]
+        Degree of fitting polynomial for each branch (fit_branches) of power spectrum.
 
     save_plot : boolean
         Save figure if True. Then a path has to be given.
@@ -84,16 +98,13 @@ def power_spectrum_2d(
         1d array of wave vector.
 
     dispersion : np.array
-        2d array of shape (omega.size, kvce.size) holding the fft.
+        2d array of shape (omega.size, kvec.size) holding the fft.
     """
-
-    print(f"code: {code}")
 
     keys = list(values.keys())
 
     # check uniform grid in time
     dt = keys[1] - keys[0]
-    print(f"time step: {dt}")
     assert np.all([np.abs(y - x - dt) < 1e-12 for x, y in zip(keys[:-1], keys[1:])])
 
     # create 4d np.array with shape (time, eta1, eta2, eta3)
@@ -131,12 +142,39 @@ def power_spectrum_2d(
     Nt = data.shape[0]
     Nx = grid.size
     dx = grid[1] - grid[0]
-    print(f"space step: {dx}")
     assert np.allclose(grid[1:] - grid[:-1], dx * np.ones_like(grid[:-1]))
 
     dispersion = (2.0 / Nt) * (2.0 / Nx) * np.abs(fftn(data))[: Nt // 2, : Nx // 2]
     kvec = 2 * np.pi * fftfreq(Nx, dx)[: Nx // 2]
     omega = 2 * np.pi * fftfreq(Nt, dt)[: Nt // 2]
+
+    if fit_branches > 0:
+        assert len(fit_degree) == fit_branches
+        # determine maxima for each k
+        siz = kvec.size // 2 # take only first half of k-vector
+        k_fit = []
+        omega_fit = {}
+        for n in range(fit_branches):
+            omega_fit[n] = []
+        for k, f_of_omega in zip(kvec[:siz], dispersion[:, :siz].T):
+            threshold = np.max(f_of_omega) * noise_level
+            extrms = argrelextrema(f_of_omega, np.greater, order=3)[0]
+            above_noise = np.nonzero(f_of_omega > threshold)[0]
+            intersec = list(set(extrms) & set(above_noise))
+            if not intersec:
+                continue
+            assert len(intersec) == fit_branches, f"Number of found branches {len(intersec)} is not {fit_branches = }! \
+                Try to lower 'noise_level' or increase 'extr_order'."
+            # print(f"{intersec = }, {omega[intersec[0]] = }")
+            k_fit += [k]
+            for n in range(fit_branches):
+                omega_fit[n] += [omega[intersec[n]]]
+        
+        # fit
+        coeffs = []
+        for m, om in omega_fit.items():
+            coeffs += [np.polyfit(k_fit, om, deg=fit_degree[n])]
+            print(f"\nFitted {coeffs = }")
 
     if do_plot:
         _, ax = plt.subplots(1, 1, figsize=(10, 10))
@@ -156,10 +194,17 @@ def power_spectrum_2d(
             mappable=disp_plot,
             format="%.0e",
         )
-        title = name + " component " + str(component + 1) + " from code: " + code
+        title = name + ", component " + str(component + 1)
         ax.set_title(title)
         ax.set_xlabel("$k$ [a.u.]")
         ax.set_ylabel(r"$\omega$ [a.u.]")
+        for cs in coeffs:
+            def fun(k):
+                out = k*0.0
+                for i, c in enumerate(np.flip(cs)):
+                    out += c * k**i
+                return out
+            ax.plot(kvec, fun(kvec), "r:", label="fit")
 
         # analytic solution:
         disp_class = getattr(analytic, disp_name)
@@ -190,8 +235,7 @@ def power_spectrum_2d(
         else:
             plt.show()
 
-    else:
-        return kvec, omega, dispersion
+    return omega, kvec, dispersion
 
 
 def plot_scalars(
