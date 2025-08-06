@@ -1700,20 +1700,16 @@ class SplineFunction:
                 # special case of const
                 if fb.type == "LogicalConst":
                     vals = fb.values
+                    assert isinstance(vals, (list, tuple))
 
                     if self.space_id in {"H1", "L2"}:
-                        assert isinstance(vals, (float, int))
-
                         def f_tmp(e1, e2, e3):
-                            return vals + 0.0 * e1
+                            return vals[0] + 0.0 * e1
 
                         fun = f_tmp
                     else:
-                        assert isinstance(vals, (list, tuple))
                         assert len(vals) == 3
                         fun = []
-                        for i, _v in enumerate(vals):
-                            assert isinstance(_v, (float, int)) or _v is None
 
                         if vals[0] is not None:
                             fun += [lambda e1, e2, e3: vals[0] + 0.0 * e1]

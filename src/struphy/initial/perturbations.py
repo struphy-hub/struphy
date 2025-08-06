@@ -584,7 +584,7 @@ class TorusModesCos(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, ms: tuple = (2,), ns: tuple = (1,), amps: tuple = (1e-4,), 
+    def __init__(self, ms: tuple = (2,), ns: tuple = (1,), amps: tuple = (0.1,), 
                  pfuns: tuple = ("sin",), pfun_params=None,
                  given_in_basis: GivenInBasis = "0",
                  comp: int = 0,):

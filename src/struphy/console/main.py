@@ -61,15 +61,15 @@ def struphy():
     batch_files = get_batch_files(b_path)
 
     # Load the models and messages
+    model_message = "All models are listed on https://struphy.pages.mpcdf.de/struphy/sections/models.html"
     list_models = []
-    model_message = fluid_message = kinetic_message = hybrid_message = toy_message = ""
     try:
         with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
             list_models = pickle.load(fp)
-        with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
-            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
-                fp,
-            )
+        # with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
+        #     model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
+        #         fp,
+        #     )
     except:
         print("run: struphy --refresh-models")
 
@@ -128,18 +128,18 @@ def struphy():
         sys.exit(0)
 
     # display subset of models
-    model_flags = [
-        (args.fluid, fluid_message),
-        (args.kinetic, kinetic_message),
-        (args.hybrid, hybrid_message),
-        (args.toy, toy_message),
-    ]
+    # model_flags = [
+    #     (args.fluid, fluid_message),
+    #     (args.kinetic, kinetic_message),
+    #     (args.hybrid, hybrid_message),
+    #     (args.toy, toy_message),
+    # ]
 
-    for flag, message in model_flags:
-        if flag:
-            print(message)
-            print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-            sys.exit(0)
+    # for flag, message in model_flags:
+    #     if flag:
+    #         print(message)
+    #         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
+    #         sys.exit(0)
 
     # Set default input path
     if args.set_i:
@@ -683,10 +683,10 @@ def add_parser_params(subparsers, list_models, model_message):
         "params",
         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
             prog,
-            max_help_position=30,
+            max_help_position=35,
         ),
         help="create default parameter file for a model, or show model's options",
-        description="Creates a default parameter file for a specific model, or shows a model's options.",
+        description="Create default parameter file (.py) for a specific model.",
     )
 
     parser_params.add_argument(
@@ -698,18 +698,11 @@ def add_parser_params(subparsers, list_models, model_message):
     )
 
     parser_params.add_argument(
-        "-f",
-        "--file",
+        "-p",
+        "--params-path",
         type=str,
-        metavar="FILE",
-        help="name of the parameter file (.yml) to be created in the current I/O path (default=params_<model>.yml)",
-    )
-
-    parser_params.add_argument(
-        "-o",
-        "--options",
-        help="show model options",
-        action="store_true",
+        metavar="PATH",
+        help="Absolute path to the parameter file (default is getcwd()/params_MODEL.py)",
     )
 
     parser_params.add_argument(
@@ -722,7 +715,7 @@ def add_parser_params(subparsers, list_models, model_message):
     parser_params.add_argument(
         "-y",
         "--yes",
-        help="Say yes on prompt to overwrite .yml FILE",
+        help="Say yes on prompt to overwrite PATH",
         action="store_true",
     )
 

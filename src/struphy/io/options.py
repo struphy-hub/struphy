@@ -237,14 +237,15 @@ class FieldsBackground:
         Type of background.
         
     values : tuple[float]
-        Values for LogicalConst on the unit cube.
+        Values for LogicalConst on the unit cube. 
+        Can be length 1 for scalar functions; must be length 3 for vector-valued functions.
         
     variable : str
         Name of the function in FluidEquilibrium that should be the background.
     """
 
     type: BackgroundTypes = "LogicalConst"
-    values: tuple = (1.5,)
+    values: tuple = (1.5, 0.7, 2.4)
     variable: str = None
 
     def __post_init__(self):

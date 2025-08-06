@@ -189,10 +189,10 @@ def run(
         if rank == 0:
             print("")
         comm.Barrier()
-        print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
+        print(f"Rank {rank}: executing main.run() for model {model_name} ...")
 
     if size > 32 and rank == 32:
-        print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
+        print(f"Ranks > 31: executing main.run() for model {model_name} ...")
 
     # store geometry vtk
     if rank == 0:
