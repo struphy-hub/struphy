@@ -545,8 +545,8 @@ class ShearAlfven(Propagator):
             _f2 = curl @ _T
 
             # allocate output of vector field
-            out1 = self.u.space.zeros()
-            out2 = self.b.space.zeros()
+            out1 = self.u.spline.vector.space.zeros()
+            out2 = self.b.spline.vector.space.zeros()
 
             def f1(t, y1, y2, out: BlockVector = out1):
                 _f1.dot(y2, out=out)

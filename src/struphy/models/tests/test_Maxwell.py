@@ -26,7 +26,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     verbose = True
 
     # environment options
-    out_folders = os.path.join(test_folder, "maxwell")
+    out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
 
     # units
@@ -78,9 +78,9 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     if MPI.COMM_WORLD.Get_rank() == 0:
         simdata = main.load_data(env.path_out)
 
-        # fft in (t, z) of first component of e_field on physical grid
-        Ex_of_t = simdata.arrays["em_fields"]["e_field_log"]
-        _1, _2, _3, coeffs = power_spectrum_2d(Ex_of_t,
+        # fft 
+        E_of_t = simdata.arrays["em_fields"]["e_field_log"]
+        _1, _2, _3, coeffs = power_spectrum_2d(E_of_t,
                     "e_field_log", 
                     grids=simdata.grids_log,
                     grids_mapped=simdata.grids_phy,
@@ -95,7 +95,8 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         )
         
         # assert
-        assert np.abs(coeffs[0][0] - 1.0) < 0.02
+        c_light_speed = 1.0
+        assert np.abs(coeffs[0][0] - c_light_speed) < 0.02
         
         
 @pytest.mark.mpi(min_size=4)
@@ -105,7 +106,7 @@ def test_coaxial(do_plot: bool = False):
     verbose = True
 
     # environment options
-    out_folders = os.path.join(test_folder, "maxwell")
+    out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="coaxial")
 
     # units
