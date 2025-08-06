@@ -1330,7 +1330,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
     def generate_default_parameter_file(
         self,
-        file_name: str = None,
+        path: str = None,
         prompt: bool = True,
     ):
         """Generate a parameter file with default options for each species,
@@ -1340,31 +1340,26 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         Parameters
         ----------
-        file_name : str
-            Alternative filename to params_<model_name>.py.
+        path : str
+            Alternative path to getcwd()/params_MODEL.py.
 
         prompt : bool
             Whether to prompt for overwriting the specified .yml file.
         """
-
-        # Read struphy state file
-        state = read_state()
-        i_path = state["i_path"]
-        assert os.path.exists(i_path), f"The path '{i_path}' does not exist. Set path with `struphy --set-i PATH`"
         
-        if file_name is None:
-            file_name = os.path.join(i_path, f"params_{self.__class__.__name__}.py")
+        if path is None:
+            path = os.path.join(os.getcwd(), f"params_{self.__class__.__name__}.py")
 
         # create new default file
         try:
-            file =  open(file_name, "x")
+            file =  open(path, "x")
         except FileExistsError:
             if not prompt:
                 yn = "Y"
             else:
-                yn = input(f"File {file_name} exists, overwrite (Y/n)? ")
+                yn = input(f"File {path} exists, overwrite (Y/n)? ")
                 if yn in ("", "Y", "y", "yes", "Yes"):
-                    file =  open(file_name, "w")
+                    file =  open(path, "w")
                 else:
                     print("exiting ...")
                     return
@@ -1388,8 +1383,15 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             for vn, var in species.variables.items():
                 if isinstance(var, FEECVariable):
                     has_feec = True
-                    init_bckgr_feec = f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
-                    init_pert_feec = f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos())\n"
+                    if var.space in ("H1", "L2"):
+                        init_bckgr_feec = f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
+                        init_pert_feec = f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos())\n"
+                    else:
+                        init_bckgr_feec = f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
+                        init_pert_feec = f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=0))\n\
+model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=1))\n\
+model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=2))\n"
+                        
                     exclude_feec = f"# model.{sn}.{vn}.save_data = False\n"
                 elif isinstance(var, PICVariable):
                     has_pic = True
@@ -1406,7 +1408,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             
         file.write("\n# import model, set verbosity\n")
         file.write(f"from {self.__module__} import {self.__class__.__name__} as Model\n")
-        file.write("verbose = False\n")
+        file.write("verbose = True\n")
         
         file.write("\n# environment options\n")
         file.write("env = EnvironmentOptions()\n")
@@ -1468,7 +1470,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 verbose=verbose, \n\
                 )")
         
-        print(f"Default parameter file for '{self.__class__.__name__}' has been created.\n\
+        print(f"\nDefault parameter file for '{self.__class__.__name__}' has been created in {path}.\n\
 You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy run -i params_{self.__class__.__name__}.py'")
 
     ###################
