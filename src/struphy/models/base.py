@@ -53,6 +53,10 @@ class StruphyModel(metaclass=ABCMeta):
     class Propagators:
         pass
     
+    @abstractmethod
+    def __init__(self):
+        """Light-weight init of model."""
+    
     @property    
     @abstractmethod
     def bulk_species() -> Species:

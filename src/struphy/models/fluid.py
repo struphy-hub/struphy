@@ -1,5 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
+from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
@@ -7,6 +8,8 @@ from struphy.models.species import KineticSpecies, FluidSpecies, FieldSpecies
 from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
 from struphy.polar.basic import PolarVector
 from psydac.linalg.block import BlockVector
+
+rank = MPI.COMM_WORLD.Get_rank()
 
 
 class LinearMHD(StruphyModel):
@@ -62,7 +65,10 @@ class LinearMHD(StruphyModel):
     ## abstract methods
 
     def __init__(self):
-        # 1. instantiate all variales
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+            
+        # 1. instantiate all species, variables
         self.em_fields = self.EMFields()
         self.mhd = self.MHD()
 
@@ -106,7 +112,7 @@ class LinearMHD(StruphyModel):
             self._ones[:] = 1.0
             
         self._tmp_b1: BlockVector = self.derham.Vh["2"].zeros() # TODO: replace derham.Vh dict by class
-        self._tmp_b2 = self.derham.Vh["2"].zeros()
+        self._tmp_b2: BlockVector = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):        
         # perturbed fields
