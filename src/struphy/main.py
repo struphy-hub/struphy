@@ -567,8 +567,9 @@ class SimData:
         self.pic_species = {}
         self.sph_species = {}
         self.arrays = {}
-        self.grids_log = None
-        self.grids_phy = None
+        self.grids_log: list[np.ndarray] = None
+        self.grids_phy: list[np.ndarray] = None
+        self.t_grid: np.ndarray = None
         
     @property
     def spline_grid_resolution(self):
@@ -577,6 +578,10 @@ class SimData:
         else:
             res = None
         return res
+    
+    @property
+    def time_grid_size(self):
+        return self.t_grid.size
 
 
 def load_data(path: str) -> SimData:
@@ -588,14 +593,17 @@ def load_data(path: str) -> SimData:
         Absolute path of simulation output folder to post-process.
     """
 
-
     path_pproc = os.path.join(path, "post_processing")
     assert os.path.exists(path_pproc), f"Path {path_pproc} does not exist, run 'pproc' first?"
     print("\n*** Loading post-processed simulation data:")
 
-    path_fields = os.path.join(path_pproc, "fields_data")
-
     simdata = SimData(path)
+    
+    # load time grid
+    simdata.t_grid = np.load(os.path.join(path_pproc, "t_grid.npy"))
+
+    # load point data
+    path_fields = os.path.join(path_pproc, "fields_data")
     
     if os.path.exists(path_fields):
         
@@ -621,6 +629,7 @@ def load_data(path: str) -> SimData:
                         simdata.arrays[spec][var] = pickle.load(f)
                         
     print("\nThe following data has been loaded:")
+    print(f"{simdata.time_grid_size = }")
     print(f"{simdata.spline_grid_resolution = }")
     print(f"{simdata.feec_species = }")
     print(f"{simdata.pic_species = }")
