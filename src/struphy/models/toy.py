@@ -1,13 +1,15 @@
 
 import numpy as np
 from dataclasses import dataclass
-import inspect
+from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
 from struphy.propagators.base import Propagator
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 from struphy.models.species import KineticSpecies, FluidSpecies, FieldSpecies
 from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
+
+rank = MPI.COMM_WORLD.Get_rank()
 
 
 class Maxwell(StruphyModel):
@@ -49,6 +51,9 @@ class Maxwell(StruphyModel):
     ## abstract methods
 
     def __init__(self):        
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+        
         # 1. instantiate all variales
         self.em_fields = self.EMFields()
 
