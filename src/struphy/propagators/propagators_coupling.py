@@ -2761,8 +2761,17 @@ class CurrentCoupling5DGradB_dg(Propagator):
             buffer_array,
             op=MPI.SUM,
         )
-        en_fB_old = buffer_array[0]
         
+        if self.derham.inter_comm.Get_size() > 1:
+
+            self.derham.inter_comm.Allreduce(
+            MPI.IN_PLACE,
+            buffer_array,
+            op=MPI.SUM,
+            )
+        
+        en_fB_old = buffer_array[0]
+
         en_tot_old = en_U_old + en_fB_old
 
         # initial guess
@@ -2811,12 +2820,21 @@ class CurrentCoupling5DGradB_dg(Propagator):
             buffer_array,
             op=MPI.SUM,
         )
+
+        if self.derham.inter_comm.Get_size() > 1:
+
+            self.derham.inter_comm.Allreduce(
+            MPI.IN_PLACE,
+            buffer_array,
+            op=MPI.SUM,
+            )
+        
         en_fB_new = buffer_array[0]
 
         # iterations
         for stage in range(self._dg_solver['maxiter']):
 
-            if self._dg_solver["verbose"] and self.derham.comm.Get_rank() == 0: print("stage: ", stage)
+            if self._dg_solver["verbose"] and self.derham.comm.Get_rank() == 0 and self.derham.inter_comm.Get_rank() == 0 : print("stage: ", stage)
             
             # calculate constant for discrete gradient
             # save u^{n+1,k}
@@ -2835,13 +2853,30 @@ class CurrentCoupling5DGradB_dg(Propagator):
             sum_u_diff_loc = np.sum((self._u_diff.toarray())**2)
             sum_H_diff_loc = np.sum((self.particles[0].markers[~self.particles[0].holes, 0:3] - self.particles[0].markers[~self.particles[0].holes, 11:14])**2)
             
-            buffer_array = np.array([sum_H_diff_loc + sum_u_diff_loc])
+            buffer_array = np.array([sum_u_diff_loc])
             self.derham.comm.Allreduce(
                 MPI.IN_PLACE,
                 buffer_array,
                 op=MPI.SUM,
             )
             denominator = buffer_array[0]
+
+            buffer_array = np.array([sum_H_diff_loc])
+            self.derham.comm.Allreduce(
+                MPI.IN_PLACE,
+                buffer_array,
+                op=MPI.SUM,
+            )
+
+            if self.derham.inter_comm.Get_size() > 1:
+
+                self.derham.inter_comm.Allreduce(
+                MPI.IN_PLACE,
+                buffer_array,
+                op=MPI.SUM,
+                )
+            
+            denominator += buffer_array[0]
 
             # sorting markers, mid-point
             self.particles[0].mpi_sort_markers(apply_bc= False, alpha=0.5)
@@ -2865,6 +2900,14 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 op=MPI.SUM,
             )
 
+            if self.derham.inter_comm.Get_size() > 1:
+
+                self.derham.inter_comm.Allreduce(
+                MPI.IN_PLACE,
+                buffer_array,
+                op=MPI.SUM,
+                )
+            
             en_fB_mid = buffer_array[0]
 
             if denominator == 0.:
@@ -2935,29 +2978,56 @@ class CurrentCoupling5DGradB_dg(Propagator):
                 buffer_array,
                 op=MPI.SUM,
             )
+
+            if self.derham.inter_comm.Get_size() > 1:
+
+                self.derham.inter_comm.Allreduce(
+                MPI.IN_PLACE,
+                buffer_array,
+                op=MPI.SUM,
+                )
+            
             en_fB_new = buffer_array[0]
 
             # calculate ||z^{n+1,k} - z^n||
             sum_u_diff_loc = np.sum(np.abs(_u_new.toarray() - _u_old.toarray()))
 
-            buffer_array = np.array([sum_u_diff_loc + sum_H_diff_loc])
+            buffer_array = np.array([sum_u_diff_loc])
             self.derham.comm.Allreduce(
                 MPI.IN_PLACE,
                 buffer_array,
                 op=MPI.SUM,
             )
             diff = buffer_array[0]
+
+            buffer_array = np.array([sum_H_diff_loc])
+            self.derham.comm.Allreduce(
+                MPI.IN_PLACE,
+                buffer_array,
+                op=MPI.SUM,
+            )
+
+            if self.derham.inter_comm.Get_size() > 1:
+
+                self.derham.inter_comm.Allreduce(
+                MPI.IN_PLACE,
+                buffer_array,
+                op=MPI.SUM,
+                )
+
+            diff += buffer_array[0]
+
             e_diff = np.abs(en_U_new + en_fB_new - en_tot_old)
 
             if diff < self._dg_solver['tol']:
-                if self._dg_solver['verbose'] and self.derham.comm.Get_rank() == 0: 
+                if self._dg_solver['verbose'] and self.derham.comm.Get_rank() == 0 and self.derham.inter_comm.Get_rank()==0: 
                     print("converged diff:", diff)
                     print("converged ediff:", e_diff)
                 
                 self.derham.comm.Barrier()
                 break
             else:
-                if self._dg_solver['verbose'] and self.derham.comm.Get_rank() == 0: 
+                if self._dg_solver['verbose'] and self.derham.comm.Get_rank() == 0 and self.derham.inter_comm.Get_rank()==0: 
                     print("not converged diff:", diff)
                     print("not converged ediff:", e_diff)
 
