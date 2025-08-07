@@ -597,109 +597,15 @@ class StruphyModel(metaclass=ABCMeta):
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
                     v.allocate(derham=self.derham, domain=self.domain, equil=self.equil,)
-
-        # marker arrays and plasma parameters of kinetic species
+                    
+        # allocate memory for marker arrays of kinetic variables
         if self.kinetic_species:
-            for species, val in self.kinetic.items():
-                assert any([key in val["params"]["markers"] for key in ["Np", "ppc", "ppb"]])
-
-                bckgr_params = val["params"].get("background", None)
-                pert_params = val["params"].get("perturbation", None)
-                boxes_per_dim = val["params"].get("boxes_per_dim", None)
-                mpi_dims_mask = val["params"].get("dims_mask", None)
-                weights_params = val["params"].get("weights", None)
-
-                if self.derham is None:
-                    domain_decomp = None
-                else:
-                    domain_array = self.derham.domain_array
-                    nprocs = self.derham.domain_decomposition.nprocs
-                    domain_decomp = (domain_array, nprocs)
-
-                kinetic_class = getattr(particles, val["space"])
-
-                val["obj"] = kinetic_class(
-                    comm_world=self.comm_world,
-                    clone_config=self.clone_config,
-                    **val["params"]["markers"],
-                    weights_params=weights_params,
-                    domain_decomp=domain_decomp,
-                    mpi_dims_mask=mpi_dims_mask,
-                    boxes_per_dim=boxes_per_dim,
-                    name=species,
-                    equation_params=self.equation_params[species],
-                    domain=self.domain,
-                    equil=self.equil,
-                    projected_equil=self.projected_equil,
-                    bckgr_params=bckgr_params,
-                    pert_params=pert_params,
-                )
-
-                obj = val["obj"]
-                assert isinstance(obj, Particles)
-
-                self._pointer[species] = obj
-
-                # for storing markers
-                val["kinetic_data"] = {}
-
-                # for storing the distribution function
-                if "f" in val["params"]["save_data"]:
-                    slices = val["params"]["save_data"]["f"]["slices"]
-                    n_bins = val["params"]["save_data"]["f"]["n_bins"]
-                    ranges = val["params"]["save_data"]["f"]["ranges"]
-
-                    val["kinetic_data"]["f"] = {}
-                    val["kinetic_data"]["df"] = {}
-                    val["bin_edges"] = {}
-                    if len(slices) > 0:
-                        for i, sli in enumerate(slices):
-                            assert ((len(sli) - 2) / 3).is_integer()
-                            assert len(slices[i].split("_")) == len(ranges[i]) == len(n_bins[i]), (
-                                f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
-                            )
-                            val["bin_edges"][sli] = []
-                            dims = (len(sli) - 2) // 3 + 1
-                            for j in range(dims):
-                                val["bin_edges"][sli] += [
-                                    np.linspace(
-                                        ranges[i][j][0],
-                                        ranges[i][j][1],
-                                        n_bins[i][j] + 1,
-                                    ),
-                                ]
-                            val["kinetic_data"]["f"][sli] = np.zeros(
-                                n_bins[i],
-                                dtype=float,
-                            )
-                            val["kinetic_data"]["df"][sli] = np.zeros(
-                                n_bins[i],
-                                dtype=float,
-                            )
-
-                # for storing an sph evaluation of the density n
-                if "n_sph" in val["params"]["save_data"]:
-                    plot_pts = val["params"]["save_data"]["n_sph"]["plot_pts"]
-
-                    val["kinetic_data"]["n_sph"] = []
-                    val["plot_pts"] = []
-                    for i, pts in enumerate(plot_pts):
-                        assert len(pts) == 3
-                        eta1 = np.linspace(0.0, 1.0, pts[0])
-                        eta2 = np.linspace(0.0, 1.0, pts[1])
-                        eta3 = np.linspace(0.0, 1.0, pts[2])
-                        ee1, ee2, ee3 = np.meshgrid(
-                            eta1,
-                            eta2,
-                            eta3,
-                            indexing="ij",
-                        )
-                        val["plot_pts"] += [(ee1, ee2, ee3)]
-                        val["kinetic_data"]["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
-
-                # other data (wave-particle power exchange, etc.)
-                # TODO
-
+            for species, spec in self.kinetic_species.items():
+                assert isinstance(spec, KineticSpecies)
+                for k, v in spec.variables.items():
+                    assert isinstance(v, (PICVariable, SPHVariable))
+                    v.allocate(derham=self.derham, domain=self.domain, equil=self.equil,)
+                
         # TODO: allocate memory for FE coeffs of diagnostics
         # if self.params.diagnostic_fields is not None:
         #     for key, val in self.diagnostics.items():
@@ -1385,7 +1291,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         file.write("from struphy.geometry import domains\n")
         file.write("from struphy.fields_background import equils\n")
         
-        species_params = "\n# species parameters"
+        species_params = "\n# species parameters\n"
+        kinetic_params = ""    
         has_plasma = False
         has_feec = False
         has_pic = False
@@ -1395,8 +1302,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             
             if isinstance(species, (FluidSpecies, KineticSpecies)):
                 has_plasma = True
-                species_params += f"\nmodel.{sn}.set_phys_params()"
-                
+                species_params += f"model.{sn}.set_phys_params()\n"
+                if isinstance(species, KineticSpecies):
+                    kinetic_params += f"model.{sn}.set_markers()\n\
+model.{sn}.set_sorting()\n\
+model.{sn}.set_save_data()\n"
+            
             for vn, var in species.variables.items():
                 if isinstance(var, FEECVariable):
                     has_feec = True
@@ -1460,7 +1371,10 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("model = Model()\n")
         
         if has_plasma:
-            file.write(species_params + "\n")
+            file.write(species_params)
+            
+        if has_pic:
+            file.write(kinetic_params)
             
         file.write("\n# propagator options\n")
         for prop in self.propagators.__dict__:
