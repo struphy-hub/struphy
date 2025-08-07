@@ -284,7 +284,6 @@ class EnvironmentOptions:
 
     out_folders: str = os.getcwd()
     sim_folder: str = "sim_1"
-    path_out: str = None
     restart: bool = False
     max_runtime: int = 300
     save_step: int = 1

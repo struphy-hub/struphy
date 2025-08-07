@@ -1357,12 +1357,24 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             if not prompt:
                 yn = "Y"
             else:
-                yn = input(f"File {path} exists, overwrite (Y/n)? ")
-                if yn in ("", "Y", "y", "yes", "Yes"):
-                    file =  open(path, "w")
-                else:
-                    print("exiting ...")
-                    return
+                yn = input(f"\nFile {path} exists, overwrite (Y/n)? ")
+            if yn in ("", "Y", "y", "yes", "Yes"):
+                file = open(path, "w")
+            else:
+                print("exiting ...")
+                return
+        except FileNotFoundError:
+            folder = os.path.join("/", *path.split("/")[:-1])
+            if not prompt:
+                yn = "Y"
+            else:
+                yn = input(f"\nFolder {folder} does not exist, create (Y/n)? ")
+            if yn in ("", "Y", "y", "yes", "Yes"):
+                os.makedirs(folder)
+                file = open(path, "x")
+            else:
+                print("exiting ...")
+                return   
                     
         file.write("from struphy.io.options import EnvironmentOptions, Units, Time\n")
         file.write("from struphy.geometry import domains\n")

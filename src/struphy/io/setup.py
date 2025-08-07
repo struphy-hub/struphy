@@ -4,6 +4,7 @@ import glob
 import os
 import shutil
 import yaml
+from types import ModuleType
 
 from mpi4py import MPI
 
@@ -14,7 +15,7 @@ from struphy.geometry.domains import Cuboid
 from struphy.io.options import Units, Time
 
 
-def import_parameters_py(params_path: str):
+def import_parameters_py(params_path: str) -> ModuleType:
     """Import a .py parameter file under the module name 'parameters' and return it."""
     assert ".py" in params_path
     spec = importlib.util.spec_from_file_location("parameters", params_path)
