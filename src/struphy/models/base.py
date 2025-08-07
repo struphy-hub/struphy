@@ -1345,6 +1345,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         prompt : bool
             Whether to prompt for overwriting the specified .yml file.
+            
+        Returns
+        -------
+        params_path : str
+            The path of the parameter file.
         """
         
         if path is None:
@@ -1454,7 +1459,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("model = Model()\n")
         
         if has_plasma:
-            file.write(species_params)
+            file.write(species_params + "\n")
             
         file.write("\n# propagator options\n")
         for prop in self.propagators.__dict__:
@@ -1482,8 +1487,12 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                 verbose=verbose, \n\
                 )")
         
+        file.close()
+        
         print(f"\nDefault parameter file for '{self.__class__.__name__}' has been created in {path}.\n\
 You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy run -i params_{self.__class__.__name__}.py'")
+        
+        return path
 
     ###################
     # Private methods :

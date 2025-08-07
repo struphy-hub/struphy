@@ -143,6 +143,22 @@ class LinearMHD(StruphyModel):
         en_Btot = self._tmp_b1.inner(self._tmp_b2) / 2
 
         self.update_scalar("en_B_tot", en_Btot)
+        
+    ## default parameters
+    def generate_default_parameter_file(self, path = None, prompt = True):
+        params_path = super().generate_default_parameter_file(path, prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "mag_sonic.set_options" in line:
+                    new_file += ["model.propagators.mag_sonic.set_options(b_field=model.em_fields.b_field)\n"]
+                else:
+                    new_file += [line]
+                    
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+            
 
 
 class LinearExtendedMHDuniform(StruphyModel):
