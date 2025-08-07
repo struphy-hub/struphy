@@ -150,11 +150,11 @@ class Vlasov(StruphyModel):
         self.add_scalar("en_f", compute="from_particles", species="ions")
 
     @property
-    def bulk_species():
-        return "ions"
+    def bulk_species(self):
+        return self.kinetic_ions
 
     @property
-    def velocity_scale():
+    def velocity_scale(self):
         return "cyclotron"
     
     def allocate_helpers(self):

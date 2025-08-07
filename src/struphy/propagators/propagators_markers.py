@@ -51,6 +51,9 @@ class PushEta(Propagator):
                     butcher: ButcherTableau = None,
                     ):
         
+        if butcher is None:
+            butcher = ButcherTableau()
+        
         # use setter for options
         self.options = self.Options(self,
                                     butcher=butcher,

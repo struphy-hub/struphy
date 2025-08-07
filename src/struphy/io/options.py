@@ -27,6 +27,11 @@ OptsSymmSolver = Literal["pcg", "cg"]
 OptsGenSolver = Literal["pbicgstab", "bicgstab"]
 OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
 
+# markers
+OptsMarkerBC = Literal["periodic", "reflect"]
+OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
+OptsLoading = Literal["pseudo_random", "tesselation"]
+
 
 ## Option classes
 
