@@ -2,6 +2,7 @@
 
 from numpy import array, polynomial, random
 from typing import Literal, get_args
+from dataclasses import dataclass
 
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -23,6 +24,7 @@ from struphy.io.options import check_option
 from psydac.linalg.basic import LinearOperator
 
 
+@dataclass
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -89,6 +91,7 @@ class PushEta(Propagator):
             self.var.particles.update_weights()
 
 
+@dataclass
 class PushVxB(Propagator):
     r"""For each marker :math:`p`, solves
 

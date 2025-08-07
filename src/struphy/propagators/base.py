@@ -44,7 +44,10 @@ class Propagator(metaclass=ABCMeta):
         """
 
     def set_variables(self, **vars):
-        """Update variables in __dict__ and set self.variables with user-defined instance variables (allocated)."""
+        """Define the variables to be updated by the propagator.
+        
+        Update variables in __dict__ and set self.variables with user-defined instance variables (allocated).
+        """
         assert len(vars) == len(self.__dict__), f"Variables must be passed in the following order: {self.__dict__}, but is {vars}."
         for ((k, v), (kp, vp)) in zip(vars.items(), self.__dict__.items()):
             assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.__dict__}."

@@ -114,76 +114,59 @@ class Vlasov(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    @dataclass
+    class KineticIons(KineticSpecies):
+        var: PICVariable =  PICVariable(name="ions", space="Particles6D")
+        
+    ## propagators
+    
+    class Propagators:
+        def __init__(self):
+            self.push_vxb = propagators_markers.PushVxB()
+            self.push_eta = propagators_markers.PushEta()
 
-        dct["kinetic"]["ions"] = "Particles6D"
-        return dct
+    ## abstract methods
 
-    @staticmethod
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+            
+        # 1. instantiate all species, variables
+        self.kinetic_ions = self.KineticIons()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+        
+        # 3. assign variables to propagators
+        self.propagators.push_vxb.set_variables(
+            ions = self.kinetic_ions.var,
+            )
+        
+        self.propagators.push_eta.set_variables(
+            var = self.kinetic_ions.var,
+            )
+        
+        # define scalars for update_scalar_quantities
+        self.add_scalar("en_f", compute="from_particles", species="ions")
+
+    @property
     def bulk_species():
         return "ions"
 
-    @staticmethod
+    @property
     def velocity_scale():
         return "cyclotron"
-
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_markers.PushVxB: ["ions"],
-            propagators_markers.PushEta: ["ions"],
-        }
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # prelim
-        ions_params = self.kinetic["ions"]["params"]
-
-        # project magnetic background
-        self._b_eq = self.derham.P["2"](
-            [
-                self.equil.b2_1,
-                self.equil.b2_2,
-                self.equil.b2_3,
-            ]
-        )
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushVxB] = {
-            "algo": ions_params["options"]["PushVxB"]["algo"],
-            "kappa": 1.0,
-            "b2": self._b_eq,
-            "b2_add": None,
-        }
-
-        self._kwargs[propagators_markers.PushEta] = {"algo": ions_params["options"]["PushEta"]["algo"]}
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
-        self.add_scalar("en_f", compute="from_particles", species="ions")
-
-        # MPI operations needed for scalar variables
-        self._tmp = np.empty(1, dtype=float)
+    
+    def allocate_helpers(self):
+        self._tmp = np.empty(1, dtype=float) 
 
     def update_scalar_quantities(self):
-        self._tmp[0] = self.pointer["ions"].markers_wo_holes[:, 6].dot(
-            self.pointer["ions"].markers_wo_holes[:, 3] ** 2
-            + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
-            + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
-        ) / (2 * self.pointer["ions"].Np)
+        particles = self.kinetic_ions.var.particles
+        self._tmp[0] = particles.markers_wo_holes[:, 6].dot(
+            particles.markers_wo_holes[:, 3] ** 2
+            + particles.markers_wo_holes[:, 4] ** 2
+            + particles.markers_wo_holes[:, 5] ** 2,
+        ) / (2 * particles.Np)
 
         self.update_scalar("en_f", self._tmp[0])
 

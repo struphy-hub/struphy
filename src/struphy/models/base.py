@@ -1409,9 +1409,10 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=1))\n\
 model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=2))\n"
                         
-                    exclude_feec = f"# model.{sn}.{vn}.save_data = False\n"
+                    exclude = f"# model.{sn}.{vn}.save_data = False\n"
                 elif isinstance(var, PICVariable):
                     has_pic = True
+                    exclude = f"# model.....save_data = False\n"
                 elif isinstance(var, SPHVariable):
                     has_sph = True
         
@@ -1471,7 +1472,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
             file.write(init_pert_feec)
             
         file.write("\n# optional: exclude variables from saving\n")
-        file.write(exclude_feec)
+        file.write(exclude)
         
         file.write('\nif __name__ == "__main__":\n')
         file.write("    # start run\n")
