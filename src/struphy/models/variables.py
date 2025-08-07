@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from mpi4py import MPI
-import inspect
+import numpy as np
 
 from struphy.initial.base import InitialCondition
 from struphy.feec.psydac_derham import Derham, SplineFunction
@@ -124,7 +124,7 @@ class PICVariable(Variable):
         assert space in ("Particles6D", "Particles5D", "Particles3D", "DeltaFParticles6D")
         self._name = name
         self._space = space
-        self._kinetic_data = None
+        self._kinetic_data = {}
         
     @property
     def __name__(self):
@@ -191,49 +191,46 @@ class PICVariable(Variable):
             equation_params=self.species.equation_params,
         )
 
-        # for storing markers
-        self._kinetic_data = {}
+        # for storing the binned distribution function
+        if self.species.f_binned is not None:
+            slices = self.species.f_binned["slices"]
+            n_bins = self.species.f_binned["n_bins"]
+            ranges = self.species.f_binned["ranges"]
 
-        # for storing the distribution function
-        if "f" in val["params"]["save_data"]:
-            slices = val["params"]["save_data"]["f"]["slices"]
-            n_bins = val["params"]["save_data"]["f"]["n_bins"]
-            ranges = val["params"]["save_data"]["f"]["ranges"]
-
-            val["kinetic_data"]["f"] = {}
-            val["kinetic_data"]["df"] = {}
-            val["bin_edges"] = {}
+            self.kinetic_data["f"] = {}
+            self.kinetic_data["df"] = {}
+            self.kinetic_data["bin_edges"] = {}
             if len(slices) > 0:
                 for i, sli in enumerate(slices):
                     assert ((len(sli) - 2) / 3).is_integer()
                     assert len(slices[i].split("_")) == len(ranges[i]) == len(n_bins[i]), (
                         f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
                     )
-                    val["bin_edges"][sli] = []
+                    self.kinetic_data["bin_edges"][sli] = []
                     dims = (len(sli) - 2) // 3 + 1
                     for j in range(dims):
-                        val["bin_edges"][sli] += [
+                        self.kinetic_data["bin_edges"][sli] += [
                             np.linspace(
                                 ranges[i][j][0],
                                 ranges[i][j][1],
                                 n_bins[i][j] + 1,
                             ),
                         ]
-                    val["kinetic_data"]["f"][sli] = np.zeros(
+                    self.kinetic_data["f"][sli] = np.zeros(
                         n_bins[i],
                         dtype=float,
                     )
-                    val["kinetic_data"]["df"][sli] = np.zeros(
+                    self.kinetic_data["df"][sli] = np.zeros(
                         n_bins[i],
                         dtype=float,
                     )
 
         # for storing an sph evaluation of the density n
-        if "n_sph" in val["params"]["save_data"]:
-            plot_pts = val["params"]["save_data"]["n_sph"]["plot_pts"]
+        if self.species.n_sph is not None:
+            plot_pts = self.species.n_sph["plot_pts"]
 
-            val["kinetic_data"]["n_sph"] = []
-            val["plot_pts"] = []
+            self.kinetic_data["n_sph"] = []
+            self.kinetic_data["plot_pts"] = []
             for i, pts in enumerate(plot_pts):
                 assert len(pts) == 3
                 eta1 = np.linspace(0.0, 1.0, pts[0])
@@ -245,8 +242,8 @@ class PICVariable(Variable):
                     eta3,
                     indexing="ij",
                 )
-                val["plot_pts"] += [(ee1, ee2, ee3)]
-                val["kinetic_data"]["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
+                self.kinetic_data["plot_pts"] += [(ee1, ee2, ee3)]
+                self.kinetic_data["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
 
         # other data (wave-particle power exchange, etc.)
         # TODO
