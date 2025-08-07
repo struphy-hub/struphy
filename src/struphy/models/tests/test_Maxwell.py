@@ -15,7 +15,7 @@ from struphy.kinetic_background import maxwellians
 from struphy import main
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
 
-test_folder = os.path.join(os.getcwd(), "verification_tests")
+test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 
 
 @pytest.mark.mpi(min_size=3)
