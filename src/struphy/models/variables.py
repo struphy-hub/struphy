@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from mpi4py import MPI
+import inspect
 
 from struphy.initial.base import InitialCondition
 from struphy.feec.psydac_derham import Derham, SplineFunction
@@ -7,6 +8,9 @@ from struphy.io.options import FieldsBackground
 from struphy.initial.perturbations import Perturbation
 from struphy.geometry.base import Domain
 from struphy.fields_background.base import FluidEquilibrium
+from struphy.pic.base import Particles
+from struphy.kinetic_background.base import Maxwellian
+from struphy.pic import particles
 
 
 class Variable(metaclass=ABCMeta):
@@ -113,7 +117,35 @@ class FEECVariable(Variable):
     
     
 class PICVariable(Variable):
-    pass
+    def __init__(self, name: str = "a_pic_var", space: str = "Particles6D"):
+        assert space in ("Particles6D", "Particles5D", "Particles3D", "ParticlesSPH", "DeltaFParticles6D")
+        self._name = name
+        self._space = space
+        
+    @property
+    def __name__(self):
+        return self._name
+        
+    @property
+    def space(self):
+        return self._space
+    
+    @property
+    def particles(self) -> Particles:
+        return self._particles
+    
+    def add_background(self, background: Maxwellian, verbose=True):
+        super().add_background(background, verbose=verbose)
+    
+    def allocate(self, derham: Derham, domain: Domain = None, equil: FluidEquilibrium = None,):
+        self._particles = getattr(particles, self.space)(
+                        name=self.__name__,
+                        space_id=self.space,
+                        backgrounds=self.backgrounds,
+                        perturbations=self.perturbations,
+                        domain=domain,
+                        equil=equil,
+                    )
     
     
 class SPHVariable(Variable):

@@ -11,6 +11,7 @@ from struphy.geometry.base import Domain
 from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
+from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 
 
 class Propagator(metaclass=ABCMeta):
@@ -162,7 +163,7 @@ class Propagator(metaclass=ABCMeta):
         self._basis_ops = basis_ops
 
     @property
-    def projected_equil(self):
+    def projected_equil(self) -> ProjectedFluidEquilibriumWithB:
         """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
         assert hasattr(
             self,
