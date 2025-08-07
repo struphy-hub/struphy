@@ -860,6 +860,8 @@ def sph_grad_mean_velocity(
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
 
+
+    grad_v_at_eta = zeros((3,3), dtype = float)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle
         if not valid_mks[ip]:
@@ -869,63 +871,27 @@ def sph_grad_mean_velocity(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         loc_box = int(markers[ip, n_cols - 2])
-        grad_v1_at_eta = sph_eval_kernels.boxed_based_kernel(
-            args_markers,
-            eta1,
-            eta2,
-            eta3,
-            loc_box,
-            boxes,
-            neighbours,
-            holes,
-            periodic1,
-            periodic2,
-            periodic3,
-            first_free_idx,
-            kernel_type,
-            h1,
-            h2,
-            h3,
-        )
+        for j in range(3):
+            for k in range(3):
+                
+                grad_v_at_eta[j,k] = sph_eval_kernels.boxed_based_kernel(
+                    args_markers,
+                    eta1,
+                    eta2,
+                    eta3,
+                    loc_box,
+                    boxes,
+                    neighbours,
+                    holes,
+                    periodic1,
+                    periodic2,
+                    periodic3,
+                    first_free_idx +j,
+                    kernel_type +1 +k,
+                    h1,
+                    h2,
+                    h3,
+                )
         
-        v2_at_eta = sph_eval_kernels.boxed_based_kernel(
-            args_markers,
-            eta1,
-            eta2,
-            eta3,
-            loc_box,
-            boxes,
-            neighbours,
-            holes,
-            periodic1,
-            periodic2,
-            periodic3,
-            first_free_idx +1,
-            kernel_type,
-            h1,
-            h2,
-            h3,
-        )
-        
-        v3_at_eta = sph_eval_kernels.boxed_based_kernel(
-            args_markers,
-            eta1,
-            eta2,
-            eta3,
-            loc_box,
-            boxes,
-            neighbours,
-            holes,
-            periodic1,
-            periodic2,
-            periodic3,
-            first_free_idx +2,
-            kernel_type,
-            h1,
-            h2,
-            h3,
-        )
-        # save
-        markers[ip, column_nr] = v1_at_eta
-        markers[ip, column_nr + 1] = v2_at_eta
-        markers[ip, column_nr + 2] = v3_at_eta
+                # save
+                markers[ip, column_nr + 3*j +k] = grad_v_at_eta[j,k]
