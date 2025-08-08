@@ -129,6 +129,7 @@ class Vlasov(StruphyModel):
         return {
             propagators_markers.PushVxB: ["ions"],
             propagators_markers.PushEta: ["ions"],
+            propagators_markers.PushVinEfield: ["ions"],
         }
 
     __em_fields__ = species()["em_fields"]
@@ -146,6 +147,10 @@ class Vlasov(StruphyModel):
 
         # prelim
         ions_params = self.kinetic["ions"]["params"]
+        use_e_field = ions_params["options"]["PushVinEfield"]["use_e_field"]
+        if use_e_field:
+            fun = lambda x, y, z: x*0.0 + 1.0
+            e_field = self.derham.P["1"]([fun, fun, fun])
 
         # project magnetic background
         self._b_eq = self.derham.P["2"](
@@ -165,6 +170,8 @@ class Vlasov(StruphyModel):
         }
 
         self._kwargs[propagators_markers.PushEta] = {"algo": ions_params["options"]["PushEta"]["algo"]}
+        if use_e_field:
+            self._kwargs[propagators_markers.PushVinEfield] = {"e_field": e_field}
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()

@@ -1424,8 +1424,11 @@ if __name__ == "__main__":
 # debugpy.wait_for_client()
 
 
-# struphy run Vlasov --time-trace  -o amrex_parallel_4 --mpi 4 --amrex
-# struphy pproc -d amrex_parallel_4 --time-trace
+# struphy run Vlasov --time-trace  -o amrex_parallel_8_5mln --mpi 8 --amrex | tee amrex_parallel_8_5mln.txt
+# struphy pproc amrex_parallel_8_5mln --time-trace
 
-# struphy run Vlasov --time-trace  -o struphy_parallel_4 --mpi 4
-# struphy pproc -d struphy_parallel_4 --time-trace
+# struphy run Vlasov --time-trace  -o struphy_parallel_8_5mln --mpi 8 | tee struphy_parallel_8_5mln.txt
+# struphy pproc struphy_parallel_8_5mln --time-trace
+
+
+# struphy run Vlasov --time-trace  -o struphy_parallel_8_5mln --mpi 8 | tee struphy_parallel_8_5mln.txt

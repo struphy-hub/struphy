@@ -243,8 +243,12 @@ class PushVinEfield(Propagator):
     """
 
     @staticmethod
-    def options():
-        pass
+    def options(default=False):
+        dct = {}
+        dct["use_e_field"] = [False, True]
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
 
     def __init__(
         self,
