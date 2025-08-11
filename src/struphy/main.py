@@ -174,6 +174,9 @@ def run(
         model._projected_equil = None
         print("GRID:\nNo grid specified - no Derham complex set up.")
         
+    # equation paramters
+    model.setup_equation_params(units=model.units, verbose=verbose)
+        
     # allocate variables
     model.allocate_variables()
     model.allocate_helpers()
@@ -183,7 +186,6 @@ def run(
     
     # plasma parameters
     model.compute_plasma_params(verbose=verbose)
-    model.setup_equation_params(units=model.units, verbose=verbose)
     
     if rank < 32:
         if rank == 0:

@@ -25,10 +25,10 @@ from struphy.fields_background.equils import set_defaults
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
-from struphy.initial import perturbations
+from struphy.initial.base import Perturbation
 from struphy.io.output_handling import DataContainer
-from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
-from struphy.kinetic_background import maxwellians
+from struphy.kinetic_background.maxwellians import Maxwellian3D
+from struphy.kinetic_background.base import Maxwellian
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
@@ -143,10 +143,10 @@ class Particles(metaclass=ABCMeta):
     projected_equil : ProjectedFluidEquilibrium
         Struphy fluid equilibrium projected into a discrete Derham complex.
 
-    bckgr_params : dict
+    backgrounds : Maxwellian | list
         Kinetic background parameters.
 
-    pert_params : dict
+    perturbations : Perturbation | list
         Kinetic perturbation parameters.
 
     equation_params : dict
@@ -180,8 +180,8 @@ class Particles(metaclass=ABCMeta):
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
-        bckgr_params: dict = None,
-        pert_params: dict = None,
+        backgrounds: Maxwellian | list = None,
+        perturbations: Perturbation | list = None,
         equation_params: dict = None,
         verbose: bool = False,
     ):
@@ -336,8 +336,8 @@ class Particles(metaclass=ABCMeta):
         )
 
         # background
-        if bckgr_params is None:
-            bckgr_params = {"Maxwellian3D": {}, "pforms": [None, None]}
+        if backgrounds is None:
+            self._backgrounds = Maxwellian3D()
 
         # background p-form description in [eta, v] (None means 0-form, "vol" means volume form -> divide by det)
         if isinstance(bckgr_params, FluidEquilibrium):
@@ -352,7 +352,7 @@ class Particles(metaclass=ABCMeta):
         self._set_background_coordinates()
 
         # perturbation parameters
-        self._pert_params = pert_params
+        self._perturbations = perturbations
 
         # for loading
         if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
@@ -543,14 +543,14 @@ class Particles(metaclass=ABCMeta):
         return self._clone_id
 
     @property
-    def bckgr_params(self):
-        """Kinetic background parameters."""
-        return self._bckgr_params
+    def backgrounds(self):
+        """Kinetic backgrounds."""
+        return self._backgrounds
 
     @property
-    def pert_params(self):
-        """Kinetic perturbation parameters."""
-        return self._pert_params
+    def perturbations(self):
+        """Kinetic perturbations."""
+        return self._perturbations
 
     @property
     def loading_params(self):
@@ -996,12 +996,7 @@ class Particles(metaclass=ABCMeta):
         if isinstance(self.bckgr_params, FluidEquilibrium):
             self._f0 = self.bckgr_params
         else:
-            for fi, maxw_params in self.bckgr_params.items():
-                if fi[-2] == "_":
-                    fi_type = fi[:-2]
-                else:
-                    fi_type = fi
-
+            for bckgr in self.backgrounds:
                 # SPH case: f0 is set to a FluidEquilibrium
                 if self.type == "sph":
                     _eq = getattr(equils, fi_type)(**maxw_params)
@@ -1015,15 +1010,9 @@ class Particles(metaclass=ABCMeta):
                 # default case
                 else:
                     if self._f0 is None:
-                        self._f0 = getattr(maxwellians, fi_type)(
-                            maxw_params=maxw_params,
-                            equil=self.equil,
-                        )
+                        self._f0 = bckgr
                     else:
-                        self._f0 = self._f0 + getattr(maxwellians, fi_type)(
-                            maxw_params=maxw_params,
-                            equil=self.equil,
-                        )
+                        self._f0 = self._f0 + bckgr
 
     def _set_background_coordinates(self):
         if self.type != "sph" and self.f0.coords == "constants_of_motion":

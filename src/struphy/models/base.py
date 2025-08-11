@@ -1323,6 +1323,9 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     exclude = f"# model.{sn}.{vn}.save_data = False\n"
                 elif isinstance(var, PICVariable):
                     has_pic = True
+                    init_pert_pic = f"perturbation = perturbations.TorusModesCos()\n"
+                    init_bckgr_pic = f"model.{sn}.{vn}.add_background(maxwellians.Maxwellian3D(perturbation=perturbation))\n"
+                    
                     exclude = f"# model.....save_data = False\n"
                 elif isinstance(var, SPHVariable):
                     has_sph = True
@@ -1384,6 +1387,9 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         if has_feec:
             file.write(init_bckgr_feec)
             file.write(init_pert_feec)
+        if has_pic:
+            file.write(init_pert_pic)
+            file.write(init_bckgr_pic)
             
         file.write("\n# optional: exclude variables from saving\n")
         file.write(exclude)

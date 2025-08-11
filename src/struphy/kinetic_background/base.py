@@ -1,11 +1,12 @@
 "Base classes for kinetic backgrounds."
 
-import copy
 from abc import ABCMeta, abstractmethod
+import numpy as np
+from typing import Callable
 
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import set_defaults
-from struphy.initial import perturbations
+from struphy.initial.base import Perturbation
 from struphy.initial.utilities import Noise
 from struphy.kinetic_background import moment_functions
 from struphy.utils.arrays import xp as np
@@ -328,40 +329,6 @@ class Maxwellian(KineticBackground):
     and the thermal velocities :math:`v_{\mathrm{th},i}(\boldsymbol{\eta})`.
     """
 
-    def __init__(
-        self,
-        maxw_params: dict = None,
-        pert_params: dict = None,
-        equil: FluidEquilibrium = None,
-    ):
-        # Set background parameters
-        if maxw_params is None:
-            maxw_params = {}
-        assert isinstance(maxw_params, dict)
-        self._maxw_params = set_defaults(
-            maxw_params,
-            self.default_maxw_params(),
-        )
-
-        # check if fluid background is needed
-        for key, val in self.maxw_params.items():
-            if val == "fluid_background":
-                assert equil is not None
-
-        # parameters for perturbation
-        if pert_params is None:
-            pert_params = {}
-        assert isinstance(pert_params, dict)
-        self._pert_params = pert_params
-
-        # Fluid equilibrium
-        self._equil = equil
-
-    @classmethod
-    def default_maxw_params(cls):
-        """Default parameters dictionary defining constant moments of the Maxwellian."""
-        pass
-
     @abstractmethod
     def vth(self, *etas):
         """Thermal velocities (0-forms).
@@ -378,21 +345,17 @@ class Maxwellian(KineticBackground):
         pass
 
     @property
-    def maxw_params(self):
-        """Parameters dictionary defining constant moments of the Maxwellian."""
-        return self._maxw_params
-
-    @property
-    def pert_params(self):
-        """Parameters dictionary defining the perturbations."""
-        return self._pert_params
-
-    @property
-    def equil(self):
-        """One of :mod:`~struphy.fields_background.equils`
-        in case that moments are to be set in that way, None otherwise.
-        """
-        return self._equil
+    @abstractmethod
+    def maxw_params(self) -> dict:
+        """Parameters dictionary defining moments of the Maxwellian."""
+        
+    def check_maxw_params(self):
+        for k, v in self.maxw_params.items():
+            assert isinstance(k, str)
+            assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
+            assert len(v) == 2
+            assert isinstance(v[0], (float, int, Callable[..., float]))
+            assert isinstance(v[1], (Perturbation, None))
 
     @classmethod
     def gaussian(self, v, u=0.0, vth=1.0, polar=False, volume_form=False):
@@ -527,6 +490,10 @@ class Maxwellian(KineticBackground):
         assert isinstance(eta2, np.ndarray)
         assert isinstance(eta3, np.ndarray)
         assert eta1.shape == eta2.shape == eta3.shape
+        
+        params = self.maxw_params[name]
+        assert isinstance(params, tuple)
+        assert len(params) == 2
 
         # flat evaluation for markers
         if eta1.ndim == 1:
@@ -564,74 +531,26 @@ class Maxwellian(KineticBackground):
         else:
             out = 0.0 * etas[0]
 
-        # correspondence name -> equilibrium attribute
-        dct = {
-            "n": "n0",
-            "u1": "u_cart_1",
-            "u2": "u_cart_2",
-            "u3": "u_cart_3",
-            "vth1": "vth0",
-            "vth2": "vth0",
-            "vth3": "vth0",
-            "u_para": "u_para0",
-            "u_perp": None,
-            "vth_para": "vth0",
-            "vth_perp": "vth0",
-        }
-
-        # fluid background
-        if self.maxw_params[name] == "fluid_background":
-            if dct[name] is not None:
-                out += getattr(self.equil, dct[name])(*etas)
-                if name in ("n") or "vth" in name:
-                    assert np.all(out > 0.0), f"{name} must be positive!"
-            else:
-                print(f'Moment evaluation with "fluid_background" not implemented for {name}.')
-
-        # when using moment functions, see test https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/kinetic_background/tests/test_maxwellians.py?ref_type=heads#L1760
-        elif isinstance(self.maxw_params[name], dict):
-            mom_funcs = copy.deepcopy(self.maxw_params[name])
-            for typ, params in mom_funcs.items():
-                assert params["given_in_basis"] == "0", "Moment functions must be passed as 0-forms to Maxwellians."
-                params.pop("given_in_basis")
-                nfun = getattr(moment_functions, typ)(**params)
-                if eta1.ndim == 1:
-                    out += nfun(eta1, eta2, eta3)
-                else:
-                    out += nfun(*etas)
-
-        # constant background
+        # evaluate background
+        background = params[0]
+        if isinstance(background, (float, int)):
+            out += background
         else:
+            assert callable(background)
             if eta1.ndim == 1:
-                out += self.maxw_params[name]
+                out += background(eta1, eta2, eta3)
             else:
-                out += self.maxw_params[name]
-
-        # add possible perturbations
-        if name in self.pert_params:
-            pp_copy = copy.deepcopy(self.pert_params)
-            for pert, params in pp_copy[name].items():
-                if pert == "Noise":
-                    noise = Noise(**params)
-                    if eta1.ndim == 1:
-                        out += noise(eta1, eta2, eta3)
-                    else:
-                        out += noise(*etas)
-                else:
-                    assert params["given_in_basis"] == "0", (
-                        "Moment perturbations must be passed as 0-forms to Maxwellians."
-                    )
-                    params.pop("given_in_basis")
-
-                    perturbation = getattr(perturbations, pert)(
-                        **params,
-                    )
-
-                    if eta1.ndim == 1:
-                        out += perturbation(eta1, eta2, eta3)
-                    else:
-                        out += perturbation(*etas)
-
+                out += background(*etas)
+                
+        # add perturbation
+        perturbation = params[1]
+        if perturbation is not None:
+            assert isinstance(perturbation, Perturbation)
+            if eta1.ndim == 1:
+                out += perturbation(eta1, eta2, eta3)
+            else:
+                out += perturbation(*etas)
+                
         return out
 
 
