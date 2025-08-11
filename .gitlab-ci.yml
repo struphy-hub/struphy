@@ -5,6 +5,7 @@
 # The doc can be built by clicking "Run pipeline" on Gitlab and setting the MAKE_PAGES = true.
 
 variables:
+  FF_SCRIPT_SECTIONS: "true"
   MAKE_PAGES:
     value: "false"
     options: ["true", "false"]
@@ -375,11 +376,22 @@ stages:
     - pyccel --version
     - struphy compile --status
     - struphy compile -y
+    - |
+      struphy compile -y || (
+        echo "Initial compile failed. Removing compiled kernels and trying again..." &&
+        struphy compile -d -y &&
+        struphy compile -y
+      )
   compile_matrix:
     - pyccel --version
     - struphy compile --status
     - echo ${LANGUAGE} && echo ${OMP}
-    - struphy compile --language ${LANGUAGE} ${OMP} -y
+    - |
+      struphy compile --language ${LANGUAGE} ${OMP} -y || (
+        echo "Initial compile failed. Removing compiled kernels and trying again..." &&
+        struphy compile -d -y &&
+        struphy compile --language ${LANGUAGE} ${OMP} -y
+      )
   build:
     - pip install -U build
     - python3 -m build
@@ -555,7 +567,12 @@ pages_tests:
     - module load pandoc
     - module list
     - pip install -e .[doc]
-    - struphy compile -y
+    - |
+      struphy compile -y || (
+        echo "Initial compile failed. Removing compiled kernels and trying again..." &&
+        struphy compile -d -y &&
+        struphy compile -y
+      )
     - cd doc ; make html; cd ..
 
 ubuntu_latest:
@@ -911,7 +928,7 @@ lint_full_repo_report:
     expire_in: 1 month
 
 # Lint struphy with `struphy lint`
-lint_branch:
+lint_repo:
   stage: lint
   needs: []
   extends:
@@ -922,9 +939,8 @@ lint_branch:
     - !reference [.scripts, create_venv]
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
-    # Lint changed files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
-    - struphy lint branch --output-format plain --verbose
-  allow_failure: true
+    # Lint all files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
+    - struphy lint all --output-format plain --verbose
 
 # Lint struphy with `struphy lint`
 lint_branch_report:
