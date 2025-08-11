@@ -1,3 +1,8 @@
+
+# for type checking (cyclic imports)
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from abc import ABCMeta, abstractmethod
 from mpi4py import MPI
 import numpy as np
@@ -12,9 +17,10 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.pic.base import Particles
 from struphy.kinetic_background.base import Maxwellian
 from struphy.pic import particles
-from struphy.models.species import Species, KineticSpecies
 from struphy.utils.clone_config import CloneConfig
 
+if TYPE_CHECKING:
+    from struphy.models.species import Species, KineticSpecies
 
 class Variable(metaclass=ABCMeta):
     """Single variable (unknown) of a Species."""
@@ -142,6 +148,12 @@ class PICVariable(Variable):
     def kinetic_data(self):
         return self._kinetic_data
     
+    @property
+    def species(self) -> KineticSpecies:
+        if not hasattr(self, "_species"):
+            self._species = None
+        return self._species
+    
     def add_background(self, background: Maxwellian, verbose=True):
         super().add_background(background, verbose=verbose)
     
@@ -153,7 +165,7 @@ class PICVariable(Variable):
                  projected_equil: ProjectedFluidEquilibrium = None,
                  ):
         
-        assert isinstance(self.species, KineticSpecies)
+        #assert isinstance(self.species, KineticSpecies)
 
         if derham is None:
             domain_decomp = None
@@ -186,8 +198,8 @@ class PICVariable(Variable):
             domain=domain,
             equil=equil,
             projected_equil=projected_equil,
-            bckgr_params=self.backgrounds,
-            pert_params=self.perturbations,
+            backgrounds=self.backgrounds,
+            perturbations=self.perturbations,
             equation_params=self.species.equation_params,
         )
 
