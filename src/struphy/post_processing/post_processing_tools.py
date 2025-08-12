@@ -1,14 +1,12 @@
 import os
 import shutil
 import h5py
-import matplotlib.pyplot as plt
+import numpy as np
 import yaml
 from tqdm import tqdm
 import pickle
 
-from struphy.feec.psydac_derham import Derham
 from struphy.kinetic_background import maxwellians
-from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import setup_derham
 from struphy.feec.psydac_derham import SplineFunction

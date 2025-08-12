@@ -8,8 +8,7 @@ import yaml
 import struphy
 
 import yaml
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.stencil import StencilVector
+from mpi4py import MPI
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
