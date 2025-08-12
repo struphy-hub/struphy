@@ -11,7 +11,6 @@ import shutil
 import pickle
 import h5py
 
-from struphy.feec.psydac_derham import SplineFunction
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_folders

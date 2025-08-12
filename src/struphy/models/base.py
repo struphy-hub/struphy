@@ -10,7 +10,6 @@ import struphy
 import numpy as np
 import yaml
 from mpi4py import MPI
-from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
