@@ -7,7 +7,6 @@ from abc import ABCMeta, abstractmethod
 from mpi4py import MPI
 import numpy as np
 
-from struphy.initial.base import InitialCondition
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.io.options import FieldsBackground
 from struphy.initial.perturbations import Perturbation
@@ -15,7 +14,7 @@ from struphy.geometry.base import Domain
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.pic.base import Particles
-from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import particles
 from struphy.utils.clone_config import CloneConfig
 
@@ -86,12 +85,6 @@ class Variable(metaclass=ABCMeta):
             for k, v in perturbation.__dict__.items():
                 print(f'  {k}: {v}')
 
-    def define_initial_condition(self):
-        self._initial_condition = InitialCondition(
-            background=self.backgrounds,
-            perturbation=self.perturbations,
-        )
-
     
 class FEECVariable(Variable):
     def __init__(self, name: str = "a_feec_var", space: str = "H1"):
@@ -154,7 +147,18 @@ class PICVariable(Variable):
             self._species = None
         return self._species
     
-    def add_background(self, background: Maxwellian, verbose=True):
+    @property
+    def n_as_volume_form(self) -> bool:
+        """Whether the number density n is given as a volume form or scalar function (=default)."""
+        if not hasattr(self, "_n_as_volume_form"):
+            self._n_as_volume_form = False
+        return self._n_as_volume_form
+    
+    def add_background(self, 
+                       background: KineticBackground,
+                       n_as_volume_form: bool = False,
+                       verbose=True):
+        self._n_as_volume_form = n_as_volume_form
         super().add_background(background, verbose=verbose)
     
     def allocate(self, 
@@ -166,6 +170,7 @@ class PICVariable(Variable):
                  ):
         
         #assert isinstance(self.species, KineticSpecies)
+        assert isinstance(self.backgrounds, KineticBackground), f"List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
 
         if derham is None:
             domain_decomp = None
@@ -198,8 +203,8 @@ class PICVariable(Variable):
             domain=domain,
             equil=equil,
             projected_equil=projected_equil,
-            backgrounds=self.backgrounds,
-            perturbations=self.perturbations,
+            background=self.backgrounds,
+            # perturbations=self.perturbations,
             equation_params=self.species.equation_params,
         )
 

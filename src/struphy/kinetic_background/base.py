@@ -47,8 +47,8 @@ class KineticBackground(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def volume_form(self):
-        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian)."""
+    def volume_form(self) -> bool:
+        """True if the background is represented as a volume form (thus including the velocity Jacobian)."""
         pass
 
     @abstractmethod
@@ -355,7 +355,7 @@ class Maxwellian(KineticBackground):
             assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
             assert len(v) == 2
             assert isinstance(v[0], (float, int, Callable[..., float]))
-            assert isinstance(v[1], (Perturbation, None))
+            assert isinstance(v[1], Perturbation) or v[1] is None
 
     @classmethod
     def gaussian(self, v, u=0.0, vth=1.0, polar=False, volume_form=False):

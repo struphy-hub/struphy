@@ -23,8 +23,8 @@ class Particles6D(Particles):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"Maxwellian3D": {}}
+    def default_background(cls):
+        return maxwellians.Maxwellian3D()
 
     def __init__(
         self,
@@ -32,8 +32,10 @@ class Particles6D(Particles):
     ):
         kwargs["type"] = "full_f"
 
-        if "bckgr_params" not in kwargs:
-            kwargs["bckgr_params"] = self.default_bckgr_params()
+        # if "backgrounds" not in kwargs:
+        #     kwargs["backgrounds"] = self.default_background()
+        # elif kwargs["backgrounds"] is None:
+        #     kwargs["backgrounds"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
@@ -42,7 +44,7 @@ class Particles6D(Particles):
         super().__init__(**kwargs)
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian
-        if "CanonicalMaxwellian" in kwargs["bckgr_params"]:
+        if isinstance(kwargs["background"], maxwellians.CanonicalMaxwellian):
             assert isinstance(self.equil, FluidEquilibriumWithB), (
                 "CanonicalMaxwellian needs background with magnetic field."
             )
