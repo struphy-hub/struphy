@@ -146,7 +146,7 @@ class LinearMHD(StruphyModel):
         
     ## default parameters
     def generate_default_parameter_file(self, path = None, prompt = True):
-        params_path = super().generate_default_parameter_file(path, prompt)
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
         new_file = []
         with open(params_path, "r") as f:
             for line in f:

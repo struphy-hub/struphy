@@ -6,7 +6,6 @@ import numpy as np
 from mpi4py import MPI
 
 from struphy.fields_background.base import FluidEquilibrium
-from struphy.initial.base import InitialCondition
 from struphy.kinetic_background.base import KineticBackground
 from struphy.io.options import Units
 from struphy.io.options import OptsLoading, OptsMarkerBC, OptsRecontructBC

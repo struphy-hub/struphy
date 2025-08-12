@@ -15,11 +15,9 @@ class Maxwellian3D(Maxwellian):
 
     Parameters
     ----------
-    n : float | Callable
-        Fluid density; callables can come from FluidEquilibrium.
-
-    perturbation : dict
-        Parameters for the kinetic perturbation added to the background.
+    n, ui, vthi : tuple
+        Moments of the Maxwellian as tuples. The first entry defines the background 
+        (float for constant background or callable), the second entry defines a Perturbation (can be None).
     """
 
     def __init__(

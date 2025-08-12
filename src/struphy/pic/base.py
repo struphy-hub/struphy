@@ -19,8 +19,7 @@ from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
 from struphy.io.output_handling import DataContainer
-from struphy.kinetic_background.maxwellians import Maxwellian3D
-from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
@@ -130,8 +129,11 @@ class Particles(metaclass=ABCMeta):
     projected_equil : ProjectedFluidEquilibrium
         Struphy fluid equilibrium projected into a discrete Derham complex.
 
-    backgrounds : Maxwellian | list
+    background : KineticBackground
         Kinetic background parameters.
+        
+    n_as_volume_form: bool
+        Whether the number density n is given as a volume form or scalar function (=default).
 
     perturbations : Perturbation | list
         Kinetic perturbation parameters.
@@ -166,8 +168,9 @@ class Particles(metaclass=ABCMeta):
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
-        backgrounds: Maxwellian | list = None,
-        perturbations: Perturbation | list = None,
+        background: KineticBackground = None,
+        n_as_volume_form: bool = False,
+        # perturbations: Perturbation | list = None,
         equation_params: dict = None,
         verbose: bool = False,
     ):
@@ -311,25 +314,28 @@ class Particles(metaclass=ABCMeta):
         )
 
         # background
-        if backgrounds is None:
-            self._backgrounds = Maxwellian3D()
+        if background is None:
+            raise ValueError("A background function must be passed to Particles.")
+        else:
+            self._background = background
 
         # background p-form description in [eta, v] (None means 0-form, "vol" means volume form -> divide by det)
-        if isinstance(bckgr_params, FluidEquilibrium):
-            self._pforms = [None, None]
+        if isinstance(background, FluidEquilibrium):
+            self._pforms = (False, False)
         else:
-            self._pforms = bckgr_params.pop("pforms", [None, None])
+            self._pforms = (n_as_volume_form,
+                            self.background.volume_form,)
 
         # set background function
         self._set_background_function()
         self._set_background_coordinates()
 
         # perturbation parameters
-        self._perturbations = perturbations
+        # self._perturbations = perturbations
 
         # for loading
-        if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
-            self._auto_sampling_params()
+        # if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
+        #     self._auto_sampling_params()
 
         # create buffers for mpi_sort_markers
         if self.mpi_comm is not None:
@@ -343,8 +349,8 @@ class Particles(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def default_bckgr_params(cls):
-        """Dictionary holding the minimal information of the default background."""
+    def default_background(cls):
+        """The default background (of type Maxwellian)."""
         pass
 
     @abstractmethod
@@ -512,14 +518,14 @@ class Particles(metaclass=ABCMeta):
         return self._clone_id
 
     @property
-    def backgrounds(self):
-        """Kinetic backgrounds."""
-        return self._backgrounds
+    def background(self) -> KineticBackground:
+        """Kinetic background."""
+        return self._background
 
-    @property
-    def perturbations(self):
-        """Kinetic perturbations."""
-        return self._perturbations
+    # @property
+    # def perturbations(self):
+    #     """Kinetic perturbations."""
+    #     return self._perturbations
 
     @property
     def loading_params(self):
@@ -961,27 +967,28 @@ class Particles(metaclass=ABCMeta):
         return dom_arr, tuple(nprocs)
 
     def _set_background_function(self):
-        self._f0 = None
-        if isinstance(self.bckgr_params, FluidEquilibrium):
-            self._f0 = self.bckgr_params
-        else:
-            for bckgr in self.backgrounds:
-                # SPH case: f0 is set to a FluidEquilibrium
-                if self.type == "sph":
-                    _eq = getattr(equils, fi_type)(**maxw_params)
-                    if not isinstance(_eq, NumericalFluidEquilibrium):
-                        _eq.domain = self.domain
-                    if self._f0 is None:
-                        self._f0 = _eq
-                    else:
-                        raise NotImplementedError("Summation of fluid backgrounds not yet implemented.")
-                        # self._f0 = self._f0 + (lambda e1, e2, e3: _eq.n0(e1, e2, e3))
-                # default case
-                else:
-                    if self._f0 is None:
-                        self._f0 = bckgr
-                    else:
-                        self._f0 = self._f0 + bckgr
+        self._f0 = self.background
+        # self._f0 = None
+        # if isinstance(self.bckgr_params, FluidEquilibrium):
+        #     self._f0 = self.bckgr_params
+        # else:
+        #     for bckgr in self.backgrounds:
+        #         # SPH case: f0 is set to a FluidEquilibrium
+        #         if self.type == "sph":
+        #             _eq = getattr(equils, fi_type)(**maxw_params)
+        #             if not isinstance(_eq, NumericalFluidEquilibrium):
+        #                 _eq.domain = self.domain
+        #             if self._f0 is None:
+        #                 self._f0 = _eq
+        #             else:
+        #                 raise NotImplementedError("Summation of fluid backgrounds not yet implemented.")
+        #                 # self._f0 = self._f0 + (lambda e1, e2, e3: _eq.n0(e1, e2, e3))
+        #         # default case
+        #         else:
+        #             if self._f0 is None:
+        #                 self._f0 = bckgr
+        #             else:
+        #                 self._f0 = self._f0 + bckgr
 
     def _set_background_coordinates(self):
         if self.type != "sph" and self.f0.coords == "constants_of_motion":
