@@ -127,8 +127,11 @@ class Particles(metaclass=ABCMeta):
     loading_params : dict
         Parameterts for loading, see defaults below.
 
-    weights_params : dict
-        Parameterts for initializing weights, see defaults below.
+    rejct_weights : bool
+        Whether to reject weights below threshold.
+        
+    threshold : float
+        Threshold for rejecting weights.
 
     bufsize : float
         Size of buffer (as multiple of total size, default=.25) in markers array.
@@ -177,7 +180,8 @@ class Particles(metaclass=ABCMeta):
         name: str = "some_name",
         loading: str = "pseudo_random",
         loading_params: dict = None,
-        weights_params: dict = None,
+        reject_weights: bool = False,
+        threshold: float = 0.0,
         bufsize: float = 0.25,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
@@ -327,16 +331,9 @@ class Particles(metaclass=ABCMeta):
         )
         self._spatial = self.loading_params["spatial"]
 
-        # weights parameters
-        weights_params_default = {
-            "reject_weights": False,
-            "threshold": 0.0,
-        }
-
-        self._weights_params = set_defaults(
-            weights_params,
-            weights_params_default,
-        )
+        # weights
+        self._reject_weights = reject_weights
+        self._threshold = threshold
 
         # background
         if background is None:
@@ -562,9 +559,14 @@ class Particles(metaclass=ABCMeta):
         return self._loading_params
 
     @property
-    def weights_params(self):
-        """Parameters for initializing weights."""
-        return self._weights_params
+    def reject_weights(self):
+        """Whether to reect weights below threshold."""
+        return self._reject_weights
+    
+    @property
+    def threshold(self):
+        """Threshold for rejecting weights."""
+        return self._threshold
 
     @property
     def boxes_per_dim(self):
@@ -1177,63 +1179,59 @@ class Particles(metaclass=ABCMeta):
         else:
             self._sorting_boxes = None
 
-    def _auto_sampling_params(self):
-        """Automatically determine sampling parameters from the background given"""
-        ns = []
-        us = []
-        vths = []
+    def _generate_sampling_moments(self):
+        """Automatically determine moments for sampling distribution (Gaussian) from the given background."""
+        
+        self.loading_params["moments"] = tuple([0.0]*self.vdim + [1.0]*self.vdim)
+        # TODO: reformulate this function with KineticBackground methods
+        
+        # ns = []
+        # us = []
+        # vths = []
 
-        for fi, params in self.bckgr_params.items():
-            if fi[-2] == "_":
-                fi_type = fi[:-2]
-            else:
-                fi_type = fi
+        # for fi, params in self.bckgr_params.items():
+        #     if fi[-2] == "_":
+        #         fi_type = fi[:-2]
+        #     else:
+        #         fi_type = fi
 
-            us.append([])
-            vths.append([])
+        #     us.append([])
+        #     vths.append([])
 
-            bckgr = getattr(maxwellians, fi_type)
-            default_maxw_params = bckgr.default_maxw_params()
+        #     bckgr = getattr(maxwellians, fi_type)
 
-            for key in default_maxw_params:
-                if key[0] == "n":
-                    if key in params:
-                        ns += [params[key]]
-                    else:
-                        ns += [1.0]
+        #     for key in default_maxw_params:
+        #         if key[0] == "n":
+        #             if key in params:
+        #                 ns += [params[key]]
+        #             else:
+        #                 ns += [1.0]
 
-                elif key[0] == "u":
-                    if key in params:
-                        us[-1] += [params[key]]
-                    else:
-                        us[-1] += [0.0]
+        #         elif key[0] == "u":
+        #             if key in params:
+        #                 us[-1] += [params[key]]
+        #             else:
+        #                 us[-1] += [0.0]
 
-                elif key[0] == "v":
-                    if key in params:
-                        vths[-1] += [params[key]]
-                    else:
-                        vths[-1] += [1.0]
+        #         elif key[0] == "v":
+        #             if key in params:
+        #                 vths[-1] += [params[key]]
+        #             else:
+        #                 vths[-1] += [1.0]
 
-        assert len(ns) == len(us) == len(vths)
+        # assert len(ns) == len(us) == len(vths)
 
-        ns = np.array(ns)
-        us = np.array(us)
-        vths = np.array(vths)
+        # ns = np.array(ns)
+        # us = np.array(us)
+        # vths = np.array(vths)
 
-        # Use the mean of shifts and thermal velocity such that outermost shift+thermal is
-        # new shift + new thermal
-        mean_us = np.mean(us, axis=0)
-        us_ext = us + vths * np.where(us >= 0, 1, -1)
-        us_ext_dist = us_ext - mean_us[None, :]
-        new_vths = np.max(np.abs(us_ext_dist), axis=0)
+        # new_moments = []
 
-        new_moments = []
+        # new_moments += [*np.mean(us, axis=0)]
+        # new_moments += [*(np.max(vths, axis=0) + np.max(np.abs(us), axis=0) - np.mean(us, axis=0))]
+        # new_moments = [float(moment) for moment in new_moments]
 
-        new_moments += [*mean_us]
-        new_moments += [*new_vths]
-        new_moments = [float(moment) for moment in new_moments]
-
-        self.loading_params["moments"] = new_moments
+        # self.loading_params["moments"] = new_moments
 
     def _set_initial_condition(self, bp_copy=None, pp_copy=None):
         """Compute callable initial condition from background + perturbation."""
@@ -1727,8 +1725,8 @@ class Particles(metaclass=ABCMeta):
         *,
         bckgr_params: dict = None,
         pert_params: dict = None,
-        reject_weights: bool = False,
-        threshold: float = 1e-8,
+        # reject_weights: bool = False,
+        # threshold: float = 1e-8,
     ):
         r"""
         Computes the initial weights
@@ -1749,12 +1747,6 @@ class Particles(metaclass=ABCMeta):
 
         pert_params : dict
             Kinetic perturbation parameters for initial condition.
-
-        reject_weights : bool
-            Whether to use ``threshold`` for rejecting weights.
-
-        threshold : float
-            Minimal value of a weight; below the marker is set to a hole.les.
         """
 
         if self.loading == "tesselation":
@@ -1798,13 +1790,13 @@ class Particles(metaclass=ABCMeta):
             # compute w0 and save at vdim + 5
             self.weights0 = f_init / self.sampling_density
 
-        if reject_weights:
-            reject = self.markers[:, self.index["w0"]] < threshold
+        if self.reject_weights:
+            reject = self.markers[:, self.index["w0"]] < self.threshold
             self._markers[reject] = -1.0
             self.update_holes()
             self.reset_marker_ids()
             print(
-                f"\nWeights < {threshold} have been rejected, number of valid markers on process {self.mpi_rank} is {self.n_mks_loc}."
+                f"\nWeights < {self.threshold} have been rejected, number of valid markers on process {self.mpi_rank} is {self.n_mks_loc}."
             )
 
         # compute (time-dependent) weights at vdim + 3

@@ -438,7 +438,8 @@ class StruphyModel(metaclass=ABCMeta):
             assert key is not None, "Must provide key if option is not a class."
             setInDict(dct, species + ["options"] + key, option)
 
-    def add_scalar(self, name, species=None, compute=None, summands=None):
+    def add_scalar(self, 
+                   name: str, variable: PICVariable | SPHVariable = None, compute=None, summands=None):
         """
         Add a scalar to be saved during the simulation.
 
@@ -446,8 +447,8 @@ class StruphyModel(metaclass=ABCMeta):
         ----------
         name : str
             Dictionary key for the scalar.
-        species : str, optional
-            The species associated with the scalar. Required if compute is 'from_particles'.
+        variable : PICVariable | SPHVariable, optional
+            The variable associated with the scalar. Required if compute is 'from_particles'.
         compute : str, optional
             Type of scalar, determines the compute operations.
             Options: 'from_particles' or 'from_field'. Default is None.
@@ -458,17 +459,14 @@ class StruphyModel(metaclass=ABCMeta):
 
         assert isinstance(name, str), "name must be a string"
         if compute == "from_particles":
-            assert isinstance(
-                species,
-                str,
-            ), "species must be a string when compute is 'from_particles'"
+            assert isinstance(variable, (PICVariable, SPHVariable)), f"Variable is needed when {compute = }"
 
         if not hasattr(self, "_scalar_quantities"):
             self._scalar_quantities = {}
 
         self._scalar_quantities[name] = {
             "value": np.empty(1, dtype=float),
-            "species": species,
+            "variable": variable,
             "compute": compute,
             "summands": summands,
         }
@@ -488,7 +486,7 @@ class StruphyModel(metaclass=ABCMeta):
         # Ensure the name is a string
         assert isinstance(name, str)
 
-        species = self._scalar_quantities[name]["species"]
+        variable: PICVariable | SPHVariable = self._scalar_quantities[name]["variable"]
         summands = self._scalar_quantities[name]["summands"]
         compute = self._scalar_quantities[name]["compute"]
 
@@ -551,7 +549,7 @@ class StruphyModel(metaclass=ABCMeta):
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
-                n_mks_tot = np.array([self.pointer[species].Np])
+                n_mks_tot = np.array([variable.particles.Np])
                 value_array /= n_mks_tot
 
             # Update the scalar value
@@ -671,15 +669,17 @@ class StruphyModel(metaclass=ABCMeta):
         Writes markers with IDs that are supposed to be saved into corresponding array.
         """
 
-        from struphy.pic.base import Particles
-
-        for _, val in self.kinetic_species.items():
-            obj = val["obj"]
-            assert isinstance(obj, Particles)
+        for name, species in self.kinetic_species.items():
+            assert isinstance(species, KineticSpecies)
+            assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
+            for _, var in species.variables.items():
+                assert isinstance(var, PICVariable | SPHVariable)
+                obj = var.particles
+                assert isinstance(obj, Particles)
 
             # allocate array for saving markers if not present
             if not hasattr(self, "_n_markers_saved"):
-                n_markers = val["params"]["save_data"].get("n_markers", 0)
+                n_markers = species.n_markers
 
                 if isinstance(n_markers, float):
                     if n_markers > 1.0:
@@ -693,7 +693,7 @@ class StruphyModel(metaclass=ABCMeta):
                     f"The number of markers for which data should be stored (={self._n_markers_saved}) murst be <= than the total number of markers (={obj.Np})"
                 )
                 if self._n_markers_saved > 0:
-                    val["kinetic_data"]["markers"] = np.zeros(
+                    var.kinetic_data["markers"] = np.zeros(
                         (self._n_markers_saved, obj.markers.shape[1]),
                         dtype=float,
                     )
@@ -704,8 +704,8 @@ class StruphyModel(metaclass=ABCMeta):
                     obj.markers[:, -1] < self._n_markers_saved,
                 )
                 n_markers_on_proc = np.count_nonzero(markers_on_proc)
-                val["kinetic_data"]["markers"][:] = -1.0
-                val["kinetic_data"]["markers"][:n_markers_on_proc] = obj.markers[markers_on_proc]
+                var.kinetic_data["markers"][:] = -1.0
+                var.kinetic_data["markers"][:n_markers_on_proc] = obj.markers[markers_on_proc]
 
     def update_distr_functions(self):
         """

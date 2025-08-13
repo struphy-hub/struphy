@@ -1,5 +1,85 @@
 import struphy.pic.utilities_kernels as utils
-from struphy.utils.arrays import xp as np
+from struphy.io.options import OptsLoading, OptsSpatialLoading
+
+
+class LoadingParameters:
+    """Paramters for particle loading.
+    
+    Parameters
+    ----------
+    loading : OptsLoading
+        How to load markers: "pseudo_random" for Monte-Carlo, or "tesselation" for positioning them on a regular grid.
+    
+    seed : int
+        Seed for random generator. If None, no seed is taken.
+        
+    moments : tuple
+        Mean velocities and temperatures for the Gaussian sampling distribution.
+        If None, these are auto-calculated form the given background.
+        
+    spatial : OptsSpatialLoading
+        Draw uniformly in eta, or draw uniformly on the "disc" image of (eta1, eta2).
+        
+    specific_markers : tuple[tuple]
+        Each entry is a tuple of phase space coordinates (floats) of a specific marker to be initialized.
+        
+    n_quad : int
+        Number of quadrature points for tesselation.
+        
+    dir_external : str
+        Load markers from external .hdf5 file (absolute path).
+        
+    dir_particles_abs : str
+        Load markers from restart .hdf5 file (absolute path).
+        
+    dir_particles : str
+        Load markers from restart .hdf5 file (relative path to output folder).
+    """
+    def __init__(self,
+                 loading: OptsLoading = "pseudo_random",
+                 seed: int = None,
+                 moments: tuple = None,
+                 spatial: OptsSpatialLoading = "uniform",
+                 specific_markers: tuple[tuple] = None,
+                 n_quad: int = 1,
+                 dir_exrernal: str = None,
+                 dir_particles: str = None,
+                 dir_particles_abs: str = None,
+                 ):
+
+        self.loading = loading
+        self.seed = seed
+        self.moments = moments
+        self.spatial = spatial
+        self.specific_markers = specific_markers
+        self.n_quad = n_quad
+        self.dir_external = dir_exrernal
+        self.dir_particles = dir_particles
+        self.dir_particles_abs = dir_particles_abs
+        
+        
+class WeightsParameters:
+    """Paramters for particle weights.
+    
+    Parameters
+    ----------
+    control_variate : bool
+        Whether to use a control variate for noise reduction.
+    
+    rejct_weights : bool
+        Whether to reject weights below threshold.
+        
+    threshold : float
+        Threshold for rejecting weights.
+    """
+    def __init__(self,
+                control_variate: bool = False,
+                reject_weights: bool = False,
+                threshold: float = 0.0,):
+        
+        self.control_variate = control_variate
+        self.reject_weights = reject_weights
+        self.threshold = threshold
 
 
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):

@@ -199,8 +199,10 @@ class SumKineticBackground(KineticBackground):
 
         n1 = self._f1.n(*etas)
         n2 = self._f2.n(*etas)
+        u1s = self._f1.u(*etas)
+        u2s = self._f2.u(*etas)
 
-        return [(n1 * u1 + n2 * u2) / (n1 + n2) for u1, u2 in zip(self._f1.u(*etas), self._f2.u(*etas))]
+        return [(n1 * u1 + n2 * u2) / (n1 + n2) for u1, u2 in zip(u1s, u2s)]
 
     def __call__(self, *args):
         """Evaluates the background distribution function f0(etas, v1, ..., vn).

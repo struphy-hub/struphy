@@ -31,6 +31,7 @@ OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
 OptsMarkerBC = Literal["periodic", "reflect"]
 OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
 OptsLoading = Literal["pseudo_random", "tesselation"]
+OptsSpatialLoading = Literal["uniform", "disc"]
 
 
 ## Option classes

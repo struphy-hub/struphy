@@ -147,7 +147,7 @@ class Vlasov(StruphyModel):
             )
         
         # define scalars for update_scalar_quantities
-        self.add_scalar("en_f", compute="from_particles", species="ions")
+        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
 
     @property
     def bulk_species(self):
