@@ -29,6 +29,8 @@ from struphy.fields_background.equils import HomogenSlab
 from struphy.topology.grids import TensorProductGrid
 from struphy.io.options import DerhamOptions
 from struphy.post_processing.post_processing_tools import create_femfields, eval_femfields, create_vtk
+from struphy.topology import grids
+from struphy.io.options import DerhamOptions
     
 
 def run(
@@ -165,13 +167,19 @@ def run(
     model.setup_domain_and_equil(domain, equil)
     
     # allocate derham-related objects
-    if grid is not None:
+    if derham_opts is not None:
+        assert grid is not None, f"Derham complex needs a grid."
         model.allocate_feec(grid, derham_opts)
     else:
-        model._derham = None
-        model._mass_ops = None
-        model._projected_equil = None
-        print("GRID:\nNo grid specified - no Derham complex set up.")
+        if grid is None:
+            Nel = (16, 16, 16)
+            print(f"\nNo grid specified - using TensorProductGrid with {Nel = }.")
+            grid = grids.TensorProductGrid(Nel=Nel)
+        p = (3, 3, 3)
+        spl_kind = (False, False, False)
+        print(f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium.")
+        derham_opts = DerhamOptions(p=p, spl_kind=spl_kind)
+        model.allocate_feec(grid, derham_opts)
         
     # equation paramters
     model.setup_equation_params(units=model.units, verbose=verbose)

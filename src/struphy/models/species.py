@@ -11,6 +11,7 @@ from struphy.io.options import Units
 from struphy.io.options import OptsLoading, OptsMarkerBC, OptsRecontructBC
 from struphy.physics.physics import ConstantsOfNature
 from struphy.models.variables import Variable
+from struphy.pic.utilities import LoadingParameters, WeightsParameters
 
 
 class Species(metaclass=ABCMeta):
@@ -77,7 +78,7 @@ class Species(metaclass=ABCMeta):
         self._equation_params["kappa"] = om_p * units.t
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f'Set normalization parameters for species {self.__class__.__name__}:')
+            print(f'\nSet normalization parameters for species {self.__class__.__name__}:')
             for key, val in self.equation_params.items():
                 print((key + ":").ljust(25), "{:4.3e}".format(val))
 
@@ -93,6 +94,7 @@ class FluidSpecies(Species):
 
 class KineticSpecies(Species):
     """Single kinetic species in 3d + vdim phase space."""
+    
     def set_markers(self, 
                     Np: int = 100,
                     ppc: int = None,
@@ -101,13 +103,19 @@ class KineticSpecies(Species):
                     bc_refill = None,
                     bc_sph: tuple[OptsRecontructBC] = ("periodic", "periodic", "periodic"),
                     bufsize: float = 1.0,
-                    loading: OptsLoading = "pseudo_random",
-                    loading_params: dict = None,
-                    control_variate: bool = False,
-                    reject_weights: dict = None,
+                    loading_params: LoadingParameters = None,
+                    weights_params: WeightsParameters = None,
                     ):
         """Set marker parameters for loading, pushing, weight calculation 
         and kernel density reconstruction."""
+        
+        # defaults
+        if loading_params is None:
+            loading_params = LoadingParameters()
+            
+        if weights_params is None:
+            weights_params = WeightsParameters()
+        
         self.Np = Np
         self.ppc = ppc
         self.ppb = ppb
@@ -115,17 +123,19 @@ class KineticSpecies(Species):
         self.bc_refill = bc_refill
         self.bc_sph = bc_sph
         self.bufsize = bufsize
-        self.loading = loading
-        self.loading_params = loading_params
-        self.control_variate = control_variate
-        self.reject_weights = reject_weights
+        self.loading = loading_params
+        self.weights_params = weights_params
         
-    def set_sorting(self,
+    def set_sorting_boxes(self,
+                    do_sort: bool = False,
+                    sorting_frequency: int = 0,
                     boxes_per_dim: tuple = (16, 1, 1),
                     box_bufsize: float = 2.0,
                     dims_maks: tuple = (True, True, True),
                     ):
         """For sorting markers in memory."""
+        self.do_sort = do_sort
+        self.sorting_fequency = sorting_frequency
         self.boxes_per_dim = boxes_per_dim
         self.box_bufsize = box_bufsize
         self.dims_mask = dims_maks

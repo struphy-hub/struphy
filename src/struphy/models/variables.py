@@ -198,15 +198,24 @@ class PICVariable(Variable):
             # bc_sph=self.species.bc_sph,
             loading=self.species.loading,
             loading_params=self.species.loading_params,
-            weights_params=self.species.reject_weights,
+            reject_weights=self.species.reject_weights,
+            threshold=self.species.threshold,
             bufsize=self.species.bufsize,
             domain=domain,
             equil=equil,
             projected_equil=projected_equil,
             background=self.backgrounds,
+            n_as_volume_form=self.n_as_volume_form,
             # perturbations=self.perturbations,
             equation_params=self.species.equation_params,
         )
+        
+        if self.species.do_sort:
+            sort = True
+        else:
+            sort = False
+        self.particles.draw_markers(sort=sort)
+        self.particles.initialize_weights()
 
         # for storing the binned distribution function
         if self.species.f_binned is not None:
