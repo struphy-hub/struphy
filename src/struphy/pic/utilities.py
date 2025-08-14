@@ -3,12 +3,12 @@ from struphy.io.options import OptsLoading, OptsSpatialLoading
 
 
 class LoadingParameters:
-    """Paramters for particle loading.
+    """Parameters for particle loading.
     
     Parameters
     ----------
     loading : OptsLoading
-        How to load markers: "pseudo_random" for Monte-Carlo, or "tesselation" for positioning them on a regular grid.
+        How to load markers: multiple options for Monte-Carlo, or "tesselation" for positioning them on a regular grid.
     
     seed : int
         Seed for random generator. If None, no seed is taken.
@@ -34,6 +34,9 @@ class LoadingParameters:
         
     dir_particles : str
         Load markers from restart .hdf5 file (relative path to output folder).
+        
+    restart_key : str
+        Key in .hdf5 file's restart/ folder where marker array is stored.
     """
     def __init__(self,
                  loading: OptsLoading = "pseudo_random",
@@ -45,6 +48,7 @@ class LoadingParameters:
                  dir_exrernal: str = None,
                  dir_particles: str = None,
                  dir_particles_abs: str = None,
+                 restart_key: str = None,
                  ):
 
         self.loading = loading
@@ -56,6 +60,7 @@ class LoadingParameters:
         self.dir_external = dir_exrernal
         self.dir_particles = dir_particles
         self.dir_particles_abs = dir_particles_abs
+        self.restart_key = restart_key
         
         
 class WeightsParameters:

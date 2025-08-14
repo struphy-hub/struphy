@@ -92,16 +92,16 @@ class Particles6D(Particles):
         """
         # load sampling density svol (normalized to 1 in logical space)
         maxw_params = {
-            "n": 1.0,
-            "u1": self.loading_params["moments"][0],
-            "u2": self.loading_params["moments"][1],
-            "u3": self.loading_params["moments"][2],
-            "vth1": self.loading_params["moments"][3],
-            "vth2": self.loading_params["moments"][4],
-            "vth3": self.loading_params["moments"][5],
+            "n": (1.0, None),
+            "u1": (self.loading_params.moments[0], None),
+            "u2": (self.loading_params.moments[1], None),
+            "u3": (self.loading_params.moments[2], None),
+            "vth1": (self.loading_params.moments[3], None),
+            "vth2": (self.loading_params.moments[4], None),
+            "vth3": (self.loading_params.moments[5], None),
         }
 
-        fun = maxwellians.Maxwellian3D(maxw_params=maxw_params)
+        fun = maxwellians.Maxwellian3D(**maxw_params)
 
         if self.spatial == "uniform":
             return fun(eta1, eta2, eta3, *v)
@@ -403,10 +403,10 @@ class Particles5D(Particles):
         # load sampling density svol (normalized to 1 in logical space)
         maxw_params = {
             "n": 1.0,
-            "u_para": self.loading_params["moments"][0],
-            "u_perp": self.loading_params["moments"][1],
-            "vth_para": self.loading_params["moments"][2],
-            "vth_perp": self.loading_params["moments"][3],
+            "u_para": self.loading_params.moments[0],
+            "u_perp": self.loading_params.moments[1],
+            "vth_para": self.loading_params.moments[2],
+            "vth_perp": self.loading_params.moments[3],
         }
 
         self._svol = maxwellians.GyroMaxwellian2D(

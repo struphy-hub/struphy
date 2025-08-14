@@ -47,7 +47,8 @@ from struphy.pic.sph_eval_kernels import (
 from struphy.utils import utils
 from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.pyccel import Pyccelkernel
+from struphy.pic.utilities import LoadingParameters, WeightsParameters
+from struphy.io.options import OptsLoading
 
 
 class Particles(metaclass=ABCMeta):
@@ -114,24 +115,14 @@ class Particles(metaclass=ABCMeta):
     type : str
         Either 'full_f' (default), 'delta_f' or 'sph'.
 
-    control_variate : bool
-        Whether to use a control variate for noise reduction (only if type is 'full_f' or 'sph').
-
     name : str
         Name of particle species.
 
-    loading : str
-        Drawing of markers; either 'pseudo_random', 'sobol_standard',
-        'sobol_antithetic', 'external' or 'restart'.
+    loading_params : LoadingParameters
+        Parameterts for particle loading.
 
-    loading_params : dict
-        Parameterts for loading, see defaults below.
-
-    rejct_weights : bool
-        Whether to reject weights below threshold.
-        
-    threshold : float
-        Threshold for rejecting weights.
+    weights_params : WeightsParameters
+        Parameters for particle weights.
 
     bufsize : float
         Size of buffer (as multiple of total size, default=.25) in markers array.
@@ -176,12 +167,9 @@ class Particles(metaclass=ABCMeta):
         bc_refill: str = None,
         bc_sph: str = None,
         type: str = "full_f",
-        control_variate: bool = False,
         name: str = "some_name",
-        loading: str = "pseudo_random",
-        loading_params: dict = None,
-        reject_weights: bool = False,
-        threshold: float = 0.0,
+        loading_params: LoadingParameters = None,
+        weights_params: WeightsParameters = None,
         bufsize: float = 0.25,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
@@ -208,6 +196,13 @@ class Particles(metaclass=ABCMeta):
         self._equil = equil
         self._projected_equil = projected_equil
         self._equation_params = equation_params
+        
+        # defaults
+        if loading_params is None:
+            loading_params = LoadingParameters()
+            
+        if weights_params is None:
+            weights_params = WeightsParameters()
 
         # check for mpi communicator (i.e. sub_comm of clone)
         if self.mpi_comm is None:
@@ -299,41 +294,20 @@ class Particles(metaclass=ABCMeta):
         # particle type
         assert type in ("full_f", "delta_f", "sph")
         self._type = type
-        self._control_variate = control_variate
 
         # initialize sorting boxes
         self._verbose = verbose
         self._initialize_sorting_boxes()
 
         # particle loading parameters
-        assert loading in (
-            "pseudo_random",
-            "sobol_standard",
-            "sobol_antithetic",
-            "external",
-            "restart",
-            "tesselation",
-        )
-        self._loading = loading
-
-        loading_params_default = {
-            "seed": None,
-            "dir_particles": None,
-            "moments": None,
-            "spatial": "uniform",
-            "initial": None,
-            "n_quad": 1,
-        }
-
-        self._loading_params = set_defaults(
-            loading_params,
-            loading_params_default,
-        )
-        self._spatial = self.loading_params["spatial"]
+        self._loading = loading_params.loading
+        self._loading_params = loading_params
+        self._spatial = loading_params.spatial
 
         # weights
-        self._reject_weights = reject_weights
-        self._threshold = threshold
+        self._reject_weights = weights_params.reject_weights
+        self._threshold = weights_params.threshold
+        self._control_variate = weights_params.control_variate
 
         # background
         if background is None:
@@ -357,7 +331,7 @@ class Particles(metaclass=ABCMeta):
 
         # for loading
         # if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
-        #     self._auto_sampling_params()
+        self._generate_sampling_moments()
 
         # create buffers for mpi_sort_markers
         self._sorting_etas = np.zeros(self.markers.shape, dtype=float)
@@ -468,7 +442,7 @@ class Particles(metaclass=ABCMeta):
         return self._type
 
     @property
-    def loading(self):
+    def loading(self) -> OptsLoading:
         """Type of particle loading."""
         return self._loading
 
@@ -554,7 +528,7 @@ class Particles(metaclass=ABCMeta):
     #     return self._perturbations
 
     @property
-    def loading_params(self):
+    def loading_params(self) -> LoadingParameters:
         """Parameters for marker loading."""
         return self._loading_params
 
@@ -1182,7 +1156,9 @@ class Particles(metaclass=ABCMeta):
     def _generate_sampling_moments(self):
         """Automatically determine moments for sampling distribution (Gaussian) from the given background."""
         
-        self.loading_params["moments"] = tuple([0.0]*self.vdim + [1.0]*self.vdim)
+        if self.loading_params.moments is None:
+            self.loading_params.moments = tuple([0.0]*self.vdim + [1.0]*self.vdim)
+            
         # TODO: reformulate this function with KineticBackground methods
         
         # ns = []
@@ -1234,38 +1210,38 @@ class Particles(metaclass=ABCMeta):
         # self.loading_params["moments"] = new_moments
 
     def _set_initial_condition(self, bp_copy=None, pp_copy=None):
-        """Compute callable initial condition from background + perturbation."""
+        self._f_init = self.background
+        # """Compute callable initial condition from background + perturbation."""
+        # if bp_copy is None:
+        #     bp_copy = copy.deepcopy(self.bckgr_params)
+        # if pp_copy is None:
+        #     pp_copy = copy.deepcopy(self.pert_params)
 
-        if bp_copy is None:
-            bp_copy = copy.deepcopy(self.bckgr_params)
-        if pp_copy is None:
-            pp_copy = copy.deepcopy(self.pert_params)
+        # # Get the initialization function and pass the correct arguments
+        # self._f_init = None
+        # for fi, maxw_params in bp_copy.items():
+        #     if fi[-2] == "_":
+        #         fi_type = fi[:-2]
+        #     else:
+        #         fi_type = fi
 
-        # Get the initialization function and pass the correct arguments
-        self._f_init = None
-        for fi, maxw_params in bp_copy.items():
-            if fi[-2] == "_":
-                fi_type = fi[:-2]
-            else:
-                fi_type = fi
+        #     pert_params = pp_copy
+        #     if pp_copy is not None:
+        #         if fi in pp_copy:
+        #             pert_params = pp_copy[fi]
 
-            pert_params = pp_copy
-            if pp_copy is not None:
-                if fi in pp_copy:
-                    pert_params = pp_copy[fi]
-
-            if self._f_init is None:
-                self._f_init = getattr(maxwellians, fi_type)(
-                    maxw_params=maxw_params,
-                    pert_params=pert_params,
-                    equil=self.equil,
-                )
-            else:
-                self._f_init = self._f_init + getattr(maxwellians, fi_type)(
-                    maxw_params=maxw_params,
-                    pert_params=pert_params,
-                    equil=self.equil,
-                )
+        #     if self._f_init is None:
+        #         self._f_init = getattr(maxwellians, fi_type)(
+        #             maxw_params=maxw_params,
+        #             pert_params=pert_params,
+        #             equil=self.equil,
+        #         )
+        #     else:
+        #         self._f_init = self._f_init + getattr(maxwellians, fi_type)(
+        #             maxw_params=maxw_params,
+        #             pert_params=pert_params,
+        #             equil=self.equil,
+        #         )
 
     def _load_external(
         self,
@@ -1284,7 +1260,7 @@ class Particles(metaclass=ABCMeta):
         """
         if self.mpi_rank == 0:
             file = h5py.File(
-                self.loading_params["dir_external"],
+                self.loading_params.dir_external,
                 "r",
             )
             print(f"\nLoading markers from file: {file}")
@@ -1317,16 +1293,16 @@ class Particles(metaclass=ABCMeta):
 
         o_path = state["o_path"]
 
-        if self.loading_params["dir_particles_abs"] is None:
+        if self.loading_params.dir_particles_abs is None:
             data_path = os.path.join(
                 o_path,
-                self.loading_params["dir_particles"],
+                self.loading_params.dir_particles,
             )
         else:
-            data_path = self.loading_params["dir_particles_abs"]
+            data_path = self.loading_params.dir_particles_abs
 
         data = DataContainer(data_path, comm=self.mpi_comm)
-        self._markers[:, :] = data.file["restart/" + self.loading_params["key"]][-1, :, :]
+        self._markers[:, :] = data.file["restart/" + self.loading_params.restart_key][-1, :, :]
 
     def _load_tesselation(self, n_quad: int = 1):
         """
@@ -1480,13 +1456,13 @@ class Particles(metaclass=ABCMeta):
         else:
             if self.mpi_rank == 0 and verbose:
                 print("\nLoading fresh markers:")
-                for key, val in self.loading_params.items():
+                for key, val in self.loading_params.__dict__.items():
                     print((key + " :").ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
             if self.loading == "pseudo_random":
                 # set seed
-                _seed = self.loading_params["seed"]
+                _seed = self.loading_params.seed
                 if _seed is not None:
                     np.random.seed(_seed)
 
@@ -1567,8 +1543,8 @@ class Particles(metaclass=ABCMeta):
                 self.velocities = np.array(self.u_init(self.positions)[0]).T
             else:
                 # inverse transform sampling in velocity space
-                u_mean = np.array(self.loading_params["moments"][: self.vdim])
-                v_th = np.array(self.loading_params["moments"][self.vdim :])
+                u_mean = np.array(self.loading_params.moments[: self.vdim])
+                v_th = np.array(self.loading_params.moments[self.vdim :])
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if self.vdim == 3:
@@ -1617,8 +1593,8 @@ class Particles(metaclass=ABCMeta):
             self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
-            if self.loading_params["initial"] is not None:
-                specific_markers = self.loading_params["initial"]
+            if self.loading_params.specific_markers is not None:
+                specific_markers = self.loading_params.specific_markers
 
                 counter = 0
                 for i in range(len(specific_markers)):
@@ -1754,7 +1730,7 @@ class Particles(metaclass=ABCMeta):
                 fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
             else:
                 fvol = self.f_init
-            cell_avg = self.tesselation.cell_averages(fvol, n_quad=self.loading_params["n_quad"])
+            cell_avg = self.tesselation.cell_averages(fvol, n_quad=self.loading_params.n_quad)
             self.weights0 = cell_avg.flatten()
         else:
             assert self.domain is not None, "A domain is needed to initialize weights."

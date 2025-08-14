@@ -123,7 +123,7 @@ class KineticSpecies(Species):
         self.bc_refill = bc_refill
         self.bc_sph = bc_sph
         self.bufsize = bufsize
-        self.loading = loading_params
+        self.loading_params = loading_params
         self.weights_params = weights_params
         
     def set_sorting_boxes(self,

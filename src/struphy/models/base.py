@@ -34,6 +34,8 @@ from struphy.pic import particles
 from struphy.pic.base import Particles
 from struphy.propagators.base import Propagator
 from struphy.kinetic_background import maxwellians
+from psydac.linalg.stencil import StencilVector
+from struphy.io.output_handling import DataContainer
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -712,21 +714,23 @@ class StruphyModel(metaclass=ABCMeta):
         Writes distribution functions slices that are supposed to be saved into corresponding array.
         """
 
-        from struphy.pic.base import Particles
-
         dim_to_int = {"e1": 0, "e2": 1, "e3": 2, "v1": 3, "v2": 4, "v3": 5}
 
-        for _, val in self.kinetic_species.items():
-            obj = val["obj"]
-            assert isinstance(obj, Particles)
+        for name, species in self.kinetic_species.items():
+            assert isinstance(species, KineticSpecies)
+            assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
+            for _, var in species.variables.items():
+                assert isinstance(var, PICVariable | SPHVariable)
+                obj = var.particles
+                assert isinstance(obj, Particles)
 
             if obj.n_cols_diagnostics > 0:
                 for i in range(obj.n_cols_diagnostics):
                     str_dn = f"d{i + 1}"
                     dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
 
-            if "f" in val["params"]["save_data"]:
-                for slice_i, edges in val["bin_edges"].items():
+            if species.f_binned is not None:
+                for slice_i, edges in var.kinetic_data["bin_edges"].items():
                     comps = slice_i.split("_")
                     components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
 
@@ -735,10 +739,10 @@ class StruphyModel(metaclass=ABCMeta):
 
                     f_slice, df_slice = obj.binning(components, edges)
 
-                    val["kinetic_data"]["f"][slice_i][:] = f_slice
-                    val["kinetic_data"]["df"][slice_i][:] = df_slice
+                    var.kinetic_data["f"][slice_i][:] = f_slice
+                    var.kinetic_data["df"][slice_i][:] = df_slice
 
-            if "n_sph" in val["params"]["save_data"]:
+            if species.n_sph is not None:
                 h1 = 1 / obj.boxes_per_dim[0]
                 h2 = 1 / obj.boxes_per_dim[1]
                 h3 = 1 / obj.boxes_per_dim[2]
@@ -947,9 +951,6 @@ class StruphyModel(metaclass=ABCMeta):
             The data object that links to the hdf5 files.
         """
 
-        from struphy.feec.psydac_derham import Derham
-        from struphy.pic.base import Particles
-
         # initialize em fields
         if len(self.em_fields) > 0:
             for key, val in self.em_fields.items():
@@ -986,7 +987,7 @@ class StruphyModel(metaclass=ABCMeta):
                 if self.comm_world is not None:
                     obj.mpi_sort_markers(do_test=True)
 
-    def initialize_data_output(self, data, size):
+    def initialize_data_output(self, data: DataContainer, size):
         """
         Create datasets in hdf5 files according to model unknowns and diagnostics data.
 
@@ -1006,14 +1007,6 @@ class StruphyModel(metaclass=ABCMeta):
         save_keys_end : list
             Keys of datasets which are saved at the end of a simulation to enable restarts.
         """
-
-        from psydac.linalg.stencil import StencilVector
-
-        from struphy.feec.psydac_derham import Derham
-        from struphy.io.output_handling import DataContainer
-        from struphy.pic.base import Particles
-
-        assert isinstance(data, DataContainer)
 
         # save scalar quantities in group 'scalar/'
         for key, scalar in self.scalar_quantities.items():
@@ -1082,16 +1075,20 @@ class StruphyModel(metaclass=ABCMeta):
                         )
 
         # save kinetic data in group 'kinetic/'
-        for species, val in self.kinetic_species.items():
-            obj = val["obj"]
-            assert isinstance(obj, Particles)
+        for name, species in self.kinetic_species.items():
+            assert isinstance(species, KineticSpecies)
+            assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
+            for _, var in species.variables.items():
+                assert isinstance(var, PICVariable | SPHVariable)
+                obj = var.particles
+                assert isinstance(obj, Particles)
 
             key_spec = "kinetic/" + key
             key_spec_restart = "restart/" + key
 
             data.add_data({key_spec_restart: obj._markers})
 
-            for key1, val1 in val["kinetic_data"].items():
+            for key1, val1 in var.kinetic_data.items():
                 key_dat = key_spec + "/" + key1
 
                 # case of "f" and "df"
@@ -1103,8 +1100,8 @@ class StruphyModel(metaclass=ABCMeta):
                         dims = (len(key2) - 2) // 3 + 1
                         for dim in range(dims):
                             data.file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = (
-                                val["bin_edges"][key2][dim][:-1]
-                                + (val["bin_edges"][key2][dim][1] - val["bin_edges"][key2][dim][0]) / 2
+                                var.kinetic_data["bin_edges"][key2][dim][:-1]
+                                + (var.kinetic_data["bin_edges"][key2][dim][1] - var.kinetic_data["bin_edges"][key2][dim][0]) / 2
                             )
                 # case of "n_sph"
                 elif isinstance(val1, list):
@@ -1112,9 +1109,9 @@ class StruphyModel(metaclass=ABCMeta):
                         key_n = key_dat + "/view_" + str(i)
                         data.add_data({key_n: v1})
                         # save 1d point values, not meshgrids, because attrs size is limited
-                        eta1 = val["plot_pts"][i][0][:, 0, 0]
-                        eta2 = val["plot_pts"][i][1][0, :, 0]
-                        eta3 = val["plot_pts"][i][2][0, 0, :]
+                        eta1 = var.kinetic_data["plot_pts"][i][0][:, 0, 0]
+                        eta2 = var.kinetic_data["plot_pts"][i][1][0, :, 0]
+                        eta3 = var.kinetic_data["plot_pts"][i][2][0, 0, :]
                         data.file[key_n].attrs["eta1"] = eta1
                         data.file[key_n].attrs["eta2"] = eta2
                         data.file[key_n].attrs["eta3"] = eta3
