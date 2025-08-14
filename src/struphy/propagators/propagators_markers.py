@@ -1657,6 +1657,9 @@ class PushVinViscousPotential(Propagator):
         
         init_kernel_3 = eval_kernels_gc.sph_grad_mean_velocity
         comps_tensor = (0,1,2,3,4,5,6,7,8)
+        
+        init_kernel_4 = eval_kernels_gc.sph_viscosity_tensor
+        
 
         boxes = particles.sorting_boxes.boxes
         neighbours = particles.sorting_boxes.neighbours
@@ -1697,6 +1700,13 @@ class PushVinViscousPotential(Propagator):
             init_kernel_3,
             first_free_idx +6, #+3 so that the previous one is not overwritten 
             comps_tensor,
+            args_init,
+        )
+        
+        self.add_init_kernel(
+            init_kernel_4, 
+            first_free_idx + 15,
+            comps_tensor, 
             args_init,
         )
 

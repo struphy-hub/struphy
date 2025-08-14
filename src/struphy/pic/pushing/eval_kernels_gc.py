@@ -1,6 +1,6 @@
 "Initialization routines (initial guess, evaluations) for 5D gyro-center pusher kernels."
 
-from numpy import abs, empty, log, mod, shape, size, sqrt, zeros
+from numpy import abs, empty, log, mod, shape, size, sqrt, zeros, trace, eye
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -895,3 +895,102 @@ def sph_grad_mean_velocity(
         
                 # save
                 markers[ip, column_nr + 3*j +k] = grad_v_at_eta[j,k]
+                
+
+@stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
+def sph_viscosity_tensor(
+    alpha: "float[:]",
+    column_nr: int,
+    comps: "int[:]",
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    boxes: "int[:, :]",
+    neighbours: "int[:, :]",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+):
+    r"""Evaluate the :math:`\boldsymbol \eta`-gradient of the Hamiltonian
+
+    .. math::
+
+        H(\mathbf Z_p) = H(\boldsymbol \eta_p, v_{\parallel,p}) = \varepsilon \frac{v_{\parallel,p}^2}{2}
+        + \varepsilon \mu |\hat \mathbf B| (\boldsymbol \eta_p) + \hat \phi(\boldsymbol \eta_p)\,,
+
+    that is
+
+    .. math::
+
+        \hat \nabla H(\mathbf Z_p) = \varepsilon \mu \hat \nabla |\hat \mathbf B| (\boldsymbol \eta_p)
+        + \hat \nabla \hat \phi(\boldsymbol \eta_p)\,,
+
+    where the evaluation point is the weighted average
+    :math:`Z_{p,i} = \alpha_i Z_{p,i}^{n+1,k} + (1 - \alpha_i) Z_{p,i}^n`,
+    for :math:`i=1,2,3,4`. Markers must be sorted according to the evaluation point
+    :math:`\boldsymbol \eta_p` beforehand.
+
+    The components specified in ``comps`` are save at ``column_nr:column_nr + len(comps)``
+    in markers array for each particle.
+    """
+
+    gamma = 5 / 3
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    n_cols = shape(markers)[1]
+    Np = args_markers.Np
+    vdim = args_markers.vdim
+    weight_idx = args_markers.weight_idx
+    first_free_idx = args_markers.first_free_idx
+    valid_mks = args_markers.valid_mks
+
+
+    grad_v_at_eta = zeros((3,3), dtype = float)
+    viscosity_tensor = zeros((3,3), dtype = float)
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle
+        if not valid_mks[ip]:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        loc_box = int(markers[ip, n_cols - 2])
+        for j in range(3):
+            for k in range(3):
+                
+                grad_v_at_eta[j,k] = sph_eval_kernels.boxed_based_kernel(
+                    args_markers,
+                    eta1,
+                    eta2,
+                    eta3,
+                    loc_box,
+                    boxes,
+                    neighbours,
+                    holes,
+                    periodic1,
+                    periodic2,
+                    periodic3,
+                    first_free_idx +j,
+                    kernel_type +1 +k,
+                    h1,
+                    h2,
+                    h3,
+                )
+        
+                # save
+                markers[ip, column_nr + 3*j +k] = grad_v_at_eta[j,k]
+
+        d = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
+        trace_d = trace(d)
+        d_dev = d - (trace_d / 3.0) * eye(3)
+        for j in range(3):
+            for k in range(3):
+                markers[ip, column_nr + 3*j + k] = d_dev[j,k]
+        
