@@ -1282,7 +1282,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             else:
                 print("exiting ...")
                 return   
-                    
+                   
         file.write("from struphy.io.options import EnvironmentOptions, Units, Time\n")
         file.write("from struphy.geometry import domains\n")
         file.write("from struphy.fields_background import equils\n")
@@ -1300,9 +1300,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 has_plasma = True
                 species_params += f"model.{sn}.set_phys_params()\n"
                 if isinstance(species, KineticSpecies):
-                    kinetic_params += f"model.{sn}.set_markers()\n\
-model.{sn}.set_sorting()\n\
-model.{sn}.set_save_data()\n"
+                    kinetic_params += f"\nloading_params = LoadingParameters()\n"
+                    kinetic_params += f"weights_params = WeightsParameters()\n"
+                    kinetic_params += f"model.{sn}.set_markers(loading_params=loading_params, weights_params=weights_params)\n"
+                    kinetic_params += f"model.{sn}.set_sorting_boxes()\n"
+                    kinetic_params += f"model.{sn}.set_save_data()\n"
             
             for vn, var in species.variables.items():
                 if isinstance(var, FEECVariable):
@@ -1320,7 +1322,10 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                 elif isinstance(var, PICVariable):
                     has_pic = True
                     init_pert_pic = f"perturbation = perturbations.TorusModesCos()\n"
-                    init_bckgr_pic = f"model.{sn}.{vn}.add_background(maxwellians.Maxwellian3D(perturbation=perturbation))\n"
+                    init_bckgr_pic = f"\nmaxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
+                    init_bckgr_pic += f"maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
+                    init_bckgr_pic += f"background = maxwellian_1 + maxwellian_2\n"
+                    init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
                     
                     exclude = f"# model.....save_data = False\n"
                 elif isinstance(var, SPHVariable):
@@ -1332,6 +1337,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("from struphy.initial import perturbations\n")
         
         file.write("from struphy.kinetic_background import maxwellians\n")
+        file.write("from struphy.pic.utilities import LoadingParameters, WeightsParameters\n")
         file.write("from struphy import main\n")
             
         file.write("\n# import model, set verbosity\n")
