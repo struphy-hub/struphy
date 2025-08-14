@@ -962,6 +962,25 @@ def sph_viscosity_tensor(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         loc_box = int(markers[ip, n_cols - 2])
+        n_at_eta = sph_eval_kernels.boxed_based_kernel(
+            args_markers,
+            eta1,
+            eta2,
+            eta3,
+            loc_box,
+            boxes,
+            neighbours,
+            holes,
+            periodic1,
+            periodic2,
+            periodic3,
+            weight_idx,
+            kernel_type,
+            h1,
+            h2,
+            h3,
+        )
+        weight = markers[ip, weight_idx]
         for j in range(3):
             for k in range(3):
                 
@@ -986,10 +1005,11 @@ def sph_viscosity_tensor(
         
                 # save
                 markers[ip, column_nr + 3*j +k] = grad_v_at_eta[j,k]
-
+        mu = 0.7
         d = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
         trace_d = trace(d)
         d_dev = d - (trace_d / 3.0) * eye(3)
+        d_dev *= 2*mu*weight/n_at_eta 
         for j in range(3):
             for k in range(3):
                 markers[ip, column_nr + 3*j + k] = d_dev[j,k]
