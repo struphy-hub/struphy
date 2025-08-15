@@ -298,6 +298,10 @@ class EnvironmentOptions:
     
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
+        
+    def print(self):
+        for k, v in self.__dict__.items():
+            print(f"{k}:".ljust(20), v)
     
     
 def check_option(opt, options):

@@ -1302,7 +1302,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 if isinstance(species, KineticSpecies):
                     kinetic_params += f"\nloading_params = LoadingParameters()\n"
                     kinetic_params += f"weights_params = WeightsParameters()\n"
-                    kinetic_params += f"model.{sn}.set_markers(loading_params=loading_params, weights_params=weights_params)\n"
+                    kinetic_params += f"boundary_params = BoundaryParameters()\n"
+                    kinetic_params += f"model.{sn}.set_markers(loading_params=loading_params, weights_params=weights_params, boundary_params=boundary_params)\n"
                     kinetic_params += f"model.{sn}.set_sorting_boxes()\n"
                     kinetic_params += f"model.{sn}.set_save_data()\n"
             
@@ -1337,7 +1338,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("from struphy.initial import perturbations\n")
         
         file.write("from struphy.kinetic_background import maxwellians\n")
-        file.write("from struphy.pic.utilities import LoadingParameters, WeightsParameters\n")
+        file.write("from struphy.pic.utilities import LoadingParameters, WeightsParameters, BoundaryParameters\n")
         file.write("from struphy import main\n")
             
         file.write("\n# import model, set verbosity\n")
