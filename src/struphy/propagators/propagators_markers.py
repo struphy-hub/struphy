@@ -136,8 +136,11 @@ class PushVxB(Propagator):
 
     def allocate(self):
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
-        self._b2 = self.projected_equil.b2
-        assert self._b2.space == self.derham.Vh["2"]
+        if self.projected_equil is not None:
+            self._b2 = self.projected_equil.b2
+            assert self._b2.space == self.derham.Vh["2"]
+        else:
+            self._b2 = self.derham.Vh["2"].zeros()
         
         if self.options.b2_var is None:
             self._b2_var = None

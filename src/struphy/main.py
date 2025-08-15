@@ -31,6 +31,10 @@ from struphy.io.options import DerhamOptions
 from struphy.post_processing.post_processing_tools import create_femfields, eval_femfields, create_vtk
 from struphy.topology import grids
 from struphy.io.options import DerhamOptions
+from struphy.post_processing.post_processing_tools import (post_process_markers,
+                                                           post_process_f,
+                                                           post_process_n_sph)
+from struphy.post_processing.orbits import orbits_tools
     
 
 def run(
@@ -450,7 +454,11 @@ def pproc(
 
     if "kinetic" in file.keys():
         exist_kinetic = {"markers": False, "f": False, "n_sph": False}
+        kinetic_species = []
         for name in file["kinetic"].keys():
+            print(f"{name = }")
+            kinetic_species += [name]
+            
             # check for saved markers
             if "markers" in file["kinetic"][name]:
                 exist_kinetic["markers"] = True
@@ -539,14 +547,14 @@ def pproc(
 
             # markers
             if exist_kinetic["markers"]:
-                pproc.post_process_markers(path, path_kinetics_species, species, kinetic_kinds[n], step)
+                post_process_markers(path, path_kinetics_species, species, kinetic_kinds[n], step)
 
                 if guiding_center:
                     assert kinetic_kinds[n] == "Particles6D"
-                    orbits_pproc.post_process_orbit_guiding_center(path, path_kinetics_species, species)
+                    orbits_tools.post_process_orbit_guiding_center(path, path_kinetics_species, species)
 
                 if classify:
-                    orbits_pproc.post_process_orbit_classification(path_kinetics_species, species)
+                    orbits_tools.post_process_orbit_classification(path_kinetics_species, species)
 
             # distribution function
             if exist_kinetic["f"]:
@@ -555,11 +563,11 @@ def pproc(
                 else:
                     compute_bckgr = False
 
-                pproc.post_process_f(path, path_kinetics_species, species, step, compute_bckgr=compute_bckgr)
+                post_process_f(path, path_kinetics_species, species, step, compute_bckgr=compute_bckgr)
 
             # sph density
             if exist_kinetic["n_sph"]:
-                pproc.post_process_n_sph(path, path_kinetics_species, species, step, compute_bckgr=compute_bckgr)
+                post_process_n_sph(path, path_kinetics_species, species, step, compute_bckgr=compute_bckgr)
 
 
 class SimData:

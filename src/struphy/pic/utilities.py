@@ -1,5 +1,8 @@
 import struphy.pic.utilities_kernels as utils
-from struphy.io.options import OptsLoading, OptsSpatialLoading
+from struphy.io.options import (OptsLoading, 
+                                OptsSpatialLoading, 
+                                OptsMarkerBC, 
+                                OptsRecontructBC,)
 
 
 class LoadingParameters:
@@ -7,6 +10,15 @@ class LoadingParameters:
     
     Parameters
     ----------
+    Np : int
+        Total number of particles to load.
+
+    ppc : int
+        Particles to load per cell if a grid is defined. Cells are defined from ``domain_array``.
+    
+    ppb : int
+        Particles to load per sorting box. Sorting boxes are defined from ``boxes_per_dim``.
+    
     loading : OptsLoading
         How to load markers: multiple options for Monte-Carlo, or "tesselation" for positioning them on a regular grid.
     
@@ -39,6 +51,9 @@ class LoadingParameters:
         Key in .hdf5 file's restart/ folder where marker array is stored.
     """
     def __init__(self,
+                 Np: int = 100,
+                 ppc: int = None,
+                 ppb: int = None,
                  loading: OptsLoading = "pseudo_random",
                  seed: int = None,
                  moments: tuple = None,
@@ -51,6 +66,9 @@ class LoadingParameters:
                  restart_key: str = None,
                  ):
 
+        self.Np = Np
+        self.ppc = ppc
+        self.ppb = ppb
         self.loading = loading
         self.seed = seed
         self.moments = moments
@@ -85,6 +103,32 @@ class WeightsParameters:
         self.control_variate = control_variate
         self.reject_weights = reject_weights
         self.threshold = threshold
+
+
+class BoundaryParameters:
+    """Parameters for particle boundary and sph reconstruction boundary conditions.
+    
+    Parameters
+    ----------
+    bc : tuple[OptsMarkerBC]
+        Boundary conditions for particle movement.
+        Either 'remove', 'reflect', 'periodic' or 'refill' in each direction.
+
+    bc_refill : list
+        Either 'inner' or 'outer'.
+        
+    bc_sph : tuple[OptsRecontructBC]
+        Boundary conditions for sph kernel reconstruction.
+    """
+    def __init__(self,
+                 bc: tuple[OptsMarkerBC] = ("periodic", "periodic", "periodic"),
+                 bc_refill = None,
+                 bc_sph: tuple[OptsRecontructBC] = ("periodic", "periodic", "periodic"),
+                 ):
+        self.bc = bc
+        self.bc_refill = bc_refill
+        self.bc_sph = bc_sph
+        
 
 
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):

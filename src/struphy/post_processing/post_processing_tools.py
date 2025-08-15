@@ -430,7 +430,7 @@ def create_vtk(
             )
 
 
-def post_process_markers(path_in, path_out, species, kind, step=1):
+def post_process_markers(path_in, path_out, species, kind="Particles6D", step=1):
     """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation
     and writes them to a .npy files and to .txt files.
     Also saves the weights.

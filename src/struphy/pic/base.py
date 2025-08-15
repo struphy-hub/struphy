@@ -47,7 +47,10 @@ from struphy.pic.sph_eval_kernels import (
 from struphy.utils import utils
 from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
-from struphy.pic.utilities import LoadingParameters, WeightsParameters
+from struphy.pic.utilities import (LoadingParameters, 
+                                   WeightsParameters,
+                                   BoundaryParameters,
+                                   )
 from struphy.io.options import OptsLoading
 
 
@@ -79,12 +82,6 @@ class Particles(metaclass=ABCMeta):
     clone_config : CloneConfig
         Manages the configuration for clone-based (copied grids) parallel processing using MPI.
 
-    Np : int
-        Number of particles.
-
-    ppc : int
-        Particles per cell. Cells are defined from ``domain_array``.
-
     domain_decomp : tuple
         The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
         the second entry is the number of MPI processes in each direction.
@@ -93,24 +90,11 @@ class Particles(metaclass=ABCMeta):
             True if the dimension is to be used in the domain decomposition (=default for each dimension).
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
 
-    ppb : int
-        Particles per sorting box. Boxes are defined from ``boxes_per_dim``.
-
     boxes_per_dim : tuple
         Number of boxes in each logical direction (n_eta1, n_eta2, n_eta3).
 
     box_bufsize : float
         Between 0 and 1, relative buffer size for box array (default = 0.25).
-
-    bc : list
-        Either 'remove', 'reflect', 'periodic' or 'refill' in each direction.
-
-    bc_refill : list
-        Either 'inner' or 'outer'.
-
-    bc_sph : list
-        Boundary condition for sph density evaluation.
-        Either 'periodic', 'mirror', 'static' or 'force' in each direction.
 
     type : str
         Either 'full_f' (default), 'delta_f' or 'sph'.
@@ -123,6 +107,9 @@ class Particles(metaclass=ABCMeta):
 
     weights_params : WeightsParameters
         Parameters for particle weights.
+        
+    boundary_params : BoundaryParameters
+        Parameters for particle boundary conditions.
 
     bufsize : float
         Size of buffer (as multiple of total size, default=.25) in markers array.
@@ -156,27 +143,21 @@ class Particles(metaclass=ABCMeta):
         self,
         comm_world: Intracomm = None,
         clone_config: CloneConfig = None,
-        Np: int = None,
-        ppc: int = None,
         domain_decomp: tuple = None,
         mpi_dims_mask: tuple | list = None,
-        ppb: int = 10,
         boxes_per_dim: tuple | list = None,
-        box_bufsize: float = 5.0,
-        bc: list = None,
-        bc_refill: str = None,
-        bc_sph: str = None,
+        box_bufsize: float = 2.0,
         type: str = "full_f",
         name: str = "some_name",
         loading_params: LoadingParameters = None,
         weights_params: WeightsParameters = None,
+        boundary_params: BoundaryParameters = None,
         bufsize: float = 0.25,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
         background: KineticBackground = None,
         n_as_volume_form: bool = False,
-        # perturbations: Perturbation | list = None,
         equation_params: dict = None,
         verbose: bool = False,
     ):
@@ -192,6 +173,9 @@ class Particles(metaclass=ABCMeta):
 
         # other parameters
         self._name = name
+        self._loading_params = loading_params
+        self._weights_params = weights_params
+        self._boundary_params = boundary_params
         self._domain = domain
         self._equil = equil
         self._projected_equil = projected_equil
@@ -203,6 +187,9 @@ class Particles(metaclass=ABCMeta):
             
         if weights_params is None:
             weights_params = WeightsParameters()
+            
+        if boundary_params is None:
+            boundary_params = BoundaryParameters()
 
         # check for mpi communicator (i.e. sub_comm of clone)
         if self.mpi_comm is None:
@@ -245,6 +232,9 @@ class Particles(metaclass=ABCMeta):
             print(f"{self.mpi_rank = }, {n_boxes = }")
 
         # total number of markers (Np) and particles per cell (ppc)
+        Np = self.loading_params.Np
+        ppc = self.loading_params.ppc
+        ppb = self.loading_params.ppb
         if Np is not None:
             self._Np = int(Np)
             self._ppc = self.Np / n_cells
@@ -265,6 +255,8 @@ class Particles(metaclass=ABCMeta):
         self._allocate_marker_array()
 
         # boundary conditions
+        bc = boundary_params.bc
+        bc_refill = boundary_params.bc_refill
         if bc is None:
             bc = ["periodic", "periodic", "periodic"]
 
@@ -301,7 +293,6 @@ class Particles(metaclass=ABCMeta):
 
         # particle loading parameters
         self._loading = loading_params.loading
-        self._loading_params = loading_params
         self._spatial = loading_params.spatial
 
         # weights
@@ -529,8 +520,16 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def loading_params(self) -> LoadingParameters:
-        """Parameters for marker loading."""
         return self._loading_params
+    
+    @property
+    def weights_params(self) -> WeightsParameters:
+        return self._weights_params
+    
+    @property
+    def boundary_params(self) -> BoundaryParameters:
+        """Parameters for marker loading."""
+        return self._boundary_params
 
     @property
     def reject_weights(self):
