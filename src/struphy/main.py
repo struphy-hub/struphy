@@ -22,8 +22,9 @@ from struphy.pic.base import Particles
 from struphy.models.species import Species
 from struphy.models.variables import FEECVariable
 from struphy.io.options import Units, Time, EnvironmentOptions
+from struphy.io.setup import import_parameters_py
 from struphy.geometry.base import Domain
-from struphy.geometry.domains import Cuboid
+from struphy.geometry import domains
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import HomogenSlab
 from struphy.topology.grids import TensorProductGrid
@@ -44,7 +45,7 @@ def run(
     env: EnvironmentOptions = EnvironmentOptions(),
     units: Units = Units(),
     time_opts: Time = Time(),
-    domain: Domain = Cuboid(),
+    domain: Domain = domains.Cuboid(),
     equil: FluidEquilibrium = HomogenSlab(),
     grid: TensorProductGrid = None,
     derham_opts: DerhamOptions = None,
@@ -132,6 +133,8 @@ def run(
                 pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "derham_opts.bin"), 'wb') as f:
                 pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "model.bin"), 'wb') as f:
+                pickle.dump(model, f, pickle.HIGHEST_PROTOCOL)
     
     # config clones
     if comm is None:
@@ -423,6 +426,18 @@ def pproc(
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         print(f"\n*** Start post-processing of {path}:")
+        
+    # load light-weight model instance from simulation
+    try:
+        params_in = import_parameters_py(os.path.join(path, "parameters.py"))
+        model: StruphyModel = params_in.model
+        domain: Domain = params_in.domain
+    except FileNotFoundError:
+        with open(os.path.join(path, "model.bin"), 'rb') as f:
+            model: StruphyModel = pickle.load(f)
+        with open(os.path.join(path, "domain.bin"), 'rb') as f:
+            domain_dct: Domain = pickle.load(f)
+            domain = getattr(domains, domain_dct["name"])(**domain_dct["params_map"])
 
     # create post-processing folder
     path_pproc = os.path.join(path, "post_processing")
@@ -455,9 +470,10 @@ def pproc(
     if "kinetic" in file.keys():
         exist_kinetic = {"markers": False, "f": False, "n_sph": False}
         kinetic_species = []
+        kinetic_kinds = []
         for name in file["kinetic"].keys():
-            print(f"{name = }")
             kinetic_species += [name]
+            kinetic_kinds += [next(iter(model.species[name].variables.values())).space]
             
             # check for saved markers
             if "markers" in file["kinetic"][name]:
@@ -547,7 +563,7 @@ def pproc(
 
             # markers
             if exist_kinetic["markers"]:
-                post_process_markers(path, path_kinetics_species, species, kinetic_kinds[n], step)
+                post_process_markers(path, path_kinetics_species, species, domain, kinetic_kinds[n], step,)
 
                 if guiding_center:
                     assert kinetic_kinds[n] == "Particles6D"
@@ -619,9 +635,11 @@ def load_data(path: str) -> SimData:
     # load time grid
     simdata.t_grid = np.load(os.path.join(path_pproc, "t_grid.npy"))
 
-    # load point data
+    # data paths
     path_fields = os.path.join(path_pproc, "fields_data")
+    path_kinetic = os.path.join(path_pproc, "kinetic_data")
     
+    # load point data
     if os.path.exists(path_fields):
         
         # grids
@@ -644,6 +662,23 @@ def load_data(path: str) -> SimData:
                     with open(os.path.join(path_spec, file), "rb") as f:
                         simdata.feec_species[spec] += [var]
                         simdata.arrays[spec][var] = pickle.load(f)
+                        
+    if os.path.exists(path_kinetic):
+        
+        # species folders
+        species = next(os.walk(path_kinetic))[1]
+        print(f"{species = }")
+        for spec in species:
+            simdata.pic_species[spec] = []
+            # simdata.arrays[spec] = {}
+            path_spec = os.path.join(path_kinetic, spec)
+            wlk = os.walk(path_spec)
+            print(f"{next(wlk) = }")
+            files = next(wlk)[2]
+            for file in files:
+                print(f"{file = }")
+                with open(os.path.join(path_spec, file), "r") as f:
+                    simdata.orbits[spec][var] = pickle.load(f)
                         
     print("\nThe following data has been loaded:")
     print(f"{simdata.time_grid_size = }")

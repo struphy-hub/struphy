@@ -1078,23 +1078,23 @@ class StruphyModel(metaclass=ABCMeta):
         for name, species in self.kinetic_species.items():
             assert isinstance(species, KineticSpecies)
             assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
-            for _, var in species.variables.items():
+            for varname, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
                 obj = var.particles
                 assert isinstance(obj, Particles)
 
-            key_spec = "kinetic/" + key
-            key_spec_restart = "restart/" + key
+            key_spec = os.path.join("kinetic", name)
+            key_spec_restart = os.path.join("restart", name)
 
             data.add_data({key_spec_restart: obj._markers})
 
             for key1, val1 in var.kinetic_data.items():
-                key_dat = key_spec + "/" + key1
+                key_dat = os.path.join(key_spec, key1)
 
                 # case of "f" and "df"
                 if isinstance(val1, dict):
                     for key2, val2 in val1.items():
-                        key_f = key_dat + "/" + key2
+                        key_f = os.path.join(key_dat, key2)
                         data.add_data({key_f: val2})
 
                         dims = (len(key2) - 2) // 3 + 1
@@ -1106,7 +1106,7 @@ class StruphyModel(metaclass=ABCMeta):
                 # case of "n_sph"
                 elif isinstance(val1, list):
                     for i, v1 in enumerate(val1):
-                        key_n = key_dat + "/view_" + str(i)
+                        key_n = os.path.join(key_dat, "view_", str(i))
                         data.add_data({key_n: v1})
                         # save 1d point values, not meshgrids, because attrs size is limited
                         eta1 = var.kinetic_data["plot_pts"][i][0][:, 0, 0]

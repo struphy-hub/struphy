@@ -13,6 +13,7 @@ from struphy.feec.psydac_derham import SplineFunction
 from struphy.io.options import EnvironmentOptions, Units, Time
 from struphy.topology.grids import TensorProductGrid
 from struphy.geometry import domains
+from struphy.geometry.base import Domain
 
 
 class ParamsIn:
@@ -430,7 +431,7 @@ def create_vtk(
             )
 
 
-def post_process_markers(path_in, path_out, species, kind="Particles6D", step=1):
+def post_process_markers(path_in: str, path_out: str, species: str, domain: Domain, kind: str = "Particles6D", step: int = 1,):
     """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation
     and writes them to a .npy files and to .txt files.
     Also saves the weights.
@@ -481,6 +482,9 @@ def post_process_markers(path_in, path_out, species, kind="Particles6D", step=1)
 
     species : str
         Name of the species for which the post processing should be performed.
+        
+    domain : Domain
+        Domain object.
 
     kind : str
         Name of the kinetic kind (Particles6D, Particles5D or Particles3D).
@@ -489,17 +493,12 @@ def post_process_markers(path_in, path_out, species, kind="Particles6D", step=1)
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
     """
 
+    print(f"{domain = }")
+
     # get # of MPI processes from meta.txt file
-    with open(os.path.join(path_in, "meta.txt"), "r") as f:
-        lines = f.readlines()
-
-    nproc = lines[4].split()[-1]
-
-    with open(os.path.join(path_in, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
-
-    # create domain for calculating markers' physical coordinates
-    domain = setup_domain_and_equil(params)[0]
+    with open(os.path.join(path_in, "meta.yml"), "r") as f:
+        meta = yaml.load(f, Loader=yaml.FullLoader)
+    nproc = meta["MPI processes"]
 
     # open hdf5 files and get names and number of saved markers of kinetic species
     files = [
