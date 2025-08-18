@@ -1108,6 +1108,8 @@ class DeltaFVlasovAmpere(Propagator):
                 print("Max number of iterations reached, breaking..")
                 break
 
+        # print(f"converged with {max_diff_e=} and {max_diff_v=}")
+
         # Update velocities
         self.particles[0].markers[self.particles[0].valid_mks, 3:6] += \
             self._delta_v_next[self.particles[0].valid_mks, :]
@@ -1117,8 +1119,6 @@ class DeltaFVlasovAmpere(Propagator):
 
         # write new coeffs into self.variables
         (max_diff_e,) = self.feec_vars_update(self._delta_e_next)
-
-        # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
 
     def _call_e_v_Schur(self, dt):
         """ TODO """
