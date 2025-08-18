@@ -3527,136 +3527,175 @@ def push_v_viscosity(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         kappa = 1.0  # markers[ip, first_diagnostics_idx]
-        n_at_eta = markers[ip, first_free_idx]
+        #n_at_eta = markers[ip, first_free_idx]
         loc_box = int(markers[ip, n_cols - 2])
 
-        # first component
-        grad_u[0] = sph_eval_kernels.boxed_based_kernel(
-            args_markers,
-            eta1,
-            eta2,
-            eta3,
-            loc_box,
-            boxes,
-            neighbours,
-            holes,
-            periodic1,
-            periodic2,
-            periodic3,
-            weight_idx,
-            kernel_type + 1,
-            h1,
-            h2,
-            h3,
-        )
-        grad_u[0] *= kappa / n_at_eta
+        f_visc = np.zeros(3, dtype = float)
+        f_visc_cart = np.zeros(3, dtype = float)
 
-        sum2 = sph_eval_kernels.boxed_based_kernel(
-            args_markers,
-            eta1,
-            eta2,
-            eta3,
-            loc_box,
-            boxes,
-            neighbours,
-            holes,
-            periodic1,
-            periodic2,
-            periodic3,
-            first_free_idx + 1,
-            kernel_type + 1,
-            h1,
-            h2,
-            h3,
-        )
-        sum2 *= kappa
-        grad_u[0] += sum2
+        for j in range(3):   # row of viscosity tensor
+            for k in range(3):  #column = derivative direction
+                coeff_idx = first_free_idx + 3*j + k
 
-        if kernel_type >= 340:
-            # second component
-            grad_u[1] = sph_eval_kernels.boxed_based_kernel(
-                args_markers,
-                eta1,
-                eta2,
-                eta3,
-                loc_box,
-                boxes,
-                neighbours,
-                holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                weight_idx,
-                kernel_type + 2,
-                h1,
-                h2,
-                h3,
-            )
-            grad_u[1] *= kappa / n_at_eta
+                if k == 0:
+                    deriv_type = kernel_type + 1
+                    use_component = True
+                elif k == 1 and kernel_type >= 340:
+                    deriv_type = kernel_type + 2
+                    use_component = True
+                elif k == 2 and kernel_type >= 670:
+                    deriv_type = kernel_type + 3
+                    use_component = True
+                else:
+                    use_component = False
 
-            sum4 = sph_eval_kernels.boxed_based_kernel(
-                args_markers,
-                eta1,
-                eta2,
-                eta3,
-                loc_box,
-                boxes,
-                neighbours,
-                holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                first_free_idx + 1,
-                kernel_type + 2,
-                h1,
-                h2,
-                h3,
-            )
-            sum4 *= kappa
-            grad_u[1] += sum4
+                if use_component:
+                    f_visc[j] += sph_eval_kernels.boxed_based_kernel(
+                        args_markers,
+                        eta1,
+                        eta2,
+                        eta3,
+                        loc_box,
+                        boxes,
+                        neighbours,
+                        holes,
+                        periodic1,
+                        periodic2,
+                        periodic3,
+                        coeff_idx,
+                        deriv_type,
+                        h1,
+                        h2,
+                        h3,
+                    )
+        
+        # # first component
+        # grad_u[0] = sph_eval_kernels.boxed_based_kernel(
+        #     args_markers,
+        #     eta1,
+        #     eta2,
+        #     eta3,
+        #     loc_box,
+        #     boxes,
+        #     neighbours,
+        #     holes,
+        #     periodic1,
+        #     periodic2,
+        #     periodic3,
+        #     first_free_idx + 1,
+        #     kernel_type + 1,
+        #     h1,
+        #     h2,
+        #     h3,
+        # )
+        # grad_u[0] *= kappa / n_at_eta
 
-        if kernel_type >= 670:
-            # third component
-            grad_u[2] = sph_eval_kernels.boxed_based_kernel(
-                args_markers,
-                eta1,
-                eta2,
-                eta3,
-                loc_box,
-                boxes,
-                neighbours,
-                holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                weight_idx,
-                kernel_type + 3,
-                h1,
-                h2,
-                h3,
-            )
-            grad_u[2] *= kappa / n_at_eta
+        # sum2 = sph_eval_kernels.boxed_based_kernel(
+        #     args_markers,
+        #     eta1,
+        #     eta2,
+        #     eta3,
+        #     loc_box,
+        #     boxes,
+        #     neighbours,
+        #     holes,
+        #     periodic1,
+        #     periodic2,
+        #     periodic3,
+        #     first_free_idx + 1,
+        #     kernel_type + 1,
+        #     h1,
+        #     h2,
+        #     h3,
+        # )
+        # sum2 *= kappa
+        # grad_u[0] += sum2
 
-            sum6 = sph_eval_kernels.boxed_based_kernel(
-                args_markers,
-                eta1,
-                eta2,
-                eta3,
-                loc_box,
-                boxes,
-                neighbours,
-                holes,
-                periodic1,
-                periodic2,
-                periodic3,
-                first_free_idx + 1,
-                kernel_type + 3,
-                h1,
-                h2,
-                h3,
-            )
-            sum6 *= kappa
-            grad_u[2] += sum6
+        # if kernel_type >= 340:
+        #     # second component
+        #     grad_u[1] = sph_eval_kernels.boxed_based_kernel(
+        #         args_markers,
+        #         eta1,
+        #         eta2,
+        #         eta3,
+        #         loc_box,
+        #         boxes,
+        #         neighbours,
+        #         holes,
+        #         periodic1,
+        #         periodic2,
+        #         periodic3,
+        #         weight_idx,
+        #         kernel_type + 2,
+        #         h1,
+        #         h2,
+        #         h3,
+        #     )
+        #     grad_u[1] *= kappa / n_at_eta
+
+        #     sum4 = sph_eval_kernels.boxed_based_kernel(
+        #         args_markers,
+        #         eta1,
+        #         eta2,
+        #         eta3,
+        #         loc_box,
+        #         boxes,
+        #         neighbours,
+        #         holes,
+        #         periodic1,
+        #         periodic2,
+        #         periodic3,
+        #         first_free_idx + 1,
+        #         kernel_type + 2,
+        #         h1,
+        #         h2,
+        #         h3,
+        #     )
+        #     sum4 *= kappa
+        #     grad_u[1] += sum4
+
+        # if kernel_type >= 670:
+        #     # third component
+        #     grad_u[2] = sph_eval_kernels.boxed_based_kernel(
+        #         args_markers,
+        #         eta1,
+        #         eta2,
+        #         eta3,
+        #         loc_box,
+        #         boxes,
+        #         neighbours,
+        #         holes,
+        #         periodic1,
+        #         periodic2,
+        #         periodic3,
+        #         weight_idx,
+        #         kernel_type + 3,
+        #         h1,
+        #         h2,
+        #         h3,
+        #     )
+        #     grad_u[2] *= kappa / n_at_eta
+
+        #     sum6 = sph_eval_kernels.boxed_based_kernel(
+        #         args_markers,
+        #         eta1,
+        #         eta2,
+        #         eta3,
+        #         loc_box,
+        #         boxes,
+        #         neighbours,
+        #         holes,
+        #         periodic1,
+        #         periodic2,
+        #         periodic3,
+        #         first_free_idx + 1,
+        #         kernel_type + 3,
+        #         h1,
+        #         h2,
+        #         h3,
+        #     )
+        #     sum6 *= kappa
+        #     grad_u[2] += sum6
 
         # push to Cartesian coordinates
         evaluation_kernels.df_inv(
@@ -3669,9 +3708,9 @@ def push_v_viscosity(
             dfinv,
         )
         linalg_kernels.transpose(dfinv, dfinvT)
-        linalg_kernels.matrix_vector(dfinvT, grad_u, grad_u_cart)
+        linalg_kernels.matrix_vector(dfinvT, f_visc, f_visc_cart)
 
         # update velocities
-        markers[ip, 3:6] -= dt * (grad_u_cart - gravity)
+        markers[ip, 3:6] += dt * (f_visc_cart)
 
     # -- removed omp: #$ omp end parallel
