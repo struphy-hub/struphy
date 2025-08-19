@@ -652,6 +652,90 @@ def vlasov_maxwell(
     # -- removed omp: #$ omp end parallel
 
 
+@stack_array("dfm", "df_inv", "v", "df_inv_times_v", "filling_v")
+def vlasov_maxwell_direct_delta_f(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+):
+    r"""
+    Accumulates into V1 with the filling functions
+
+    .. math::
+
+        A_p^{\mu, \nu} &= w_p \, G^{-1}_{\mu, \nu}(\boldsymbol \eta_p) \,,
+        \\[2mm]
+        B_p^\mu &= w_p [DF^{-1}(\boldsymbol \eta_p) \cdot \mathbf{v}_p ]_\mu \,.
+
+    Parameters
+    ----------
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # allocate for metric coeffs
+    dfm = zeros((3, 3), dtype=float)
+    df_inv = zeros((3, 3), dtype=float)
+
+    # allocate for filling
+    v = zeros(3, dtype=float)
+    df_inv_times_v = zeros(3, dtype=float)
+    filling_v = zeros(3, dtype=float)
+
+    for ip in range(shape(markers)[0]):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # compute shifted and stretched velocity
+        v[0] = markers[ip, 3]
+        v[1] = markers[ip, 4]
+        v[2] = markers[ip, 5]
+
+        # filling functions
+        linalg_kernels.matrix_inv(dfm, df_inv)
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_times_v)
+
+        # filling_v = w_p * DF^{-1} * \V
+        filling_v[:] = markers[ip, 6] * df_inv_times_v / Np
+
+        # call the appropriate matvec filler
+        particle_to_mat_kernels.vec_fill_b_v1(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec1,
+            vec2,
+            vec3,
+            filling_v[0],
+            filling_v[1],
+            filling_v[2],
+        )
+
+
 @stack_array("b", "b_prod", "dfm", "df_inv", "df_inv_tg_inv", "tmp1", "tmp2")
 def cc_lin_mhd_6d_1(
     args_markers: "MarkerArguments",

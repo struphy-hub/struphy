@@ -2,6 +2,7 @@
 
 import numpy as np
 from psydac.linalg.block import BlockVector
+from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec import preconditioner
@@ -11,7 +12,7 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
@@ -224,6 +225,127 @@ class VlasovAmpere(Propagator):
             )
             print("Maxdiff |v| for VlasovMaxwell:", max_diff)
             print()
+
+
+class VlasovAmpereDirectDeltaF(Propagator):
+    r"""TODO """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["solver"] = {
+            "type": [
+                ("pcg", "MassMatrixPreconditioner"),
+                ("cg", None),
+            ],
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
+        }
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(
+        self,
+        e: BlockVector,
+        particles: Particles6D,
+        *,
+        c1: float = 1.0,
+        c2: float = 1.0,
+        solver=options(default=True)["solver"],
+    ):
+        super().__init__(e, particles)
+
+        self._c1 = c1
+        self._c2 = c2
+        self._info = solver["info"]
+
+        # get accumulation kernel
+        accum_kernel = accum_kernels.vlasov_maxwell_direct_delta_f
+
+        # Initialize Accumulator object
+        self._accum = AccumulatorVector(
+            particles,
+            "Hcurl",
+            accum_kernel,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
+
+        # Create buffers to store temporarily e and its sum with old e
+        self._e_tmp = e.space.zeros()
+        self._e_scale = e.space.zeros()
+        self._e_sum = e.space.zeros()
+
+        # ================================
+        # ========= Schur Solver =========
+        # ================================
+
+        # Preconditioner
+        if solver["type"][1] == None:
+            pc = None
+        else:
+            pc_class = getattr(preconditioner, solver["type"][1])
+            pc = pc_class(self.mass_ops.M1)
+
+        # Mass matrix solver
+        self.solver = inverse(
+            A=self.mass_ops.M1,
+            solver=solver["type"][0],
+            pc=pc,
+            tol=solver["tol"],
+            maxiter=solver["maxiter"],
+            verbose=solver["verbose"],
+        )
+
+    def __call__(self, dt):
+        # accumulate
+        self._accum()
+
+        # Vector for schur solver
+        self._e_scale *= 0.0
+        self._e_scale -= self._accum.vectors[0]
+        self._e_scale *= dt * self._c1 # / 2.0
+
+        self.solver.dot(self._e_scale, out=self._e_sum)
+
+        self._e_tmp *= 0.0
+        self._e_tmp += self.feec_vars[0]
+        self._e_tmp += self._e_sum
+
+        # update_weights
+        self.particles[0].update_weights()
+
+        # write new coeffs into self.variables
+        (max_de,) = self.feec_vars_update(self._e_tmp)
+
+        # TODO
+        # # Print out max differences for weights and e-field
+        # if self._info:
+        #     print("Status      for VlasovMaxwell:", info["success"])
+        #     print("Iterations  for VlasovMaxwell:", info["niter"])
+        #     print("Maxdiff e1  for VlasovMaxwell:", max_de)
+        #     buffer_idx = self.particles[0].bufferindex
+        #     max_diff = np.max(
+        #         np.abs(
+        #             np.sqrt(
+        #                 self.particles[0].markers_wo_holes[:, 3] ** 2
+        #                 + self.particles[0].markers_wo_holes[:, 4] ** 2
+        #                 + self.particles[0].markers_wo_holes[:, 5] ** 2,
+        #             )
+        #             - np.sqrt(
+        #                 self.particles[0].markers_wo_holes[:, buffer_idx + 3] ** 2
+        #                 + self.particles[0].markers_wo_holes[:, buffer_idx + 4] ** 2
+        #                 + self.particles[0].markers_wo_holes[:, buffer_idx + 5] ** 2,
+        #             ),
+        #         ),
+        #     )
+        #     print("Maxdiff |v| for VlasovMaxwell:", max_diff)
+        #     print()
 
 
 class EfieldWeights(Propagator):
