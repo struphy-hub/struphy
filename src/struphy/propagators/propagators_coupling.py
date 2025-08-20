@@ -256,12 +256,16 @@ class VlasovAmpereDirectDeltaF(Propagator):
         *,
         c1: float = 1.0,
         c2: float = 1.0,
+        f0: Maxwellian = None,
         solver=options(default=True)["solver"],
     ):
         super().__init__(e, particles)
 
         self._c1 = c1
         self._c2 = c2
+        self._kappa = 2 * c2
+        self._f0 = f0
+        self._vth = self._f0.maxw_params["vth1"]
         self._info = solver["info"]
 
         # get accumulation kernel
@@ -281,9 +285,9 @@ class VlasovAmpereDirectDeltaF(Propagator):
         self._e_scale = e.space.zeros()
         self._e_sum = e.space.zeros()
 
-        # ================================
-        # ========= Schur Solver =========
-        # ================================
+        # marker storage
+        self._f0_values = np.zeros(particles.markers.shape[0], dtype=float)
+        self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
 
         # Preconditioner
         if solver["type"][1] == None:
@@ -302,6 +306,25 @@ class VlasovAmpereDirectDeltaF(Propagator):
             verbose=solver["verbose"],
         )
 
+        # Instantiate particle pusher
+        args_kernel = (
+            self.derham.args_derham,
+            self._e_tmp.blocks[0]._data,
+            self._e_tmp.blocks[1]._data,
+            self._e_tmp.blocks[2]._data,
+            self._f0_values,
+            self._kappa,
+            self._vth,
+        )
+
+        self._pusher = Pusher(
+            particles,
+            pusher_kernels.push_weights_with_efield_lin_va,
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
     def __call__(self, dt):
         # accumulate
         self._accum()
@@ -309,7 +332,7 @@ class VlasovAmpereDirectDeltaF(Propagator):
         # Vector for schur solver
         self._e_scale *= 0.0
         self._e_scale -= self._accum.vectors[0]
-        self._e_scale *= dt * self._c1 # / 2.0
+        self._e_scale *= dt * self._c1
 
         self.solver.dot(self._e_scale, out=self._e_sum)
 
@@ -317,11 +340,14 @@ class VlasovAmpereDirectDeltaF(Propagator):
         self._e_tmp += self.feec_vars[0]
         self._e_tmp += self._e_sum
 
-        # update_weights
-        self.particles[0].update_weights()
-
         # write new coeffs into self.variables
         (max_de,) = self.feec_vars_update(self._e_tmp)
+
+        # evaluate f0 and update weights
+        self._f0_values[self.particles[0].valid_mks] = self._f0(*self.particles[0].markers[self.particles[0].valid_mks, :6].T)
+
+        # update_weights
+        self._pusher(dt)
 
         # TODO
         # # Print out max differences for weights and e-field

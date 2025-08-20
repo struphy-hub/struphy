@@ -661,21 +661,7 @@ def vlasov_maxwell_direct_delta_f(
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
 ):
-    r"""
-    Accumulates into V1 with the filling functions
-
-    .. math::
-
-        A_p^{\mu, \nu} &= w_p \, G^{-1}_{\mu, \nu}(\boldsymbol \eta_p) \,,
-        \\[2mm]
-        B_p^\mu &= w_p [DF^{-1}(\boldsymbol \eta_p) \cdot \mathbf{v}_p ]_\mu \,.
-
-    Parameters
-    ----------
-
-    Note
-    ----
-        The above parameter list contains only the model specific input arguments.
+    r""" TODO
     """
 
     markers = args_markers.markers
