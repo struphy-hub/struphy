@@ -8,7 +8,7 @@ from psydac.linalg.stencil import StencilVector
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.io.setup import descend_options_dict
-from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
@@ -263,9 +263,7 @@ class VlasovAmpereDirectDeltaF(Propagator):
 
         self._c1 = c1
         self._c2 = c2
-        self._kappa = 2 * c2
         self._f0 = f0
-        self._vth = self._f0.maxw_params["vth1"]
         self._info = solver["info"]
 
         # get accumulation kernel
@@ -286,7 +284,7 @@ class VlasovAmpereDirectDeltaF(Propagator):
         self._e_sum = e.space.zeros()
 
         # marker storage
-        self._f0_values = np.zeros(particles.markers.shape[0], dtype=float)
+        self._grad_v_f0 = np.zeros((particles.markers.shape[0], 3), dtype=float)
         self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
 
         # Preconditioner
@@ -312,14 +310,13 @@ class VlasovAmpereDirectDeltaF(Propagator):
             self._e_tmp.blocks[0]._data,
             self._e_tmp.blocks[1]._data,
             self._e_tmp.blocks[2]._data,
-            self._f0_values,
-            self._kappa,
-            self._vth,
+            self._grad_v_f0,
+            self._c2,
         )
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_weights_with_efield_lin_va,
+            pusher_kernels.push_weights_with_efield_lin_va_ddf,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -344,34 +341,27 @@ class VlasovAmpereDirectDeltaF(Propagator):
         (max_de,) = self.feec_vars_update(self._e_tmp)
 
         # evaluate f0 and update weights
-        self._f0_values[self.particles[0].valid_mks] = self._f0(*self.particles[0].markers[self.particles[0].valid_mks, :6].T)
+        if isinstance(self._f0, Maxwellian):
+            for k in range(3):
+                self._grad_v_f0[self.particles[0].valid_mks, k] = \
+                    self._f0(*self.particles[0].markers[self.particles[0].valid_mks, :6].T) \
+                    * self.particles[0].markers[self.particles[0].valid_mks, k+3] \
+                * (1./self._f0.maxw_params["vth" + f"{k+1}"]**2)
+        elif isinstance(self._f0, SumKineticBackground):
+            for k in range(3):
+                # Add f1
+                self._grad_v_f0[self.particles[0].valid_mks, k] = \
+                    self._f0._f1(*self.particles[0].markers[self.particles[0].valid_mks, :6].T) \
+                    * self.particles[0].markers[self.particles[0].valid_mks, k+3] \
+                * (1./self._f0._f1.maxw_params["vth" + f"{k+1}"]**2)
+                # Add f2
+                self._grad_v_f0[self.particles[0].valid_mks, k] += \
+                    self._f0._f2(*self.particles[0].markers[self.particles[0].valid_mks, :6].T) \
+                    * self.particles[0].markers[self.particles[0].valid_mks, k+3] \
+                * (1./self._f0._f2.maxw_params["vth" + f"{k+1}"]**2)
 
         # update_weights
         self._pusher(dt)
-
-        # TODO
-        # # Print out max differences for weights and e-field
-        # if self._info:
-        #     print("Status      for VlasovMaxwell:", info["success"])
-        #     print("Iterations  for VlasovMaxwell:", info["niter"])
-        #     print("Maxdiff e1  for VlasovMaxwell:", max_de)
-        #     buffer_idx = self.particles[0].bufferindex
-        #     max_diff = np.max(
-        #         np.abs(
-        #             np.sqrt(
-        #                 self.particles[0].markers_wo_holes[:, 3] ** 2
-        #                 + self.particles[0].markers_wo_holes[:, 4] ** 2
-        #                 + self.particles[0].markers_wo_holes[:, 5] ** 2,
-        #             )
-        #             - np.sqrt(
-        #                 self.particles[0].markers_wo_holes[:, buffer_idx + 3] ** 2
-        #                 + self.particles[0].markers_wo_holes[:, buffer_idx + 4] ** 2
-        #                 + self.particles[0].markers_wo_holes[:, buffer_idx + 5] ** 2,
-        #             ),
-        #         ),
-        #     )
-        #     print("Maxdiff |v| for VlasovMaxwell:", max_diff)
-        #     print()
 
 
 class EfieldWeights(Propagator):

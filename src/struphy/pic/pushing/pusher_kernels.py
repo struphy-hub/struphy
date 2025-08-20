@@ -2822,6 +2822,91 @@ def push_weights_with_efield_lin_va(
     # -- removed omp: #$ omp end parallel
 
 
+@stack_array("dfm", "df_inv", "v", "df_inv_v", "e_vec")
+def push_weights_with_efield_lin_va_ddf(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    e1_1: "float[:,:,:]",
+    e1_2: "float[:,:,:]",
+    e1_3: "float[:,:,:]",
+    grad_v_f0: "float[:, :]",
+    kappa: "float",
+):
+    r""" TODO """
+
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    v = empty(3, dtype=float)
+    df_inv_v = empty(3, dtype=float)
+
+    e_vec = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
+
+    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, dfm, df_inv, v, df_inv_v, span1, span2, span3, e_vec, update)
+    # -- removed omp: #$ omp for
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # get velocity gradient of f0
+        v[0] = grad_v_f0[ip, 0]
+        v[1] = grad_v_f0[ip, 1]
+        v[2] = grad_v_f0[ip, 2]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        # Compute Jacobian matrix
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # compute DF^{-1} v
+        linalg_kernels.matrix_vector(df_inv, v, df_inv_v)
+
+        # E-field (1-form)
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            e1_1,
+            e1_2,
+            e1_3,
+            e_vec,
+        )
+
+        # w_{n+1} = w_n + dt / (2 * s_0) * sqrt(f_0) * ( DF^{-1} \V_th * v_p ) \cdot ( e_{n+1} + e_n )
+        update = (
+            (df_inv_v[0] * e_vec[0] + df_inv_v[1] * e_vec[1] + df_inv_v[2] * e_vec[2])
+            * kappa
+            * dt
+            / markers[ip, 7]
+        )
+        markers[ip, 6] += update
+
+    # -- removed omp: #$ omp end parallel
+
+
 @stack_array("ginv", "k", "tmp", "pi_du_value")
 def push_deterministic_diffusion_stage(
     dt: float,
