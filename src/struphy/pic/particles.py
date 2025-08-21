@@ -90,11 +90,11 @@ class Particles6D(Particles):
         -------
         """
         # load sampling density svol (normalized to 1 in logical space)
-        if isinstance(self._f0, SumKineticBackground):
-            n1 = self._f0._f1.maxw_params["n"]
-            n2 = self._f0._f2.maxw_params["n"]
-            maxw_params1 = copy.deepcopy(self._f0._f1.maxw_params)
-            maxw_params2 = copy.deepcopy(self._f0._f2.maxw_params)
+        if isinstance(self.f_init, SumKineticBackground):
+            n1 = self.f_init._f1.maxw_params["n"]
+            n2 = self.f_init._f2.maxw_params["n"]
+            maxw_params1 = copy.deepcopy(self.f_init._f1.maxw_params)
+            maxw_params2 = copy.deepcopy(self.f_init._f2.maxw_params)
 
             # Make sure that n1 + n2 = 1
             if n1 + n2 != 1:
@@ -282,15 +282,30 @@ class DeltaFParticles6D(Particles6D):
         # Prepare delta-f perturbation parameters
         if pp_copy is not None:
             for fi in bp_copy:
-                # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
-                if fi in pp_copy:
+                max_amp = bp_copy[fi]["n"]
+                # Set background to max of its perturbation amplitudes
+                # (if "use_background_n" in perturbation params is set to false or not in keys)
+                if fi in pp_copy.keys():
                     if "use_background_n" in pp_copy[fi]:
-                        if not pp_copy[fi]["use_background_n"]:
-                            bp_copy[fi]["n"] = 0.0
-                    else:
-                        bp_copy[fi]["n"] = 0.0
-                else:
-                    bp_copy[fi]["n"] = 0.0
+                        if pp_copy[fi]["use_background_n"]:
+                            continue
+
+                max_amp = 0.0
+                if fi in pp_copy.keys():
+                    # Get the maximal amplitude of the pertubations
+                    for pert in pp_copy[fi]["n"].keys():
+                        for key in pp_copy[fi]["n"][pert].keys():
+                            if key[:3] == "amp":
+                                val = np.max(pp_copy[fi]["n"][pert][key])
+                                max_amp = np.max([val, max_amp])
+                elif "n" in pp_copy.keys():
+                    for pert in pp_copy["n"].keys():
+                        for key in pp_copy["n"][pert].keys():
+                            if key[:3] == "amp":
+                                val = np.max(pp_copy["n"][pert][key])
+                                max_amp = np.max([val, max_amp])
+
+                bp_copy[fi]["n"] = max_amp
 
         super()._set_initial_condition(bp_copy=bp_copy, pp_copy=pp_copy)
 

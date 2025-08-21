@@ -1393,6 +1393,7 @@ class Particles(metaclass=ABCMeta):
         # number of holes and markers on process
         self.update_holes()
         self.update_ghost_particles()
+        self._set_initial_condition()
 
         # cumulative sum of number of markers on each process at loading stage.
         n_mks_load_cum_sum = np.cumsum(self.n_mks_load)
@@ -1522,37 +1523,37 @@ class Particles(metaclass=ABCMeta):
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if self.vdim == 3:
-                    if isinstance(self._f0, SumKineticBackground):
-                        assert isinstance(self._f0._f1, maxwellians.Maxwellian3D)
-                        assert isinstance(self._f0._f2, maxwellians.Maxwellian3D)
-                        n1 = self._f0._f1.maxw_params["n"]
-                        n2 = self._f0._f2.maxw_params["n"]
+                    if isinstance(self.f_init, SumKineticBackground):
+                        assert isinstance(self.f_init._f1, maxwellians.Maxwellian3D)
+                        assert isinstance(self.f_init._f2, maxwellians.Maxwellian3D)
+                        n1 = self.f_init._f1.maxw_params["n"]
+                        n2 = self.f_init._f2.maxw_params["n"]
                         u1 = np.array(
                             [
-                                self._f0._f1.maxw_params["u1"],
-                                self._f0._f1.maxw_params["u2"],
-                                self._f0._f1.maxw_params["u3"],
+                                self.f_init._f1.maxw_params["u1"],
+                                self.f_init._f1.maxw_params["u2"],
+                                self.f_init._f1.maxw_params["u3"],
                             ]
                         )
                         vth1 = np.array(
                             [
-                                self._f0._f1.maxw_params["vth1"],
-                                self._f0._f1.maxw_params["vth2"],
-                                self._f0._f1.maxw_params["vth3"],
+                                self.f_init._f1.maxw_params["vth1"],
+                                self.f_init._f1.maxw_params["vth2"],
+                                self.f_init._f1.maxw_params["vth3"],
                             ]
                         )
                         u2 = np.array(
                             [
-                                self._f0._f2.maxw_params["u1"],
-                                self._f0._f2.maxw_params["u2"],
-                                self._f0._f2.maxw_params["u3"],
+                                self.f_init._f2.maxw_params["u1"],
+                                self.f_init._f2.maxw_params["u2"],
+                                self.f_init._f2.maxw_params["u3"],
                             ]
                         )
                         vth2 = np.array(
                             [
-                                self._f0._f2.maxw_params["vth1"],
-                                self._f0._f2.maxw_params["vth2"],
-                                self._f0._f2.maxw_params["vth3"],
+                                self.f_init._f2.maxw_params["vth1"],
+                                self.f_init._f2.maxw_params["vth2"],
+                                self.f_init._f2.maxw_params["vth3"],
                             ]
                         )
 

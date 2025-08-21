@@ -40,7 +40,6 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     from mpi4py import MPI
 
     from struphy.geometry import domains
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
 
     # Set seed
@@ -221,18 +220,8 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot:
-        s0_dict = {
-            "n": 1.0,
-            "u1": particles.loading_params["moments"][0],
-            "u2": particles.loading_params["moments"][1],
-            "u3": particles.loading_params["moments"][2],
-            "vth1": particles.loading_params["moments"][3],
-            "vth2": particles.loading_params["moments"][4],
-            "vth3": particles.loading_params["moments"][5],
-        }
-        s0 = Maxwellian3D(maxw_params=s0_dict)
-
         v1 = np.linspace(-10.0, 10.0, 400)
+        dv = v1[1] - v1[0]
         phase_space = np.meshgrid(
             np.array([0.0]),
             np.array([0.0]),
@@ -242,10 +231,15 @@ def test_binning_6D_full_f(mapping, show_plot=False):
             np.array([0.0]),
         )
 
-        s0_vals = s0(*phase_space).squeeze()
+        s0_vals, _ = np.histogram(
+            particles.markers_wo_holes[:, 3],
+            v1,
+            weights=particles.sampling_density,
+        )
         f0_vals = particles._f_init(*phase_space).squeeze()
+        s0_vals *= f0_vals.max() / s0_vals.max()
 
-        plt.plot(v1, s0_vals, label=r"$s_0$")
+        plt.plot(v1[:-1] + dv / 2., s0_vals, label=r"$s_0$")
         plt.plot(v1, f0_vals, label=r"$f_0$")
         plt.legend()
         plt.xlabel(r"$v_1$")
@@ -299,7 +293,6 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     from mpi4py import MPI
 
     from struphy.geometry import domains
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
 
     # Set seed
@@ -355,7 +348,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n * np.cos(2 * np.pi * l_n * e1_plot)
+    ana_res = amp_n + amp_n * np.cos(2 * np.pi * l_n * e1_plot)
 
     if show_plot:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -368,7 +361,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
-    assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
+    assert l2_error <= 0.015, f"Error between binned data and analytical result was {l2_error}"
 
     # ==============================================================
     # ===== Test cosines for two backgrounds in eta1 direction =====
@@ -438,22 +431,12 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n1 * np.cos(2 * np.pi * l_n1 * e1_plot) + n2 + amp_n2 * np.cos(2 * np.pi * l_n2 * e1_plot)
+    ana_res = amp_n1 + amp_n1 * np.cos(2 * np.pi * l_n1 * e1_plot) + n2 + amp_n2 * np.cos(2 * np.pi * l_n2 * e1_plot)
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot:
-        s0_dict = {
-            "n": 1.0,
-            "u1": particles.loading_params["moments"][0],
-            "u2": particles.loading_params["moments"][1],
-            "u3": particles.loading_params["moments"][2],
-            "vth1": particles.loading_params["moments"][3],
-            "vth2": particles.loading_params["moments"][4],
-            "vth3": particles.loading_params["moments"][5],
-        }
-        s0 = Maxwellian3D(maxw_params=s0_dict)
-
         v1 = np.linspace(-10.0, 10.0, 400)
+        dv = v1[1] - v1[0]
         phase_space = np.meshgrid(
             np.array([0.0]),
             np.array([0.0]),
@@ -463,10 +446,15 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
             np.array([0.0]),
         )
 
-        s0_vals = s0(*phase_space).squeeze()
+        s0_vals, _ = np.histogram(
+            particles.markers_wo_holes[:, 3],
+            v1,
+            weights=particles.sampling_density,
+        )
         f0_vals = particles._f_init(*phase_space).squeeze()
+        s0_vals *= f0_vals.max() / s0_vals.max()
 
-        plt.plot(v1, s0_vals, label=r"$s_0$")
+        plt.plot(v1[:-1] + dv / 2., s0_vals, label=r"$s_0$")
         plt.plot(v1, f0_vals, label=r"$f_0$")
         plt.legend()
         plt.xlabel(r"$v_1$")
@@ -484,7 +472,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
-    assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
+    assert l2_error <= 0.015, f"Error between binned data and analytical result was {l2_error}"
 
 
 # ==========================================
