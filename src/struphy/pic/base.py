@@ -21,6 +21,7 @@ from struphy.initial import perturbations
 from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background import maxwellians
+from struphy.kinetic_background.base import SumKineticBackground
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
@@ -1521,14 +1522,74 @@ class Particles(metaclass=ABCMeta):
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if self.vdim == 3:
-                    self.velocities = (
-                        sp.erfinv(
-                            2 * self.velocities - 1,
+                    if isinstance(self._f0, SumKineticBackground):
+                        assert isinstance(self._f0._f1, maxwellians.Maxwellian3D)
+                        assert isinstance(self._f0._f2, maxwellians.Maxwellian3D)
+                        n1 = self._f0._f1.maxw_params["n"]
+                        n2 = self._f0._f2.maxw_params["n"]
+                        u1 = np.array(
+                            [
+                                self._f0._f1.maxw_params["u1"],
+                                self._f0._f1.maxw_params["u2"],
+                                self._f0._f1.maxw_params["u3"],
+                            ]
                         )
-                        * np.sqrt(2)
-                        * v_th
-                        + u_mean
-                    )
+                        vth1 = np.array(
+                            [
+                                self._f0._f1.maxw_params["vth1"],
+                                self._f0._f1.maxw_params["vth2"],
+                                self._f0._f1.maxw_params["vth3"],
+                            ]
+                        )
+                        u2 = np.array(
+                            [
+                                self._f0._f2.maxw_params["u1"],
+                                self._f0._f2.maxw_params["u2"],
+                                self._f0._f2.maxw_params["u3"],
+                            ]
+                        )
+                        vth2 = np.array(
+                            [
+                                self._f0._f2.maxw_params["vth1"],
+                                self._f0._f2.maxw_params["vth2"],
+                                self._f0._f2.maxw_params["vth3"],
+                            ]
+                        )
+
+                        # Make sure that n1 + n2 = 1
+                        if n1 + n2 != 1:
+                            sum_ns = n1 + n2
+                            n1 /= sum_ns
+                            n2 /= sum_ns
+
+                        n_mks_f1 = int(n_mks_load_loc * n1)
+                        temp = np.zeros_like(self.velocities)
+                        temp[:n_mks_f1, :] = (
+                            sp.erfinv(
+                                2 * self.velocities[:n_mks_f1, :] - 1,
+                            )
+                            * np.sqrt(2)
+                            * vth1
+                            + u1
+                        )
+                        temp[n_mks_f1:, :] = (
+                            sp.erfinv(
+                                2 * self.velocities[n_mks_f1:, :] - 1,
+                            )
+                            * np.sqrt(2)
+                            * vth2
+                            + u2
+                        )
+                        self.velocities = temp
+                    else:
+                        self.velocities = (
+                            sp.erfinv(
+                                2 * self.velocities - 1,
+                            )
+                            * np.sqrt(2)
+                            * v_th
+                            + u_mean
+                        )
                 # Particles5D: (1d Maxwellian, polar Maxwellian as volume-form)
                 elif self.vdim == 2:
                     self._markers[:n_mks_load_loc, 3] = (

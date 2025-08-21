@@ -1,9 +1,11 @@
 import copy
+import numpy as np
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
+from struphy.kinetic_background.base import SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
 
@@ -88,17 +90,39 @@ class Particles6D(Particles):
         -------
         """
         # load sampling density svol (normalized to 1 in logical space)
-        maxw_params = {
-            "n": 1.0,
-            "u1": self.loading_params["moments"][0],
-            "u2": self.loading_params["moments"][1],
-            "u3": self.loading_params["moments"][2],
-            "vth1": self.loading_params["moments"][3],
-            "vth2": self.loading_params["moments"][4],
-            "vth3": self.loading_params["moments"][5],
-        }
+        if isinstance(self._f0, SumKineticBackground):
+            n1 = self._f0._f1.maxw_params["n"]
+            n2 = self._f0._f2.maxw_params["n"]
+            maxw_params1 = copy.deepcopy(self._f0._f1.maxw_params)
+            maxw_params2 = copy.deepcopy(self._f0._f2.maxw_params)
 
-        fun = maxwellians.Maxwellian3D(maxw_params=maxw_params)
+            # Make sure that n1 + n2 = 1
+            if n1 + n2 != 1:
+                sum_ns = n1 + n2
+                n1 /= sum_ns
+                n2 /= sum_ns
+
+            maxw_params1["n"] = n1
+            maxw_params2["n"] = n2
+
+            fun = maxwellians.Maxwellian3D(
+                maxw_params=maxw_params1
+            )
+            fun = fun + maxwellians.Maxwellian3D(
+                maxw_params=maxw_params2
+            )
+        else:
+            maxw_params = {
+                "n": 1.0,
+                "u1": self.loading_params["moments"][0],
+                "u2": self.loading_params["moments"][1],
+                "u3": self.loading_params["moments"][2],
+                "vth1": self.loading_params["moments"][3],
+                "vth2": self.loading_params["moments"][4],
+                "vth3": self.loading_params["moments"][5],
+            }
+
+            fun = maxwellians.Maxwellian3D(maxw_params=maxw_params)
 
         if self.spatial == "uniform":
             return fun(eta1, eta2, eta3, *v)
@@ -160,11 +184,13 @@ class Particles6D(Particles):
         Only equilibrium magnetic field is considered.
         """
 
-        assert isinstance(self.equil, FluidEquilibriumWithB), "Constants of motion need background with magnetic field."
+        assert isinstance(
+            self.equil, FluidEquilibriumWithB), "Constants of motion need background with magnetic field."
 
         # idx and slice
         idx_gc_r = self.first_diagnostics_idx
-        slice_gc = slice(self.first_diagnostics_idx, self.first_diagnostics_idx + 3)
+        slice_gc = slice(self.first_diagnostics_idx,
+                         self.first_diagnostics_idx + 3)
         idx_energy = self.first_diagnostics_idx + 3
         idx_can_momentum = self.first_diagnostics_idx + 5
 
@@ -198,7 +224,8 @@ class Particles6D(Particles):
 
         # eval energy
         self.markers[~self.holes, idx_energy] = (
-            self.markers[~self.holes, 3] ** 2 + self.markers[~self.holes, 4] ** 2 + self.markers[~self.holes, 5] ** 2
+            self.markers[~self.holes, 3] ** 2 + self.markers[~self.holes,
+                                                             4] ** 2 + self.markers[~self.holes, 5] ** 2
         ) / (2)
 
         # eval psi at etas
@@ -210,7 +237,7 @@ class Particles6D(Particles):
         self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
 
         # send particles to the guiding center positions
-        self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = self.markers[
+        self.markers[~self.holes, self.first_pusher_idx: self.first_pusher_idx + 3] = self.markers[
             ~self.holes, slice_gc
         ]
         self.mpi_sort_markers(alpha=1)
@@ -227,7 +254,8 @@ class Particles6D(Particles):
 
         # send back and clear buffer
         self.mpi_sort_markers()
-        self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = 0
+        self.markers[~self.holes,
+                     self.first_pusher_idx: self.first_pusher_idx + 3] = 0
 
 
 class DeltaFParticles6D(Particles6D):
@@ -323,7 +351,8 @@ class Particles5D(Particles):
 
         # magnetic background
         if self.equil is not None:
-            assert isinstance(self.equil, FluidEquilibriumWithB), "Particles5D needs background with magnetic field."
+            assert isinstance(
+                self.equil, FluidEquilibriumWithB), "Particles5D needs background with magnetic field."
         self._magn_bckgr = self.equil
 
         self._absB0_h = self.projected_equil.absB0
@@ -503,7 +532,8 @@ class Particles5D(Particles):
         Only equilibrium magnetic field is considered.
         """
 
-        assert isinstance(self.equil, FluidEquilibriumWithB), "Constants of motion need background with magnetic field."
+        assert isinstance(
+            self.equil, FluidEquilibriumWithB), "Constants of motion need background with magnetic field."
 
         # idx and slice
         idx_can_momentum = self.first_diagnostics_idx + 2
@@ -824,7 +854,8 @@ class ParticlesSPH(Particles):
             return 2 * eta1
 
         else:
-            raise NotImplementedError(f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
+            raise NotImplementedError(
+                f'Spatial drawing must be "uniform" or "disc", is {self._spatial}.')
 
     def s0(self, eta1, eta2, eta3, *v, flat_eval=False, remove_holes=True):
         """Sampling density function as 0 form.
@@ -874,8 +905,10 @@ class ParticlesSPH(Particles):
 
         if pp_copy is not None:
             if "n" in pp_copy:
-                for _type, _params in pp_copy["n"].items():  # only one perturbation is taken into account at the moment
-                    _fun = transform_perturbation(_type, _params, "0", self.domain)
+                # only one perturbation is taken into account at the moment
+                for _type, _params in pp_copy["n"].items():
+                    _fun = transform_perturbation(
+                        _type, _params, "0", self.domain)
 
                 def _f_init(*etas):
                     if len(etas) == 1:
@@ -896,7 +929,11 @@ class ParticlesSPH(Particles):
                 for _type, _params in pp_copy[
                     "u1"
                 ].items():  # only one perturbation is taken into account at the moment
-                    _fun = transform_perturbation(_type, _params, "v", self.domain)
-                    _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
-                self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
+                    _fun = transform_perturbation(
+                        _type, _params, "v", self.domain)
+
+                    def _fun_cart(e1, e2, e3): return self.domain.push(
+                        _fun, e1, e2, e3, kind="v")
+                self._u_init = lambda e1, e2, e3: self.f0.u_cart(
+                    e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
                 # TODO: add other velocity components
