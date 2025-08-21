@@ -250,7 +250,7 @@ def main():
         # Do post-processing if it wasn't done before
         if not os.path.exists(os.path.join(path, "post_processing")):
             print("This folder hasn't been post-processed yet. Starting post-processing..")
-            subprocess.run(["struphy", "pproc", "-d", foldername])
+            subprocess.run(["struphy", "pproc", foldername])
 
         # iterate over species
         for species in params["kinetic"].keys():
