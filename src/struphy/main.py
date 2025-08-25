@@ -600,6 +600,7 @@ class SimData:
         self.pic_species = {}
         self.sph_species = {}
         self.arrays = {}
+        self.orbits = {}
         self.grids_log: list[np.ndarray] = None
         self.grids_phy: list[np.ndarray] = None
         self.t_grid: np.ndarray = None
@@ -651,17 +652,19 @@ def load_data(path: str) -> SimData:
         # species folders
         species = next(os.walk(path_fields))[1]
         for spec in species:
-            simdata.feec_species[spec] = []
-            simdata.arrays[spec] = {}
+            simdata.feec_species[spec] = {}
+            # simdata.arrays[spec] = {}
             path_spec = os.path.join(path_fields, spec)
             wlk = os.walk(path_spec)
             files = next(wlk)[2]
+            print(f"\nFiles in {path_spec}: {files}")
             for file in files:
                 if ".bin" in file:
                     var = file.split(".")[0]
                     with open(os.path.join(path_spec, file), "rb") as f:
-                        simdata.feec_species[spec] += [var]
-                        simdata.arrays[spec][var] = pickle.load(f)
+                        # try:
+                        simdata.feec_species[spec][var] = pickle.load(f)
+                        # simdata.arrays[spec][var] = pickle.load(f)
                         
     if os.path.exists(path_kinetic):
         
@@ -669,23 +672,39 @@ def load_data(path: str) -> SimData:
         species = next(os.walk(path_kinetic))[1]
         print(f"{species = }")
         for spec in species:
-            simdata.pic_species[spec] = []
-            # simdata.arrays[spec] = {}
+            simdata.pic_species[spec] = {}
             path_spec = os.path.join(path_kinetic, spec)
             wlk = os.walk(path_spec)
-            print(f"{next(wlk) = }")
-            files = next(wlk)[2]
-            for file in files:
-                print(f"{file = }")
-                with open(os.path.join(path_spec, file), "r") as f:
-                    simdata.orbits[spec][var] = pickle.load(f)
+            sub_folders = next(wlk)[1]
+            # print(f"{sub_folders = }")
+            for folder in sub_folders:
+                # simdata.pic_species[spec][folder] = {}
+                tmp = {}
+                path_dat = os.path.join(path_spec, folder)
+                sub_wlk = os.walk(path_dat)
+                files = next(sub_wlk)[2]
+                for file in files:
+                    # print(f"{file = }")
+                    if ".npy" in file:
+                        var = file.split(".")[0]
+                        tmp[var] = np.load(os.path.join(path_dat, file))
+                # sort dict
+                simdata.pic_species[spec][folder] = dict(sorted(tmp.items()))
                         
     print("\nThe following data has been loaded:")
     print(f"{simdata.time_grid_size = }")
     print(f"{simdata.spline_grid_resolution = }")
-    print(f"{simdata.feec_species = }")
-    print(f"{simdata.pic_species = }")
-    print(f"{simdata.sph_species = }")
+    print(f"simdata.feec_species:")
+    for k, v in simdata.feec_species.items():
+        print(f"  {k}:")
+        for kk, vv in v.items():
+            print(f"    {kk}")
+    print(f"simdata.pic_species:")
+    for k, v in simdata.pic_species.items():
+        print(f"  {k}:")
+        for kk, vv in v.items():
+            print(f"    {kk}")
+    print(f"simdata.sph_species:")
                         
     return simdata
 

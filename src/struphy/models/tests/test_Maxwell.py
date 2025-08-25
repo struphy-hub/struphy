@@ -79,7 +79,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         simdata = main.load_data(env.path_out)
 
         # fft 
-        E_of_t = simdata.arrays["em_fields"]["e_field_log"]
+        E_of_t = simdata.feec_species["em_fields"]["e_field_log"]
         _1, _2, _3, coeffs = power_spectrum_2d(E_of_t,
                     "e_field_log", 
                     grids=simdata.grids_log,
@@ -262,5 +262,5 @@ def test_coaxial(do_plot: bool = False):
 
         
 if __name__ == "__main__":
-    # test_light_wave_1d(algo="explicit", do_plot=True)
-    test_coaxial(do_plot=True)
+    test_light_wave_1d(algo="explicit", do_plot=True)
+    # test_coaxial(do_plot=True)
