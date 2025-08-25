@@ -259,55 +259,55 @@ def eval_femfields(
             # vector-valued spaces
             else:
                 for j in range(3):
-                    # if physical:
-                    #     # push-forward
-                    #     if space_id == "Hcurl":
-                    #         point_data[name][t].append(
-                    #             domain.transform(
-                    #                 temp_val,
-                    #                 *grids_log,
-                    #                 kind="1_to_v",
-                    #             )[j],
-                    #         )
-                    #     elif space_id == "Hdiv":
-                    #         point_data[name][t].append(
-                    #             domain.transform(
-                    #                 temp_val,
-                    #                 *grids_log,
-                    #                 kind="2_to_v",
-                    #             )[j],
-                    #         )
-                    #     elif space_id == "H1vec":
-                    #         point_data[name][t].append(
-                    #                 temp_val[j]
-                    #         )
-
                     if physical:
                         # push-forward
                         if space_id == "Hcurl":
                             point_data[name][t].append(
-                                domain.push(
+                                domain.transform(
                                     temp_val,
                                     *grids_log,
-                                    kind="1",
+                                    kind="1_to_v",
                                 )[j],
                             )
                         elif space_id == "Hdiv":
                             point_data[name][t].append(
-                                domain.push(
+                                domain.transform(
                                     temp_val,
                                     *grids_log,
-                                    kind="2",
+                                    kind="2_to_v",
                                 )[j],
                             )
                         elif space_id == "H1vec":
                             point_data[name][t].append(
-                                domain.push(
-                                    temp_val,
-                                    *grids_log,
-                                    kind="v",
-                                )[j],
+                                    temp_val[j]
                             )
+
+                    # if physical:
+                    #     # push-forward
+                    #     if space_id == "Hcurl":
+                    #         point_data[name][t].append(
+                    #             domain.push(
+                    #                 temp_val,
+                    #                 *grids_log,
+                    #                 kind="1",
+                    #             )[j],
+                    #         )
+                    #     elif space_id == "Hdiv":
+                    #         point_data[name][t].append(
+                    #             domain.push(
+                    #                 temp_val,
+                    #                 *grids_log,
+                    #                 kind="2",
+                    #             )[j],
+                    #         )
+                    #     elif space_id == "H1vec":
+                    #         point_data[name][t].append(
+                    #             domain.push(
+                    #                 temp_val,
+                    #                 *grids_log,
+                    #                 kind="v",
+                    #             )[j],
+                    #         )
 
                     else:
                         point_data[name][t].append(temp_val[j])
