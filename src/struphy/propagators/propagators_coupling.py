@@ -2728,6 +2728,16 @@ class CurrentCoupling5DGradB_dg(Propagator):
             11:-1,
         ] = 0.0
 
+        # Initialize the total number of markers
+        n_mks_tot = np.array([self.particles[0].n_mks])
+
+        if self.derham.inter_comm.Get_size() > 1:
+            self.derham.inter_comm.Allreduce(
+                MPI.IN_PLACE,
+                n_mks_tot,
+                op=MPI.SUM,
+            )
+
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         b_full = self._b_eq.copy(out=self._b_full)
 
@@ -2753,7 +2763,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
         # calculate en_fB_old
         self.particles[0].save_magnetic_energy(PB_b)
         en_fB_old = np.sum(self.particles[0].markers[~self.particles[0].holes, 8]) * self._coupling_vec
-        en_fB_old /= self.particles[0].n_mks
+        en_fB_old /= n_mks_tot[0]
 
         buffer_array = np.array([en_fB_old])
         self.derham.comm.Allreduce(
@@ -2812,7 +2822,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
         # calculate en_fB_new
         self.particles[0].save_magnetic_energy(PB_b)
         en_fB_new = np.sum(self.particles[0].markers[~self.particles[0].holes, 8]) * self._coupling_vec
-        en_fB_new /= self.particles[0].n_mks
+        en_fB_new /= n_mks_tot[0]
 
         buffer_array = np.array([en_fB_new])
         self.derham.comm.Allreduce(
@@ -2891,7 +2901,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
                                                           self._grad_PB_b[1]._data,
                                                           self._grad_PB_b[2]._data,
                                                           self._coupling_vec,)
-            en_fB_mid /= self.particles[0].n_mks
+            en_fB_mid /= n_mks_tot[0]
 
             buffer_array = np.array([en_fB_mid])
             self.derham.comm.Allreduce(
@@ -2970,7 +2980,7 @@ class CurrentCoupling5DGradB_dg(Propagator):
             self.particles[0].save_magnetic_energy(PB_b)
             
             en_fB_new = np.sum(self.particles[0].markers[~self.particles[0].holes, 8]) * self._coupling_vec
-            en_fB_new /= self.particles[0].n_mks
+            en_fB_new /= n_mks_tot[0]
 
             buffer_array = np.array([en_fB_new])
             self.derham.comm.Allreduce(
