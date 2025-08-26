@@ -599,8 +599,6 @@ class SimData:
         self.feec_species = {}
         self.pic_species = {}
         self.sph_species = {}
-        self.arrays = {}
-        self.orbits = {}
         self.grids_log: list[np.ndarray] = None
         self.grids_phy: list[np.ndarray] = None
         self.t_grid: np.ndarray = None
