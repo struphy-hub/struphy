@@ -581,10 +581,10 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
             change_out_order=True,
         )
 
-        # move ids to first column and save
-        temp = np.roll(temp, 1, axis=1)
-
+        # save numpy
         np.save(file_npy, temp)
+        # move ids to first column and save txt
+        temp = np.roll(temp, 1, axis=1)
         np.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
 
     # close hdf5 files
