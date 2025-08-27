@@ -45,15 +45,17 @@ class LinearMHD(StruphyModel):
     """
     ## species
     
-    @dataclass
     class EMFields(FieldSpecies):
-        b_field: FEECVariable = FEECVariable(name="b_field", space="Hdiv")
+        def __init__(self):
+            self.b_field = FEECVariable(space="Hdiv")
+            self.init_variables()
     
-    @dataclass
     class MHD(FluidSpecies):
-        density: FEECVariable =  FEECVariable(name="density", space="L2")
-        velocity: FEECVariable = FEECVariable(name="velocity", space="Hdiv")
-        pressure: FEECVariable = FEECVariable(name="pressure", space="L2")
+        def __init__(self):
+            self.density =  FEECVariable(space="L2")
+            self.velocity = FEECVariable(space="Hdiv")
+            self.pressure = FEECVariable(space="L2")
+            self.init_variables()
         
     ## propagators
     
@@ -76,12 +78,12 @@ class LinearMHD(StruphyModel):
         self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
-        self.propagators.shear_alf.set_variables(
+        self.propagators.shear_alf.assign_variables(
             u = self.mhd.velocity,
             b = self.em_fields.b_field,
             )
         
-        self.propagators.mag_sonic.set_variables(
+        self.propagators.mag_sonic.assign_variables(
             n = self.mhd.density,
             u = self.mhd.velocity,
             p = self.mhd.pressure,

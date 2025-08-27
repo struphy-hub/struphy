@@ -43,8 +43,8 @@ class Propagator(metaclass=ABCMeta):
             Time step size.
         """
 
-    def set_variables(self, **vars):
-        """Define the variables to be updated by the propagator.
+    def assign_variables(self, **vars):
+        """Assign the variables to be updated by the propagator.
         
         Update variables in __dict__ and set self.variables with user-defined instance variables (allocated).
         """

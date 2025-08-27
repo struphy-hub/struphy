@@ -8,7 +8,7 @@ from mpi4py import MPI
 import numpy as np
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.io.options import FieldsBackground
+from struphy.io.options import (FieldsBackground, OptsFEECSpace, OptsPICSpace, check_option,)
 from struphy.initial.perturbations import Perturbation
 from struphy.geometry.base import Domain
 from struphy.fields_background.base import FluidEquilibrium
@@ -19,7 +19,7 @@ from struphy.pic import particles
 from struphy.utils.clone_config import CloneConfig
 
 if TYPE_CHECKING:
-    from struphy.models.species import Species, KineticSpecies
+    from struphy.models.species import Species, KineticSpecies, FieldSpecies, FluidSpecies
 
 class Variable(metaclass=ABCMeta):
     """Single variable (unknown) of a Species."""
@@ -57,6 +57,12 @@ class Variable(metaclass=ABCMeta):
         if not hasattr(self, "_species"):
             self._species = None
         return self._species
+    
+    @property
+    def __name__(self):
+        if not hasattr(self, "_name"):
+            self._name = None
+        return self._name
 
     def add_background(self, background, verbose=True):
         """Type inference of added background done in sub class."""
@@ -87,14 +93,9 @@ class Variable(metaclass=ABCMeta):
 
     
 class FEECVariable(Variable):
-    def __init__(self, name: str = "a_feec_var", space: str = "H1"):
-        assert space in ("H1", "Hcurl", "Hdiv", "L2", "H1vec")
-        self._name = name
+    def __init__(self, space: OptsFEECSpace = "H1"):
+        check_option(space, OptsFEECSpace)
         self._space = space
-        
-    @property
-    def __name__(self):
-        return self._name
         
     @property
     def space(self):
@@ -103,6 +104,12 @@ class FEECVariable(Variable):
     @property
     def spline(self) -> SplineFunction:
         return self._spline
+    
+    @property
+    def species(self) -> FieldSpecies | FluidSpecies:
+        if not hasattr(self, "_species"):
+            self._species = None
+        return self._species
     
     def add_background(self, background: FieldsBackground, verbose=True):
         super().add_background(background, verbose=verbose)
@@ -119,15 +126,10 @@ class FEECVariable(Variable):
     
     
 class PICVariable(Variable):
-    def __init__(self, name: str = "a_pic_var", space: str = "Particles6D"):
-        assert space in ("Particles6D", "Particles5D", "Particles3D", "DeltaFParticles6D")
-        self._name = name
+    def __init__(self, space: OptsPICSpace = "Particles6D"):
+        check_option(space, OptsPICSpace)
         self._space = space
         self._kinetic_data = {}
-        
-    @property
-    def __name__(self):
-        return self._name
         
     @property
     def space(self):

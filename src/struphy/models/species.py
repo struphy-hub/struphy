@@ -18,20 +18,21 @@ from struphy.pic.utilities import (LoadingParameters,
 class Species(metaclass=ABCMeta):
     """Single species of a StruphyModel."""
     
+    @abstractmethod
+    def __init__(self):
+        self.init_variables()
+    
     # set species attribute for each variable
-    def __post_init__(self):
+    def init_variables(self):
+        self._variables = {}
         for k, v in self.__dict__.items():
             if isinstance(v, Variable):
-                # v._species = self.__class__.__name__
+                v._name = k
                 v._species = self
+                self._variables[k] = v 
     
     @property
-    def variables(self):
-        if not hasattr(self, "_variables"):
-            self._variables = {}
-            for k, v in self.__dict__.items():
-                if isinstance(v, Variable):
-                    self._variables[k] = v 
+    def variables(self) -> dict:
         return self._variables
     
     @property
@@ -51,11 +52,11 @@ class Species(metaclass=ABCMeta):
     
     @property
     def equation_params(self) -> dict:
-        if not hasattr(self, "_equation_params"):
-            self.setup_equation_params()
+        # if not hasattr(self, "_equation_params"):
+        #     self.setup_equation_params()
         return self._equation_params
     
-    def setup_equation_params(self, units: Units = None, verbose=False):
+    def setup_equation_params(self, units: Units, verbose=False):
         """Set the following equation parameters:
         
         * alpha = plasma-frequenca / cyclotron frequency
@@ -64,9 +65,6 @@ class Species(metaclass=ABCMeta):
         """
         Z = self.charge_number
         A = self.mass_number
-        
-        if units is None:
-            units = Units()
 
         con = ConstantsOfNature()
         

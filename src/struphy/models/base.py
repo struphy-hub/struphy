@@ -25,7 +25,7 @@ from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml, read_state
 from struphy.models.species import Species, FieldSpecies, FluidSpecies, KineticSpecies, DiagnosticSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
-from struphy.io.options import Units, Time, DerhamOptions
+from struphy.io.options import BaseUnits, Units, Time, DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 from struphy.geometry.base import Domain
 from struphy.geometry.domains import Cuboid
@@ -1283,7 +1283,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 print("exiting ...")
                 return   
                    
-        file.write("from struphy.io.options import EnvironmentOptions, Units, Time\n")
+        file.write("from struphy.io.options import EnvironmentOptions, BaseUnits, Time\n")
         file.write("from struphy.geometry import domains\n")
         file.write("from struphy.fields_background import equils\n")
         
@@ -1349,7 +1349,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("env = EnvironmentOptions()\n")
         
         file.write("\n# units\n")
-        file.write("units = Units()\n")
+        file.write("base_units = BaseUnits()\n")
         
         file.write("\n# time stepping\n")
         file.write("time_opts = Time()\n")
@@ -1402,7 +1402,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("    main.run(model, \n\
                 params_path=__file__, \n\
                 env=env, \n\
-                units=units, \n\
+                base_units=base_units, \n\
                 time_opts=time_opts, \n\
                 domain=domain, \n\
                 equil=equil, \n\
