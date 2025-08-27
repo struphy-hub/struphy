@@ -37,10 +37,11 @@ class Maxwell(StruphyModel):
     """
     ## species
     
-    @dataclass
     class EMFields(FieldSpecies):
-        e_field: FEECVariable = FEECVariable(name="e_field", space="Hcurl")
-        b_field: FEECVariable = FEECVariable(name="b_field", space="Hdiv")
+        def __init__(self):
+            self.e_field = FEECVariable(space="Hcurl")
+            self.b_field = FEECVariable(space="Hdiv")
+            self.init_variables()
     
     ## propagators
     
@@ -61,7 +62,7 @@ class Maxwell(StruphyModel):
         self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
-        self.propagators.maxwell.set_variables(
+        self.propagators.maxwell.assign_variables(
             e = self.em_fields.e_field,
             b = self.em_fields.b_field,
             )
@@ -113,10 +114,12 @@ class Vlasov(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
-
-    @dataclass
+    ## species
+    
     class KineticIons(KineticSpecies):
-        var: PICVariable =  PICVariable(name="ions", space="Particles6D")
+        def __init__(self):
+            self.var = PICVariable(space="Particles6D")
+            self.init_variables()
         
     ## propagators
     
@@ -138,11 +141,11 @@ class Vlasov(StruphyModel):
         self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
-        self.propagators.push_vxb.set_variables(
+        self.propagators.push_vxb.assign_variables(
             ions = self.kinetic_ions.var,
             )
         
-        self.propagators.push_eta.set_variables(
+        self.propagators.push_eta.assign_variables(
             var = self.kinetic_ions.var,
             )
         

@@ -21,7 +21,7 @@ from struphy.utils.utils import dict_to_yaml
 from struphy.pic.base import Particles
 from struphy.models.species import Species
 from struphy.models.variables import FEECVariable
-from struphy.io.options import Units, Time, EnvironmentOptions
+from struphy.io.options import BaseUnits, Units, Time, EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.geometry.base import Domain
 from struphy.geometry import domains
@@ -43,7 +43,7 @@ def run(
     *,
     params_path: str = None,
     env: EnvironmentOptions = EnvironmentOptions(),
-    units: Units = Units(),
+    base_units: BaseUnits = BaseUnits(),
     time_opts: Time = Time(),
     domain: Domain = domains.Cuboid(),
     equil: FluidEquilibrium = HomogenSlab(),
@@ -105,6 +105,9 @@ def run(
     setup_folders(path_out=path_out, 
                   restart=restart, 
                   verbose=verbose,)
+    
+    # add derived units
+    units = Units(base_units)
     
     # save parameter file
     if rank == 0:
@@ -628,6 +631,7 @@ def load_data(path: str) -> SimData:
     path_pproc = os.path.join(path, "post_processing")
     assert os.path.exists(path_pproc), f"Path {path_pproc} does not exist, run 'pproc' first?"
     print("\n*** Loading post-processed simulation data:")
+    print(f"{path = }")
 
     simdata = SimData(path)
     

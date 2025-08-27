@@ -13,6 +13,7 @@ SplitAlgos = Literal["LieTrotter", "Strang"]
 
 # derham
 PolarRegularity = Literal[-1, 1]
+OptsFEECSpace = Literal["H1", "Hcurl", "Hdiv", "L2", "H1vec"]
 OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
 
 # fields background
@@ -28,6 +29,7 @@ OptsGenSolver = Literal["pbicgstab", "bicgstab"]
 OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
 
 # markers
+OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
 OptsMarkerBC = Literal["periodic", "reflect"]
 OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
 OptsLoading = Literal["pseudo_random", 'sobol_standard', 'sobol_antithetic', 'external', 'restart', "tesselation"]
@@ -60,7 +62,8 @@ class Time:
         check_option(self.split_algo, SplitAlgos)
 
 
-class Units:
+@dataclass
+class BaseUnits:
     """
     Base units are passed to __init__, other units derive from these.
 
@@ -79,17 +82,25 @@ class Units:
         Unit of internal energy in keV. 
         Only in effect if the velocity scale is set to 'thermal'.
     """
+    x: float = 1.0
+    B: float = 1.0
+    n: float = 1.0
+    kBT: float = None
 
-    def __init__(self, 
-        x: float = 1.0,
-        B: float = 1.0,
-        n: float = 1.0,
-        kBT: float = None,):
+
+class Units:
+    """
+    Colllects base units and derives other units from these.
+    """
+
+    def __init__(self, base: BaseUnits = None):
+        if base is None:
+            base = BaseUnits()
         
-        self._x = x
-        self._B = B
-        self._n = n * 1e20
-        self._kBT = kBT
+        self._x = base.x
+        self._B = base.B
+        self._n = base.n * 1e20
+        self._kBT = base.kBT
         
     @property
     def x(self):
@@ -299,7 +310,7 @@ class EnvironmentOptions:
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
         
-    def print(self):
+    def __repr__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
     
