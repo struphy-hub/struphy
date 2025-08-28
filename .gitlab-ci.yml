@@ -40,6 +40,18 @@ stages:
   - pages
   - release 
 
+
+connect_toki01:
+  stage: startup
+  tags:
+    - maxlin
+    - private
+    - toki01
+  script:
+    - echo "Connected to toki01"
+    - hostname -f
+    - whoami
+
 # --- images ---
 
 .image_gitlab_mpcdf_struphy:
