@@ -51,6 +51,9 @@ connect_toki01:
     - echo "Connected to toki01"
     - hostname -f
     - whoami
+    - pwd
+    - module list
+    - module avail
 
 # # --- images ---
 
