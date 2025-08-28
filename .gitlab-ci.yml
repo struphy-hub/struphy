@@ -52,6 +52,7 @@ connect_toki01:
     - hostname -f
     - whoami
     - pwd
+    - module purge
     - module list
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2025.06
