@@ -59,6 +59,7 @@ connect_toki01:
     - source env/bin/activate
     - python -m pip install --upgrade pip
     - pip install .
+    - struphy test unit
 
 # # --- images ---
 
