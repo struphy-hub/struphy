@@ -41,7 +41,7 @@ stages:
   - release 
 
 
-connect_toki01:
+test_toki01:
   stage: startup
   tags:
     - maxlin
@@ -56,6 +56,30 @@ connect_toki01:
     - module list
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2025.06
+    - module list
+    - python -m venv env
+    - source env/bin/activate
+    - python -m pip install --upgrade pip
+    - pip install .
+    - struphy test unit
+
+
+connect_toki01:
+  stage: startup
+  tags:
+    - maxlin
+    - private
+    - viper01
+  script:
+    - echo "Connected to viper01"
+    - hostname -f
+    - whoami
+    - pwd
+    - module purge
+    - module list
+    - module avail
+    - module load gcc/14 openmpi/5.0 python-waterboa/2025.06
+    - module list
     - python -m venv env
     - source env/bin/activate
     - python -m pip install --upgrade pip
