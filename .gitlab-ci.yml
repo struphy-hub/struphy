@@ -64,7 +64,7 @@ test_toki01:
     - struphy test unit
 
 
-connect_toki01:
+test_viper01:
   stage: startup
   tags:
     - maxlin
