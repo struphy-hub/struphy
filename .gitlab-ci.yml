@@ -55,12 +55,7 @@ test_toki01:
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2025.06
     - module list
-    - python -m venv env
-    - source env/bin/activate
-    - pip install --upgrade pip
-    - python -m pip install --upgrade pip
-    - pip install .
-    - struphy test unit
+    - !reference [.scripts, install_struphy_clusters]
 
 
 test_viper01:
@@ -77,11 +72,7 @@ test_viper01:
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2025.06
     - module list
-    - python -m venv env
-    - source env/bin/activate
-    - python -m pip install --upgrade pip
-    - pip install .
-    - struphy test unit
+    - !reference [.scripts, install_struphy_clusters]
 
 test_raven01:
   stage: startup
@@ -97,14 +88,7 @@ test_raven01:
     - module avail
     - module load gcc/14 openmpi/5.0 python-waterboa/2025.06
     - module list
-    - python -m venv env
-    - source env/bin/activate
-    - python -m pip install --upgrade pip
-    - pip install .
-    - python -c "from mpi4py import MPI"
-    - struphy -h
-    - struphy --refresh-models
-    - struphy test unit
+    - !reference [.scripts, install_struphy_clusters]
 
 test_pitagora05:
   stage: startup
@@ -120,12 +104,8 @@ test_pitagora05:
     - module avail
     - module load gcc/12.3.0 openmpi/4.1.6--gcc--12.3.0 python/3.11.7
     - module list
-    - python -m venv env
-    - source env/bin/activate
-    - pip install --upgrade pip
-    - python -m pip install --upgrade pip
-    - pip install .
-    - struphy test unit
+    - !reference [.scripts, install_struphy_clusters]
+    
 
 # # --- images ---
 
@@ -377,6 +357,7 @@ test_pitagora05:
     - python -m venv env
     - source env/bin/activate
     - python -m pip install --upgrade pip
+    - pip install --no-binary=mpi4py mpi4py
     - pip install .
     - python -c "from mpi4py import MPI"
     - struphy -h
