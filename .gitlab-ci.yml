@@ -122,7 +122,7 @@ test_pitagora05:
     - module purge
     - module list
     - module avail
-    - module load gcc/14 openmpi/5.0 python-waterboa/2025.06
+    - module load gcc/12.3.0 openmpi/4.1.6--gcc--12.3.0 python/3.11.7
     - module list
     - python -m venv env
     - source env/bin/activate
