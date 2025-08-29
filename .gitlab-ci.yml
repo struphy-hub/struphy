@@ -49,9 +49,7 @@ test_toki01:
     - toki01
   script:
     - echo "Connected to toki01"
-    - hostname -f
-    - whoami
-    - pwd
+    - !reference [.scripts, inspect_directory]
     - module purge
     - module list
     - module avail
@@ -72,9 +70,7 @@ test_viper01:
     - viper01
   script:
     - echo "Connected to viper01"
-    - hostname -f
-    - whoami
-    - pwd
+    - !reference [.scripts, inspect_directory]
     - module purge
     - module list
     - module avail
@@ -93,10 +89,8 @@ test_raven01:
     - private
     - raven01
   script:
-    - echo "Connected to viper01"
-    - hostname -f
-    - whoami
-    - pwd
+    - echo "Connected to raven01"
+    - !reference [.scripts, inspect_directory]
     - module purge
     - module list
     - module avail
@@ -118,10 +112,8 @@ test_pitagora05:
     - private
     - pitagora05
   script:
-    - echo "Connected to viper01"
-    - hostname -f
-    - whoami
-    - pwd
+    - echo "Connected to pitagora05"
+    - !reference [.scripts, inspect_directory]
     - module purge
     - module list
     - module avail
@@ -378,165 +370,167 @@ test_pitagora05:
 
 # # --- scripts ---
 
-# .scripts:
-#   inspect_directory:
-#     - date
-#     - pwd
-#     - ls -1a
-#     - uname -a
-#     - ls dist/ || true
-#   create_venv:
-#     - python3 -m venv env_${CI_PIPELINE_ID}
-#     - source env_${CI_PIPELINE_ID}/bin/activate
-#     - python3 --version
-#     - pip install -U pip
-#     - python3 -m pip list
-#   source_env_matrix:
-#     - echo env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
-#     - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
-#     - python3 -m pip list
-#     - python3 --version
-#   source_env_matrix_push:
-#     - ls /
-#     - echo struphy_${LANGUAGE}_${OMP}
-#     - cd /struphy_${LANGUAGE}_${OMP}
-#     - source env_${LANGUAGE}_${OMP}/bin/activate
-#     - python3 -m pip list
-#     - python3 --version
-#   create_venv_matrix:
-#     - python3 -m ensurepip --upgrade
-#     - python3 -m pip install --upgrade pip
-#     - echo env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
-#     - python3 -m venv env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
-#     - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
-#     - pip install -U pip
-#     - python3 -m pip list
-#     - python3 --version
-#   install_pyccel_devel:
-#     - !reference [.scripts, source_env_matrix_push]
-#     - git status
-#     - git fetch origin
-#     - echo $CI_COMMIT_REF_NAME
-#     - git checkout $CI_COMMIT_REF_NAME
-#     - git pull
-#     - pip uninstall psydac pyccel -y
-#     - echo $STRUPHY_SOURCE
-#     - pip install -e $(echo $STRUPHY_SOURCE)[phys]
-#     - struphy compile -d -y
-#     - !reference [.scripts, compile_matrix]
-#   install_on_push:
-#     - !reference [.scripts, source_env_matrix_push]
-#     - git status
-#     - git fetch origin
-#     - echo $CI_COMMIT_REF_NAME
-#     - git checkout $CI_COMMIT_REF_NAME
-#     - git pull
-#     - echo $STRUPHY_SOURCE
-#     - pip install -e $(echo $STRUPHY_SOURCE)[phys]
-#     - !reference [.scripts, compile_matrix]
-#   install:
-#     - echo $STRUPHY_SOURCE
-#     - pip install $(echo $STRUPHY_SOURCE)[phys]
-#     - pip show struphy
-#     - pip list
-#     - struphy -h
-#   install_base:
-#     - echo $STRUPHY_SOURCE
-#     - pip install $(echo $STRUPHY_SOURCE)
-#     - pip show struphy
-#     - pip list
-#     - struphy -h
-#   install_no_binary:
-#     - echo $STRUPHY_SOURCE
-#     - pip install $(echo $STRUPHY_SOURCE)[phys] --no-binary mpi4py
-#     - pip show struphy
-#     - pip list
-#     - struphy -h
-#   install_base_no_binary:
-#     - echo $STRUPHY_SOURCE
-#     - pip install $(echo $STRUPHY_SOURCE) --no-binary mpi4py
-#     - pip show struphy
-#     - pip list
-#     - struphy -h
-#   install_all:
-#     - pip install -U pip
-#     - echo $STRUPHY_SOURCE
-#     - pip install $(echo $STRUPHY_SOURCE)[all] --no-cache-dir
-#     - pip show struphy
-#     - pip list
-#     - struphy -h
-#   compile:
-#     - pyccel --version
-#     - struphy compile --status
-#     - struphy compile -y
-#     - |
-#       struphy compile -y || (
-#         echo "Initial compile failed. Removing compiled kernels and trying again..." &&
-#         struphy compile -d -y &&
-#         struphy compile -y
-#       )
-#   compile_matrix:
-#     - pyccel --version
-#     - struphy compile --status
-#     - echo ${LANGUAGE} && echo ${OMP}
-#     - |
-#       struphy compile --language ${LANGUAGE} ${OMP} -y || (
-#         echo "Initial compile failed. Removing compiled kernels and trying again..." &&
-#         struphy compile -d -y &&
-#         struphy compile --language ${LANGUAGE} ${OMP} -y
-#       )
-#   build:
-#     - pip install -U build
-#     - python3 -m build
-#   inspect_struphy:
-#     - struphy -p
-#     - struphy -h
-#     - struphy run -h
-#   unit_tests:
-#     - struphy compile --status
-#     - struphy --refresh-models
-#     - struphy test unit
-#   model_tests:
-#     - struphy compile --status
-#     - struphy test models --fast
-#     - struphy test models --fast --verification --mpi 1
-#     - struphy test models --fast --verification --mpi 4
-#     - struphy test models --fast --verification --mpi 4 --nclones 2
-#     - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
-#   quickstart_tests:
-#     - struphy --set-i .
-#     - struphy --set-o .
-#     - struphy -p
-#     - struphy -h
-#     - struphy run -h
-#     - struphy params VlasovMaxwellOneSpecies -y
-#     - ls -1a
-#     - mv params_VlasovMaxwellOneSpecies.yml test.yml
-#     - struphy run -i test.yml -o my_first_sim
-#     - ls my_first_sim/
-#     - struphy pproc my_first_sim
-#     - ls my_first_sim/post_processing/fields_data/
-#     - ls my_first_sim/post_processing/kinetic_data/
-#     - struphy params VlasovMaxwellOneSpecies --options
-#     - struphy run -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
-#     - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
-#     - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
-#     - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
-#   build_images:
-#     - buildah images
-#     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest -f docker/almalinux-latest.dockerfile .
-#     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest -f docker/fedora-latest.dockerfile .
-#     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy -f docker/mpcdf-gcc-openmpi-with-struphy.dockerfile .
-#     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest -f docker/opensuse-latest.dockerfile .
-#     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy -f docker/ubuntu-latest-with-struphy.dockerfile .
-#     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu-latest.dockerfile .
-#   push_images:
-#     - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest
-#     - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest
-#     - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy
-#     - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest
-#     - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy
-#     - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest
+.scripts:
+  inspect_directory:
+    - hostname -f
+    - whoami
+    - date
+    - pwd
+    - ls -1a
+    - uname -a
+    - ls dist/ || true
+  create_venv:
+    - python3 -m venv env_${CI_PIPELINE_ID}
+    - source env_${CI_PIPELINE_ID}/bin/activate
+    - python3 --version
+    - pip install -U pip
+    - python3 -m pip list
+  source_env_matrix:
+    - echo env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
+    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
+    - python3 -m pip list
+    - python3 --version
+  source_env_matrix_push:
+    - ls /
+    - echo struphy_${LANGUAGE}_${OMP}
+    - cd /struphy_${LANGUAGE}_${OMP}
+    - source env_${LANGUAGE}_${OMP}/bin/activate
+    - python3 -m pip list
+    - python3 --version
+  create_venv_matrix:
+    - python3 -m ensurepip --upgrade
+    - python3 -m pip install --upgrade pip
+    - echo env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
+    - python3 -m venv env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}
+    - source env_${CI_PIPELINE_ID}_${LANGUAGE}_${OMP}/bin/activate
+    - pip install -U pip
+    - python3 -m pip list
+    - python3 --version
+  install_pyccel_devel:
+    - !reference [.scripts, source_env_matrix_push]
+    - git status
+    - git fetch origin
+    - echo $CI_COMMIT_REF_NAME
+    - git checkout $CI_COMMIT_REF_NAME
+    - git pull
+    - pip uninstall psydac pyccel -y
+    - echo $STRUPHY_SOURCE
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
+    - struphy compile -d -y
+    - !reference [.scripts, compile_matrix]
+  install_on_push:
+    - !reference [.scripts, source_env_matrix_push]
+    - git status
+    - git fetch origin
+    - echo $CI_COMMIT_REF_NAME
+    - git checkout $CI_COMMIT_REF_NAME
+    - git pull
+    - echo $STRUPHY_SOURCE
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
+    - !reference [.scripts, compile_matrix]
+  install:
+    - echo $STRUPHY_SOURCE
+    - pip install $(echo $STRUPHY_SOURCE)[phys]
+    - pip show struphy
+    - pip list
+    - struphy -h
+  install_base:
+    - echo $STRUPHY_SOURCE
+    - pip install $(echo $STRUPHY_SOURCE)
+    - pip show struphy
+    - pip list
+    - struphy -h
+  install_no_binary:
+    - echo $STRUPHY_SOURCE
+    - pip install $(echo $STRUPHY_SOURCE)[phys] --no-binary mpi4py
+    - pip show struphy
+    - pip list
+    - struphy -h
+  install_base_no_binary:
+    - echo $STRUPHY_SOURCE
+    - pip install $(echo $STRUPHY_SOURCE) --no-binary mpi4py
+    - pip show struphy
+    - pip list
+    - struphy -h
+  install_all:
+    - pip install -U pip
+    - echo $STRUPHY_SOURCE
+    - pip install $(echo $STRUPHY_SOURCE)[all] --no-cache-dir
+    - pip show struphy
+    - pip list
+    - struphy -h
+  compile:
+    - pyccel --version
+    - struphy compile --status
+    - struphy compile -y
+    - |
+      struphy compile -y || (
+        echo "Initial compile failed. Removing compiled kernels and trying again..." &&
+        struphy compile -d -y &&
+        struphy compile -y
+      )
+  compile_matrix:
+    - pyccel --version
+    - struphy compile --status
+    - echo ${LANGUAGE} && echo ${OMP}
+    - |
+      struphy compile --language ${LANGUAGE} ${OMP} -y || (
+        echo "Initial compile failed. Removing compiled kernels and trying again..." &&
+        struphy compile -d -y &&
+        struphy compile --language ${LANGUAGE} ${OMP} -y
+      )
+  build:
+    - pip install -U build
+    - python3 -m build
+  inspect_struphy:
+    - struphy -p
+    - struphy -h
+    - struphy run -h
+  unit_tests:
+    - struphy compile --status
+    - struphy --refresh-models
+    - struphy test unit
+  model_tests:
+    - struphy compile --status
+    - struphy test models --fast
+    - struphy test models --fast --verification --mpi 1
+    - struphy test models --fast --verification --mpi 4
+    - struphy test models --fast --verification --mpi 4 --nclones 2
+    - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
+  quickstart_tests:
+    - struphy --set-i .
+    - struphy --set-o .
+    - struphy -p
+    - struphy -h
+    - struphy run -h
+    - struphy params VlasovMaxwellOneSpecies -y
+    - ls -1a
+    - mv params_VlasovMaxwellOneSpecies.yml test.yml
+    - struphy run -i test.yml -o my_first_sim
+    - ls my_first_sim/
+    - struphy pproc my_first_sim
+    - ls my_first_sim/post_processing/fields_data/
+    - ls my_first_sim/post_processing/kinetic_data/
+    - struphy params VlasovMaxwellOneSpecies --options
+    - struphy run -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
+    - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
+    - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
+    - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
+  build_images:
+    - buildah images
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest -f docker/almalinux-latest.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest -f docker/fedora-latest.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy -f docker/mpcdf-gcc-openmpi-with-struphy.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest -f docker/opensuse-latest.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy -f docker/ubuntu-latest-with-struphy.dockerfile .
+    - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest -f docker/ubuntu-latest.dockerfile .
+  push_images:
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/mpcdf-gcc-openmpi-with-struphy
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy
+    - buildah push gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest
 
 # # --- artifacts ---
 
