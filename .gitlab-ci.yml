@@ -362,6 +362,7 @@ test_pitagora05:
     - python -c "from mpi4py import MPI"
     - struphy -h
     - struphy --refresh-models
+    - struphy compile
     - struphy test unit
   inspect_directory:
     - hostname -f
