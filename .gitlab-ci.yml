@@ -108,6 +108,28 @@ test_raven01:
     - pip install .
     - struphy test unit
 
+test_pitagora05:
+  stage: startup
+  tags:
+    - maxlin
+    - private
+    - pitagora05
+  script:
+    - echo "Connected to viper01"
+    - hostname -f
+    - whoami
+    - pwd
+    - module purge
+    - module list
+    - module avail
+    - module load gcc/14 openmpi/5.0 python-waterboa/2025.06
+    - module list
+    - python -m venv env
+    - source env/bin/activate
+    - python -m pip install --upgrade pip
+    - pip install .
+    - struphy test unit
+
 # # --- images ---
 
 # .image_gitlab_mpcdf_struphy:
