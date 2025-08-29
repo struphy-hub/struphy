@@ -81,4 +81,6 @@ def compare_pyccel_cpu_gpu(Nvec=[2000], max_time = 1.0):
         # print("#" + "-"*40 + "#")
     return elapsed_cpu_vec, elapsed_gpu_vec
 if __name__ == "__main__":
-    compare_pyccel_cpu_gpu(N=2000)
+    elapsed_cpu_vec, elapsed_gpu_vec = compare_pyccel_cpu_gpu()
+    print(f"{elapsed_cpu_vec = }")
+    print(f"{elapsed_gpu_vec = }")
