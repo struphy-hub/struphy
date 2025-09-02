@@ -1710,13 +1710,7 @@ class PushVinViscousPotential(Propagator):
             args_init,
         )
 
-        # pusher kernel
-        if thermodynamics == "isothermal":
-            kernel = pusher_kernels.push_v_sph_pressure
-        elif thermodynamics == "polytropic":
-            kernel = pusher_kernels.push_v_sph_pressure_ideal_gas
-
-        gravity = np.array(gravity, dtype=float)
+        kernel = pusher_kernels.push_v_viscosity
 
         args_kernel = (
             boxes,
@@ -1725,7 +1719,6 @@ class PushVinViscousPotential(Propagator):
             *periodic,
             kernel_nr,
             *kernel_width,
-            gravity,
         )
 
         # the Pusher class wraps around all kernels

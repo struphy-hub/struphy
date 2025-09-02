@@ -3516,6 +3516,8 @@ def push_v_viscosity(
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
     n_cols = shape(markers)[1]
+    f_visc = zeros(3, dtype = float)
+    f_visc_cart = zeros(3, dtype = float)
 
     # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
     # -- removed omp: #$ omp for
@@ -3530,44 +3532,43 @@ def push_v_viscosity(
         #n_at_eta = markers[ip, first_free_idx]
         loc_box = int(markers[ip, n_cols - 2])
 
-        f_visc = zeros(3, dtype = float)
-        f_visc_cart = zeros(3, dtype = float)
+        
 
         for j in range(3):   # row of viscosity tensor
             for k in range(3):  #column = derivative direction
                 coeff_idx = first_free_idx + 3*j + k +15
 
-                if k == 0:
-                    deriv_type = kernel_type + 1
-                    use_component = True
-                elif k == 1 and kernel_type >= 340:
-                    deriv_type = kernel_type + 2
-                    use_component = True
-                elif k == 2 and kernel_type >= 670:
-                    deriv_type = kernel_type + 3
-                    use_component = True
-                else:
-                    use_component = False
+                # if k == 0:
+                #     deriv_type = kernel_type + 1
+                #     use_component = True
+                # elif k == 1 and kernel_type >= 340:
+                #     deriv_type = kernel_type + 2
+                #     use_component = True
+                # elif k == 2 and kernel_type >= 670:
+                #     deriv_type = kernel_type + 3
+                #     use_component = True
+                # else:
+                #     use_component = False
 
-                if use_component:
-                    f_visc[j] += sph_eval_kernels.boxed_based_kernel(
-                        args_markers,
-                        eta1,
-                        eta2,
-                        eta3,
-                        loc_box,
-                        boxes,
-                        neighbours,
-                        holes,
-                        periodic1,
-                        periodic2,
-                        periodic3,
-                        coeff_idx,
-                        deriv_type,
-                        h1,
-                        h2,
-                        h3,
-                    )
+                # if use_component:
+                f_visc[j] += sph_eval_kernels.boxed_based_kernel(
+                    args_markers,
+                    eta1,
+                    eta2,
+                    eta3,
+                    loc_box,
+                    boxes,
+                    neighbours,
+                    holes,
+                    periodic1,
+                    periodic2,
+                    periodic3,
+                    coeff_idx,
+                    kernel_type +1 +k,
+                    h1,
+                    h2,
+                    h3,
+                )
 
         # push to Cartesian coordinates
         evaluation_kernels.df_inv(
@@ -3583,6 +3584,6 @@ def push_v_viscosity(
         linalg_kernels.matrix_vector(dfinvT, f_visc, f_visc_cart)
 
         # update velocities
-        markers[ip, 3:6] += dt * (f_visc_cart)
+        markers[ip, 3:6] -= dt * (f_visc_cart)
 
     # -- removed omp: #$ omp end parallel

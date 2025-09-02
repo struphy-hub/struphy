@@ -952,7 +952,7 @@ def sph_viscosity_tensor(
 
 
     grad_v_at_eta = zeros((3,3), dtype = float)
-    viscosity_tensor = zeros((3,3), dtype = float)
+    d_dev = zeros((3,3), dtype = float)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle
         if not valid_mks[ip]:
