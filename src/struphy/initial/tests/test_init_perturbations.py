@@ -26,6 +26,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
+    from struphy.geometry.base import Domain
     from struphy.initial import perturbations
 
     comm = MPI.COMM_WORLD
@@ -34,6 +35,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     # Domain
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
+    assert isinstance(domain, Domain)
 
     # Derham
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -60,7 +62,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     ls = [0, 0]
     pfuns = ["sin", "sin"]
 
-    pmap = domain.params_map
+    pmap = domain.params
     if isinstance(domain, domains.Cuboid):
         Lx = pmap["r1"] - pmap["l1"]
         Ly = pmap["r2"] - pmap["l2"]

@@ -2025,7 +2025,7 @@ class Particles(metaclass=ABCMeta):
             if kind == "inner":
                 outside_inds = np.nonzero(self._is_outside_left)[0]
                 self.markers[outside_inds, 0] = 1e-4
-                r_loss = self._domain.params_map["a1"]
+                r_loss = self.domain.params["a1"]
 
             else:
                 outside_inds = np.nonzero(self._is_outside_right)[0]
