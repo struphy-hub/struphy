@@ -1,6 +1,6 @@
 "Initialization routines (initial guess, evaluations) for 5D gyro-center pusher kernels."
 
-from numpy import abs, empty, log, mod, shape, size, sqrt, zeros, trace, eye
+from numpy import abs, empty, log, mod, shape, size, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -1003,12 +1003,12 @@ def sph_viscosity_tensor(
                     h3,
                 )
         
-                # save
-                markers[ip, column_nr + 3*j +k] = grad_v_at_eta[j,k]
         mu = 0.7
         d = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
-        trace_d = trace(d)
-        d_dev = d - (trace_d / 3.0) * eye(3)
+        trace_d = d[0, 0] + d[1, 1] + d[2, 2]
+        d_dev[0, 0] = d[0, 0] - (trace_d / 3.0) 
+        d_dev[1, 1] = d[1, 1] - (trace_d / 3.0) 
+        d_dev[2, 2] = d[2, 2] - (trace_d / 3.0) 
         d_dev *= 2*mu*weight/n_at_eta 
         for j in range(3):
             for k in range(3):
