@@ -13,3 +13,4 @@ They can thus be used for MPI parallel runs in HPC applications.
    :caption: Notebook tutorials:
 
    ../tutorials/tutorial_01_parameter_files
+   ../tutorials/tutorial_02_test_particles

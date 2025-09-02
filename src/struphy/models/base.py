@@ -577,7 +577,7 @@ class StruphyModel(metaclass=ABCMeta):
             if isinstance(prop, Propagator):
                 prop.add_time_state(time_state)
 
-    def allocate_variables(self):
+    def allocate_variables(self, verbose: bool = False):
         """
         Allocate memory for model variables and set initial conditions.
         """
@@ -603,7 +603,8 @@ class StruphyModel(metaclass=ABCMeta):
                 assert isinstance(spec, KineticSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, (PICVariable, SPHVariable))
-                    v.allocate(derham=self.derham, domain=self.domain, equil=self.equil,)
+                    v.allocate(derham=self.derham, domain=self.domain, equil=self.equil,
+                               verbose=verbose)
                 
         # TODO: allocate memory for FE coeffs of diagnostics
         # if self.params.diagnostic_fields is not None:

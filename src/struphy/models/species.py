@@ -52,8 +52,6 @@ class Species(metaclass=ABCMeta):
     
     @property
     def equation_params(self) -> dict:
-        # if not hasattr(self, "_equation_params"):
-        #     self.setup_equation_params()
         return self._equation_params
     
     def setup_equation_params(self, units: Units, verbose=False):
