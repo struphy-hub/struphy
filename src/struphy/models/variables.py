@@ -169,6 +169,7 @@ class PICVariable(Variable):
                  domain: Domain = None, 
                  equil: FluidEquilibrium = None,
                  projected_equil: ProjectedFluidEquilibrium = None,
+                 verbose: bool = False,
                  ):
         
         #assert isinstance(self.species, KineticSpecies)
@@ -202,13 +203,14 @@ class PICVariable(Variable):
             n_as_volume_form=self.n_as_volume_form,
             # perturbations=self.perturbations,
             equation_params=self.species.equation_params,
+            verbose=verbose,
         )
         
         if self.species.do_sort:
             sort = True
         else:
             sort = False
-        self.particles.draw_markers(sort=sort)
+        self.particles.draw_markers(sort=sort, verbose=verbose)
         self.particles.initialize_weights()
 
         # for storing the binned distribution function

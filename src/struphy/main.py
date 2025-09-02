@@ -195,7 +195,7 @@ def run(
     model.setup_equation_params(units=model.units, verbose=verbose)
         
     # allocate variables
-    model.allocate_variables()
+    model.allocate_variables(verbose=verbose)
     model.allocate_helpers()
     
     # pass info to propagators
@@ -303,6 +303,7 @@ def run(
             data.file.close()
             end_simulation = time.time()
             if rank == 0:
+                print(f"\nTime steps done: {time_state["index"][0]}")
                 print(
                     "wall-clock time of simulation [sec]: ",
                     end_simulation - start_simulation,
