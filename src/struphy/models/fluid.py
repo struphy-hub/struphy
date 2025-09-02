@@ -2363,6 +2363,7 @@ class ViscousEulerSPH(StruphyModel):
         algo_sph = _p["options"]["PushVinSPHpressure"]["algo"]
         gravity = _p["options"]["PushVinSPHpressure"]["gravity"]
         thermodynamics = _p["options"]["PushVinSPHpressure"]["thermodynamics"]
+        kernel_width = _p["options"]["PushVinViscousPotential"]["kernel_width"]
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {
@@ -2375,6 +2376,12 @@ class ViscousEulerSPH(StruphyModel):
             "algo": algo_sph,
             "gravity": gravity,
             "thermodynamics": thermodynamics,
+        }
+        
+        self._kwargs[propagators_markers.PushVinViscousPotential] = {
+            "kernel_type": kernel_type,
+            "kernel_width": kernel_width, 
+            "algo": algo_sph,   
         }
 
         # Initialize propagators used in splitting substeps
