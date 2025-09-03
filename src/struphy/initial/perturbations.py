@@ -1506,16 +1506,16 @@ class TokamakManufacturedSolutionVelocity:
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
-        A = self._alpha/(self._a*self._R0)
-        C = self._beta*self._Bp*self._R0/(self._B0*self._a)
-        
+        A = self._alpha / (self._a * self._R0)
+        C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
+
         # uR = A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi)
         # uZ = A*R*(R-self._R0)
         # uphi = -C/R * (R-self._R0)**2 * np.sin(phi)
 
-        uR = A*(R-self._R0)*np.cos(phi)
-        uZ = A*np.cos(phi)*z
-        uphi = -A* np.sin(phi)/(2.0*R) *( (R-self._R0)**2 +z**2 ) /R
+        uR = A * (R - self._R0) * np.cos(phi)
+        uZ = A * np.cos(phi) * z
+        uphi = -A * np.sin(phi) / (2.0 * R) * ((R - self._R0) ** 2 + z**2) / R
 
         # from cylindrical to cartesian:
 
@@ -1530,7 +1530,8 @@ class TokamakManufacturedSolutionVelocity:
             return uz
         else:
             raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
-        
+
+
 class TokamakManufacturedSolutionVelocity_1:
     r"""Analytic solution :math:`u=u_e` of the system:
 
@@ -1600,16 +1601,16 @@ class TokamakManufacturedSolutionVelocity_1:
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
-        A = self._alpha/(self._a*self._R0)
-        C = self._beta*self._Bp*self._R0/(self._B0*self._a)
-        
+        A = self._alpha / (self._a * self._R0)
+        C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
+
         # uR = A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi)
         # uZ = A*R*(R-self._R0)
         # uphi = -C/R * (R-self._R0)**2 * np.sin(phi)
 
-        uR = A*(R-self._R0)*np.cos(phi)
-        uZ = A*np.cos(phi)*z
-        uphi = -A* np.sin(phi)/(2.0*R) *( (R-self._R0)**2 +z**2 ) /R
+        uR = A * (R - self._R0) * np.cos(phi)
+        uZ = A * np.cos(phi) * z
+        uphi = -A * np.sin(phi) / (2.0 * R) * ((R - self._R0) ** 2 + z**2) / R
 
         # from cylindrical to cartesian:
 
@@ -1624,7 +1625,8 @@ class TokamakManufacturedSolutionVelocity_1:
             return uz
         else:
             raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
-          
+
+
 class TokamakManufacturedSolutionVelocity_2:
     r"""Analytic solution :math:`u=u_e` of the system:
 
@@ -1694,16 +1696,16 @@ class TokamakManufacturedSolutionVelocity_2:
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
-        A = self._alpha/(self._a*self._R0)
-        C = self._beta*self._Bp*self._R0/(self._B0*self._a)
-        
+        A = self._alpha / (self._a * self._R0)
+        C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
+
         # uR = A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi)
         # uZ = A*R*(R-self._R0)
         # uphi = -C/R * (R-self._R0)**2 * np.sin(phi)
 
-        uR = A*(R-self._R0)*np.cos(phi)
-        uZ = A*np.cos(phi)*z
-        uphi = -A* np.sin(phi)/(2.0*R) *( (R-self._R0)**2 +z**2 ) /R
+        uR = A * (R - self._R0) * np.cos(phi)
+        uZ = A * np.cos(phi) * z
+        uphi = -A * np.sin(phi) / (2.0 * R) * ((R - self._R0) ** 2 + z**2) / R
 
         # from cylindrical to cartesian:
 
@@ -1718,7 +1720,7 @@ class TokamakManufacturedSolutionVelocity_2:
             return uz
         else:
             raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
-  
+
     r"""Analytic solution :math:`u=u_e` of the system:
 
     .. math::
@@ -1787,12 +1789,12 @@ class TokamakManufacturedSolutionVelocity_2:
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
         phi = np.arctan2(-y, x)
-        A = self._alpha/(self._a*self._R0)
-        C = self._beta*self._Bp*self._R0/(self._B0*self._a)
-        
-        uR = A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi)
-        uZ = A*R*(R-self._R0)
-        uphi = -C/R * (R-self._R0)**2 * np.sin(phi)
+        A = self._alpha / (self._a * self._R0)
+        C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
+
+        uR = A * (2 * R - self._R0) * z + 2 * C * (R - self._R0) * np.cos(phi)
+        uZ = A * R * (R - self._R0)
+        uphi = -C / R * (R - self._R0) ** 2 * np.sin(phi)
 
         # from cylindrical to cartesian:
 
