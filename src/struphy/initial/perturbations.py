@@ -1435,3 +1435,375 @@ class ManufacturedSolutionVelocity_2:
 
         else:
             raise ValueError(f"Invalid species '{self._species}'. Must be 'Ions' or 'Electrons'.")
+
+
+class TokamakManufacturedSolutionVelocity:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} -\frac{A(R-R_0)}{R}R_0B_0 + \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} +\alpha \frac{B_0}{a}(R-R_0) - \nu \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
+                \frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z + \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} + \alpha \frac{B_0Z}{a} - \nu A (4-\frac{R_0}{R}) \\
+                \left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} + A(R-R_0) \frac{R_0 B_p}{a}Z - \nu \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        \\[2mm]
+        f_e = \left[\begin{array}{c} \frac{A(R-R_0)}{R}R_0B_0 - \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} -\alpha \frac{B_0}{a}(R-R_0) - \nu_e \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
+                -\frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z - \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} - \alpha \frac{B_0Z}{a} - \nu_e A (4-\frac{R_0}{R}) \\
+                -\left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} - A(R-R_0) \frac{R_0 B_p}{a}Z - \nu_e \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \alpha \frac{1}{a R_0} \left[\begin{array}{c} (2R-R_0)Z \\ R(R-R_0) \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{a} \left[\begin{array}{c} 2(R-R_0)cos(\varphi) \\ 0 \\ -\frac{(R-R_0)^2}{R} sin(\varphi) \end{array} \right] \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
+        A = self._alpha/(self._a*self._R0)
+        C = self._beta*self._Bp*self._R0/(self._B0*self._a)
+        
+        # uR = A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi)
+        # uZ = A*R*(R-self._R0)
+        # uphi = -C/R * (R-self._R0)**2 * np.sin(phi)
+
+        uR = A*(R-self._R0)*np.cos(phi)
+        uZ = A*np.cos(phi)*z
+        uphi = -A* np.sin(phi)/(2.0*R) *( (R-self._R0)**2 +z**2 ) /R
+
+        # from cylindrical to cartesian:
+
+        if self._comp == "0":
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+        
+class TokamakManufacturedSolutionVelocity_1:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} -\frac{A(R-R_0)}{R}R_0B_0 + \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} +\alpha \frac{B_0}{a}(R-R_0) - \nu \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
+                \frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z + \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} + \alpha \frac{B_0Z}{a} - \nu A (4-\frac{R_0}{R}) \\
+                \left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} + A(R-R_0) \frac{R_0 B_p}{a}Z - \nu \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        \\[2mm]
+        f_e = \left[\begin{array}{c} \frac{A(R-R_0)}{R}R_0B_0 - \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} -\alpha \frac{B_0}{a}(R-R_0) - \nu_e \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
+                -\frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z - \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} - \alpha \frac{B_0Z}{a} - \nu_e A (4-\frac{R_0}{R}) \\
+                -\left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} - A(R-R_0) \frac{R_0 B_p}{a}Z - \nu_e \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \alpha \frac{1}{a R_0} \left[\begin{array}{c} (2R-R_0)Z \\ R(R-R_0) \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{a} \left[\begin{array}{c} 2(R-R_0)cos(\varphi) \\ 0 \\ -\frac{(R-R_0)^2}{R} sin(\varphi) \end{array} \right] \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
+        A = self._alpha/(self._a*self._R0)
+        C = self._beta*self._Bp*self._R0/(self._B0*self._a)
+        
+        # uR = A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi)
+        # uZ = A*R*(R-self._R0)
+        # uphi = -C/R * (R-self._R0)**2 * np.sin(phi)
+
+        uR = A*(R-self._R0)*np.cos(phi)
+        uZ = A*np.cos(phi)*z
+        uphi = -A* np.sin(phi)/(2.0*R) *( (R-self._R0)**2 +z**2 ) /R
+
+        # from cylindrical to cartesian:
+
+        if self._comp == "0":
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+          
+class TokamakManufacturedSolutionVelocity_2:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} -\frac{A(R-R_0)}{R}R_0B_0 + \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} +\alpha \frac{B_0}{a}(R-R_0) - \nu \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
+                \frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z + \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} + \alpha \frac{B_0Z}{a} - \nu A (4-\frac{R_0}{R}) \\
+                \left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} + A(R-R_0) \frac{R_0 B_p}{a}Z - \nu \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        \\[2mm]
+        f_e = \left[\begin{array}{c} \frac{A(R-R_0)}{R}R_0B_0 - \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} -\alpha \frac{B_0}{a}(R-R_0) - \nu_e \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
+                -\frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z - \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} - \alpha \frac{B_0Z}{a} - \nu_e A (4-\frac{R_0}{R}) \\
+                -\left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} - A(R-R_0) \frac{R_0 B_p}{a}Z - \nu_e \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \alpha \frac{1}{a R_0} \left[\begin{array}{c} (2R-R_0)Z \\ R(R-R_0) \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{a} \left[\begin{array}{c} 2(R-R_0)cos(\varphi) \\ 0 \\ -\frac{(R-R_0)^2}{R} sin(\varphi) \end{array} \right] \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
+        A = self._alpha/(self._a*self._R0)
+        C = self._beta*self._Bp*self._R0/(self._B0*self._a)
+        
+        # uR = A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi)
+        # uZ = A*R*(R-self._R0)
+        # uphi = -C/R * (R-self._R0)**2 * np.sin(phi)
+
+        uR = A*(R-self._R0)*np.cos(phi)
+        uZ = A*np.cos(phi)*z
+        uphi = -A* np.sin(phi)/(2.0*R) *( (R-self._R0)**2 +z**2 ) /R
+
+        # from cylindrical to cartesian:
+
+        if self._comp == "0":
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+  
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} -\frac{A(R-R_0)}{R}R_0B_0 + \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} +\alpha \frac{B_0}{a}(R-R_0) - \nu \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
+                \frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z + \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} + \alpha \frac{B_0Z}{a} - \nu A (4-\frac{R_0}{R}) \\
+                \left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} + A(R-R_0) \frac{R_0 B_p}{a}Z - \nu \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        \\[2mm]
+        f_e = \left[\begin{array}{c} \frac{A(R-R_0)}{R}R_0B_0 - \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} -\alpha \frac{B_0}{a}(R-R_0) - \nu_e \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
+                -\frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z - \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} - \alpha \frac{B_0Z}{a} - \nu_e A (4-\frac{R_0}{R}) \\
+                -\left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} - A(R-R_0) \frac{R_0 B_p}{a}Z - \nu_e \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \alpha \frac{1}{a R_0} \left[\begin{array}{c} (2R-R_0)Z \\ R(R-R_0) \\ 0 \end{array} \right] + \beta \frac{B_p}{B_0} \frac{R_0}{a} \left[\begin{array}{c} 2(R-R_0)cos(\varphi) \\ 0 \\ -\frac{(R-R_0)^2}{R} sin(\varphi) \end{array} \right] \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
+        A = self._alpha/(self._a*self._R0)
+        C = self._beta*self._Bp*self._R0/(self._B0*self._a)
+        
+        uR = A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi)
+        uZ = A*R*(R-self._R0)
+        uphi = -C/R * (R-self._R0)**2 * np.sin(phi)
+
+        # from cylindrical to cartesian:
+
+        if self._comp == "0":
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
