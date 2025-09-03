@@ -110,10 +110,25 @@ class ManufacturedSolutionForceterm:
         \\[2mm]
         f_e = \left[\begin{array}{c} 2\pi sin(2\pi x) -\frac{B_0}{\epsilon} cos(4\pi x)cos(4\pi y) - \nu_e 32 \pi^2 sin(4\pi x)sin(4\pi y) + \sigma sin(4\pi x) sin(4 \pi y) \\ -2\pi cos(2\pi y) +\frac{B_0}{\epsilon} sin(4\pi x)sin(4\pi y) - \nu_e 32 \pi^2 cos(4\pi x)cos(4\pi y) + \sigma cos(4\pi x) cos(4 \pi y) \\ 0 \end{array} \right] \,.
 
+    In Tokamak geometry it is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} -\frac{A(R-R_0)}{R}R_0B_0 + \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} +\alpha \frac{B_0}{a}(R-R_0) - \nu \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
+                \frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z + \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} + \alpha \frac{B_0Z}{a} - \nu A (4-\frac{R_0}{R}) \\
+                \left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} + A(R-R_0) \frac{R_0 B_p}{a}Z - \nu \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        \\[2mm]
+        f_e = \left[\begin{array}{c} \frac{A(R-R_0)}{R}R_0B_0 - \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} -\alpha \frac{B_0}{a}(R-R_0) - \nu_e \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
+                -\frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z - \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} - \alpha \frac{B_0Z}{a} - \nu_e A (4-\frac{R_0}{R}) \\
+                -\left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} - A(R-R_0) \frac{R_0 B_p}{a}Z - \nu_e \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+
     Can only be defined in Cartesian coordinates. 
     """
 
-    def __init__(self, species, comp, dimension, stab_sigma, eps, dt, b0=1.0, nu=1.0, nu_e=0.01):
+    def __init__(self, species, comp, dimension, stab_sigma, eps, dt, b0=1.0, nu=1.0, nu_e=0.01, R0=2.0, a=1., Bp=12.5, alpha=0.1, beta=1.):
         """
             Parameters
         ----------
@@ -132,12 +147,22 @@ class ManufacturedSolutionForceterm:
         b0 : float
             Magnetic field (default: 1.0).
         nu  : float
-            Viscosity of ions (default: 1.0)
+            Viscosity of ions (default: 1.0).
         nu_e  : float
-            Viscosity of electrons (default: 0.01)
+            Viscosity of electrons (default: 0.01).
+        R0 : float
+            Major radius of torus (default: 2.).
+        a : float
+            Minor radius of torus (default: 1.).
+        Bp : float
+            Poloidal magnetic field (default: 12.5).
+        alpha : float
+            (default: 0.1)
+        beta : float
+            (default: 1.0)
         """
 
-        self._b = b0
+        self._B0 = b0
         self._nu = nu
         self._nu_e = nu_e
         self._comp = comp
@@ -146,37 +171,69 @@ class ManufacturedSolutionForceterm:
         self._eps_norm = eps
         self._stab_sigma = stab_sigma
         self._dt = dt
+        self._R0 = R0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+        self._a = a
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
+        A = self._alpha/(self._a*self._R0)
+        C = self._beta*self._Bp*self._R0/(self._B0*self._a)
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
         if self._species == "Ions":
             """Forceterm for ions on the right hand side."""
-            """x component"""
             if self._dimension == "2D":
                 fx = (
                     -2.0 * np.pi * np.sin(2 * np.pi * x)
-                    + np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y) * self._b / self._eps_norm
+                    + np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y) * self._B0 / self._eps_norm
                     - self._nu * 8.0 * np.pi**2 * np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
                 )
+                fy = (
+                    2.0 * np.pi * np.cos(2 * np.pi * y)
+                    - np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y) * self._B0 / self._eps_norm
+                    - self._nu * 8.0 * np.pi**2 * np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+                )
+                fz = 0.0 * x
+
             elif self._dimension == "1D":
                 fx = (
                     2.0 * np.pi * np.cos(2 * np.pi * x)
                     + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
                     + (np.sin(2 * np.pi * x) + 1.0) / self._dt
                 )
+                fy = (np.sin(2 * np.pi * x) + 1.0) * self._B0 / self._eps_norm
+                fz = 0.0 * x
 
-            """y component"""
-            if self._dimension == "2D":
-                fy = (
-                    2.0 * np.pi * np.cos(2 * np.pi * y)
-                    - np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y) * self._b / self._eps_norm
-                    - self._nu * 8.0 * np.pi**2 * np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
-                )
-            elif self._dimension == "1D":
-                fy = (np.sin(2 * np.pi * x) + 1.0) * self._b / self._eps_norm
+            elif self._dimension == "Tokamak":
+                # fR = -A/R*(R-self._R0)*self._R0*self._B0 + C/R**2 * (R-self._R0)**3 * np.sin(phi) * self._R0*self._Bp/self._a + self._alpha*self._B0/self._a *(R-self._R0) - self._nu*(2*C*self._R0/R**2 * np.cos(phi) + A*self._R0*z/R**2 + 2*C*self._R0**2*np.cos(phi)/R**3)
+                # fZ = C/R**2 * (R-self._R0)**2 * np.sin(phi)*self._R0*self._Bp/self._a*z + (A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi))*self._R0*self._B0/R**2 + self._alpha*self._B0*z/self._a - self._nu*A*(4.0 - self._R0/R)
+                # fphi = (A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi))*self._R0*self._Bp*(R-self._R0)/(self._a*R) + A*(R-self._R0)*self._R0*self._Bp*z/self._a - self._nu*C/R *np.sin(phi)*(-3.0+self._R0**2/R**2)
 
-            """z component"""
-            fz = 0.0 * x
+                #Analytical first
+                # fR = self._alpha*self._B0/self._a *(R-self._R0) - A*self._R0/R**2 * (np.cos(phi)*z*self._B0 - np.sin(phi)*self._Bp/(2.0*self._a)*((R-self._R0)**3 + z**2*(R-self._R0))) - self._nu * A *np.cos(phi)/R**3 * (self._R0**2 + z**2)
+                # fZ = self._alpha*self._B0*z/self._a + A*self._R0/R**2 * (np.sin(phi)*self._Bp/(2.0*self._a)*((R-self._R0)**2*z+z**3) + np.cos(phi)*(R-self._R0)*self._B0) + self._nu*A*np.cos(phi)*z/R**2
+                # fphi = A*self._R0*np.cos(phi)*self._Bp/(self._a*R)*((R-self._R0)**2 + z**2) - self._nu*A*np.sin(phi)/(2.0*R)*(-5.0 + self._R0**2/R**2 + z**2/R**2)
+
+                #Covariant basis?
+                # fR = self._alpha*self._B0/self._a *(R-self._R0) - A*self._R0/R**2 * (np.cos(phi)*z*self._B0 - np.sin(phi)*self._Bp/(2.0*self._a*R)*((R-self._R0)**3 + z**2*(R-self._R0))) - self._nu * A *np.cos(phi)/R* (-1.0 + 1/R + (self._R0**2 + z**2)/R**3)
+                # fZ = self._alpha*self._B0*z/self._a + A*self._R0/R**2 * (np.sin(phi)*self._Bp/(2.0*self._a*R)*((R-self._R0)**2*z+z**3) + np.cos(phi)*(R-self._R0)*self._B0) + self._nu*A*np.cos(phi)*z/R**2
+                # fphi = A*self._R0*np.cos(phi)*self._Bp/(self._a*R)*((R-self._R0)**2 + z**2) - self._nu*A*np.sin(phi)/(R**2)*( (self._R0**2 + z**2)/(2.0*R**2) - self._R0/R - 2.0*R +2.0*self._R0)
+
+                #Covariant basis with transfo DF u
+                fR = self._alpha*self._B0/self._a * (R-self._R0) - A*self._R0/R * (np.cos(phi)*z*self._B0 - np.sin(phi)*self._Bp/(
+                    2.0*self._a*R)*((R-self._R0)**3 + z**2*(R-self._R0))) - self._nu * A * np.cos(phi)/R**3 * (self._R0**2 + z**2)
+                fZ = self._alpha*self._B0*z/self._a + A*self._R0/R * (np.sin(phi)*self._Bp/(2.0*self._a*R)*(
+                    (R-self._R0)**2 * z + z**3) + np.cos(phi)*(R-self._R0)*self._B0) + self._nu*A*np.cos(phi)*z/R**2
+                fphi = A*self._R0*np.cos(phi)*self._Bp/(self._a*R**2)*((R-self._R0)**2 + z**2) + \
+                    self._nu*A*np.sin(phi)/(2.0*R**2)*(5.0 - (self._R0**2 + z**2)/(R**2))
+
+                fx = np.cos(phi) * fR - R * np.sin(phi) * fphi
+                fy = -np.sin(phi) * fR - R * np.cos(phi) * fphi
+                fz = fZ
 
             if self._comp == "0":
                 return fx
@@ -189,34 +246,56 @@ class ManufacturedSolutionForceterm:
 
         elif self._species == "Electrons":
             """Forceterm for electrons on the right hand side."""
-            """x component"""
             if self._dimension == "2D":
                 fx = (
                     2.0 * np.pi * np.sin(2 * np.pi * x)
-                    - np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y) * self._b / self._eps_norm
+                    - np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y) * self._B0 / self._eps_norm
                     - self._nu_e * 32.0 * np.pi**2 * np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
                     - self._stab_sigma * (-np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y))
                 )
+                fy = (
+                    -2.0 * np.pi * np.cos(2 * np.pi * y)
+                    + np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y) * self._B0 / self._eps_norm
+                    - self._nu_e * 32.0 * np.pi**2 * np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+                    - self._stab_sigma * (-np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y))
+                )
+                fz = 0.0 * x
+
             elif self._dimension == "1D":
                 fx = (
                     -2.0 * np.pi * np.cos(2 * np.pi * x)
                     + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
                     - self._stab_sigma * np.sin(2 * np.pi * x)
                 )
+                fy = -np.sin(2 * np.pi * x) * self._B0 / self._eps_norm
+                fz = 0.0 * x
 
-            """y component"""
-            if self._dimension == "2D":
-                fy = (
-                    -2.0 * np.pi * np.cos(2 * np.pi * y)
-                    + np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y) * self._b / self._eps_norm
-                    - self._nu_e * 32.0 * np.pi**2 * np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
-                    - self._stab_sigma * (-np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y))
-                )
-            elif self._dimension == "1D":
-                fy = -np.sin(2 * np.pi * x) * self._b / self._eps_norm
+            elif self._dimension == "Tokamak":
+                # fR = A/R*(R-self._R0)*self._R0*self._B0 - C/R**2 * (R-self._R0)**3 * np.sin(phi) * self._R0*self._Bp/self._a - self._alpha*self._B0/self._a *(R-self._R0) - self._nu_e*(2*C*self._R0/R**2 * np.cos(phi) + A*self._R0*z/R**2 + 2*C*self._R0**2*np.cos(phi)/R**3)
+                # fZ = -C/R**2 * (R-self._R0)**2 * np.sin(phi)*self._R0*self._Bp/self._a*z - (A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi))*self._R0*self._B0/R**2 - self._alpha*self._B0*z/self._a - self._nu_e*A*(4.0 - self._R0/R)
+                # fphi = -(A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi))*self._R0*self._Bp*(R-self._R0)/(self._a*R) - A*(R-self._R0)*self._R0*self._Bp*z/self._a - self._nu_e*C/R *np.sin(phi)*(-3.0+self._R0**2/R**2)
 
-            """z component"""
-            fz = 0.0 * x
+                # Analytical first
+                # fR = -self._alpha*self._B0/self._a *(R-self._R0) + A*self._R0/R**2 * (np.cos(phi)*z*self._B0 - np.sin(phi)*self._Bp/(2.0*self._a)*((R-self._R0)**3 + z**2*(R-self._R0))) - self._nu_e * A *np.cos(phi)/R**3 * (self._R0**2 + z**2)
+                # fZ = -self._alpha*self._B0*z/self._a - A*self._R0/R**2 * (np.sin(phi)*self._Bp/(2.0*self._a)*((R-self._R0)**2 * z + z**3) + np.cos(phi)*(R-self._R0)*self._B0) + self._nu_e*A*np.cos(phi)*z/R**2
+                # fphi = -A*self._R0*np.cos(phi)*self._Bp/(self._a*R)*((R-self._R0)**2 + z**2) - self._nu_e*A*np.sin(phi)/(2.0*R)*(-5.0 + self._R0**2/R**2 + z**2/R**2)
+
+                # Covariant basis?
+                # fR = -self._alpha*self._B0/self._a *(R-self._R0) + A*self._R0/R**2 * (np.cos(phi)*z*self._B0 - np.sin(phi)*self._Bp/(2.0*self._a*R)*((R-self._R0)**3 + z**2*(R-self._R0))) - self._nu_e * A *np.cos(phi)/R* (-1.0 + 1/R + (self._R0**2 + z**2)/R**3)
+                # fZ = -self._alpha*self._B0*z/self._a - A*self._R0/R**2 * (np.sin(phi)*self._Bp/(2.0*self._a*R)*((R-self._R0)**2 * z + z**3) + np.cos(phi)*(R-self._R0)*self._B0) + self._nu_e*A*np.cos(phi)*z/R**2
+                # fphi = -A*self._R0*np.cos(phi)*self._Bp/(self._a*R)*((R-self._R0)**2 + z**2) + self._nu_e*A*np.sin(phi)/(R**2)*( (self._R0**2 + z**2)/(2.0*R**2) - self._R0/R - 2.0*R +2.0*self._R0)
+
+                # Covariant basis with transfo DF u
+                fR = -self._alpha*self._B0/self._a * (R-self._R0) + A*self._R0/R * (np.cos(phi)*z*self._B0 - np.sin(phi)*self._Bp/(
+                    2.0*self._a*R)*((R-self._R0)**3 + z**2*(R-self._R0))) - self._nu_e * A * np.cos(phi)/R**3 * (self._R0**2 + z**2)
+                fZ = -self._alpha*self._B0*z/self._a - A*self._R0/R * (np.sin(phi)*self._Bp/(2.0*self._a*R)*(
+                    (R-self._R0)**2 * z + z**3) + np.cos(phi)*(R-self._R0)*self._B0) + self._nu_e*A*np.cos(phi)*z/R**2
+                fphi = -A*self._R0*np.cos(phi)*self._Bp/(self._a*R**2)*((R-self._R0)**2 + z**2) + \
+                    self._nu_e*A*np.sin(phi)/(2.0*R**2)*(5.0 - (self._R0**2 + z**2)/(R**2))
+
+                fx = np.cos(phi) * fR - R * np.sin(phi) * fphi
+                fy = -np.sin(phi) * fR - R * np.cos(phi) * fphi
+                fz = fZ
 
             if self._comp == "0":
                 return fx
