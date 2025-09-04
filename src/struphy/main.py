@@ -10,6 +10,7 @@ from pyevtk.hl import gridToVTK
 import shutil
 import pickle
 import h5py
+import copy
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.io.output_handling import DataContainer
@@ -72,6 +73,7 @@ def run(
     # check model
     assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
     model_name = model.__class__.__name__
+    model.verbose = verbose
     
     if rank == 0:
         print(f"\n*** Starting run for model '{model_name}':")
@@ -128,6 +130,9 @@ def run(
                 pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "domain.bin"), 'wb') as f:
                 # WORKAROUND: cannot pickle pyccelized classes at the moment
+                # p_copy = copy.deepcopy(domain.params_map)
+                # p_copy.pop("equilibrium")
+                # print(f"{domain.__class__.__name__ = }, {p_copy = }")
                 tmp_dct = {"name": domain.__class__.__name__, "params_map": domain.params_map}
                 pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "equil.bin"), 'wb') as f:
@@ -176,20 +181,21 @@ def run(
     # domain and fluid bckground
     model.setup_domain_and_equil(domain, equil)
     
+    # default grid
+    if grid is None:
+        Nel = (16, 16, 16)
+        print(f"\nNo grid specified - using TensorProductGrid with {Nel = }.")
+        grid = grids.TensorProductGrid(Nel=Nel)
+    
     # allocate derham-related objects
     if derham_opts is not None:
-        assert grid is not None, f"Derham complex needs a grid."
         model.allocate_feec(grid, derham_opts)
     else:
-        if grid is None:
-            Nel = (16, 16, 16)
-            print(f"\nNo grid specified - using TensorProductGrid with {Nel = }.")
-            grid = grids.TensorProductGrid(Nel=Nel)
         p = (3, 3, 3)
         spl_kind = (False, False, False)
         print(f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium.")
         derham_opts = DerhamOptions(p=p, spl_kind=spl_kind)
-        model.allocate_feec(grid, derham_opts)
+    model.allocate_feec(grid, derham_opts)
         
     # equation paramters
     model.setup_equation_params(units=model.units, verbose=verbose)

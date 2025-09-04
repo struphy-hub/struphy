@@ -214,7 +214,7 @@ class Particles(metaclass=ABCMeta):
         # total number of cells (equal to mpi_size if no grid)
         n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * self.num_clones
         if verbose:
-            print(f"{self.mpi_rank = }, {n_cells = }")
+            print(f"\n{self.mpi_rank = }, {n_cells = }")
 
         # total number of boxes
         if self.boxes_per_dim is None:
@@ -229,7 +229,7 @@ class Particles(metaclass=ABCMeta):
             n_boxes = np.prod(self.boxes_per_dim, dtype=int) * self.num_clones
 
         if verbose:
-            print(f"{self.mpi_rank = }, {n_boxes = }")
+            print(f"\n{self.mpi_rank = }, {n_boxes = }")
 
         # total number of markers (Np) and particles per cell (ppc)
         Np = self.loading_params.Np
@@ -2360,8 +2360,7 @@ class Particles(metaclass=ABCMeta):
 
             # A particle on box i only sees particles in boxes that belong to neighbours[i]
             initialize_neighbours(self._neighbours, self.nx, self.ny, self.nz)
-            if self._verbose:
-                print(f"{self._rank = }\n{self._neighbours = }")
+            # print(f"{self._rank = }\n{self._neighbours = }")
 
             self._swap_line_1 = np.zeros(self._markers_shape[1])
             self._swap_line_2 = np.zeros(self._markers_shape[1])
