@@ -544,7 +544,7 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
     # loop over time grid
     for n in tqdm(range(int((nt - 1) / step) + 1)):
         # clear buffer
-        temp[:, :] = 0
+        temp[:, :] = 0.
 
         # create text file for this time step and this species
         file_npy = os.path.join(
@@ -565,6 +565,8 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
         # sorting out lost particles
         ids = temp[:, -1].astype("int")
         ids_lost_particles = np.setdiff1d(np.arange(n_markers), ids)
+        ids_removed_particles = np.nonzero(temp[:, 0] == -1.)[0]
+        ids_lost_particles = np.array(list(set(ids_lost_particles) | set(ids_removed_particles)), dtype=int)
         lost_particles_mask[:] = False
         lost_particles_mask[ids_lost_particles] = True
 
@@ -576,10 +578,8 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
         assert np.all(sorted(ids) == np.arange(n_markers))
 
         # compute physical positions (x, y, z)
-        temp[~lost_particles_mask, :3] = domain(
-            np.array(temp[~lost_particles_mask, :3]),
-            change_out_order=True,
-        )
+        pos_phys = domain(np.array(temp[~lost_particles_mask, :3]), change_out_order=True)
+        temp[~lost_particles_mask, :3] = pos_phys
 
         # save numpy
         np.save(file_npy, temp)
