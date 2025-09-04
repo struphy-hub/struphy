@@ -22,7 +22,7 @@ test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 @pytest.mark.parametrize('algo', ["implicit", "explicit"])
 def test_light_wave_1d(algo: str, do_plot: bool = False):
     # import model, set verbosity
-    from struphy.models.toy import Maxwell as Model
+    from struphy.models.toy import Maxwell
     verbose = True
 
     # environment options
@@ -48,7 +48,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     derham_opts = DerhamOptions(p=(1, 1, 3))
 
     # light-weight model instance
-    model = Model()
+    model = Maxwell()
 
     # propagator options
     model.propagators.maxwell.set_options(algo=algo)
@@ -102,7 +102,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
 @pytest.mark.mpi(min_size=4)
 def test_coaxial(do_plot: bool = False):
     # import model, set verbosity 
-    from struphy.models.toy import Maxwell as Model
+    from struphy.models.toy import Maxwell
     verbose = True
 
     # environment options
@@ -134,7 +134,7 @@ def test_coaxial(do_plot: bool = False):
     )
 
     # light-weight model instance
-    model = Model()
+    model = Maxwell()
 
     # propagator options
     model.propagators.maxwell.set_options(algo="implicit")

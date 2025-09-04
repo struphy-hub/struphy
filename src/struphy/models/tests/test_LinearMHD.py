@@ -20,7 +20,7 @@ test_folder = os.path.join(os.getcwd(), "verification_tests")
 @pytest.mark.parametrize('algo', ["implicit", "explicit"])
 def test_slab_waves_1d(algo: str, do_plot: bool = False):
     # import model, set verbosity
-    from struphy.models.fluid import LinearMHD as Model
+    from struphy.models.fluid import LinearMHD
     verbose = True
 
     # environment options
@@ -51,7 +51,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     derham_opts = DerhamOptions(p=(1, 1, 3))
 
     # light-weight model instance
-    model = Model()
+    model = LinearMHD()
     
     # species parameters
     model.mhd.set_phys_params()
