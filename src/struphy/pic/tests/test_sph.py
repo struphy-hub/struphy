@@ -525,15 +525,15 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
 
     if bc_x in ("periodic", "fixed"):
         if bc_y in ("periodic", "fixed"):
-            fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1) * np.sin(2 * np.pi * e2)
+            fun_exact = lambda e1, e2, e3: 1.0 - np.sin(2 * np.pi * e1) * np.sin(2 * np.pi * e2)
             modes = {"ModesSinSin": mode_params}
         elif bc_y == "mirror":
-            fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1) * np.cos(2 * np.pi * e2)
+            fun_exact = lambda e1, e2, e3: 1.0 - np.sin(2 * np.pi * e1) * np.cos(2 * np.pi * e2)
             modes = {"ModesSinCos": mode_params}
 
     elif bc_x == "mirror":
         if bc_y in ("periodic", "fixed"):
-            fun_exact = lambda e1, e2, e3: 1.0 + np.cos(2 * np.pi * e1) * np.sin(2 * np.pi * e2)
+            fun_exact = lambda e1, e2, e3: 1.0 - np.cos(2 * np.pi * e1) * np.sin(2 * np.pi * e2)
             modes = {"ModesCosSin": mode_params}
         elif bc_y == "mirror":
             fun_exact = lambda e1, e2, e3: 1.0 - np.cos(2 * np.pi * e1) * np.cos(2 * np.pi * e2)
@@ -652,6 +652,6 @@ if __name__ == "__main__":
     #test_evaluation_SPH_Np_convergence_1d((12,1,1), "mirror", tesselation=False, show_plot=True)
     #test_evaluation_SPH_h_convergence_1d((8,1,1), "mirror", tesselation = True, show_plot=True)
     #test_evaluation_mc_Np_and_h_convergence_1d((16,1,1),"fixed",tesselation = False,  show_plot=True)
-    test_evaluation_SPH_Np_convergence_2d((16,16,1), "mirror", "mirror", tesselation = False , show_plot=True)
+    test_evaluation_SPH_Np_convergence_2d((32,32,1), "periodic", "fixed", tesselation = True , show_plot=True)
 
     
