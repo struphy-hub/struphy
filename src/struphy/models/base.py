@@ -645,7 +645,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         # second order in time
         elif split_algo == "Strang":
-            assert len(self.propagators) > 1
+            assert len(self.prop_list) > 1
 
             for propagator in self.prop_list[:-1]:
                 prop_name = type(propagator).__name__
