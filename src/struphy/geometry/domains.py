@@ -1,10 +1,15 @@
 "Mapped domains (single patch)."
 
+import numpy as np
 import copy
 
 from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.fields_background.base import AxisymmMHDequilibrium
-from struphy.geometry.base import Domain, PoloidalSplineStraight, PoloidalSplineTorus, Spline, interp_mapping
+from struphy.geometry.base import (Domain, 
+                                   PoloidalSplineStraight, 
+                                   PoloidalSplineTorus, 
+                                   Spline, 
+                                   interp_mapping,)
 from struphy.geometry.utilities import field_line_tracing
 from struphy.utils.arrays import xp as np
 
@@ -77,25 +82,13 @@ class Tokamak(PoloidalSplineTorus):
             assert isinstance(equilibrium, AxisymmMHDequilibrium)
 
         # use the params setter
-        self.params = Domain.get_params_dict(
-            equilibrium=equilibrium,
-            Nel=Nel,
-            p=p,
-            psi_power=psi_power,
-            psi_shifts=psi_shifts,
-            xi_param=xi_param,
-            r0=r0,
-            Nel_pre=Nel_pre,
-            p_pre=p_pre,
-            tor_period=tor_period,
-            return_numpy=False,
-        )
+        self.params = copy.deepcopy(locals())
 
         # get control points via field tracing between fluxes [psi_s, psi_e]
         psi0, psi1 = equilibrium.psi_range[0], equilibrium.psi_range[1]
 
-        psi_s = psi0 + self.params["psi_shifts"][0] * 0.01 * (psi1 - psi0)
-        psi_e = psi1 - self.params["psi_shifts"][1] * 0.01 * (psi1 - psi0)
+        psi_s = psi0 + psi_shifts[0] * 0.01 * (psi1 - psi0)
+        psi_e = psi1 - psi_shifts[1] * 0.01 * (psi1 - psi0)
 
         cx, cy = field_line_tracing(
             equilibrium.psi,
@@ -103,22 +96,22 @@ class Tokamak(PoloidalSplineTorus):
             equilibrium.psi_axis_RZ[1],
             psi_s,
             psi_e,
-            self.params["Nel"],
-            self.params["p"],
-            psi_power=self.params["psi_power"],
-            xi_param=self.params["xi_param"],
-            Nel_pre=self.params["Nel_pre"],
-            p_pre=self.params["p_pre"],
-            r0=self.params["r0"],
+            Nel,
+            p,
+            psi_power=psi_power,
+            xi_param=xi_param,
+            Nel_pre=Nel_pre,
+            p_pre=p_pre,
+            r0=r0,
         )
 
         # init base class
-        super().__init__(Nel=self.params["Nel"],
-                         p=self.params["p"],
+        super().__init__(Nel=Nel,
+                         p=p,
                          spl_kind=(False, True),
                          cx=cx,
                          cy=cy,
-                         tor_period=self.params["tor_period"],)
+                         tor_period=tor_period,)
 
 
 class GVECunit(Spline):
@@ -149,7 +142,7 @@ class GVECunit(Spline):
             assert isinstance(gvec_equil, GVECequilibrium)
 
         # use the params setter
-        self.params = Domain.get_params_dict(return_numpy=False, gvec_equil=gvec_equil)
+        self.params = self.params = copy.deepcopy(locals())
 
         Nel = gvec_equil.params["Nel"]
         p =gvec_equil.params["p"]
@@ -216,6 +209,9 @@ class DESCunit(Spline):
         else:
             assert isinstance(desc_equil, DESCequilibrium)
 
+        # use params setter
+        self.params = copy.deepcopy(locals())
+
         Nel = desc_equil.params["Nel"]
         p = desc_equil.params["p"]
 
@@ -281,13 +277,13 @@ class IGAPolarCylinder(PoloidalSplineStraight):
                 a   : 1. # minor radius
     """
 
-    def __init__(
-        self,
-        Nel: tuple[int] = (8, 24),
-        p: tuple[int] = (2, 3),
-        a: float = 1.0,
-        Lz: float = 4.0,
-    ):
+    def __init__(self, 
+                 Nel: tuple[int] = (8, 24), 
+                 p: tuple[int] = (2, 3), 
+                 a: float = 1.0, 
+                 Lz: float = 4.0,
+                 ):
+
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -354,25 +350,21 @@ class IGAPolarTorus(PoloidalSplineTorus):
                 sfl        : False # whether to use straight field line coordinates (particular theta parametrization) 
     """
 
-    def __init__(
-        self,
-        Nel: tuple[int] = (8, 24),
-        p: tuple[int] = (2, 3),
-        a: float = 1.0,
-        R0: float = 3.0,
-        sfl: bool = False,
-        tor_period: int = 3,
-    ):
+    def __init__(self, Nel: tuple[int] = (8, 24),
+                       p: tuple[int] = (2, 3),
+                       a: float = 1.0,
+                       R0: float = 3.0,
+                       sfl: bool = False,
+                       tor_period: int = 3,):
+
         # use params setter
         self.params = copy.deepcopy(locals())
 
         # get control points
         if sfl:
-
             def theta(eta1, eta2):
                 return 2 * np.arctan(np.sqrt((1 + a * eta1 / R0) / (1 - a * eta1 / R0)) * np.tan(np.pi * eta2))
         else:
-
             def theta(eta1, eta2):
                 return 2 * np.pi * eta2
 
@@ -391,14 +383,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
         cy[0] = 0.0
 
         # init base class
-        super().__init__(
-            Nel=Nel,
-            p=p,
-            spl_kind=spl_kind,
-            cx=cx,
-            cy=cy,
-            tor_period=tor_period,
-        )
+        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy, tor_period=tor_period,)
 
 
 class Cuboid(Domain):
@@ -429,25 +414,21 @@ class Cuboid(Domain):
         End of z-interval, r3>l3 (default: 1.).
     """
 
-    def __init__(self, l1: float = 0.0,
-                       r1: float = 1.0,
-                       l2: float = 0.0,
-                       r2: float = 1.0,
-                       l3: float = 0.0,
-                       r3: float = 1.0,):
+    def __init__(self, l1: float =  0.0,
+                       r1: float =  1.0,
+                       l2: float =  0.0,
+                       r2: float =  1.0,
+                       l3: float =  0.0,
+                       r3: float =  1.0,
+                       ):
         
         self._kind_map = 10
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map_new(
-            l1=l1,
-            r1=r1,
-            l2=l2,
-            r2=r2,
-            l3=l3,
-            r3=r3,
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
         # periodicity in eta3-direction and pole at eta1=0
+        self.params_numpy = self.get_params_numpy()
         self.periodic_eta3 = False
         self.pole = False
 
@@ -611,7 +592,7 @@ class HollowCylinder(Domain):
     ):
         self.kind_map = 20
 
-        self._params_map, self._params_numpy = Domain.get_params_dict(
+        self._params_map, self._params_numpy = Domain.get_params_numpy(
             a1=a1,
             a2=a2,
             Lz=Lz,
