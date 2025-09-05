@@ -160,7 +160,7 @@ class Domain(metaclass=ABCMeta):
     def params_numpy(self) -> np.ndarray:
         """Mapping parameters as numpy array (can be empty)."""
         if not hasattr(self, "_params_numpy"):
-            self._params_numpy = np.array([], dtype=float)
+            self._params_numpy = np.array([0], dtype=float)
         return self._params_numpy
     
     @params_numpy.setter
@@ -1812,7 +1812,8 @@ class Domain(metaclass=ABCMeta):
 
 
 class Spline(Domain):
-    r"""TODO
+    r"""3D IGA spline mapping.
+    
     .. math::
 
         F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -1824,40 +1825,27 @@ class Spline(Domain):
         \end{aligned}\right.
     """
 
-    def __init__(self, **params):
-        self._kind_map = 0
-
-        # set default
-        params_default = {
-            "Nel": None,
-            "p": None,
-            "spl_kind": None,
-            "cx": None,
-            "cy": None,
-            "cz": None,
-        }
-
-        params_map = Domain.prepare_params_map(
-            params,
-            params_default,
-            return_numpy=False,
-        )
+    def __init__(self, Nel: tuple[int] = (8, 24, 6),
+                       p: tuple[int] = (2, 3, 1),
+                       spl_kind: tuple[bool] = (False, True, True),
+                       cx: np.ndarray = None,
+                       cy: np.ndarray = None,
+                       cz: np.ndarray = None,):
+        
+        self.kind_map = 0
 
         # get default control points from default GVEC equilibrium
-        if params_map["cx"] is None or params_map["cy"] is None or params_map["cz"] is None:
+        if cx is None or cy is None or cz is None:
             from struphy.fields_background.equils import GVECequilibrium
-
             mhd_equil = GVECequilibrium()
-
-            for key in params_map.keys():
-                params_map[key] = getattr(mhd_equil.domain, key)
-
-        self._params_map = params_map
+            cx = mhd_equil.domain.cx
+            cx = mhd_equil.domain.cy
+            cx = mhd_equil.domain.cz
 
         # assign control points
-        self._cx = self._params_map["cx"]
-        self._cy = self._params_map["cy"]
-        self._cz = self._params_map["cz"]
+        self._cx = cx
+        self._cy = cy
+        self._cz = cz
 
         # check dimensions
         assert self.cx.ndim == 3
@@ -1865,12 +1853,7 @@ class Spline(Domain):
         assert self.cz.ndim == 3
 
         # make sure that control points are compatible with given spline data
-        expected_shape = tuple(
-            [
-                self._params_map["Nel"][n] + (not self._params_map["spl_kind"][n]) * self._params_map["p"][n]
-                for n in range(3)
-            ]
-        )
+        expected_shape = tuple([Nel[n] + (not spl_kind[n]) * p[n] for n in range(3)])
 
         assert self.cx.shape == expected_shape
         assert self.cy.shape == expected_shape
@@ -1878,17 +1861,14 @@ class Spline(Domain):
 
         # identify polar singularity at eta1=0
         if np.all(self.cx[0, :, 0] == self.cx[0, 0, 0]):
-            self._pole = True
+            self.pole = True
         else:
-            self._pole = False
+            self.pole = False
 
-        self._periodic_eta3 = self._params_map["spl_kind"][-1]
+        self.periodic_eta3 = spl_kind[-1]
 
-        # init base class
-        # Added one element so we are not passing empty numpy arrays
-        self._params_numpy = np.array([0.0])
-
-        super().__init__()
+        # base class
+        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind)
 
 
 class PoloidalSpline(Domain):

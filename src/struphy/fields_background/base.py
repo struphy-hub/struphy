@@ -1435,5 +1435,5 @@ class NumericalMHDequilibrium(LogicalMHDequilibrium):
         pass
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         return self.numerical_domain

@@ -4,8 +4,10 @@ import numpy as np
 
 from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.fields_background.base import AxisymmMHDequilibrium
-from struphy.geometry.base import Domain, PoloidalSplineStraight, PoloidalSplineTorus, Spline
+from struphy.geometry.base import Domain, PoloidalSplineStraight, PoloidalSplineTorus, Spline, interp_mapping
 from struphy.geometry.utilities import field_line_tracing
+
+import gvec
 
 
 class Tokamak(PoloidalSplineTorus):
@@ -73,6 +75,7 @@ class Tokamak(PoloidalSplineTorus):
         else:
             assert isinstance(equilibrium, AxisymmMHDequilibrium)
 
+        # use the params setter
         self.params = Domain.get_params_dict(
             equilibrium=equilibrium,
             Nel=Nel,
@@ -136,25 +139,23 @@ class GVECunit(Spline):
     """
 
     def __init__(self, gvec_equil=None):
-        import gvec
-
+        
         from struphy.fields_background.equils import GVECequilibrium
-        from struphy.geometry.base import interp_mapping
-
+        
         if gvec_equil is None:
             gvec_equil = GVECequilibrium()
         else:
             assert isinstance(gvec_equil, GVECequilibrium)
 
-        params_map = {
-            "Nel": gvec_equil.params["Nel"],
-            "p": gvec_equil.params["p"],
-        }
+        # use the params setter
+        self.params = Domain.get_params_dict(return_numpy=False, gvec_equil=gvec_equil)
 
+        Nel = gvec_equil.params["Nel"]
+        p =gvec_equil.params["p"]
         if gvec_equil.params["use_nfp"]:
-            params_map["spl_kind"] = (False, True, False)
+            spl_kind = (False, True, False)
         else:
-            params_map["spl_kind"] = (False, True, True)
+            spl_kind = (False, True, True)
 
         # project mapping to splines
         _rmin = gvec_equil.params["rmin"]
@@ -182,23 +183,9 @@ class GVECunit(Spline):
         def Z(e1, e2, e3):
             return XYZ(e1, e2, e3)[2]
 
-        cx, cy, cz = interp_mapping(
-            params_map["Nel"],
-            params_map["p"],
-            params_map["spl_kind"],
-            X,
-            Y,
-            Z,
-        )
+        cx, cy, cz = interp_mapping(Nel, p, spl_kind, X, Y, Z)
 
-        params_map["cx"] = cx
-        params_map["cy"] = cy
-        params_map["cz"] = cz
-
-        super().__init__(**params_map)
-
-        self._params_map["rmin"] = _rmin
-        self._params_map["equilibrium"] = gvec_equil
+        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy, cz=cz)
 
 
 class DESCunit(Spline):
