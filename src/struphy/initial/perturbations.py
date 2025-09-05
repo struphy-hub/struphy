@@ -277,6 +277,114 @@ class ModesCos:
         return val
 
 
+class ModesCosCos:
+    r"""Product of two cosinusoidal functions in 3D.
+
+    .. math::
+
+        u(x, y, z) = \sum_s A_s \, \chi_s(z) 
+        \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right) 
+        \cos \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
+
+    where :math:`\chi_s(z)` can be either 1 or localized in z.
+
+    """
+
+    def __init__(
+        self,
+        ls=None,
+        ms=None,
+        amps=(1e-4,),
+        theta_x=None,
+        theta_y=None,
+        pfuns=("Id",),
+        pfuns_params=(0.0,),
+        Lx=1.0,
+        Ly=1.0,
+        Lz=1.0, 
+    ):
+        # number of modes
+        if ls is not None:
+            n_modes = len(ls)
+        elif ms is not None:
+            n_modes = len(ms)
+            ls = [0] * n_modes
+        else:
+            n_modes = 1
+            ls = [0]
+            ms = [0]
+
+        if ms is None:
+            ms = [0] * n_modes
+        else:
+            assert len(ms) == n_modes
+
+        if len(amps) == 1:
+            amps = [amps[0]] * n_modes
+        else:
+            assert len(amps) == n_modes
+
+        if theta_x is None:
+            theta_x = [0] * n_modes
+        elif len(theta_x) == 1:
+            theta_x = [theta_x[0]] * n_modes
+        else:
+            assert len(theta_x) == n_modes
+
+        if theta_y is None:
+            theta_y = [0] * n_modes
+        elif len(theta_y) == 1:
+            theta_y = [theta_y[0]] * n_modes
+        else:
+            assert len(theta_y) == n_modes
+
+        if len(pfuns) == 1:
+            pfuns = [pfuns[0]] * n_modes
+        else:
+            assert len(pfuns) == n_modes
+
+        if len(pfuns_params) == 1:
+            pfuns_params = [pfuns_params[0]] * n_modes
+        else:
+            assert len(pfuns_params) == n_modes
+
+        # store
+        self._ls = ls
+        self._ms = ms
+        self._amps = amps
+        self._theta_x = theta_x
+        self._theta_y = theta_y
+        self._Lx = Lx
+        self._Ly = Ly
+        self._Lz = Lz
+
+        self._pfuns = []
+        for pfun, params in zip(pfuns, pfuns_params):
+            if pfun == "Id":
+                self._pfuns += [lambda z: 1.0]
+            elif pfun == "localize":
+                self._pfuns += [
+                    lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)
+                ]
+            else:
+                raise ValueError(f"Profile function {pfun} is not defined..")
+
+    def __call__(self, x, y, z):
+        val = 0.0
+        for amp, l, m, thx, thy, pfun in zip(
+            self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns
+        ):
+            val += (
+                amp
+                * pfun(z)
+                * np.cos(l * 2.0 * np.pi / self._Lx * x + thx)
+                * np.cos(m * 2.0 * np.pi / self._Ly * y + thy)
+            )
+        return val
+
+
+
+
 class TorusModesSin:
     r"""Sinusoidal function in the periodic coordinates of a Torus.
 
