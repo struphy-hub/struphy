@@ -40,7 +40,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
 
     @domain.setter
     def domain(self, new_domain):
-        assert isinstance(new_domain, Domain)
+        assert isinstance(new_domain, Domain) or new_domain is None
         self._domain = new_domain
 
     ###########################

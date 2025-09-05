@@ -130,9 +130,6 @@ def run(
                 pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "domain.bin"), 'wb') as f:
                 # WORKAROUND: cannot pickle pyccelized classes at the moment
-                # p_copy = copy.deepcopy(domain.params_map)
-                # p_copy.pop("equilibrium")
-                # print(f"{domain.__class__.__name__ = }, {p_copy = }")
                 tmp_dct = {"name": domain.__class__.__name__, "params_map": domain.params_map}
                 pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "equil.bin"), 'wb') as f:
