@@ -154,6 +154,10 @@ class Domain(metaclass=ABCMeta):
     @params.setter
     def params(self, new):
         assert isinstance(new, dict)
+        if "self" in new:
+            new.pop("self")
+        if "__class__" in new:
+            new.pop("__class__")
         self._params = new
 
     @property
@@ -1349,80 +1353,14 @@ class Domain(metaclass=ABCMeta):
         return a_out
 
     # ================================
-    @staticmethod
-    def prepare_params_map(params_user, params_default, return_numpy=True):
-        """Sets missing default key-value pairs in dictionary "params_user" according to "params_default".
-
-        Parameters
-        ----------
-        params_user : dict
-            Dictionary which is compared to the dictionary "params_default" and to which missing defaults are added.
-
-        params_default : dict
-            Dictionary with default values.
-
-        return_numpy : bool
-            Whether to return a numpy parameter array in addition to the always returned parameter dictionary.
-
-        Returns
-        -------
-        params_map : dict
-            Dictionary with same keys as "params_default" and default values for missing keys.
-
-        params_numpy : np.ndarray
-            Numpy array with parameters in params_map (if parameter is a float or int).
-        """
-
-        # check for correct keys in params_user
-        for key in params_user:
-            assert key in params_default, f'Unknown key "{key}". Please choose one of {[*params_default]}.'
-
-        # set default values if key is missing
-        params_map = params_user
-
-        for key, val in params_default.items():
-            params_map.setdefault(key, val)
-
-        # parameter numpy array for pyccel kernel (order matters!)
-        if return_numpy:
-            params_numpy = []
-            for key in params_default.keys():
-                params_numpy.append(params_map[key])
-
-            return params_map, np.array(params_numpy)
-        else:
-            return params_map
-
-    @staticmethod
-    def get_params_dict(return_numpy: bool = True, **params) -> dict:
-        """Create parameter dictionary and (optional) numpy array for pyccel kernels.
-
-        Parameters
-        ----------
-        return_numpy : bool
-            Whether to return a numpy parameter array in addition to the always returned parameter dictionary.
-
-        params : kwargs
-            Mapping parameters.
-
-        Returns
-        -------
-        params : dict
-            Dictionary with default values for missing keys.
-
-        params_numpy : np.ndarray
-            Numpy array with parameters in params (if parameter is a float or int).
-        """
-        # parameter numpy array for pyccel kernel (order matters!)
-        if return_numpy:
-            params_numpy = []
-            for k, v in params.items():
-                params_numpy.append(v)
-            return params, np.array(params_numpy)
-        else:
-            return params
-
-    # ================================
+    
+    def get_params_numpy(self) -> np.ndarray:
+        """Convert parameter dict into numpy array."""
+        params_numpy = []
+        for k, v in self.params.items():
+            params_numpy.append(v)
+        return np.array(params_numpy)
+    
     def show(
         self,
         logical=False,
@@ -1937,7 +1875,8 @@ class PoloidalSpline(Domain):
 
 
 class PoloidalSplineStraight(PoloidalSpline):
-    r"""TODO
+    r"""Cylinder where the poloidal planes are described by a 2D IGA-spline mapping.
+    
     .. math::
 
         F: (R, Z, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -1949,27 +1888,17 @@ class PoloidalSplineStraight(PoloidalSpline):
         \end{aligned}\right.
     """
 
-    def __init__(self, **params):
-        self._kind_map = 1
-
-        # set default
-        params_default = {
-            "Nel": [8, 24],
-            "p": [2, 3],
-            "spl_kind": [False, True],
-            "cx": None,
-            "cy": None,
-            "Lz": 4.0,
-        }
-
-        params_map = Domain.prepare_params_map(
-            params,
-            params_default,
-            return_numpy=False,
-        )
+    def __init__(self, Nel: tuple[int] = (8, 24),
+                       p: tuple[int] = (2, 3),
+                       spl_kind: tuple[bool] = (False, True),
+                       cx: np.ndarray = None,
+                       cy: np.ndarray = None,
+                       Lz: float = 4.0,):
+        
+        self.kind_map = 1
 
         # get default control points
-        if params_map["cx"] is None or params_map["cy"] is None:
+        if cx is None or cy is None:
 
             def X(eta1, eta2):
                 return eta1 * np.cos(2 * np.pi * eta2)
@@ -1977,33 +1906,17 @@ class PoloidalSplineStraight(PoloidalSpline):
             def Y(eta1, eta2):
                 return eta1 * np.sin(2 * np.pi * eta2)
 
-            cx, cy = interp_mapping(
-                params_map["Nel"],
-                params_map["p"],
-                params_map["spl_kind"],
-                X,
-                Y,
-            )
+            cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
 
             # make sure that control points at pole are all 0 (eta1=0 there)
             cx[0] = 0.0
             cy[0] = 0.0
 
-            # add control points to parameters dictionary
-            params_map["cx"] = cx
-            params_map["cy"] = cy
-
-        self._params_numpy = np.array([params_map["Lz"]])
-        self._periodic_eta3 = False
-
-        # remove "Lz" temporarily from params_map dictionary (is not a parameter of PoloidalSpline)
-        Lz = params_map["Lz"]
-        params_map.pop("Lz")
+        self.params_numpy = np.array([Lz])
+        self.periodic_eta3 = False
 
         # init base class
-        super().__init__(**params_map)
-
-        self._params_map["Lz"] = Lz
+        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy)
 
 
 class PoloidalSplineTorus(PoloidalSpline):
