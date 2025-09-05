@@ -2,6 +2,7 @@
 
 import copy
 
+from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.fields_background.base import AxisymmMHDequilibrium
 from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.geometry.base import (
@@ -74,19 +75,31 @@ class Tokamak(PoloidalSplineTorus):
         p_pre: tuple = (3, 3),
         tor_period: int = 1,
     ):
+
         if equilibrium is None:
             equilibrium = EQDSKequilibrium()
         else:
             assert isinstance(equilibrium, AxisymmMHDequilibrium)
 
-        # use the params setter
-        self.params = copy.deepcopy(locals())
+        self.params = Domain.get_params_dict(
+            equilibrium=equilibrium,
+            Nel=Nel,
+            p=p,
+            psi_power=psi_power,
+            psi_shifts=psi_shifts,
+            xi_param=xi_param,
+            r0=r0,
+            Nel_pre=Nel_pre,
+            p_pre=p_pre,
+            tor_period=tor_period,
+            return_numpy=False,
+        )
 
         # get control points via field tracing between fluxes [psi_s, psi_e]
         psi0, psi1 = equilibrium.psi_range[0], equilibrium.psi_range[1]
 
-        psi_s = psi0 + psi_shifts[0] * 0.01 * (psi1 - psi0)
-        psi_e = psi1 - psi_shifts[1] * 0.01 * (psi1 - psi0)
+        psi_s = psi0 + self.params["psi_shifts"][0] * 0.01 * (psi1 - psi0)
+        psi_e = psi1 - self.params["psi_shifts"][1] * 0.01 * (psi1 - psi0)
 
         cx, cy = field_line_tracing(
             equilibrium.psi,
@@ -94,24 +107,22 @@ class Tokamak(PoloidalSplineTorus):
             equilibrium.psi_axis_RZ[1],
             psi_s,
             psi_e,
-            Nel,
-            p,
-            psi_power=psi_power,
-            xi_param=xi_param,
-            Nel_pre=Nel_pre,
-            p_pre=p_pre,
-            r0=r0,
+            self.params["Nel"],
+            self.params["p"],
+            psi_power=self.params["psi_power"],
+            xi_param=self.params["xi_param"],
+            Nel_pre=self.params["Nel_pre"],
+            p_pre=self.params["p_pre"],
+            r0=self.params["r0"],
         )
 
         # init base class
-        super().__init__(
-            Nel=Nel,
-            p=p,
-            spl_kind=(False, True),
-            cx=cx,
-            cy=cy,
-            tor_period=tor_period,
-        )
+        super().__init__(Nel=self.params["Nel"],
+                         p=self.params["p"],
+                         spl_kind=(False, True),
+                         cx=cx,
+                         cy=cy,
+                         tor_period=self.params["tor_period"],)
 
 
 class GVECunit(Spline):
@@ -604,9 +615,12 @@ class HollowCylinder(Domain):
     ):
         self.kind_map = 20
 
-        # use params setter
-        self.params = copy.deepcopy(locals())
-        self.params_numpy = self.get_params_numpy()
+        self._params_map, self._params_numpy = Domain.get_params_dict(
+            a1=a1,
+            a2=a2,
+            Lz=Lz,
+            poc=float(poc),
+        )
 
         # periodicity in eta3-direction and pole at eta1=0
         self.periodic_eta3 = False
