@@ -2,6 +2,7 @@
 
 import numpy as np
 
+from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.fields_background.base import AxisymmMHDequilibrium
 from struphy.geometry.base import Domain, PoloidalSplineStraight, PoloidalSplineTorus, Spline
 from struphy.geometry.utilities import field_line_tracing
@@ -66,15 +67,13 @@ class Tokamak(PoloidalSplineTorus):
         p_pre: tuple = (3, 3),
         tor_period: int = 1,
     ):
-        from struphy.fields_background.equils import EQDSKequilibrium
 
-        # default MHD equilibrium
         if equilibrium is None:
             equilibrium = EQDSKequilibrium()
         else:
             assert isinstance(equilibrium, AxisymmMHDequilibrium)
 
-        params_map = Domain.prepare_params_map_new(
+        self.params = Domain.get_params_dict(
             equilibrium=equilibrium,
             Nel=Nel,
             p=p,
@@ -88,64 +87,34 @@ class Tokamak(PoloidalSplineTorus):
             return_numpy=False,
         )
 
-        # get control points via field tracing beetwenn fluxes [psi_s, psi_e)]
-        # flux boundaries of mapping
-        eq_mhd = params_map["equilibrium"]
+        # get control points via field tracing between fluxes [psi_s, psi_e]
+        psi0, psi1 = equilibrium.psi_range[0], equilibrium.psi_range[1]
 
-        psi0, psi1 = eq_mhd.psi_range[0], eq_mhd.psi_range[1]
-
-        psi_s = psi0 + params_map["psi_shifts"][0] * 0.01 * (psi1 - psi0)
-        psi_e = psi1 - params_map["psi_shifts"][1] * 0.01 * (psi1 - psi0)
+        psi_s = psi0 + self.params["psi_shifts"][0] * 0.01 * (psi1 - psi0)
+        psi_e = psi1 - self.params["psi_shifts"][1] * 0.01 * (psi1 - psi0)
 
         cx, cy = field_line_tracing(
-            eq_mhd.psi,
-            eq_mhd.psi_axis_RZ[0],
-            eq_mhd.psi_axis_RZ[1],
+            equilibrium.psi,
+            equilibrium.psi_axis_RZ[0],
+            equilibrium.psi_axis_RZ[1],
             psi_s,
             psi_e,
-            params_map["Nel"],
-            params_map["p"],
-            psi_power=params_map["psi_power"],
-            xi_param=params_map["xi_param"],
-            Nel_pre=params_map["Nel_pre"],
-            p_pre=params_map["p_pre"],
-            r0=params_map["r0"],
+            self.params["Nel"],
+            self.params["p"],
+            psi_power=self.params["psi_power"],
+            xi_param=self.params["xi_param"],
+            Nel_pre=self.params["Nel_pre"],
+            p_pre=self.params["p_pre"],
+            r0=self.params["r0"],
         )
 
-        # add control points to parameters dictionary
-        params_map["cx"] = cx
-        params_map["cy"] = cy
-
-        # add spline types to parameters dictionary
-        params_map["spl_kind"] = [False, True]
-
-        # remove temporarily parameters from params_map dictionary which are not parameters of PoloidalSplineTorus
-        equilibrium = params_map["equilibrium"]
-        psi_power = params_map["psi_power"]
-        psi_shifts = params_map["psi_shifts"]
-        xi_param = params_map["xi_param"]
-        r0 = params_map["r0"]
-        Nel_pre = params_map["Nel_pre"]
-        p_pre = params_map["p_pre"]
-
-        params_map.pop("equilibrium")
-        params_map.pop("psi_power")
-        params_map.pop("psi_shifts")
-        params_map.pop("xi_param")
-        params_map.pop("r0")
-        params_map.pop("Nel_pre")
-        params_map.pop("p_pre")
-
         # init base class
-        super().__init__(**params_map)
-
-        self._params_map["equilibrium"] = equilibrium
-        self._params_map["psi_power"] = psi_power
-        self._params_map["psi_shifts"] = psi_shifts
-        self._params_map["xi_param"] = xi_param
-        self._params_map["r0"] = r0
-        self._params_map["Nel_pre"] = Nel_pre
-        self._params_map["p_pre"] = p_pre
+        super().__init__(Nel=self.params["Nel"],
+                         p=self.params["p"],
+                         spl_kind=(False, True),
+                         cx=cx,
+                         cy=cy,
+                         tor_period=self.params["tor_period"],)
 
 
 class GVECunit(Spline):
@@ -796,7 +765,7 @@ class HollowCylinder(Domain):
     ):
         self._kind_map = 20
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map_new(
+        self._params_map, self._params_numpy = Domain.get_params_dict(
             a1=a1,
             a2=a2,
             Lz=Lz,
