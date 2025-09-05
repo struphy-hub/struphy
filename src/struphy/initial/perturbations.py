@@ -303,7 +303,7 @@ class ModesCosCos:
         Ly=1.0,
         Lz=1.0, 
     ):
-        # number of modes
+        
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -348,7 +348,7 @@ class ModesCosCos:
         else:
             assert len(pfuns_params) == n_modes
 
-        # store
+        
         self._ls = ls
         self._ms = ms
         self._amps = amps
@@ -381,9 +381,6 @@ class ModesCosCos:
                 * np.cos(m * 2.0 * np.pi / self._Ly * y + thy)
             )
         return val
-    
-    
-import numpy as np
 
 
 
@@ -412,7 +409,7 @@ class ModesSinSin:
         Ly=1.0,
         Lz=1.0,
     ):
-        # number of modes
+        
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -457,7 +454,7 @@ class ModesSinSin:
         else:
             assert len(pfuns_params) == n_modes
 
-        # store
+        
         self._ls = ls
         self._ms = ms
         self._amps = amps
