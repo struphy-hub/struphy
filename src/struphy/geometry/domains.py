@@ -4,16 +4,11 @@ import copy
 
 from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.fields_background.base import AxisymmMHDequilibrium
-from struphy.fields_background.equils import EQDSKequilibrium
-from struphy.geometry.base import (
-    Domain,
-    PoloidalSplineStraight,
-    PoloidalSplineTorus,
-    Spline,
-    interp_mapping,
-)
+from struphy.geometry.base import Domain, PoloidalSplineStraight, PoloidalSplineTorus, Spline, interp_mapping
 from struphy.geometry.utilities import field_line_tracing
 from struphy.utils.arrays import xp as np
+
+import gvec
 
 
 class Tokamak(PoloidalSplineTorus):
@@ -81,6 +76,7 @@ class Tokamak(PoloidalSplineTorus):
         else:
             assert isinstance(equilibrium, AxisymmMHDequilibrium)
 
+        # use the params setter
         self.params = Domain.get_params_dict(
             equilibrium=equilibrium,
             Nel=Nel,
@@ -144,19 +140,19 @@ class GVECunit(Spline):
     """
 
     def __init__(self, gvec_equil=None):
-        import gvec
-
+        
         from struphy.fields_background.equils import GVECequilibrium
-
+        
         if gvec_equil is None:
             gvec_equil = GVECequilibrium()
         else:
             assert isinstance(gvec_equil, GVECequilibrium)
 
-        # do not set params here because of a pickling error
+        # use the params setter
+        self.params = Domain.get_params_dict(return_numpy=False, gvec_equil=gvec_equil)
 
         Nel = gvec_equil.params["Nel"]
-        p = gvec_equil.params["p"]
+        p =gvec_equil.params["p"]
         if gvec_equil.params["use_nfp"]:
             spl_kind = (False, True, False)
         else:
