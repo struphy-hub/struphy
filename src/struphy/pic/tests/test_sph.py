@@ -652,6 +652,6 @@ if __name__ == "__main__":
     #test_evaluation_SPH_Np_convergence_1d((12,1,1), "mirror", tesselation=False, show_plot=True)
     #test_evaluation_SPH_h_convergence_1d((8,1,1), "mirror", tesselation = True, show_plot=True)
     #test_evaluation_mc_Np_and_h_convergence_1d((16,1,1),"fixed",tesselation = False,  show_plot=True)
-    test_evaluation_SPH_Np_convergence_2d((32,32,1), "periodic", "fixed", tesselation = True , show_plot=True)
+    test_evaluation_SPH_Np_convergence_2d((32,32,1), "mirror", "fixed", tesselation = True , show_plot=True)
 
     
