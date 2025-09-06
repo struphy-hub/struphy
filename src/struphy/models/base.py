@@ -1734,11 +1734,11 @@ You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy
         #                         equil=self.equil,
         #                     )
 
-        #         if val["space"] != "ParticlesSPH" and tmp.coords == "constants_of_motion":
-        #             # call parameters
-        #             a1 = self.domain.params_map["a1"]
-        #             r = eta1mg * (1 - a1) + a1
-        #             psi = self.equil.psi_r(r)
+                if val["space"] != "ParticlesSPH" and tmp.coords == "constants_of_motion":
+                    # call parameters
+                    a1 = self.domain.params["a1"]
+                    r = eta1mg * (1 - a1) + a1
+                    psi = self.equil.psi_r(r)
 
         #             # density (m⁻³)
         #             self._pparams[species]["density"] = (
