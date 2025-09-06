@@ -2320,6 +2320,7 @@ def multigrid(Nel, plist, spl_kind, N_levels):
     N_cycles = 2
     
     u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
+    
     #We compute the rhs
     b = A[0].dot(u_star)
     
@@ -3208,6 +3209,13 @@ def testing_random_stuff(Nel,plist,spl_kind):
     
 
 if __name__ == '__main__':
+    from struphy.feec.utilities import create_equal_random_arrays
+    comm = MPI.COMM_WORLD
+    derham = Derham([10,1,1], [1,1,1], [True,True,True], comm=comm, local_projectors=False)
+    u_stararr, u_star = create_equal_random_arrays(derham.Vh_fem['0'], seed=45)
+    print("################")
+    print(u_star._space)
+    print("################")
     #for i in range(7,8):
         #Nel = [int(2**i),int(2**i), 1]
         #p = [1, 1, 1]
@@ -3217,7 +3225,7 @@ if __name__ == '__main__':
         #Visualized_all_frequencies_dampening(Nel, p, spl_kind,7)
         #Visualized_all_frequencies_dampening_2D(Nel, p, spl_kind,100)
 
-    testing_random_stuff([32,1,1],[1,1,1],[True,True,True])
+    #testing_random_stuff([32,1,1],[1,1,1],[True,True,True])
     #128,64,32,16, 8
     # h, 2h,4h,8h,16h
     
