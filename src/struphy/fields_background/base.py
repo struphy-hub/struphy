@@ -946,7 +946,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
             print(key, ": ", val)
 
         print("\nMapping parameters:")
-        for key, val in self.domain.params_map.items():
+        for key, val in self.domain.params.items():
             if key not in {"cx", "cy", "cz"}:
                 print(key, ": ", val)
 

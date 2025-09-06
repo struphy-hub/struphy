@@ -202,7 +202,7 @@ class Particles6D(Particles):
         ) / (2)
 
         # eval psi at etas
-        a1 = self.equil.domain.params_map["a1"]
+        a1 = self.equil.domain.params["a1"]
         R0 = self.equil.params["R0"]
         B0 = self.equil.params["B0"]
 
@@ -516,7 +516,7 @@ class Particles5D(Particles):
         )
 
         # eval psi at etas
-        a1 = self.equil.domain.params_map["a1"]
+        a1 = self.equil.domain.params["a1"]
         R0 = self.equil.params["R0"]
         B0 = self.equil.params["B0"]
 

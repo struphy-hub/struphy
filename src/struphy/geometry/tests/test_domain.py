@@ -179,7 +179,7 @@ def test_evaluation_mappings(mapping):
 
     assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params_map :", domain.params)
+    print("domain's params :", domain.params)
 
     # point-wise evaluation:
     print("pointwise evaluation, shape:", domain(0.5, 0.5, 0.5, squeeze_out=True).shape)
@@ -344,7 +344,7 @@ def test_pullback():
 
     assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params_map :", domain.params)
+    print("domain's params :", domain.params)
 
     for p_str in domain.dict_transformations["pull"]:
         print("component:", p_str)
@@ -504,7 +504,7 @@ def test_pushforward():
 
     assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params_map :", domain.params)
+    print("domain's params :", domain.params)
 
     for p_str in domain.dict_transformations["push"]:
         print("component:", p_str)
@@ -664,7 +664,7 @@ def test_transform():
 
     assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params_map :", domain.params)
+    print("domain's params :", domain.params)
 
     for p_str in domain.dict_transformations["tran"]:
         print("component:", p_str)
@@ -840,7 +840,7 @@ def test_transform():
 #    print('Domain object set.')
 #
 #    print('domain\'s kind_map   :', domain.kind_map)
-#    print('domain\'s params_map :', domain.params)
+#    print('domain\'s params :', domain.params)
 #
 #    for p_str in domain.keys_transform:
 #
