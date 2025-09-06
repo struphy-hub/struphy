@@ -2,25 +2,32 @@ import os
 import pickle
 import sys
 from unittest import mock
-from unittest.mock import patch #, MagicMock, mock_open
+from unittest.mock import patch  # , MagicMock, mock_open
 
 import pytest
-# from mpi4py import MPI
 
+# from mpi4py import MPI
 import struphy
 import struphy as struphy_lib
 from struphy.console.compile import struphy_compile
 from struphy.console.main import struphy
 from struphy.console.params import struphy_params
 from struphy.console.pproc import struphy_pproc
+
 # from struphy.console.profile import struphy_profile
-from struphy.console.run import struphy_run
+from struphy.console.run import struphy_run, subp_run
+
 # from struphy.console.test import struphy_test
 # from struphy.console.units import struphy_units
 from struphy.utils.utils import read_state
 
 libpath = struphy_lib.__path__[0]
 state = read_state()
+
+# Create models_list if it doesn't exist
+if not os.path.isfile(os.path.join(libpath, "models", "models_list")):
+    cmd = ["struphy", "--refresh-models"]
+    subp_run(cmd)
 
 with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
     struphy_models = pickle.load(fp)
@@ -45,6 +52,7 @@ def split_command(command):
         spl.extend(element.split())
     return spl
 
+
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize(
     "args",
@@ -56,7 +64,6 @@ def split_command(command):
         # ["run", "Maxwell", "--batch", "batch_cobra.sh"],
         ["run", "Maxwell", "--mpi", "4"],
         ["run", "Vlasov", "--restart"],
-        ["run", "Vlasov", "--debug"],
         # Test cases for 'compile' sub-command with options
         ["compile"],
         ["compile", "-y"],
@@ -123,14 +130,12 @@ def test_main(args):
         for func_name, func in funcs.items():
             if args[0] == func_name:
                 if func_name == "pproc":
-                    # if '-d' in args or '--dirr' in args:
-                    #     o_path = state['o_path']
-                    #     if os.path.exists(os.path.join(o_path, )
                     pass
                 else:
                     func.assert_called_once()
             else:
                 func.assert_not_called()
+
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("model", ["Maxwell", "Vlasov"])
@@ -205,12 +210,12 @@ def test_struphy_run(
         if likwid:
             assert is_sublist(
                 run_command,
-                ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-stats"],
+                ["likwid-mpirun", "-n", str(mpi), "-g", "MEM_DP", "-mpi", "openmpi"],
             )
             assert os.path.join(libpath, "main.py") in run_command
         else:
             assert is_sublist(run_command, mpirun_command)
-            assert is_sublist(run_command, [main, model])
+            assert is_sublist(run_command, [model])
         if restart:
             assert is_sublist(run_command, ["-r"])
         if cprofile:
@@ -220,6 +225,7 @@ def test_struphy_run(
 def run_struphy(args):
     with mock.patch.object(sys, "argv", ["struphy"] + args):
         struphy()
+
 
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize(
@@ -250,25 +256,30 @@ def test_main_options(args_expected, capsys):
     for expected in args_expected[1]:
         assert expected in captured.out
 
+
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("language", ["c", "fortran"])
 @pytest.mark.parametrize("compiler", ["gnu", "intel"])
+@pytest.mark.parametrize("compiler_config", [None])
 @pytest.mark.parametrize("omp_pic", [True, False])
 @pytest.mark.parametrize("omp_feec", [True, False])
 @pytest.mark.parametrize("delete", [True, False])
 @pytest.mark.parametrize("status", [True, False])
 @pytest.mark.parametrize("verbose", [True, False])
 @pytest.mark.parametrize("dependencies", [True, False])
+@pytest.mark.parametrize("time_execution", [True, False])
 @pytest.mark.parametrize("yes", [True])
 def test_struphy_compile(
     language,
     compiler,
+    compiler_config,
     omp_pic,
     omp_feec,
     delete,
     status,
     verbose,
     dependencies,
+    time_execution,
     yes,
 ):
     # Save the original os.remove
@@ -297,12 +308,14 @@ def test_struphy_compile(
         struphy_compile(
             language=language,
             compiler=compiler,
+            compiler_config=compiler_config,
             omp_pic=omp_pic,
             omp_feec=omp_feec,
             delete=delete,
             status=status,
             verbose=verbose,
             dependencies=dependencies,
+            time_execution=time_execution,
             yes=yes,
         )
         print(f"{language = }")
@@ -313,6 +326,7 @@ def test_struphy_compile(
         print(f"{status} = ")
         print(f"{verbose = }")
         print(f"{dependencies = }")
+        print(f"{time_execution = }")
         print(f"{yes = }")
         print(f"{mock_save_state.call_count = }")
         print(f"{mock_subprocess_run.call_count = }")
@@ -341,18 +355,19 @@ def test_struphy_compile(
             mock_subprocess_run.assert_called()
             mock_save_state.assert_called()
 
+
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("model", ["Maxwell"])
 @pytest.mark.parametrize("file", ["params_Maxwell.yml", "params_Maxwel2.yml"])
 @pytest.mark.parametrize("yes", [True])
 @pytest.mark.parametrize("options", [True, False])
 def test_struphy_params(tmp_path, model, file, yes, options):
-
     file_path = os.path.join(tmp_path, file)
     struphy_params(model, str(file_path), yes=yes, options=options)
 
+
 @pytest.mark.mpi_skip
-@pytest.mark.parametrize("dirr", ["simulation_output", "custom_output"])
+@pytest.mark.parametrize("dir", ["simulation_output", "custom_output"])
 @pytest.mark.parametrize("dir_abs", [None, "/custom/path/simulation_output"])
 @pytest.mark.parametrize("step", [1, 2])
 @pytest.mark.parametrize("celldivide", [1, 2])
@@ -360,7 +375,7 @@ def test_struphy_params(tmp_path, model, file, yes, options):
 @pytest.mark.parametrize("guiding_center", [False, True])
 @pytest.mark.parametrize("classify", [False, True])
 def test_struphy_pproc(
-    dirr,
+    dir,
     dir_abs,
     step,
     celldivide,
@@ -370,7 +385,7 @@ def test_struphy_pproc(
 ):
     with patch("subprocess.run") as mock_subprocess_run:
         struphy_pproc(
-            dirr=dirr,
+            dirs=[dir],
             dir_abs=dir_abs,
             step=step,
             celldivide=celldivide,
@@ -384,7 +399,7 @@ def test_struphy_pproc(
         o_path = read_state()["o_path"]
 
         if dir_abs is None:
-            expected_dir_abs = os.path.join(o_path, dirr)
+            expected_dir_abs = os.path.join(o_path, dir)
         else:
             expected_dir_abs = dir_abs
 

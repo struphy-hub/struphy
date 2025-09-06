@@ -1,5 +1,8 @@
+from typing import Optional
+
+
 def main(
-    model_name: str,
+    model_name: Optional[str],
     parameters: dict | str,
     path_out: str,
     *,
@@ -9,6 +12,7 @@ def main(
     verbose: bool = False,
     supress_out: bool = False,
     sort_step: int = 0,
+    num_clones: int = 1,
 ):
     """
     Run a Struphy model.
@@ -42,6 +46,8 @@ def main(
     sort_step: int, optional
         Sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)
 
+    num_clones: int, optional
+        Number of domain clones (default=1)
     """
 
     import copy
@@ -52,12 +58,14 @@ def main(
     from mpi4py import MPI
     from pyevtk.hl import gridToVTK
 
-    from struphy.feec.psydac_derham import Derham
+    from struphy.feec.psydac_derham import SplineFunction
+    from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.io.output_handling import DataContainer
-    from struphy.io.setup import pre_processing, setup_domain_cloning
+    from struphy.io.setup import pre_processing
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.models.base import StruphyModel
-    from struphy.profiling.profiling import ProfileRegion
+    from struphy.profiling.profiling import ProfileManager
+    from struphy.utils.clone_config import CloneConfig
 
     if sort_step:
         from struphy.pic.base import Particles
@@ -69,10 +77,6 @@ def main(
     if rank == 0:
         print("")
     comm.Barrier()
-    if rank < 32:
-        print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
-    if size > 32 and rank == 32:
-        print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
 
     # synchronize MPI processes to set same start time of simulation for all processes
     comm.Barrier()
@@ -80,23 +84,41 @@ def main(
 
     # loading of simulation parameters, creating output folder and printing information to screen
     params = pre_processing(
-        model_name,
-        parameters,
-        path_out,
-        restart,
-        runtime,
-        save_step,
-        rank,
-        size,
+        model_name=model_name,
+        parameters=parameters,
+        path_out=path_out,
+        restart=restart,
+        max_sim_time=runtime,
+        save_step=save_step,
+        mpi_rank=rank,
+        mpi_size=size,
+        num_clones=num_clones,
         verbose=verbose,
     )
 
-    # Setup domain cloning communicators
-    # MPI.COMM_WORLD     : comm
-    # within a clone:    : sub_comm
-    # between the clones : inter_comm
-    # A copy of the params is used since the parker params are updated.
-    params, inter_comm, sub_comm = setup_domain_cloning(comm, copy.deepcopy(params), params["grid"]["Nclones"])
+    if model_name is None:
+        assert "model" in params, "If model is not specified, then model: MODEL must be specified in the params!"
+        model_name = params["model"]
+
+    if rank < 32:
+        print(f"Rank {rank}: calling struphy/main.py for model {model_name} ...")
+    if size > 32 and rank == 32:
+        print(f"Ranks > 31: calling struphy/main.py for model {model_name} ...")
+
+    if comm is None:
+        clone_config = None
+    else:
+        if num_clones == 1:
+            clone_config = None
+        else:
+            # Setup domain cloning communicators
+            # MPI.COMM_WORLD     : comm
+            # within a clone:    : sub_comm
+            # between the clones : inter_comm
+            clone_config = CloneConfig(comm=comm, params=params, num_clones=num_clones)
+            clone_config.print_clone_config()
+            if "kinetic" in params:
+                clone_config.print_particle_config()
 
     # instantiate Struphy model (will allocate model objects and associated memory)
     StruphyModel.verbose = verbose
@@ -108,8 +130,8 @@ def main(
         except AttributeError:
             pass
 
-    with ProfileRegion("model_class_setup"):
-        model = model_class(params=params, comm=sub_comm, inter_comm=inter_comm)
+    with ProfileManager.profile_region("model_class_setup"):
+        model = model_class(params=params, comm=comm, clone_config=clone_config)
 
     assert isinstance(model, StruphyModel)
 
@@ -128,16 +150,12 @@ def main(
         det_df = model.domain.jacobian_det(*grids_log)
         pointData["det_df"] = det_df
 
-        if model.mhd_equil is not None:
-            absB0 = model.mhd_equil.absB0(*grids_log)
-            p0 = model.mhd_equil.p0(*grids_log)
-            pointData["absB0"] = absB0
+        if model.equil is not None:
+            p0 = model.equil.p0(*grids_log)
             pointData["p0"] = p0
-        elif model.braginskii_equil is not None:
-            absB0 = model.braginskii_equil.absB0(*grids_log)
-            p0 = model.braginskii_equil.p0(*grids_log)
-            pointData["absB0"] = absB0
-            pointData["p0"] = p0
+            if isinstance(model.equil, FluidEquilibriumWithB):
+                absB0 = model.equil.absB0(*grids_log)
+                pointData["absB0"] = absB0
 
         gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
 
@@ -230,7 +248,7 @@ def main(
 
         # perform one time step dt
         t0 = time.time()
-        with ProfileRegion("model.integrate"):
+        with ProfileManager.profile_region("model.integrate"):
             model.integrate(time_params["dt"], time_params["split_algo"])
         t1 = time.time()
 
@@ -252,7 +270,7 @@ def main(
             for key, val in model.em_fields.items():
                 if "params" not in key:
                     field = val["obj"]
-                    assert isinstance(field, Derham.Field)
+                    assert isinstance(field, SplineFunction)
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                     field.extract_coeffs(update_ghost_regions=False)
 
@@ -260,14 +278,14 @@ def main(
                 for variable, subval in val.items():
                     if "params" not in variable:
                         field = subval["obj"]
-                        assert isinstance(field, Derham.Field)
+                        assert isinstance(field, SplineFunction)
                         # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                         field.extract_coeffs(update_ghost_regions=False)
 
             for key, val in model.diagnostics.items():
                 if "params" not in key:
                     field = val["obj"]
-                    assert isinstance(field, Derham.Field)
+                    assert isinstance(field, SplineFunction)
                     # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
                     field.extract_coeffs(update_ghost_regions=False)
 
@@ -295,15 +313,13 @@ def main(
 
     with open(path_out + "/meta.txt", "a") as f:
         # f.write('wall-clock time [min]:'.ljust(30) + str((end_simulation - start_simulation)/60.) + '\n')
-        f.write(
-            f"{rank} {inter_comm.Get_rank()} {sub_comm.Get_rank()} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n"
-        )
+        f.write(f"{rank} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n")
     comm.Barrier()
     if rank == 0:
         print("Struphy run finished.")
 
-    sub_comm.Free()
-    inter_comm.Free()
+    if clone_config is not None:
+        clone_config.free()
 
 
 if __name__ == "__main__":
@@ -313,10 +329,10 @@ if __name__ == "__main__":
     import struphy
     import struphy.utils.utils as utils
     from struphy.profiling.profiling import (
-        ProfileRegion,
+        ProfileManager,
+        ProfilingConfig,
         pylikwid_markerclose,
         pylikwid_markerinit,
-        set_likwid,
     )
 
     # Read struphy state file
@@ -327,7 +343,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run an Struphy model.")
 
     # model
-    parser.add_argument("model", type=str, metavar="model", help="the name of the model to run")
+    parser.add_argument(
+        "model",
+        type=str,
+        nargs="?",
+        default=None,
+        metavar="MODEL",
+        help="the name of the model to run (default: None)",
+    )
 
     # input (absolute path)
     parser.add_argument(
@@ -384,6 +407,14 @@ if __name__ == "__main__":
         default=0,
     )
 
+    parser.add_argument(
+        "--nclones",
+        type=int,
+        metavar="N",
+        help="number of domain clones (default=1)",
+        default=1,
+    )
+
     # verbosity (screen output)
     parser.add_argument(
         "-v",
@@ -399,19 +430,39 @@ if __name__ == "__main__":
         action="store_true",
     )
 
-    # likwid
     parser.add_argument(
         "--likwid",
         help="run with Likwid",
         action="store_true",
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--time-trace",
+        help="Measure time traces for each call of the regions measured with ProfileManager",
+        action="store_true",
+    )
 
-    # Enable profiling if likwid == True
-    set_likwid(args.likwid)
+    parser.add_argument(
+        "--sample-duration",
+        help="Duration of samples when measuring time traces with ProfileManager",
+        default=1.0,
+    )
+
+    parser.add_argument(
+        "--sample-interval",
+        help="Time between samples when measuring time traces with ProfileManager",
+        default=1.0,
+    )
+
+    args = parser.parse_args()
+    config = ProfilingConfig()
+    config.likwid = args.likwid
+    config.sample_duration = float(args.sample_duration)
+    config.sample_interval = float(args.sample_interval)
+    config.time_trace = args.time_trace
+    config.simulation_label = ""
     pylikwid_markerinit()
-    with ProfileRegion("main"):
+    with ProfileManager.profile_region("main"):
         # solve the model
         main(
             args.model,
@@ -423,5 +474,9 @@ if __name__ == "__main__":
             verbose=args.verbose,
             supress_out=args.supress_out,
             sort_step=args.sort_step,
+            num_clones=args.nclones,
         )
     pylikwid_markerclose()
+    if config.time_trace:
+        ProfileManager.print_summary()
+        ProfileManager.save_to_pickle(os.path.join(args.output, "profiling_time_trace.pkl"))

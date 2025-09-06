@@ -2,20 +2,19 @@
 
 import numpy as np
 
-from struphy.fields_background.mhd_equil.base import AxisymmMHDequilibrium
+from struphy.fields_background.base import AxisymmMHDequilibrium
 from struphy.geometry.base import Domain, PoloidalSplineStraight, PoloidalSplineTorus, Spline
 from struphy.geometry.utilities import field_line_tracing
 
 
 class Tokamak(PoloidalSplineTorus):
-    r"""
-    Mappings for Tokamak MHD equilibria constructed via :ref:`field-line tracing <field_tracing>` of a poloidal flux function :math:`\psi`.
+    r"""Mappings for Tokamak MHD equilibria constructed via :ref:`field-line tracing <field_tracing>` of a poloidal flux function :math:`\psi`.
 
     .. image:: ../../pics/mappings/tokamak.png
 
     Parameters
     ----------
-    equilibrium : struphy.fields_background.mhd_equil.base.AxisymmMHDequilibrium
+    equilibrium : struphy.fields_background.base.AxisymmMHDequilibrium
         The axisymmetric MHD equilibrium for which a flux-aligned grid shall be constructed (default: AdhocTorus).
     Nel : tuple[int]
         Number of cells in (radial, angular) direction to be used in spline mapping (default: [8, 32]).
@@ -67,7 +66,7 @@ class Tokamak(PoloidalSplineTorus):
         p_pre: tuple = (3, 3),
         tor_period: int = 1,
     ):
-        from struphy.fields_background.mhd_equil.equils import EQDSKequilibrium
+        from struphy.fields_background.equils import EQDSKequilibrium
 
         # default MHD equilibrium
         if equilibrium is None:
@@ -150,15 +149,13 @@ class Tokamak(PoloidalSplineTorus):
 
 
 class GVECunit(Spline):
-    """
-    The mapping ``f_unit`` from `gvec_to_python <https://gitlab.mpcdf.mpg.de/gvec-group/gvec_to_python>`_,
-    computed by the GVEC MHD equilibrium code.
+    """The mapping from `pygvec <https://gvec.readthedocs.io/latest/index.html>`_, computed by the GVEC MHD equilibrium code.
 
     .. image:: ../../pics/mappings/gvec.png
 
     Parameters
     ----------
-    gvec_equil : struphy.fields_background.mhd_equil.equils.GVECequilibrium
+    gvec_equil : struphy.fields_background.equils.GVECequilibrium
         GVEC MHD equilibrium object.
 
     Note
@@ -170,7 +167,9 @@ class GVECunit(Spline):
     """
 
     def __init__(self, gvec_equil=None):
-        from struphy.fields_background.mhd_equil.equils import GVECequilibrium
+        import gvec
+
+        from struphy.fields_background.equils import GVECequilibrium
         from struphy.geometry.base import interp_mapping
 
         if gvec_equil is None:
@@ -191,14 +190,28 @@ class GVECunit(Spline):
         # project mapping to splines
         _rmin = gvec_equil.params["rmin"]
 
+        def XYZ(e1, e2, e3):
+            rho = _rmin + e1 * (1.0 - _rmin)
+            theta = 2 * np.pi * e2
+            zeta = 2 * np.pi * e3 / gvec_equil._nfp
+            if gvec_equil.params["use_boozer"]:
+                ev = gvec.EvaluationsBoozer(rho=rho, theta_B=theta, zeta_B=zeta, state=gvec_equil.state)
+            else:
+                ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=gvec_equil.state)
+            gvec_equil.state.compute(ev, "pos")
+            x = ev.pos.data[0]
+            y = ev.pos.data[1]
+            z = ev.pos.data[2]
+            return x, y, z
+
         def X(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[0]
+            return XYZ(e1, e2, e3)[0]
 
         def Y(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[1]
+            return XYZ(e1, e2, e3)[1]
 
         def Z(e1, e2, e3):
-            return gvec_equil.gvec.f(_rmin + e1 * (1.0 - _rmin), e2, e3)[2]
+            return XYZ(e1, e2, e3)[2]
 
         cx, cy, cz = interp_mapping(
             params_map["Nel"],
@@ -220,16 +233,14 @@ class GVECunit(Spline):
 
 
 class DESCunit(Spline):
-    r"""
-    The mapping :math:`(\rho, \theta,\zeta) \mapsto (X, Y, Z)` to
-    Cartesian coordinates computed by the
-    `DESC MHD equilibrium code <https://desc-docs.readthedocs.io/en/latest/theory_general.html#flux-coordinates>`_.
+    r"""The mapping :math:`(\rho, \theta,\zeta) \mapsto (X, Y, Z)` to Cartesian coordinates computed by the `DESC MHD equilibrium code
+    <https://desc-docs.readthedocs.io/en/latest/theory_general.html#flux-coordinates>`_.
 
     .. image:: ../../pics/mappings/desc.png
 
     Parameters
     ----------
-    desc_equil : struphy.fields_background.mhd_equil.equils.DESCequilibrium
+    desc_equil : struphy.fields_background.equils.DESCequilibrium
         DESC MHD equilibrium object.
 
     Note
@@ -241,7 +252,7 @@ class DESCunit(Spline):
     """
 
     def __init__(self, desc_equil=None):
-        from struphy.fields_background.mhd_equil.equils import DESCequilibrium
+        from struphy.fields_background.equils import DESCequilibrium
         from struphy.geometry.base import interp_mapping
 
         if desc_equil is None:
@@ -298,8 +309,7 @@ class DESCunit(Spline):
 
 
 class IGAPolarCylinder(PoloidalSplineStraight):
-    r"""
-    A cylinder with the cross section approximated by a spline mapping.
+    r""" A cylinder with the cross section approximated by a spline mapping.
 
     .. math:: 
 
@@ -383,8 +393,7 @@ class IGAPolarCylinder(PoloidalSplineStraight):
 
 
 class IGAPolarTorus(PoloidalSplineTorus):
-    r"""
-    A torus with the poloidal cross-section approximated by a spline mapping.
+    r""" A torus with the poloidal cross-section approximated by a spline mapping.
 
     .. math::
 
@@ -508,8 +517,7 @@ class IGAPolarTorus(PoloidalSplineTorus):
 
 
 class Cuboid(Domain):
-    r"""
-    Slab geometry (Cartesian coordinates).
+    r""" Slab geometry (Cartesian coordinates).
 
     .. math::
 
@@ -596,8 +604,7 @@ class Cuboid(Domain):
 
 
 class Orthogonal(Domain):
-    r"""
-    Slab geometry with orthogonal mesh distortion.
+    r""" Slab geometry with orthogonal mesh distortion.
 
     .. math:: 
 
@@ -671,8 +678,7 @@ class Orthogonal(Domain):
 
 
 class Colella(Domain):
-    r"""
-    Slab geometry with Colella mesh distortion.
+    r""" Slab geometry with Colella mesh distortion.
 
     .. math::
 
@@ -746,14 +752,13 @@ class Colella(Domain):
 
 
 class HollowCylinder(Domain):
-    r"""
-    Cylinder with possible hole around the axis.
+    r""" Cylinder with possible hole around the axis.
 
     .. math::
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}
-        \,\,x= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos(2\pi\,\eta_2)\,\,\\
-        \,\,y= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin(2\pi\,\eta_2)\,\,\\
+        \,\,x= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\cos(2\pi\,\eta_2 / poc)\,\,\\
+        \,\,y= &\left[\,a_1 + (a_2-a_1)\,\eta_1\,\right]\sin(2\pi\,\eta_2 / poc)\,\,\\
         \,\,z= &L_z\,\eta_3\,\,\end{bmatrix}
 
     .. image:: ../../pics/mappings/hollow_cylinder.png
@@ -766,6 +771,8 @@ class HollowCylinder(Domain):
         Outer radius of cylinder (default: 1.0).
     Lz: float
         Length of cylinder (default: 4.)
+    poc: int
+        Which periodicity used in the mapping, i.e. :math: `\theta = 2*\pi*\eta_2 / \mathrm{poc}` (piece of cake) (default: 1).
 
     Note
     ----
@@ -777,6 +784,7 @@ class HollowCylinder(Domain):
                 a1 : .2 # inner radius
                 a2 : 1. # outer radius
                 Lz : 4. # length of cylinder
+                poc: 2. # periodicity of theta used in the mapping
     """
 
     def __init__(
@@ -784,6 +792,7 @@ class HollowCylinder(Domain):
         a1: float = 0.2,
         a2: float = 1.0,
         Lz: float = 4.0,
+        poc: int = 1,
     ):
         self._kind_map = 20
 
@@ -791,6 +800,7 @@ class HollowCylinder(Domain):
             a1=a1,
             a2=a2,
             Lz=Lz,
+            poc=float(poc),
         )
 
         # periodicity in eta3-direction and pole at eta1=0
@@ -825,8 +835,7 @@ class HollowCylinder(Domain):
 
 
 class PoweredEllipticCylinder(Domain):
-    r"""
-    Cylinder with elliptic cross section and radial power law.
+    r""" Cylinder with elliptic cross section and radial power law.
 
     .. math::
 
@@ -900,8 +909,7 @@ class PoweredEllipticCylinder(Domain):
 
 
 class HollowTorus(Domain):
-    r"""
-    Torus with possible hole around the magnetic axis (center of the smaller circle).
+    r""" Torus with possible hole around the magnetic axis (center of the smaller circle).
 
     .. math::
 
@@ -935,6 +943,8 @@ class HollowTorus(Domain):
         Major radius of torus (default: 3.0).
     sfl : bool
         Whether to use straight field line coordinates (True) or not (False) (default: False).
+    pol_period: int
+        Which periodicity used in the mapping, i.e. :math: `\theta = 2*\pi*\eta_2 / \mathrm{pol_period}` (piece of cake) (default: 1, only for sfl=False).
     tor_period : int
         Toroidal periodicity built into the mapping: :math:`\phi=2\pi\,\eta_3/\mathrm{torperiod}` (default: 3 --> one third of a torus).
 
@@ -949,6 +959,7 @@ class HollowTorus(Domain):
                 a2  : 1.0   # minor radius
                 R0  : 3.0   # major radius
                 sfl : False # straight field line coordinates?
+                pol_period: 2. # periodicity of theta used in the mapping: theta = 2*pi * eta2 / pol_period (if not sfl)
                 tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
     """
 
@@ -961,6 +972,7 @@ class HollowTorus(Domain):
             "a2": 1.0,
             "R0": 3.0,
             "sfl": False,
+            "pol_period": 1,
             "tor_period": 3,
         }
 
@@ -968,6 +980,15 @@ class HollowTorus(Domain):
             params,
             params_default,
         )
+
+        assert self.params_map["a2"] <= self.params_map["R0"], (
+            f"The minor radius must be smaller or equal than the major radius! {self.params_map['a2']=}, {self.params_map['R0']=}"
+        )
+
+        if self.params_map["sfl"]:
+            assert self.params_map["pol_period"] == 1, (
+                f"Piece-of-cake is only implemented for torus coordinates, not for straight field line coordinates!"
+            )
 
         # periodicity in eta3-direction and pole at eta1=0
         self._periodic_eta3 = True
@@ -1010,8 +1031,14 @@ class HollowTorus(Domain):
             / (2 * np.pi)
             * self.params_map["tor_period"]
         )
-        eta2 = np.arctan2(z, mr) % (2 * np.pi) / (2 * np.pi)
-        eta1 = (z / np.sin(2 * np.pi * eta2) - self.params_map["a1"]) / (self.params_map["a2"] - self.params_map["a1"])
+        eta2 = (
+            np.arctan2(z, mr)
+            % (2 * np.pi / self.params_map["pol_period"])
+            / (2 * np.pi / self.params_map["pol_period"])
+        )
+        eta1 = (z / np.sin(2 * np.pi * eta2 / self.params_map["pol_period"]) - self.params_map["a1"]) / (
+            self.params_map["a2"] - self.params_map["a1"]
+        )
 
         if bounded:
             eta1[eta1 > 1] = 1.0
@@ -1029,8 +1056,7 @@ class HollowTorus(Domain):
 
 
 class ShafranovShiftCylinder(Domain):
-    r"""
-    Cylinder with quadratic Shafranov shift.
+    r""" Cylinder with quadratic Shafranov shift.
 
     .. math:: 
 
@@ -1104,8 +1130,7 @@ class ShafranovShiftCylinder(Domain):
 
 
 class ShafranovSqrtCylinder(Domain):
-    r"""
-    Cylinder with square-root Shafranov shift.
+    r""" Cylinder with square-root Shafranov shift.
 
     .. math:: 
 
@@ -1179,8 +1204,8 @@ class ShafranovSqrtCylinder(Domain):
 
 
 class ShafranovDshapedCylinder(Domain):
-    r"""
-    Cylinder with D-shaped cross section and quadratic Shafranov shift.
+    r""" Cylinder with D-shaped cross section and quadratic Shafranov shift.
+
     .. math:: 
 
         F: \begin{bmatrix}\eta_1\\ \eta_2\\ \eta_3\end{bmatrix}\mapsto \begin{bmatrix}

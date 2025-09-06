@@ -6,7 +6,7 @@ from scipy.optimize import fsolve
 
 from struphy.dispersion_relations.base import ContinuousSpectra1D, DispersionRelations1D
 from struphy.dispersion_relations.utilities import Zplasma
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.equils import set_defaults
 
 
 class Maxwell1D(DispersionRelations1D):

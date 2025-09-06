@@ -1,14 +1,23 @@
-from struphy.console.run import subp_run
+from struphy.utils.utils import subp_run
 
 
-def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False, guiding_center=False, classify=False):
-    """
-    Post process data from finished Struphy runs.
+def struphy_pproc(
+    dirs,
+    dir_abs=None,
+    step=1,
+    celldivide=1,
+    physical=False,
+    guiding_center=False,
+    classify=False,
+    no_vtk=False,
+    time_trace=False,
+):
+    """Post process data from finished Struphy runs.
 
     Parameters
     ----------
-    dirr : str
-        Path of simulation output folder relative to <struphy_path>/io/out.
+    dirs : str
+        Paths of simulation output folders relative to <struphy_path>/io/out.
 
     dir_abs : str
         Absolute path to the simulation output folder.
@@ -39,21 +48,44 @@ def struphy_pproc(dirr, dir_abs=None, step=1, celldivide=1, physical=False, guid
 
     o_path = state["o_path"]
 
-    # create absolute path
-    if dir_abs is None:
-        dir_abs = os.path.join(o_path, dirr)
+    use_state_o_path = True
+    if dir_abs is not None:
+        dirs = [dir_abs]
+        use_state_o_path = False
 
-    print(f"Post processing data in {dir_abs}")
+    for dir in dirs:
+        # create absolute path
+        if use_state_o_path:
+            path_to_simulation = os.path.join(o_path, dir)
+        else:
+            path_to_simulation = dir
 
-    command = ["python3", "post_processing/pproc_struphy.py", dir_abs, "-s", str(step), "--celldivide", str(celldivide)]
+        print(f"Post processing data in {path_to_simulation}")
 
-    if physical:
-        command += ["--physical"]
+        command = [
+            "python3",
+            "post_processing/pproc_struphy.py",
+            path_to_simulation,
+            "-s",
+            str(step),
+            "--celldivide",
+            str(celldivide),
+        ]
 
-    if guiding_center:
-        command += ["--guiding-center"]
+        if physical:
+            command += ["--physical"]
 
-    if classify:
-        command += ["--classify"]
+        if guiding_center:
+            command += ["--guiding-center"]
 
-    subp_run(command)
+        if classify:
+            command += ["--classify"]
+
+        # Whether vtk files should be created
+        if no_vtk:
+            command += ["--no-vtk"]
+
+        if time_trace:
+            command += ["--time-trace"]
+
+        subp_run(command)

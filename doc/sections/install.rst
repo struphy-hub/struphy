@@ -178,7 +178,8 @@ Trouble shooting
 Install problems
 ^^^^^^^^^^^^^^^^
 
-* Make sure that you can ``pip install mpi4py``.
+* Make sure that you can ``pip install -U mpi4py``.
+* `mpi4py>=4.1.0` `provides binaries <https://github.com/mpi4py/mpi4py/releases/tag/4.1.0>`_` for common platforms. In case of "exotic" platforms you might try `pip install -U mpi4py --no-binary mpi4py`
 * In many cases installing ``apt install openmpi-devel`` solves a problem with missing headers.
 * On Mac OS, you can try to install the command line tools (160 MB) ``xcode-select --install``.
 * Struphy is not supported with Conda; however, in case you insist you might try::
@@ -220,13 +221,13 @@ For running (parallel) tests:
 
         .. code-block::
 
-            pip install --no-cache-dir -U struphy[test]
+            pip install --no-cache-dir -U struphy
 
     .. tab-item:: zsh
 
         .. code-block::
 
-            pip install --no-cache-dir -U struphy"[test]"
+            pip install --no-cache-dir -U struphy
 
 Compile kernels in ``c`` (default)::
 
@@ -283,19 +284,19 @@ Struphy features optional dependencies:
 
     .. tab-item:: bash
 
-        * ``pip install .[test]`` enables (parallel) tests
+        * ``pip install .[phys]`` enables some physics packages, see `pyproject.toml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/pyproject.toml?ref_type=heads>`_
         * ``pip install .[dev]`` enables the development environment (testing, linting, formatting)
         * ``pip install .[doc]`` enables :ref:`change_doc`
 
-        These can also be combined, as for example in ``pip install .[dev,doc]``.
+        These can also be combined, as for example in ``pip install .[phys,dev,doc]``.
 
     .. tab-item:: zsh
 
-        * ``pip install ."[test]"`` enables (parallel) tests
+        * ``pip install ."[phys]"`` enables some physics packages, see `pyproject.toml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/pyproject.toml?ref_type=heads>`_
         * ``pip install ."[dev]"`` enables the development environment (testing, linting, formatting)
         * ``pip install ."[doc]"`` enables :ref:`change_doc`
 
-        These can also be combined, as for example in ``pip install ."[dev,doc]"``.
+        These can also be combined, as for example in ``pip install ."[phys,dev,doc]"``.
 
 Compile kernels in ``c`` (default)::
 
@@ -368,7 +369,8 @@ To use Struphy via docker, perform the following steps:
 
 2. Login to the MPCDF Gitlab registry using a predefined Struphy user and token::
 
-    docker login gitlab-registry.mpcdf.mpg.de -u docker_api_2024 -p glpat-SkfAWwNPEVwsRB3dLioz
+    TOKEN=glpat-YzkatDxAYT1JZtyj9KjS; echo "$TOKEN" | docker login gitlab-registry.mpcdf.mpg.de -u struphy-hub-read-registry --password-stdin
+    docker login gitlab-registry.mpcdf.mpg.de -u struphy-hub-read-registry -p glpat-YzkatDxAYT1JZtyj9KjS
 
 3. Pull one of the availabale images listed above (< 1 GB in size), for instance::
 
@@ -442,13 +444,15 @@ A common installation looks like this
 1. Load necessary modules and create a virtual environment::
 
     module purge
-    module load gcc/12 openmpi/4 anaconda/3/2023.03 git pandoc graphviz/8
+    module load gcc/14 openmpi/5.0 python-waterboa/2024.06 git pandoc graphviz/8
     pip install -U virtualenv
     python3 -m venv <some_name>
     source <some_name>/bin/activate
     python3 -m pip install --upgrade pip
 
-2. Continue with one of the install methods from above (:ref:`pypi_install` or :ref:`source_install`).
+2. Install Struphy by not using the binaries of `mpi4py` (see install methods from above: :ref:`pypi_install` or :ref:`source_install`):
+
+    pip install -U struphy --no-binary mpi4py
 
 3. When using slurm, include the following lines in your BATCH script::
 
@@ -510,12 +514,11 @@ You can nevertheless install vtk on your VM via::
 
     sudo apt install python3-vtk9
 
-This will give you all functionality, however it will not be recognized by ``pip``. You therefore have to install ``gvec_to_python`` from source,
-commenting out ``vtk`` under ``install_requires``. Then do::
+This will give you all functionality, however it will not be recognized by ``pip``. Then do::
 
     python3 -m pip install .
 
-You will further have to comment out ``vtk`` and ``gvec_to_python`` from the ``pyproject.toml`` file in the struphy repository. You then proceed with::
+You will further have to comment out ``vtk`` from the ``pyproject.toml`` file in the struphy repository. You then proceed with::
 
     python3 -m pip install <option> .
 

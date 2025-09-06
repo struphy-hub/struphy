@@ -1,40 +1,34 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
+import argparse
 import glob
+import importlib
 import importlib.metadata
 import os
+import pickle
 import site
 import subprocess
+import sys
 from argparse import HelpFormatter, RawTextHelpFormatter, _SubParsersAction
 
 import argcomplete
+import yaml
 
+# struphy path
+import struphy
+import struphy.utils.utils as utils
+
+libpath = struphy.__path__[0]
 __version__ = importlib.metadata.version("struphy")
+
+# version message
+version_message = f"Struphy {__version__}\n"
+version_message += "Copyright 2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
+version_message += "MIT license\n"
 
 
 def struphy():
-    """
-    Struphy main executable. Performs argument parsing and sub-command call.
-    """
-
-    import argparse
-    import pickle
-
-    import yaml
-
-    # struphy path
-    import struphy
-    import struphy.utils.utils as utils
-    from struphy.console.compile import struphy_compile
-    from struphy.console.format import struphy_format, struphy_lint
-    from struphy.console.params import struphy_params
-    from struphy.console.pproc import struphy_pproc
-    from struphy.console.profile import struphy_profile
-    from struphy.console.run import struphy_run
-    from struphy.console.test import struphy_test
-    from struphy.console.units import struphy_units
-
-    libpath = struphy.__path__[0]
+    """Struphy main executable. Performs argument parsing and sub-command call."""
 
     # create argument parser
     epilog_message = 'Type "struphy COMMAND --help" for more information on a command.\n\n'
@@ -47,58 +41,212 @@ def struphy():
         epilog=epilog_message,
     )
 
-    # version message
-    version_message = f"Struphy {__version__}\n"
-    version_message += "Copyright 2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics\n"
-    version_message += "MIT license\n"
-
     # Read struphy state file
     state = utils.read_state()
 
-    if "i_path" in state:
-        i_path = state["i_path"]
-    else:
-        i_path = os.path.join(libpath, "io/inp")
-        state["i_path"] = i_path
+    # Update and save state file
+    utils.update_state(state=state)
+    utils.save_state(state=state)
 
-    if "o_path" in state:
-        o_path = state["o_path"]
-    else:
-        o_path = os.path.join(libpath, "io/out")
-        state["o_path"] = o_path
-
-    if "b_path" in state:
-        b_path = state["b_path"]
-    else:
-        b_path = os.path.join(libpath, "io/batch")
-        state["b_path"] = b_path
-
-    utils.save_state(state)
-
-    # path message
-    path_message = f"Struphy installation path: {libpath}\n"
-    path_message += f"current input:             {i_path}\n"
-    path_message += f"current output:            {o_path}\n"
-    path_message += f"current batch scripts:     {b_path}"
+    # Get paths from state
+    i_path, o_path, b_path = utils.get_paths(state=state)
 
     # check parameter file in current input path:
+    params_files = get_params_files(i_path)
+
+    # check output folders in current output path:
+    out_folders = get_out_folders(o_path)
+
+    # check batch scripts in current batch path:
+    batch_files = get_batch_files(b_path)
+
+    # Load the models and messages
+    list_models = []
+    model_message = fluid_message = kinetic_message = hybrid_message = toy_message = ""
+    try:
+        with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
+            list_models = pickle.load(fp)
+        with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
+            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
+                fp,
+            )
+    except:
+        print("run: struphy --refresh-models")
+
+    # 0. basic options
+    add_parser_basic_options(parser, i_path, o_path, b_path)
+
+    # create sub-commands and save name of sub-command into variable "command"
+    subparsers = parser.add_subparsers(
+        title="available commands",
+        metavar="COMMAND",
+        dest="command",
+    )
+
+    # 1. "compile" sub-command
+    add_parser_compile(subparsers)
+
+    # 2. "run" sub-command
+    add_parser_run(subparsers, list_models, model_message, params_files, batch_files)
+
+    # 3. "units" sub-command
+    add_parser_units(subparsers, list_models, model_message, params_files)
+
+    # 4. "params" sub-command
+    add_parser_params(subparsers, list_models, model_message)
+
+    # 5. "profile" sub-command
+    add_parser_profile(subparsers)
+
+    # 6. "likwid_profile" sub-command
+    add_parser_likwid_profile(subparsers)
+
+    # 7. "pproc" sub-command
+    add_parser_pproc(subparsers, out_folders)
+
+    # 8. "test" sub-command
+    add_parser_test(subparsers, list_models)
+
+    # 9 "format" and "lint" sub-commands
+    add_parser_format(subparsers)
+
+    # parse argument
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+
+    # Set args.config if user ran struphy format / struphy lint
+    set_args_format_config(args, parser)
+
+    # if no arguments are passed, print help and exit
+    if all(v is None or not v for v in vars(args).values()):
+        parser.print_help()
+        sys.exit(0)
+
+    # display short help and exit
+    if args.short_help:
+        print_short_help(parser)
+        sys.exit(0)
+
+    # display subset of models
+    model_flags = [
+        (args.fluid, fluid_message),
+        (args.kinetic, kinetic_message),
+        (args.hybrid, hybrid_message),
+        (args.toy, toy_message),
+    ]
+
+    for flag, message in model_flags:
+        if flag:
+            print(message)
+            print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
+            sys.exit(0)
+
+    # Set default input path
+    if args.set_i:
+        set_path(state, args.set_i, "io/inp", "i_path")
+
+    # Set default output path
+    if args.set_o:
+        set_path(state, args.set_o, "io/out", "o_path")
+
+    # Set default batch path
+    if args.set_b:
+        set_path(state, args.set_b, "io/batch", "b_path")
+
+    # set paths for inp, out and batch (with io/inp etc. prefices)
+    if args.set_iob:
+        if args.set_iob == ".":
+            path = os.getcwd()
+        elif args.set_iob == "d":
+            path = libpath
+        else:
+            path = args.set_iob
+
+        i_path = os.path.join(path, "io/inp")
+        o_path = os.path.join(path, "io/out")
+        b_path = os.path.join(path, "io/batch")
+
+        set_path(state, i_path, "", "i_path", exit_on_set=False)
+        set_path(state, o_path, "", "o_path", exit_on_set=False)
+        set_path(state, b_path, "", "b_path", exit_on_set=False)
+
+        sys.exit(0)
+
+    if args.refresh_models:
+        utils.refresh_models()
+
+    # load sub-command function
+    command_map = {
+        "compile": ("struphy.console.compile", "struphy_compile"),
+        "lint": ("struphy.console.format", "struphy_lint"),
+        "format": ("struphy.console.format", "struphy_format"),
+        "likwid_profile": ("struphy.console.likwid", "struphy_likwid_profile"),
+        "params": ("struphy.console.params", "struphy_params"),
+        "pproc": ("struphy.console.pproc", "struphy_pproc"),
+        "profile": ("struphy.console.profile", "struphy_profile"),
+        "run": ("struphy.console.run", "struphy_run"),
+        "test": ("struphy.console.test", "struphy_test"),
+        "units": ("struphy.console.units", "struphy_units"),
+    }
+
+    # import struphy.console.MODULE.FUNC_NAME as func
+    if args.command in command_map:
+        module_path, func_name = command_map[args.command]
+        func = getattr(importlib.import_module(module_path), func_name)
+    else:
+        raise ValueError(f"Unknown command: {args.command}")
+
+    # transform parser Namespace object to dictionary and remove "command" key
+    kwargs = vars(args)
+    for key in [
+        "command",
+        "short_help",
+        "fluid",
+        "kinetic",
+        "hybrid",
+        "toy",
+        "set_i",
+        "set_o",
+        "set_b",
+        "set_iob",
+        "refresh_models",
+        # These options are stored in kwargs.config
+        "input_type",
+        "path",
+        "linters",
+        "iterations",
+        "output_format",
+    ]:
+        kwargs.pop(key, None)
+
+    # start sub-command function with all parameters of that function
+    # for k, v in kwargs.items():
+    #     print(k, v)
+    func(**kwargs)
+
+
+def get_params_files(i_path):
     if os.path.exists(i_path) and os.path.isdir(i_path):
         params_files = recursive_get_files(i_path)
     else:
         print("Path to input files missing! Set it with `struphy --set-i PATH`")
         params_files = []
 
-    # check output folders in current output path:
+    return params_files
+
+
+def get_out_folders(o_path):
     out_folders = []
-    if os.path.exists(o_path) and os.path.isdir(o_path):
-        all_folders = os.listdir(o_path)
-        for name in all_folders:
-            if "." not in name:
-                out_folders += [name]
+    if os.path.isdir(o_path):
+        with os.scandir(o_path) as entries:
+            out_folders = [entry.name for entry in entries if entry.is_dir()]
     else:
         print("Path to outputs directory missing! Set it with `struphy --set-o PATH`")
 
-    # check batch scripts in current batch path:
+    return out_folders
+
+
+def get_batch_files(b_path):
     if os.path.exists(b_path) and os.path.isdir(b_path):
         batch_files = recursive_get_files(
             b_path,
@@ -110,18 +258,16 @@ def struphy():
         print("Path to batch files missing! Set it with `struphy --set-b PATH`")
         batch_files = []
 
-    try:
-        with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
-            list_models = pickle.load(fp)
-        with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
-            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
-                fp,
-            )
-    except:
-        list_models = []
-        model_message = ""
+    return batch_files
 
-    # 0. basic options
+
+def add_parser_basic_options(parser, i_path, o_path, b_path):
+    # path message
+    path_message = f"Struphy installation path: {libpath}\n"
+    path_message += f"current input:             {i_path}\n"
+    path_message += f"current output:            {o_path}\n"
+    path_message += f"current batch scripts:     {b_path}"
+
     parser.add_argument(
         "-v",
         "--version",
@@ -191,14 +337,10 @@ def struphy():
         help='make PATH the new default folder for io/inp/, io/out and io/batch ("." to use cwd, "d" to use default <install-path>)',
     )
 
-    # create sub-commands and save name of sub-command into variable "command"
-    subparsers = parser.add_subparsers(
-        title="available commands",
-        metavar="COMMAND",
-        dest="command",
-    )
 
-    # 1. "compile" sub-command
+def add_parser_compile(
+    subparsers,
+):
     parser_compile = subparsers.add_parser(
         "compile",
         help="compile computational kernels, install psydac (on first call only)",
@@ -217,8 +359,16 @@ def struphy():
         "--compiler",
         type=str,
         metavar="COMPILER",
-        help='either "GNU" (default), "intel", "PGI", "nvidia" or the path to a JSON compiler file.',
+        help='either "GNU" (default), "intel", "PGI", "nvidia" or "LLVM"',
         default="GNU",
+    )
+
+    parser_compile.add_argument(
+        "--compiler-config",
+        type=str,
+        metavar="COMPILER_CONFIG",
+        help="Path to a JSON compiler file.",
+        default=None,
     )
 
     parser_compile.add_argument(
@@ -261,13 +411,20 @@ def struphy():
     )
 
     parser_compile.add_argument(
+        "--time-execution",
+        help="Prints the time spent in each section of the pyccelization.",
+        action="store_true",
+    )
+
+    parser_compile.add_argument(
         "-y",
         "--yes",
         help="say yes to prompt when changing the language",
         action="store_true",
     )
 
-    # 2. "run" sub-command
+
+def add_parser_run(subparsers, list_models, model_message, params_files, batch_files):
     parser_run = subparsers.add_parser(
         "run",
         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
@@ -279,12 +436,22 @@ def struphy():
         epilog="For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html",
     )
 
+    # parser_run.add_argument(
+    #     "model",
+    #     type=str,
+    #     default=None,
+    #     choices=list_models,
+    #     metavar="MODEL",
+    #     help=model_message,
+    # )
     parser_run.add_argument(
         "model",
         type=str,
+        nargs="?",  # makes it optional
+        default=None,  # fallback if nothing is passed
         choices=list_models,
         metavar="MODEL",
-        help=model_message,
+        help=model_message + f" (default: None)",
     )
 
     parser_run.add_argument(
@@ -327,7 +494,6 @@ def struphy():
         metavar="FILE",
         help="batch script in current I/O path",
     )
-
     parser_run.add_argument(
         "--batch-abs",
         type=str,
@@ -376,9 +542,11 @@ def struphy():
     )
 
     parser_run.add_argument(
-        "--debug",
-        help="launch a Cobra debug run, see https://docs.mpcdf.mpg.de/doc/computing/cobra-user-guide.html#interactive-debug-runs",
-        action="store_true",
+        "--nclones",
+        type=int,
+        metavar="N",
+        help="number of domain clones (default=1)",
+        default=1,
     )
 
     parser_run.add_argument(
@@ -394,7 +562,86 @@ def struphy():
         action="store_true",
     )
 
-    # 3. "units" sub-command
+    parser_performance = parser_run.add_argument_group(
+        "Performance profiling options",
+        "Arguments related to performance measurement. Note that hardware metrics requires a likwid installation.",
+    )
+
+    try:
+        import pylikwid
+
+        add_likwid_parser = True
+    except (ModuleNotFoundError, ImportError):
+        add_likwid_parser = False
+
+    if add_likwid_parser:
+        # Add Likwid-related arguments to the likwid group
+        parser_performance.add_argument(
+            "--likwid",
+            help="run with Likwid",
+            action="store_true",
+        )
+
+        parser_performance.add_argument(
+            "-g",
+            "--group",
+            default="MEM_DP",
+            type=str,
+            help="likwid measurement group",
+        )
+        parser_performance.add_argument(
+            "--nperdomain",
+            default=None,  # Example: S:36 means 36 cores/socket
+            type=str,
+            help="Set the number of processes per node by giving an affinity domain and count",
+        )
+
+        parser_performance.add_argument(
+            "--stats",
+            help="Print Likwid statistics",
+            action="store_true",
+        )
+
+        parser_performance.add_argument(
+            "--marker",
+            help="Activate Likwid marker API",
+            action="store_true",
+        )
+
+        parser_performance.add_argument(
+            "--hpcmd_suspend",
+            help="Suspend the HPCMD daemon",
+            action="store_true",
+        )
+
+        parser_performance.add_argument(
+            "-lr",
+            "--likwid-repetitions",
+            type=int,
+            help="Number of repetitions of the same simulation",
+            default=1,
+        )
+
+    parser_performance.add_argument(
+        "--time-trace",
+        help="Measure time traces for each call of the regions measured with ProfileManager",
+        action="store_true",
+    )
+
+    parser_performance.add_argument(
+        "--sample-duration",
+        help="Duration of samples when measuring time traces with ProfileManager",
+        default=1.0,
+    )
+
+    parser_performance.add_argument(
+        "--sample-interval",
+        help="Time between samples when measuring time traces with ProfileManager",
+        default=1.0,
+    )
+
+
+def add_parser_units(subparsers, list_models, model_message, params_files):
     parser_units = subparsers.add_parser(
         "units",
         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
@@ -430,7 +677,8 @@ def struphy():
         help="parameter file (.yml), absolute path",
     )
 
-    # 4. "params" sub-command
+
+def add_parser_params(subparsers, list_models, model_message):
     parser_params = subparsers.add_parser(
         "params",
         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
@@ -471,35 +719,8 @@ def struphy():
         action="store_true",
     )
 
-    parser_run.add_argument(
-        "--likwid",
-        help="run with Likwid",
-        action="store_true",
-    )
 
-    parser_run.add_argument(
-        "-li",
-        "--likwid-inp",
-        type=str,
-        metavar="FILE",
-        help="likwid parameter file (.yml) in current I/O path",
-    )
-
-    parser_run.add_argument(
-        "--likwid-input-abs",
-        type=str,
-        metavar="FILE",
-        help="likwid parameter file (.yml), absolute path",
-    )
-    parser_run.add_argument(
-        "-lr",
-        "--likwid-repetitions",
-        type=int,
-        help="number of repetitions of the same simulation",
-        default=1,
-    )
-
-    # 5. "profile" sub-command
+def add_parser_profile(subparsers):
     parser_profile = subparsers.add_parser(
         "profile",
         help="profile finished Struphy runs",
@@ -549,7 +770,74 @@ def struphy():
         help="save (and dont display) the profile figure under NAME, relative to current output path.",
     )
 
-    # 6. "pproc" sub-command
+
+def add_parser_likwid_profile(subparsers):
+    try:
+        import pylikwid
+
+        add_likwid_parser = True
+    except (ModuleNotFoundError, ImportError):
+        add_likwid_parser = False
+
+    if add_likwid_parser:
+        parser_likwid_profile = subparsers.add_parser(
+            "likwid_profile",
+            help="Profile finished Struphy runs with likwid",
+            description="Compare profiling data of finished Struphy runs. Run the plot files script with a given directory.",
+        )
+
+        parser_likwid_profile.add_argument(
+            "--dir",
+            type=str,
+            nargs="+",
+            required=True,
+            help="Paths to the data directories (space-separated, supports wildcards)",
+        )
+        parser_likwid_profile.add_argument(
+            "--title",
+            type=str,
+            default="Testing",
+            help="Name of the project",
+        )
+        parser_likwid_profile.add_argument(
+            "--output",
+            type=str,
+            default=".",
+            help="Output directory",
+        )
+        parser_likwid_profile.add_argument(
+            "--groups",
+            type=str,
+            default=["*"],
+            nargs="+",
+            required=False,
+            help="Likwid groups to include (space-separated, supports wildcards). Default: ['*'].",
+        )
+        parser_likwid_profile.add_argument(
+            "--skip",
+            type=str,
+            default=[],
+            nargs="+",
+            required=False,
+            help="Likwid groups to skip (space-separated, supports wildcards). Default: [].",
+        )
+        parser_likwid_profile.add_argument(
+            "--plots",
+            type=str,
+            default=[
+                "pinning",
+                "speedup",
+                "barplots",
+                "loadbalance",
+                "roofline",
+            ],
+            nargs="+",
+            required=False,
+            help="Types of plots to plot (space-separated). Default: [pinning, speedup. barplots, loadbalance, roofline]",
+        )
+
+
+def add_parser_pproc(subparsers, out_folders):
     parser_pproc = subparsers.add_parser(
         "pproc",
         help="post process data of a finished Struphy run",
@@ -557,13 +845,13 @@ def struphy():
     )
 
     parser_pproc.add_argument(
-        "-d",
-        "--dirr",
+        "dirs",
         type=str,
+        nargs="*",
         choices=out_folders,
         metavar="DIR",
-        help="simulation output folder to post-process relative to current I/O path (default=sim_1)",
-        default="sim_1",
+        default=["sim_1"],
+        help=("Simulation output folders to post-process (relative to current I/O path) (default: [sim_1])."),
     )
 
     parser_pproc.add_argument(
@@ -608,7 +896,20 @@ def struphy():
         action="store_true",
     )
 
-    # 7. "test" sub-command
+    parser_pproc.add_argument(
+        "--no-vtk",
+        help="whether vtk files creation should be skipped",
+        action="store_true",
+    )
+
+    parser_pproc.add_argument(
+        "--time-trace",
+        help="whether to plot the time traces",
+        action="store_true",
+    )
+
+
+def add_parser_test(subparsers, list_models):
     try:
         import pytest_mpi
 
@@ -632,8 +933,8 @@ def struphy():
             type=str,
             choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
             metavar="GROUP",
-            help='can be either:\na) a model name (tests on 1 MPI process in "Cuboid", "HollowTorus" and "Tokamak" geometries) \
-                                    \nb) "models" for quick testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
+            help='can be either:\na) a model name \
+                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                     \nc) "unit" for performing unit tests',
         )
 
@@ -641,7 +942,7 @@ def struphy():
             "--mpi",
             type=int,
             metavar="N",
-            help="set number of MPI processes used in tests (must be >1, default=2), has no effect if GROUP=a)",
+            help="set number of MPI processes used in tests (default=2))",
             default=2,
         )
 
@@ -673,7 +974,28 @@ def struphy():
             action="store_true",
         )
 
-    # 8/9 format and lint sub-command
+        parser_test.add_argument(
+            "--verification",
+            help="perform verification runs specified in io/inp/verification/",
+            action="store_true",
+        )
+
+        parser_test.add_argument(
+            "--nclones",
+            type=int,
+            metavar="N",
+            help="number of domain clones (default=1)",
+            default=1,
+        )
+
+        parser_test.add_argument(
+            "--show-plots",
+            help="show plots of tests",
+            action="store_true",
+        )
+
+
+def add_parser_format(subparsers):
     try:
         import autopep8
         import isort
@@ -759,9 +1081,29 @@ def struphy():
             help="specify the format of the output: 'table' for tabular output, 'plain' for regular output, or 'report' for saving a html report",
         )
 
-    # parse argument
-    argcomplete.autocomplete(parser)
-    args = parser.parse_args()
+
+def set_path(state, arg_value, default_subdir, state_key, exit_on_set=True):
+    if arg_value == ".":
+        path = os.getcwd()
+    elif arg_value == "d":
+        path = os.path.join(libpath, default_subdir)
+    else:
+        path = arg_value
+        try:
+            os.makedirs(path, exist_ok=True)
+        except Exception as e:
+            print(f"Warning: Could not create directory {path}: {e}")
+
+    path = os.path.abspath(path)
+    state[state_key] = path
+    utils.save_state(state)
+    print(f"New {state_key} has been set to {path}")
+
+    if exit_on_set:
+        sys.exit(0)
+
+
+def set_args_format_config(args, parser):
     if args.command == "format" or args.command == "lint":
         if not args.input_type and not args.path:
             parser.error("Use with either 'all', 'staged', 'branch', or '--path PATH'")
@@ -776,245 +1118,15 @@ def struphy():
     if args.command == "lint":
         args.config["output_format"] = args.output_format
 
-    # if no arguments are passed, print help and exit
-    print_help = True
-    for key, val in args.__dict__.items():
-        if val is None or not val:
-            continue
-        else:
-            print_help = False
 
-    if print_help:
-        parser.print_help()
-        exit()
-
-    # display short help and exit
-    if args.short_help:
-        lines = parser.format_help().splitlines()
-        bool_1 = [i for i, x in enumerate(lines) if "Struphy" in x]
-        bool_2 = [i for i, x in enumerate(lines) if "available commands:" in x]
-        print(lines[bool_1[0]])
-        print(lines[bool_1[0] + 1])
-        for li in lines[bool_2[0] :]:
-            print(li)
-        exit()
-
-    # display subset of models
-    if args.fluid:
-        print(fluid_message)
-        print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
-
-    if args.kinetic:
-        print(kinetic_message)
-        print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
-
-    if args.hybrid:
-        print(hybrid_message)
-        print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
-
-    if args.toy:
-        print(toy_message)
-        print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-        exit()
-
-    # set default in path
-    if args.set_i:
-        if args.set_i == ".":
-            i_path = os.getcwd()
-        elif args.set_i == "d":
-            i_path = os.path.join(libpath, "io/inp")
-        else:
-            i_path = args.set_i
-            try:
-                os.makedirs(i_path)
-            except:
-                pass
-
-        i_path = os.path.abspath(i_path)
-
-        state["i_path"] = i_path
-        utils.save_state(state)
-
-        print(f"New input path has been set to {state['i_path']}")
-        exit()
-
-    # set default out path
-    if args.set_o:
-        if args.set_o == ".":
-            o_path = os.getcwd()
-        elif args.set_o == "d":
-            o_path = os.path.join(libpath, "io/out")
-        else:
-            o_path = args.set_o
-            try:
-                os.makedirs(o_path)
-            except:
-                pass
-
-        o_path = os.path.abspath(o_path)
-
-        state["o_path"] = o_path
-        utils.save_state(state)
-
-        print(f"New output path has been set to {state['o_path']}")
-        exit()
-
-    # set default out path
-    if args.set_b:
-        if args.set_b == ".":
-            b_path = os.getcwd()
-        elif args.set_b == "d":
-            b_path = os.path.join(libpath, "io/batch")
-        else:
-            b_path = args.set_b
-            try:
-                os.makedirs(b_path)
-            except:
-                pass
-
-        b_path = os.path.abspath(b_path)
-
-        state["b_path"] = b_path
-        utils.save_state(state)
-
-        print(f"New batch path has been set to {state['b_path']}")
-        exit()
-
-    # set paths for inp, out and batch (with io/inp etc. prefices)
-    if args.set_iob:
-        if args.set_iob == ".":
-            path = os.getcwd()
-        elif args.set_iob == "d":
-            path = libpath
-        else:
-            path = args.set_iob
-
-        i_path = os.path.join(path, "io/inp")
-        o_path = os.path.join(path, "io/out")
-        b_path = os.path.join(path, "io/batch")
-
-        subprocess.run(["struphy", "--set-i", i_path])
-        subprocess.run(["struphy", "--set-o", o_path])
-        subprocess.run(["struphy", "--set-b", b_path])
-
-        exit()
-
-    if args.refresh_models:
-        print("Collecting available models ...")
-
-        import inspect
-        import pickle
-
-        from struphy.models import fluid, hybrid, kinetic, toy
-
-        list_fluid = []
-        fluid_string = ""
-        for name, obj in inspect.getmembers(fluid):
-            if inspect.isclass(obj):
-                if name not in {"StruphyModel", "Propagator"}:
-                    list_fluid += [name]
-                    fluid_string += '"' + name + '"\n'
-
-        list_kinetic = []
-        kinetic_string = ""
-        for name, obj in inspect.getmembers(kinetic):
-            if inspect.isclass(obj):
-                if name not in {"StruphyModel", "Propagator"}:
-                    list_kinetic += [name]
-                    kinetic_string += '"' + name + '"\n'
-
-        list_hybrid = []
-        hybrid_string = ""
-        for name, obj in inspect.getmembers(hybrid):
-            if inspect.isclass(obj):
-                if name not in {"StruphyModel", "Propagator"}:
-                    list_hybrid += [name]
-                    hybrid_string += '"' + name + '"\n'
-
-        list_toy = []
-        toy_string = ""
-        for name, obj in inspect.getmembers(toy):
-            if inspect.isclass(obj):
-                if name not in {"StruphyModel", "Propagator"}:
-                    list_toy += [name]
-                    toy_string += '"' + name + '"\n'
-
-        list_models = list_fluid + list_kinetic + list_hybrid + list_toy
-
-        with open(os.path.join(libpath, "models", "models_list"), "wb") as fp:
-            pickle.dump(list_models, fp)
-
-        # fluid message
-        fluid_message = "Fluid models:\n"
-        fluid_message += "-------------\n"
-        fluid_message += fluid_string
-
-        # kinetic message
-        kinetic_message = "Kinetic models:\n"
-        kinetic_message += "---------------\n"
-        kinetic_message += kinetic_string
-
-        # hybrid message
-        hybrid_message = "Hybrid models:\n"
-        hybrid_message += "--------------\n"
-        hybrid_message += hybrid_string
-
-        # toy message
-        toy_message = "Toy models:\n"
-        toy_message += "-----------\n"
-        toy_message += toy_string
-
-        # model message
-        model_message = "run one of the following models:\n"
-        model_message += "\n" + fluid_message
-        model_message += "\n" + kinetic_message
-        model_message += "\n" + hybrid_message
-        model_message += "\n" + toy_message
-
-        with open(os.path.join(libpath, "models", "models_message"), "wb") as fp:
-            pickle.dump(
-                [
-                    model_message,
-                    fluid_message,
-                    kinetic_message,
-                    hybrid_message,
-                    toy_message,
-                ],
-                fp,
-            )
-
-        print("Done.")
-        exit()
-
-    # load sub-command function (see functions below)
-    func = locals()["struphy_" + args.command]
-
-    # transform parser Namespace object to dictionary and remove "command" key
-    kwargs = vars(args)
-    kwargs.pop("command")
-    kwargs.pop("short_help")
-    kwargs.pop("fluid")
-    kwargs.pop("kinetic")
-    kwargs.pop("hybrid")
-    kwargs.pop("toy")
-    kwargs.pop("set_i")
-    kwargs.pop("set_o")
-    kwargs.pop("set_b")
-    kwargs.pop("set_iob")
-    kwargs.pop("refresh_models")
-
-    # These options are stored in kwargs.config
-    for key in ["input_type", "path", "linters", "iterations", "output_format"]:
-        kwargs.pop(key, None)
-
-    # start sub-command function with all parameters of that function
-    # for k, v in kwargs.items():
-    #     print(k, v)
-    # exit()
-    func(**kwargs)
+def print_short_help(parser):
+    lines = parser.format_help().splitlines()
+    bool_1 = [i for i, x in enumerate(lines) if "Struphy" in x]
+    bool_2 = [i for i, x in enumerate(lines) if "available commands:" in x]
+    print(lines[bool_1[0]])
+    print(lines[bool_1[0] + 1])
+    for li in lines[bool_2[0] :]:
+        print(li)
 
 
 class NoSubparsersMetavarFormatter(HelpFormatter):

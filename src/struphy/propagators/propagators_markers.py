@@ -1,19 +1,20 @@
 "Only particle variables are updated."
 
+import numpy as np
 from numpy import array, polynomial, random
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.mass import WeightedMassOperators
-from struphy.fields_background.braginskii_equil.base import BraginskiiEquilibrium
-from struphy.fields_background.mhd_equil.base import MHDequilibrium
-from struphy.fields_background.mhd_equil.equils import set_defaults
+from struphy.fields_background.base import MHDequilibrium
+from struphy.fields_background.equils import set_defaults
 from struphy.io.setup import descend_options_dict
+from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc
-from struphy.pic.pushing.pusher import ButcherTableau, Pusher
+from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 
@@ -33,7 +34,18 @@ class PushEta(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+
+    Parameters
+    ----------
+    particles : Particles6D | ParticlesSPH
+        Particles object.
+
+    algo : str
+        Algorithm for solving the ODE (see options below).
+
+    density_field: StencilVector
+        Storage for density evaluation at each __call__.
     """
 
     @staticmethod
@@ -59,6 +71,12 @@ class PushEta(Propagator):
 
         # define algorithm
         butcher = ButcherTableau(algo)
+        # temp fix due to refactoring of ButcherTableau:
+        import numpy as np
+
+        butcher._a = np.diag(butcher.a, k=-1)
+        butcher._a = np.array(list(butcher.a) + [0.0])
+
         args_kernel = (
             butcher.a,
             butcher.b,
@@ -81,7 +99,6 @@ class PushEta(Propagator):
             self._density_field = density_field
 
     def __call__(self, dt):
-        # push markers
         self._pusher(dt)
 
         # update_weights
@@ -89,7 +106,14 @@ class PushEta(Propagator):
             self.particles[0].update_weights()
 
         if self._eval_density:
-            eval_density = lambda eta1, eta2, eta3: self._particles[0].eval_density(eta1, eta2, eta3, h=0.15)
+            eval_density = lambda eta1, eta2, eta3: self.particles[0].eval_density(
+                eta1,
+                eta2,
+                eta3,
+                h1=0.1,
+                h2=0.1,
+                h3=0.1,
+            )
             self.derham.P["3"](eval_density, out=self._density_field)
 
 
@@ -98,9 +122,10 @@ class PushVxB(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \kappa\,\mathbf v_p(t) \times \mathbf B\,,
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \kappa \, \mathbf v_p(t) \times (\mathbf B + \mathbf B_{\text{add}}) \,,
 
-    where :math:`\kappa \in \mathbb R` is a constant saling factor, and for fixed rotation vector :math:`\mathbf B`, given as a 2-form:
+    where :math:`\kappa \in \mathbb R` is a constant scaling factor, and for rotation vector :math:`\mathbf B` and optional, additional fixed rotation
+    vector :math:`\mathbf B_{\text{add}}`, both given as a 2-form:
 
     .. math::
 
@@ -123,21 +148,21 @@ class PushVxB(Propagator):
         *,
         algo: str = options(default=True)["algo"],
         kappa: float = 1.0,
-        b_eq: BlockVector | PolarVector,
-        b_tilde: BlockVector | PolarVector = None,
+        b2: BlockVector | PolarVector,
+        b2_add: BlockVector | PolarVector = None,
     ):
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
-        assert b_eq.space == self.derham.Vh["2"]
-        if b_tilde is not None:
-            assert b_tilde.space == self.derham.Vh["2"]
+        assert b2.space == self.derham.Vh["2"]
+        if b2_add is not None:
+            assert b2_add.space == self.derham.Vh["2"]
 
         # base class constructor call
         super().__init__(particles)
 
         # parameters that need to be exposed
         self._kappa = kappa
-        self._b_eq = b_eq
-        self._b_tilde = b_tilde
+        self._b2 = b2
+        self._b2_add = b2_add
         self._tmp = self.derham.Vh["2"].zeros()
         self._b_full = self.derham.Vh["2"].zeros()
 
@@ -170,9 +195,9 @@ class PushVxB(Propagator):
 
     def __call__(self, dt):
         # sum up total magnetic field
-        tmp = self._b_eq.copy(out=self._tmp)
-        if self._b_tilde is not None:
-            tmp += self._b_tilde
+        tmp = self._b2.copy(out=self._tmp)
+        if self._b2_add is not None:
+            tmp += self._b2_add
 
         # extract coefficients to tensor product space
         b_full = self._E2T.dot(tmp, out=self._b_full)
@@ -223,9 +248,9 @@ class PushVinEfield(Propagator):
         # instantiate Pusher
         args_kernel = (
             self.derham.args_derham,
-            self._e_field.blocks[0]._data,
-            self._e_field.blocks[1]._data,
-            self._e_field.blocks[2]._data,
+            self._e_field[0]._data,
+            self._e_field[1]._data,
+            self._e_field[2]._data,
             self.kappa,
         )
 
@@ -377,7 +402,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
@@ -420,10 +445,10 @@ class PushGuidingCenterBxEstar(Propagator):
         super().__init__(particles)
 
         # magnetic equilibrium field
-        unit_b1 = self.projected_mhd_equil.unit_b1
-        self._gradB1 = self.projected_mhd_equil.gradB1
-        self._absB0 = self.projected_mhd_equil.absB0
-        curl_unit_b_dot_b0 = self.projected_mhd_equil.curl_unit_b_dot_b0
+        unit_b1 = self.projected_equil.unit_b1
+        self._gradB1 = self.projected_equil.gradB1
+        self._absB0 = self.projected_equil.absB0
+        curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
         self._b_tilde = b_tilde
@@ -687,6 +712,11 @@ class PushGuidingCenterBxEstar(Propagator):
 
         else:
             butcher = ButcherTableau(algo["method"])
+            # temp fix due to refactoring of ButcherTableau:
+            import numpy as np
+
+            butcher._a = np.diag(butcher.a, k=-1)
+            butcher._a = np.array(list(butcher.a) + [0.0])
 
             kernel = pusher_kernels_gc.push_gc_bxEstar_explicit_multistage
 
@@ -783,7 +813,7 @@ class PushGuidingCenterParallel(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton` 
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order`  
@@ -828,11 +858,11 @@ class PushGuidingCenterParallel(Propagator):
         self._epsilon = epsilon
 
         # magnetic equilibrium field
-        self._gradB1 = self.projected_mhd_equil.gradB1
-        b2 = self.projected_mhd_equil.b2
-        curl_unit_b2 = self.projected_mhd_equil.curl_unit_b2
-        self._absB0 = self.projected_mhd_equil.absB0
-        curl_unit_b_dot_b0 = self.projected_mhd_equil.curl_unit_b_dot_b0
+        self._gradB1 = self.projected_equil.gradB1
+        b2 = self.projected_equil.b2
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
+        self._absB0 = self.projected_equil.absB0
+        curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
         self._b_tilde = b_tilde
@@ -1101,6 +1131,11 @@ class PushGuidingCenterParallel(Propagator):
 
         else:
             butcher = ButcherTableau(algo["method"])
+            # temp fix due to refactoring of ButcherTableau:
+            import numpy as np
+
+            butcher._a = np.diag(butcher.a, k=-1)
+            butcher._a = np.array(list(butcher.a) + [0.0])
 
             kernel = pusher_kernels_gc.push_gc_Bstar_explicit_multistage
 
@@ -1200,7 +1235,7 @@ class StepStaticEfield(Propagator):
 
         # parameters
         params_default = {
-            "e_field": BlockVector(self.derham.Vh_fem["1"].vector_space),
+            "e_field": BlockVector(self.derham.Vh_fem["1"].coeff_space),
             "kappa": 1e2,
         }
 
@@ -1275,7 +1310,7 @@ class PushDeterministicDiffusion(Propagator):
 
     Available algorithms:
 
-    * Explicit from :class:`~struphy.pic.pushing.pusher.ButcherTableau`
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
 
     @staticmethod
@@ -1306,6 +1341,11 @@ class PushDeterministicDiffusion(Propagator):
 
         # choose algorithm
         self._butcher = ButcherTableau(algo)
+        # temp fix due to refactoring of ButcherTableau:
+        import numpy as np
+
+        self._butcher._a = np.diag(self._butcher.a, k=-1)
+        self._butcher._a = np.array(list(self._butcher.a) + [0.0])
 
         self._u_on_grid = AccumulatorVector(
             particles,
@@ -1335,6 +1375,7 @@ class PushDeterministicDiffusion(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=1.0,
             n_stages=self._butcher.n_stages,
+            mpi_sort="each",
         )
 
     def __call__(self, dt):
@@ -1403,6 +1444,11 @@ class PushRandomDiffusion(Propagator):
 
         # choose algorithm
         self._butcher = ButcherTableau("forward_euler")
+        # temp fix due to refactoring of ButcherTableau:
+        import numpy as np
+
+        self._butcher._a = np.diag(self._butcher.a, k=-1)
+        self._butcher._a = np.array(list(self._butcher.a) + [0.0])
 
         # instantiate Pusher
         args_kernel = (
@@ -1420,6 +1466,7 @@ class PushRandomDiffusion(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=1.0,
             n_stages=self._butcher.n_stages,
+            mpi_sort="each",
         )
 
         # self._tmp = self.derham.Vh['1'].zeros()
@@ -1443,3 +1490,115 @@ class PushRandomDiffusion(Propagator):
         # update_weights
         if self.particles[0].control_variate:
             self.particles[0].update_weights()
+
+
+class PushVinSPHpressure(Propagator):
+    r"""For each marker :math:`p`, solves
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \kappa_p \sum_{i=1}^N w_i \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_i)} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+
+    where :math:`DF^{-\top}` denotes the inverse transpose Jacobian, and with the smoothed density
+
+    .. math::
+
+        \rho^{N,h}(\boldsymbol \eta) = \frac 1N \sum_{j=1}^N w_j \, W_h(\boldsymbol \eta - \boldsymbol \eta_j)\,,
+
+    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    Time stepping:
+
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["kernel_type"] = list(Particles.ker_dct())
+        dct["algo"] = [
+            "forward_euler",
+        ]  # "heun2", "rk2", "heun3", "rk4"]
+        dct["gravity"] = (0.0, 0.0, 0.0)
+        dct["thermodynamics"] = ["isothermal", "polytropic"]
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
+    def __init__(
+        self,
+        particles: ParticlesSPH,
+        *,
+        kernel_type: str = "gaussian_2d",
+        kernel_width: tuple = None,
+        algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
+        gravity: tuple = options(default=True)["gravity"],
+        thermodynamics: str = options(default=True)["thermodynamics"],
+    ):
+        # base class constructor call
+        super().__init__(particles)
+
+        # init kernel for evaluating density etc. before each time step.
+        init_kernel = eval_kernels_gc.sph_pressure_coeffs
+
+        first_free_idx = particles.args_markers.first_free_idx
+        comps = (0, 1, 2)
+
+        boxes = particles.sorting_boxes.boxes
+        neighbours = particles.sorting_boxes.neighbours
+        holes = particles.holes
+        periodic = [bci == "periodic" for bci in particles.bc]
+        kernel_nr = particles.ker_dct()[kernel_type]
+
+        if kernel_width is None:
+            kernel_width = tuple([1 / ni for ni in self.particles[0].boxes_per_dim])
+        else:
+            assert all([hi <= 1 / ni for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)])
+
+        # init kernel
+        args_init = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *kernel_width,
+        )
+
+        self.add_init_kernel(
+            init_kernel,
+            first_free_idx,
+            comps,
+            args_init,
+        )
+
+        # pusher kernel
+        if thermodynamics == "isothermal":
+            kernel = pusher_kernels.push_v_sph_pressure
+        elif thermodynamics == "polytropic":
+            kernel = pusher_kernels.push_v_sph_pressure_ideal_gas
+
+        gravity = np.array(gravity, dtype=float)
+
+        args_kernel = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *kernel_width,
+            gravity,
+        )
+
+        # the Pusher class wraps around all kernels
+        self._pusher = Pusher(
+            particles,
+            kernel,
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=0.0,
+            init_kernels=self.init_kernels,
+        )
+
+    def __call__(self, dt):
+        self.particles[0].put_particles_in_boxes()
+        self._pusher(dt)

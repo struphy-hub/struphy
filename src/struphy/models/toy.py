@@ -55,15 +55,19 @@ class Maxwell(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # extract necessary parameters
+        algo = params["em_fields"]["options"]["Maxwell"]["algo"]
         solver = params["em_fields"]["options"]["Maxwell"]["solver"]
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Maxwell] = {"solver": solver}
+        self._kwargs[propagators_fields.Maxwell] = {
+            "algo": algo,
+            "solver": solver,
+        }
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
@@ -73,16 +77,9 @@ class Maxwell(StruphyModel):
         self.add_scalar("magnetic energy")
         self.add_scalar("total energy")
 
-        # temporary vectors for scalar quantities
-        self._tmp_e = self.derham.Vh["1"].zeros()
-        self._tmp_b = self.derham.Vh["2"].zeros()
-
     def update_scalar_quantities(self):
-        self._mass_ops.M1.dot(self.pointer["e_field"], out=self._tmp_e)
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b)
-
-        en_E = self.pointer["e_field"].dot(self._tmp_e) / 2
-        en_B = self.pointer["b_field"].dot(self._tmp_b) / 2
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
 
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)
@@ -141,9 +138,9 @@ class Vlasov(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -153,9 +150,9 @@ class Vlasov(StruphyModel):
         # project magnetic background
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
 
@@ -163,8 +160,8 @@ class Vlasov(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": ions_params["options"]["PushVxB"]["algo"],
             "kappa": 1.0,
-            "b_eq": self._b_eq,
-            "b_tilde": None,
+            "b2": self._b_eq,
+            "b2_add": None,
         }
 
         self._kwargs[propagators_markers.PushEta] = {"algo": ions_params["options"]["PushEta"]["algo"]}
@@ -185,7 +182,7 @@ class Vlasov(StruphyModel):
             self.pointer["ions"].markers_wo_holes[:, 3] ** 2
             + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
             + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
-        ) / (2 * self.pointer["ions"].n_mks)
+        ) / (2 * self.pointer["ions"].Np)
 
         # self.derham.comm.Allreduce(
         #     self._mpi_in_place, self._tmp, op=self._mpi_sum)
@@ -257,9 +254,9 @@ class GuidingCenter(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -299,7 +296,7 @@ class GuidingCenter(StruphyModel):
 
         self._en_fv[0] = self.pointer["ions"].markers[~self.pointer["ions"].holes, 5].dot(
             self.pointer["ions"].markers[~self.pointer["ions"].holes, 3] ** 2,
-        ) / (2.0 * self.pointer["ions"].n_mks)
+        ) / (2.0 * self.pointer["ions"].Np)
 
         self.pointer["ions"].save_magnetic_background_energy()
         self._en_tot[0] = (
@@ -308,7 +305,7 @@ class GuidingCenter(StruphyModel):
             .dot(
                 self.pointer["ions"].markers[~self.pointer["ions"].holes, 8],
             )
-            / self.pointer["ions"].n_mks
+            / self.pointer["ions"].Np
         )
 
         self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
@@ -394,21 +391,22 @@ class ShearAlfven(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
         alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
+        alfven_algo = params["fluid"]["mhd"]["options"]["ShearAlfven"]["algo"]
 
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
 
@@ -416,6 +414,7 @@ class ShearAlfven(StruphyModel):
         self._kwargs[propagators_fields.ShearAlfven] = {
             "u_space": "Hdiv",
             "solver": alfven_solver,
+            "algo": alfven_algo,
         }
 
         # Initialize propagators used in splitting substeps
@@ -435,36 +434,29 @@ class ShearAlfven(StruphyModel):
         self.add_scalar("en_tot2", summands=["en_U", "en_B", "en_B_eq"])
 
         # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh["2"].zeros()
         self._tmp_b1 = self.derham.Vh["2"].zeros()
         self._tmp_b2 = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
         # perturbed fields
-        self._mass_ops.M2n.dot(self.pointer["mhd_u2"], out=self._tmp_u1)
-        self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_b1)
-
-        en_U = self.pointer["mhd_u2"].dot(self._tmp_u1) / 2
-        en_B = self.pointer["b2"].dot(self._tmp_b1) / 2
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_u2"], self.pointer["mhd_u2"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
         self.update_scalar("en_tot", en_U + en_B)
 
         # background fields
-        self._mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
-
-        en_B0 = self._b_eq.dot(self._tmp_b1) / 2
-
+        self.mass_ops.M2.dot(self._b_eq, apply_bc=False, out=self._tmp_b1)
+        en_B0 = self._b_eq.inner(self._tmp_b1) / 2
         self.update_scalar("en_B_eq", en_B0)
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
         self._tmp_b1 += self.pointer["b2"]
 
-        self._mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
-
-        en_Btot = self._tmp_b1.dot(self._tmp_b2) / 2
+        self.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
+        en_Btot = self._tmp_b1.inner(self._tmp_b2) / 2
 
         self.update_scalar("en_B_tot", en_Btot)
 
@@ -522,14 +514,15 @@ class VariationalPressurelessFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.mass import WeightedMassOperator
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -560,14 +553,8 @@ class VariationalPressurelessFluid(StruphyModel):
         # Scalar variables to be saved during simulation
         self.add_scalar("en_U")
 
-        # temporary vectors for scalar quantities
-        self._tmp_u1 = self.derham.Vh["v"].zeros()
-
     def update_scalar_quantities(self):
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["fluid_uv"], out=self._tmp_u1)
-
-        en_U = self.pointer["fluid_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["fluid_uv"], self.pointer["fluid_uv"])
         self.update_scalar("en_U", en_U)
 
 
@@ -626,14 +613,14 @@ class VariationalBarotropicFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        from struphy.feec.mass import WeightedMassOperator
+    def __init__(self, params, comm, clone_config=None):
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -666,22 +653,11 @@ class VariationalBarotropicFluid(StruphyModel):
         self.add_scalar("en_thermo")
         self.add_scalar("en_tot")
 
-        # temporary vectors for scalar quantities
-        self._tmp_m1 = self.derham.Vh["v"].zeros()
-        self._tmp_rho1 = self.derham.Vh["3"].zeros()
-
     def update_scalar_quantities(self):
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
-
-        en_U = self.pointer["fluid_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["fluid_uv"], self.pointer["fluid_uv"])
         self.update_scalar("en_U", en_U)
 
-        rho1 = self.mass_ops.M3.dot(
-            self.pointer["fluid_rho3"],
-            out=self._tmp_rho1,
-        )
-        en_thermo = self.pointer["fluid_rho3"].dot(rho1) / 2
+        en_thermo = 0.5 * self.mass_ops.M3.dot_inner(self.pointer["fluid_rho3"], self.pointer["fluid_rho3"])
         self.update_scalar("en_thermo", en_thermo)
 
         en_tot = en_U + en_thermo
@@ -747,15 +723,15 @@ class VariationalCompressibleFluid(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        from struphy.feec.mass import WeightedMassOperator
+    def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
+        from struphy.feec.variational_utilities import H1vecMassMatrix_density
 
         # initialize base class
-        super().__init__(params, comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # Initialize mass matrix
-        self.WMM = self.mass_ops.create_weighted_mass("H1vec", "H1vec")
+        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
 
         # Initialize propagators/integrators used in splitting substeps
         lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
@@ -768,6 +744,10 @@ class VariationalCompressibleFluid(StruphyModel):
         self._gamma = params["fluid"]["fluid"]["options"]["VariationalDensityEvolve"]["physics"]["gamma"]
         model = "full"
 
+        from struphy.feec.variational_utilities import InternalEnergyEvaluator
+
+        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
+
         # set keyword arguments for propagators
         self._kwargs[propagators_fields.VariationalDensityEvolve] = {
             "model": model,
@@ -776,6 +756,7 @@ class VariationalCompressibleFluid(StruphyModel):
             "mass_ops": self.WMM,
             "lin_solver": lin_solver_density,
             "nonlin_solver": nonlin_solver_density,
+            "energy_evaluator": self._energy_evaluator,
         }
 
         self._kwargs[propagators_fields.VariationalMomentumAdvection] = {
@@ -791,6 +772,7 @@ class VariationalCompressibleFluid(StruphyModel):
             "mass_ops": self.WMM,
             "lin_solver": lin_solver_entropy,
             "nonlin_solver": nonlin_solver_entropy,
+            "energy_evaluator": self._energy_evaluator,
         }
 
         # Initialize propagators used in splitting substeps
@@ -802,7 +784,6 @@ class VariationalCompressibleFluid(StruphyModel):
         self.add_scalar("en_tot")
 
         # temporary vectors for scalar quantities
-        self._tmp_m1 = self.derham.Vh["v"].zeros()
         projV3 = L2Projector("L2", self._mass_ops)
 
         def f(e1, e2, e3):
@@ -812,10 +793,7 @@ class VariationalCompressibleFluid(StruphyModel):
         self._integrator = projV3(f)
 
     def update_scalar_quantities(self):
-        WMM = self.WMM
-        m1 = WMM.dot(self.pointer["fluid_uv"], out=self._tmp_m1)
-
-        en_U = self.pointer["fluid_uv"].dot(m1) / 2
+        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["fluid_uv"], self.pointer["fluid_uv"])
         self.update_scalar("en_U", en_U)
 
         en_thermo = self.update_thermo_energy()
@@ -829,22 +807,23 @@ class VariationalCompressibleFluid(StruphyModel):
         :meta private:
         """
         en_prop = self._propagators[2]
-        en_prop.sf.vector = self.pointer["fluid_s3"]
-        en_prop.rhof.vector = self.pointer["fluid_rho3"]
-        sf_values = en_prop.sf.eval_tp_fixed_loc(
-            en_prop.integration_grid_spans,
-            en_prop.integration_grid_bd,
-            out=en_prop._sf_values,
+
+        self._energy_evaluator.sf.vector = self.pointer["fluid_s3"]
+        self._energy_evaluator.rhof.vector = self.pointer["fluid_rho3"]
+        sf_values = self._energy_evaluator.sf.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._sf_values,
         )
-        rhof_values = en_prop.rhof.eval_tp_fixed_loc(
-            en_prop.integration_grid_spans,
-            en_prop.integration_grid_bd,
-            out=en_prop._rhof_values,
+        rhof_values = self._energy_evaluator.rhof.eval_tp_fixed_loc(
+            self._energy_evaluator.integration_grid_spans,
+            self._energy_evaluator.integration_grid_bd,
+            out=self._energy_evaluator._rhof_values,
         )
         e = self.__ener
         ener_values = en_prop._proj_rho2_metric_term * e(rhof_values, sf_values)
         en_prop._get_L2dofs_V3(ener_values, dofs=en_prop._linear_form_dl_ds)
-        en_thermo = self._integrator.dot(en_prop._linear_form_dl_ds)
+        en_thermo = self._integrator.inner(en_prop._linear_form_dl_ds)
         self.update_scalar("en_thermo", en_thermo)
         return en_thermo
 
@@ -912,8 +891,8 @@ class Poisson(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         # extract necessary parameters
         model_params = params["em_fields"]["options"]["ImplicitDiffusion"]["model"]
@@ -994,8 +973,8 @@ class DeterministicParticleDiffusion(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1005,9 +984,9 @@ class DeterministicParticleDiffusion(StruphyModel):
         diffusion_coefficient = params["options"]["PushDeterministicDiffusion"]["diffusion_coefficient"]
 
         # # project magnetic background
-        # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-        #                                  self.mhd_equil.b2_2,
-        #                                  self.mhd_equil.b2_3])
+        # self._b_eq = self.derham.P['2']([self.equil.b2_1,
+        #                                  self.equil.b2_2,
+        #                                  self.equil.b2_3])
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushDeterministicDiffusion] = {
@@ -1082,8 +1061,8 @@ class RandomParticleDiffusion(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1093,9 +1072,9 @@ class RandomParticleDiffusion(StruphyModel):
         diffusion_coefficient = species1_params["options"]["PushRandomDiffusion"]["diffusion_coefficient"]
 
         # # project magnetic background
-        # self._b_eq = self.derham.P['2']([self.mhd_equil.b2_1,
-        #                                  self.mhd_equil.b2_2,
-        #                                  self.mhd_equil.b2_3])
+        # self._b_eq = self.derham.P['2']([self.equil.b2_1,
+        #                                  self.equil.b2_2,
+        #                                  self.equil.b2_3])
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushRandomDiffusion] = {
@@ -1135,7 +1114,6 @@ class PressureLessSPH(StruphyModel):
     1. :class:`~struphy.propagators.propagators_markers.PushEta`
 
     This is discretized by particles going in straight lines.
-
     """
 
     @staticmethod
@@ -1170,8 +1148,8 @@ class PressureLessSPH(StruphyModel):
     __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, inter_comm=None):
-        super().__init__(params, comm, inter_comm=inter_comm)
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1196,6 +1174,157 @@ class PressureLessSPH(StruphyModel):
             self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 3] ** 2
             + self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 4] ** 2
             + self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 5] ** 2
-        ) / (2.0 * self.pointer["p_fluid"].n_mks)
+        ) / (2.0 * self.pointer["p_fluid"].Np)
 
         self.update_scalar("en_kin", en_kin)
+
+
+class TwoFluidQuasiNeutralToy(StruphyModel):
+    r"""Linearized, quasi-neutral two-fluid model with zero electron inertia.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat u = \hat v_\textnormal{th}\,,\qquad  e\hat \phi = m \hat v_\textnormal{th}^2\,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        \frac{\partial \mathbf u}{\partial t} &= - \nabla \phi + \frac{\mathbf u \times \mathbf B_0}{\varepsilon} + \nu \Delta \mathbf u + \mathbf f\,,
+        \\[2mm]
+        0 &= \nabla \phi - \frac{\mathbf u_e \times \mathbf B_0}{\varepsilon} + \nu_e \Delta \mathbf u_e + \mathbf f_e \,,
+        \\[3mm]
+        \nabla & \cdot (\mathbf u - \mathbf u_e) = 0\,,
+
+    where :math:`\mathbf B_0` is a static magnetic field and :math:`\mathbf f, \mathbf f_e` are given forcing terms,
+    and with the normalization parameter
+
+    .. math::
+
+        \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.TwoFluidQuasiNeutralFull`
+
+    :ref:`Model info <add_model>`:
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+
+        dct["em_fields"]["potential"] = "L2"
+        dct["fluid"]["ions"] = {
+            "u": "Hdiv",
+        }
+        dct["fluid"]["electrons"] = {
+            "u": "Hdiv",
+        }
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "ions"
+
+    @staticmethod
+    def velocity_scale():
+        return "thermal"
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.TwoFluidQuasiNeutralFull: ["ions_u", "electrons_u", "potential"]}
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["fluid", "electrons"],
+            option=propagators_fields.TwoFluidQuasiNeutralFull,
+            dct=dct,
+        )
+        return dct
+
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
+
+        # get species paramaters
+        electrons_params = params["fluid"]["electrons"]
+
+        # Get coupling strength
+        if electrons_params["options"]["TwoFluidQuasiNeutralFull"]["override_eq_params"]:
+            self._epsilon = electrons_params["options"]["TwoFluidQuasiNeutralFull"]["eps_norm"]
+            print(
+                f"\n!!! Override equation parameters: {self._epsilon = }.",
+            )
+        else:
+            self._epsilon = self.equation_params["electrons"]["epsilon"]
+
+        # extract necessary parameters
+        stokes_solver = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["solver"]
+        stokes_nu = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu"]
+        stokes_nu_e = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu_e"]
+        stokes_a = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["a"]
+        stokes_R0 = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["R0"]
+        stokes_B0 = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["B0"]
+        stokes_Bp = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["Bp"]
+        stokes_alpha = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["alpha"]
+        stokes_beta = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["beta"]
+        stokes_sigma = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["stab_sigma"]
+        stokes_variant = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["variant"]
+        stokes_method_to_solve = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["method_to_solve"]
+        stokes_preconditioner = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["preconditioner"]
+        stokes_spectralanalysis = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"][
+            "spectralanalysis"
+        ]
+        stokes_dimension = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
+        stokes_1D_dt = params["time"]["dt"]
+
+        # Check MPI size to ensure only one MPI process
+        size = comm.Get_size()
+        if size != 1 and stokes_variant == "Uzawa":
+            if comm.Get_rank() == 0:
+                print(f"Error: TwoFluidQuasiNeutralToy only runs with one MPI process.")
+            return  # Early return to stop execution for multiple MPI processes
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.TwoFluidQuasiNeutralFull] = {
+            "solver": stokes_solver,
+            "nu": stokes_nu,
+            "nu_e": stokes_nu_e,
+            "eps_norm": self._epsilon,
+            "a": stokes_a,
+            "R0": stokes_R0,
+            "B0": stokes_B0,
+            "Bp": stokes_Bp,
+            "alpha": stokes_alpha,
+            "beta": stokes_beta,
+            "stab_sigma": stokes_sigma,
+            "variant": stokes_variant,
+            "method_to_solve": stokes_method_to_solve,
+            "preconditioner": stokes_preconditioner,
+            "spectralanalysis": stokes_spectralanalysis,
+            "dimension": stokes_dimension,
+            "D1_dt": stokes_1D_dt,
+        }
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+    def update_scalar_quantities(self):
+        pass

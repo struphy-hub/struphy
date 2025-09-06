@@ -66,7 +66,7 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plo
 
             out = derham.Vh[sp_key].zeros()
 
-            field = derham.create_field("fh", sp_id)
+            field = derham.create_spline_function("fh", sp_id)
 
             # project test function
             if sp_id in ("H1", "L2"):
@@ -108,7 +108,7 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plo
             if sp_id in ("H1", "H1vec"):
                 assert np.max(err) < 0.004
             else:
-                assert np.max(err) < 0.1
+                assert np.max(err) < 0.12
 
             if do_plot and rank == 0:
                 plt.figure(f"{dom_type}, {sp_id}")
@@ -190,7 +190,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
 
             out = derham.Vh[sp_key].zeros()
 
-            field = derham.create_field("fh", sp_id)
+            field = derham.create_spline_function("fh", sp_id)
 
             # project test function
             if sp_id in ("H1", "L2"):

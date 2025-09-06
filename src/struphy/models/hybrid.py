@@ -108,9 +108,9 @@ class LinearMHDVlasovCC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -146,12 +146,12 @@ class LinearMHDVlasovCC(StruphyModel):
         # project background magnetic field (2-form) and background pressure (3-form)
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
-        self._p_eq = self.derham.P["3"](self.mhd_equil.p3)
+        self._p_eq = self.derham.P["3"](self.equil.p3)
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -206,8 +206,8 @@ class LinearMHDVlasovCC(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": params_vxb["algo"],
             "kappa": 1.0 / epsilon,
-            "b_eq": self._b_eq,
-            "b_tilde": self.pointer["b_field"],
+            "b2": self.pointer["b_field"],
+            "b2_add": self._b_eq,
         }
 
         if params_sonic["turn_off"]:
@@ -230,10 +230,6 @@ class LinearMHDVlasovCC(StruphyModel):
         self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f"])
 
         # temporary vectors for scalar quantities:
-        self._tmp_u = self.derham.Vh["2"].zeros()
-
-        self._tmp_b1 = self.derham.Vh["2"].zeros()
-        self._tmp_b2 = self.derham.Vh["2"].zeros()
         self._tmp = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
@@ -243,12 +239,9 @@ class LinearMHDVlasovCC(StruphyModel):
 
     def update_scalar_quantities(self):
         # perturbed fields
-        self._mass_ops.M2n.dot(self.pointer["mhd_velocity"], out=self._tmp_u)
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b1)
-
-        en_U = self.pointer["mhd_velocity"].dot(self._tmp_u) / 2
-        en_B = self.pointer["b_field"].dot(self._tmp_b1) / 2
-        en_p = self.pointer["mhd_pressure"].dot(self._ones) / (5 / 3 - 1)
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_velocity"], self.pointer["mhd_velocity"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
+        en_p = self.pointer["mhd_pressure"].inner(self._ones) / (5 / 3 - 1)
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
@@ -277,7 +270,7 @@ class LinearMHDVlasovCC(StruphyModel):
         if self.derham.comm.Get_rank() == 0:
             print(
                 "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].n_mks * 100,
+                self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
                 "%",
             )
 
@@ -394,9 +387,9 @@ class LinearMHDVlasovPC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -436,12 +429,12 @@ class LinearMHDVlasovPC(StruphyModel):
         # Project magnetic field
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
-        self._p_eq = self.derham.P["3"](self.mhd_equil.p3)
+        self._p_eq = self.derham.P["3"](self.equil.p3)
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -457,10 +450,10 @@ class LinearMHDVlasovPC(StruphyModel):
         }
 
         self._kwargs[propagators_markers.PushVxB] = {
-            "b_tilde": self.pointer["b_field"],
-            "b_eq": self._b_eq,
             "algo": params_vxb["algo"],
             "kappa": epsilon,
+            "b2": self.pointer["b_field"],
+            "b2_add": self._b_eq,
         }
 
         if params_pressure["turn_off"]:
@@ -505,7 +498,6 @@ class LinearMHDVlasovPC(StruphyModel):
         # temporary vectors for scalar quantities
         self._tmp_u = self.derham.Vh["2"].zeros()
         self._tmp_b1 = self.derham.Vh["2"].zeros()
-        self._tmp_b2 = self.derham.Vh["2"].zeros()
         self._tmp = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
@@ -516,21 +508,11 @@ class LinearMHDVlasovPC(StruphyModel):
     def update_scalar_quantities(self):
         # perturbed fields
         if "Hdiv" == "Hdiv":
-            self._mass_ops.M2n.dot(
-                self.pointer["mhd_velocity"],
-                out=self._tmp_u,
-            )
+            en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_velocity"], self.pointer["mhd_velocity"])
         else:
-            self._mass_ops.Mvn.dot(
-                self.pointer["mhd_velocity"],
-                out=self._tmp_u,
-            )
-
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b1)
-
-        en_U = self.pointer["mhd_velocity"].dot(self._tmp_u) / 2
-        en_B = self.pointer["b_field"].dot(self._tmp_b1) / 2
-        en_p = self.pointer["mhd_pressure"].dot(self._ones) / (5 / 3 - 1)
+            en_U = 0.5 * self.mass_ops.Mvn.dot_inner(self.pointer["mhd_velocity"], self.pointer["mhd_velocity"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
+        en_p = self.pointer["mhd_pressure"].inner(self._ones) / (5 / 3 - 1)
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
@@ -559,7 +541,7 @@ class LinearMHDVlasovPC(StruphyModel):
         if self.derham.comm.Get_rank() == 0:
             print(
                 "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].n_mks * 100,
+                self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
                 "%",
             )
 
@@ -692,9 +674,9 @@ class LinearMHDDriftkineticCC(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -728,47 +710,47 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # Project magnetic field
         self._b_eq = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
 
-        self._absB0 = self.derham.P["0"](self.mhd_equil.absB0)
+        self._absB0 = self.derham.P["0"](self.equil.absB0)
 
         self._unit_b1 = self.derham.P["1"](
             [
-                self.mhd_equil.unit_b1_1,
-                self.mhd_equil.unit_b1_2,
-                self.mhd_equil.unit_b1_3,
+                self.equil.unit_b1_1,
+                self.equil.unit_b1_2,
+                self.equil.unit_b1_3,
             ]
         )
 
         self._unit_b2 = self.derham.P["2"](
             [
-                self.mhd_equil.unit_b2_1,
-                self.mhd_equil.unit_b2_2,
-                self.mhd_equil.unit_b2_3,
+                self.equil.unit_b2_1,
+                self.equil.unit_b2_2,
+                self.equil.unit_b2_3,
             ]
         )
 
         self._gradB1 = self.derham.P["1"](
             [
-                self.mhd_equil.gradB1_1,
-                self.mhd_equil.gradB1_2,
-                self.mhd_equil.gradB1_3,
+                self.equil.gradB1_1,
+                self.equil.gradB1_2,
+                self.equil.gradB1_3,
             ]
         )
 
         self._curl_unit_b2 = self.derham.P["2"](
             [
-                self.mhd_equil.curl_unit_b2_1,
-                self.mhd_equil.curl_unit_b2_2,
-                self.mhd_equil.curl_unit_b2_3,
+                self.equil.curl_unit_b2_1,
+                self.equil.curl_unit_b2_2,
+                self.equil.curl_unit_b2_3,
             ]
         )
 
-        self._p_eq = self.derham.P["3"](self.mhd_equil.p3)
+        self._p_eq = self.derham.P["3"](self.equil.p3)
         self._ones = self._p_eq.space.zeros()
 
         if isinstance(self._ones, PolarVector):
@@ -900,17 +882,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # self._en_fB_lost = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
-        self._tmp_u = self.derham.Vh["2"].zeros()
-        self._tmp_b = self.derham.Vh["2"].zeros()
-
     def update_scalar_quantities(self):
-        self._mass_ops.M2n.dot(self.pointer["mhd_velocity"], out=self._tmp_u)
-        en_U = self.pointer["mhd_velocity"].dot(self._tmp_u) / 2
-
-        en_p = self.pointer["mhd_pressure"].dot(self._ones) / (5 / 3 - 1)
-
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp_b)
-        en_B = self.pointer["b_field"].dot(self._tmp_b) / 2
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_velocity"], self.pointer["mhd_velocity"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
+        en_p = self.pointer["mhd_pressure"].inner(self._ones) / (5 / 3 - 1)
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_p", en_p)
@@ -964,7 +939,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         if self.derham.comm.Get_rank() == 0:
             print(
                 "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].n_mks * 100,
+                self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
                 "%",
             )
 
@@ -1079,9 +1054,9 @@ class ColdPlasmaVlasov(StruphyModel):
         )
         return dct
 
-    def __init__(self, params, comm, inter_comm=None):
+    def __init__(self, params, comm, clone_config=None):
         # initialize base class
-        super().__init__(params, comm=comm, inter_comm=inter_comm)
+        super().__init__(params, comm=comm, clone_config=clone_config)
 
         from mpi4py.MPI import IN_PLACE, SUM
 
@@ -1103,9 +1078,9 @@ class ColdPlasmaVlasov(StruphyModel):
         # Initialize background magnetic field from MHD equilibrium
         self._b_background = self.derham.P["2"](
             [
-                self.mhd_equil.b2_1,
-                self.mhd_equil.b2_2,
-                self.mhd_equil.b2_3,
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
             ]
         )
 
@@ -1137,8 +1112,8 @@ class ColdPlasmaVlasov(StruphyModel):
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": algo_vxb,
             "kappa": 1.0 / self._epsilon_cold,
-            "b_eq": self._b_background,
-            "b_tilde": self.pointer["b_field"],
+            "b2": self.pointer["b_field"],
+            "b2_add": self._b_background,
         }
 
         self._kwargs[propagators_coupling.VlasovAmpere] = {
@@ -1162,8 +1137,6 @@ class ColdPlasmaVlasov(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._tmp1 = self.pointer["e_field"].space.zeros()
-        self._tmp2 = self.pointer["b_field"].space.zeros()
         self._tmp = np.empty(1, dtype=float)
 
     def initialize_from_params(self):
@@ -1206,15 +1179,13 @@ class ColdPlasmaVlasov(StruphyModel):
         self.derham.grad.dot(-_phi, out=self.pointer["e_field"])
 
     def update_scalar_quantities(self):
-        self._mass_ops.M1.dot(self.pointer["e_field"], out=self._tmp1)
-        self._mass_ops.M2.dot(self.pointer["b_field"], out=self._tmp2)
-        en_E = 0.5 * self.pointer["e_field"].dot(self._tmp1)
-        en_B = 0.5 * self.pointer["b_field"].dot(self._tmp2)
-        self._mass_ops.M1ninv.dot(
-            self.pointer["cold_electrons_j"],
-            out=self._tmp1,
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
+        en_J = (
+            0.5
+            * self._alpha**2
+            * self.mass_ops.M1ninv.dot_inner(self.pointer["cold_electrons_j"], self.pointer["cold_electrons_j"])
         )
-        en_J = 0.5 * self._alpha**2 * self.pointer["cold_electrons_j"].dot(self._tmp1)
         self.update_scalar("en_E", en_E)
         self.update_scalar("en_B", en_B)
         self.update_scalar("en_J", en_J)
@@ -1225,7 +1196,7 @@ class ColdPlasmaVlasov(StruphyModel):
             * self._alpha**2
             * self._epsilon_hot
             / self._epsilon_cold
-            / (2 * self.pointer["hot_electrons"].n_mks)
+            / (2 * self.pointer["hot_electrons"].Np)
             * np.dot(
                 self.pointer["hot_electrons"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["hot_electrons"].markers_wo_holes[:, 4] ** 2
