@@ -140,8 +140,7 @@ class GVECunit(Spline):
         else:
             assert isinstance(gvec_equil, GVECequilibrium)
 
-        # use the params setter
-        self.params = self.params = copy.deepcopy(locals())
+        # do not set params here because of a pickling error
 
         Nel = gvec_equil.params["Nel"]
         p =gvec_equil.params["p"]
@@ -434,14 +433,13 @@ class Cuboid(Domain):
                        l3: float =  0.0,
                        r3: float =  1.0,
                        ):
-        
-        self._kind_map = 10
+        self.kind_map = 10
 
         # use params setter
         self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
         # periodicity in eta3-direction and pole at eta1=0
-        self.params_numpy = self.get_params_numpy()
         self.periodic_eta3 = False
         self.pole = False
 
@@ -484,42 +482,22 @@ class Orthogonal(Domain):
                 Lz    : 1. # length in z-direction
     """
 
-    def __init__(self, **params):
-        self._kind_map = 11
+    def __init__(self, 
+                 Lx: float = 2.0, 
+                 Ly: float = 3.0,
+                 alpha: float = 0.1,
+                 Lz: float = 6.0,):
+        self.kind_map = 11
 
-        # set default parameters and remove wrong/not needed keys
-        params_default = {"Lx": 2.0, "Ly": 3.0, "alpha": 0.1, "Lz": 6.0}
-
-        self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params,
-            params_default,
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
         # periodicity in eta3-direction and pole at eta1=0
-        self._periodic_eta3 = False
-        self._pole = False
+        self.periodic_eta3 = False
+        self.pole = False
 
         super().__init__()
-
-    @property
-    def kind_map(self):
-        return self._kind_map
-
-    @property
-    def params_map(self):
-        return self._params_map
-
-    @property
-    def params_numpy(self):
-        return self._params_numpy
-
-    @property
-    def pole(self):
-        return self._pole
-
-    @property
-    def periodic_eta3(self):
-        return self._periodic_eta3
 
 
 class Colella(Domain):
@@ -558,42 +536,21 @@ class Colella(Domain):
                 Lz    : 1. # length in third direction
     """
 
-    def __init__(self, **params):
-        self._kind_map = 12
+    def __init__(self, Lx: float = 2.0,
+                 Ly: float = 3.0,
+                 alpha: float = 0.1,
+                 Lz: float = 6.0,):
+        self.kind_map = 12
 
-        # set default parameters and remove wrong/not needed keys
-        params_default = {"Lx": 2.0, "Ly": 3.0, "alpha": 0.1, "Lz": 6.0}
-
-        self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params,
-            params_default,
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
         # periodicity in eta3-direction and pole at eta1=0
-        self._periodic_eta3 = False
-        self._pole = False
+        self.periodic_eta3 = False
+        self.pole = False
 
         super().__init__()
-
-    @property
-    def kind_map(self):
-        return self._kind_map
-
-    @property
-    def params_map(self):
-        return self._params_map
-
-    @property
-    def params_numpy(self):
-        return self._params_numpy
-
-    @property
-    def pole(self):
-        return self._pole
-
-    @property
-    def periodic_eta3(self):
-        return self._periodic_eta3
 
 
 class HollowCylinder(Domain):
@@ -639,44 +596,21 @@ class HollowCylinder(Domain):
         Lz: float = 4.0,
         poc: int = 1,
     ):
-        self._kind_map = 20
+        self.kind_map = 20
 
-        self._params_map, self._params_numpy = Domain.get_params_numpy(
-            a1=a1,
-            a2=a2,
-            Lz=Lz,
-            poc=float(poc),
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
         # periodicity in eta3-direction and pole at eta1=0
-        self._periodic_eta3 = False
+        self.periodic_eta3 = False
 
-        if self.params_map["a1"] == 0.0:
-            self._pole = True
+        if a1 == 0.0:
+            self.pole = True
         else:
-            self._pole = False
+            self.pole = False
 
         super().__init__()
-
-    @property
-    def kind_map(self):
-        return self._kind_map
-
-    @property
-    def params_map(self):
-        return self._params_map
-
-    @property
-    def params_numpy(self):
-        return self._params_numpy
-
-    @property
-    def pole(self):
-        return self._pole
-
-    @property
-    def periodic_eta3(self):
-        return self._periodic_eta3
 
 
 class PoweredEllipticCylinder(Domain):
@@ -715,42 +649,21 @@ class PoweredEllipticCylinder(Domain):
                 s  : .5 # power of radial coordinate
     """
 
-    def __init__(self, **params):
-        self._kind_map = 21
+    def __init__(self, rx: float = 1.0,
+                 ry: float = 2.0,
+                 Lz: float = 6.0,
+                 s: float = 0.5,):
+        self.kind_map = 21
 
-        # set default parameters and remove wrong/not needed keys
-        params_default = {"rx": 1.0, "ry": 2.0, "Lz": 6.0, "s": 0.5}
-
-        self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params,
-            params_default,
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
         # periodicity in eta3-direction and pole at eta1=0
-        self._periodic_eta3 = False
-        self._pole = True
+        self.periodic_eta3 = False
+        self.pole = True
 
         super().__init__()
-
-    @property
-    def kind_map(self):
-        return self._kind_map
-
-    @property
-    def params_map(self):
-        return self._params_map
-
-    @property
-    def params_numpy(self):
-        return self._params_numpy
-
-    @property
-    def pole(self):
-        return self._pole
-
-    @property
-    def periodic_eta3(self):
-        return self._periodic_eta3
 
 
 class HollowTorus(Domain):
@@ -808,81 +721,51 @@ class HollowTorus(Domain):
                 tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
     """
 
-    def __init__(self, **params):
-        self._kind_map = 22
+    def __init__(self, a1: float = 0.1,
+            a2: float = 1.0,
+            R0: float = 3.0,
+            sfl: bool = False,
+            pol_period: int = 1,
+            tor_period: int = 3,):
+        self.kind_map = 22
 
-        # set default parameters and remove wrong/not needed keys
-        params_default = {
-            "a1": 0.1,
-            "a2": 1.0,
-            "R0": 3.0,
-            "sfl": False,
-            "pol_period": 1,
-            "tor_period": 3,
-        }
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
-        self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params,
-            params_default,
-        )
+        assert a2 <= R0, (f"The minor radius must be smaller or equal than the major radius! {a2 = }, {R0 = }")
 
-        assert self.params_map["a2"] <= self.params_map["R0"], (
-            f"The minor radius must be smaller or equal than the major radius! {self.params_map['a2']=}, {self.params_map['R0']=}"
-        )
-
-        if self.params_map["sfl"]:
-            assert self.params_map["pol_period"] == 1, (
-                f"Piece-of-cake is only implemented for torus coordinates, not for straight field line coordinates!"
-            )
+        if sfl:
+            assert pol_period == 1, (f"Piece-of-cake is only implemented for torus coordinates, not for straight field line coordinates!")
 
         # periodicity in eta3-direction and pole at eta1=0
-        self._periodic_eta3 = True
+        self.periodic_eta3 = True
 
-        if self.params_map["a1"] == 0.0:
-            self._pole = True
+        if a1 == 0.0:
+            self.pole = True
         else:
-            self._pole = False
+            self.pole = False
 
         super().__init__()
-
-    @property
-    def kind_map(self):
-        return self._kind_map
-
-    @property
-    def params_map(self):
-        return self._params_map
-
-    @property
-    def params_numpy(self):
-        return self._params_numpy
-
-    @property
-    def pole(self):
-        return self._pole
-
-    @property
-    def periodic_eta3(self):
-        return self._periodic_eta3
 
     def inverse_map(self, x, y, z, bounded=True, change_out_order=False):
         """Analytical inverse map of HollowTorus"""
 
-        mr = np.sqrt(x**2 + y**2) - self.params_map["R0"]
+        mr = np.sqrt(x**2 + y**2) - self.params["R0"]
 
         eta3 = (
             np.arctan2(-y, x)
-            % (2 * np.pi / self.params_map["tor_period"])
+            % (2 * np.pi / self.params["tor_period"])
             / (2 * np.pi)
-            * self.params_map["tor_period"]
+            * self.params["tor_period"]
         )
         eta2 = (
             np.arctan2(z, mr)
-            % (2 * np.pi / self.params_map["pol_period"])
-            / (2 * np.pi / self.params_map["pol_period"])
+            % (2 * np.pi / self.params["pol_period"])
+            / (2 * np.pi / self.params["pol_period"])
         )
-        eta1 = (z / np.sin(2 * np.pi * eta2 / self.params_map["pol_period"]) - self.params_map["a1"]) / (
-            self.params_map["a2"] - self.params_map["a1"]
+        eta1 = (z / np.sin(2 * np.pi * eta2 / self.params["pol_period"]) - self.params["a1"]) / (
+            self.params["a2"] - self.params["a1"]
         )
 
         if bounded:
@@ -936,42 +819,21 @@ class ShafranovShiftCylinder(Domain):
                 delta : .2 # shift factor, should be in [0, 0.1]
     """
 
-    def __init__(self, **params):
-        self._kind_map = 30
+    def __init__(self, rx: float = 1.0, 
+                 ry: float = 1.0,
+                 Lz: float = 4.0,
+                 delta: float = 0.2,):
+        self.kind_map = 30
 
-        # set default parameters and remove wrong/not needed keys
-        params_default = {"rx": 1.0, "ry": 1.0, "Lz": 4.0, "delta": 0.2}
-
-        self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params,
-            params_default,
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
         # periodicity in eta3-direction and pole at eta1=0
-        self._periodic_eta3 = False
-        self._pole = True
+        self.periodic_eta3 = False
+        self.pole = True
 
         super().__init__()
-
-    @property
-    def kind_map(self):
-        return self._kind_map
-
-    @property
-    def params_map(self):
-        return self._params_map
-
-    @property
-    def params_numpy(self):
-        return self._params_numpy
-
-    @property
-    def pole(self):
-        return self._pole
-
-    @property
-    def periodic_eta3(self):
-        return self._periodic_eta3
 
 
 class ShafranovSqrtCylinder(Domain):
@@ -1010,42 +872,21 @@ class ShafranovSqrtCylinder(Domain):
                 delta : .2 # shift factor, should be in [0, 0.1]
     """
 
-    def __init__(self, **params):
-        self._kind_map = 31
+    def __init__(self, rx: float = 1.0, 
+                 ry: float = 1.0,
+                 Lz: float = 4.0,
+                 delta: float = 0.2,):
+        self.kind_map = 31
 
-        # set default parameters and remove wrong/not needed keys
-        params_default = {"rx": 1.0, "ry": 1.0, "Lz": 4.0, "delta": 0.2}
-
-        self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params,
-            params_default,
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
         # periodicity in eta3-direction and pole at eta1=0
-        self._periodic_eta3 = False
-        self._pole = True
+        self.periodic_eta3 = False
+        self.pole = True
 
         super().__init__()
-
-    @property
-    def kind_map(self):
-        return self._kind_map
-
-    @property
-    def params_map(self):
-        return self._params_map
-
-    @property
-    def params_numpy(self):
-        return self._params_numpy
-
-    @property
-    def pole(self):
-        return self._pole
-
-    @property
-    def periodic_eta3(self):
-        return self._periodic_eta3
 
 
 class ShafranovDshapedCylinder(Domain):
@@ -1093,47 +934,21 @@ class ShafranovDshapedCylinder(Domain):
                 kappa_gs   : 2. # Kappa: ellipticity (elongation)
     """
 
-    def __init__(self, **params):
-        self._kind_map = 32
+    def __init__(self, R0: float = 2.0,
+            Lz: float = 3.0,
+            delta_x: float = 0.1,
+            delta_y: float = 0.0,
+            delta_gs: float = 0.33,
+            epsilon_gs: float = 0.32,
+            kappa_gs: float = 1.7,):
+        self.kind_map = 32
 
-        # set default parameters and remove wrong/not needed keys
-        params_default = {
-            "R0": 2.0,
-            "Lz": 3.0,
-            "delta_x": 0.1,
-            "delta_y": 0.0,
-            "delta_gs": 0.33,
-            "epsilon_gs": 0.32,
-            "kappa_gs": 1.7,
-        }
-
-        self._params_map, self._params_numpy = Domain.prepare_params_map(
-            params,
-            params_default,
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
         # periodicity in eta3-direction and pole at eta1=0
-        self._periodic_eta3 = False
-        self._pole = True
+        self.periodic_eta3 = False
+        self.pole = True
 
         super().__init__()
-
-    @property
-    def kind_map(self):
-        return self._kind_map
-
-    @property
-    def params_map(self):
-        return self._params_map
-
-    @property
-    def params_numpy(self):
-        return self._params_numpy
-
-    @property
-    def pole(self):
-        return self._pole
-
-    @property
-    def periodic_eta3(self):
-        return self._periodic_eta3

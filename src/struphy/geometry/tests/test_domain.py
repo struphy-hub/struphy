@@ -160,6 +160,7 @@ def test_evaluation_mappings(mapping):
 
     import numpy as np
 
+    from struphy.geometry.base import Domain
     from struphy.geometry import domains
 
     # arrays:
@@ -176,8 +177,9 @@ def test_evaluation_mappings(mapping):
     print()
     print("Domain object set.")
 
+    assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params_map :", domain.params_map)
+    print("domain's params_map :", domain.params)
 
     # point-wise evaluation:
     print("pointwise evaluation, shape:", domain(0.5, 0.5, 0.5, squeeze_out=True).shape)
@@ -318,6 +320,7 @@ def test_pullback():
 
     import numpy as np
 
+    from struphy.geometry.base import Domain
     from struphy.geometry import domains
 
     # arrays:
@@ -339,8 +342,9 @@ def test_pullback():
     print()
     print("Domain object set.")
 
+    assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params_map :", domain.params_map)
+    print("domain's params_map :", domain.params)
 
     for p_str in domain.dict_transformations["pull"]:
         print("component:", p_str)
@@ -476,6 +480,7 @@ def test_pushforward():
 
     import numpy as np
 
+    from struphy.geometry.base import Domain
     from struphy.geometry import domains
 
     # arrays:
@@ -497,8 +502,9 @@ def test_pushforward():
     print()
     print("Domain object set.")
 
+    assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params_map :", domain.params_map)
+    print("domain's params_map :", domain.params)
 
     for p_str in domain.dict_transformations["push"]:
         print("component:", p_str)
@@ -634,6 +640,7 @@ def test_transform():
 
     import numpy as np
 
+    from struphy.geometry.base import Domain
     from struphy.geometry import domains
 
     # arrays:
@@ -655,8 +662,9 @@ def test_transform():
     print()
     print("Domain object set.")
 
+    assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params_map :", domain.params_map)
+    print("domain's params_map :", domain.params)
 
     for p_str in domain.dict_transformations["tran"]:
         print("component:", p_str)
@@ -832,7 +840,7 @@ def test_transform():
 #    print('Domain object set.')
 #
 #    print('domain\'s kind_map   :', domain.kind_map)
-#    print('domain\'s params_map :', domain.params_map)
+#    print('domain\'s params_map :', domain.params)
 #
 #    for p_str in domain.keys_transform:
 #
@@ -913,7 +921,7 @@ def test_transform():
 
 if __name__ == "__main__":
     test_prepare_arg()
-    test_evaluation_mappings("Cuboid")
+    test_evaluation_mappings("GVECunit")
     test_pullback()
     test_pushforward()
     test_transform()
