@@ -141,8 +141,7 @@ class GVECunit(Spline):
         else:
             assert isinstance(gvec_equil, GVECequilibrium)
 
-        # use the params setter
-        self.params = self.params = copy.deepcopy(locals())
+        # do not set params here because of a pickling error
 
         Nel = gvec_equil.params["Nel"]
         p =gvec_equil.params["p"]
@@ -421,14 +420,13 @@ class Cuboid(Domain):
                        l3: float =  0.0,
                        r3: float =  1.0,
                        ):
-        
-        self._kind_map = 10
+        self.kind_map = 10
 
         # use params setter
         self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
         # periodicity in eta3-direction and pole at eta1=0
-        self.params_numpy = self.get_params_numpy()
         self.periodic_eta3 = False
         self.pole = False
 
@@ -471,13 +469,11 @@ class Orthogonal(Domain):
                 Lz    : 1. # length in z-direction
     """
 
-    def __init__(
-        self,
-        Lx: float = 2.0,
-        Ly: float = 3.0,
-        alpha: float = 0.1,
-        Lz: float = 6.0,
-    ):
+    def __init__(self, 
+                 Lx: float = 2.0, 
+                 Ly: float = 3.0,
+                 alpha: float = 0.1,
+                 Lz: float = 6.0,):
         self.kind_map = 11
 
         # use params setter
@@ -527,13 +523,10 @@ class Colella(Domain):
                 Lz    : 1. # length in third direction
     """
 
-    def __init__(
-        self,
-        Lx: float = 2.0,
-        Ly: float = 3.0,
-        alpha: float = 0.1,
-        Lz: float = 6.0,
-    ):
+    def __init__(self, Lx: float = 2.0,
+                 Ly: float = 3.0,
+                 alpha: float = 0.1,
+                 Lz: float = 6.0,):
         self.kind_map = 12
 
         # use params setter
@@ -592,12 +585,9 @@ class HollowCylinder(Domain):
     ):
         self.kind_map = 20
 
-        self._params_map, self._params_numpy = Domain.get_params_numpy(
-            a1=a1,
-            a2=a2,
-            Lz=Lz,
-            poc=float(poc),
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
+        self.params_numpy = self.get_params_numpy()
 
         # periodicity in eta3-direction and pole at eta1=0
         self.periodic_eta3 = False
@@ -646,13 +636,10 @@ class PoweredEllipticCylinder(Domain):
                 s  : .5 # power of radial coordinate
     """
 
-    def __init__(
-        self,
-        rx: float = 1.0,
-        ry: float = 2.0,
-        Lz: float = 6.0,
-        s: float = 0.5,
-    ):
+    def __init__(self, rx: float = 1.0,
+                 ry: float = 2.0,
+                 Lz: float = 6.0,
+                 s: float = 0.5,):
         self.kind_map = 21
 
         # use params setter
@@ -721,27 +708,22 @@ class HollowTorus(Domain):
                 tor_period : 2 # toroidal periodicity built into the mapping: phi = 2*pi * eta3 / tor_period
     """
 
-    def __init__(
-        self,
-        a1: float = 0.1,
-        a2: float = 1.0,
-        R0: float = 3.0,
-        sfl: bool = False,
-        pol_period: int = 1,
-        tor_period: int = 3,
-    ):
+    def __init__(self, a1: float = 0.1,
+            a2: float = 1.0,
+            R0: float = 3.0,
+            sfl: bool = False,
+            pol_period: int = 1,
+            tor_period: int = 3,):
         self.kind_map = 22
 
         # use params setter
         self.params = copy.deepcopy(locals())
         self.params_numpy = self.get_params_numpy()
 
-        assert a2 <= R0, f"The minor radius must be smaller or equal than the major radius! {a2 = }, {R0 = }"
+        assert a2 <= R0, (f"The minor radius must be smaller or equal than the major radius! {a2 = }, {R0 = }")
 
         if sfl:
-            assert pol_period == 1, (
-                f"Piece-of-cake is only implemented for torus coordinates, not for straight field line coordinates!"
-            )
+            assert pol_period == 1, (f"Piece-of-cake is only implemented for torus coordinates, not for straight field line coordinates!")
 
         # periodicity in eta3-direction and pole at eta1=0
         self.periodic_eta3 = True
@@ -758,8 +740,17 @@ class HollowTorus(Domain):
 
         mr = np.sqrt(x**2 + y**2) - self.params["R0"]
 
-        eta3 = np.arctan2(-y, x) % (2 * np.pi / self.params["tor_period"]) / (2 * np.pi) * self.params["tor_period"]
-        eta2 = np.arctan2(z, mr) % (2 * np.pi / self.params["pol_period"]) / (2 * np.pi / self.params["pol_period"])
+        eta3 = (
+            np.arctan2(-y, x)
+            % (2 * np.pi / self.params["tor_period"])
+            / (2 * np.pi)
+            * self.params["tor_period"]
+        )
+        eta2 = (
+            np.arctan2(z, mr)
+            % (2 * np.pi / self.params["pol_period"])
+            / (2 * np.pi / self.params["pol_period"])
+        )
         eta1 = (z / np.sin(2 * np.pi * eta2 / self.params["pol_period"]) - self.params["a1"]) / (
             self.params["a2"] - self.params["a1"]
         )
@@ -815,13 +806,10 @@ class ShafranovShiftCylinder(Domain):
                 delta : .2 # shift factor, should be in [0, 0.1]
     """
 
-    def __init__(
-        self,
-        rx: float = 1.0,
-        ry: float = 1.0,
-        Lz: float = 4.0,
-        delta: float = 0.2,
-    ):
+    def __init__(self, rx: float = 1.0, 
+                 ry: float = 1.0,
+                 Lz: float = 4.0,
+                 delta: float = 0.2,):
         self.kind_map = 30
 
         # use params setter
@@ -871,13 +859,10 @@ class ShafranovSqrtCylinder(Domain):
                 delta : .2 # shift factor, should be in [0, 0.1]
     """
 
-    def __init__(
-        self,
-        rx: float = 1.0,
-        ry: float = 1.0,
-        Lz: float = 4.0,
-        delta: float = 0.2,
-    ):
+    def __init__(self, rx: float = 1.0, 
+                 ry: float = 1.0,
+                 Lz: float = 4.0,
+                 delta: float = 0.2,):
         self.kind_map = 31
 
         # use params setter
@@ -936,16 +921,13 @@ class ShafranovDshapedCylinder(Domain):
                 kappa_gs   : 2. # Kappa: ellipticity (elongation)
     """
 
-    def __init__(
-        self,
-        R0: float = 2.0,
-        Lz: float = 3.0,
-        delta_x: float = 0.1,
-        delta_y: float = 0.0,
-        delta_gs: float = 0.33,
-        epsilon_gs: float = 0.32,
-        kappa_gs: float = 1.7,
-    ):
+    def __init__(self, R0: float = 2.0,
+            Lz: float = 3.0,
+            delta_x: float = 0.1,
+            delta_y: float = 0.0,
+            delta_gs: float = 0.33,
+            epsilon_gs: float = 0.32,
+            kappa_gs: float = 1.7,):
         self.kind_map = 32
 
         # use params setter

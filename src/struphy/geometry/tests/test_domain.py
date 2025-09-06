@@ -158,6 +158,9 @@ def test_prepare_arg():
 def test_evaluation_mappings(mapping):
     """Tests domain object creation with default parameters and evaluation of metric coefficients."""
 
+    import numpy as np
+
+    from struphy.geometry.base import Domain
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
     from struphy.utils.arrays import xp as np
@@ -178,7 +181,7 @@ def test_evaluation_mappings(mapping):
 
     assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params :", domain.params)
+    print("domain's params_map :", domain.params)
 
     # point-wise evaluation:
     print("pointwise evaluation, shape:", domain(0.5, 0.5, 0.5, squeeze_out=True).shape)
@@ -317,6 +320,9 @@ def test_evaluation_mappings(mapping):
 def test_pullback():
     """Tests pullbacks to p-forms."""
 
+    import numpy as np
+
+    from struphy.geometry.base import Domain
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
     from struphy.utils.arrays import xp as np
@@ -342,7 +348,7 @@ def test_pullback():
 
     assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params :", domain.params)
+    print("domain's params_map :", domain.params)
 
     for p_str in domain.dict_transformations["pull"]:
         print("component:", p_str)
@@ -476,6 +482,9 @@ def test_pullback():
 def test_pushforward():
     """Tests pushforward of p-forms."""
 
+    import numpy as np
+
+    from struphy.geometry.base import Domain
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
     from struphy.utils.arrays import xp as np
@@ -501,7 +510,7 @@ def test_pushforward():
 
     assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params :", domain.params)
+    print("domain's params_map :", domain.params)
 
     for p_str in domain.dict_transformations["push"]:
         print("component:", p_str)
@@ -635,6 +644,9 @@ def test_pushforward():
 def test_transform():
     """Tests transformation of p-forms."""
 
+    import numpy as np
+
+    from struphy.geometry.base import Domain
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
     from struphy.utils.arrays import xp as np
@@ -660,7 +672,7 @@ def test_transform():
 
     assert isinstance(domain, Domain)
     print("domain's kind_map   :", domain.kind_map)
-    print("domain's params :", domain.params)
+    print("domain's params_map :", domain.params)
 
     for p_str in domain.dict_transformations["tran"]:
         print("component:", p_str)
@@ -836,7 +848,7 @@ def test_transform():
 #    print('Domain object set.')
 #
 #    print('domain\'s kind_map   :', domain.kind_map)
-#    print('domain\'s params :', domain.params)
+#    print('domain\'s params_map :', domain.params)
 #
 #    for p_str in domain.keys_transform:
 #
@@ -916,8 +928,8 @@ def test_transform():
 
 
 if __name__ == "__main__":
-    # test_prepare_arg()
-    test_evaluation_mappings("DESCunit")
-    # test_pullback()
-    # test_pushforward()
-    # test_transform()
+    test_prepare_arg()
+    test_evaluation_mappings("GVECunit")
+    test_pullback()
+    test_pushforward()
+    test_transform()
