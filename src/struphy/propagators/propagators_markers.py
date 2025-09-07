@@ -250,6 +250,7 @@ class PushVinEfield(Propagator):
             dct = descend_options_dict(dct, [])
         return dct
 
+
     def __init__(
         self,
         particles: Particles6D | ParticlesSPH,

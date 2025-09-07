@@ -1430,5 +1430,7 @@ if __name__ == "__main__":
 # struphy run Vlasov --time-trace  -o struphy_parallel_8_5mln --mpi 8 | tee struphy_parallel_8_5mln.txt
 # struphy pproc struphy_parallel_8_5mln --time-trace
 
+# struphy profile --replace amrex_parallel_1_9000000_5 amrex_parallel_2_9000000_5 amrex_parallel_4_9000000_5 amrex_parallel_8_9000000_5 amrex_parallel_16_9000000_5
+# struphy profile --replace struphy_parallel_1_9000000_5 struphy_parallel_2_9000000_5 struphy_parallel_4_9000000_5 struphy_parallel_8_9000000_5 struphy_parallel_16_9000000_5
 
 # struphy run Vlasov --time-trace  -o struphy_parallel_8_5mln --mpi 8 | tee struphy_parallel_8_5mln.txt
