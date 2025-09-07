@@ -1217,25 +1217,28 @@ class Particles(metaclass=ABCMeta):
         ba.max_size(SINGLE_CELL_SIZE)  # max size of a rectangular domain, results in auto-chopping
 
         assert ba.size == np.prod(self._nprocs)
-        
+
         amrex_domain_array = []
-        
+
         for i in range(ba.size):
-            low = [float(val)/(TOTAL_SIZE[i]+1) for i, val in enumerate(ba.get(i).lo_vect)]
-            high = [(float(val)+1)/(TOTAL_SIZE[i]+1) for i, val in enumerate(ba.get(i).hi_vect)]
+            low = [float(val) / (TOTAL_SIZE[i] + 1) for i, val in enumerate(ba.get(i).lo_vect)]
+            high = [(float(val) + 1) / (TOTAL_SIZE[i] + 1) for i, val in enumerate(ba.get(i).hi_vect)]
             amrex_domain_array.append(np.array([low, high]))
-                
+
         struphy_domain_array = []
-        
+
         for division in self._domain_array:
             low = [division[0], division[3], division[6]]
             high = [division[1], division[4], division[7]]
             struphy_domain_array.append(np.array([low, high]))
 
-        distribution_mapping_array = amr.Vector_int(np.argmin([np.linalg.norm(division-target) for target in struphy_domain_array])for division in amrex_domain_array)
+        distribution_mapping_array = amr.Vector_int(
+            np.argmin([np.linalg.norm(division - target) for target in struphy_domain_array])
+            for division in amrex_domain_array
+        )
 
         dm = amr.DistributionMapping(distribution_mapping_array)
-        
+
         # Geometry contains all information regarding domain, coordinates, periodicity
         gm = amr.Geometry(big_box, rb, coord_int, periodicity)
 
@@ -2471,29 +2474,15 @@ class Particles(metaclass=ABCMeta):
                 outside_right_inds = np.nonzero(is_outside_right)[0]
                 outside_left_inds = np.nonzero(is_outside_left)[0]
 
-                # TODO (Mati) fix this
-                # if newton:
-                #     self.markers[
-                #         outside_right_inds,
-                #         self.first_pusher_idx + 3 + self.vdim + axis,
-                #     ] += 1.0
-                #     self.markers[
-                #         outside_left_inds,
-                #         self.first_pusher_idx + 3 + self.vdim + axis,
-                #     ] += -1.0
-                # else:
-                #     self.markers[
-                #         :,
-                #         self.first_pusher_idx + 3 + self.vdim + axis,
-                #     ] = 0.0
-                #     self.markers[
-                #         outside_right_inds,
-                #         self.first_pusher_idx + 3 + self.vdim + axis,
-                #     ] = 1.0
-                #     self.markers[
-                #         outside_left_inds,
-                #         self.first_pusher_idx + 3 + self.vdim + axis,
-                #     ] = -1.0
+                if newton:
+                    markers_array["real_comp3"][outside_right_inds] = (
+                        markers_array["real_comp3"][outside_right_inds] + 1
+                    )
+                    markers_array["real_comp3"][outside_left_inds] = markers_array["real_comp3"][outside_left_inds] - 1
+                else:
+                    markers_array["real_comp3"][:] = 0.0
+                    markers_array["real_comp3"][outside_right_inds] = 1.0
+                    markers_array["real_comp3"][outside_left_inds] = -1.0
 
             # put all coordinate inside the unit cube (avoid wrong Jacobian evaluations)
             outside_inds_per_axis = {}
