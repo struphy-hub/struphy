@@ -252,7 +252,7 @@ def main(
 
         # perform one time step dt
         t0 = time.time()
-        with ProfileManager.profile_region("model.integrate"):  # TODO (Mati) check ProfileManager
+        with ProfileManager.profile_region("model.integrate"):
             model.integrate(time_params["dt"], time_params["split_algo"])
         t1 = time.time()
 
