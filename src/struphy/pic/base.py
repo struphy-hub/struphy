@@ -2459,10 +2459,11 @@ class Particles(metaclass=ABCMeta):
         for pti in self._markers.iterator(self._markers, 0):
             markers_array = self.get_amrex_markers_array(pti.soa())
 
-            # remove feature not yet implemented
+            # remove bc not yet implemented
             for axis in self._remove_axes:
                 raise NotImplementedError("Given bc_type is not implemented!")
 
+            # periodic bc
             for axis in self._periodic_axes:
                 is_outside_left, is_outside_right, outside_inds = self._find_amrex_outside_particles(
                     markers_array, axis
@@ -2499,6 +2500,7 @@ class Particles(metaclass=ABCMeta):
                 markers_array[axis][is_outside_left] = 1e-4
                 markers_array[axis][is_outside_right] = 1 - 1e-4
 
+            # reflect bc
             for axis in self._reflect_axes:
                 if len(outside_inds_per_axis[axis]) == 0:
                     continue
