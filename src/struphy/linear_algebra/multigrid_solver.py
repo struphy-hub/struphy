@@ -3,6 +3,7 @@ import time
 import matplotlib.pyplot as plt
 import numpy as np
 from mpi4py import MPI
+import re
 
 from struphy.bsplines.bsplines import basis_funs, find_span
 from struphy.bsplines.evaluation_kernels_1d import evaluation_kernel_1d
@@ -20,10 +21,64 @@ from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from struphy.feec.mass import WeightedMassOperators
 from struphy.geometry.domains import Tokamak, Cuboid, HollowCylinder
-from struphy.fields_background.mhd_equil.equils import AdhocTorusQPsi
 from math import comb, log2
 import random
 from struphy.feec.utilities import create_equal_random_arrays
+
+def build_operator(expr: str, namespace: dict):
+    """
+    Build a composite LinOpWithTransp (or scalar * LinOpWithTransp expression) 
+    from a string expression.
+
+    Parameters
+    ----------
+    expr : str
+        String expression defining the operator composition. 
+        Example:
+            "epsilon * curl.T @ M2 @ curl + mu * M1"
+        
+        The expression can contain:
+            - scalars (e.g., epsilon, mu, ...)
+            - LinOpWithTransp objects (already supporting +, -, *, @)
+            - parentheses to control precedence
+
+    namespace : dict
+        Dictionary mapping symbol names in `expr` to actual Python objects 
+        (scalars, operators, lists, etc.).
+        Example:
+            {
+                "epsilon": 1.3,
+                "mu": 0.7,
+                "curl.T": derham.curl.T,
+                "curl": derham.curl,
+                "M1": WeightedMassOperators(derham, domain).M1,
+                "M2": WeightedMassOperators(derham, domain).M2,
+            }
+
+    Returns
+    -------
+    LinOpWithTransp
+        A composite operator built according to the expression. The returned 
+        object supports `.dot(v)` and any other functionality of LinOpWithTransp.
+
+    Raises
+    ------
+    ValueError
+        If some symbols in the expression are not found in `namespace`.
+    """
+
+    # Find all potential variable-like tokens (ignore numbers)
+    tokens = set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*", expr))
+    
+    missing = tokens - set(namespace.keys())
+
+    if missing:
+        raise ValueError(
+            f"The following symbols are missing from the namespace: {', '.join(sorted(missing))}"
+        )
+
+    # Let Python evaluate the expression with operator overloads
+    return eval(expr, {}, namespace)
 
 def remove_padding(fem_space, v):
     
@@ -152,13 +207,15 @@ def get_b_spline_degree(V):
 
 
 class MultiGridSolver:
-    
-    def __init__(self, Nel, plist, spl_kind, N_levels, domain):
+
+    def __init__(self, sp_key, Nel, plist, spl_kind, N_levels, domain, expr: str, namespace: dict):
         """
         
         Initialize the multigrid solver with the given parameters.
         Parameters
         ----------
+        sp_key : str
+            Symbolic space key, e.g., "0", "1", "2", "3".
         Nel : list of int
             Number of elements in each direction.
         plist : list of int
@@ -170,12 +227,37 @@ class MultiGridSolver:
         domain : struphy.geometry.base.Domain
             The Geometric domain of the simulation.
             
+        expr : str
+            String expression defining the operator composition. 
+            Example:
+                "epsilon * curl.T @ M2 @ curl + mu * M1"
+            
+            The expression can contain:
+                - scalars (e.g., epsilon, mu, ...)
+                - LinOpWithTransp objects (already supporting +, -, *, @)
+                - parentheses to control precedence
+
+        namespace : dict
+            Dictionary mapping symbol names in `expr` to actual Python objects 
+            (scalars, operators, lists, etc.).
+            Example:
+                {
+                    "epsilon": 1.3,
+                    "mu": 0.7,
+                    "curl.T": derham.curl.T,
+                    "M1": WeightedMassOperators(derham, domain).M1,
+                    "M2": WeightedMassOperators(derham, domain).M2,
+            }
+            
         """
+        self.sp_key = sp_key
         self.Nel = Nel
         self.plist = plist
         self.spl_kind = spl_kind
         self.N_levels = N_levels
         self.domain = domain
+        self.expr = expr
+        self.namespace = namespace
         
     class RestrictionOperator(LinOpWithTransp):
         """
@@ -203,6 +285,8 @@ class MultiGridSolver:
 
             self._V = V
             self._W = W
+            
+            print(vars(V))
             
             # Store info in object
             self._domain   = V.vector_space
@@ -783,18 +867,18 @@ class MultiGridSolver:
     def solve(self, b):
         # get global communicator
         comm = MPI.COMM_WORLD
-        sp_key = '0'
         
-        derham = []
-        mass_ops = []
+        derhamlist = []
         A = []
         
-        epsilon = 0.0002
         for level in range(self.N_levels):
-            derham.append(Derham([self.Nel[0]//(2**level),self.Nel[1]//(2**level),self.Nel[2]], self.plist, self.spl_kind, comm=comm, local_projectors=False))
-            mass_ops.append(WeightedMassOperators(derham[level], self.domain))
-            A.append(derham[level].grad.T @ mass_ops[level].M1 @ derham[level].grad)
-            #A.append(epsilon*derham[level].curl.T @ mass_ops[level].M2 @ derham[level].curl + mass_ops[level].M1)
+            derhamlist.append(Derham([self.Nel[0]//(2**level),self.Nel[1],self.Nel[2]], self.plist, self.spl_kind, comm=comm, local_projectors=False))
+            #It might look like we are not using derham but it is being used by updated_namespace 
+            #for rebounding the expressions in self.expr to the correct derham level.
+            derham = derhamlist[level]
+            updated_namespace = {k: v for k, v in self.namespace.items()}
+            A.append(build_operator(self.expr, updated_namespace))
+        
         
         #We get the inverse of the coarsest system matrix to solve directly the problem in the smaller space
         A_inv = np.linalg.inv(A[-1].toarray())
@@ -803,7 +887,7 @@ class MultiGridSolver:
         E = []
         
         for level in range(self.N_levels-1):
-            R.append(self.RestrictionOperator(derham[level].Vh_fem[sp_key],derham[level+1].Vh_fem[sp_key]))
+            R.append(self.RestrictionOperator(derhamlist[level].Vh_fem[self.sp_key],derhamlist[level+1].Vh_fem[self.sp_key]))
             E.append(R[level].transpose())
             
         method = 'cg'
@@ -813,39 +897,7 @@ class MultiGridSolver:
         #40
         N_cycles = 2
         
-        u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
-        #We compute the rhs
-        b = A[0].dot(u_star)
-        
-        timei = time.time()
-        
-        solver_no = inverse(A[0],method, maxiter = 1000000, tol = 10**(-6))
-        
-        u = solver_no.dot(b)
-        
-        timef = time.time()
-        
-        #We get the total number of itterations
-        No_Multigrid_itterations = solver_no._info['niter']
-        No_Multigrid_error = solver_no._info['res_norm']
-        No_Multigrid_time = timef-timei
-        
-        #No_Multigrid_itterations = 35088
-        #No_Multigrid_error = 9.22E-07
-        #No_Multigrid_time = 451.228641271591
-        
-        print("################")
-        print(f'{No_Multigrid_itterations = }')
-        print(f'{No_Multigrid_error = }')
-        print(f'{No_Multigrid_time = }')
-        print("################")
-        
-        
         def call_multigrid(max_iter, N_cycles):
-            u_stararr, u_star = create_equal_random_arrays(derham[0].Vh_fem[sp_key], seed=45)
-            #We compute the rhs
-            b = A[0].dot(u_star)
-            
             #We define a list where to store the number of itteration it takes at each multigrid level
             #Change N_levels for 1D case
             Multigrid_itterations = np.zeros(self.N_levels, dtype=int)
@@ -883,12 +935,11 @@ class MultiGridSolver:
                     
                 else:
                     #Solve directly
-                    x_l = direct_solver(A_inv,r_l, derham[l].Vh_fem[sp_key])
-                    
+                    x_l = direct_solver(A_inv,r_l, derhamlist[l].Vh_fem[self.sp_key])  
                 return x_l 
             
             #N_cycles = 6
-            x_0 = derham[0].Vh_fem[sp_key].vector_space.zeros()
+            x_0 = derhamlist[0].Vh_fem[self.sp_key].vector_space.zeros()
             
             timei = time.time()
             for cycle in range(N_cycles):
@@ -923,9 +974,6 @@ class MultiGridSolver:
             
             Multigrid_time = timef- timei
             
-            speed_up = No_Multigrid_time / Multigrid_time
-            #speed_up = 27.3452200889587 / Multigrid_time
-            
             print("################")
             print("################")
             print("################")
@@ -938,7 +986,35 @@ class MultiGridSolver:
             print(f'{Multigrid_error = }')
             print(f'{Multigrid_time = }')
             print("################")
-            print("################")
-            print(f'{speed_up = }')   
+            print("################")   
             
         call_multigrid(max_iter_list, N_cycles) 
+        
+        
+        
+
+
+if __name__ == "__main__":
+    comm = MPI.COMM_WORLD
+    Nel = [32,1,1]
+    sp_key = '0'
+    plist = [1,1,1]
+    spl_kind = [True,True,True]
+    N_levels = 3
+    domain = Cuboid()
+    derham = Derham([Nel[0],Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False)
+    
+    expr = " grad.T @ M1 @ grad"
+    namespace = {"grad.T": derham.grad.T,
+                'grad': derham.grad,
+                "M1": WeightedMassOperators(derham, domain).M1}
+    A = build_operator(expr, namespace)
+    
+    multigrid = MultiGridSolver( sp_key, Nel, plist, spl_kind, N_levels, domain, expr, namespace)
+    
+    u_stararr, u_star = create_equal_random_arrays(derham.Vh_fem[sp_key], seed=45)
+    
+    
+    #We compute the rhs
+    b = A.dot(u_star)
+    multigrid.solve(b)  

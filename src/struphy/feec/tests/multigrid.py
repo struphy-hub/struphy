@@ -20,7 +20,7 @@ from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from struphy.feec.mass import WeightedMassOperators
 from struphy.geometry.domains import Tokamak, Cuboid, HollowCylinder
-from struphy.fields_background.mhd_equil.equils import AdhocTorusQPsi
+from struphy.fields_background.equils import AdhocTorusQPsi
 from math import comb, log2
 import random
 
@@ -3214,7 +3214,7 @@ if __name__ == '__main__':
     derham = Derham([10,1,1], [1,1,1], [True,True,True], comm=comm, local_projectors=False)
     u_stararr, u_star = create_equal_random_arrays(derham.Vh_fem['0'], seed=45)
     print("################")
-    print(u_star._space)
+    print(vars(u_star._space))
     print("################")
     #for i in range(7,8):
         #Nel = [int(2**i),int(2**i), 1]
