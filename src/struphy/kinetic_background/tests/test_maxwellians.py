@@ -1480,7 +1480,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     energy = 1 / 2 * v_para**2 + mu * absB
 
     # shifted canonical toroidal momentum
-    a1 = mhd_equil.domain.params_map["a1"]
+    a1 = mhd_equil.domain.params["a1"]
     R0 = mhd_equil.params["R0"]
     B0 = mhd_equil.params["B0"]
 

@@ -32,15 +32,9 @@ def get_M0_PRE(tensor_space_FEM, domain):
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M0(
-        lambda eta: (domain.params_map[1] - domain.params_map[0]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[1].assemble_M0(
-        lambda eta: (domain.params_map[3] - domain.params_map[2]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[2].assemble_M0(
-        lambda eta: (domain.params_map[5] - domain.params_map[4]) * np.ones(eta.shape, dtype=float)
-    )
+    spaces_pre[0].assemble_M0(lambda eta: (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
     c_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
 
@@ -69,25 +63,13 @@ def get_M1_PRE(tensor_space_FEM, domain):
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M0(
-        lambda eta: (domain.params_map[1] - domain.params_map[0]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[1].assemble_M0(
-        lambda eta: (domain.params_map[3] - domain.params_map[2]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[2].assemble_M0(
-        lambda eta: (domain.params_map[5] - domain.params_map[4]) * np.ones(eta.shape, dtype=float)
-    )
+    spaces_pre[0].assemble_M0(lambda eta: (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
-    spaces_pre[0].assemble_M1(
-        lambda eta: 1 / (domain.params_map[1] - domain.params_map[0]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[1].assemble_M1(
-        lambda eta: 1 / (domain.params_map[3] - domain.params_map[2]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[2].assemble_M1(
-        lambda eta: 1 / (domain.params_map[5] - domain.params_map[4]) * np.ones(eta.shape, dtype=float)
-    )
+    spaces_pre[0].assemble_M1(lambda eta: 1 / (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M1(lambda eta: 1 / (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M1(lambda eta: 1 / (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
     c11_pre = [spaces_pre[0].M1.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
     c22_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M1.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
@@ -128,25 +110,13 @@ def get_M2_PRE(tensor_space_FEM, domain):
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M0(
-        lambda eta: (domain.params_map[1] - domain.params_map[0]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[1].assemble_M0(
-        lambda eta: (domain.params_map[3] - domain.params_map[2]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[2].assemble_M0(
-        lambda eta: (domain.params_map[5] - domain.params_map[4]) * np.ones(eta.shape, dtype=float)
-    )
+    spaces_pre[0].assemble_M0(lambda eta: (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
-    spaces_pre[0].assemble_M1(
-        lambda eta: 1 / (domain.params_map[1] - domain.params_map[0]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[1].assemble_M1(
-        lambda eta: 1 / (domain.params_map[3] - domain.params_map[2]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[2].assemble_M1(
-        lambda eta: 1 / (domain.params_map[5] - domain.params_map[4]) * np.ones(eta.shape, dtype=float)
-    )
+    spaces_pre[0].assemble_M1(lambda eta: 1 / (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M1(lambda eta: 1 / (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M1(lambda eta: 1 / (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
     c11_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M1.toarray()[:, 0], spaces_pre[2].M1.toarray()[:, 0]]
     c22_pre = [spaces_pre[0].M1.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M1.toarray()[:, 0]]
@@ -187,15 +157,9 @@ def get_M3_PRE(tensor_space_FEM, domain):
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M1(
-        lambda eta: 1 / (domain.params_map[1] - domain.params_map[0]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[1].assemble_M1(
-        lambda eta: 1 / (domain.params_map[3] - domain.params_map[2]) * np.ones(eta.shape, dtype=float)
-    )
-    spaces_pre[2].assemble_M1(
-        lambda eta: 1 / (domain.params_map[5] - domain.params_map[4]) * np.ones(eta.shape, dtype=float)
-    )
+    spaces_pre[0].assemble_M1(lambda eta: 1 / (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M1(lambda eta: 1 / (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M1(lambda eta: 1 / (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
     c_pre = [spaces_pre[0].M1.toarray()[:, 0], spaces_pre[1].M1.toarray()[:, 0], spaces_pre[2].M1.toarray()[:, 0]]
 
@@ -224,21 +188,21 @@ def get_Mv_PRE(tensor_space_FEM, domain):
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M0(lambda eta: domain.params_map[0] ** 3 * np.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M0(lambda eta: domain.params_map[1] * np.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M0(lambda eta: domain.params_map[2] * np.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M0(lambda eta: domain.params[0] ** 3 * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: domain.params[1] * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: domain.params[2] * np.ones(eta.shape, dtype=float))
 
     c11_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
 
-    spaces_pre[0].assemble_M0(lambda eta: domain.params_map[0] * np.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M0(lambda eta: domain.params_map[1] ** 3 * np.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M0(lambda eta: domain.params_map[2] * np.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M0(lambda eta: domain.params[0] * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: domain.params[1] ** 3 * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: domain.params[2] * np.ones(eta.shape, dtype=float))
 
     c22_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
 
-    spaces_pre[0].assemble_M0(lambda eta: domain.params_map[0] * np.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M0(lambda eta: domain.params_map[1] * np.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M0(lambda eta: domain.params_map[2] ** 3 * np.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M0(lambda eta: domain.params[0] * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: domain.params[1] * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: domain.params[2] ** 3 * np.ones(eta.shape, dtype=float))
 
     c33_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
 

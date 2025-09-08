@@ -10,12 +10,7 @@ import numpy as np
 import scipy.sparse as spa
 
 import struphy.bsplines.bsplines as bsp
-
-from struphy.linear_algebra.linalg_kron import kron_matvec_2d
-from struphy.linear_algebra.linalg_kron import kron_matvec_3d
-
-from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
-from struphy.linear_algebra.linalg_kron import kron_lusolve_3d
+from struphy.linear_algebra.linalg_kron import kron_lusolve_2d, kron_lusolve_3d, kron_matvec_2d, kron_matvec_3d
 
 
 # ======================= 1d ====================================
@@ -55,7 +50,7 @@ class Projectors_global_1d:
         Cumulative sum of subs, starting with 0.
 
     pts : 2d array (float)
-        Gauss-Legendre quadrature points in format (integration interval, local quadrature point) 
+        Gauss-Legendre quadrature points in format (integration interval, local quadrature point)
 
     wts : 2d array (float)
         Gauss-Legendre quadrature weights in format (integration interval, local quadrature weight)
@@ -155,7 +150,6 @@ class Projectors_global_1d:
     """
 
     def __init__(self, spline_space, n_quad=6):
-
         self.space = spline_space
 
         # number of quadrature points per integration interval
@@ -174,7 +168,6 @@ class Projectors_global_1d:
 
         for i in range(spline_space.NbaseD):
             for br in spline_space.el_b:
-
                 # left and right integration boundaries
                 if spline_space.spl_kind == False:
                     xl = self.x_int[i]
@@ -194,59 +187,47 @@ class Projectors_global_1d:
                     break
 
         if spline_space.spl_kind == True and spline_space.p % 2 == 0:
-            self.x_his = np.append(
-                self.x_his, spline_space.el_b[-1] + self.x_his[0])
+            self.x_his = np.append(self.x_his, spline_space.el_b[-1] + self.x_his[0])
 
         # cumulative number of sub-intervals for conversion local interval --> global interval
         self.subs_cum = np.append(0, np.cumsum(self.subs - 1)[:-1])
 
         # quadrature points and weights
-        self.pts, self.wts = bsp.quadrature_grid(
-            self.x_his, self.pts_loc, self.wts_loc)
+        self.pts, self.wts = bsp.quadrature_grid(self.x_his, self.pts_loc, self.wts_loc)
         self.pts = self.pts % spline_space.el_b[-1]
 
         # quadrature points and weights, ignoring subs (less accurate integration for even degree)
         self.x_hisG = self.x_int
         if spline_space.spl_kind == True:
             if spline_space.p % 2 == 0:
-                self.x_hisG = np.append(
-                    self.x_hisG, spline_space.el_b[-1] + self.x_hisG[0])
+                self.x_hisG = np.append(self.x_hisG, spline_space.el_b[-1] + self.x_hisG[0])
             else:
                 self.x_hisG = np.append(self.x_hisG, spline_space.el_b[-1])
 
-        self.ptsG, self.wtsG = bsp.quadrature_grid(
-            self.x_hisG, self.pts_loc, self.wts_loc)
+        self.ptsG, self.wtsG = bsp.quadrature_grid(self.x_hisG, self.pts_loc, self.wts_loc)
         self.ptsG = self.ptsG % spline_space.el_b[-1]
 
         # Knot span indices at interpolation points in format (greville, 0)
         self.span_x_int_N = np.zeros(self.x_int[:, None].shape, dtype=int)
         self.span_x_int_D = np.zeros(self.x_int[:, None].shape, dtype=int)
         for i in range(self.x_int.shape[0]):
-            self.span_x_int_N[i, 0] = bsp.find_span(
-                self.space.T, self.space.p, self.x_int[i])
-            self.span_x_int_D[i, 0] = bsp.find_span(
-                self.space.t, self.space.p - 1, self.x_int[i])
+            self.span_x_int_N[i, 0] = bsp.find_span(self.space.T, self.space.p, self.x_int[i])
+            self.span_x_int_D[i, 0] = bsp.find_span(self.space.t, self.space.p - 1, self.x_int[i])
 
         # Knot span indices at quadrature points between x_int in format (i, iq)
         self.span_ptsG_N = np.zeros(self.ptsG.shape, dtype=int)
         self.span_ptsG_D = np.zeros(self.ptsG.shape, dtype=int)
         for i in range(self.ptsG.shape[0]):
             for iq in range(self.ptsG.shape[1]):
-                self.span_ptsG_N[i, iq] = bsp.find_span(
-                    self.space.T, self.space.p, self.ptsG[i, iq])
-                self.span_ptsG_D[i, iq] = bsp.find_span(
-                    self.space.t, self.space.p - 1, self.ptsG[i, iq])
+                self.span_ptsG_N[i, iq] = bsp.find_span(self.space.T, self.space.p, self.ptsG[i, iq])
+                self.span_ptsG_D[i, iq] = bsp.find_span(self.space.t, self.space.p - 1, self.ptsG[i, iq])
 
         # Values of p + 1 non-zero basis functions at Greville points in format (greville, 0, basis function)
-        self.basis_x_int_N = np.zeros(
-            (*self.x_int[:, None].shape, self.space.p + 1), dtype=float)
-        self.basis_x_int_D = np.zeros(
-            (*self.x_int[:, None].shape, self.space.p), dtype=float)
+        self.basis_x_int_N = np.zeros((*self.x_int[:, None].shape, self.space.p + 1), dtype=float)
+        self.basis_x_int_D = np.zeros((*self.x_int[:, None].shape, self.space.p), dtype=float)
 
-        N_temp = bsp.basis_ders_on_quad_grid(
-            self.space.T, self.space.p, self.x_int[:, None], 0, normalize=False)
-        D_temp = bsp.basis_ders_on_quad_grid(
-            self.space.t, self.space.p - 1, self.x_int[:, None], 0, normalize=True)
+        N_temp = bsp.basis_ders_on_quad_grid(self.space.T, self.space.p, self.x_int[:, None], 0, normalize=False)
+        D_temp = bsp.basis_ders_on_quad_grid(self.space.t, self.space.p - 1, self.x_int[:, None], 0, normalize=True)
 
         for i in range(self.x_int.shape[0]):
             for b in range(self.space.p + 1):
@@ -255,15 +236,11 @@ class Projectors_global_1d:
                 self.basis_x_int_D[i, 0, b] = D_temp[i, b, 0, 0]
 
         # Values of p + 1 non-zero basis functions at quadrature points points between x_int in format (i, iq, basis function)
-        self.basis_ptsG_N = np.zeros(
-            (*self.ptsG.shape, self.space.p + 1), dtype=float)
-        self.basis_ptsG_D = np.zeros(
-            (*self.ptsG.shape, self.space.p), dtype=float)
+        self.basis_ptsG_N = np.zeros((*self.ptsG.shape, self.space.p + 1), dtype=float)
+        self.basis_ptsG_D = np.zeros((*self.ptsG.shape, self.space.p), dtype=float)
 
-        N_temp = bsp.basis_ders_on_quad_grid(
-            self.space.T, self.space.p, self.ptsG, 0, normalize=False)
-        D_temp = bsp.basis_ders_on_quad_grid(
-            self.space.t, self.space.p - 1, self.ptsG, 0, normalize=True)
+        N_temp = bsp.basis_ders_on_quad_grid(self.space.T, self.space.p, self.ptsG, 0, normalize=False)
+        D_temp = bsp.basis_ders_on_quad_grid(self.space.t, self.space.p - 1, self.ptsG, 0, normalize=True)
 
         for i in range(self.ptsG.shape[0]):
             for iq in range(self.ptsG.shape[1]):
@@ -273,22 +250,20 @@ class Projectors_global_1d:
                     self.basis_ptsG_D[i, iq, b] = D_temp[i, b, 0, iq]
 
         # quadrature matrix for performing integrations as matrix-vector products
-        self.Q = np.zeros(
-            (spline_space.NbaseD, self.wts.shape[0]*self.n_quad), dtype=float)
+        self.Q = np.zeros((spline_space.NbaseD, self.wts.shape[0] * self.n_quad), dtype=float)
 
         for i in range(spline_space.NbaseD):
             for j in range(self.subs[i]):
                 ie = i + j + self.subs_cum[i]
-                self.Q[i, self.n_quad*ie:self.n_quad*(ie + 1)] = self.wts[ie]
+                self.Q[i, self.n_quad * ie : self.n_quad * (ie + 1)] = self.wts[ie]
 
         self.Q = spa.csr_matrix(self.Q)
 
         # quadrature matrix for performing integrations as matrix-vector products, ignoring subs (less accurate integration for even degree)
-        self.QG = np.zeros(
-            (spline_space.NbaseD, self.wtsG.shape[0]*self.n_quad), dtype=float)
+        self.QG = np.zeros((spline_space.NbaseD, self.wtsG.shape[0] * self.n_quad), dtype=float)
 
         for i in range(spline_space.NbaseD):
-            self.QG[i, self.n_quad*i:self.n_quad*(i + 1)] = self.wtsG[i]
+            self.QG[i, self.n_quad * i : self.n_quad * (i + 1)] = self.wtsG[i]
 
         self.QG = spa.csr_matrix(self.QG)
 
@@ -296,20 +271,24 @@ class Projectors_global_1d:
         BM_splines = [False, True]
 
         self.N_int = bsp.collocation_matrix(
-            spline_space.T, spline_space.p - 0, self.x_int, spline_space.spl_kind, BM_splines[0])
+            spline_space.T, spline_space.p - 0, self.x_int, spline_space.spl_kind, BM_splines[0]
+        )
         self.D_int = bsp.collocation_matrix(
-            spline_space.t, spline_space.p - 1, self.x_int, spline_space.spl_kind, BM_splines[1])
+            spline_space.t, spline_space.p - 1, self.x_int, spline_space.spl_kind, BM_splines[1]
+        )
 
-        self.N_int[self.N_int < 1e-12] = 0.
-        self.D_int[self.D_int < 1e-12] = 0.
+        self.N_int[self.N_int < 1e-12] = 0.0
+        self.D_int[self.D_int < 1e-12] = 0.0
 
         self.N_int = spa.csr_matrix(self.N_int)
         self.D_int = spa.csr_matrix(self.D_int)
 
         self.N_pts = bsp.collocation_matrix(
-            spline_space.T, spline_space.p - 0, self.pts.flatten(), spline_space.spl_kind, BM_splines[0])
+            spline_space.T, spline_space.p - 0, self.pts.flatten(), spline_space.spl_kind, BM_splines[0]
+        )
         self.D_pts = bsp.collocation_matrix(
-            spline_space.t, spline_space.p - 1, self.pts.flatten(), spline_space.spl_kind, BM_splines[1])
+            spline_space.t, spline_space.p - 1, self.pts.flatten(), spline_space.spl_kind, BM_splines[1]
+        )
 
         self.N_pts = spa.csr_matrix(self.N_pts)
         self.D_pts = spa.csr_matrix(self.D_pts)
@@ -420,19 +399,13 @@ class Projectors_global_1d:
         dofs_1_i(D_j*D_k).
         """
 
-        dofs_0_NN = np.empty(
-            (space.NbaseN, space.NbaseN, space.NbaseN), dtype=float)
-        dofs_0_DN = np.empty(
-            (space.NbaseN, space.NbaseD, space.NbaseN), dtype=float)
-        dofs_0_DD = np.empty(
-            (space.NbaseN, space.NbaseD, space.NbaseD), dtype=float)
+        dofs_0_NN = np.empty((space.NbaseN, space.NbaseN, space.NbaseN), dtype=float)
+        dofs_0_DN = np.empty((space.NbaseN, space.NbaseD, space.NbaseN), dtype=float)
+        dofs_0_DD = np.empty((space.NbaseN, space.NbaseD, space.NbaseD), dtype=float)
 
-        dofs_1_NN = np.empty(
-            (space.NbaseD, space.NbaseN, space.NbaseN), dtype=float)
-        dofs_1_DN = np.empty(
-            (space.NbaseD, space.NbaseD, space.NbaseN), dtype=float)
-        dofs_1_DD = np.empty(
-            (space.NbaseD, space.NbaseD, space.NbaseD), dtype=float)
+        dofs_1_NN = np.empty((space.NbaseD, space.NbaseN, space.NbaseN), dtype=float)
+        dofs_1_DN = np.empty((space.NbaseD, space.NbaseD, space.NbaseN), dtype=float)
+        dofs_1_DD = np.empty((space.NbaseD, space.NbaseD, space.NbaseD), dtype=float)
 
         # ========= dofs_0_NN and dofs_1_NN ==============
         cj = np.zeros(space.NbaseN, dtype=float)
@@ -440,15 +413,14 @@ class Projectors_global_1d:
 
         for j in range(space.NbaseN):
             for k in range(space.NbaseN):
+                cj[:] = 0.0
+                ck[:] = 0.0
 
-                cj[:] = 0.
-                ck[:] = 0.
+                cj[j] = 1.0
+                ck[k] = 1.0
 
-                cj[j] = 1.
-                ck[k] = 1.
-
-                def N_jN_k(eta): return space.evaluate_N(
-                    eta, cj)*space.evaluate_N(eta, ck)
+                def N_jN_k(eta):
+                    return space.evaluate_N(eta, cj) * space.evaluate_N(eta, ck)
 
                 dofs_0_NN[:, j, k] = self.dofs_0(N_jN_k)
                 dofs_1_NN[:, j, k] = self.dofs_1(N_jN_k)
@@ -459,15 +431,14 @@ class Projectors_global_1d:
 
         for j in range(space.NbaseD):
             for k in range(space.NbaseN):
+                cj[:] = 0.0
+                ck[:] = 0.0
 
-                cj[:] = 0.
-                ck[:] = 0.
+                cj[j] = 1.0
+                ck[k] = 1.0
 
-                cj[j] = 1.
-                ck[k] = 1.
-
-                def D_jN_k(eta): return space.evaluate_D(
-                    eta, cj)*space.evaluate_N(eta, ck)
+                def D_jN_k(eta):
+                    return space.evaluate_D(eta, cj) * space.evaluate_N(eta, ck)
 
                 dofs_0_DN[:, j, k] = self.dofs_0(D_jN_k)
                 dofs_1_DN[:, j, k] = self.dofs_1(D_jN_k)
@@ -478,15 +449,14 @@ class Projectors_global_1d:
 
         for j in range(space.NbaseD):
             for k in range(space.NbaseD):
+                cj[:] = 0.0
+                ck[:] = 0.0
 
-                cj[:] = 0.
-                ck[:] = 0.
+                cj[j] = 1.0
+                ck[k] = 1.0
 
-                cj[j] = 1.
-                ck[k] = 1.
-
-                def D_jD_k(eta): return space.evaluate_D(
-                    eta, cj)*space.evaluate_D(eta, ck)
+                def D_jD_k(eta):
+                    return space.evaluate_D(eta, cj) * space.evaluate_D(eta, ck)
 
                 dofs_0_DD[:, j, k] = self.dofs_0(D_jD_k)
                 dofs_1_DD[:, j, k] = self.dofs_1(D_jD_k)
@@ -516,80 +486,97 @@ class Projectors_global_1d:
         dofs_1_DD_i_red = np.empty(dofs_1_DD_indices[0].size, dtype=int)
 
         # ================================
-        nv = space.NbaseN*dofs_0_NN_indices[1] + dofs_0_NN_indices[2]
+        nv = space.NbaseN * dofs_0_NN_indices[1] + dofs_0_NN_indices[2]
         un = np.unique(nv)
 
         for i in range(dofs_0_NN_indices[0].size):
             dofs_0_NN_i_red[i] = np.nonzero(un == nv[i])[0]
 
         # ================================
-        nv = space.NbaseN*dofs_0_DN_indices[1] + dofs_0_DN_indices[2]
+        nv = space.NbaseN * dofs_0_DN_indices[1] + dofs_0_DN_indices[2]
         un = np.unique(nv)
 
         for i in range(dofs_0_DN_indices[0].size):
             dofs_0_DN_i_red[i] = np.nonzero(un == nv[i])[0]
 
         # ================================
-        nv = space.NbaseD*dofs_0_ND_indices[1] + dofs_0_ND_indices[2]
+        nv = space.NbaseD * dofs_0_ND_indices[1] + dofs_0_ND_indices[2]
         un = np.unique(nv)
 
         for i in range(dofs_0_ND_indices[0].size):
             dofs_0_ND_i_red[i] = np.nonzero(un == nv[i])[0]
 
         # ================================
-        nv = space.NbaseD*dofs_0_DD_indices[1] + dofs_0_DD_indices[2]
+        nv = space.NbaseD * dofs_0_DD_indices[1] + dofs_0_DD_indices[2]
         un = np.unique(nv)
 
         for i in range(dofs_0_DD_indices[0].size):
             dofs_0_DD_i_red[i] = np.nonzero(un == nv[i])[0]
 
         # ================================
-        nv = space.NbaseN*dofs_1_NN_indices[1] + dofs_1_NN_indices[2]
+        nv = space.NbaseN * dofs_1_NN_indices[1] + dofs_1_NN_indices[2]
         un = np.unique(nv)
 
         for i in range(dofs_1_NN_indices[0].size):
             dofs_1_NN_i_red[i] = np.nonzero(un == nv[i])[0]
 
         # ================================
-        nv = space.NbaseN*dofs_1_DN_indices[1] + dofs_1_DN_indices[2]
+        nv = space.NbaseN * dofs_1_DN_indices[1] + dofs_1_DN_indices[2]
         un = np.unique(nv)
 
         for i in range(dofs_1_DN_indices[0].size):
             dofs_1_DN_i_red[i] = np.nonzero(un == nv[i])[0]
 
         # ================================
-        nv = space.NbaseD*dofs_1_ND_indices[1] + dofs_1_ND_indices[2]
+        nv = space.NbaseD * dofs_1_ND_indices[1] + dofs_1_ND_indices[2]
         un = np.unique(nv)
 
         for i in range(dofs_1_ND_indices[0].size):
             dofs_1_ND_i_red[i] = np.nonzero(un == nv[i])[0]
 
         # ================================
-        nv = space.NbaseD*dofs_1_DD_indices[1] + dofs_1_DD_indices[2]
+        nv = space.NbaseD * dofs_1_DD_indices[1] + dofs_1_DD_indices[2]
         un = np.unique(nv)
 
         for i in range(dofs_1_DD_indices[0].size):
             dofs_1_DD_i_red[i] = np.nonzero(un == nv[i])[0]
 
         dofs_0_NN_indices = np.vstack(
-            (dofs_0_NN_indices[0], dofs_0_NN_indices[1], dofs_0_NN_indices[2], dofs_0_NN_i_red))
+            (dofs_0_NN_indices[0], dofs_0_NN_indices[1], dofs_0_NN_indices[2], dofs_0_NN_i_red)
+        )
         dofs_0_DN_indices = np.vstack(
-            (dofs_0_DN_indices[0], dofs_0_DN_indices[1], dofs_0_DN_indices[2], dofs_0_DN_i_red))
+            (dofs_0_DN_indices[0], dofs_0_DN_indices[1], dofs_0_DN_indices[2], dofs_0_DN_i_red)
+        )
         dofs_0_ND_indices = np.vstack(
-            (dofs_0_ND_indices[0], dofs_0_ND_indices[1], dofs_0_ND_indices[2], dofs_0_ND_i_red))
+            (dofs_0_ND_indices[0], dofs_0_ND_indices[1], dofs_0_ND_indices[2], dofs_0_ND_i_red)
+        )
         dofs_0_DD_indices = np.vstack(
-            (dofs_0_DD_indices[0], dofs_0_DD_indices[1], dofs_0_DD_indices[2], dofs_0_DD_i_red))
+            (dofs_0_DD_indices[0], dofs_0_DD_indices[1], dofs_0_DD_indices[2], dofs_0_DD_i_red)
+        )
 
         dofs_1_NN_indices = np.vstack(
-            (dofs_1_NN_indices[0], dofs_1_NN_indices[1], dofs_1_NN_indices[2], dofs_1_NN_i_red))
+            (dofs_1_NN_indices[0], dofs_1_NN_indices[1], dofs_1_NN_indices[2], dofs_1_NN_i_red)
+        )
         dofs_1_DN_indices = np.vstack(
-            (dofs_1_DN_indices[0], dofs_1_DN_indices[1], dofs_1_DN_indices[2], dofs_1_DN_i_red))
+            (dofs_1_DN_indices[0], dofs_1_DN_indices[1], dofs_1_DN_indices[2], dofs_1_DN_i_red)
+        )
         dofs_1_ND_indices = np.vstack(
-            (dofs_1_ND_indices[0], dofs_1_ND_indices[1], dofs_1_ND_indices[2], dofs_1_ND_i_red))
+            (dofs_1_ND_indices[0], dofs_1_ND_indices[1], dofs_1_ND_indices[2], dofs_1_ND_i_red)
+        )
         dofs_1_DD_indices = np.vstack(
-            (dofs_1_DD_indices[0], dofs_1_DD_indices[1], dofs_1_DD_indices[2], dofs_1_DD_i_red))
+            (dofs_1_DD_indices[0], dofs_1_DD_indices[1], dofs_1_DD_indices[2], dofs_1_DD_i_red)
+        )
 
-        return dofs_0_NN_indices, dofs_0_DN_indices, dofs_0_ND_indices, dofs_0_DD_indices, dofs_1_NN_indices, dofs_1_DN_indices, dofs_1_ND_indices, dofs_1_DD_indices
+        return (
+            dofs_0_NN_indices,
+            dofs_0_DN_indices,
+            dofs_0_ND_indices,
+            dofs_0_DD_indices,
+            dofs_1_NN_indices,
+            dofs_1_DN_indices,
+            dofs_1_ND_indices,
+            dofs_1_DD_indices,
+        )
 
 
 # ============= 2d for pure tensor product splines ========================
@@ -607,25 +594,16 @@ class Projectors_tensor_2d:
     """
 
     def __init__(self, proj_1d):
-
-        self.pts_PI = {'0': None, '11': None, '12': None, '2': None}
+        self.pts_PI = {"0": None, "11": None, "12": None, "2": None}
 
         # collection of the point sets for different 2D projectors
-        self.pts_PI['0'] = [proj_1d[0].x_int,
-                            proj_1d[1].x_int
-                            ]
+        self.pts_PI["0"] = [proj_1d[0].x_int, proj_1d[1].x_int]
 
-        self.pts_PI['11'] = [proj_1d[0].pts.flatten(),
-                             proj_1d[1].x_int
-                             ]
+        self.pts_PI["11"] = [proj_1d[0].pts.flatten(), proj_1d[1].x_int]
 
-        self.pts_PI['12'] = [proj_1d[0].x_int,
-                             proj_1d[1].pts.flatten()
-                             ]
+        self.pts_PI["12"] = [proj_1d[0].x_int, proj_1d[1].pts.flatten()]
 
-        self.pts_PI['2'] = [proj_1d[0].pts.flatten(),
-                            proj_1d[1].pts.flatten()
-                            ]
+        self.pts_PI["2"] = [proj_1d[0].pts.flatten(), proj_1d[1].pts.flatten()]
 
         self.Q1 = proj_1d[0].Q
         self.Q2 = proj_1d[1].Q
@@ -664,7 +642,7 @@ class Projectors_tensor_2d:
 
         pts_PI = self.pts_PI[comp]
 
-        pts1, pts2 = np.meshgrid(pts_PI[0], pts_PI[1], indexing='ij')
+        pts1, pts2 = np.meshgrid(pts_PI[0], pts_PI[1], indexing="ij")
         # pts1, pts2 = np.meshgrid(pts_PI[0], pts_PI[1], indexing='ij', sparse=True) # numpy >1.7
 
         return fun(pts1, pts2)
@@ -685,25 +663,21 @@ class Projectors_tensor_2d:
 
         Returns
         -------
-        dofs : 2d numpy array 
+        dofs : 2d numpy array
             The degrees of freedom sigma_ij.
         """
 
-        assert mat_f.shape == (
-            self.pts_PI[comp][0].size, self.pts_PI[comp][1].size)
+        assert mat_f.shape == (self.pts_PI[comp][0].size, self.pts_PI[comp][1].size)
 
-        if comp == '0':
-            dofs = kron_matvec_2d(
-                [spa.identity(mat_f.shape[0]), spa.identity(mat_f.shape[1])], mat_f)
+        if comp == "0":
+            dofs = kron_matvec_2d([spa.identity(mat_f.shape[0]), spa.identity(mat_f.shape[1])], mat_f)
 
-        elif comp == '11':
-            dofs = kron_matvec_2d(
-                [self.Q1, spa.identity(mat_f.shape[1])], mat_f)
-        elif comp == '12':
-            dofs = kron_matvec_2d(
-                [spa.identity(mat_f.shape[0]), self.Q2], mat_f)
+        elif comp == "11":
+            dofs = kron_matvec_2d([self.Q1, spa.identity(mat_f.shape[1])], mat_f)
+        elif comp == "12":
+            dofs = kron_matvec_2d([spa.identity(mat_f.shape[0]), self.Q2], mat_f)
 
-        elif comp == '2':
+        elif comp == "2":
             dofs = kron_matvec_2d([self.Q1, self.Q2], mat_f)
         else:
             raise ValueError("wrong projector specified")
@@ -721,7 +695,7 @@ class Projectors_tensor_2d:
         comp : string
             Which projector: '0', '11', '12' or '2'.
 
-        dofs : 2d numpy array 
+        dofs : 2d numpy array
             The degrees of freedom sigma_ij.
 
         Returns
@@ -730,16 +704,16 @@ class Projectors_tensor_2d:
             The spline coefficients c_ij obtained by projection.
         """
 
-        if comp == '0':
+        if comp == "0":
             assert dofs.shape == (self.n1, self.n2)
             coeffs = kron_lusolve_2d([self.I_LU1, self.I_LU2], dofs)
-        elif comp == '11':
+        elif comp == "11":
             assert dofs.shape == (self.d1, self.n2)
             coeffs = kron_lusolve_2d([self.H_LU1, self.I_LU2], dofs)
-        elif comp == '12':
+        elif comp == "12":
             assert dofs.shape == (self.n1, self.d2)
             coeffs = kron_lusolve_2d([self.I_LU1, self.H_LU2], dofs)
-        elif comp == '2':
+        elif comp == "2":
             assert dofs.shape == (self.d1, self.d2)
             coeffs = kron_lusolve_2d([self.H_LU1, self.H_LU2], dofs)
         else:
@@ -758,7 +732,7 @@ class Projectors_tensor_2d:
         comp : string
             Which projector: '0', '11', '12' or '2'.
 
-        fun : callable 
+        fun : callable
             fun(eta1, eta2).
 
         Returns
@@ -770,16 +744,16 @@ class Projectors_tensor_2d:
         mat_f = self.eval_for_PI(comp, fun)
         dofs = self.dofs(comp, mat_f)
 
-        if comp == '0':
+        if comp == "0":
             assert dofs.shape == (self.n1, self.n2)
             coeffs = kron_lusolve_2d([self.I_LU1, self.I_LU2], dofs)
-        elif comp == '11':
+        elif comp == "11":
             assert dofs.shape == (self.d1, self.n2)
             coeffs = kron_lusolve_2d([self.H_LU1, self.I_LU2], dofs)
-        elif comp == '12':
+        elif comp == "12":
             assert dofs.shape == (self.n1, self.d2)
             coeffs = kron_lusolve_2d([self.I_LU1, self.H_LU2], dofs)
-        elif comp == '2':
+        elif comp == "2":
             assert dofs.shape == (self.d1, self.d2)
             coeffs = kron_lusolve_2d([self.H_LU1, self.H_LU2], dofs)
         else:
@@ -795,7 +769,7 @@ class Projectors_tensor_2d:
 
         Parameters
         ----------
-        fun : callable 
+        fun : callable
             Element in V_0 continuous space, fun(eta1, eta2).
 
         Returns
@@ -804,7 +778,7 @@ class Projectors_tensor_2d:
             The spline coefficients c_ij obtained by projection.
         """
 
-        coeffs = self.PI('0', fun)
+        coeffs = self.PI("0", fun)
 
         return coeffs
 
@@ -816,9 +790,9 @@ class Projectors_tensor_2d:
 
         Parameters
         ----------
-        fun1 : callable 
+        fun1 : callable
             First component of element in V_1 continuous space, fun1(eta1, eta2).
-        fun2 : callable 
+        fun2 : callable
             Second component of element in V_1 continuous space, fun2(eta1, eta2).
 
         Returns
@@ -829,8 +803,8 @@ class Projectors_tensor_2d:
             The spline coefficients c_ij obtained by projection of fun2 on ND.
         """
 
-        coeffs1 = self.PI('11', fun1)
-        coeffs2 = self.PI('12', fun2)
+        coeffs1 = self.PI("11", fun1)
+        coeffs2 = self.PI("12", fun2)
 
         return coeffs1, coeffs2
 
@@ -842,7 +816,7 @@ class Projectors_tensor_2d:
 
         Parameters
         ----------
-        fun : callable 
+        fun : callable
             Element in V_2 continuous space, fun(eta1, eta2).
 
         Returns
@@ -851,7 +825,7 @@ class Projectors_tensor_2d:
             The spline coefficients c_ij obtained by projection.
         """
 
-        coeffs = self.PI('2', fun)
+        coeffs = self.PI("2", fun)
 
         return coeffs
 
@@ -871,50 +845,24 @@ class Projectors_tensor_3d:
     """
 
     def __init__(self, proj_1d):
-
-        self.pts_PI = {'0': None, '11': None, '12': None,
-                       '13': None, '21': None, '22': None, '23': None, '3': None}
+        self.pts_PI = {"0": None, "11": None, "12": None, "13": None, "21": None, "22": None, "23": None, "3": None}
 
         # collection of the point sets for different 2D projectors
-        self.pts_PI['0'] = [proj_1d[0].x_int,
-                            proj_1d[1].x_int,
-                            proj_1d[2].x_int
-                            ]
+        self.pts_PI["0"] = [proj_1d[0].x_int, proj_1d[1].x_int, proj_1d[2].x_int]
 
-        self.pts_PI['11'] = [proj_1d[0].pts.flatten(),
-                             proj_1d[1].x_int,
-                             proj_1d[2].x_int
-                             ]
+        self.pts_PI["11"] = [proj_1d[0].pts.flatten(), proj_1d[1].x_int, proj_1d[2].x_int]
 
-        self.pts_PI['12'] = [proj_1d[0].x_int,
-                             proj_1d[1].pts.flatten(),
-                             proj_1d[2].x_int
-                             ]
+        self.pts_PI["12"] = [proj_1d[0].x_int, proj_1d[1].pts.flatten(), proj_1d[2].x_int]
 
-        self.pts_PI['13'] = [proj_1d[0].x_int,
-                             proj_1d[1].x_int,
-                             proj_1d[2].pts.flatten()
-                             ]
+        self.pts_PI["13"] = [proj_1d[0].x_int, proj_1d[1].x_int, proj_1d[2].pts.flatten()]
 
-        self.pts_PI['21'] = [proj_1d[0].x_int,
-                             proj_1d[1].pts.flatten(),
-                             proj_1d[2].pts.flatten()
-                             ]
+        self.pts_PI["21"] = [proj_1d[0].x_int, proj_1d[1].pts.flatten(), proj_1d[2].pts.flatten()]
 
-        self.pts_PI['22'] = [proj_1d[0].pts.flatten(),
-                             proj_1d[1].x_int,
-                             proj_1d[2].pts.flatten()
-                             ]
+        self.pts_PI["22"] = [proj_1d[0].pts.flatten(), proj_1d[1].x_int, proj_1d[2].pts.flatten()]
 
-        self.pts_PI['23'] = [proj_1d[0].pts.flatten(),
-                             proj_1d[1].pts.flatten(),
-                             proj_1d[2].x_int
-                             ]
+        self.pts_PI["23"] = [proj_1d[0].pts.flatten(), proj_1d[1].pts.flatten(), proj_1d[2].x_int]
 
-        self.pts_PI['3'] = [proj_1d[0].pts.flatten(),
-                            proj_1d[1].pts.flatten(),
-                            proj_1d[2].pts.flatten()
-                            ]
+        self.pts_PI["3"] = [proj_1d[0].pts.flatten(), proj_1d[1].pts.flatten(), proj_1d[2].pts.flatten()]
 
         self.Q1 = proj_1d[0].Q
         self.Q2 = proj_1d[1].Q
@@ -958,8 +906,7 @@ class Projectors_tensor_3d:
 
         pts_PI = self.pts_PI[comp]
 
-        pts1, pts2, pts3 = np.meshgrid(
-            pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij')
+        pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing="ij")
         # pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij', sparse=True) # numpy >1.7
 
         return fun(pts1, pts2, pts3)
@@ -973,27 +920,27 @@ class Projectors_tensor_3d:
     #    ----------
     #    comp: str
     #        Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
-#
+    #
     #    mat_f : 3d numpy array
     #        Function values f(eta1_i, eta2_j, eta3_k) at the points set of the projector (from eval_for_PI).
-#
+    #
     #    Returns
     #    -------
     #    rhs : 3d numpy array
     #        The degrees of freedom sigma_ijk.
     #    """
-#
+    #
     #    assert mat_f.shape==(self.pts_PI[comp][0].size,
     #                         self.pts_PI[comp][1].size,
     #                         self.pts_PI[comp][2].size
     #                         )
-#
+    #
     #    if comp=='0':
     #        rhs = mat_f
-#
+    #
     #    elif comp=='11':
     #        rhs = np.empty( (self.d1, self.n2, self.n3) )
-#
+    #
     #        ker_glob.kernel_int_3d_eta1(self.subs1, self.subs_cum1, self.wts1,
     #                                    mat_f.reshape(self.ne1, self.nq1, self.n2, self.n3), rhs
     #                                    )
@@ -1043,7 +990,7 @@ class Projectors_tensor_3d:
     #                                             )
     #    else:
     #        raise ValueError ("wrong projector specified")
-#
+    #
     #    return rhs
 
     # ======================================
@@ -1055,10 +1002,10 @@ class Projectors_tensor_3d:
     #    ----------
     #    comp: str
     #        Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
-#
+    #
     #    mat_dofs : 3d numpy array
     #        Degrees of freedom.
-#
+    #
     #    Returns
     #    -------
     #    mat_pts : numpy array
@@ -1070,30 +1017,30 @@ class Projectors_tensor_3d:
     #        comp == '22' 5d of the form(ne1, nq1, n2, ne3, nq3)
     #        comp == '23' 5d of the form(ne1, nq1, ne2, nq2, n3)
     #        comp == '3' 6d of the form(ne1, nq1, ne2, nq2, n3, nq3)
-#
+    #
     #    '''
-#
+    #
     #    if comp=='0':
     #        rhs = mat_dofs
-#
+    #
     #    elif comp=='11':
     #        assert mat_dofs.shape == (self.d1, self.n2, self.n3)
     #        rhs = np.empty( (self.ne1, self.nq1, self.n2, self.n3) )
-#
+    #
     #        ker_glob.kernel_int_3d_eta1_transpose(self.subs1, self.subs_cum1, self.wts1,
     #                                              mat_dofs, rhs)
-#
+    #
     #        rhs = rhs.reshape(self.ne1 * self.nq1, self.n2, self.n3)
-#
+    #
     #    elif comp=='12':
     #        assert mat_dofs.shape == (self.n1, self.d2, self.n3)
     #        rhs = np.empty( (self.n1, self.ne2, self.nq2, self.n3) )
     #
     #        ker_glob.kernel_int_3d_eta2_transpose(self.subs2, self.subs_cum2, self.wts2,
     #                                              mat_dofs, rhs)
-#
+    #
     #        rhs = rhs.reshape(self.n1, self.ne2 * self.nq2, self.n3)
-#
+    #
     #    elif comp=='13':
     #        assert mat_dofs.shape == (self.n1, self.n2, self.d3)
     #        rhs = np.empty( (self.n1, self.n2, self.ne3, self.nq3) )
@@ -1102,7 +1049,7 @@ class Projectors_tensor_3d:
     #                                              mat_dofs, rhs)
     #
     #        rhs = rhs.reshape(self.n1, self.n2, self.ne3 * self.nq3)
-#
+    #
     #    elif comp=='21':
     #        assert mat_dofs.shape == (self.n1, self.d2, self.d3)
     #        rhs = np.empty( (self.n1, self.ne2, self.nq2, self.ne3, self.nq3) )
@@ -1112,7 +1059,7 @@ class Projectors_tensor_3d:
     #                                         self.wts2, self.wts3,
     #                                         mat_dofs, rhs)
     #        rhs = rhs.reshape(self.n1, self.ne2 * self.nq2, self.ne3 * self.nq3)
-#
+    #
     #    elif comp=='22':
     #        assert mat_dofs.shape == (self.d1, self.n2, self.d3)
     #        rhs = np.empty( (self.ne1, self.nq1, self.n2, self.ne3, self.nq3) )
@@ -1122,7 +1069,7 @@ class Projectors_tensor_3d:
     #                                         self.wts1, self.wts3,
     #                                         mat_dofs, rhs)
     #        rhs = rhs.reshape(self.ne1 * self.nq1, self.n2, self.ne3 * self.nq3)
-#
+    #
     #    elif comp=='23':
     #        assert mat_dofs.shape == (self.d1, self.d2, self.n3)
     #        rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.n3) )
@@ -1142,7 +1089,7 @@ class Projectors_tensor_3d:
     #                                              self.wts1, self.wts2, self.wts3,
     #                                              mat_dofs, rhs)
     #        rhs = rhs.reshape(self.ne1 * self.nq1, self.ne2 * self.nq2, self.ne3 * self.nq3)
-#
+    #
     #    else:
     #        raise ValueError ("wrong projector specified")
     #
@@ -1164,38 +1111,32 @@ class Projectors_tensor_3d:
 
         Returns
         -------
-        dofs : 3d numpy array 
+        dofs : 3d numpy array
             The degrees of freedom sigma_ijk.
         """
 
-        assert mat_f.shape == (
-            self.pts_PI[comp][0].size, self.pts_PI[comp][1].size, self.pts_PI[comp][2].size)
+        assert mat_f.shape == (self.pts_PI[comp][0].size, self.pts_PI[comp][1].size, self.pts_PI[comp][2].size)
 
-        if comp == '0':
-            dofs = kron_matvec_3d([spa.identity(mat_f.shape[0]), spa.identity(
-                mat_f.shape[1]), spa.identity(mat_f.shape[2])], mat_f)
+        if comp == "0":
+            dofs = kron_matvec_3d(
+                [spa.identity(mat_f.shape[0]), spa.identity(mat_f.shape[1]), spa.identity(mat_f.shape[2])], mat_f
+            )
 
-        elif comp == '11':
-            dofs = kron_matvec_3d([self.Q1, spa.identity(
-                mat_f.shape[1]), spa.identity(mat_f.shape[2])], mat_f)
-        elif comp == '12':
-            dofs = kron_matvec_3d(
-                [spa.identity(mat_f.shape[0]), self.Q2, spa.identity(mat_f.shape[2])], mat_f)
-        elif comp == '13':
-            dofs = kron_matvec_3d(
-                [spa.identity(mat_f.shape[0]), spa.identity(mat_f.shape[1]), self.Q3], mat_f)
+        elif comp == "11":
+            dofs = kron_matvec_3d([self.Q1, spa.identity(mat_f.shape[1]), spa.identity(mat_f.shape[2])], mat_f)
+        elif comp == "12":
+            dofs = kron_matvec_3d([spa.identity(mat_f.shape[0]), self.Q2, spa.identity(mat_f.shape[2])], mat_f)
+        elif comp == "13":
+            dofs = kron_matvec_3d([spa.identity(mat_f.shape[0]), spa.identity(mat_f.shape[1]), self.Q3], mat_f)
 
-        elif comp == '21':
-            dofs = kron_matvec_3d(
-                [spa.identity(mat_f.shape[0]), self.Q2, self.Q3], mat_f)
-        elif comp == '22':
-            dofs = kron_matvec_3d(
-                [self.Q1, spa.identity(mat_f.shape[1]), self.Q3], mat_f)
-        elif comp == '23':
-            dofs = kron_matvec_3d(
-                [self.Q1, self.Q2, spa.identity(mat_f.shape[2])], mat_f)
+        elif comp == "21":
+            dofs = kron_matvec_3d([spa.identity(mat_f.shape[0]), self.Q2, self.Q3], mat_f)
+        elif comp == "22":
+            dofs = kron_matvec_3d([self.Q1, spa.identity(mat_f.shape[1]), self.Q3], mat_f)
+        elif comp == "23":
+            dofs = kron_matvec_3d([self.Q1, self.Q2, spa.identity(mat_f.shape[2])], mat_f)
 
-        elif comp == '3':
+        elif comp == "3":
             dofs = kron_matvec_3d([self.Q1, self.Q2, self.Q3], mat_f)
 
         else:
@@ -1219,35 +1160,37 @@ class Projectors_tensor_3d:
 
         Returns
         -------
-        rhs : 3d numpy array 
+        rhs : 3d numpy array
             The degrees of freedom sigma_ijk.
         """
 
-        if comp == '0':
-            rhs = kron_matvec_3d([spa.identity(mat_dofs.shape[0]), spa.identity(
-                mat_dofs.shape[1]), spa.identity(mat_dofs.shape[2])], mat_dofs)
-
-        elif comp == '11':
-            rhs = kron_matvec_3d([self.Q1.T, spa.identity(
-                mat_dofs.shape[1]), spa.identity(mat_dofs.shape[2])], mat_dofs)
-        elif comp == '12':
-            rhs = kron_matvec_3d([spa.identity(
-                mat_dofs.shape[0]), self.Q2.T, spa.identity(mat_dofs.shape[2])], mat_dofs)
-        elif comp == '13':
-            rhs = kron_matvec_3d([spa.identity(mat_dofs.shape[0]), spa.identity(
-                mat_dofs.shape[1]), self.Q3.T], mat_dofs)
-
-        elif comp == '21':
+        if comp == "0":
             rhs = kron_matvec_3d(
-                [spa.identity(mat_dofs.shape[0]), self.Q2.T, self.Q3.T], mat_dofs)
-        elif comp == '22':
-            rhs = kron_matvec_3d([self.Q1.T, spa.identity(
-                mat_dofs.shape[1]), self.Q3.T], mat_dofs)
-        elif comp == '23':
-            rhs = kron_matvec_3d(
-                [self.Q1.T, self.Q2.T, spa.identity(mat_dofs.shape[2])], mat_dofs)
+                [spa.identity(mat_dofs.shape[0]), spa.identity(mat_dofs.shape[1]), spa.identity(mat_dofs.shape[2])],
+                mat_dofs,
+            )
 
-        elif comp == '3':
+        elif comp == "11":
+            rhs = kron_matvec_3d(
+                [self.Q1.T, spa.identity(mat_dofs.shape[1]), spa.identity(mat_dofs.shape[2])], mat_dofs
+            )
+        elif comp == "12":
+            rhs = kron_matvec_3d(
+                [spa.identity(mat_dofs.shape[0]), self.Q2.T, spa.identity(mat_dofs.shape[2])], mat_dofs
+            )
+        elif comp == "13":
+            rhs = kron_matvec_3d(
+                [spa.identity(mat_dofs.shape[0]), spa.identity(mat_dofs.shape[1]), self.Q3.T], mat_dofs
+            )
+
+        elif comp == "21":
+            rhs = kron_matvec_3d([spa.identity(mat_dofs.shape[0]), self.Q2.T, self.Q3.T], mat_dofs)
+        elif comp == "22":
+            rhs = kron_matvec_3d([self.Q1.T, spa.identity(mat_dofs.shape[1]), self.Q3.T], mat_dofs)
+        elif comp == "23":
+            rhs = kron_matvec_3d([self.Q1.T, self.Q2.T, spa.identity(mat_dofs.shape[2])], mat_dofs)
+
+        elif comp == "3":
             rhs = kron_matvec_3d([self.Q1.T, self.Q2.T, self.Q3.T], mat_dofs)
 
         else:
@@ -1266,7 +1209,7 @@ class Projectors_tensor_3d:
         comp : string
             Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
 
-        dofs : 3d numpy array 
+        dofs : 3d numpy array
             The degrees of freedom sigma_ijk.
 
         Returns
@@ -1275,41 +1218,33 @@ class Projectors_tensor_3d:
             The spline coefficients c_ijk obtained by projection.
         """
 
-        if comp == '0':
+        if comp == "0":
             assert dofs.shape == (self.n1, self.n2, self.n3)
-            coeffs = kron_lusolve_3d(
-                [self.I_LU1, self.I_LU2, self.I_LU3], dofs)
+            coeffs = kron_lusolve_3d([self.I_LU1, self.I_LU2, self.I_LU3], dofs)
 
-        elif comp == '11':
+        elif comp == "11":
             assert dofs.shape == (self.d1, self.n2, self.n3)
-            coeffs = kron_lusolve_3d(
-                [self.H_LU1, self.I_LU2, self.I_LU3], dofs)
-        elif comp == '12':
+            coeffs = kron_lusolve_3d([self.H_LU1, self.I_LU2, self.I_LU3], dofs)
+        elif comp == "12":
             assert dofs.shape == (self.n1, self.d2, self.n3)
-            coeffs = kron_lusolve_3d(
-                [self.I_LU1, self.H_LU2, self.I_LU3], dofs)
-        elif comp == '13':
+            coeffs = kron_lusolve_3d([self.I_LU1, self.H_LU2, self.I_LU3], dofs)
+        elif comp == "13":
             assert dofs.shape == (self.n1, self.n2, self.d3)
-            coeffs = kron_lusolve_3d(
-                [self.I_LU1, self.I_LU2, self.H_LU3], dofs)
+            coeffs = kron_lusolve_3d([self.I_LU1, self.I_LU2, self.H_LU3], dofs)
 
-        elif comp == '21':
+        elif comp == "21":
             assert dofs.shape == (self.n1, self.d2, self.d3)
-            coeffs = kron_lusolve_3d(
-                [self.I_LU1, self.H_LU2, self.H_LU3], dofs)
-        elif comp == '22':
+            coeffs = kron_lusolve_3d([self.I_LU1, self.H_LU2, self.H_LU3], dofs)
+        elif comp == "22":
             assert dofs.shape == (self.d1, self.n2, self.d3)
-            coeffs = kron_lusolve_3d(
-                [self.H_LU1, self.I_LU2, self.H_LU3], dofs)
-        elif comp == '23':
+            coeffs = kron_lusolve_3d([self.H_LU1, self.I_LU2, self.H_LU3], dofs)
+        elif comp == "23":
             assert dofs.shape == (self.d1, self.d2, self.n3)
-            coeffs = kron_lusolve_3d(
-                [self.H_LU1, self.H_LU2, self.I_LU3], dofs)
+            coeffs = kron_lusolve_3d([self.H_LU1, self.H_LU2, self.I_LU3], dofs)
 
-        elif comp == '3':
+        elif comp == "3":
             assert dofs.shape == (self.d1, self.d2, self.d3)
-            coeffs = kron_lusolve_3d(
-                [self.H_LU1, self.H_LU2, self.H_LU3], dofs)
+            coeffs = kron_lusolve_3d([self.H_LU1, self.H_LU2, self.H_LU3], dofs)
 
         else:
             raise ValueError("wrong projector specified")
@@ -1327,7 +1262,7 @@ class Projectors_tensor_3d:
         comp : string
             Which projector: '0', '11', '12', '13', '21', '22', '23' or '3'.
 
-        fun : callable 
+        fun : callable
             f(eta1, eta2, eta3).
 
         Returns
@@ -1339,41 +1274,33 @@ class Projectors_tensor_3d:
         mat_f = self.eval_for_PI(comp, fun)
         dofs = self.dofs(comp, mat_f)
 
-        if comp == '0':
+        if comp == "0":
             assert dofs.shape == (self.n1, self.n2, self.n3)
-            coeffs = kron_lusolve_3d(
-                [self.I_LU1, self.I_LU2, self.I_LU3], dofs)
+            coeffs = kron_lusolve_3d([self.I_LU1, self.I_LU2, self.I_LU3], dofs)
 
-        elif comp == '11':
+        elif comp == "11":
             assert dofs.shape == (self.d1, self.n2, self.n3)
-            coeffs = kron_lusolve_3d(
-                [self.H_LU1, self.I_LU2, self.I_LU3], dofs)
-        elif comp == '12':
+            coeffs = kron_lusolve_3d([self.H_LU1, self.I_LU2, self.I_LU3], dofs)
+        elif comp == "12":
             assert dofs.shape == (self.n1, self.d2, self.n3)
-            coeffs = kron_lusolve_3d(
-                [self.I_LU1, self.H_LU2, self.I_LU3], dofs)
-        elif comp == '13':
+            coeffs = kron_lusolve_3d([self.I_LU1, self.H_LU2, self.I_LU3], dofs)
+        elif comp == "13":
             assert dofs.shape == (self.n1, self.n2, self.d3)
-            coeffs = kron_lusolve_3d(
-                [self.I_LU1, self.I_LU2, self.H_LU3], dofs)
+            coeffs = kron_lusolve_3d([self.I_LU1, self.I_LU2, self.H_LU3], dofs)
 
-        elif comp == '21':
+        elif comp == "21":
             assert dofs.shape == (self.n1, self.d2, self.d3)
-            coeffs = kron_lusolve_3d(
-                [self.I_LU1, self.H_LU2, self.H_LU3], dofs)
-        elif comp == '22':
+            coeffs = kron_lusolve_3d([self.I_LU1, self.H_LU2, self.H_LU3], dofs)
+        elif comp == "22":
             assert dofs.shape == (self.d1, self.n2, self.d3)
-            coeffs = kron_lusolve_3d(
-                [self.H_LU1, self.I_LU2, self.H_LU3], dofs)
-        elif comp == '23':
+            coeffs = kron_lusolve_3d([self.H_LU1, self.I_LU2, self.H_LU3], dofs)
+        elif comp == "23":
             assert dofs.shape == (self.d1, self.d2, self.n3)
-            coeffs = kron_lusolve_3d(
-                [self.H_LU1, self.H_LU2, self.I_LU3], dofs)
+            coeffs = kron_lusolve_3d([self.H_LU1, self.H_LU2, self.I_LU3], dofs)
 
-        elif comp == '3':
+        elif comp == "3":
             assert dofs.shape == (self.d1, self.d2, self.d3)
-            coeffs = kron_lusolve_3d(
-                [self.H_LU1, self.H_LU2, self.H_LU3], dofs)
+            coeffs = kron_lusolve_3d([self.H_LU1, self.H_LU2, self.H_LU3], dofs)
 
         else:
             raise ValueError("wrong projector specified")
@@ -1388,7 +1315,7 @@ class Projectors_tensor_3d:
 
         Parameters
         ----------
-        fun : callable 
+        fun : callable
             Element in V_0 continuous space, f(eta1, eta2, eta3).
 
         Returns
@@ -1397,7 +1324,7 @@ class Projectors_tensor_3d:
             The spline coefficients c_ijk obtained by projection.
         """
 
-        coeffs = self.PI('0', fun)
+        coeffs = self.PI("0", fun)
 
         return coeffs
 
@@ -1409,11 +1336,11 @@ class Projectors_tensor_3d:
 
         Parameters
         ----------
-        fun1 : callable 
+        fun1 : callable
             1st component of element in V_1 continuous space, fun1(eta1, eta2, eta3).
-        fun2 : callable 
+        fun2 : callable
             2nd component of element in V_1 continuous space, fun2(eta1, eta2, eta3).
-        fun3 : callable 
+        fun3 : callable
             3rd component of element in V_1 continuous space, fun3(eta1, eta2, eta3).
 
         Returns
@@ -1426,9 +1353,9 @@ class Projectors_tensor_3d:
             The spline coefficients c_ijk obtained by projection of fun3 on NND.
         """
 
-        coeffs1 = self.PI('11', fun1)
-        coeffs2 = self.PI('12', fun2)
-        coeffs3 = self.PI('13', fun3)
+        coeffs1 = self.PI("11", fun1)
+        coeffs2 = self.PI("12", fun2)
+        coeffs3 = self.PI("13", fun3)
 
         return coeffs1, coeffs2, coeffs3
 
@@ -1440,11 +1367,11 @@ class Projectors_tensor_3d:
 
         Parameters
         ----------
-        fun1 : callable 
+        fun1 : callable
             1st component of element in V_2 continuous space, fun1(eta1, eta2, eta3).
-        fun2 : callable 
+        fun2 : callable
             2nd component of element in V_2 continuous space, fun2(eta1, eta2, eta3).
-        fun3 : callable 
+        fun3 : callable
             3rd component of element in V_2 continuous space, fun3(eta1, eta2, eta3).
 
         Returns
@@ -1457,9 +1384,9 @@ class Projectors_tensor_3d:
             The spline coefficients c_ijk obtained by projection of fun3 on DDN.
         """
 
-        coeffs1 = self.PI('21', fun1)
-        coeffs2 = self.PI('22', fun2)
-        coeffs3 = self.PI('23', fun3)
+        coeffs1 = self.PI("21", fun1)
+        coeffs2 = self.PI("22", fun2)
+        coeffs3 = self.PI("23", fun3)
 
         return coeffs1, coeffs2, coeffs3
 
@@ -1480,7 +1407,7 @@ class Projectors_tensor_3d:
             The spline coefficients c_ijk obtained by projection.
         """
 
-        coeffs = self.PI('3', fun)
+        coeffs = self.PI("3", fun)
 
         return coeffs
 
@@ -1498,22 +1425,18 @@ class ProjectorsGlobal3D:
     """
 
     def __init__(self, tensor_space):
-
         # assemble extraction operators P^k for degrees of freedom
 
         # ----------- standard tensor-product splines in eta_1 x eta_2 plane -----------
         if tensor_space.ck == -1:
-
             n1, n2 = tensor_space.NbaseN[:2]
             d1, d2 = tensor_space.NbaseD[:2]
 
             # with boundary dofs
-            self.P0_pol = spa.identity(n1*n2, dtype=float, format='csr')
-            self.P1_pol = spa.identity(
-                d1*n2 + n1*d2, dtype=float, format='csr')
-            self.P2_pol = spa.identity(
-                n1*d2 + d1*n2, dtype=float, format='csr')
-            self.P3_pol = spa.identity(d1*d2, dtype=float, format='csr')
+            self.P0_pol = spa.identity(n1 * n2, dtype=float, format="csr")
+            self.P1_pol = spa.identity(d1 * n2 + n1 * d2, dtype=float, format="csr")
+            self.P2_pol = spa.identity(n1 * d2 + d1 * n2, dtype=float, format="csr")
+            self.P3_pol = spa.identity(d1 * d2, dtype=float, format="csr")
 
             # without boundary dofs
             self.P0_pol_0 = tensor_space.B0_pol.dot(self.P0_pol).tocsr()
@@ -1524,7 +1447,6 @@ class ProjectorsGlobal3D:
 
         # ----------------- C^k polar splines in eta_1 x eta_2 plane ----------------------
         else:
-
             # with boundary dofs
             self.P0_pol = tensor_space.polar_splines.P0.copy()
             self.P1_pol = tensor_space.polar_splines.P1C.copy()
@@ -1540,34 +1462,30 @@ class ProjectorsGlobal3D:
 
         # 3D operators: with boundary dofs
         if tensor_space.dim == 2:
-
             self.P0 = self.P0_pol.copy()
-            self.P1 = spa.bmat(
-                [[self.P1_pol, None], [None, self.P0_pol]], format='csr')
-            self.P2 = spa.bmat(
-                [[self.P2_pol, None], [None, self.P3_pol]], format='csr')
+            self.P1 = spa.bmat([[self.P1_pol, None], [None, self.P0_pol]], format="csr")
+            self.P2 = spa.bmat([[self.P2_pol, None], [None, self.P3_pol]], format="csr")
             self.P3 = self.P3_pol.copy()
 
-            self.P0 = spa.kron(self.P0, spa.identity(
-                tensor_space.NbaseN[2]), format='csr')
-            self.P1 = spa.kron(self.P1, spa.identity(
-                tensor_space.NbaseN[2]), format='csr')
-            self.P2 = spa.kron(self.P2, spa.identity(
-                tensor_space.NbaseN[2]), format='csr')
-            self.P3 = spa.kron(self.P3, spa.identity(
-                tensor_space.NbaseN[2]), format='csr')
+            self.P0 = spa.kron(self.P0, spa.identity(tensor_space.NbaseN[2]), format="csr")
+            self.P1 = spa.kron(self.P1, spa.identity(tensor_space.NbaseN[2]), format="csr")
+            self.P2 = spa.kron(self.P2, spa.identity(tensor_space.NbaseN[2]), format="csr")
+            self.P3 = spa.kron(self.P3, spa.identity(tensor_space.NbaseN[2]), format="csr")
 
         else:
-
             n3 = tensor_space.NbaseN[2]
             d3 = tensor_space.NbaseD[2]
 
-            self.P0 = spa.kron(self.P0_pol, spa.identity(n3), format='csr')
-            self.P1 = spa.bmat([[spa.kron(self.P1_pol, spa.identity(n3)), None],
-                                [None, spa.kron(self.P0_pol, spa.identity(d3))]], format='csr')
-            self.P2 = spa.bmat([[spa.kron(self.P2_pol, spa.identity(d3)), None],
-                                [None, spa.kron(self.P3_pol, spa.identity(n3))]], format='csr')
-            self.P3 = spa.kron(self.P3_pol, spa.identity(d3), format='csr')
+            self.P0 = spa.kron(self.P0_pol, spa.identity(n3), format="csr")
+            self.P1 = spa.bmat(
+                [[spa.kron(self.P1_pol, spa.identity(n3)), None], [None, spa.kron(self.P0_pol, spa.identity(d3))]],
+                format="csr",
+            )
+            self.P2 = spa.bmat(
+                [[spa.kron(self.P2_pol, spa.identity(d3)), None], [None, spa.kron(self.P3_pol, spa.identity(n3))]],
+                format="csr",
+            )
+            self.P3 = spa.kron(self.P3_pol, spa.identity(d3), format="csr")
 
         # 3D operators: without boundary dofs
         self.P0_0 = tensor_space.B0.dot(self.P0).tocsr()
@@ -1580,29 +1498,25 @@ class ProjectorsGlobal3D:
         #    # blocks of I0 matrix
         #    self.I0_11 = spa.kron(self.projectors_1d[0].N[:2, :2], self.projectors_1d[1].N)
         #    self.I0_11 = tensor_space.polar_splines.P0_11.dot(self.I0_11.dot(tensor_space.polar_splines.E0_11.T)).tocsr()
-#
+        #
         #    self.I0_12 = spa.kron(self.projectors_1d[0].N[:2, 2:], self.projectors_1d[1].N)
         #    self.I0_12 = tensor_space.polar_splines.P0_11.dot(self.I0_12).tocsr()
-#
+        #
         #    self.I0_21 = spa.kron(self.projectors_1d[0].N[2:, :2], self.projectors_1d[1].N)
         #    self.I0_21 = self.I0_21.dot(tensor_space.polar_splines.E0_11.T).tocsr()
-#
+        #
         #    self.I0_22 = spa.kron(self.projectors_1d[0].N[2:, 2:], self.projectors_1d[1].N, format='csr')
         #
         #    self.I0_22_LUs = [spa.linalg.splu(self.projectors_1d[0].N[2:, 2:].tocsc()), self.projectors_1d[1].N_LU]
 
         # 2D interpolation/histopolation matrices in poloidal plane
-        II = spa.kron(tensor_space.spaces[0].projectors.I,
-                      tensor_space.spaces[1].projectors.I, format='csr')
-        HI = spa.kron(tensor_space.spaces[0].projectors.H,
-                      tensor_space.spaces[1].projectors.I, format='csr')
-        IH = spa.kron(tensor_space.spaces[0].projectors.I,
-                      tensor_space.spaces[1].projectors.H, format='csr')
-        HH = spa.kron(tensor_space.spaces[0].projectors.H,
-                      tensor_space.spaces[1].projectors.H, format='csr')
+        II = spa.kron(tensor_space.spaces[0].projectors.I, tensor_space.spaces[1].projectors.I, format="csr")
+        HI = spa.kron(tensor_space.spaces[0].projectors.H, tensor_space.spaces[1].projectors.I, format="csr")
+        IH = spa.kron(tensor_space.spaces[0].projectors.I, tensor_space.spaces[1].projectors.H, format="csr")
+        HH = spa.kron(tensor_space.spaces[0].projectors.H, tensor_space.spaces[1].projectors.H, format="csr")
 
-        HI_IH = spa.bmat([[HI, None], [None, IH]], format='csr')
-        IH_HI = spa.bmat([[IH, None], [None, HI]], format='csr')
+        HI_IH = spa.bmat([[HI, None], [None, IH]], format="csr")
+        IH_HI = spa.bmat([[IH, None], [None, HI]], format="csr")
 
         # including boundary splines
         self.I0_pol = self.P0_pol.dot(II.dot(tensor_space.E0_pol.T)).tocsr()
@@ -1611,14 +1525,10 @@ class ProjectorsGlobal3D:
         self.I3_pol = self.P3_pol.dot(HH.dot(tensor_space.E3_pol.T)).tocsr()
 
         # without boundary splines
-        self.I0_pol_0 = self.P0_pol_0.dot(
-            II.dot(tensor_space.E0_pol_0.T)).tocsr()
-        self.I1_pol_0 = self.P1_pol_0.dot(
-            HI_IH.dot(tensor_space.E1_pol_0.T)).tocsr()
-        self.I2_pol_0 = self.P2_pol_0.dot(
-            IH_HI.dot(tensor_space.E2_pol_0.T)).tocsr()
-        self.I3_pol_0 = self.P3_pol_0.dot(
-            HH.dot(tensor_space.E3_pol_0.T)).tocsr()
+        self.I0_pol_0 = self.P0_pol_0.dot(II.dot(tensor_space.E0_pol_0.T)).tocsr()
+        self.I1_pol_0 = self.P1_pol_0.dot(HI_IH.dot(tensor_space.E1_pol_0.T)).tocsr()
+        self.I2_pol_0 = self.P2_pol_0.dot(IH_HI.dot(tensor_space.E2_pol_0.T)).tocsr()
+        self.I3_pol_0 = self.P3_pol_0.dot(HH.dot(tensor_space.E3_pol_0.T)).tocsr()
 
         # LU decompositions in poloidal plane (including boundary splines)
         self.I0_pol_LU = spa.linalg.splu(self.I0_pol.tocsc())
@@ -1639,7 +1549,7 @@ class ProjectorsGlobal3D:
 
         # whether approximate inverse interpolation matrices were computed already
         self.approx_Ik_0_inv = False
-        self.approx_Ik_0_tol = -1.
+        self.approx_Ik_0_tol = -1.0
 
         # get 1D interpolation points
         x_i1 = tensor_space.spaces[0].projectors.x_int.copy()
@@ -1661,7 +1571,6 @@ class ProjectorsGlobal3D:
 
         # 1D interpolation/histopolation points and matrices in third direction
         if tensor_space.dim == 3:
-
             x_i3 = tensor_space.spaces[2].projectors.x_int
             x_q3 = tensor_space.spaces[2].projectors.pts.flatten()
             x_q3G = tensor_space.spaces[2].projectors.ptsG.flatten()
@@ -1685,43 +1594,36 @@ class ProjectorsGlobal3D:
             self.H0_tor_T_LU = tensor_space.spaces[2].projectors.H0_T_LU
 
         else:
-
             if tensor_space.n_tor == 0:
-
-                x_i3 = np.array([0.])
-                x_q3 = np.array([0.])
-                x_q3G = np.array([0.])
+                x_i3 = np.array([0.0])
+                x_q3 = np.array([0.0])
+                x_q3G = np.array([0.0])
 
             else:
-
-                if tensor_space.basis_tor == 'r':
-
+                if tensor_space.basis_tor == "r":
                     if tensor_space.n_tor > 0:
-
-                        x_i3 = np.array([1., 0.25/tensor_space.n_tor])
-                        x_q3 = np.array([1., 0.25/tensor_space.n_tor])
-                        x_q3G = np.array([1., 0.25/tensor_space.n_tor])
+                        x_i3 = np.array([1.0, 0.25 / tensor_space.n_tor])
+                        x_q3 = np.array([1.0, 0.25 / tensor_space.n_tor])
+                        x_q3G = np.array([1.0, 0.25 / tensor_space.n_tor])
 
                     else:
-
-                        x_i3 = np.array([1., 0.75/(-tensor_space.n_tor)])
-                        x_q3 = np.array([1., 0.75/(-tensor_space.n_tor)])
-                        x_q3G = np.array([1., 0.75/(-tensor_space.n_tor)])
+                        x_i3 = np.array([1.0, 0.75 / (-tensor_space.n_tor)])
+                        x_q3 = np.array([1.0, 0.75 / (-tensor_space.n_tor)])
+                        x_q3G = np.array([1.0, 0.75 / (-tensor_space.n_tor)])
 
                 else:
+                    x_i3 = np.array([0.0])
+                    x_q3 = np.array([0.0])
+                    x_q3G = np.array([0.0])
 
-                    x_i3 = np.array([0.])
-                    x_q3 = np.array([0.])
-                    x_q3G = np.array([0.])
+            self.Q3 = spa.identity(tensor_space.NbaseN[2], format="csr")
+            self.Q3G = spa.identity(tensor_space.NbaseN[2], format="csr")
 
-            self.Q3 = spa.identity(tensor_space.NbaseN[2], format='csr')
-            self.Q3G = spa.identity(tensor_space.NbaseN[2], format='csr')
+            self.I_tor = spa.identity(tensor_space.NbaseN[2], format="csr")
+            self.H_tor = spa.identity(tensor_space.NbaseN[2], format="csr")
 
-            self.I_tor = spa.identity(tensor_space.NbaseN[2], format='csr')
-            self.H_tor = spa.identity(tensor_space.NbaseN[2], format='csr')
-
-            self.I0_tor = spa.identity(tensor_space.NbaseN[2], format='csr')
-            self.H0_tor = spa.identity(tensor_space.NbaseN[2], format='csr')
+            self.I0_tor = spa.identity(tensor_space.NbaseN[2], format="csr")
+            self.H0_tor = spa.identity(tensor_space.NbaseN[2], format="csr")
 
             self.I_tor_LU = spa.linalg.splu(self.I_tor.tocsc())
             self.H_tor_LU = spa.linalg.splu(self.H_tor.tocsc())
@@ -1771,12 +1673,11 @@ class ProjectorsGlobal3D:
 
         Returns
         -------
-        pts_PI : list of 1d arrays 
+        pts_PI : list of 1d arrays
             the 1D point sets.
         """
 
         if with_subs:
-
             if comp == 0:
                 pts_PI = self.pts_PI_0
 
@@ -1801,7 +1702,6 @@ class ProjectorsGlobal3D:
                 raise ValueError("wrong projector specified")
 
         else:
-
             if comp == 0:
                 pts_PI = self.pts_PI_0G
 
@@ -1856,17 +1756,15 @@ class ProjectorsGlobal3D:
         pts_PI = self.getpts_for_PI(comp, with_subs)
 
         # array of evaluated function
-        mat_f = np.empty(
-            (pts_PI[0].size, pts_PI[1].size, pts_PI[2].size), dtype=float)
+        mat_f = np.empty((pts_PI[0].size, pts_PI[1].size, pts_PI[2].size), dtype=float)
 
         # create a meshgrid and evaluate function on point set
-        if eval_kind == 'meshgrid':
-            pts1, pts2, pts3 = np.meshgrid(
-                pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij')
+        if eval_kind == "meshgrid":
+            pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing="ij")
             mat_f[:, :, :] = fun(pts1, pts2, pts3)
 
         # tensor-product evaluation is done by input function
-        elif eval_kind == 'tensor_product':
+        elif eval_kind == "tensor_product":
             mat_f[:, :, :] = fun(pts_PI[0], pts_PI[1], pts_PI[2])
 
         # point-wise evaluation
@@ -1874,8 +1772,7 @@ class ProjectorsGlobal3D:
             for i1 in range(pts_PI[0].size):
                 for i2 in range(pts_PI[1].size):
                     for i3 in range(pts_PI[2].size):
-                        mat_f[i1, i2, i3] = fun(
-                            pts_PI[0][i1], pts_PI[1][i2], pts_PI[2][i3])
+                        mat_f[i1, i2, i3] = fun(pts_PI[0][i1], pts_PI[1][i2], pts_PI[2][i3])
 
         return mat_f
 
@@ -1922,7 +1819,6 @@ class ProjectorsGlobal3D:
     # ======================================
 
     def solve_V0(self, dofs_0, include_bc):
-
         # with boundary splines
         if include_bc:
             dofs_0 = dofs_0.reshape(self.P0_pol.shape[0], self.I_tor.shape[0])
@@ -1930,29 +1826,33 @@ class ProjectorsGlobal3D:
 
         # without boundary splines
         else:
-            dofs_0 = dofs_0.reshape(
-                self.P0_pol_0.shape[0], self.I0_tor.shape[0])
+            dofs_0 = dofs_0.reshape(self.P0_pol_0.shape[0], self.I0_tor.shape[0])
             coeffs = self.I0_tor_LU.solve(self.I0_pol_0_LU.solve(dofs_0).T).T
 
         return coeffs.flatten()
 
     # ======================================
     def solve_V1(self, dofs_1, include_bc):
-
         # with boundary splines
         if include_bc:
-            dofs_11 = dofs_1[:self.P1_pol.shape[0]*self.I_tor.shape[0]
-                             ].reshape(self.P1_pol.shape[0], self.I_tor.shape[0])
-            dofs_12 = dofs_1[self.P1_pol.shape[0]*self.I_tor.shape[0]:].reshape(self.P0_pol.shape[0], self.H_tor.shape[0])
+            dofs_11 = dofs_1[: self.P1_pol.shape[0] * self.I_tor.shape[0]].reshape(
+                self.P1_pol.shape[0], self.I_tor.shape[0]
+            )
+            dofs_12 = dofs_1[self.P1_pol.shape[0] * self.I_tor.shape[0] :].reshape(
+                self.P0_pol.shape[0], self.H_tor.shape[0]
+            )
 
             coeffs1 = self.I_tor_LU.solve(self.I1_pol_LU.solve(dofs_11).T).T
             coeffs2 = self.H_tor_LU.solve(self.I0_pol_LU.solve(dofs_12).T).T
 
         # without boundary splines
         else:
-            dofs_11 = dofs_1[:self.P1_pol_0.shape[0]*self.I0_tor.shape[0]
-                             ].reshape(self.P1_pol_0.shape[0], self.I0_tor.shape[0])
-            dofs_12 = dofs_1[self.P1_pol_0.shape[0]*self.I0_tor.shape[0]:].reshape(self.P0_pol_0.shape[0], self.H0_tor.shape[0])
+            dofs_11 = dofs_1[: self.P1_pol_0.shape[0] * self.I0_tor.shape[0]].reshape(
+                self.P1_pol_0.shape[0], self.I0_tor.shape[0]
+            )
+            dofs_12 = dofs_1[self.P1_pol_0.shape[0] * self.I0_tor.shape[0] :].reshape(
+                self.P0_pol_0.shape[0], self.H0_tor.shape[0]
+            )
 
             coeffs1 = self.I0_tor_LU.solve(self.I1_pol_0_LU.solve(dofs_11).T).T
             coeffs2 = self.H0_tor_LU.solve(self.I0_pol_0_LU.solve(dofs_12).T).T
@@ -1961,21 +1861,26 @@ class ProjectorsGlobal3D:
 
     # ======================================
     def solve_V2(self, dofs_2, include_bc):
-
         # with boundary splines
         if include_bc:
-            dofs_21 = dofs_2[:self.P2_pol.shape[0]*self.H_tor.shape[0]
-                             ].reshape(self.P2_pol.shape[0], self.H_tor.shape[0])
-            dofs_22 = dofs_2[self.P2_pol.shape[0]*self.H_tor.shape[0]:].reshape(self.P3_pol.shape[0], self.I_tor.shape[0])
+            dofs_21 = dofs_2[: self.P2_pol.shape[0] * self.H_tor.shape[0]].reshape(
+                self.P2_pol.shape[0], self.H_tor.shape[0]
+            )
+            dofs_22 = dofs_2[self.P2_pol.shape[0] * self.H_tor.shape[0] :].reshape(
+                self.P3_pol.shape[0], self.I_tor.shape[0]
+            )
 
             coeffs1 = self.H_tor_LU.solve(self.I2_pol_LU.solve(dofs_21).T).T
             coeffs2 = self.I_tor_LU.solve(self.I3_pol_LU.solve(dofs_22).T).T
 
         # without boundary splines
         else:
-            dofs_21 = dofs_2[:self.P2_pol_0.shape[0]*self.H0_tor.shape[0]
-                             ].reshape(self.P2_pol_0.shape[0], self.H0_tor.shape[0])
-            dofs_22 = dofs_2[self.P2_pol_0.shape[0]*self.H0_tor.shape[0]:].reshape(self.P3_pol_0.shape[0], self.I0_tor.shape[0])
+            dofs_21 = dofs_2[: self.P2_pol_0.shape[0] * self.H0_tor.shape[0]].reshape(
+                self.P2_pol_0.shape[0], self.H0_tor.shape[0]
+            )
+            dofs_22 = dofs_2[self.P2_pol_0.shape[0] * self.H0_tor.shape[0] :].reshape(
+                self.P3_pol_0.shape[0], self.I0_tor.shape[0]
+            )
 
             coeffs1 = self.H0_tor_LU.solve(self.I2_pol_0_LU.solve(dofs_21).T).T
             coeffs2 = self.I0_tor_LU.solve(self.I3_pol_0_LU.solve(dofs_22).T).T
@@ -1984,7 +1889,6 @@ class ProjectorsGlobal3D:
 
     # ======================================
     def solve_V3(self, dofs_3, include_bc):
-
         # with boundary splines
         if include_bc:
             dofs_3 = dofs_3.reshape(self.P3_pol.shape[0], self.H_tor.shape[0])
@@ -1992,8 +1896,7 @@ class ProjectorsGlobal3D:
 
         # without boundary splines
         else:
-            dofs_3 = dofs_3.reshape(
-                self.P3_pol_0.shape[0], self.H0_tor.shape[0])
+            dofs_3 = dofs_3.reshape(self.P3_pol_0.shape[0], self.H0_tor.shape[0])
             coeffs = self.H0_tor_LU.solve(self.I3_pol_0_LU.solve(dofs_3).T).T
 
         return coeffs.flatten()
@@ -2001,11 +1904,9 @@ class ProjectorsGlobal3D:
     # ======================================
 
     def apply_IinvT_V0(self, rhs, include_bc=False):
-
         # with boundary splines
         if include_bc:
-
-            if not hasattr(self, 'I0_pol_T_LU'):
+            if not hasattr(self, "I0_pol_T_LU"):
                 self.I0_pol_T_LU = spa.linalg.splu(self.I0_pol.T.tocsc())
 
             rhs = rhs.reshape(self.P0_pol.shape[0], self.I_tor.shape[0])
@@ -2020,29 +1921,28 @@ class ProjectorsGlobal3D:
 
     # ======================================
     def apply_IinvT_V1(self, rhs, include_bc=False):
-
         # with boundary splines
         if include_bc:
-
-            if not hasattr(self, 'I0_pol_T_LU'):
+            if not hasattr(self, "I0_pol_T_LU"):
                 self.I0_pol_T_LU = spa.linalg.splu(self.I0_pol.T.tocsc())
 
-            if not hasattr(self, 'I1_pol_T_LU'):
+            if not hasattr(self, "I1_pol_T_LU"):
                 self.I1_pol_T_LU = spa.linalg.splu(self.I1_pol.T.tocsc())
 
-            rhs1 = rhs[:self.P1_pol.shape[0]*self.I_tor.shape[0]
-                       ].reshape(self.P1_pol.shape[0], self.I_tor.shape[0])
-            rhs2 = rhs[self.P1_pol.shape[0]*self.I_tor.shape[0]:].reshape(self.P0_pol.shape[0], self.H_tor.shape[0])
+            rhs1 = rhs[: self.P1_pol.shape[0] * self.I_tor.shape[0]].reshape(self.P1_pol.shape[0], self.I_tor.shape[0])
+            rhs2 = rhs[self.P1_pol.shape[0] * self.I_tor.shape[0] :].reshape(self.P0_pol.shape[0], self.H_tor.shape[0])
 
             rhs1 = self.I1_pol_T_LU.solve(self.I_tor_T_LU.solve(rhs1.T).T)
             rhs2 = self.I0_pol_T_LU.solve(self.H_tor_T_LU.solve(rhs2.T).T)
 
         # without boundary splines
         else:
-
-            rhs1 = rhs[:self.P1_pol_0.shape[0]*self.I0_tor.shape[0]
-                       ].reshape(self.P1_pol_0.shape[0], self.I0_tor.shape[0])
-            rhs2 = rhs[self.P1_pol_0.shape[0]*self.I0_tor.shape[0]:].reshape(self.P0_pol_0.shape[0], self.H0_tor.shape[0])
+            rhs1 = rhs[: self.P1_pol_0.shape[0] * self.I0_tor.shape[0]].reshape(
+                self.P1_pol_0.shape[0], self.I0_tor.shape[0]
+            )
+            rhs2 = rhs[self.P1_pol_0.shape[0] * self.I0_tor.shape[0] :].reshape(
+                self.P0_pol_0.shape[0], self.H0_tor.shape[0]
+            )
 
             rhs1 = self.I1_pol_0_T_LU.solve(self.I0_tor_T_LU.solve(rhs1.T).T)
             rhs2 = self.I0_pol_0_T_LU.solve(self.H0_tor_T_LU.solve(rhs2.T).T)
@@ -2051,29 +1951,28 @@ class ProjectorsGlobal3D:
 
     # ======================================
     def apply_IinvT_V2(self, rhs, include_bc=False):
-
         # with boundary splines
         if include_bc:
-
-            if not hasattr(self, 'I2_pol_T_LU'):
+            if not hasattr(self, "I2_pol_T_LU"):
                 self.I2_pol_T_LU = spa.linalg.splu(self.I2_pol.T.tocsc())
 
-            if not hasattr(self, 'I3_pol_T_LU'):
+            if not hasattr(self, "I3_pol_T_LU"):
                 self.I3_pol_T_LU = spa.linalg.splu(self.I3_pol.T.tocsc())
 
-            rhs1 = rhs[:self.P2_pol.shape[0]*self.H_tor.shape[0]
-                       ].reshape(self.P2_pol.shape[0], self.H_tor.shape[0])
-            rhs2 = rhs[self.P2_pol.shape[0]*self.H_tor.shape[0]:].reshape(self.P3_pol.shape[0], self.I_tor.shape[0])
+            rhs1 = rhs[: self.P2_pol.shape[0] * self.H_tor.shape[0]].reshape(self.P2_pol.shape[0], self.H_tor.shape[0])
+            rhs2 = rhs[self.P2_pol.shape[0] * self.H_tor.shape[0] :].reshape(self.P3_pol.shape[0], self.I_tor.shape[0])
 
             rhs1 = self.I2_pol_T_LU.solve(self.H_tor_T_LU.solve(rhs1.T).T)
             rhs2 = self.I3_pol_T_LU.solve(self.I_tor_T_LU.solve(rhs2.T).T)
 
         # without boundary splines
         else:
-
-            rhs1 = rhs[:self.P2_pol_0.shape[0]*self.H0_tor.shape[0]
-                       ].reshape(self.P2_pol_0.shape[0], self.H0_tor.shape[0])
-            rhs2 = rhs[self.P2_pol_0.shape[0]*self.H0_tor.shape[0]:].reshape(self.P3_pol_0.shape[0], self.I0_tor.shape[0])
+            rhs1 = rhs[: self.P2_pol_0.shape[0] * self.H0_tor.shape[0]].reshape(
+                self.P2_pol_0.shape[0], self.H0_tor.shape[0]
+            )
+            rhs2 = rhs[self.P2_pol_0.shape[0] * self.H0_tor.shape[0] :].reshape(
+                self.P3_pol_0.shape[0], self.I0_tor.shape[0]
+            )
 
             rhs1 = self.I2_pol_0_T_LU.solve(self.H0_tor_T_LU.solve(rhs1.T).T)
             rhs2 = self.I3_pol_0_T_LU.solve(self.I0_tor_T_LU.solve(rhs2.T).T)
@@ -2082,11 +1981,9 @@ class ProjectorsGlobal3D:
 
     # ======================================
     def apply_IinvT_V3(self, rhs, include_bc=False):
-
         # with boundary splines
         if include_bc:
-
-            if not hasattr(self, 'I3_pol_T_LU'):
+            if not hasattr(self, "I3_pol_T_LU"):
                 self.I3_pol_T_LU = spa.linalg.splu(self.I3_pol.T.tocsc())
 
             rhs = rhs.reshape(self.P3_pol.shape[0], self.H_tor.shape[0])
@@ -2094,7 +1991,6 @@ class ProjectorsGlobal3D:
 
         # without boundary splines
         else:
-
             rhs = rhs.reshape(self.P3_pol_0.shape[0], self.H0_tor.shape[0])
             rhs = self.I3_pol_0_T_LU.solve(self.H0_tor_T_LU.solve(rhs.T).T)
 
@@ -2102,14 +1998,14 @@ class ProjectorsGlobal3D:
 
     # ======================================
 
-    def dofs_0(self, fun, include_bc=True, eval_kind='meshgrid'):
-
+    def dofs_0(self, fun, include_bc=True, eval_kind="meshgrid"):
         # get function values at point sets
         dofs = self.eval_for_PI(0, fun, eval_kind)
 
         # get dofs on tensor-product grid
-        dofs = kron_matvec_3d([spa.identity(dofs.shape[0]), spa.identity(
-            dofs.shape[1]), spa.identity(dofs.shape[2])], dofs)
+        dofs = kron_matvec_3d(
+            [spa.identity(dofs.shape[0]), spa.identity(dofs.shape[1]), spa.identity(dofs.shape[2])], dofs
+        )
 
         # apply extraction operator for dofs
         if include_bc:
@@ -2120,8 +2016,7 @@ class ProjectorsGlobal3D:
         return dofs
 
     # ======================================
-    def dofs_1(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
-
+    def dofs_1(self, fun, include_bc=True, eval_kind="meshgrid", with_subs=True):
         # get function values at point sets
         dofs_1 = self.eval_for_PI(11, fun[0], eval_kind, with_subs)
         dofs_2 = self.eval_for_PI(12, fun[1], eval_kind, with_subs)
@@ -2129,41 +2024,32 @@ class ProjectorsGlobal3D:
 
         # get dofs_1 on tensor-product grid: integrate along 1-direction
         if with_subs:
-            dofs_1 = kron_matvec_3d([self.Q1, spa.identity(
-                dofs_1.shape[1]), spa.identity(dofs_1.shape[2])], dofs_1)
+            dofs_1 = kron_matvec_3d([self.Q1, spa.identity(dofs_1.shape[1]), spa.identity(dofs_1.shape[2])], dofs_1)
         else:
-            dofs_1 = kron_matvec_3d([self.Q1G, spa.identity(
-                dofs_1.shape[1]), spa.identity(dofs_1.shape[2])], dofs_1)
+            dofs_1 = kron_matvec_3d([self.Q1G, spa.identity(dofs_1.shape[1]), spa.identity(dofs_1.shape[2])], dofs_1)
 
         # get dofs_2 on tensor-product grid: integrate along 2-direction
         if with_subs:
-            dofs_2 = kron_matvec_3d(
-                [spa.identity(dofs_2.shape[0]), self.Q2, spa.identity(dofs_2.shape[2])], dofs_2)
+            dofs_2 = kron_matvec_3d([spa.identity(dofs_2.shape[0]), self.Q2, spa.identity(dofs_2.shape[2])], dofs_2)
         else:
-            dofs_2 = kron_matvec_3d(
-                [spa.identity(dofs_2.shape[0]), self.Q2G, spa.identity(dofs_2.shape[2])], dofs_2)
+            dofs_2 = kron_matvec_3d([spa.identity(dofs_2.shape[0]), self.Q2G, spa.identity(dofs_2.shape[2])], dofs_2)
 
         # get dofs_3 on tensor-product grid: integrate along 3-direction
         if with_subs:
-            dofs_3 = kron_matvec_3d(
-                [spa.identity(dofs_3.shape[0]), spa.identity(dofs_3.shape[1]), self.Q3], dofs_3)
+            dofs_3 = kron_matvec_3d([spa.identity(dofs_3.shape[0]), spa.identity(dofs_3.shape[1]), self.Q3], dofs_3)
         else:
-            dofs_3 = kron_matvec_3d(
-                [spa.identity(dofs_3.shape[0]), spa.identity(dofs_3.shape[1]), self.Q3G], dofs_3)
+            dofs_3 = kron_matvec_3d([spa.identity(dofs_3.shape[0]), spa.identity(dofs_3.shape[1]), self.Q3G], dofs_3)
 
         # apply extraction operator for dofs
         if include_bc:
-            dofs = self.P1.dot(np.concatenate(
-                (dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
+            dofs = self.P1.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
         else:
-            dofs = self.P1_0.dot(np.concatenate(
-                (dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
+            dofs = self.P1_0.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
 
         return dofs
 
     # ======================================
-    def dofs_2(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
-
+    def dofs_2(self, fun, include_bc=True, eval_kind="meshgrid", with_subs=True):
         # get function values at point sets
         dofs_1 = self.eval_for_PI(21, fun[0], eval_kind, with_subs)
         dofs_2 = self.eval_for_PI(22, fun[1], eval_kind, with_subs)
@@ -2171,41 +2057,32 @@ class ProjectorsGlobal3D:
 
         # get dofs_1 on tensor-product grid: integrate in 2-3-plane
         if with_subs:
-            dofs_1 = kron_matvec_3d(
-                [spa.identity(dofs_1.shape[0]), self.Q2, self.Q3], dofs_1)
+            dofs_1 = kron_matvec_3d([spa.identity(dofs_1.shape[0]), self.Q2, self.Q3], dofs_1)
         else:
-            dofs_1 = kron_matvec_3d(
-                [spa.identity(dofs_1.shape[0]), self.Q2G, self.Q3G], dofs_1)
+            dofs_1 = kron_matvec_3d([spa.identity(dofs_1.shape[0]), self.Q2G, self.Q3G], dofs_1)
 
         # get dofs_2 on tensor-product grid: integrate in 1-3-plane
         if with_subs:
-            dofs_2 = kron_matvec_3d(
-                [self.Q1, spa.identity(dofs_2.shape[1]), self.Q3], dofs_2)
+            dofs_2 = kron_matvec_3d([self.Q1, spa.identity(dofs_2.shape[1]), self.Q3], dofs_2)
         else:
-            dofs_2 = kron_matvec_3d(
-                [self.Q1G, spa.identity(dofs_2.shape[1]), self.Q3G], dofs_2)
+            dofs_2 = kron_matvec_3d([self.Q1G, spa.identity(dofs_2.shape[1]), self.Q3G], dofs_2)
 
         # get dofs_3 on tensor-product grid: integrate in 1-2-plane
         if with_subs:
-            dofs_3 = kron_matvec_3d(
-                [self.Q1, self.Q2, spa.identity(dofs_3.shape[2])], dofs_3)
+            dofs_3 = kron_matvec_3d([self.Q1, self.Q2, spa.identity(dofs_3.shape[2])], dofs_3)
         else:
-            dofs_3 = kron_matvec_3d(
-                [self.Q1G, self.Q2G, spa.identity(dofs_3.shape[2])], dofs_3)
+            dofs_3 = kron_matvec_3d([self.Q1G, self.Q2G, spa.identity(dofs_3.shape[2])], dofs_3)
 
         # apply extraction operator for dofs
         if include_bc:
-            dofs = self.P2.dot(np.concatenate(
-                (dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
+            dofs = self.P2.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
         else:
-            dofs = self.P2_0.dot(np.concatenate(
-                (dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
+            dofs = self.P2_0.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
 
         return dofs
 
     # ======================================
-    def dofs_3(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
-
+    def dofs_3(self, fun, include_bc=True, eval_kind="meshgrid", with_subs=True):
         # get function values at point sets
         dofs = self.eval_for_PI(3, fun, eval_kind, with_subs)
 
@@ -2225,27 +2102,25 @@ class ProjectorsGlobal3D:
 
     # ======================================
 
-    def pi_0(self, fun, include_bc=True, eval_kind='meshgrid'):
+    def pi_0(self, fun, include_bc=True, eval_kind="meshgrid"):
         return self.solve_V0(self.dofs_0(fun, include_bc, eval_kind), include_bc)
 
     # ======================================
-    def pi_1(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
+    def pi_1(self, fun, include_bc=True, eval_kind="meshgrid", with_subs=True):
         return self.solve_V1(self.dofs_1(fun, include_bc, eval_kind, with_subs), include_bc)
 
     # ======================================
-    def pi_2(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
+    def pi_2(self, fun, include_bc=True, eval_kind="meshgrid", with_subs=True):
         return self.solve_V2(self.dofs_2(fun, include_bc, eval_kind, with_subs), include_bc)
 
     # ======================================
-    def pi_3(self, fun, include_bc=True, eval_kind='meshgrid', with_subs=True):
+    def pi_3(self, fun, include_bc=True, eval_kind="meshgrid", with_subs=True):
         return self.solve_V3(self.dofs_3(fun, include_bc, eval_kind, with_subs), include_bc)
 
     # ========================================
 
     def assemble_approx_inv(self, tol):
-
         if self.approx_Ik_0_inv == False or (self.approx_Ik_0_inv == True and self.approx_Ik_0_tol != tol):
-
             # poloidal plane
             I0_pol_0_inv_approx = np.linalg.inv(self.I0_pol_0.toarray())
             I1_pol_0_inv_approx = np.linalg.inv(self.I1_pol_0.toarray())
@@ -2254,11 +2129,11 @@ class ProjectorsGlobal3D:
             I0_pol_inv_approx = np.linalg.inv(self.I0_pol.toarray())
 
             if tol > 1e-14:
-                I0_pol_0_inv_approx[np.abs(I0_pol_0_inv_approx) < tol] = 0.
-                I1_pol_0_inv_approx[np.abs(I1_pol_0_inv_approx) < tol] = 0.
-                I2_pol_0_inv_approx[np.abs(I2_pol_0_inv_approx) < tol] = 0.
-                I3_pol_0_inv_approx[np.abs(I3_pol_0_inv_approx) < tol] = 0.
-                I0_pol_inv_approx[np.abs(I0_pol_inv_approx) < tol] = 0.
+                I0_pol_0_inv_approx[np.abs(I0_pol_0_inv_approx) < tol] = 0.0
+                I1_pol_0_inv_approx[np.abs(I1_pol_0_inv_approx) < tol] = 0.0
+                I2_pol_0_inv_approx[np.abs(I2_pol_0_inv_approx) < tol] = 0.0
+                I3_pol_0_inv_approx[np.abs(I3_pol_0_inv_approx) < tol] = 0.0
+                I0_pol_inv_approx[np.abs(I0_pol_inv_approx) < tol] = 0.0
 
             I0_pol_0_inv_approx = spa.csr_matrix(I0_pol_0_inv_approx)
             I1_pol_0_inv_approx = spa.csr_matrix(I1_pol_0_inv_approx)
@@ -2271,30 +2146,37 @@ class ProjectorsGlobal3D:
             H_inv_tor_approx = np.linalg.inv(self.H_tor.toarray())
 
             if tol > 1e-14:
-                I_inv_tor_approx[np.abs(I_inv_tor_approx) < tol] = 0.
-                H_inv_tor_approx[np.abs(H_inv_tor_approx) < tol] = 0.
+                I_inv_tor_approx[np.abs(I_inv_tor_approx) < tol] = 0.0
+                H_inv_tor_approx[np.abs(H_inv_tor_approx) < tol] = 0.0
 
             I_inv_tor_approx = spa.csr_matrix(I_inv_tor_approx)
             H_inv_tor_approx = spa.csr_matrix(H_inv_tor_approx)
 
             # tensor-product poloidal x toroidal
-            self.I0_0_inv_approx = spa.kron(
-                I0_pol_0_inv_approx, I_inv_tor_approx, format='csr')
+            self.I0_0_inv_approx = spa.kron(I0_pol_0_inv_approx, I_inv_tor_approx, format="csr")
 
-            self.I1_0_inv_approx = spa.bmat([[spa.kron(I1_pol_0_inv_approx, I_inv_tor_approx), None], [
-                                            None, spa.kron(I0_pol_0_inv_approx, H_inv_tor_approx)]], format='csr')
+            self.I1_0_inv_approx = spa.bmat(
+                [
+                    [spa.kron(I1_pol_0_inv_approx, I_inv_tor_approx), None],
+                    [None, spa.kron(I0_pol_0_inv_approx, H_inv_tor_approx)],
+                ],
+                format="csr",
+            )
 
-            self.I2_0_inv_approx = spa.bmat([[spa.kron(I2_pol_0_inv_approx, H_inv_tor_approx), None], [
-                                            None, spa.kron(I3_pol_0_inv_approx, I_inv_tor_approx)]], format='csr')
+            self.I2_0_inv_approx = spa.bmat(
+                [
+                    [spa.kron(I2_pol_0_inv_approx, H_inv_tor_approx), None],
+                    [None, spa.kron(I3_pol_0_inv_approx, I_inv_tor_approx)],
+                ],
+                format="csr",
+            )
 
-            self.I3_0_inv_approx = spa.kron(
-                I3_pol_0_inv_approx, H_inv_tor_approx, format='csr')
+            self.I3_0_inv_approx = spa.kron(I3_pol_0_inv_approx, H_inv_tor_approx, format="csr")
 
-            self.I0_inv_approx = spa.kron(
-                I0_pol_inv_approx, I_inv_tor_approx, format='csr')
+            self.I0_inv_approx = spa.kron(I0_pol_inv_approx, I_inv_tor_approx, format="csr")
 
             self.approx_Ik_0_inv = True
             self.approx_Ik_0_tol = tol
 
         else:
-            print('Approximations for inverse interpolation matrices already exist!')
+            print("Approximations for inverse interpolation matrices already exist!")

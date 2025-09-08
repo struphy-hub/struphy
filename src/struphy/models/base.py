@@ -106,7 +106,7 @@ class StruphyModel(metaclass=ABCMeta):
         if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
             print("\nDOMAIN:")
             print(f"type:".ljust(25), self.domain.__class__.__name__)
-            for key, val in self.domain.params_map.items():
+            for key, val in self.domain.params.items():
                 if key not in {"cx", "cy", "cz"}:
                     print((key + ":").ljust(25), val)
 

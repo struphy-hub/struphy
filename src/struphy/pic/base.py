@@ -20,8 +20,8 @@ from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
 from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background.base import KineticBackground
+from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     flatten_index,
@@ -1150,10 +1150,17 @@ class Particles(metaclass=ABCMeta):
         # us = np.array(us)
         # vths = np.array(vths)
 
+        # Use the mean of shifts and thermal velocity such that outermost shift+thermal is
+        # new shift + new thermal
+        # mean_us = np.mean(us, axis=0)
+        # us_ext = us + vths * np.where(us >= 0, 1, -1)
+        # us_ext_dist = us_ext - mean_us[None, :]
+        # new_vths = np.max(np.abs(us_ext_dist), axis=0)
+
         # new_moments = []
 
-        # new_moments += [*np.mean(us, axis=0)]
-        # new_moments += [*(np.max(vths, axis=0) + np.max(np.abs(us), axis=0) - np.mean(us, axis=0))]
+        # new_moments += [*mean_us]
+        # new_moments += [*new_vths]
         # new_moments = [float(moment) for moment in new_moments]
 
         # self.loading_params["moments"] = new_moments
@@ -1995,7 +2002,7 @@ class Particles(metaclass=ABCMeta):
             if kind == "inner":
                 outside_inds = np.nonzero(self._is_outside_left)[0]
                 self.markers[outside_inds, 0] = 1e-4
-                r_loss = self._domain.params_map["a1"]
+                r_loss = self.domain.params["a1"]
 
             else:
                 outside_inds = np.nonzero(self._is_outside_right)[0]
@@ -3316,7 +3323,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             elif len(_shp) == 3:
                 func = naive_evaluation_meshgrid
             func(
-                args_markers,
+                self.args_markers,
                 eta1,
                 eta2,
                 eta3,

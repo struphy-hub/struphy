@@ -1,8 +1,8 @@
 from numpy import shape, zeros
 from pyccel.decorators import stack_array
 
-import struphy.feec.local_projectors_args_kernels as local_projectors_args_kernels
-from struphy.feec.local_projectors_args_kernels import LocalProjectorsArguments
+import struphy.kernel_arguments.local_projectors_args_kernels as local_projectors_args_kernels
+from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 
 
 def compute_shifts(IoH: "bool[:]", p: "int[:]", B_nbasis: "int[:]", shift: "int[:]"):
