@@ -6,6 +6,7 @@ from abc import ABCMeta, abstractmethod
 import h5py
 import numpy as np
 import scipy.special as sp
+from line_profiler import profile
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
@@ -18,10 +19,10 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
+from struphy.io.options import OptsLoading
 from struphy.io.output_handling import DataContainer
 from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import sampling_kernels, sobol_seq
-from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     flatten_index,
@@ -37,13 +38,13 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
 )
+from struphy.pic.utilities import (
+    BoundaryParameters,
+    LoadingParameters,
+    WeightsParameters,
+)
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.pic.utilities import (LoadingParameters, 
-                                   WeightsParameters,
-                                   BoundaryParameters,
-                                   )
-from struphy.io.options import OptsLoading
 
 
 class Particles(metaclass=ABCMeta):
@@ -99,7 +100,7 @@ class Particles(metaclass=ABCMeta):
 
     weights_params : WeightsParameters
         Parameters for particle weights.
-        
+
     boundary_params : BoundaryParameters
         Parameters for particle boundary conditions.
 
@@ -117,7 +118,7 @@ class Particles(metaclass=ABCMeta):
 
     background : KineticBackground
         Kinetic background parameters.
-        
+
     n_as_volume_form: bool
         Whether the number density n is given as a volume form or scalar function (=default).
 
@@ -172,14 +173,14 @@ class Particles(metaclass=ABCMeta):
         self._equil = equil
         self._projected_equil = projected_equil
         self._equation_params = equation_params
-        
+
         # defaults
         if loading_params is None:
             loading_params = LoadingParameters()
-            
+
         if weights_params is None:
             weights_params = WeightsParameters()
-            
+
         if boundary_params is None:
             boundary_params = BoundaryParameters()
 
@@ -291,8 +292,10 @@ class Particles(metaclass=ABCMeta):
         if isinstance(background, FluidEquilibrium):
             self._pforms = (False, False)
         else:
-            self._pforms = (n_as_volume_form,
-                            self.background.volume_form,)
+            self._pforms = (
+                n_as_volume_form,
+                self.background.volume_form,
+            )
 
         # set background function
         self._set_background_function()
@@ -498,11 +501,11 @@ class Particles(metaclass=ABCMeta):
     @property
     def loading_params(self) -> LoadingParameters:
         return self._loading_params
-    
+
     @property
     def weights_params(self) -> WeightsParameters:
         return self._weights_params
-    
+
     @property
     def boundary_params(self) -> BoundaryParameters:
         """Parameters for marker loading."""
@@ -512,7 +515,7 @@ class Particles(metaclass=ABCMeta):
     def reject_weights(self):
         """Whether to reect weights below threshold."""
         return self._reject_weights
-    
+
     @property
     def threshold(self):
         """Threshold for rejecting weights."""
@@ -553,7 +556,7 @@ class Particles(metaclass=ABCMeta):
         return self._u_init
 
     @property
-    def f0(self):
+    def f0(self) -> Maxwellian:
         assert hasattr(self, "_f0"), AttributeError(
             "No background distribution available, please run self._set_background_function()",
         )
@@ -948,7 +951,8 @@ class Particles(metaclass=ABCMeta):
         return dom_arr, tuple(nprocs)
 
     def _set_background_function(self):
-        self._f0 = self.background
+        self._f0 = copy.deepcopy(self.background)
+        self.f0.add_perturbation = False
         # self._f0 = None
         # if isinstance(self.bckgr_params, FluidEquilibrium):
         #     self._f0 = self.bckgr_params
@@ -1104,12 +1108,12 @@ class Particles(metaclass=ABCMeta):
 
     def _generate_sampling_moments(self):
         """Automatically determine moments for sampling distribution (Gaussian) from the given background."""
-        
+
         if self.loading_params.moments is None:
-            self.loading_params.moments = tuple([0.0]*self.vdim + [1.0]*self.vdim)
-            
+            self.loading_params.moments = tuple([0.0] * self.vdim + [1.0] * self.vdim)
+
         # TODO: reformulate this function with KineticBackground methods
-        
+
         # ns = []
         # us = []
         # vths = []
@@ -1160,37 +1164,6 @@ class Particles(metaclass=ABCMeta):
 
     def _set_initial_condition(self, bp_copy=None, pp_copy=None):
         self._f_init = self.background
-        # """Compute callable initial condition from background + perturbation."""
-        # if bp_copy is None:
-        #     bp_copy = copy.deepcopy(self.bckgr_params)
-        # if pp_copy is None:
-        #     pp_copy = copy.deepcopy(self.pert_params)
-
-        # # Get the initialization function and pass the correct arguments
-        # self._f_init = None
-        # for fi, maxw_params in bp_copy.items():
-        #     if fi[-2] == "_":
-        #         fi_type = fi[:-2]
-        #     else:
-        #         fi_type = fi
-
-        #     pert_params = pp_copy
-        #     if pp_copy is not None:
-        #         if fi in pp_copy:
-        #             pert_params = pp_copy[fi]
-
-        #     if self._f_init is None:
-        #         self._f_init = getattr(maxwellians, fi_type)(
-        #             maxw_params=maxw_params,
-        #             pert_params=pert_params,
-        #             equil=self.equil,
-        #         )
-        #     else:
-        #         self._f_init = self._f_init + getattr(maxwellians, fi_type)(
-        #             maxw_params=maxw_params,
-        #             pert_params=pert_params,
-        #             equil=self.equil,
-        #         )
 
     def _load_external(
         self,
@@ -1569,6 +1542,7 @@ class Particles(metaclass=ABCMeta):
             self.mpi_sort_markers()
             self.do_sort()
 
+    @profile
     def mpi_sort_markers(
         self,
         apply_bc: bool = True,
@@ -1729,6 +1703,7 @@ class Particles(metaclass=ABCMeta):
         else:
             self.weights = self.weights0
 
+    @profile
     def update_weights(self):
         """
         Applies the control variate method, i.e. updates the time-dependent marker weights
@@ -1763,6 +1738,7 @@ class Particles(metaclass=ABCMeta):
         )[self.mpi_rank]
         self.marker_ids = first_marker_id + np.arange(self.n_mks_loc, dtype=int)
 
+    @profile
     def binning(self, components, bin_edges, divide_by_jac=True):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
         Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
@@ -1892,6 +1868,7 @@ class Particles(metaclass=ABCMeta):
 
         return outside_inds
 
+    @profile
     def apply_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -1995,7 +1972,7 @@ class Particles(metaclass=ABCMeta):
             if kind == "inner":
                 outside_inds = np.nonzero(self._is_outside_left)[0]
                 self.markers[outside_inds, 0] = 1e-4
-                r_loss = self._domain.params_map["a1"]
+                r_loss = self.domain.params["a1"]
 
             else:
                 outside_inds = np.nonzero(self._is_outside_right)[0]
@@ -2404,6 +2381,7 @@ class Particles(metaclass=ABCMeta):
         self._argsort_array[:] = self._markers[:, sorting_axis].argsort()
         self._markers[:, :] = self._markers[self._argsort_array]
 
+    @profile
     def put_particles_in_boxes(self):
         """Assign the right box to the particles and the list of the particles to each box.
         If sorting_boxes was instantiated with an MPI comm, then the particles in the
@@ -2431,6 +2409,7 @@ class Particles(metaclass=ABCMeta):
             )
             self.update_ghost_particles()
 
+    @profile
     def do_sort(self):
         """Assign the particles to boxes and then sort them."""
         nx = self._sorting_boxes.nx
@@ -2812,6 +2791,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
             self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
+    @profile
     def communicate_boxes(self, verbose=False):
         if verbose:
             n_valid = np.count_nonzero(self.valid_mks)

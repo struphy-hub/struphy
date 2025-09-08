@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 "Analytical perturbations."
 
+from dataclasses import dataclass
+
 import numpy as np
 import scipy
 import scipy.special
-from dataclasses import dataclass
+
 from struphy.initial.base import Perturbation
-from struphy.io.options import NoiseDirections, GivenInBasis, check_option
+from struphy.io.options import GivenInBasis, NoiseDirections, check_option
 
 
 @dataclass
 class Noise(Perturbation):
     """White noise for FEEC coefficients.
-    
+
     Parameters
     ----------
     direction: str
@@ -24,15 +26,18 @@ class Noise(Perturbation):
     seed: int
         Seed for the random number generator.
     """
+
     direction: NoiseDirections = "e3"
     amp: float = 0.0001
     seed: int = None
-    comp: int = 0 
+    comp: int = 0
     given_in_basis: GivenInBasis = "0"
-    
-    def __post_init__(self,): 
+
+    def __post_init__(
+        self,
+    ):
         check_option(self.direction, NoiseDirections)
-        
+
     def __call__(self):
         pass
 
@@ -86,10 +91,10 @@ class ModesSin(Perturbation):
 
     Lx, Ly, Lz : float
         Domain lengths.
-        
+
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
-        
+
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
@@ -167,7 +172,7 @@ class ModesSin(Perturbation):
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
-            
+
         self._ls = ls
         self._ms = ms
         self._ns = ns
@@ -176,7 +181,7 @@ class ModesSin(Perturbation):
         self._Ly = Ly
         self._Lz = Lz
         self._theta = theta
-        
+
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
@@ -228,15 +233,23 @@ class ModesCos(Perturbation):
 
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
-        
+
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=(1e-4,), Lx=1.0, Ly=1.0, Lz=1.0,
-                 given_in_basis: GivenInBasis = "0",
-                 comp: int = 0,):
-        
+    def __init__(
+        self,
+        ls=None,
+        ms=None,
+        ns=None,
+        amps=(1e-4,),
+        Lx=1.0,
+        Ly=1.0,
+        Lz=1.0,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -274,7 +287,7 @@ class ModesCos(Perturbation):
         self._Lx = Lx
         self._Ly = Ly
         self._Lz = Lz
-        
+
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
@@ -312,7 +325,7 @@ class CoaxialWaveguideElectric_r(Perturbation):
         self._r2 = a2
         self._a = a
         self._b = b
-        
+
         # use the setters
         self.given_in_basis = "norm"
         self.comp = 0
@@ -354,7 +367,7 @@ class CoaxialWaveguideElectric_theta(Perturbation):
         self._r2 = a2
         self._a = a
         self._b = b
-        
+
         # use the setters
         self.given_in_basis = "norm"
         self.comp = 1
@@ -393,7 +406,7 @@ class CoaxialWaveguideMagnetic(Perturbation):
         self._r2 = a2
         self._a = a
         self._b = b
-        
+
         # use the setters
         self.given_in_basis = "norm"
         self.comp = 2
@@ -452,17 +465,23 @@ class TorusModesSin(Perturbation):
 
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
-        
+
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, ms=None, ns=None, amps=(1e-4,), pfuns=("sin",), pfun_params=None,
-                 given_in_basis: GivenInBasis = "0",
-                 comp: int = 0,):
-        
+    def __init__(
+        self,
+        ms=None,
+        ns=None,
+        amps=(1e-4,),
+        pfuns=("sin",),
+        pfun_params=None,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
         assert "physical" not in given_in_basis
-        
+
         if ms is not None:
             n_modes = len(ms)
         elif ns is not None:
@@ -517,7 +536,7 @@ class TorusModesSin(Perturbation):
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
-            
+
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
@@ -578,18 +597,23 @@ class TorusModesCos(Perturbation):
 
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
-        
+
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, ms: tuple = (2,), ns: tuple = (1,), amps: tuple = (0.1,), 
-                 pfuns: tuple = ("sin",), pfun_params=None,
-                 given_in_basis: GivenInBasis = "0",
-                 comp: int = 0,):
-        
+    def __init__(
+        self,
+        ms: tuple = (2,),
+        ns: tuple = (1,),
+        amps: tuple = (0.1,),
+        pfuns: tuple = ("sin",),
+        pfun_params=None,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
         assert "physical" not in given_in_basis
-        
+
         if ms is not None:
             n_modes = len(ms)
         elif ns is not None:
@@ -648,7 +672,7 @@ class TorusModesCos(Perturbation):
                 raise ValueError(
                     'Profile function must be "sin" or "cos" or "exp".',
                 )
-                
+
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
@@ -656,7 +680,6 @@ class TorusModesCos(Perturbation):
     def __call__(self, eta1, eta2, eta3):
         val = 0.0
         for mi, ni, pfun, amp in zip(self._ms, self._ns, self._pfuns, self._amps):
-            
             val += (
                 amp
                 * pfun(eta1)
@@ -684,22 +707,26 @@ class Shear_x(Perturbation):
 
     delta : float
         Characteristic size of the shear layer
-        
+
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
-        
+
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, amp=1e-4, delta=1 / 15, given_in_basis: GivenInBasis = "0",
-                 comp: int = 0,):
-        
-        assert "physical" not in given_in_basis, f'Perturbation {self.__name__} can only be used in logical space.'
-        
+    def __init__(
+        self,
+        amp=1e-4,
+        delta=1 / 15,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+
         self._amp = amp
         self._delta = delta
-        
+
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
@@ -726,22 +753,26 @@ class Shear_y(Perturbation):
 
     delta : float
         Characteristic size of the shear layer
-        
+
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
-        
+
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, amp=1e-4, delta=1 / 15, given_in_basis: GivenInBasis = "0",
-                 comp: int = 0,):
-        
-        assert "physical" not in given_in_basis, f'Perturbation {self.__name__} can only be used in logical space.'
-        
+    def __init__(
+        self,
+        amp=1e-4,
+        delta=1 / 15,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+
         self._amp = amp
         self._delta = delta
-        
+
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
@@ -771,19 +802,23 @@ class Shear_z(Perturbation):
 
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
-        
+
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, amp=1e-4, delta=1 / 15, given_in_basis: GivenInBasis = "0",
-                 comp: int = 0,):
-        
-        assert "physical" not in given_in_basis, f'Perturbation {self.__name__} can only be used in logical space.'
-        
+    def __init__(
+        self,
+        amp=1e-4,
+        delta=1 / 15,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+
         self._amp = amp
         self._delta = delta
-        
+
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
@@ -810,22 +845,26 @@ class Erf_z(Perturbation):
 
     delta : float
         Characteristic size of the shear layer
-        
+
     given_in_basis : str
         In which basis the perturbation is represented (see base class).
-        
+
     comp : int
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, amp=1e-4, delta=1 / 15, given_in_basis: GivenInBasis = "0",
-                 comp: int = 0,):
-        
-        assert "physical" not in given_in_basis, f'Perturbation {self.__name__} can only be used in logical space.'
-        
+    def __init__(
+        self,
+        amp=1e-4,
+        delta=1 / 15,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+
         self._amp = amp
         self._delta = delta
-        
+
         # use the setters
         self.given_in_basis = given_in_basis
         self.comp = comp
@@ -888,14 +927,23 @@ class RestelliAnalyticSolutionVelocity(Perturbation):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0, comp: int = 0,):
+    def __init__(
+        self,
+        a=1.0,
+        R0=2.0,
+        B0=10.0,
+        Bp=12.5,
+        alpha=0.1,
+        beta=1.0,
+        comp: int = 0,
+    ):
         self._a = a
         self._R0 = R0
         self._B0 = B0
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
-        
+
         # use the setters
         self.given_in_basis = "physical"
         self.comp = comp
@@ -980,14 +1028,23 @@ class RestelliAnalyticSolutionVelocity_2(Perturbation):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0, comp: int = 0,):
+    def __init__(
+        self,
+        a=1.0,
+        R0=2.0,
+        B0=10.0,
+        Bp=12.5,
+        alpha=0.1,
+        beta=1.0,
+        comp: int = 0,
+    ):
         self._a = a
         self._R0 = R0
         self._B0 = B0
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
-        
+
         # use the setter
         self.given_in_basis = "physical"
         self.comp = comp
@@ -1072,14 +1129,23 @@ class RestelliAnalyticSolutionVelocity_3(Perturbation):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0, comp: int = 0,):
+    def __init__(
+        self,
+        a=1.0,
+        R0=2.0,
+        B0=10.0,
+        Bp=12.5,
+        alpha=0.1,
+        beta=1.0,
+        comp: int = 0,
+    ):
         self._a = a
         self._R0 = R0
         self._B0 = B0
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
-        
+
         # use the setters
         self.given_in_basis = "physical"
         self.comp = comp
@@ -1169,7 +1235,7 @@ class RestelliAnalyticSolutionPotential(Perturbation):
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
-        
+
         # use the setter
         self.given_in_basis = "physical"
 
@@ -1218,11 +1284,17 @@ class ManufacturedSolutionVelocity(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, species="Ions", dimension="1D", b0=1.0, comp: int = 0,):
+    def __init__(
+        self,
+        species="Ions",
+        dimension="1D",
+        b0=1.0,
+        comp: int = 0,
+    ):
         self._b = b0
         self._species = species
         self._dimension = dimension
-        
+
         # use the setters
         self.given_in_basis = "physical"
         self.comp = comp
@@ -1324,7 +1396,7 @@ class ManufacturedSolutionPotential(Perturbation):
     def __init__(self, dimension="1D", b0=1.0):
         self._ab = b0
         self._dimension = dimension
-        
+
         # use the setter
         self.given_in_basis = "physical"
 
@@ -1373,11 +1445,17 @@ class ManufacturedSolutionVelocity_2(Perturbation):
         Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, species="Ions", dimension="1D", b0=1.0, comp: int = 0,):
+    def __init__(
+        self,
+        species="Ions",
+        dimension="1D",
+        b0=1.0,
+        comp: int = 0,
+    ):
         self._b = b0
         self._species = species
         self._dimension = dimension
-        
+
         # use the setters
         self.given_in_basis = "physical"
         self.comp = comp

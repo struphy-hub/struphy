@@ -2,9 +2,9 @@ import numpy as np
 from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
+from psydac.linalg.basic import Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.stencil import StencilMatrix, StencilVector
-from psydac.linalg.basic import Vector
 
 import struphy.feec.utilities_kernels as kernels
 from struphy.feec import banded_to_stencil_kernels as bts

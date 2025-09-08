@@ -1,15 +1,17 @@
 import numpy as np
 
 import struphy.pic.utilities_kernels as utils
-from struphy.io.options import (OptsLoading, 
-                                OptsSpatialLoading, 
-                                OptsMarkerBC, 
-                                OptsRecontructBC,)
+from struphy.io.options import (
+    OptsLoading,
+    OptsMarkerBC,
+    OptsRecontructBC,
+    OptsSpatialLoading,
+)
 
 
 class LoadingParameters:
     """Parameters for particle loading.
-    
+
     Parameters
     ----------
     Np : int
@@ -17,57 +19,58 @@ class LoadingParameters:
 
     ppc : int
         Particles to load per cell if a grid is defined. Cells are defined from ``domain_array``.
-    
+
     ppb : int
         Particles to load per sorting box. Sorting boxes are defined from ``boxes_per_dim``.
-    
+
     loading : OptsLoading
         How to load markers: multiple options for Monte-Carlo, or "tesselation" for positioning them on a regular grid.
-    
+
     seed : int
         Seed for random generator. If None, no seed is taken.
-        
+
     moments : tuple
         Mean velocities and temperatures for the Gaussian sampling distribution.
         If None, these are auto-calculated form the given background.
-        
+
     spatial : OptsSpatialLoading
         Draw uniformly in eta, or draw uniformly on the "disc" image of (eta1, eta2).
-        
+
     specific_markers : tuple[tuple]
         Each entry is a tuple of phase space coordinates (floats) of a specific marker to be initialized.
-        
+
     n_quad : int
         Number of quadrature points for tesselation.
-        
+
     dir_external : str
         Load markers from external .hdf5 file (absolute path).
-        
+
     dir_particles_abs : str
         Load markers from restart .hdf5 file (absolute path).
-        
+
     dir_particles : str
         Load markers from restart .hdf5 file (relative path to output folder).
-        
+
     restart_key : str
         Key in .hdf5 file's restart/ folder where marker array is stored.
     """
-    def __init__(self,
-                 Np: int = 100,
-                 ppc: int = None,
-                 ppb: int = None,
-                 loading: OptsLoading = "pseudo_random",
-                 seed: int = None,
-                 moments: tuple = None,
-                 spatial: OptsSpatialLoading = "uniform",
-                 specific_markers: tuple[tuple] = None,
-                 n_quad: int = 1,
-                 dir_exrernal: str = None,
-                 dir_particles: str = None,
-                 dir_particles_abs: str = None,
-                 restart_key: str = None,
-                 ):
 
+    def __init__(
+        self,
+        Np: int = None,
+        ppc: int = None,
+        ppb: int = 10,
+        loading: OptsLoading = "pseudo_random",
+        seed: int = None,
+        moments: tuple = None,
+        spatial: OptsSpatialLoading = "uniform",
+        specific_markers: tuple[tuple] = None,
+        n_quad: int = 1,
+        dir_exrernal: str = None,
+        dir_particles: str = None,
+        dir_particles_abs: str = None,
+        restart_key: str = None,
+    ):
         self.Np = Np
         self.ppc = ppc
         self.ppb = ppb
@@ -81,27 +84,29 @@ class LoadingParameters:
         self.dir_particles = dir_particles
         self.dir_particles_abs = dir_particles_abs
         self.restart_key = restart_key
-        
-        
+
+
 class WeightsParameters:
     """Paramters for particle weights.
-    
+
     Parameters
     ----------
     control_variate : bool
         Whether to use a control variate for noise reduction.
-    
-    rejct_weights : bool
+
+    reject_weights : bool
         Whether to reject weights below threshold.
-        
+
     threshold : float
         Threshold for rejecting weights.
     """
-    def __init__(self,
-                control_variate: bool = False,
-                reject_weights: bool = False,
-                threshold: float = 0.0,):
-        
+
+    def __init__(
+        self,
+        control_variate: bool = False,
+        reject_weights: bool = False,
+        threshold: float = 0.0,
+    ):
         self.control_variate = control_variate
         self.reject_weights = reject_weights
         self.threshold = threshold
@@ -109,7 +114,7 @@ class WeightsParameters:
 
 class BoundaryParameters:
     """Parameters for particle boundary and sph reconstruction boundary conditions.
-    
+
     Parameters
     ----------
     bc : tuple[OptsMarkerBC]
@@ -118,19 +123,53 @@ class BoundaryParameters:
 
     bc_refill : list
         Either 'inner' or 'outer'.
-        
+
     bc_sph : tuple[OptsRecontructBC]
         Boundary conditions for sph kernel reconstruction.
     """
-    def __init__(self,
-                 bc: tuple[OptsMarkerBC] = ("periodic", "periodic", "periodic"),
-                 bc_refill = None,
-                 bc_sph: tuple[OptsRecontructBC] = ("periodic", "periodic", "periodic"),
-                 ):
+
+    def __init__(
+        self,
+        bc: tuple[OptsMarkerBC] = ("periodic", "periodic", "periodic"),
+        bc_refill=None,
+        bc_sph: tuple[OptsRecontructBC] = ("periodic", "periodic", "periodic"),
+    ):
         self.bc = bc
         self.bc_refill = bc_refill
         self.bc_sph = bc_sph
-        
+
+
+class BinningPlot:
+    """Binning plot of marker distribution in phase space.
+
+    Parameters
+    ----------
+    slice : str
+        Coordinate-slice in phase space to bin. A combination of "e1", "e2", "e3", "v1", etc., separated by an underscore "_".
+        For example, "e1" showas a 1D binning plot over eta1, whereas "e1_v1" shows a 2D binning plot over eta1 and v1.
+
+    n_bins : int | tuple[int]
+        Number of bins for each coordinate.
+
+    ranges : tuple[int] | tuple[tuple[int]]= (0.0, 1.0)
+        Binning range (as an interval in R) for each coordinate.
+    """
+
+    def __init__(
+        self,
+        slice: str = "e1",
+        n_bins: int | tuple[int] = 128,
+        ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0),
+    ):
+        self.slice = slice
+
+        if isinstance(n_bins, int):
+            n_bins = (n_bins,)
+        self.n_bins = n_bins
+
+        if not isinstance(ranges[0], tuple):
+            ranges = (ranges,)
+        self.ranges = ranges
 
 
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):

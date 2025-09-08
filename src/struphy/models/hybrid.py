@@ -974,26 +974,21 @@ class ColdPlasmaVlasov(StruphyModel):
         &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,,
         \\[2mm]
         -&\frac{\partial \mathbf E}{\partial t} + \nabla\times\mathbf B =
-        \frac{\alpha^2}{\varepsilon_\textnormal{c}} \left( \mathbf j_\textnormal{c} + \nu  \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right) \,,
+        \frac{\alpha^2}{\varepsilon_\textnormal{h}} \left( \mathbf j_\textnormal{c} + \int_{\mathbb{R}^3} \mathbf{v} f \, \text{d}^3 \mathbf{v} \right) \,,
 
     where :math:`(n_0,\mathbf B_0)` denotes a (inhomogeneous) background and
 
     .. math::
 
-        \alpha = \frac{\hat \Omega_\textnormal{p,cold}}{\hat \Omega_\textnormal{c,cold}}\,, \qquad \varepsilon_\textnormal{c} = \frac{1}{\hat \Omega_\textnormal{c,cold} \hat t}\,, \qquad \varepsilon_\textnormal{h} = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t} \,, \qquad \nu = \frac{Z_\textnormal{h}}{Z_\textnormal{c}}\,.
+        \alpha = \frac{\hat \Omega_\textnormal{p,cold}}{\hat \Omega_\textnormal{c,cold}}\,, \qquad \varepsilon_\textnormal{c} = \frac{1}{\hat \Omega_\textnormal{c,cold} \hat t}\,, \qquad \varepsilon_\textnormal{h} = \frac{1}{\hat \Omega_\textnormal{c,hot} \hat t} \,.
 
     At initial time the Poisson equation is solved once to weakly satisfy the Gauss law:
 
     .. math::
 
         \begin{align}
-            \nabla \cdot \mathbf{E} & = \nu \frac{\alpha^2}{\varepsilon_\textnormal{c}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}\,.
+            \nabla \cdot \mathbf{E} & = \nu \frac{\alpha^2}{\varepsilon_\textnormal{h}} \int_{\mathbb{R}^3} f \, \text{d}^3 \mathbf{v}\,.
         \end{align}
-
-    Note
-    ----------
-    If hot and cold particles are of the same species (:math:`Z_\textnormal{c} = Z_\textnormal{h} \,, A_\textnormal{c} = A_\textnormal{h}`) then :math:`\varepsilon_\textnormal{c} = \varepsilon_\textnormal{h}` and :math:`\nu = 1`.
-
 
     :ref:`propagators` (called in sequence):
 
@@ -1003,8 +998,6 @@ class ColdPlasmaVlasov(StruphyModel):
     4. :class:`~struphy.propagators.propagators_markers.PushVxB`
     5. :class:`~struphy.propagators.propagators_markers.PushEta`
     6. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
-
-    :ref:`Model info <add_model>`:
     """
 
     @staticmethod
@@ -1111,13 +1104,13 @@ class ColdPlasmaVlasov(StruphyModel):
 
         self._kwargs[propagators_markers.PushVxB] = {
             "algo": algo_vxb,
-            "kappa": 1.0 / self._epsilon_cold,
+            "kappa": 1.0 / self._epsilon_hot,
             "b2": self.pointer["b_field"],
             "b2_add": self._b_background,
         }
 
         self._kwargs[propagators_coupling.VlasovAmpere] = {
-            "c1": self._nu * self._alpha**2 / self._epsilon_cold,
+            "c1": self._alpha**2 / self._epsilon_hot,
             "c2": 1.0 / self._epsilon_hot,
             "solver": params_coupling,
         }

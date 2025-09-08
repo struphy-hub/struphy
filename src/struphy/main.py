@@ -1,44 +1,47 @@
-from typing import Optional
-import os
-import sysconfig
-import time
+import copy
 import datetime
 import glob
+import os
+import pickle
+import shutil
+import sysconfig
+import time
+from typing import Optional, TypedDict
+
+import h5py
 import numpy as np
+from line_profiler import profile
 from mpi4py import MPI
 from pyevtk.hl import gridToVTK
-import shutil
-import pickle
-import h5py
-import copy
 
-from struphy.fields_background.base import FluidEquilibriumWithB
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
+from struphy.fields_background.equils import HomogenSlab
+from struphy.geometry import domains
+from struphy.geometry.base import Domain
+from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time, Units
 from struphy.io.output_handling import DataContainer
-from struphy.io.setup import setup_folders
+from struphy.io.setup import import_parameters_py, setup_folders
 from struphy.models.base import StruphyModel
-from struphy.profiling.profiling import ProfileManager
-from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml
-from struphy.pic.base import Particles
 from struphy.models.species import Species
 from struphy.models.variables import FEECVariable
-from struphy.io.options import BaseUnits, Units, Time, EnvironmentOptions
-from struphy.io.setup import import_parameters_py
-from struphy.geometry.base import Domain
-from struphy.geometry import domains
-from struphy.fields_background.base import FluidEquilibrium
-from struphy.fields_background.equils import HomogenSlab
-from struphy.topology.grids import TensorProductGrid
-from struphy.io.options import DerhamOptions
-from struphy.post_processing.post_processing_tools import create_femfields, eval_femfields, create_vtk
-from struphy.topology import grids
-from struphy.io.options import DerhamOptions
-from struphy.post_processing.post_processing_tools import (post_process_markers,
-                                                           post_process_f,
-                                                           post_process_n_sph)
+from struphy.pic.base import Particles
 from struphy.post_processing.orbits import orbits_tools
-    
+from struphy.post_processing.post_processing_tools import (
+    create_femfields,
+    create_vtk,
+    eval_femfields,
+    post_process_f,
+    post_process_markers,
+    post_process_n_sph,
+)
+from struphy.profiling.profiling import ProfileManager
+from struphy.topology import grids
+from struphy.topology.grids import TensorProductGrid
+from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import dict_to_yaml
 
+
+@profile
 def run(
     model: StruphyModel,
     *,
@@ -69,15 +72,15 @@ def run(
     size = comm.Get_size()
 
     start_simulation = time.time()
-        
+
     # check model
     assert hasattr(model, "propagators"), "Attribute 'self.propagators' must be set in model __init__!"
     model_name = model.__class__.__name__
     model.verbose = verbose
-    
+
     if rank == 0:
         print(f"\n*** Starting run for model '{model_name}':")
-    
+
     # meta-data
     path_out = env.path_out
     restart = env.restart
@@ -85,7 +88,7 @@ def run(
     save_step = env.save_step
     sort_step = env.sort_step
     num_clones = env.num_clones
-    
+
     meta = {}
     meta["platform"] = sysconfig.get_platform()
     meta["python version"] = sysconfig.get_python_version()
@@ -97,20 +100,22 @@ def run(
     meta["restart"] = restart
     meta["max wall-clock [min]"] = max_runtime
     meta["save interval [steps]"] = save_step
-    
+
     if rank == 0:
         print("\nMETADATA:")
         for k, v in meta.items():
-            print(f'{k}:'.ljust(25), v) 
-        
+            print(f"{k}:".ljust(25), v)
+
     # creating output folders
-    setup_folders(path_out=path_out, 
-                  restart=restart, 
-                  verbose=verbose,)
-    
+    setup_folders(
+        path_out=path_out,
+        restart=restart,
+        verbose=verbose,
+    )
+
     # add derived units
     units = Units(base_units)
-    
+
     # save parameter file
     if rank == 0:
         # save python param file
@@ -122,25 +127,30 @@ def run(
             )
         # pickle struphy objects
         else:
-            with open(os.path.join(path_out, "env.bin"), 'wb') as f:
+            with open(os.path.join(path_out, "env.bin"), "wb") as f:
                 pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "units.bin"), 'wb') as f:
-                pickle.dump(units, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "time_opts.bin"), 'wb') as f:
+            with open(os.path.join(path_out, "base_units.bin"), "wb") as f:
+                pickle.dump(base_units, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "time_opts.bin"), "wb") as f:
                 pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "domain.bin"), 'wb') as f:
+            with open(os.path.join(path_out, "domain.bin"), "wb") as f:
                 # WORKAROUND: cannot pickle pyccelized classes at the moment
-                tmp_dct = {"name": domain.__class__.__name__, "params_map": domain.params_map}
+                tmp_dct = {"name": domain.__class__.__name__, "params": domain.params}
                 pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "equil.bin"), 'wb') as f:
-                pickle.dump(equil, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "grid.bin"), 'wb') as f:
+            with open(os.path.join(path_out, "equil.bin"), "wb") as f:
+                # WORKAROUND: cannot pickle pyccelized classes at the moment
+                if equil is not None:
+                    tmp_dct = {"name": equil.__class__.__name__, "params": equil.params}
+                else:
+                    tmp_dct = {}
+                pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "grid.bin"), "wb") as f:
                 pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "derham_opts.bin"), 'wb') as f:
+            with open(os.path.join(path_out, "derham_opts.bin"), "wb") as f:
                 pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "model.bin"), 'wb') as f:
+            with open(os.path.join(path_out, "model.bin"), "wb") as f:
                 pickle.dump(model, f, pickle.HIGHEST_PROTOCOL)
-    
+
     # config clones
     if comm is None:
         clone_config = None
@@ -156,10 +166,10 @@ def run(
             clone_config.print_clone_config()
             if model.kinetic_species:
                 clone_config.print_particle_config()
-                
+
     model.clone_config = clone_config
     comm.Barrier()
-    
+
     ## configure model instance
 
     # units
@@ -170,43 +180,45 @@ def run(
     else:
         A_bulk = model.bulk_species.mass_number
         Z_bulk = model.bulk_species.charge_number
-    model.units.derive_units(velocity_scale=model.velocity_scale,
-                             A_bulk=A_bulk,
-                             Z_bulk=Z_bulk,
-                             verbose=verbose,)
-    
-    # domain and fluid bckground
+    model.units.derive_units(
+        velocity_scale=model.velocity_scale,
+        A_bulk=A_bulk,
+        Z_bulk=Z_bulk,
+        verbose=verbose,
+    )
+
+    # domain and fluid background
     model.setup_domain_and_equil(domain, equil)
-    
+
     # default grid
     if grid is None:
         Nel = (16, 16, 16)
         print(f"\nNo grid specified - using TensorProductGrid with {Nel = }.")
         grid = grids.TensorProductGrid(Nel=Nel)
-    
+
     # allocate derham-related objects
-    if derham_opts is not None:
-        model.allocate_feec(grid, derham_opts)
-    else:
+    if derham_opts is None:
         p = (3, 3, 3)
         spl_kind = (False, False, False)
-        print(f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium.")
+        print(
+            f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium."
+        )
         derham_opts = DerhamOptions(p=p, spl_kind=spl_kind)
     model.allocate_feec(grid, derham_opts)
-        
+
     # equation paramters
     model.setup_equation_params(units=model.units, verbose=verbose)
-        
+
     # allocate variables
     model.allocate_variables(verbose=verbose)
     model.allocate_helpers()
-    
+
     # pass info to propagators
     model.allocate_propagators()
-    
+
     # plasma parameters
     model.compute_plasma_params(verbose=verbose)
-    
+
     if rank < 32:
         if rank == 0:
             print("")
@@ -306,7 +318,7 @@ def run(
             data.file.close()
             end_simulation = time.time()
             if rank == 0:
-                print(f"\nTime steps done: {time_state["index"][0]}")
+                print(f"\nTime steps done: {time_state['index'][0]}")
                 print(
                     "wall-clock time of simulation [sec]: ",
                     end_simulation - start_simulation,
@@ -381,7 +393,7 @@ def run(
 
     meta["wall-clock time[min]"] = (end_simulation - start_simulation) / 60
     comm.Barrier()
-    
+
     if rank == 0:
         # save meta-data
         dict_to_yaml(meta, os.path.join(path_out, "meta.yml"))
@@ -433,18 +445,21 @@ def pproc(
 
     if MPI.COMM_WORLD.Get_rank() == 0:
         print(f"\n*** Start post-processing of {path}:")
-        
+
     # load light-weight model instance from simulation
     try:
         params_in = import_parameters_py(os.path.join(path, "parameters.py"))
         model: StruphyModel = params_in.model
         domain: Domain = params_in.domain
     except FileNotFoundError:
-        with open(os.path.join(path, "model.bin"), 'rb') as f:
+        with open(os.path.join(path, "model.bin"), "rb") as f:
             model: StruphyModel = pickle.load(f)
-        with open(os.path.join(path, "domain.bin"), 'rb') as f:
-            domain_dct: Domain = pickle.load(f)
-            domain = getattr(domains, domain_dct["name"])(**domain_dct["params_map"])
+        with open(os.path.join(path, "domain.bin"), "rb") as f:
+            # domain: Domain = pickle.load(f)
+            # print(f"{domain = }")
+            # print(f"{domain.params = }")
+            domain_dct = pickle.load(f)
+            domain: Domain = getattr(domains, domain_dct["name"])(**domain_dct["params"])
 
     # create post-processing folder
     path_pproc = os.path.join(path, "post_processing")
@@ -481,7 +496,7 @@ def pproc(
         for name in file["kinetic"].keys():
             kinetic_species += [name]
             kinetic_kinds += [next(iter(model.species[name].variables.values())).space]
-            
+
             # check for saved markers
             if "markers" in file["kinetic"][name]:
                 exist_kinetic["markers"] = True
@@ -493,16 +508,14 @@ def pproc(
                 exist_kinetic["n_sph"] = True
     else:
         exist_kinetic = None
-        
+
     file.close()
 
     # field post-processing
     if exist_fields:
         fields, t_grid = create_femfields(path, step=step)
 
-        point_data, grids_log, grids_phy = eval_femfields(
-            path, fields, celldivide=[celldivide, celldivide, celldivide]
-        )
+        point_data, grids_log, grids_phy = eval_femfields(path, fields, celldivide=[celldivide, celldivide, celldivide])
 
         if physical:
             point_data_phy, grids_log, grids_phy = eval_femfields(
@@ -570,7 +583,14 @@ def pproc(
 
             # markers
             if exist_kinetic["markers"]:
-                post_process_markers(path, path_kinetics_species, species, domain, kinetic_kinds[n], step,)
+                post_process_markers(
+                    path,
+                    path_kinetics_species,
+                    species,
+                    domain,
+                    kinetic_kinds[n],
+                    step,
+                )
 
                 if guiding_center:
                     assert kinetic_kinds[n] == "Particles6D"
@@ -595,21 +615,65 @@ def pproc(
 
 class SimData:
     """Holds post-processed Struphy data as attributes.
-    
+
     Parameters
     ----------
     path : str
         Absolute path of simulation output folder to post-process.
     """
+
     def __init__(self, path: str):
         self.path = path
-        self.feec_species = {}
-        self.pic_species = {}
+        self._orbits = {}
+        self._f = {}
+        self._spline_values = {}
         self.sph_species = {}
         self.grids_log: list[np.ndarray] = None
         self.grids_phy: list[np.ndarray] = None
         self.t_grid: np.ndarray = None
-        
+
+    @property
+    def orbits(self) -> dict[str, np.ndarray]:
+        """Keys: species name. Values: 3d arrays indexed by (n, p, a), where 'n' is the time index, 'p' the particle index and 'a' the attribute index."""
+        return self._orbits
+
+    @property
+    def f(self) -> dict[str, dict[str, dict[str, np.ndarray]]]:
+        """Keys: species name. Values: dicts of slice names ('e1_v1' etc.) holding dicts of corresponding np.arrays for plotting."""
+        return self._f
+
+    @property
+    def spline_values(self) -> dict[str, dict[str, np.ndarray]]:
+        """Keys: species name. Values: dicts of variable names with values being 3d arrays on the grid."""
+        return self._spline_values
+
+    @property
+    def Nt(self) -> dict[str, int]:
+        """Number of available time points (snap shots) for each species."""
+        if not hasattr(self, "_Nt"):
+            self._Nt = {}
+            for spec, orbs in self.orbits.items():
+                self._Nt[spec] = orbs.shape[0]
+        return self._Nt
+
+    @property
+    def Np(self) -> dict[str, int]:
+        """Number of particle orbits for each species."""
+        if not hasattr(self, "_Np"):
+            self._Np = {}
+            for spec, orbs in self.orbits.items():
+                self._Np[spec] = orbs.shape[1]
+        return self._Np
+
+    @property
+    def Nattr(self) -> dict[str, int]:
+        """Number of particle attributes for each species."""
+        if not hasattr(self, "_Nattr"):
+            self._Nattr = {}
+            for spec, orbs in self.orbits.items():
+                self._Nattr[spec] = orbs.shape[2]
+        return self._Nattr
+
     @property
     def spline_grid_resolution(self):
         if self.grids_log is not None:
@@ -617,7 +681,7 @@ class SimData:
         else:
             res = None
         return res
-    
+
     @property
     def time_grid_size(self):
         return self.t_grid.size
@@ -625,7 +689,7 @@ class SimData:
 
 def load_data(path: str) -> SimData:
     """Load data generated during post-processing.
-    
+
     Parameters
     ----------
     path : str
@@ -638,27 +702,26 @@ def load_data(path: str) -> SimData:
     print(f"{path = }")
 
     simdata = SimData(path)
-    
+
     # load time grid
     simdata.t_grid = np.load(os.path.join(path_pproc, "t_grid.npy"))
 
     # data paths
     path_fields = os.path.join(path_pproc, "fields_data")
     path_kinetic = os.path.join(path_pproc, "kinetic_data")
-    
+
     # load point data
     if os.path.exists(path_fields):
-        
         # grids
         with open(os.path.join(path_fields, "grids_log.bin"), "rb") as f:
             simdata.grids_log = pickle.load(f)
         with open(os.path.join(path_fields, "grids_phy.bin"), "rb") as f:
             simdata.grids_phy = pickle.load(f)
-        
+
         # species folders
         species = next(os.walk(path_fields))[1]
         for spec in species:
-            simdata.feec_species[spec] = {}
+            simdata._spline_values[spec] = {}
             # simdata.arrays[spec] = {}
             path_spec = os.path.join(path_fields, spec)
             wlk = os.walk(path_spec)
@@ -669,53 +732,81 @@ def load_data(path: str) -> SimData:
                     var = file.split(".")[0]
                     with open(os.path.join(path_spec, file), "rb") as f:
                         # try:
-                        simdata.feec_species[spec][var] = pickle.load(f)
+                        simdata._spline_values[spec][var] = pickle.load(f)
                         # simdata.arrays[spec][var] = pickle.load(f)
-                        
+
     if os.path.exists(path_kinetic):
-        
         # species folders
         species = next(os.walk(path_kinetic))[1]
         print(f"{species = }")
         for spec in species:
-            simdata.pic_species[spec] = {}
             path_spec = os.path.join(path_kinetic, spec)
             wlk = os.walk(path_spec)
             sub_folders = next(wlk)[1]
-            # print(f"{sub_folders = }")
             for folder in sub_folders:
-                # simdata.pic_species[spec][folder] = {}
-                tmp = {}
                 path_dat = os.path.join(path_spec, folder)
                 sub_wlk = os.walk(path_dat)
-                files = next(sub_wlk)[2]
-                for file in files:
-                    # print(f"{file = }")
-                    if ".npy" in file:
-                        var = file.split(".")[0]
-                        tmp[var] = np.load(os.path.join(path_dat, file))
-                # sort dict
-                simdata.pic_species[spec][folder] = dict(sorted(tmp.items()))
-                        
+                if "orbits" in folder:
+                    files = next(sub_wlk)[2]
+                    Nt = len(files) // 2
+                    n = 0
+                    for file in files:
+                        # print(f"{file = }")
+                        if ".npy" in file:
+                            step = int(file.split(".")[0].split("_")[-1])
+                            tmp = np.load(os.path.join(path_dat, file))
+                            if n == 0:
+                                simdata._orbits[spec] = np.zeros((Nt, *tmp.shape), dtype=float)
+                            simdata._orbits[spec][step] = tmp
+                            n += 1
+                elif "distribution_function" in folder:
+                    simdata._f[spec] = {}
+                    slices = next(sub_wlk)[1]
+                    # print(f"{slices = }")
+                    for sli in slices:
+                        simdata._f[spec][sli] = {}
+                        # print(f"{sli = }")
+                        files = next(sub_wlk)[2]
+                        # print(f"{files = }")
+                        for file in files:
+                            name = file.split(".")[0]
+                            tmp = np.load(os.path.join(path_dat, sli, file))
+                            # print(f"{name = }")
+                            simdata._f[spec][sli][name] = tmp
+                else:
+                    print(f"{folder = }")
+                    raise NotImplementedError
+                    # # simdata.pic_species[spec][folder] = {}
+                    # tmp = {}
+                    # for file in files:
+                    #     # print(f"{file = }")
+                    #     if ".npy" in file:
+                    #         var = file.split(".")[0]
+                    #         tmp[var] = np.load(os.path.join(path_dat, file))
+                    # # sort dict
+                    # simdata.pic_species[spec][folder] = dict(sorted(tmp.items()))
+
     print("\nThe following data has been loaded:")
     print(f"{simdata.time_grid_size = }")
     print(f"{simdata.spline_grid_resolution = }")
-    print(f"simdata.feec_species:")
-    for k, v in simdata.feec_species.items():
-        print(f"  {k}:")
+    print(f"\nsimdata.spline_values:")
+    for k, v in simdata.spline_values.items():
+        print(f"  {k}")
         for kk, vv in v.items():
             print(f"    {kk}")
-    print(f"simdata.pic_species:")
-    for k, v in simdata.pic_species.items():
-        print(f"  {k}:")
+    print(f"\nsimdata.orbits:")
+    for k, v in simdata.orbits.items():
+        print(f"  {k}")
+    print(f"\nsimdata.f:")
+    for k, v in simdata.f.items():
+        print(f"  {k}")
         for kk, vv in v.items():
             print(f"    {kk}")
+            for kkk, vvv in vv.items():
+                print(f"      {kkk}")
     print(f"simdata.sph_species:")
-                        
+
     return simdata
-
-
-
 
 
 if __name__ == "__main__":

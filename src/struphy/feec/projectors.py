@@ -12,7 +12,6 @@ from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilMatrix, StencilVector
 
 from struphy.feec import mass_kernels
-from struphy.feec.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.feec.local_projectors_kernels import (
     compute_shifts,
     get_dofs_local_1_form_ec_component,
@@ -36,6 +35,7 @@ from struphy.feec.utilities_local_projectors import (
     split_points,
 )
 from struphy.fields_background.equils import set_defaults
+from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 

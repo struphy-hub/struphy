@@ -1,97 +1,116 @@
 import os
+import pickle
 import shutil
+
 import h5py
 import numpy as np
 import yaml
 from tqdm import tqdm
-import pickle
 
-from struphy.kinetic_background import maxwellians
-from struphy.io.setup import import_parameters_py
-from struphy.models.base import setup_derham
 from struphy.feec.psydac_derham import SplineFunction
-from struphy.io.options import EnvironmentOptions, Units, Time
-from struphy.topology.grids import TensorProductGrid
+from struphy.fields_background import equils
+from struphy.fields_background.base import FluidEquilibrium
 from struphy.geometry import domains
 from struphy.geometry.base import Domain
+from struphy.io.options import BaseUnits, EnvironmentOptions, Time
+from struphy.io.setup import import_parameters_py
+from struphy.kinetic_background import maxwellians
+from struphy.kinetic_background.base import KineticBackground
+from struphy.models.base import StruphyModel, setup_derham
+from struphy.models.species import KineticSpecies
+from struphy.models.variables import PICVariable
+from struphy.topology.grids import TensorProductGrid
 
 
 class ParamsIn:
     """Holds the input parameters of a Struphy simulation as attributes."""
-    def __init__(self, 
-                 env: EnvironmentOptions = None,
-                 units: Units = None,
-                 time_opts: Time = None,
-                 domain = None,
-                 equil = None,
-                 grid: TensorProductGrid = None,
-                 derham_opts = None):
+
+    def __init__(
+        self,
+        env: EnvironmentOptions = None,
+        base_units: BaseUnits = None,
+        time_opts: Time = None,
+        domain=None,
+        equil=None,
+        grid: TensorProductGrid = None,
+        derham_opts=None,
+        model: StruphyModel = None,
+    ):
         self.env = env
-        self.units = units
+        self.units = base_units
         self.time_opts = time_opts
         self.domain = domain
         self.equil = equil
         self.grid = grid
         self.derham_opts = derham_opts
+        self.model = model
 
 
 def get_params_of_run(path: str) -> ParamsIn:
     """Retrieve parameters of finished Struphy run.
-    
+
     Parameters
     ----------
     path : str
         Absolute path of simulation output folder.
     """
-    
+
     print(f"\nReading in paramters from {path} ... ")
-    
+
     params_path = os.path.join(path, "parameters.py")
     bin_path = os.path.join(path, "env.bin")
 
     if os.path.exists(params_path):
         params_in = import_parameters_py(params_path)
         env = params_in.env
-        units = params_in.units
+        base_units = params_in.base_units
         time_opts = params_in.time_opts
         domain = params_in.domain
         equil = params_in.equil
         grid = params_in.grid
         derham_opts = params_in.derham_opts
-        
+        model = params_in.model
+
     elif os.path.exists(bin_path):
         with open(os.path.join(path, "env.bin"), "rb") as f:
             env = pickle.load(f)
-        with open(os.path.join(path, "units.bin"), "rb") as f:
-            units = pickle.load(f)
+        with open(os.path.join(path, "base_units.bin"), "rb") as f:
+            base_units = pickle.load(f)
         with open(os.path.join(path, "time_opts.bin"), "rb") as f:
             time_opts = pickle.load(f)
         with open(os.path.join(path, "domain.bin"), "rb") as f:
             # WORKAROUND: cannot pickle pyccelized classes at the moment
             domain_dct = pickle.load(f)
-            name = domain_dct["name"]
-            params_map = domain_dct["params_map"]
-            domain = getattr(domains, name)(**params_map)
+            domain: Domain = getattr(domains, domain_dct["name"])(**domain_dct["params"])
         with open(os.path.join(path, "equil.bin"), "rb") as f:
-            equil = pickle.load(f)
+            # WORKAROUND: cannot pickle pyccelized classes at the moment
+            equil_dct = pickle.load(f)
+            if equil_dct:
+                equil: FluidEquilibrium = getattr(equils, equil_dct["name"])(**equil_dct["params"])
+            else:
+                equil = None
         with open(os.path.join(path, "grid.bin"), "rb") as f:
             grid = pickle.load(f)
         with open(os.path.join(path, "derham_opts.bin"), "rb") as f:
             derham_opts = pickle.load(f)
-            
+        with open(os.path.join(path, "model.bin"), "rb") as f:
+            model = pickle.load(f)
+
     else:
         raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
-    
+
     print("done.")
-    
-    return ParamsIn(env=env,
-                    units=units,
-                    time_opts=time_opts,
-                    domain=domain,
-                    equil=equil,
-                    grid=grid,
-                    derham_opts=derham_opts,
-                    )
+
+    return ParamsIn(
+        env=env,
+        base_units=base_units,
+        time_opts=time_opts,
+        domain=domain,
+        equil=equil,
+        grid=grid,
+        derham_opts=derham_opts,
+        model=model,
+    )
 
 
 def create_femfields(
@@ -113,7 +132,7 @@ def create_femfields(
     -------
     fields : dict
         Nested dictionary holding :class:`~struphy.feec.psydac_derham.SplineFunction`: fields[t][name] contains the Field with the name "name" in the hdf5 file at time t.
-    
+
     t_grid : np.ndarray
         Time grid.
     """
@@ -121,15 +140,16 @@ def create_femfields(
     with open(os.path.join(path, "meta.yml"), "r") as f:
         meta = yaml.load(f, Loader=yaml.FullLoader)
     nproc = meta["MPI processes"]
-    
+
     # import parameters
     params_in = get_params_of_run(path)
 
-    derham = setup_derham(params_in.grid,
-            params_in.derham_opts,
-            comm=None,
-            domain=params_in.domain,
-            )
+    derham = setup_derham(
+        params_in.grid,
+        params_in.derham_opts,
+        comm=None,
+        domain=params_in.domain,
+    )
 
     # get fields names, space IDs and time grid from 0-th rank hdf5 file
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
@@ -152,7 +172,11 @@ def create_femfields(
         for species, vars in space_ids.items():
             fields[t][species] = {}
             for var, id in vars.items():
-                fields[t][species][var] = derham.create_spline_function(var, id, verbose=False,)
+                fields[t][species][var] = derham.create_spline_function(
+                    var,
+                    id,
+                    verbose=False,
+                )
 
     # get hdf5 data
     print("")
@@ -289,12 +313,11 @@ def eval_femfields(
         point_data[species] = {}
         for name, field in vars.items():
             point_data[species][name] = {}
-    
+
     print("\nEvaluating fields ...")
     for t in tqdm(fields):
         for species, vars in fields[t].items():
             for name, field in vars.items():
-                
                 assert isinstance(field, SplineFunction)
                 space_id = field.space_id
 
@@ -359,7 +382,7 @@ def eval_femfields(
 
                         else:
                             point_data[species][name][t].append(temp_val[j])
-                            
+
     return point_data, grids_log, grids_phy
 
 
@@ -392,7 +415,7 @@ def create_vtk(
     """
 
     from pyevtk.hl import gridToVTK
-        
+
     for species, vars in point_data.items():
         species_path = os.path.join(path, species, "vtk" + physical * "_phy")
         try:
@@ -431,7 +454,14 @@ def create_vtk(
             )
 
 
-def post_process_markers(path_in: str, path_out: str, species: str, domain: Domain, kind: str = "Particles6D", step: int = 1,):
+def post_process_markers(
+    path_in: str,
+    path_out: str,
+    species: str,
+    domain: Domain,
+    kind: str = "Particles6D",
+    step: int = 1,
+):
     """Computes the Cartesian (x, y, z) coordinates of saved markers during a simulation
     and writes them to a .npy files and to .txt files.
     Also saves the weights.
@@ -482,7 +512,7 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
 
     species : str
         Name of the species for which the post processing should be performed.
-        
+
     domain : Domain
         Domain object.
 
@@ -492,9 +522,6 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
     step : int, optional
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
     """
-
-    print(f"{domain = }")
-
     # get # of MPI processes from meta.txt file
     with open(os.path.join(path_in, "meta.yml"), "r") as f:
         meta = yaml.load(f, Loader=yaml.FullLoader)
@@ -519,14 +546,13 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
     log_nt = int(np.log10(int(((nt - 1) / step)))) + 1
 
     # directory for .txt files and marker index which will be saved
+    path_orbits = os.path.join(path_out, "orbits")
+
     if "5D" in kind:
-        path_orbits = os.path.join(path_out, "guiding_center")
         save_index = list(range(0, 6)) + [10] + [-1]
     elif "6D" in kind or "SPH" in kind:
-        path_orbits = os.path.join(path_out, "orbits")
         save_index = list(range(0, 7)) + [-1]
     else:
-        path_orbits = os.path.join(path_out, "orbits")
         save_index = list(range(0, 4)) + [-1]
 
     try:
@@ -544,7 +570,7 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
     # loop over time grid
     for n in tqdm(range(int((nt - 1) / step) + 1)):
         # clear buffer
-        temp[:, :] = 0.
+        temp[:, :] = 0.0
 
         # create text file for this time step and this species
         file_npy = os.path.join(
@@ -565,7 +591,7 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
         # sorting out lost particles
         ids = temp[:, -1].astype("int")
         ids_lost_particles = np.setdiff1d(np.arange(n_markers), ids)
-        ids_removed_particles = np.nonzero(temp[:, 0] == -1.)[0]
+        ids_removed_particles = np.nonzero(temp[:, 0] == -1.0)[0]
         ids_lost_particles = np.array(list(set(ids_lost_particles) | set(ids_removed_particles)), dtype=int)
         lost_particles_mask[:] = False
         lost_particles_mask[ids_lost_particles] = True
@@ -610,21 +636,15 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
 
     compute_bckgr : bool
-        Whehter to compute the kinetic background values and add them to the binning data.
+        Whether to compute the kinetic background values and add them to the binning data.
         This is used if non-standard weights are binned.
     """
+    # get # of MPI processes from meta.txt file
+    with open(os.path.join(path_in, "meta.yml"), "r") as f:
+        meta = yaml.load(f, Loader=yaml.FullLoader)
+    nproc = meta["MPI processes"]
 
-    # get model name and # of MPI processes from meta.txt file
-    with open(os.path.join(path_in, "meta.txt"), "r") as f:
-        lines = f.readlines()
-
-    nproc = lines[4].split()[-1]
-
-    # load parameters
-    with open(os.path.join(path_in, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
-
-    # open hdf5 files
+    # open hdf5 files and get names and number of saved markers of kinetic species
     files = [
         h5py.File(
             os.path.join(
@@ -636,6 +656,9 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
         )
         for i in range(int(nproc))
     ]
+
+    # import parameters
+    params = get_params_of_run(path_in)
 
     # directory for .npy files
     path_distr = os.path.join(path_out, "distribution_function")
@@ -688,23 +711,27 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
         np.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
 
         if compute_bckgr:
-            bckgr_params = params["kinetic"][species]["background"]
+            # bckgr_params = params["kinetic"][species]["background"]
 
-            f_bckgr = None
-            for fi, maxw_params in bckgr_params.items():
-                if fi[-2] == "_":
-                    fi_type = fi[:-2]
-                else:
-                    fi_type = fi
+            # f_bckgr = None
+            # for fi, maxw_params in bckgr_params.items():
+            #     if fi[-2] == "_":
+            #         fi_type = fi[:-2]
+            #     else:
+            #         fi_type = fi
 
-                if f_bckgr is None:
-                    f_bckgr = getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params,
-                    )
-                else:
-                    f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params,
-                    )
+            #     if f_bckgr is None:
+            #         f_bckgr = getattr(maxwellians, fi_type)(
+            #             maxw_params=maxw_params,
+            #         )
+            #     else:
+            #         f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
+            #             maxw_params=maxw_params,
+            #         )
+
+            spec: KineticSpecies = getattr(params.model, species)
+            var: PICVariable = spec.var
+            f_bckgr: KineticBackground = var.backgrounds
 
             # load all grids of the variables of f
             grid_tot = []

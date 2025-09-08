@@ -1,20 +1,21 @@
-from struphy.io.options import Units, Time, DerhamOptions, FieldsBackground
 from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.initial import perturbations
+from struphy.io.options import DerhamOptions, FieldsBackground, Time, Units
 from struphy.kinetic_background import maxwellians
+
+# import model
+from struphy.models.toy import Maxwell as Model
 from struphy.topology import grids
 
-# import model 
-from struphy.models.toy import Maxwell as Model
 verbose = True
 
 # units
 units = Units()
 
 # geometry
-a1=2.326744
-a2=3.686839
+a1 = 2.326744
+a2 = 3.686839
 domain = domains.HollowCylinder(a1=a1, a2=a2, Lz=2.0)
 
 # fluid equilibrium (can be used as part of initial conditions)
@@ -28,7 +29,7 @@ grid = grids.TensorProductGrid(
     Nel=(32, 64, 1),
     p=(3, 3, 1),
     spl_kind=(False, True, True),
-    dirichlet_bc=[[True, True], [False, False], [False, False]]
+    dirichlet_bc=[[True, True], [False, False], [False, False]],
 )
 
 # derham options

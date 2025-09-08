@@ -47,17 +47,25 @@ def struphy_pproc(
     state = utils.read_state(libpath)
 
     o_path = state["o_path"]
+
+    use_state_o_path = True
+    if dir_abs is not None:
+        dirs = [dir_abs]
+        use_state_o_path = False
+
     for dir in dirs:
         # create absolute path
-        if dir_abs is None:
-            dir_abs = os.path.join(o_path, dir)
+        if use_state_o_path:
+            path_to_simulation = os.path.join(o_path, dir)
+        else:
+            path_to_simulation = dir
 
-        print(f"Post processing data in {dir_abs}")
+        print(f"Post processing data in {path_to_simulation}")
 
         command = [
             "python3",
             "post_processing/pproc_struphy.py",
-            dir_abs,
+            path_to_simulation,
             "-s",
             str(step),
             "--celldivide",

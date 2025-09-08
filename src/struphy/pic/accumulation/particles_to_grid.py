@@ -10,8 +10,8 @@ import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 import struphy.pic.accumulation.filter_kernels as filters
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
 class Accumulator:

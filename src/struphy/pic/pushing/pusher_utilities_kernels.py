@@ -3,22 +3,22 @@ from pyccel.decorators import pure, stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.geometry.evaluation_kernels as evaluation_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 # do not remove; needed to identify dependencies
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
 from struphy.bsplines.evaluation_kernels_3d import get_spans
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
-@stack_array('dfm', 'dfinv', 'eta', 'v', 'v_logical')
+@stack_array("dfm", "dfinv", "eta", "v", "v_logical")
 def reflect(
-    markers: 'float[:,:]',
-    args_domain: 'DomainArguments',
-    outside_inds: 'int[:]',
-    axis: 'int',
+    markers: "float[:,:]",
+    args_domain: "DomainArguments",
+    outside_inds: "int[:]",
+    axis: "int",
 ):
-    r'''
+    r"""
     Reflect the particles which are pushed outside of the logical cube.
 
     .. math::
@@ -40,7 +40,7 @@ def reflect(
 
         axis : int
             0, 1 or 2
-    '''
+    """
 
     # allocate metric coeffs
     dfm = zeros((3, 3), dtype=float)
@@ -52,13 +52,14 @@ def reflect(
     v_logical = empty(3, dtype=float)
 
     for ip in outside_inds:
-
         eta[:] = markers[ip, 0:3]
         v[:] = markers[ip, 3:6]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
-            eta[0], eta[1], eta[2],
+            eta[0],
+            eta[1],
+            eta[2],
             args_domain,
             dfm,
         )
@@ -79,7 +80,7 @@ def reflect(
 
 
 @pure
-def quicksort(a: 'float[:]', lo: 'int', hi: 'int'):
+def quicksort(a: "float[:]", lo: "int", hi: "int"):
     """
     Implementation of the quicksort sorting algorithm. Ref?
 
@@ -115,7 +116,7 @@ def quicksort(a: 'float[:]', lo: 'int', hi: 'int'):
         j = hi
 
 
-def find_taus(eta: 'float', eta_next: 'float', Nel: 'int', breaks: 'float[:]', uniform: 'int', tau_list: 'float[:]'):
+def find_taus(eta: "float", eta_next: "float", Nel: "int", breaks: "float[:]", uniform: "int", tau_list: "float[:]"):
     """
     Find the values of tau for which the particle crosses the cell boundaries while going from eta to eta_next
 
@@ -146,37 +147,43 @@ def find_taus(eta: 'float', eta_next: 'float', Nel: 'int', breaks: 'float[:]', u
 
         for i in range(length):
             if index_next > index:
-                tau_list[i] = (
-                    1.0 / Nel * (index + i + 1) -
-                    eta
-                ) / (eta_next - eta)
+                tau_list[i] = (1.0 / Nel * (index + i + 1) - eta) / (eta_next - eta)
             elif index > index_next:
-                tau_list[i] = (eta - 1.0 / Nel * (index - i)) / \
-                    (eta - eta_next)
+                tau_list[i] = (eta - 1.0 / Nel * (index - i)) / (eta - eta_next)
 
     elif uniform == 0:
         # TODO
-        print('Not implemented yet')
+        print("Not implemented yet")
 
     else:
-        print('ValueError, uniform must be 1 or 0 !')
+        print("ValueError, uniform must be 1 or 0 !")
 
 
-@stack_array('Nel')
+@stack_array("Nel")
 def aux_fun_x_v_stat_e(
-    particle: 'float[:]',
-    args_derham: 'DerhamArguments',
-    args_domain: 'DomainArguments',
-    n_quad1: 'int', n_quad2: 'int', n_quad3: 'int',
-    dfm: 'float[:,:]', df_inv: 'float[:,:]',
-    taus: 'float[:]',
-    dt: 'float',
-    loc1: 'float[:]', loc2: 'float[:]', loc3: 'float[:]',
-    weight1: 'float[:]', weight2: 'float[:]', weight3: 'float[:]',
-    e1_1: 'float[:,:,:]', e1_2: 'float[:,:,:]', e1_3: 'float[:,:,:]',
-    kappa: 'float',
-    eps: 'float[:]', maxiter: 'int',
-) -> 'int':
+    particle: "float[:]",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    n_quad1: "int",
+    n_quad2: "int",
+    n_quad3: "int",
+    dfm: "float[:,:]",
+    df_inv: "float[:,:]",
+    taus: "float[:]",
+    dt: "float",
+    loc1: "float[:]",
+    loc2: "float[:]",
+    loc3: "float[:]",
+    weight1: "float[:]",
+    weight2: "float[:]",
+    weight3: "float[:]",
+    e1_1: "float[:,:,:]",
+    e1_2: "float[:,:,:]",
+    e1_3: "float[:,:,:]",
+    kappa: "float",
+    eps: "float[:]",
+    maxiter: "int",
+) -> "int":
     """
     Auxiliary function for the pusher_x_v_static_efield, introduced to enable time-step splitting if scheme does not converge for the standard dt
 
@@ -244,29 +251,22 @@ def aux_fun_x_v_stat_e(
 
     # Use Euler method as a predictor for positions
     evaluation_kernels.df(
-        eta1, eta2, eta3,
+        eta1,
+        eta2,
+        eta3,
         args_domain,
         dfm,
     )
 
     linalg_kernels.matrix_inv(dfm, df_inv)
 
-    v1_curv = kappa * (
-        df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
-        (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3)
-    )
-    v2_curv = kappa * (
-        df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] *
-        (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3)
-    )
-    v3_curv = kappa * (
-        df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] *
-        (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3)
-    )
+    v1_curv = kappa * (df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] * (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3))
+    v2_curv = kappa * (df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] * (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3))
+    v3_curv = kappa * (df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] * (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3))
 
-    eta1_next = (eta1 + dt * v1_curv / 2.) % 1
-    eta2_next = (eta2 + dt * v2_curv / 2.) % 1
-    eta3_next = (eta3 + dt * v3_curv / 2.) % 1
+    eta1_next = (eta1 + dt * v1_curv / 2.0) % 1
+    eta2_next = (eta2 + dt * v2_curv / 2.0) % 1
+    eta3_next = (eta3 + dt * v3_curv / 2.0) % 1
 
     # set some initial value for v_next
     v1_next = v1_curr
@@ -275,8 +275,15 @@ def aux_fun_x_v_stat_e(
 
     runs = 0
 
-    while abs(eta1_next - eta1_curr) > eps_pos or abs(eta2_next - eta2_curr) > eps_pos or abs(eta3_next - eta3_curr) > eps_pos or abs(v1_next - v1_curr) > eps_vel or abs(v2_next - v2_curr) > eps_vel or abs(v3_next - v3_curr) > eps_vel:
-        taus[:] = 0.
+    while (
+        abs(eta1_next - eta1_curr) > eps_pos
+        or abs(eta2_next - eta2_curr) > eps_pos
+        or abs(eta3_next - eta3_curr) > eps_pos
+        or abs(v1_next - v1_curr) > eps_vel
+        or abs(v2_next - v2_curr) > eps_vel
+        or abs(v3_next - v3_curr) > eps_vel
+    ):
+        taus[:] = 0.0
 
         # update the positions and velocities
         eta1_curr = eta1_next
@@ -289,9 +296,9 @@ def aux_fun_x_v_stat_e(
 
         # find Jacobian matrix
         evaluation_kernels.df(
-            (eta1_curr + eta1)/2,
-            (eta2_curr + eta2)/2,
-            (eta3_curr + eta3)/2,
+            (eta1_curr + eta1) / 2,
+            (eta2_curr + eta2) / 2,
+            (eta3_curr + eta3) / 2,
             args_domain,
             dfm,
         )
@@ -302,22 +309,19 @@ def aux_fun_x_v_stat_e(
         # ======================================================================================
         # update the positions and place them back into the computational domain
         v1_curv = kappa * (
-            df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] *
-            (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3)
+            df_inv[0, 0] * (v1_curr + v1) + df_inv[0, 1] * (v2_curr + v2) + df_inv[0, 2] * (v3_curr + v3)
         )
         v2_curv = kappa * (
-            df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] *
-            (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3)
+            df_inv[1, 0] * (v1_curr + v1) + df_inv[1, 1] * (v2_curr + v2) + df_inv[1, 2] * (v3_curr + v3)
         )
         v3_curv = kappa * (
-            df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] *
-            (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3)
+            df_inv[2, 0] * (v1_curr + v1) + df_inv[2, 1] * (v2_curr + v2) + df_inv[2, 2] * (v3_curr + v3)
         )
 
         # x_{n+1} = x_n + dt/2 * DF^{-1}(x_{n+1}/2 + x_n/2) * (v_{n+1} + v_n)
-        eta1_next = (eta1 + dt * v1_curv / 2.) % 1
-        eta2_next = (eta2 + dt * v2_curv / 2.) % 1
-        eta3_next = (eta3 + dt * v3_curv / 2.) % 1
+        eta1_next = (eta1 + dt * v1_curv / 2.0) % 1
+        eta2_next = (eta2 + dt * v2_curv / 2.0) % 1
+        eta3_next = (eta3 + dt * v3_curv / 2.0) % 1
 
         # ======================================================================================
         # Compute tau-values in [0,1] for crossings of cell-boundaries
@@ -339,48 +343,49 @@ def aux_fun_x_v_stat_e(
         taus[0] = 0.0
         taus[length + 1] = 1.0
 
-        tmp1 = taus[1:length1 + 1]
+        tmp1 = taus[1 : length1 + 1]
         find_taus(eta1_curr, eta1_next, Nel[0], args_derham.tn1, 1, tmp1)
-        taus[1:length1 + 1] = tmp1
+        taus[1 : length1 + 1] = tmp1
 
-        tmp2 = taus[length1 + 1:length1 + length2 + 1]
+        tmp2 = taus[length1 + 1 : length1 + length2 + 1]
         find_taus(eta2_curr, eta2_next, Nel[1], args_derham.tn2, 1, tmp2)
-        taus[length1 + 1:length1 + length2 + 1] = tmp2
+        taus[length1 + 1 : length1 + length2 + 1] = tmp2
 
-        tmp3 = taus[length1 + length2 + 1:length + 1]
+        tmp3 = taus[length1 + length2 + 1 : length + 1]
         find_taus(eta3_curr, eta3_next, Nel[2], args_derham.tn3, 1, tmp3)
-        taus[length1 + length2 + 1:length + 1] = tmp3
+        taus[length1 + length2 + 1 : length + 1] = tmp3
 
         del tmp1, tmp2, tmp3
 
         if length != 0:
-            tmp4 = taus[0:length + 1]
+            tmp4 = taus[0 : length + 1]
             quicksort(tmp4, 1, length)
-            taus[0:length + 1] = tmp4
+            taus[0 : length + 1] = tmp4
             del tmp4
 
         # ======================================================================================
         # update velocity in direction 1
 
-        temp1 = 0.
+        temp1 = 0.0
 
         # loop over the cells
         for k in range(length + 1):
-
             a = eta1 + taus[k] * (eta1_curr - eta1)
             b = eta1 + taus[k + 1] * (eta1_curr - eta1)
             factor = (b - a) / 2
             adding = (a + b) / 2
 
             for n in range(n_quad1):
-
                 quad_pos1 = factor * loc1[n] + adding
                 quad_pos2 = factor * loc1[n] + adding
                 quad_pos3 = factor * loc1[n] + adding
 
                 # spline evaluation
                 span1, span2, span3 = get_spans(
-                    quad_pos1, quad_pos2, quad_pos3, args_derham,
+                    quad_pos1,
+                    quad_pos2,
+                    quad_pos3,
+                    args_derham,
                 )
 
                 # find global index where non-zero basis functions begin
@@ -397,37 +402,41 @@ def aux_fun_x_v_stat_e(
                         bi2 = bi1 * args_derham.bn2[il2]
                         for il3 in range(pn3 + 1):
                             i3 = ie3 + il3
-                            bi3 = bi2 * args_derham.bn3[il3] * e1_1[
-                                i1 - args_derham.starts[0] + pn1,
-                                i2 -
-                                args_derham.starts[1] + pn2,
-                                i3 - args_derham.starts[2] + pn3,
-                            ]
+                            bi3 = (
+                                bi2
+                                * args_derham.bn3[il3]
+                                * e1_1[
+                                    i1 - args_derham.starts[0] + pn1,
+                                    i2 - args_derham.starts[1] + pn2,
+                                    i3 - args_derham.starts[2] + pn3,
+                                ]
+                            )
 
                             temp1 += bi3 * weight1[n]
 
         # ======================================================================================
         # update velocity in direction 2
 
-        temp2 = 0.
+        temp2 = 0.0
 
         # loop over the cells
         for k in range(length + 1):
-
             a = eta2 + taus[k] * (eta2_curr - eta2)
             b = eta2 + taus[k + 1] * (eta2_curr - eta2)
             factor = (b - a) / 2
             adding = (a + b) / 2
 
             for n in range(n_quad2):
-
                 quad_pos1 = factor * loc2[n] + adding
                 quad_pos2 = factor * loc2[n] + adding
                 quad_pos3 = factor * loc2[n] + adding
 
                 # spline evaluation
                 span1, span2, span3 = get_spans(
-                    quad_pos1, quad_pos2, quad_pos3, args_derham,
+                    quad_pos1,
+                    quad_pos2,
+                    quad_pos3,
+                    args_derham,
                 )
 
                 # find global index where non-zero basis functions begin
@@ -444,37 +453,41 @@ def aux_fun_x_v_stat_e(
                         bi2 = bi1 * args_derham.bd2[il2]
                         for il3 in range(pn3 + 1):
                             i3 = ie3 + il3
-                            bi3 = bi2 * args_derham.bn3[il3] * e1_2[
-                                i1 - args_derham.starts[0] + pn1,
-                                i2 -
-                                args_derham.starts[1] + pn2,
-                                i3 - args_derham.starts[2] + pn3,
-                            ]
+                            bi3 = (
+                                bi2
+                                * args_derham.bn3[il3]
+                                * e1_2[
+                                    i1 - args_derham.starts[0] + pn1,
+                                    i2 - args_derham.starts[1] + pn2,
+                                    i3 - args_derham.starts[2] + pn3,
+                                ]
+                            )
 
                             temp2 += bi3 * weight2[n]
 
         # ======================================================================================
         # update velocity in direction 3
 
-        temp3 = 0.
+        temp3 = 0.0
 
         # loop over the cells
         for k in range(length + 1):
-
             a = eta3 + taus[k] * (eta3_curr - eta3)
             b = eta3 + taus[k + 1] * (eta3_curr - eta3)
             factor = (b - a) / 2
             adding = (a + b) / 2
 
             for n in range(n_quad3):
-
                 quad_pos1 = factor * loc3[n] + adding
                 quad_pos2 = factor * loc3[n] + adding
                 quad_pos3 = factor * loc3[n] + adding
 
                 # spline evaluation
                 span1, span2, span3 = get_spans(
-                    quad_pos1, quad_pos2, quad_pos3, args_derham,
+                    quad_pos1,
+                    quad_pos2,
+                    quad_pos3,
+                    args_derham,
                 )
 
                 # find global index where non-zero basis functions begin
@@ -491,31 +504,22 @@ def aux_fun_x_v_stat_e(
                         bi2 = bi1 * args_derham.bn2[il2]
                         for il3 in range(pd3 + 1):
                             i3 = ie3 + il3
-                            bi3 = bi2 * args_derham.bd3[il3] * e1_3[
-                                i1 - args_derham.starts[0] + pn1,
-                                i2 -
-                                args_derham.starts[1] + pn2,
-                                i3 - args_derham.starts[2] + pn3,
-                            ]
+                            bi3 = (
+                                bi2
+                                * args_derham.bd3[il3]
+                                * e1_3[
+                                    i1 - args_derham.starts[0] + pn1,
+                                    i2 - args_derham.starts[1] + pn2,
+                                    i3 - args_derham.starts[2] + pn3,
+                                ]
+                            )
 
                             temp3 += bi3 * weight3[n]
 
         # v_{n+1} = v_n + dt * DF^{-T}(x_n) * int_0^1 d tau ( E(x_n + tau*(x_{n+1} - x_n) ) )
-        v1_next = v1 + dt * kappa * (
-            df_inv[0, 0] * temp1 +
-            df_inv[1, 0] * temp2 +
-            df_inv[2, 0] * temp3
-        )
-        v2_next = v2 + dt * kappa * (
-            df_inv[0, 1] * temp1 +
-            df_inv[1, 1] * temp2 +
-            df_inv[2, 1] * temp3
-        )
-        v3_next = v3 + dt * kappa * (
-            df_inv[0, 2] * temp1 +
-            df_inv[1, 2] * temp2 +
-            df_inv[2, 2] * temp3
-        )
+        v1_next = v1 + dt * kappa * (df_inv[0, 0] * temp1 + df_inv[1, 0] * temp2 + df_inv[2, 0] * temp3)
+        v2_next = v2 + dt * kappa * (df_inv[0, 1] * temp1 + df_inv[1, 1] * temp2 + df_inv[2, 1] * temp3)
+        v3_next = v3 + dt * kappa * (df_inv[0, 2] * temp1 + df_inv[1, 2] * temp2 + df_inv[2, 2] * temp3)
 
         runs += 1
 

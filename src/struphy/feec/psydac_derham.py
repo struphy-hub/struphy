@@ -22,19 +22,18 @@ from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_produc
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
-from struphy.fields_background.base import MHDequilibrium
+from struphy.fields_background.base import FluidEquilibrium, MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations, utilities
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
+from struphy.initial.base import Perturbation
+from struphy.initial.perturbations import Noise
+from struphy.io.options import FieldsBackground, GivenInBasis, NoiseDirections
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
-from struphy.io.options import FieldsBackground, NoiseDirections, GivenInBasis
-from struphy.initial.perturbations import Noise
-from struphy.initial.base import Perturbation
-from struphy.fields_background.base import FluidEquilibrium
 
 
 class Derham:
@@ -899,10 +898,10 @@ class Derham:
 
         perturbations : Perturbation | list
             For the initial condition.
-            
+
         domain : Domain
             Mapping for pullback/transform of initial condition.
-            
+
         equil : FLuidEquilibrium
             Fluid background used for inital condition.
         """
@@ -1413,9 +1412,12 @@ class SplineFunction:
 
     perturbations : Perturbation | list
         For the initial condition.
-        
+
     domain : Domain
         Mapping for pullback/transform of initial condition.
+
+    equil : FluidEquilibrium
+        Fluid background used for inital condition.
     """
 
     def __init__(
@@ -1475,8 +1477,8 @@ class SplineFunction:
             )
         else:
             self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self.fem_space.spaces]
-        
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:    
+
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
 
         if self.backgrounds is not None or self.perturbations is not None:
@@ -1501,12 +1503,12 @@ class SplineFunction:
     def derham(self):
         """3d Derham complex struphy.feec.psydac_derham.Derham."""
         return self._derham
-    
+
     @property
     def domain(self):
         """Mapping for pullback/transform of initial condition."""
         return self._domain
-    
+
     @property
     def equil(self):
         """Fluid equilibirum used for initial condition."""
@@ -1673,7 +1675,7 @@ class SplineFunction:
             # if self.perturbations is not None:
             #     print(f"Attention: overwriting perturbation parameters for {self.name}")
             self._perturbations = perturbations
-            
+
         # set domain
         if domain is not None:
             # if self.domain is not None:
@@ -1682,7 +1684,7 @@ class SplineFunction:
 
         if isinstance(self.backgrounds, FieldsBackground):
             self._backgrounds = [self.backgrounds]
-            
+
         if isinstance(self.perturbations, Perturbation):
             self._perturbations = [self.perturbations]
 
@@ -1698,13 +1700,14 @@ class SplineFunction:
                 assert isinstance(fb, FieldsBackground)
                 if MPI.COMM_WORLD.Get_rank() == 0:
                     print(f"Adding background {fb} ...")
-                
+
                 # special case of const
                 if fb.type == "LogicalConst":
                     vals = fb.values
                     assert isinstance(vals, (list, tuple))
 
                     if self.space_id in {"H1", "L2"}:
+
                         def f_tmp(e1, e2, e3):
                             return vals[0] + 0.0 * e1
 
@@ -1756,10 +1759,12 @@ class SplineFunction:
                 # special case of white noise in logical space for different components
                 if isinstance(ptb, Noise):
                     # set white noise FE coefficients
-                    self._add_noise(direction=ptb.direction,
-                                    amp=ptb.amp,
-                                    seed=ptb.seed,
-                                    n=ptb.comp,)
+                    self._add_noise(
+                        direction=ptb.direction,
+                        amp=ptb.amp,
+                        seed=ptb.seed,
+                        n=ptb.comp,
+                    )
                 # perturbation class
                 elif isinstance(ptb, Perturbation):
                     if self.space_id in {"H1", "L2"}:
@@ -1770,9 +1775,9 @@ class SplineFunction:
                             domain=domain,
                         )
                     elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
-                        fun_vec = [None]*3
+                        fun_vec = [None] * 3
                         fun_vec[ptb.comp] = ptb
-                                                        
+
                         # pullback callable for each component
                         fun = []
                         for comp in range(3):
@@ -1790,7 +1795,7 @@ class SplineFunction:
                     self.vector += self.derham.P[self.space_key](fun)
 
                 # TODO: re-add Eigfun and InitFromOutput in new framework
-                
+
                 # loading of MHD eigenfunction (legacy code, might not be up to date)
                 # elif "EigFun" in _type:
                 #     print("Warning: Eigfun is not regularly tested ...")
@@ -2216,7 +2221,13 @@ class SplineFunction:
             E2[~E2_on_proc] = -1.0
             E3[~E3_on_proc] = -1.0
 
-    def _add_noise(self, direction: NoiseDirections = "e3", amp: float = 0.0001, seed: int = None, n: int = None,):
+    def _add_noise(
+        self,
+        direction: NoiseDirections = "e3",
+        amp: float = 0.0001,
+        seed: int = None,
+        n: int = None,
+    ):
         """Add noise to a vector component where init_comps==True, otherwise leave at zero.
 
         Parameters

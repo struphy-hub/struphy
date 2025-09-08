@@ -1,5 +1,6 @@
 import inspect
 from copy import deepcopy
+
 import pytest
 
 
@@ -26,6 +27,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
+    from struphy.geometry.base import Domain
     from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
     from struphy.models.variables import FEECVariable
@@ -36,6 +38,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     # Domain
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
+    assert isinstance(domain, Domain)
 
     # Derham
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -62,7 +65,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     ls = [0, 0]
     pfuns = ["sin", "sin"]
 
-    pmap = domain.params_map
+    pmap = domain.params
     if isinstance(domain, domains.Cuboid):
         Lx = pmap["r1"] - pmap["l1"]
         Ly = pmap["r2"] - pmap["l2"]
@@ -194,7 +197,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         perturbation_0 = perturbation
                         perturbation_1 = deepcopy(perturbation)
                         perturbation_2 = deepcopy(perturbation)
-                        
+
                         params = {
                             key: {
                                 "given_in_basis": [fun_form] * 3,
@@ -247,7 +250,9 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             )
                             fun1_xyz, fun2_xyz, fun3_xyz = domain.push([tmp1, tmp2, tmp3], eee1, eee2, eee3, kind="v")
                         else:
-                            fun1_xyz, fun2_xyz, fun3_xyz = domain.push([perturbation, perturbation, perturbation], eee1, eee2, eee3, kind=fun_form)
+                            fun1_xyz, fun2_xyz, fun3_xyz = domain.push(
+                                [perturbation, perturbation, perturbation], eee1, eee2, eee3, kind=fun_form
+                            )
 
                         fun_xyz_vec = [fun1_xyz, fun2_xyz, fun3_xyz]
 

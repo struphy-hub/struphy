@@ -1,8 +1,9 @@
 "Base classes for kinetic backgrounds."
 
 from abc import ABCMeta, abstractmethod
-import numpy as np
 from typing import Callable
+
+import numpy as np
 
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import set_defaults
@@ -349,7 +350,7 @@ class Maxwellian(KineticBackground):
     @abstractmethod
     def maxw_params(self) -> dict:
         """Parameters dictionary defining moments of the Maxwellian."""
-        
+
     def check_maxw_params(self):
         for k, v in self.maxw_params.items():
             assert isinstance(k, str)
@@ -470,7 +471,7 @@ class Maxwellian(KineticBackground):
 
         return res
 
-    def _evaluate_moment(self, eta1, eta2, eta3, *, name="n"):
+    def _evaluate_moment(self, eta1, eta2, eta3, *, name: str = "n", add_perturbation: bool = None):
         """Scalar moment evaluation as background + perturbation.
 
         Parameters
@@ -480,6 +481,9 @@ class Maxwellian(KineticBackground):
 
         name : str
             Which moment to evaluate (see varaible "dct" below).
+
+        add_perturbation : bool | None
+            Whether to add the perturbation defined in maxw_params. If None, is taken from self.add_perturbation.
 
         Returns
         -------
@@ -491,7 +495,7 @@ class Maxwellian(KineticBackground):
         assert isinstance(eta2, np.ndarray)
         assert isinstance(eta3, np.ndarray)
         assert eta1.shape == eta2.shape == eta3.shape
-        
+
         params = self.maxw_params[name]
         assert isinstance(params, tuple)
         assert len(params) == 2
@@ -542,17 +546,31 @@ class Maxwellian(KineticBackground):
                 out += background(eta1, eta2, eta3)
             else:
                 out += background(*etas)
-                
+
         # add perturbation
+        if add_perturbation is None:
+            add_perturbation = self.add_perturbation
+
         perturbation = params[1]
-        if perturbation is not None:
+        if perturbation is not None and add_perturbation:
             assert isinstance(perturbation, Perturbation)
             if eta1.ndim == 1:
                 out += perturbation(eta1, eta2, eta3)
             else:
                 out += perturbation(*etas)
-                
+
         return out
+
+    @property
+    def add_perturbation(self) -> bool:
+        if not hasattr(self, "_add_perturbation"):
+            self._add_perturbation = True
+        return self._add_perturbation
+
+    @add_perturbation.setter
+    def add_perturbation(self, new):
+        assert isinstance(new, bool)
+        self._add_perturbation = new
 
 
 class CanonicalMaxwellian(metaclass=ABCMeta):

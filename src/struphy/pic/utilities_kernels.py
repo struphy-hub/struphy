@@ -4,8 +4,8 @@ from pyccel.decorators import stack_array
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -14,7 +14,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
 def eval_magnetic_moment_5d(

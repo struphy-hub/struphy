@@ -2,7 +2,7 @@ from numpy import sqrt
 
 import struphy.pic.sorting_kernels as sorting_kernels
 import struphy.pic.sph_smoothing_kernels as sph_smoothing_kernels
-from struphy.pic.pushing.pusher_args_kernels import MarkerArguments
+from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 
 
 def distance(x: "float", y: "float", periodic: "bool") -> float:

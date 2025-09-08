@@ -10,8 +10,8 @@ from scipy.sparse.linalg import splu, spsolve
 
 import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
+from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
-from struphy.pic.pushing.pusher_args_kernels import DomainArguments
 
 
 class Domain(metaclass=ABCMeta):
@@ -37,58 +37,46 @@ class Domain(metaclass=ABCMeta):
     Only right-handed mappings (:math:`\textnormal{det}(DF) > 0`) are admitted.
     """
 
-    def __init__(self):
-        # create IGA attributes for IGA mappings
-        if self.kind_map < 10:
-            Nel = self.params_map["Nel"]
-            p = self.params_map["p"]
-            spl = self.params_map["spl_kind"]
+    def __init__(
+        self,
+        Nel: tuple[int] = None,
+        p: tuple[int] = None,
+        spl_kind: tuple[bool] = None,
+    ):
+        if Nel is None or p is None or spl_kind is None:
+            assert self.kind_map >= 10, "Spline mappings must define Nel, p and spl_kind."
+            Nel = (1, 1, 1)
+            p = (1, 1, 1)
+            spl_kind = (True, True, True)
 
-            self._Nel = Nel
-            self._p = p
-            self._spl_kind = spl
+        # create IGA attributes
+        self._Nel = Nel
+        self._p = p
+        self._spl_kind = spl_kind
 
-            self._NbaseN = [Nel + p - kind * p for Nel, p, kind in zip(Nel, p, spl)]
+        self._NbaseN = [Nel + p - kind * p for Nel, p, kind in zip(Nel, p, spl_kind)]
 
-            el_b = [np.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
+        el_b = [np.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
 
-            self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl)]
+        self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl_kind)]
 
-            self._indN = [
-                (np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None]) % NbaseN
-                for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)
-            ]
+        self._indN = [
+            (np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None]) % NbaseN
+            for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)
+        ]
 
-            # extend to 3d for 2d IGA mappings
-            if self._kind_map != 0:
-                self._Nel = (*self._Nel, 0)
-                self._p = (*self._p, 0)
-                self._NbaseN = self._NbaseN + [0]
+        # extend to 3d for 2d IGA mappings
+        if 0 < self.kind_map < 10:
+            self._Nel = (*self._Nel, 0)
+            self._p = (*self._p, 0)
+            self._NbaseN = self._NbaseN + [0]
 
-                self._T = self._T + [np.zeros((1,), dtype=float)]
+            self._T = self._T + [np.zeros((1,), dtype=float)]
 
-                self._indN = self._indN + [np.zeros((1, 1), dtype=int)]
+            self._indN = self._indN + [np.zeros((1, 1), dtype=int)]
 
         # create dummy attributes for analytical mappings
-        else:
-            self._Nel = [0, 0, 0]
-            self._p = [0, 0, 0]
-            self._spl_kind = [True, True, True]
-
-            self._NbaseN = [0, 0, 0]
-
-            self._T = [
-                np.zeros((1,), dtype=float),
-                np.zeros((1,), dtype=float),
-                np.zeros((1,), dtype=float),
-            ]
-
-            self._indN = [
-                np.zeros((1, 1), dtype=int),
-                np.zeros((1, 1), dtype=int),
-                np.zeros((1, 1), dtype=int),
-            ]
-
+        if self.kind_map >= 10:
             self._cx = np.zeros((1, 1, 1), dtype=float)
             self._cy = np.zeros((1, 1, 1), dtype=float)
             self._cz = np.zeros((1, 1, 1), dtype=float)
@@ -145,14 +133,20 @@ class Domain(metaclass=ABCMeta):
         )
 
     @property
-    @abstractmethod
-    def kind_map(self):
+    def kind_map(self) -> int:
         """Integer defining the mapping:
         * <=9: spline mappings
         * >=10 and <=19: analytical mappings with cubic domain boundary
         * >=20 and <=29: analytical cylinder and torus mappings
         * >=30 and <=39: Shafranov mappings (cylinder)"""
-        pass
+        if not hasattr(self, "_kind_map"):
+            raise AttributeError("Must set 'self.kind_map' for mappings.")
+        return self._kind_map
+
+    @kind_map.setter
+    def kind_map(self, new):
+        assert isinstance(new, int)
+        self._kind_map = new
 
     @property
     @abstractmethod
@@ -164,19 +158,39 @@ class Domain(metaclass=ABCMeta):
     @abstractmethod
     def params_numpy(self) -> np.ndarray:
         """Mapping parameters as numpy array (can be empty)."""
-        pass
+        if not hasattr(self, "_params_numpy"):
+            self._params_numpy = np.array([0], dtype=float)
+        return self._params_numpy
+
+    @params_numpy.setter
+    def params_numpy(self, new):
+        assert isinstance(new, np.ndarray)
+        assert new.ndim == 1
+        self._params_numpy = new
 
     @property
-    @abstractmethod
-    def pole(self):
+    def pole(self) -> bool:
         """Bool; True if mapping has one polar point."""
-        pass
+        if not hasattr(self, "_pole"):
+            self._pole = False
+        return self._pole
+
+    @pole.setter
+    def pole(self, new):
+        assert isinstance(new, bool)
+        self._pole = new
 
     @property
-    @abstractmethod
-    def periodic_eta3(self):
+    def periodic_eta3(self) -> bool:
         r"""Bool; True if mapping is periodic in :math:`\eta_3` coordinate."""
-        pass
+        if not hasattr(self, "_periodic_eta3"):
+            raise AttributeError("Must specify whether mapping is periodic in eta3.")
+        return self._periodic_eta3
+
+    @periodic_eta3.setter
+    def periodic_eta3(self, new):
+        assert isinstance(new, bool)
+        self._periodic_eta3 = new
 
     @property
     def cx(self):
@@ -1334,80 +1348,14 @@ class Domain(metaclass=ABCMeta):
         return a_out
 
     # ================================
-    @staticmethod
-    def prepare_params_map(params_user, params_default, return_numpy=True):
-        """Sets missing default key-value pairs in dictionary "params_user" according to "params_default".
 
-        Parameters
-        ----------
-        params_user : dict
-            Dictionary which is compared to the dictionary "params_default" and to which missing defaults are added.
+    def get_params_numpy(self) -> np.ndarray:
+        """Convert parameter dict into numpy array."""
+        params_numpy = []
+        for k, v in self.params.items():
+            params_numpy.append(v)
+        return np.array(params_numpy)
 
-        params_default : dict
-            Dictionary with default values.
-
-        return_numpy : bool
-            Whether to return a numpy parameter array in addition to the always returned parameter dictionary.
-
-        Returns
-        -------
-        params_map : dict
-            Dictionary with same keys as "params_default" and default values for missing keys.
-
-        params_numpy : np.ndarray
-            Numpy array with parameters in params_map (if parameter is a float or int).
-        """
-
-        # check for correct keys in params_user
-        for key in params_user:
-            assert key in params_default, f'Unknown key "{key}". Please choose one of {[*params_default]}.'
-
-        # set default values if key is missing
-        params_map = params_user
-
-        for key, val in params_default.items():
-            params_map.setdefault(key, val)
-
-        # parameter numpy array for pyccel kernel (order matters!)
-        if return_numpy:
-            params_numpy = []
-            for key in params_default.keys():
-                params_numpy.append(params_map[key])
-
-            return params_map, np.array(params_numpy)
-        else:
-            return params_map
-
-    @staticmethod
-    def prepare_params_map_new(return_numpy=True, **params):
-        """Create parameter dictionary and numpy array.
-
-        Parameters
-        ----------
-        return_numpy : bool
-            Whether to return a numpy parameter array in addition to the always returned parameter dictionary.
-
-        params : kwargs
-            Mapping parameters.
-
-        Returns
-        -------
-        params : dict
-            Dictionary with default values for missing keys.
-
-        params_numpy : np.ndarray
-            Numpy array with parameters in params_map (if parameter is a float or int).
-        """
-        # parameter numpy array for pyccel kernel (order matters!)
-        if return_numpy:
-            params_numpy = []
-            for k, v in params.items():
-                params_numpy.append(v)
-            return params, np.array(params_numpy)
-        else:
-            return params
-
-    # ================================
     def show(
         self,
         logical=False,
@@ -1488,7 +1436,7 @@ class Domain(metaclass=ABCMeta):
                 ax.scatter(X[0, 32], Y[0, 32], 20, "red", zorder=10)
 
             tstr = ""
-            for key, val in self.params_map.items():
+            for key, val in self.params.items():
                 if key not in {"cx", "cy", "cz"}:
                     tstr += key + ": " + str(val) + "\n"
             ax.set_title(self.__class__.__name__ + " at $\\eta_3=0$")
@@ -1797,7 +1745,8 @@ class Domain(metaclass=ABCMeta):
 
 
 class Spline(Domain):
-    r"""TODO
+    r"""3D IGA spline mapping.
+
     .. math::
 
         F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -1809,40 +1758,30 @@ class Spline(Domain):
         \end{aligned}\right.
     """
 
-    def __init__(self, **params):
-        self._kind_map = 0
-
-        # set default
-        params_default = {
-            "Nel": None,
-            "p": None,
-            "spl_kind": None,
-            "cx": None,
-            "cy": None,
-            "cz": None,
-        }
-
-        params_map = Domain.prepare_params_map(
-            params,
-            params_default,
-            return_numpy=False,
-        )
+    def __init__(
+        self,
+        Nel: tuple[int] = (8, 24, 6),
+        p: tuple[int] = (2, 3, 1),
+        spl_kind: tuple[bool] = (False, True, True),
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
+        cz: np.ndarray = None,
+    ):
+        self.kind_map = 0
 
         # get default control points from default GVEC equilibrium
-        if params_map["cx"] is None or params_map["cy"] is None or params_map["cz"] is None:
+        if cx is None or cy is None or cz is None:
             from struphy.fields_background.equils import GVECequilibrium
 
             mhd_equil = GVECequilibrium()
-
-            for key in params_map.keys():
-                params_map[key] = getattr(mhd_equil.domain, key)
-
-        self._params_map = params_map
+            cx = mhd_equil.domain.cx
+            cx = mhd_equil.domain.cy
+            cx = mhd_equil.domain.cz
 
         # assign control points
-        self._cx = self._params_map["cx"]
-        self._cy = self._params_map["cy"]
-        self._cz = self._params_map["cz"]
+        self._cx = cx
+        self._cy = cy
+        self._cz = cz
 
         # check dimensions
         assert self.cx.ndim == 3
@@ -1850,12 +1789,7 @@ class Spline(Domain):
         assert self.cz.ndim == 3
 
         # make sure that control points are compatible with given spline data
-        expected_shape = tuple(
-            [
-                self._params_map["Nel"][n] + (not self._params_map["spl_kind"][n]) * self._params_map["p"][n]
-                for n in range(3)
-            ]
-        )
+        expected_shape = tuple([Nel[n] + (not spl_kind[n]) * p[n] for n in range(3)])
 
         assert self.cx.shape == expected_shape
         assert self.cy.shape == expected_shape
@@ -1863,37 +1797,14 @@ class Spline(Domain):
 
         # identify polar singularity at eta1=0
         if np.all(self.cx[0, :, 0] == self.cx[0, 0, 0]):
-            self._pole = True
+            self.pole = True
         else:
-            self._pole = False
+            self.pole = False
 
-        self._periodic_eta3 = self._params_map["spl_kind"][-1]
+        self.periodic_eta3 = spl_kind[-1]
 
-        # init base class
-        # Added one element so we are not passing empty numpy arrays
-        self._params_numpy = np.array([0.0])
-
-        super().__init__()
-
-    @property
-    def kind_map(self):
-        return self._kind_map
-
-    @property
-    def params_map(self):
-        return self._params_map
-
-    @property
-    def params_numpy(self):
-        return self._params_numpy
-
-    @property
-    def pole(self):
-        return self._pole
-
-    @property
-    def periodic_eta3(self):
-        return self._periodic_eta3
+        # base class
+        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind)
 
 
 class PoloidalSpline(Domain):
@@ -1911,24 +1822,16 @@ class PoloidalSpline(Domain):
     The full map :math:`F: [0, 1]^3 \to \Omega` is obtained by defining :math:`(R, Z, \eta_3) \mapsto (x, y, z)` in the child class.
     """
 
-    def __init__(self, **params):
-        # set default
-        params_default = {
-            "Nel": [8, 24],
-            "p": [2, 3],
-            "spl_kind": [False, True],
-            "cx": None,
-            "cy": None,
-        }
-
-        params_map = Domain.prepare_params_map(
-            params,
-            params_default,
-            return_numpy=False,
-        )
-
+    def __init__(
+        self,
+        Nel: tuple[int] = (8, 24),
+        p: tuple[int] = (2, 3),
+        spl_kind: tuple[bool] = (False, True),
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
+    ):
         # get default control points
-        if params_map["cx"] is None or params_map["cy"] is None:
+        if cx is None or cy is None:
 
             def X(eta1, eta2):
                 return eta1 * np.cos(2 * np.pi * eta2) + 3.0
@@ -1936,48 +1839,31 @@ class PoloidalSpline(Domain):
             def Y(eta1, eta2):
                 return eta1 * np.sin(2 * np.pi * eta2)
 
-            cx, cy = interp_mapping(
-                params_map["Nel"],
-                params_map["p"],
-                params_map["spl_kind"],
-                X,
-                Y,
-            )
+            cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
 
             # make sure that control points at pole are all the same (eta1=0 there)
             cx[0] = 3.0
             cy[0] = 0.0
 
-            # add control points to parameters dictionary
-            params_map["cx"] = cx
-            params_map["cy"] = cy
-
-        self._params_map = params_map
-
         # set control point properties
-        self._cx = self._params_map["cx"]
-        self._cy = self._params_map["cy"]
+        self._cx = cx
+        self._cy = cy
 
         # make sure that control points are 2D
         assert self.cx.ndim == 2
         assert self.cy.ndim == 2
 
         # make sure that control points are compatible with given spline data
-        expected_shape = tuple(
-            [
-                self._params_map["Nel"][n] + (not self._params_map["spl_kind"][n]) * self._params_map["p"][n]
-                for n in range(2)
-            ]
-        )
+        expected_shape = tuple([Nel[n] + (not spl_kind[n]) * p[n] for n in range(2)])
 
         assert self.cx.shape == expected_shape
         assert self.cy.shape == expected_shape
 
         # identify polar singularity at eta1=0
         if np.all(self.cx[0, :] == self.cx[0, 0]):
-            self._pole = True
+            self.pole = True
         else:
-            self._pole = False
+            self.pole = False
 
         # reshape control points to 3D
         self._cx = self.cx[:, :, None]
@@ -1985,31 +1871,12 @@ class PoloidalSpline(Domain):
         self._cz = np.zeros((1, 1, 1), dtype=float)
 
         # init base class
-        super().__init__()
-
-    @property
-    def kind_map(self):
-        return self._kind_map
-
-    @property
-    def params_map(self):
-        return self._params_map
-
-    @property
-    def params_numpy(self):
-        return self._params_numpy
-
-    @property
-    def pole(self):
-        return self._pole
-
-    @property
-    def periodic_eta3(self):
-        return self._periodic_eta3
+        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind)
 
 
 class PoloidalSplineStraight(PoloidalSpline):
-    r"""TODO
+    r"""Cylinder where the poloidal planes are described by a 2D IGA-spline mapping.
+
     .. math::
 
         F: (R, Z, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -2021,27 +1888,19 @@ class PoloidalSplineStraight(PoloidalSpline):
         \end{aligned}\right.
     """
 
-    def __init__(self, **params):
-        self._kind_map = 1
-
-        # set default
-        params_default = {
-            "Nel": [8, 24],
-            "p": [2, 3],
-            "spl_kind": [False, True],
-            "cx": None,
-            "cy": None,
-            "Lz": 4.0,
-        }
-
-        params_map = Domain.prepare_params_map(
-            params,
-            params_default,
-            return_numpy=False,
-        )
+    def __init__(
+        self,
+        Nel: tuple[int] = (8, 24),
+        p: tuple[int] = (2, 3),
+        spl_kind: tuple[bool] = (False, True),
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
+        Lz: float = 4.0,
+    ):
+        self.kind_map = 1
 
         # get default control points
-        if params_map["cx"] is None or params_map["cy"] is None:
+        if cx is None or cy is None:
 
             def X(eta1, eta2):
                 return eta1 * np.cos(2 * np.pi * eta2)
@@ -2049,37 +1908,22 @@ class PoloidalSplineStraight(PoloidalSpline):
             def Y(eta1, eta2):
                 return eta1 * np.sin(2 * np.pi * eta2)
 
-            cx, cy = interp_mapping(
-                params_map["Nel"],
-                params_map["p"],
-                params_map["spl_kind"],
-                X,
-                Y,
-            )
+            cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
 
             # make sure that control points at pole are all 0 (eta1=0 there)
             cx[0] = 0.0
             cy[0] = 0.0
 
-            # add control points to parameters dictionary
-            params_map["cx"] = cx
-            params_map["cy"] = cy
-
-        self._params_numpy = np.array([params_map["Lz"]])
-        self._periodic_eta3 = False
-
-        # remove "Lz" temporarily from params_map dictionary (is not a parameter of PoloidalSpline)
-        Lz = params_map["Lz"]
-        params_map.pop("Lz")
+        self.params_numpy = np.array([Lz])
+        self.periodic_eta3 = False
 
         # init base class
-        super().__init__(**params_map)
-
-        self._params_map["Lz"] = Lz
+        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy)
 
 
 class PoloidalSplineTorus(PoloidalSpline):
-    r"""TODO
+    r"""Torus where the poloidal planes are described by a 2D IGA-spline mapping.
+
     .. math::
 
         F: (R, Z, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -2089,29 +1933,42 @@ class PoloidalSplineTorus(PoloidalSpline):
 
         z &= Z \,.
         \end{aligned}\right.
+
+    Parameters
+    ----------
+    Nel : tuple[int]
+        Number of elements in each poloidal direction.
+
+    p : tuple[int]
+        Spline degree in each poloidal direction.
+
+    spl_kind : tuple[bool]
+        Kind of spline in each poloidal direction (True=periodic, False=clamped).
+
+    cx, cy : np.ndarray
+        Control points (spline coefficients) of the poloidal mapping.
+        If None, a default square-to-disc mapping of radius 1 centered around (x, y) = (3, 0) is interpolated.
+
+    tor_period : int
+        The toroidal angle is between [0, 2*pi/tor_period).
     """
 
-    def __init__(self, **params):
-        self._kind_map = 2
-
-        # set default
-        params_default = {
-            "Nel": [8, 24],
-            "p": [2, 3],
-            "spl_kind": [False, True],
-            "cx": None,
-            "cy": None,
-            "tor_period": 3,
-        }
-
-        params_map = Domain.prepare_params_map(
-            params,
-            params_default,
-            return_numpy=False,
-        )
+    def __init__(
+        self,
+        Nel: tuple[int] = (8, 24),
+        p: tuple[int] = (2, 3),
+        spl_kind: tuple[bool] = (False, True),
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
+        tor_period: int = 3,
+    ):
+        # use setters for mapping attributes
+        self.kind_map = 2
+        self.params_numpy = np.array([float(tor_period)])
+        self.periodic_eta3 = True
 
         # get default control points
-        if params_map["cx"] is None or params_map["cy"] is None:
+        if cx is None or cy is None:
 
             def X(eta1, eta2):
                 return eta1 * np.cos(2 * np.pi * eta2) + 3.0
@@ -2119,33 +1976,20 @@ class PoloidalSplineTorus(PoloidalSpline):
             def Y(eta1, eta2):
                 return eta1 * np.sin(2 * np.pi * eta2)
 
-            cx, cy = interp_mapping(
-                params_map["Nel"],
-                params_map["p"],
-                params_map["spl_kind"],
-                X,
-                Y,
-            )
+            cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
 
             # make sure that control points at pole are all 0 (eta1=0 there)
             cx[0] = 3.0
             cy[0] = 0.0
 
-            # add control points to parameters dictionary
-            params_map["cx"] = cx
-            params_map["cy"] = cy
-
-        self._params_numpy = np.array([float(params_map["tor_period"])])
-        self._periodic_eta3 = True
-
-        # remove "tor_period" temporarily from params_map dictionary (is not a parameter of PoloidalSpline)
-        tor_period = params_map["tor_period"]
-        params_map.pop("tor_period")
-
         # init base class
-        super().__init__(**params_map)
-
-        self._params_map["tor_period"] = tor_period
+        super().__init__(
+            Nel=Nel,
+            p=p,
+            spl_kind=spl_kind,
+            cx=cx,
+            cy=cy,
+        )
 
 
 def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):

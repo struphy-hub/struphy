@@ -1,17 +1,21 @@
 "Propagator base class."
 
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+from typing import Literal
+
 import numpy as np
 from mpi4py import MPI
+from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry.base import Domain
-from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
+from struphy.geometry.base import Domain
+from struphy.io.options import check_option
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 
 
 class Propagator(metaclass=ABCMeta):
@@ -25,15 +29,61 @@ class Propagator(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def set_options(self, **kwargs):
-        """Set the dynamical options of the propagator (kwargs)."""
-        
+    class Variables:
+        """Define variable names and types to be updated by the propagator."""
+
+        def __init__(self):
+            self._var1 = None
+
+        @property
+        def var1(self):
+            return self._var1
+
+        @var1.setter
+        def var1(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles6D"
+            self._var1 = new
+
     @abstractmethod
-    def allocate():
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @abstractmethod
+    @dataclass
+    class Options:
+        # specific literals
+        OptsTemplate = Literal["implicit", "explicit"]
+        # propagator options
+        opt1: str = ("implicit",)
+
+        def __post_init__(self):
+            # checks
+            check_option(self.opt1, self.OptsTemplate)
+
+    @property
+    @abstractmethod
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    @abstractmethod
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @abstractmethod
+    def allocate(self):
         """Allocate all data/objects of the instance."""
-    
+
     @abstractmethod
-    def __call__(self, dt):
+    def __call__(self, dt: float):
         """Update variables from t -> t + dt.
         Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
 
@@ -43,44 +93,26 @@ class Propagator(metaclass=ABCMeta):
             Time step size.
         """
 
-    def assign_variables(self, **vars):
-        """Assign the variables to be updated by the propagator.
-        
-        Update variables in __dict__ and set self.variables with user-defined instance variables (allocated).
-        """
-        assert len(vars) == len(self.__dict__), f"Variables must be passed in the following order: {self.__dict__}, but is {vars}."
-        for ((k, v), (kp, vp)) in zip(vars.items(), self.__dict__.items()):
-            assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.__dict__}."
-            assert isinstance(v, Variable)
-            if isinstance(v, (PICVariable, SPHVariable)):
-                # comm = var.obj.mpi_comm
-                pass
-            elif isinstance(v, FEECVariable):
-                # comm = var.obj.comm
-                pass
-        self.__dict__.update(vars)
-        self._variables = vars
-        
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
         update feec coefficients and update ghost regions.
-        
+
         Returns
         -------
         diffs : dict
             max_diff for all feec variables.
         """
         diffs = {}
-        assert len(new_coeffs) == len(self.variables), f"Coefficients must be passed in the following order: {self.variables}, but is {new_coeffs}."
-        for ((k, new), (kp, vp)) in zip(new_coeffs.items(), self.variables.items()):
-            assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.variables}."
+        for var, new in new_coeffs.items():
+            assert "_" + var in self.variables.__dict__, f"{var} not in {self.variables.__dict__}."
             assert isinstance(new, (StencilVector, BlockVector))
-            assert isinstance(vp, FEECVariable)
-            old = vp.spline.vector
+            old_var = getattr(self.variables, var)
+            assert isinstance(old_var, FEECVariable)
+            old = old_var.spline.vector
             assert new.space == old.space
- 
+
             # calculate maximum of difference abs(new - old)
-            diffs[k] = np.max(np.abs(new.toarray() - old.toarray()))
+            diffs[var] = np.max(np.abs(new.toarray() - old.toarray()))
 
             # copy new coeffs into old
             new.copy(out=old)
@@ -89,12 +121,6 @@ class Propagator(metaclass=ABCMeta):
             old.update_ghost_regions()
 
         return diffs
-
-    @property
-    def variables(self):
-        """Dict of Variables to be updated by the propagator.
-        """
-        return self._variables
 
     @property
     def init_kernels(self):
@@ -175,13 +201,14 @@ class Propagator(metaclass=ABCMeta):
         return self._projected_equil
 
     @projected_equil.setter
-    def projected_equil(self, projected_equil):
-        self._projected_equil = projected_equil
+    def projected_equil(self, new):
+        assert isinstance(new, ProjectedFluidEquilibriumWithB)
+        self._projected_equil = new
 
     @property
     def time_state(self):
         """A pointer to the time variable of the dynamics ('t')."""
-        return self._time_state 
+        return self._time_state
 
     def add_time_state(self, time_state):
         """Add a pointer to the time variable of the dynamics ('t').
@@ -223,6 +250,9 @@ class Propagator(metaclass=ABCMeta):
             comps = np.array([0])  # case for scalar evaluation
         else:
             comps = np.array(comps, dtype=int)
+
+        if not hasattr(self, "_init_kernels"):
+            self._init_kernels = []
 
         self._init_kernels += [
             (
@@ -275,6 +305,9 @@ class Propagator(metaclass=ABCMeta):
         else:
             comps = np.array(comps, dtype=int)
 
+        if not hasattr(self, "_eval_kernels"):
+            self._eval_kernels = []
+
         self._eval_kernels += [
             (
                 kernel,
@@ -284,26 +317,3 @@ class Propagator(metaclass=ABCMeta):
                 args_eval,
             )
         ]
-       
-    @property
-    def options(self):
-        if not hasattr(self, "_options"):
-            self._options = self.Options()
-        return self._options
-    
-    @options.setter
-    def options(self, new):
-        assert isinstance(new, self.Options)
-        self._options = new
-       
-    class Options:
-        def __init__(self, prop, **kwargs):
-            self.__dict__.update(kwargs)
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"\nInstance of propagator '{prop.__class__.__name__}' with:")
-                for k, v in self.__dict__.items():
-                    print(f'  {k}: {v}')
-            
-        # @property
-        # def kwargs(self):
-        #     return self._kwargs
