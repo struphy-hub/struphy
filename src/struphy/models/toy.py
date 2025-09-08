@@ -32,9 +32,8 @@ class Maxwell(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.Maxwell`
-
-    :ref:`Model info <add_model>`:
     """
+    
     ## species
     
     class EMFields(FieldSpecies):
@@ -55,17 +54,15 @@ class Maxwell(StruphyModel):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
         
-        # 1. instantiate all species, variables
+        # 1. instantiate all species
         self.em_fields = self.EMFields()
 
         # 2. instantiate all propagators
         self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
-        self.propagators.maxwell.assign_variables(
-            e = self.em_fields.e_field,
-            b = self.em_fields.b_field,
-            )
+        self.propagators.maxwell.variables.e = self.em_fields.e_field
+        self.propagators.maxwell.variables.b = self.em_fields.b_field
         
         # define scalars for update_scalar_quantities
         self.add_scalar("electric energy")
@@ -111,9 +108,8 @@ class Vlasov(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_markers.PushVxB`
     2. :class:`~struphy.propagators.propagators_markers.PushEta`
-
-    :ref:`Model info <add_model>`:
     """
+    
     ## species
     
     class KineticIons(KineticSpecies):
@@ -134,20 +130,15 @@ class Vlasov(StruphyModel):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}' ***")
             
-        # 1. instantiate all species, variables
+        # 1. instantiate all species
         self.kinetic_ions = self.KineticIons()
 
         # 2. instantiate all propagators
         self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
-        self.propagators.push_vxb.assign_variables(
-            ions = self.kinetic_ions.var,
-            )
-        
-        self.propagators.push_eta.assign_variables(
-            var = self.kinetic_ions.var,
-            )
+        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
+        self.propagators.push_eta.variables.var = self.kinetic_ions.var
         
         # define scalars for update_scalar_quantities
         self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
@@ -205,120 +196,84 @@ class GuidingCenter(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
     2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
-
-    :ref:`Model info <add_model>`:
     """
+    
+    ## species
+    
+    class KineticIons(KineticSpecies):
+        def __init__(self):
+            self.var = PICVariable(space="Particles5D")
+            self.init_variables()
+        
+    ## propagators
+    
+    class Propagators:
+        def __init__(self):
+            self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
+            self.push_parallel = propagators_markers.PushGuidingCenterParallel()
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## abstract methods
 
-        dct["kinetic"]["ions"] = "Particles5D"
-        return dct
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}' ***")
+            
+        # 1. instantiate all species
+        self.kinetic_ions = self.KineticIons()
 
-    @staticmethod
-    def bulk_species():
-        return "ions"
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+        
+        # 3. assign variables to propagators
+        self.propagators.push_bxe.variables.ions = self.kinetic_ions.var
+        self.propagators.push_parallel.variables.ions = self.kinetic_ions.var
+        
+        # define scalars for update_scalar_quantities
+        self.add_scalar("en_fv", compute="from_particles", variable=self.kinetic_ions.var)
+        self.add_scalar("en_fB", compute="from_particles", variable=self.kinetic_ions.var)
+        self.add_scalar("en_tot", compute="from_particles", variable=self.kinetic_ions.var)
 
-    @staticmethod
-    def velocity_scale():
+    @property
+    def bulk_species(self):
+        return self.kinetic_ions
+
+    @property
+    def velocity_scale(self):
         return "alfvén"
-
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_markers.PushGuidingCenterBxEstar: ["ions"],
-            propagators_markers.PushGuidingCenterParallel: ["ions"],
-        }
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from mpi4py.MPI import IN_PLACE, SUM
-
-        # prelim
-        ions_params = self.kinetic["ions"]["params"]
-        epsilon = self.equation_params["ions"]["epsilon"]
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
-            "epsilon": epsilon,
-            "algo": ions_params["options"]["PushGuidingCenterBxEstar"]["algo"],
-        }
-
-        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
-            "epsilon": epsilon,
-            "algo": ions_params["options"]["PushGuidingCenterParallel"]["algo"],
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
-        self.add_scalar("en_fv")
-        self.add_scalar("en_fB")
-        self.add_scalar("en_tot")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
+    
+    def allocate_helpers(self):
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
         self._en_tot = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
+        particles = self.kinetic_ions.var.particles
+
         # particles' kinetic energy
+        self._en_fv[0] = particles.markers[~particles.holes, 5].dot(
+            particles.markers[~particles.holes, 3] ** 2,
+        ) / (2.0 * particles.Np)
 
-        self._en_fv[0] = self.pointer["ions"].markers[~self.pointer["ions"].holes, 5].dot(
-            self.pointer["ions"].markers[~self.pointer["ions"].holes, 3] ** 2,
-        ) / (2.0 * self.pointer["ions"].Np)
-
-        self.pointer["ions"].save_magnetic_background_energy()
+        particles.save_magnetic_background_energy()
         self._en_tot[0] = (
-            self.pointer["ions"]
-            .markers[~self.pointer["ions"].holes, 5]
-            .dot(
-                self.pointer["ions"].markers[~self.pointer["ions"].holes, 8],
+            particles.markers[~particles.holes, 5].dot(
+                particles.markers[~particles.holes, 8],
             )
-            / self.pointer["ions"].Np
+            / particles.Np
         )
 
         self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
-
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_fv,
-            op=self._mpi_sum,
-        )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_tot,
-            op=self._mpi_sum,
-        )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_fB,
-            op=self._mpi_sum,
-        )
 
         self.update_scalar("en_fv", self._en_fv[0])
         self.update_scalar("en_fB", self._en_fB[0])
         self.update_scalar("en_tot", self._en_tot[0])
 
-        self._n_lost_particles[0] = self.pointer["ions"].n_lost_markers
+        self._n_lost_particles[0] = particles.n_lost_markers
         self.derham.comm.Allreduce(
-            self._mpi_in_place,
+            MPI.IN_PLACE,
             self._n_lost_particles,
-            op=self._mpi_sum,
+            op=MPI.SUM,
         )
 
 

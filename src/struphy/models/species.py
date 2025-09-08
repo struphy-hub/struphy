@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Callable
 import numpy as np
 from mpi4py import MPI
+import warnings
 
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.kinetic_background.base import KineticBackground
@@ -12,7 +13,9 @@ from struphy.physics.physics import ConstantsOfNature
 from struphy.models.variables import Variable
 from struphy.pic.utilities import (LoadingParameters, 
                                    WeightsParameters, 
-                                   BoundaryParameters,)
+                                   BoundaryParameters,
+                                   BinningPlot,
+                                   )
 
 
 class Species(metaclass=ABCMeta):
@@ -45,13 +48,69 @@ class Species(metaclass=ABCMeta):
         """Mass number in units of proton mass."""
         return self._mass_number
 
-    def set_phys_params(self, charge_number: int = 1, mass_number: int = 1):
-        """Set charge- and mass number."""
+    def set_phys_params(self, 
+                        charge_number: int = 1, 
+                        mass_number: int = 1,
+                        alpha: float = None,
+                        epsilon: float = None,
+                        kappa: float = None,
+                        ):
+        """Set charge- and mass number. Set equation parameters (alpha, epsilon, ...) to override units."""
         self._charge_number = charge_number
         self._mass_number = mass_number
+        self.alpha = alpha
+        self.epsilon = epsilon
+        self.kappa = kappa 
+    
+    class EquationParameters:
+        """Normalization parameters of one species, appearing in scaled equations."""
+    
+        def __init__(self, 
+                     species, 
+                     units: Units = None, 
+                     alpha: float = None,
+                     epsilon: float = None,
+                     kappa: float = None,
+                     verbose: bool = False,
+                     ):
+            if units is None:
+                units = Units()
+                
+            Z = species.charge_number
+            A = species.mass_number
+            
+            con = ConstantsOfNature()
+
+            # relevant frequencies
+            om_p = np.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
+            om_c = Z * con.e * units.B / (A * con.mH)
+            
+            # compute equation parameters
+            if alpha is None:
+                self.alpha = om_p / om_c
+            else:
+                self.alpha = alpha
+                warnings.warn(f"Override equation parameter {self.alpha = }")
+                
+            if epsilon is None:
+                self.epsilon = 1.0 / (om_c * units.t)
+            else:
+                self.epsilon = epsilon
+                warnings.warn(f"Override equation parameter {self.epsilon = }")
+                
+            if kappa is None:
+                self.kappa = om_p * units.t
+            else:
+                self.kappa = kappa
+                warnings.warn(f"Override equation parameter {self.kappa = }")
+
+            if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                print(f'\nSet normalization parameters for species {species.__class__.__name__}:')
+                for key, val in self.__dict__.items():
+                    print((key + ":").ljust(25), "{:4.3e}".format(val))
     
     @property
-    def equation_params(self) -> dict:
+    def equation_params(self) -> EquationParameters:
         return self._equation_params
     
     def setup_equation_params(self, units: Units, verbose=False):
@@ -61,23 +120,14 @@ class Species(metaclass=ABCMeta):
         * epsilon = 1 / (cyclotron frequency * time unit)
         * kappa = plasma frequency * time unit
         """
-        Z = self.charge_number
-        A = self.mass_number
-
-        con = ConstantsOfNature()
+        self._equation_params = self.EquationParameters(species=self, 
+                                                        units=units, 
+                                                        alpha=self.alpha,
+                                                        epsilon=self.epsilon,
+                                                        kappa=self.kappa,
+                                                        verbose=verbose,)
         
-        # compute equation parameters
-        self._equation_params = {}
-        om_p = np.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
-        om_c = Z * con.e * units.B / (A * con.mH)
-        self._equation_params["alpha"] = om_p / om_c
-        self._equation_params["epsilon"] = 1.0 / (om_c * units.t)
-        self._equation_params["kappa"] = om_p * units.t
-
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f'\nSet normalization parameters for species {self.__class__.__name__}:')
-            for key, val in self.equation_params.items():
-                print((key + ":").ljust(25), "{:4.3e}".format(val))
+    
 
 
 class FieldSpecies(Species):
@@ -118,10 +168,13 @@ class KineticSpecies(Species):
             
         if weights_params is None:
             weights_params = WeightsParameters()
+            
+        if boundary_params is None:
+            boundary_params = BoundaryParameters()
         
-        self.boundary_params = boundary_params
         self.loading_params = loading_params
         self.weights_params = weights_params
+        self.boundary_params = boundary_params
         self.bufsize = bufsize
         
     def set_sorting_boxes(self,
@@ -140,12 +193,12 @@ class KineticSpecies(Species):
         
     def set_save_data(self,
                       n_markers: int | float = 3,
-                      f_binned: dict = None,
+                      binning_plots: tuple[BinningPlot] = (),
                       n_sph: dict = None,
                       ):
         """Saving marker orits, binned data and kernel density reconstructions."""
         self.n_markers = n_markers
-        self.f_binned = f_binned
+        self.binning_plots = binning_plots
         self.n_sph = n_sph  
 
 

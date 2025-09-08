@@ -53,9 +53,9 @@ class LoadingParameters:
         Key in .hdf5 file's restart/ folder where marker array is stored.
     """
     def __init__(self,
-                 Np: int = 100,
+                 Np: int = None,
                  ppc: int = None,
-                 ppb: int = None,
+                 ppb: int = 10,
                  loading: OptsLoading = "pseudo_random",
                  seed: int = None,
                  moments: tuple = None,
@@ -91,7 +91,7 @@ class WeightsParameters:
     control_variate : bool
         Whether to use a control variate for noise reduction.
     
-    rejct_weights : bool
+    reject_weights : bool
         Whether to reject weights below threshold.
         
     threshold : float
@@ -131,6 +131,35 @@ class BoundaryParameters:
         self.bc_refill = bc_refill
         self.bc_sph = bc_sph
         
+
+class BinningPlot:
+    """Binning plot of marker distribution in phase space.
+        
+    Parameters
+    ----------
+    slice : str
+        Coordinate-slice in phase space to bin. A combination of "e1", "e2", "e3", "v1", etc., separated by an underscore "_".
+        For example, "e1" showas a 1D binning plot over eta1, whereas "e1_v1" shows a 2D binning plot over eta1 and v1.
+    
+    n_bins : int | tuple[int]
+        Number of bins for each coordinate.
+    
+    ranges : tuple[int] | tuple[tuple[int]]= (0.0, 1.0)
+        Binning range (as an interval in R) for each coordinate.
+    """
+    def __init__(self, 
+                 slice: str = "e1", 
+                 n_bins: int | tuple[int] = 128, 
+                 ranges: tuple[float] | tuple[tuple[float]]= (0.0, 1.0),):
+        self.slice = slice
+        
+        if isinstance(n_bins, int):
+            n_bins = (n_bins,) 
+        self.n_bins = n_bins
+        
+        if not isinstance(ranges[0], tuple):
+            ranges = (ranges,)
+        self.ranges = ranges
 
 
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):

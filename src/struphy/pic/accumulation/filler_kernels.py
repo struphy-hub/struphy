@@ -12,11 +12,32 @@ __all__ = [ 'fill_mat',
 """
 
 from pyccel.decorators import pure
+
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
 
 @pure
-def fill_mat(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1: 'float[:]', bi2: 'float[:]', bi3: 'float[:]', bj1: 'float[:]', bj2: 'float[:]', bj3: 'float[:]', span1: int, span2: int, span3: int, starts: 'int[:]', pads: 'int[:]', mat: 'float[:,:,:,:,:,:]', filling: float):
+def fill_mat(
+    pi1: int,
+    pi2: int,
+    pi3: int,
+    pj1: int,
+    pj2: int,
+    pj3: int,
+    bi1: "float[:]",
+    bi2: "float[:]",
+    bi3: "float[:]",
+    bj1: "float[:]",
+    bj2: "float[:]",
+    bj3: "float[:]",
+    span1: int,
+    span2: int,
+    span3: int,
+    starts: "int[:]",
+    pads: "int[:]",
+    mat: "float[:,:,:,:,:,:]",
+    filling: float,
+):
     """
     Computes the entries of a matrix block in an arbitrary space and fills it with corresponding basis functions times filling.
 
@@ -74,7 +95,20 @@ def fill_mat(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1: 'f
 
 
 @pure
-def fill_vec(pi1: int, pi2: int, pi3: int, bi1: 'float[:]', bi2: 'float[:]', bi3: 'float[:]', span1: int, span2: int, span3: int, starts: 'int[:]', vec: 'float[:,:,:]', filling: float):
+def fill_vec(
+    pi1: int,
+    pi2: int,
+    pi3: int,
+    bi1: "float[:]",
+    bi2: "float[:]",
+    bi3: "float[:]",
+    span1: int,
+    span2: int,
+    span3: int,
+    starts: "int[:]",
+    vec: "float[:,:,:]",
+    filling: float,
+):
     """
     Computes the entries of a matrix block in an arbitrary space and fills it with corresponding basis functions times filling.
 
@@ -113,7 +147,29 @@ def fill_vec(pi1: int, pi2: int, pi3: int, bi1: 'float[:]', bi2: 'float[:]', bi3
 
 
 @pure
-def fill_mat_vec(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1: 'float[:]', bi2: 'float[:]', bi3: 'float[:]', bj1: 'float[:]', bj2: 'float[:]', bj3: 'float[:]', span1: int, span2: int, span3: int, starts: 'int[:]', pads: 'int[:]', mat: 'float[:,:,:,:,:,:]', filling_mat: float, vec: 'float[:,:,:]', filling_vec: float):
+def fill_mat_vec(
+    pi1: int,
+    pi2: int,
+    pi3: int,
+    pj1: int,
+    pj2: int,
+    pj3: int,
+    bi1: "float[:]",
+    bi2: "float[:]",
+    bi3: "float[:]",
+    bj1: "float[:]",
+    bj2: "float[:]",
+    bj3: "float[:]",
+    span1: int,
+    span2: int,
+    span3: int,
+    starts: "int[:]",
+    pads: "int[:]",
+    mat: "float[:,:,:,:,:,:]",
+    filling_mat: float,
+    vec: "float[:,:,:]",
+    filling_vec: float,
+):
     """
     Computes the entries of a matrix block in an arbitrary space and fills it with corresponding basis functions times filling.
 
@@ -179,7 +235,35 @@ def fill_mat_vec(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1
 
 
 @pure
-def fill_mat_pressure_full(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1: 'float[:]', bi2: 'float[:]', bi3: 'float[:]', bj1: 'float[:]', bj2: 'float[:]', bj3: 'float[:]', span1: int, span2: int, span3: int, starts: 'int[:]', pads: 'int[:]', mat_11: 'float[:,:,:,:,:,:]', mat_12: 'float[:,:,:,:,:,:]', mat_13: 'float[:,:,:,:,:,:]', mat_22: 'float[:,:,:,:,:,:]', mat_23: 'float[:,:,:,:,:,:]', mat_33: 'float[:,:,:,:,:,:]', filling_mat: float, vx: float, vy: float, vz: float):
+def fill_mat_pressure_full(
+    pi1: int,
+    pi2: int,
+    pi3: int,
+    pj1: int,
+    pj2: int,
+    pj3: int,
+    bi1: "float[:]",
+    bi2: "float[:]",
+    bi3: "float[:]",
+    bj1: "float[:]",
+    bj2: "float[:]",
+    bj3: "float[:]",
+    span1: int,
+    span2: int,
+    span3: int,
+    starts: "int[:]",
+    pads: "int[:]",
+    mat_11: "float[:,:,:,:,:,:]",
+    mat_12: "float[:,:,:,:,:,:]",
+    mat_13: "float[:,:,:,:,:,:]",
+    mat_22: "float[:,:,:,:,:,:]",
+    mat_23: "float[:,:,:,:,:,:]",
+    mat_33: "float[:,:,:,:,:,:]",
+    filling_mat: float,
+    vx: float,
+    vy: float,
+    vz: float,
+):
     """
     Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
 
@@ -245,7 +329,39 @@ def fill_mat_pressure_full(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3
 
 
 @pure
-def fill_mat_vec_pressure_full(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1: 'float[:]', bi2: 'float[:]', bi3: 'float[:]', bj1: 'float[:]', bj2: 'float[:]', bj3: 'float[:]', span1: int, span2: int, span3: int, starts: 'int[:]', pads: 'int[:]', mat_11: 'float[:,:,:,:,:,:]', mat_12: 'float[:,:,:,:,:,:]', mat_13: 'float[:,:,:,:,:,:]', mat_22: 'float[:,:,:,:,:,:]', mat_23: 'float[:,:,:,:,:,:]', mat_33: 'float[:,:,:,:,:,:]', filling_mat: float, vec_1: 'float[:,:,:]', vec_2: 'float[:,:,:]', vec_3: 'float[:,:,:]', filling_vec: float, vx: float, vy: float, vz: float):
+def fill_mat_vec_pressure_full(
+    pi1: int,
+    pi2: int,
+    pi3: int,
+    pj1: int,
+    pj2: int,
+    pj3: int,
+    bi1: "float[:]",
+    bi2: "float[:]",
+    bi3: "float[:]",
+    bj1: "float[:]",
+    bj2: "float[:]",
+    bj3: "float[:]",
+    span1: int,
+    span2: int,
+    span3: int,
+    starts: "int[:]",
+    pads: "int[:]",
+    mat_11: "float[:,:,:,:,:,:]",
+    mat_12: "float[:,:,:,:,:,:]",
+    mat_13: "float[:,:,:,:,:,:]",
+    mat_22: "float[:,:,:,:,:,:]",
+    mat_23: "float[:,:,:,:,:,:]",
+    mat_33: "float[:,:,:,:,:,:]",
+    filling_mat: float,
+    vec_1: "float[:,:,:]",
+    vec_2: "float[:,:,:]",
+    vec_3: "float[:,:,:]",
+    filling_vec: float,
+    vx: float,
+    vy: float,
+    vz: float,
+):
     """
     Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
 
@@ -321,7 +437,31 @@ def fill_mat_vec_pressure_full(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int,
 
 
 @pure
-def fill_mat_pressure(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1: 'float[:]', bi2: 'float[:]', bi3: 'float[:]', bj1: 'float[:]', bj2: 'float[:]', bj3: 'float[:]', span1: int, span2: int, span3: int, starts: 'int[:]', pads: 'int[:]', mat_11: 'float[:,:,:,:,:,:]', mat_12: 'float[:,:,:,:,:,:]', mat_22: 'float[:,:,:,:,:,:]', filling_mat: float, vx: float, vy: float):
+def fill_mat_pressure(
+    pi1: int,
+    pi2: int,
+    pi3: int,
+    pj1: int,
+    pj2: int,
+    pj3: int,
+    bi1: "float[:]",
+    bi2: "float[:]",
+    bi3: "float[:]",
+    bj1: "float[:]",
+    bj2: "float[:]",
+    bj3: "float[:]",
+    span1: int,
+    span2: int,
+    span3: int,
+    starts: "int[:]",
+    pads: "int[:]",
+    mat_11: "float[:,:,:,:,:,:]",
+    mat_12: "float[:,:,:,:,:,:]",
+    mat_22: "float[:,:,:,:,:,:]",
+    filling_mat: float,
+    vx: float,
+    vy: float,
+):
     """
     Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
 
@@ -384,7 +524,34 @@ def fill_mat_pressure(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int
 
 
 @pure
-def fill_mat_vec_pressure(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3: int, bi1: 'float[:]', bi2: 'float[:]', bi3: 'float[:]', bj1: 'float[:]', bj2: 'float[:]', bj3: 'float[:]', span1: int, span2: int, span3: int, starts: 'int[:]', pads: 'int[:]', mat_11: 'float[:,:,:,:,:,:]', mat_12: 'float[:,:,:,:,:,:]', mat_22: 'float[:,:,:,:,:,:]', filling_mat: float, vec_1: 'float[:,:,:]', vec_2: 'float[:,:,:]', filling_vec: float, vx: float, vy: float):
+def fill_mat_vec_pressure(
+    pi1: int,
+    pi2: int,
+    pi3: int,
+    pj1: int,
+    pj2: int,
+    pj3: int,
+    bi1: "float[:]",
+    bi2: "float[:]",
+    bi3: "float[:]",
+    bj1: "float[:]",
+    bj2: "float[:]",
+    bj3: "float[:]",
+    span1: int,
+    span2: int,
+    span3: int,
+    starts: "int[:]",
+    pads: "int[:]",
+    mat_11: "float[:,:,:,:,:,:]",
+    mat_12: "float[:,:,:,:,:,:]",
+    mat_22: "float[:,:,:,:,:,:]",
+    filling_mat: float,
+    vec_1: "float[:,:,:]",
+    vec_2: "float[:,:,:]",
+    filling_vec: float,
+    vx: float,
+    vy: float,
+):
     """
     Computes the entries of the matrix mu=1,nu=1 in V1 and fills it with basis functions times filling
 
@@ -456,7 +623,36 @@ def fill_mat_vec_pressure(pi1: int, pi2: int, pi3: int, pj1: int, pj2: int, pj3:
 
 
 @pure
-def hy_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'int[:]', span1: 'int', span2: 'int', span3: 'int', starts: 'int[:]', ie1: 'int', ie2: 'int', ie3: 'int', temp1: 'float[:]', temp4: 'float[:]', quad: 'int[:]', quad_pts_x: 'float[:]', quad_pts_y: 'float[:]', quad_pts_z: 'float[:]', compact: 'float[:]', eta1: 'float', eta2: 'float', eta3: 'float', mat: 'float[:,:,:,:,:,:]', weight: 'float', p_shape: 'int[:]', p_size: 'float[:]', grids_shapex: 'float[:]', grids_shapey: 'float[:]', grids_shapez: 'float[:]'):
+def hy_density(
+    Nel: "int[:]",
+    pn: "int[:]",
+    cell_left: "int[:]",
+    cell_number: "int[:]",
+    span1: "int",
+    span2: "int",
+    span3: "int",
+    starts: "int[:]",
+    ie1: "int",
+    ie2: "int",
+    ie3: "int",
+    temp1: "float[:]",
+    temp4: "float[:]",
+    quad: "int[:]",
+    quad_pts_x: "float[:]",
+    quad_pts_y: "float[:]",
+    quad_pts_z: "float[:]",
+    compact: "float[:]",
+    eta1: "float",
+    eta2: "float",
+    eta3: "float",
+    mat: "float[:,:,:,:,:,:]",
+    weight: "float",
+    p_shape: "int[:]",
+    p_size: "float[:]",
+    grids_shapex: "float[:]",
+    grids_shapey: "float[:]",
+    grids_shapez: "float[:]",
+):
     """
     TODO
     """
@@ -470,26 +666,17 @@ def hy_density(Nel: 'int[:]', pn: 'int[:]', cell_left: 'int[:]', cell_number: 'i
                 for jl1 in range(quad[0]):
                     # quad_pts_x contains the quadrature points in x direction.
                     temp1[0] = (cell_left[0] + il1) / Nel[0] + quad_pts_x[jl1]
-                    temp4[0] = abs(temp1[0] - eta1) - \
-                        compact[0] / 2.0  # if > 0, result is 0
+                    temp4[0] = abs(temp1[0] - eta1) - compact[0] / 2.0  # if > 0, result is 0
                     for jl2 in range(quad[1]):
-                        temp1[1] = (cell_left[1] + il2) / \
-                            Nel[1] + quad_pts_y[jl2]
-                        temp4[1] = abs(temp1[1] - eta2) - \
-                            compact[1] / 2.0  # if > 0, result is 0
+                        temp1[1] = (cell_left[1] + il2) / Nel[1] + quad_pts_y[jl2]
+                        temp4[1] = abs(temp1[1] - eta2) - compact[1] / 2.0  # if > 0, result is 0
                         for jl3 in range(quad[2]):
-                            temp1[2] = (cell_left[2] + il3) / \
-                                Nel[2] + quad_pts_z[jl3]
-                            temp4[2] = abs(temp1[2] - eta3) - \
-                                compact[2]/2.0  # if > 0, result is 0
+                            temp1[2] = (cell_left[2] + il3) / Nel[2] + quad_pts_z[jl3]
+                            temp4[2] = abs(temp1[2] - eta3) - compact[2] / 2.0  # if > 0, result is 0
 
                             if temp4[0] < 0.0 and temp4[1] < 0.0 and temp4[2] < 0.0:
-                                value_x = bsplines_kernels.convolution(
-                                    p_shape[0], grids_shapex, temp1[0])
-                                value_y = bsplines_kernels.piecewise(
-                                    p_shape[1], p_size[1], temp1[1] - eta2)
-                                value_z = bsplines_kernels.piecewise(
-                                    p_shape[2], p_size[2], temp1[2] - eta3)
+                                value_x = bsplines_kernels.convolution(p_shape[0], grids_shapex, temp1[0])
+                                value_y = bsplines_kernels.piecewise(p_shape[1], p_size[1], temp1[1] - eta2)
+                                value_z = bsplines_kernels.piecewise(p_shape[2], p_size[2], temp1[2] - eta3)
 
-                                mat[i1, i2, i3, jl1, jl2, jl3] += weight * \
-                                    value_x * value_y * value_z
+                                mat[i1, i2, i3, jl1, jl2, jl3] += weight * value_x * value_y * value_z

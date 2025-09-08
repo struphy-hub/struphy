@@ -16,7 +16,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
     * ``.npy`` files :
 
       ===== ===== =============== ========== ====== ============
-      index | 0 | | 1 | 2 | | 3 |     4        5         6      
+      index | 0 | | 1 | 2 | | 3 |     4        5         6
       ===== ===== =============== ========== ====== ============
       value  ID    guiding_center v_parallel v_perp magn. moment
       ===== ===== =============== ========== ====== ============
@@ -26,7 +26,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
       ===== ===== =============
       index | 0 | | 1 | 2 | 3 |
       ===== ===== =============
-      value  ID   guiding_center 
+      value  ID   guiding_center
       ===== ===== =============
 
     ``.txt`` file can be imported to e.g. Paraview, see `Tutorial 08 - Kinetic data <file:///home/spossann/git_repos/struphy/doc/_build/html/tutorials/tutorial_08_struphy_data_pproc.html#Kinetic-data>`_ for details..
@@ -37,26 +37,28 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         Absolute path of simulation output folder.
 
     path_kinetics_species : str
-        Absolute path of where to store the .txt files. Will be saved in path_kinetics_species/guiding_center. 
+        Absolute path of where to store the .txt files. Will be saved in path_kinetics_species/guiding_center.
 
     species : str
         Name of the species for which the post processing should be performed.
     """
 
-    with open(os.path.join(path_in, 'parameters.yml'), 'r') as f:
+    with open(os.path.join(path_in, "parameters.yml"), "r") as f:
         params = yaml.load(f, Loader=yaml.FullLoader)
 
     # create domain for calculating markers' physical coordinates
     domain, equil = setup_domain_and_equil(params)
 
     # path for orbit data
-    path_orbits = os.path.join(path_kinetics_species, 'orbits')
+    path_orbits = os.path.join(path_kinetics_species, "orbits")
 
     # check .npy files generated from post_process_markers
     npy_files_list = [
-        file for file in os.listdir(
+        file
+        for file in os.listdir(
             path_orbits,
-        ) if file.endswith('.npy')
+        )
+        if file.endswith(".npy")
     ]
     pproc_nt = len(npy_files_list)
     n_markers = np.load(os.path.join(path_orbits, npy_files_list[0])).shape[0]
@@ -65,7 +67,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
     npy_files_list = sorted(npy_files_list)
 
     # make directorry
-    path_gc = os.path.join(path_kinetics_species, 'guiding_center')
+    path_gc = os.path.join(path_kinetics_species, "guiding_center")
 
     try:
         os.mkdir(path_gc)
@@ -79,18 +81,17 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
     B_cart = np.empty((n_markers, 3), dtype=float)
     lost_particles_mask = np.empty(n_markers, dtype=bool)
 
-    print('Evaluation of guiding center for ' + str(species))
+    print("Evaluation of guiding center for " + str(species))
 
     # loop over time grid
     for n in tqdm(range(pproc_nt)):
-
         # clear buffer
         B_cart[:, :] = 0
         etas[:, :] = 0
 
         # path for numpy array and text file for this time step
         file_npy = os.path.join(path_gc, npy_files_list[n])
-        file_txt = os.path.join(path_gc, npy_files_list[n][:-4] + '.txt')
+        file_txt = os.path.join(path_gc, npy_files_list[n][:-4] + ".txt")
 
         # call .npy file
         temp[:, :] = np.load(os.path.join(path_orbits, npy_files_list[n]))
@@ -103,7 +104,8 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
 
         # domain inverse map
         etas[~lost_particles_mask, :] = domain.inverse_map(
-            *temp[~lost_particles_mask, :3].T, change_out_order=True,
+            *temp[~lost_particles_mask, :3].T,
+            change_out_order=True,
         )
 
         # eval cartesian magnetic filed at marker positions
@@ -124,20 +126,20 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         temp = np.roll(temp, 1, axis=1)
 
         np.save(file_npy, temp)
-        np.savetxt(file_txt, temp[:, :4], fmt='%12.6f', delimiter=', ')
+        np.savetxt(file_txt, temp[:, :4], fmt="%12.6f", delimiter=", ")
 
 
 def post_process_orbit_classification(path_kinetics_species, species):
     """
     Classify guiding center orbits as "passing", "trapped" or "lost".
 
-    Classification data (0 for "passing", 1 for "trapped" and -1 for "lost") is added at the last column(7) 
+    Classification data (0 for "passing", 1 for "trapped" and -1 for "lost") is added at the last column(7)
     of .npy files in a directory "kinetic_data/<name_of_species>/guiding_center/".
 
     ``.npy`` files :
 
     ===== ===== =============== ========== ====== ============ ==============
-    index | 0 | | 1 | 2 | | 3 |     4        5         6             7       
+    index | 0 | | 1 | 2 | | 3 |     4        5         6             7
     ===== ===== =============== ========== ====== ============ ==============
     value  ID    guiding_center v_parallel v_perp magn. moment classification
     ===== ===== =============== ========== ====== ============ ==============
@@ -145,7 +147,7 @@ def post_process_orbit_classification(path_kinetics_species, species):
     Parameters
     ----------
     path_kinetics_species : str
-        Absolute path of where to store the .txt files. Will be saved in path_kinetics_species/guiding_center. 
+        Absolute path of where to store the .txt files. Will be saved in path_kinetics_species/guiding_center.
 
     species : str
         Name of the species for which the post processing should be performed.
@@ -155,13 +157,15 @@ def post_process_orbit_classification(path_kinetics_species, species):
     """
 
     # check whether there is guiding center orbits data or not. If there is not, do the 'post_process_orbit_guiding_center'.
-    path_gc = os.path.join(path_kinetics_species, 'guiding_center')
+    path_gc = os.path.join(path_kinetics_species, "guiding_center")
 
     # check .npy files generated from post_process_markers
     npy_files_list = [
-        file for file in os.listdir(
+        file
+        for file in os.listdir(
             path_gc,
-        ) if file.endswith('.npy')
+        )
+        if file.endswith(".npy")
     ]
     pproc_nt = len(npy_files_list)
     n_markers = np.load(os.path.join(path_gc, npy_files_list[0])).shape[0]
@@ -175,11 +179,10 @@ def post_process_orbit_classification(path_kinetics_species, species):
     trapped_particle_mask = np.empty(n_markers, dtype=bool)
     lost_particle_mask = np.empty(n_markers, dtype=bool)
 
-    print('Classifying guiding center orbits for ' + str(species))
+    print("Classifying guiding center orbits for " + str(species))
 
     # loop over time grid
     for n in tqdm(range(pproc_nt)):
-
         # clear buffer
         temp[:, :] = 0
 
@@ -189,7 +192,6 @@ def post_process_orbit_classification(path_kinetics_species, species):
 
         # initial time step
         if n == 0:
-
             v_init = temp[:, 4]
             np.save(file_npy, temp)
             continue
@@ -198,7 +200,7 @@ def post_process_orbit_classification(path_kinetics_species, species):
         temp[:, -1] = np.load(
             os.path.join(
                 path_gc,
-                npy_files_list[n-1],
+                npy_files_list[n - 1],
             ),
         )[:, -1]
 

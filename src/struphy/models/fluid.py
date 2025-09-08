@@ -1,5 +1,4 @@
 import numpy as np
-from dataclasses import dataclass
 from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
@@ -40,9 +39,8 @@ class LinearMHD(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
     2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
-
-    :ref:`Model info <add_model>`:
     """
+    
     ## species
     
     class EMFields(FieldSpecies):
@@ -58,7 +56,7 @@ class LinearMHD(StruphyModel):
             self.init_variables()
         
     ## propagators
-    
+
     class Propagators:
         def __init__(self):
             self.shear_alf = propagators_fields.ShearAlfven()
@@ -70,7 +68,7 @@ class LinearMHD(StruphyModel):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
             
-        # 1. instantiate all species, variables
+        # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.mhd = self.MHD()
 
@@ -78,16 +76,12 @@ class LinearMHD(StruphyModel):
         self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
-        self.propagators.shear_alf.assign_variables(
-            u = self.mhd.velocity,
-            b = self.em_fields.b_field,
-            )
-        
-        self.propagators.mag_sonic.assign_variables(
-            n = self.mhd.density,
-            u = self.mhd.velocity,
-            p = self.mhd.pressure,
-            )
+        self.propagators.shear_alf.variables.u = self.mhd.velocity
+        self.propagators.shear_alf.variables.b = self.em_fields.b_field
+
+        self.propagators.mag_sonic.variables.n = self.mhd.density
+        self.propagators.mag_sonic.variables.u = self.mhd.velocity
+        self.propagators.mag_sonic.variables.p = self.mhd.pressure
         
         # define scalars for update_scalar_quantities
         self.add_scalar("en_U")
@@ -152,8 +146,8 @@ class LinearMHD(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "mag_sonic.set_options" in line:
-                    new_file += ["model.propagators.mag_sonic.set_options(b_field=model.em_fields.b_field)\n"]
+                if "mag_sonic.Options" in line:
+                    new_file += ["model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n"]
                 else:
                     new_file += [line]
                     

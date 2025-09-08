@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pytest
 
-from struphy.io.options import EnvironmentOptions, Units, Time
+from struphy.io.options import EnvironmentOptions, BaseUnits, Time
 from struphy.geometry import domains
 from struphy.fields_background import equils
 from struphy.topology import grids
@@ -28,7 +28,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
 
     # units
-    units = Units()
+    base_units = BaseUnits()
 
     # time stepping
     time_opts = Time(dt=0.15, Tend=180.0)
@@ -57,8 +57,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     model.mhd.set_phys_params()
 
     # propagator options
-    model.propagators.shear_alf.set_options(algo=algo)
-    model.propagators.mag_sonic.set_options(b_field=model.em_fields.b_field)
+    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo=algo)
+    model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)
 
     # initial conditions (background + perturbation)
     model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
@@ -69,7 +69,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     main.run(model, 
             params_path=None, 
             env=env, 
-            units=units, 
+            base_units=base_units, 
             time_opts=time_opts, 
             domain=domain, 
             equil=equil, 
@@ -87,7 +87,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         simdata = main.load_data(env.path_out)
 
         # first fft
-        u_of_t = simdata.feec_species["mhd"]["velocity_log"]
+        u_of_t = simdata.spline_values["mhd"]["velocity_log"]
         
         Bsquare = (B0x**2 + B0y**2 + B0z**2)
         p0 = beta * Bsquare / 2
@@ -121,7 +121,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         assert np.abs(coeffs[0][0] - v_alfven) < 0.07
         
         # second fft
-        p_of_t = simdata.feec_species["mhd"]["pressure_log"]
+        p_of_t = simdata.spline_values["mhd"]["pressure_log"]
         
         _1, _2, _3, coeffs = power_spectrum_2d(p_of_t,
                     "pressure_log", 

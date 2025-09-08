@@ -184,8 +184,12 @@ class PICVariable(Variable):
 
         kinetic_class = getattr(particles, self.space)
 
+        comm_world = MPI.COMM_WORLD
+        if comm_world.Get_size() == 1:
+            comm_world = None
+
         self._particles: Particles = kinetic_class(
-            comm_world=MPI.COMM_WORLD,
+            comm_world=comm_world,
             clone_config=clone_config,
             domain_decomp=domain_decomp,
             mpi_dims_mask=self.species.dims_mask,
@@ -214,38 +218,31 @@ class PICVariable(Variable):
         self.particles.initialize_weights()
 
         # for storing the binned distribution function
-        if self.species.f_binned is not None:
-            slices = self.species.f_binned["slices"]
-            n_bins = self.species.f_binned["n_bins"]
-            ranges = self.species.f_binned["ranges"]
-
-            self.kinetic_data["f"] = {}
-            self.kinetic_data["df"] = {}
-            self.kinetic_data["bin_edges"] = {}
-            if len(slices) > 0:
-                for i, sli in enumerate(slices):
-                    assert ((len(sli) - 2) / 3).is_integer()
-                    assert len(slices[i].split("_")) == len(ranges[i]) == len(n_bins[i]), (
-                        f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
-                    )
-                    self.kinetic_data["bin_edges"][sli] = []
-                    dims = (len(sli) - 2) // 3 + 1
-                    for j in range(dims):
-                        self.kinetic_data["bin_edges"][sli] += [
-                            np.linspace(
-                                ranges[i][j][0],
-                                ranges[i][j][1],
-                                n_bins[i][j] + 1,
-                            ),
-                        ]
-                    self.kinetic_data["f"][sli] = np.zeros(
-                        n_bins[i],
-                        dtype=float,
-                    )
-                    self.kinetic_data["df"][sli] = np.zeros(
-                        n_bins[i],
-                        dtype=float,
-                    )
+        self.kinetic_data["bin_edges"] = {}
+        self.kinetic_data["f"] = {}
+        self.kinetic_data["df"] = {}
+        
+        for bin_plot in self.species.binning_plots:
+            sli = bin_plot.slice
+            n_bins = bin_plot.n_bins
+            ranges = bin_plot.ranges
+            
+            assert ((len(sli) - 2) / 3).is_integer(), f"Binning coordinates must be separated by '_', but reads {sli}."
+            assert len(sli.split("_")) == len(ranges) == len(n_bins), (
+                f"Number of slices names ({len(sli.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
+            )
+            self.kinetic_data["bin_edges"][sli] = []
+            dims = (len(sli) - 2) // 3 + 1
+            for j in range(dims):
+                self.kinetic_data["bin_edges"][sli] += [
+                    np.linspace(
+                        ranges[j][0],
+                        ranges[j][1],
+                        n_bins[j] + 1,
+                    ),
+                ]
+            self.kinetic_data["f"][sli] = np.zeros(n_bins, dtype=float)
+            self.kinetic_data["df"][sli] = np.zeros(n_bins, dtype=float)
 
         # for storing an sph evaluation of the density n
         if self.species.n_sph is not None:
@@ -268,7 +265,7 @@ class PICVariable(Variable):
                 self.kinetic_data["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
 
         # other data (wave-particle power exchange, etc.)
-        # TODO
+        # TODO   
     
     
 class SPHVariable(Variable):

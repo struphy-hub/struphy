@@ -1,17 +1,20 @@
-'Filtering kernels'
+"Filtering kernels"
 
-
+from numpy import empty, ones, shape, zeros
 from pyccel.decorators import stack_array
 
-from numpy import zeros, empty, shape, ones
 
-
-@stack_array('vec_copy', 'mask1d', 'mask', 'top', 'i_bottom', 'i_top', 'fi', 'ir')
-def apply_three_point_filter(vec: 'float[:,:,:]',
-                             Nel: 'int[:]', spl_kind: 'bool[:]',
-                             pn: 'int[:]', starts: 'int[:]', ends: 'int[:]',
-                             alpha: 'float'):
-    r'''
+@stack_array("vec_copy", "mask1d", "mask", "top", "i_bottom", "i_top", "fi", "ir")
+def apply_three_point_filter(
+    vec: "float[:,:,:]",
+    Nel: "int[:]",
+    spl_kind: "bool[:]",
+    pn: "int[:]",
+    starts: "int[:]",
+    ends: "int[:]",
+    alpha: "float",
+):
+    r"""
     Applying three point filter to the spline coefficients of the accumulated vector (``._data`` of the StencilVector):
 
     .. math::
@@ -31,7 +34,7 @@ def apply_three_point_filter(vec: 'float[:,:,:]',
         &(1 - \alpha)/2 \quad && \text{if} \quad i=2
         \end{aligned}
         \right. \,.
-    '''
+    """
 
     # allocate memory
     vec_copy = empty((shape(vec)), dtype=float)
@@ -49,14 +52,14 @@ def apply_three_point_filter(vec: 'float[:,:,:]',
     vec_copy[:, :, :] = vec[:, :, :]
 
     # filtering mask
-    mask1d[0] = 1/2 * (1 - alpha)
+    mask1d[0] = 1 / 2 * (1 - alpha)
     mask1d[1] = alpha
-    mask1d[2] = 1/2 * (1 - alpha)
+    mask1d[2] = 1 / 2 * (1 - alpha)
 
     for i in range(3):
         for j in range(3):
             for k in range(3):
-                mask[i, j, k] *= mask1d[i]*mask1d[j]*mask1d[k]
+                mask[i, j, k] *= mask1d[i] * mask1d[j] * mask1d[k]
 
     # consider left and right boundary
     for i in range(3):
@@ -86,13 +89,11 @@ def apply_three_point_filter(vec: 'float[:,:,:]',
     for i in range(ir[0]):
         for j in range(ir[1]):
             for k in range(ir[2]):
-
-                tmp = 0.
+                tmp = 0.0
 
                 for il in range(3):
                     for jl in range(3):
                         for kl in range(3):
-
                             fi[0] = pn[0] + i + il - 1
                             fi[1] = pn[1] + j + jl - 1
                             fi[2] = pn[2] + k + kl - 1
@@ -104,14 +105,13 @@ def apply_three_point_filter(vec: 'float[:,:,:]',
                             if k == 0 and kl == 0:
                                 fi[2] += i_bottom[2]
 
-                            if i == ir[0]-1 and il == 2:
+                            if i == ir[0] - 1 and il == 2:
                                 fi[0] += i_top[0]
-                            if j == ir[1]-1 and jl == 2:
+                            if j == ir[1] - 1 and jl == 2:
                                 fi[1] += i_top[1]
-                            if k == ir[2]-1 and kl == 2:
+                            if k == ir[2] - 1 and kl == 2:
                                 fi[2] += i_top[2]
 
-                            tmp += mask[il, jl, kl] * \
-                                vec_copy[fi[0], fi[1], fi[2]]
+                            tmp += mask[il, jl, kl] * vec_copy[fi[0], fi[1], fi[2]]
 
-                vec[pn[0]+i, pn[1]+j, pn[2]+k] = tmp
+                vec[pn[0] + i, pn[1] + j, pn[2] + k] = tmp

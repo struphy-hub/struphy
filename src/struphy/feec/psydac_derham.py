@@ -27,7 +27,7 @@ from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations, utilities
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
@@ -1416,6 +1416,9 @@ class SplineFunction:
         
     domain : Domain
         Mapping for pullback/transform of initial condition.
+        
+    equil : FluidEquilibrium
+        Fluid background used for inital condition.
     """
 
     def __init__(

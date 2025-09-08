@@ -470,7 +470,7 @@ class Maxwellian(KineticBackground):
 
         return res
 
-    def _evaluate_moment(self, eta1, eta2, eta3, *, name="n"):
+    def _evaluate_moment(self, eta1, eta2, eta3, *, name: str = "n", add_perturbation: bool = None):
         """Scalar moment evaluation as background + perturbation.
 
         Parameters
@@ -480,6 +480,9 @@ class Maxwellian(KineticBackground):
 
         name : str
             Which moment to evaluate (see varaible "dct" below).
+            
+        add_perturbation : bool | None
+            Whether to add the perturbation defined in maxw_params. If None, is taken from self.add_perturbation.
 
         Returns
         -------
@@ -544,8 +547,11 @@ class Maxwellian(KineticBackground):
                 out += background(*etas)
                 
         # add perturbation
+        if add_perturbation is None:
+            add_perturbation = self.add_perturbation
+        
         perturbation = params[1]
-        if perturbation is not None:
+        if perturbation is not None and add_perturbation:
             assert isinstance(perturbation, Perturbation)
             if eta1.ndim == 1:
                 out += perturbation(eta1, eta2, eta3)
@@ -553,6 +559,17 @@ class Maxwellian(KineticBackground):
                 out += perturbation(*etas)
                 
         return out
+    
+    @property
+    def add_perturbation(self) -> bool:
+        if not hasattr(self, "_add_perturbation"):
+            self._add_perturbation = True
+        return self._add_perturbation
+    
+    @add_perturbation.setter
+    def add_perturbation(self, new):
+        assert isinstance(new, bool)
+        self._add_perturbation = new
 
 
 class CanonicalMaxwellian(metaclass=ABCMeta):
