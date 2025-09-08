@@ -506,6 +506,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
     
+    
     if tesselation:
         loading = "tesselation"
         loading_params = {"n_quad": 1}
@@ -555,6 +556,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         boxes_per_dim=boxes_per_dim,
         bc_sph=[bc_x,bc_y, "periodic"],
         bufsize=1.0,
+        box_bufsize=4.0,
         loading=loading,  
         loading_params=loading_params,
         domain=domain,
@@ -652,6 +654,6 @@ if __name__ == "__main__":
     #test_evaluation_SPH_Np_convergence_1d((12,1,1), "mirror", tesselation=False, show_plot=True)
     #test_evaluation_SPH_h_convergence_1d((8,1,1), "mirror", tesselation = True, show_plot=True)
     #test_evaluation_mc_Np_and_h_convergence_1d((16,1,1),"fixed",tesselation = False,  show_plot=True)
-    test_evaluation_SPH_Np_convergence_2d((32,32,1), "mirror", "fixed", tesselation = True , show_plot=True)
+    test_evaluation_SPH_Np_convergence_2d((32,32,1), "mirror", "fixed", tesselation = False , show_plot=True)
 
     
