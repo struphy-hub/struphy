@@ -6,15 +6,13 @@ import os
 import sys
 import warnings
 from time import time
-import copy
 
 import numpy as np
-from scipy.integrate import quad, odeint
-from scipy.interpolate import UnivariateSpline, RectBivariateSpline
+from scipy.integrate import odeint, quad
+from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
 
 import struphy
-from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -31,7 +29,6 @@ from struphy.fields_background.base import (
     NumericalMHDequilibrium,
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
-from struphy.utils.arrays import xp as np
 from struphy.utils.utils import read_state, subp_run
 
 
@@ -422,20 +419,22 @@ class ShearFluid(CartesianMHDequilibrium):
             B0z  : 0. # magnetic field in z
     """
 
-    def __init__(self, 
-            a: float = 1.0,
-            b: float = 1.0,
-            c: float = 1.0,
-            z1: float = 0.25,
-            z2: float = 0.75,
-            delta: float = 0.06666666,
-            na: float = 1.0,
-            nb: float = 0.25,
-            pa: float = 1.0,
-            pb: float = 0.0,
-            B0x: float = 1.0,
-            B0y: float = 0.0,
-            B0z: float = 0.0,):
+    def __init__(
+        self,
+        a: float = 1.0,
+        b: float = 1.0,
+        c: float = 1.0,
+        z1: float = 0.25,
+        z2: float = 0.75,
+        delta: float = 0.06666666,
+        na: float = 1.0,
+        nb: float = 0.25,
+        pa: float = 1.0,
+        pb: float = 0.0,
+        B0x: float = 1.0,
+        B0y: float = 0.0,
+        B0z: float = 0.0,
+    ):
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -913,22 +912,25 @@ class AdhocTorus(AxisymmMHDequilibrium):
             psi_nel : 50   # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind=1)
     """
 
-    def __init__(self, a: float = 1.0,
-                       R0: float = 3.0,
-                       B0: float = 2.0,
-                       q_kind: int = 0,
-                       q0: float = 1.71,
-                       q1: float = 1.87,
-                       n1: float = 2.0,
-                       n2: float = 1.0,
-                       na: float = 0.2,
-                       p_kind: int = 1,
-                       p0: float = 1.0,
-                       p1: float = 0.1,
-                       p2: float = 0.1,
-                       beta: float = 0.179,
-                       psi_k: int = 3,
-                       psi_nel: int = 50,):
+    def __init__(
+        self,
+        a: float = 1.0,
+        R0: float = 3.0,
+        B0: float = 2.0,
+        q_kind: int = 0,
+        q0: float = 1.71,
+        q1: float = 1.87,
+        n1: float = 2.0,
+        n2: float = 1.0,
+        na: float = 0.2,
+        p_kind: int = 1,
+        p0: float = 1.0,
+        p1: float = 0.1,
+        p2: float = 0.1,
+        beta: float = 0.179,
+        psi_k: int = 3,
+        psi_nel: int = 50,
+    ):
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -1406,20 +1408,23 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             psi_nel : 50   # number of cells to be used for interpolation of poloidal flux functionq_kind=1)
     """
 
-    def __init__(self, a: float = 0.361925,
-                       R0: float = 1.0,
-                       B0: float = 1.0,
-                       q0: float = 0.6,
-                       q1: float = 2.5,
-                       q0p: float =0.78,
-                       q1p: float =5.00,
-                       n1: float = 2.0,
-                       n2: float = 1.0,
-                       na: float = 0.2,
-                       beta: float = 4.0,
-                       p1: float = 0.25,
-                       psi_k: int = 3,
-                       psi_nel: int = 50,):
+    def __init__(
+        self,
+        a: float = 0.361925,
+        R0: float = 1.0,
+        B0: float = 1.0,
+        q0: float = 0.6,
+        q1: float = 2.5,
+        q0p: float = 0.78,
+        q1p: float = 5.00,
+        n1: float = 2.0,
+        n2: float = 1.0,
+        na: float = 0.2,
+        beta: float = 4.0,
+        p1: float = 0.25,
+        psi_k: int = 3,
+        psi_nel: int = 50,
+    ):
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -2085,28 +2090,29 @@ class GVECequilibrium(NumericalMHDequilibrium):
             p0 : 1.
     """
 
-    def __init__(self, 
-                 rel_path: bool = True,
-                 # dat_file: str = "run_01/CIRCTOK_State_0000_00000000.dat",
-                 # dat_file: str = "run_02/W7X_State_0000_00000000.dat",
-                 dat_file: str = "run_03/NEO-SPITZER_State_0000_00003307.dat",
-                 # param_file: str = "run_01/parameter.ini",
-                 # param_file: str = "run_02/parameter-w7x.ini",
-                 param_file: str = "run_03/parameter-fig8.ini",
-                 use_boozer: bool = False,
-                 use_nfp: bool = True,
-                 rmin: float = 0.01,
-                 Nel: tuple[int] = (16, 16, 16),
-                 p: tuple[int] = (3, 3, 3),
-                 density_profile: str = "pressure",
-                 p0: float = 0.1,
-                 n0: float = 0.2,
-                 n1: float = 0.0, 
-                 units: dict = None,):
-        
+    def __init__(
+        self,
+        rel_path: bool = True,
+        # dat_file: str = "run_01/CIRCTOK_State_0000_00000000.dat",
+        # dat_file: str = "run_02/W7X_State_0000_00000000.dat",
+        dat_file: str = "run_03/NEO-SPITZER_State_0000_00003307.dat",
+        # param_file: str = "run_01/parameter.ini",
+        # param_file: str = "run_02/parameter-w7x.ini",
+        param_file: str = "run_03/parameter-fig8.ini",
+        use_boozer: bool = False,
+        use_nfp: bool = True,
+        rmin: float = 0.01,
+        Nel: tuple[int] = (16, 16, 16),
+        p: tuple[int] = (3, 3, 3),
+        density_profile: str = "pressure",
+        p0: float = 0.1,
+        n0: float = 0.2,
+        n1: float = 0.0,
+        units: dict = None,
+    ):
         # use params setter
         self.params = copy.deepcopy(locals())
-        
+
         # install if necessary
         gvec_spec = importlib.util.find_spec("gvec")
         if gvec_spec is None:
@@ -2118,6 +2124,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
             print(f"{exc.value.code = }")
 
         import gvec
+
         from struphy.geometry.domains import GVECunit
 
         # no rescaling if units are not provided
@@ -2371,16 +2378,18 @@ class DESCequilibrium(NumericalMHDequilibrium):
             T_kelvin : 100000 # maximum temperature in Kelvin used to set density
     """
 
-    def __init__(self, 
-                 eq_name: str = None,
-                 rel_path: bool = False,
-                 use_pest: bool = False,
-                 use_nfp: bool = True,
-                 rmin: float = 0.01,
-                 Nel: tuple[int] = (16, 16, 50),
-                 p: tuple[int] = (3, 3, 3),
-                 T_kelvin: float = 100000.,
-                 units: dict = None,):
+    def __init__(
+        self,
+        eq_name: str = None,
+        rel_path: bool = False,
+        use_pest: bool = False,
+        use_nfp: bool = True,
+        rmin: float = 0.01,
+        Nel: tuple[int] = (16, 16, 50),
+        p: tuple[int] = (3, 3, 3),
+        T_kelvin: float = 100000.0,
+        units: dict = None,
+    ):
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -2394,6 +2403,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
             sys.exit(1)
 
         import desc
+
         print(f"DESC import: {time() - t} seconds")
         from struphy.geometry.domains import DESCunit
 
@@ -2888,13 +2898,16 @@ class ConstantVelocity(CartesianFluidEquilibrium):
 
     """
 
-    def __init__(self, ux: float = 1.0,
-                       uy: float = 1.0,
-                       uz: float = 1.0,
-                       n: float = 1.0,
-                       n1: float = 0.0,
-                       density_profile: str = "affine",
-                       p0: float = 1.0,):
+    def __init__(
+        self,
+        ux: float = 1.0,
+        uy: float = 1.0,
+        uz: float = 1.0,
+        n: float = 1.0,
+        n1: float = 0.0,
+        density_profile: str = "affine",
+        p0: float = 1.0,
+    ):
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -2975,13 +2988,15 @@ class HomogenSlabITG(CartesianFluidEquilibriumWithB):
             eps  : .1
     """
 
-    def __init__(self, 
-                 B0z: float = 1.0, 
-                 Lx: float = 6.0,
-                 p0: float = 1.0, 
-                 pmin: float = 0.1, 
-                 n0: float = 1.0, 
-                 eps: float = 0.1,):
+    def __init__(
+        self,
+        B0z: float = 1.0,
+        Lx: float = 6.0,
+        p0: float = 1.0,
+        pmin: float = 0.1,
+        n0: float = 1.0,
+        eps: float = 0.1,
+    ):
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -3085,11 +3100,13 @@ class CircularTokamak(AxisymmMHDequilibrium):
             Bp      : 12.5 # poloidal magnetic field
     """
 
-    def __init__(self, 
-            a: float = 1.0,
-            R0: float = 2.0,
-            B0: float = 10.0,
-            Bp: float = 12.5,):
+    def __init__(
+        self,
+        a: float = 1.0,
+        R0: float = 2.0,
+        B0: float = 10.0,
+        Bp: float = 12.5,
+    ):
         # use params setter
         self.params = copy.deepcopy(locals())
 
@@ -3236,9 +3253,7 @@ class CurrentSheet(CartesianMHDequilibrium):
 
     """
 
-    def __init__(self, 
-                 delta: float = 0.1, 
-                 amp: float = 1.0):
+    def __init__(self, delta: float = 0.1, amp: float = 1.0):
         # use params setter
         self.params = copy.deepcopy(locals())
 

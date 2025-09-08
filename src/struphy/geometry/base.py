@@ -37,15 +37,19 @@ class Domain(metaclass=ABCMeta):
     Only right-handed mappings (:math:`\textnormal{det}(DF) > 0`) are admitted.
     """
 
-    def __init__(self, Nel: tuple[int] = None, p: tuple[int] = None, spl_kind: tuple[bool] = None,):
-        
+    def __init__(
+        self,
+        Nel: tuple[int] = None,
+        p: tuple[int] = None,
+        spl_kind: tuple[bool] = None,
+    ):
         if Nel is None or p is None or spl_kind is None:
             assert self.kind_map >= 10, "Spline mappings must define Nel, p and spl_kind."
             Nel = (1, 1, 1)
             p = (1, 1, 1)
             spl_kind = (True, True, True)
-        
-        # create IGA attributes 
+
+        # create IGA attributes
         self._Nel = Nel
         self._p = p
         self._spl_kind = spl_kind
@@ -138,7 +142,7 @@ class Domain(metaclass=ABCMeta):
         if not hasattr(self, "_kind_map"):
             raise AttributeError("Must set 'self.kind_map' for mappings.")
         return self._kind_map
-    
+
     @kind_map.setter
     def kind_map(self, new):
         assert isinstance(new, int)
@@ -148,9 +152,9 @@ class Domain(metaclass=ABCMeta):
     def params(self) -> dict:
         """Mapping parameters passed to __init__() of the class in domains.py, as dictionary."""
         if not hasattr(self, "_params"):
-            self._params =  {}
+            self._params = {}
         return self._params
-    
+
     @params.setter
     def params(self, new):
         assert isinstance(new, dict)
@@ -166,7 +170,7 @@ class Domain(metaclass=ABCMeta):
         if not hasattr(self, "_params_numpy"):
             self._params_numpy = np.array([0], dtype=float)
         return self._params_numpy
-    
+
     @params_numpy.setter
     def params_numpy(self, new):
         assert isinstance(new, np.ndarray)
@@ -179,7 +183,7 @@ class Domain(metaclass=ABCMeta):
         if not hasattr(self, "_pole"):
             self._pole = False
         return self._pole
-    
+
     @pole.setter
     def pole(self, new):
         assert isinstance(new, bool)
@@ -191,7 +195,7 @@ class Domain(metaclass=ABCMeta):
         if not hasattr(self, "_periodic_eta3"):
             raise AttributeError("Must specify whether mapping is periodic in eta3.")
         return self._periodic_eta3
-    
+
     @periodic_eta3.setter
     def periodic_eta3(self, new):
         assert isinstance(new, bool)
@@ -1353,14 +1357,14 @@ class Domain(metaclass=ABCMeta):
         return a_out
 
     # ================================
-    
+
     def get_params_numpy(self) -> np.ndarray:
         """Convert parameter dict into numpy array."""
         params_numpy = []
         for k, v in self.params.items():
             params_numpy.append(v)
         return np.array(params_numpy)
-    
+
     def show(
         self,
         logical=False,
@@ -1751,7 +1755,7 @@ class Domain(metaclass=ABCMeta):
 
 class Spline(Domain):
     r"""3D IGA spline mapping.
-    
+
     .. math::
 
         F: (\eta_1, \eta_2, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -1763,18 +1767,21 @@ class Spline(Domain):
         \end{aligned}\right.
     """
 
-    def __init__(self, Nel: tuple[int] = (8, 24, 6),
-                       p: tuple[int] = (2, 3, 1),
-                       spl_kind: tuple[bool] = (False, True, True),
-                       cx: np.ndarray = None,
-                       cy: np.ndarray = None,
-                       cz: np.ndarray = None,):
-        
+    def __init__(
+        self,
+        Nel: tuple[int] = (8, 24, 6),
+        p: tuple[int] = (2, 3, 1),
+        spl_kind: tuple[bool] = (False, True, True),
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
+        cz: np.ndarray = None,
+    ):
         self.kind_map = 0
 
         # get default control points from default GVEC equilibrium
         if cx is None or cy is None or cz is None:
             from struphy.fields_background.equils import GVECequilibrium
+
             mhd_equil = GVECequilibrium()
             cx = mhd_equil.domain.cx
             cx = mhd_equil.domain.cy
@@ -1824,12 +1831,14 @@ class PoloidalSpline(Domain):
     The full map :math:`F: [0, 1]^3 \to \Omega` is obtained by defining :math:`(R, Z, \eta_3) \mapsto (x, y, z)` in the child class.
     """
 
-    def __init__(self, Nel: tuple[int] = (8, 24),
-                       p: tuple[int] = (2, 3),
-                       spl_kind: tuple[bool] = (False, True),
-                       cx: np.ndarray = None,
-                       cy: np.ndarray = None,):
-
+    def __init__(
+        self,
+        Nel: tuple[int] = (8, 24),
+        p: tuple[int] = (2, 3),
+        spl_kind: tuple[bool] = (False, True),
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
+    ):
         # get default control points
         if cx is None or cy is None:
 
@@ -1876,7 +1885,7 @@ class PoloidalSpline(Domain):
 
 class PoloidalSplineStraight(PoloidalSpline):
     r"""Cylinder where the poloidal planes are described by a 2D IGA-spline mapping.
-    
+
     .. math::
 
         F: (R, Z, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -1888,13 +1897,15 @@ class PoloidalSplineStraight(PoloidalSpline):
         \end{aligned}\right.
     """
 
-    def __init__(self, Nel: tuple[int] = (8, 24),
-                       p: tuple[int] = (2, 3),
-                       spl_kind: tuple[bool] = (False, True),
-                       cx: np.ndarray = None,
-                       cy: np.ndarray = None,
-                       Lz: float = 4.0,):
-        
+    def __init__(
+        self,
+        Nel: tuple[int] = (8, 24),
+        p: tuple[int] = (2, 3),
+        spl_kind: tuple[bool] = (False, True),
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
+        Lz: float = 4.0,
+    ):
         self.kind_map = 1
 
         # get default control points
@@ -1921,7 +1932,7 @@ class PoloidalSplineStraight(PoloidalSpline):
 
 class PoloidalSplineTorus(PoloidalSpline):
     r"""Torus where the poloidal planes are described by a 2D IGA-spline mapping.
-    
+
     .. math::
 
         F: (R, Z, \eta_3) \mapsto (x, y, z) \textnormal{ as } \left\{\begin{aligned}
@@ -1931,7 +1942,7 @@ class PoloidalSplineTorus(PoloidalSpline):
 
         z &= Z \,.
         \end{aligned}\right.
-        
+
     Parameters
     ----------
     Nel : tuple[int]
@@ -1942,23 +1953,24 @@ class PoloidalSplineTorus(PoloidalSpline):
 
     spl_kind : tuple[bool]
         Kind of spline in each poloidal direction (True=periodic, False=clamped).
-        
+
     cx, cy : np.ndarray
-        Control points (spline coefficients) of the poloidal mapping. 
+        Control points (spline coefficients) of the poloidal mapping.
         If None, a default square-to-disc mapping of radius 1 centered around (x, y) = (3, 0) is interpolated.
-        
+
     tor_period : int
         The toroidal angle is between [0, 2*pi/tor_period).
     """
 
-    def __init__(self, Nel: tuple[int] = (8, 24),
-                       p: tuple[int] = (2, 3),
-                       spl_kind: tuple[bool] = (False, True),
-                       cx: np.ndarray = None,
-                       cy: np.ndarray = None,
-                       tor_period: int = 3,
-                       ):
-        
+    def __init__(
+        self,
+        Nel: tuple[int] = (8, 24),
+        p: tuple[int] = (2, 3),
+        spl_kind: tuple[bool] = (False, True),
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
+        tor_period: int = 3,
+    ):
         # use setters for mapping attributes
         self.kind_map = 2
         self.params_numpy = np.array([float(tor_period)])
@@ -1980,8 +1992,13 @@ class PoloidalSplineTorus(PoloidalSpline):
             cy[0] = 0.0
 
         # init base class
-        super().__init__(Nel=Nel, p=p, spl_kind=spl_kind, cx=cx, cy=cy,)
-
+        super().__init__(
+            Nel=Nel,
+            p=p,
+            spl_kind=spl_kind,
+            cx=cx,
+            cy=cy,
+        )
 
 
 def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):

@@ -160,10 +160,8 @@ def test_evaluation_mappings(mapping):
 
     import numpy as np
 
-    from struphy.geometry.base import Domain
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp as np
 
     # arrays:
     arr1 = np.linspace(0.0, 1.0, 4)
@@ -322,10 +320,8 @@ def test_pullback():
 
     import numpy as np
 
-    from struphy.geometry.base import Domain
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp as np
 
     # arrays:
     arr1 = np.linspace(0.0, 1.0, 4)
@@ -484,10 +480,8 @@ def test_pushforward():
 
     import numpy as np
 
-    from struphy.geometry.base import Domain
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp as np
 
     # arrays:
     arr1 = np.linspace(0.0, 1.0, 4)
@@ -646,10 +640,8 @@ def test_transform():
 
     import numpy as np
 
-    from struphy.geometry.base import Domain
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp as np
 
     # arrays:
     arr1 = np.linspace(0.0, 1.0, 4)

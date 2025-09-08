@@ -25,7 +25,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
     def params(self) -> dict:
         """Parameters passed to __init__() of the class in equils.py, as dictionary."""
         if not hasattr(self, "_params"):
-            self._params =  {}
+            self._params = {}
         return self._params
 
     @params.setter
