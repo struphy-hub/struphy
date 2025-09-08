@@ -12,8 +12,6 @@ from struphy.geometry.base import (Domain,
                                    interp_mapping,)
 from struphy.geometry.utilities import field_line_tracing
 
-import gvec
-
 
 class Tokamak(PoloidalSplineTorus):
     r"""Mappings for Tokamak MHD equilibria constructed via :ref:`field-line tracing <field_tracing>` of a poloidal flux function :math:`\psi`.
@@ -133,6 +131,7 @@ class GVECunit(Spline):
 
     def __init__(self, gvec_equil=None):
         
+        import gvec
         from struphy.fields_background.equils import GVECequilibrium
         
         if gvec_equil is None:
