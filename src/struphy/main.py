@@ -130,10 +130,15 @@ def run(
                 pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "domain.bin"), 'wb') as f:
                 # WORKAROUND: cannot pickle pyccelized classes at the moment
-                tmp_dct = {"name": domain.__class__.__name__, "params_map": domain.params_map}
+                tmp_dct = {"name": domain.__class__.__name__, "params": domain.params}
                 pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "equil.bin"), 'wb') as f:
-                pickle.dump(equil, f, pickle.HIGHEST_PROTOCOL)
+                # WORKAROUND: cannot pickle pyccelized classes at the moment
+                if equil is not None:
+                    tmp_dct = {"name": equil.__class__.__name__, "params": equil.params}
+                else:
+                    tmp_dct = {}
+                pickle.dump(tmp_dct, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "grid.bin"), 'wb') as f:
                 pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "derham_opts.bin"), 'wb') as f:
@@ -443,8 +448,11 @@ def pproc(
         with open(os.path.join(path, "model.bin"), 'rb') as f:
             model: StruphyModel = pickle.load(f)
         with open(os.path.join(path, "domain.bin"), 'rb') as f:
+            # domain: Domain = pickle.load(f)
+            # print(f"{domain = }")
+            # print(f"{domain.params = }")
             domain_dct: Domain = pickle.load(f)
-            domain = getattr(domains, domain_dct["name"])(**domain_dct["params_map"])
+            domain = getattr(domains, domain_dct["name"])(**domain_dct["params"])
 
     # create post-processing folder
     path_pproc = os.path.join(path, "post_processing")
@@ -682,20 +690,33 @@ def load_data(path: str) -> SimData:
             path_spec = os.path.join(path_kinetic, spec)
             wlk = os.walk(path_spec)
             sub_folders = next(wlk)[1]
-            # print(f"{sub_folders = }")
             for folder in sub_folders:
-                # simdata.pic_species[spec][folder] = {}
-                tmp = {}
                 path_dat = os.path.join(path_spec, folder)
                 sub_wlk = os.walk(path_dat)
                 files = next(sub_wlk)[2]
-                for file in files:
-                    # print(f"{file = }")
-                    if ".npy" in file:
-                        var = file.split(".")[0]
-                        tmp[var] = np.load(os.path.join(path_dat, file))
-                # sort dict
-                simdata.pic_species[spec][folder] = dict(sorted(tmp.items()))
+                if "orbits" in folder:
+                    Nt = len(files) // 2
+                    n = 0
+                    for file in files:
+                        # print(f"{file = }")
+                        if ".npy" in file:
+                            step = int(file.split(".")[0].split("_")[-1])
+                            tmp = np.load(os.path.join(path_dat, file))
+                            if n == 0:
+                                orbits = np.zeros((Nt, *tmp.shape), dtype=float)
+                            orbits[step] = tmp
+                            n += 1
+                    simdata.pic_species[spec][folder] = orbits
+                else:
+                    # simdata.pic_species[spec][folder] = {}
+                    tmp = {}
+                    for file in files:
+                        # print(f"{file = }")
+                        if ".npy" in file:
+                            var = file.split(".")[0]
+                            tmp[var] = np.load(os.path.join(path_dat, file))
+                    # sort dict
+                    simdata.pic_species[spec][folder] = dict(sorted(tmp.items()))
                         
     print("\nThe following data has been loaded:")
     print(f"{simdata.time_grid_size = }")
