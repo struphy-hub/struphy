@@ -7,6 +7,8 @@ from tqdm import tqdm
 import pickle
 
 from struphy.kinetic_background import maxwellians
+from struphy.fields_background.base import FluidEquilibrium
+from struphy.fields_background import equils
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import setup_derham
 from struphy.feec.psydac_derham import SplineFunction
@@ -69,11 +71,14 @@ def get_params_of_run(path: str) -> ParamsIn:
         with open(os.path.join(path, "domain.bin"), "rb") as f:
             # WORKAROUND: cannot pickle pyccelized classes at the moment
             domain_dct = pickle.load(f)
-            name = domain_dct["name"]
-            params_map = domain_dct["params_map"]
-            domain = getattr(domains, name)(**params_map)
+            domain: Domain = getattr(domains, domain_dct["name"])(**domain_dct["params"])
         with open(os.path.join(path, "equil.bin"), "rb") as f:
-            equil = pickle.load(f)
+            # WORKAROUND: cannot pickle pyccelized classes at the moment
+            equil_dct = pickle.load(f)
+            if equil_dct:
+                equil: FluidEquilibrium = getattr(equils, equil_dct["name"])(**equil_dct["params"])
+            else: 
+                equil = None
         with open(os.path.join(path, "grid.bin"), "rb") as f:
             grid = pickle.load(f)
         with open(os.path.join(path, "derham_opts.bin"), "rb") as f:
