@@ -451,8 +451,8 @@ def pproc(
             # domain: Domain = pickle.load(f)
             # print(f"{domain = }")
             # print(f"{domain.params = }")
-            domain_dct: Domain = pickle.load(f)
-            domain = getattr(domains, domain_dct["name"])(**domain_dct["params"])
+            domain_dct = pickle.load(f)
+            domain: Domain = getattr(domains, domain_dct["name"])(**domain_dct["params"])
 
     # create post-processing folder
     path_pproc = os.path.join(path, "post_processing")

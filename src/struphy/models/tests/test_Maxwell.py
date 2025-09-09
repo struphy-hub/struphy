@@ -5,7 +5,7 @@ import pytest
 from scipy.special import jv, yn
 from matplotlib import pyplot as plt
 
-from struphy.io.options import EnvironmentOptions, Units, Time
+from struphy.io.options import EnvironmentOptions, BaseUnits, Time
 from struphy.geometry import domains
 from struphy.fields_background import equils
 from struphy.topology import grids
@@ -30,7 +30,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
 
     # units
-    units = Units()
+    base_units = BaseUnits()
 
     # time stepping
     time_opts = Time(dt=0.05, Tend=50.0)
@@ -57,18 +57,18 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=123))
 
-    # start run
-    main.run(model, 
-            params_path=None, 
-            env=env, 
-            units=units, 
-            time_opts=time_opts, 
-            domain=domain, 
-            equil=equil, 
-            grid=grid, 
-            derham_opts=derham_opts, 
-            verbose=verbose, 
-            )
+    # # start run
+    # main.run(model, 
+    #         params_path=None, 
+    #         env=env, 
+    #         base_units=base_units, 
+    #         time_opts=time_opts, 
+    #         domain=domain, 
+    #         equil=equil, 
+    #         grid=grid, 
+    #         derham_opts=derham_opts, 
+    #         verbose=verbose, 
+    #         )
     
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -79,7 +79,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         simdata = main.load_data(env.path_out)
 
         # fft 
-        E_of_t = simdata.feec_species["em_fields"]["e_field_log"]
+        E_of_t = simdata.spline_values["em_fields"]["e_field_log"]
         _1, _2, _3, coeffs = power_spectrum_2d(E_of_t,
                     "e_field_log", 
                     grids=simdata.grids_log,
@@ -110,7 +110,7 @@ def test_coaxial(do_plot: bool = False):
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="coaxial")
 
     # units
-    units = Units()
+    base_units = BaseUnits()
 
     # time
     time_opts = Time(dt=0.05, Tend=10.0)
@@ -149,7 +149,7 @@ def test_coaxial(do_plot: bool = False):
     main.run(model, 
             params_path=None, 
             env=env, 
-            units=units, 
+            base_units=base_units, 
             time_opts=time_opts, 
             domain=domain, 
             equil=equil, 
@@ -175,8 +175,8 @@ def test_coaxial(do_plot: bool = False):
         
         t_grid = simdata.t_grid
         grids_phy = simdata.grids_phy
-        e_field_phy = simdata.arrays["em_fields"]["e_field_phy"]
-        b_field_phy = simdata.arrays["em_fields"]["b_field_phy"]
+        e_field_phy = simdata.spline_values["em_fields"]["e_field_phy"]
+        b_field_phy = simdata.spline_values["em_fields"]["b_field_phy"]
 
         X = grids_phy[0][:, :, 0]
         Y = grids_phy[1][:, :, 0]
@@ -262,5 +262,5 @@ def test_coaxial(do_plot: bool = False):
 
         
 if __name__ == "__main__":
-    test_light_wave_1d(algo="explicit", do_plot=True)
-    # test_coaxial(do_plot=True)
+    # test_light_wave_1d(algo="explicit", do_plot=True)
+    test_coaxial(do_plot=True)
