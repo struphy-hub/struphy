@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, TypedDict
 import os
 import sysconfig
 import time
@@ -611,12 +611,49 @@ class SimData:
     """
     def __init__(self, path: str):
         self.path = path
-        self.feec_species = {}
-        self.pic_species = {}
+        self._orbits = {}
+        self._spline_values = {}
         self.sph_species = {}
         self.grids_log: list[np.ndarray] = None
         self.grids_phy: list[np.ndarray] = None
         self.t_grid: np.ndarray = None
+        
+    @property
+    def orbits(self) -> dict[str, np.ndarray]:
+        """Keys: species name. Values: 3d arrays indexed by (n, p, a), where 'n' is the time index, 'p' the particle index and 'a' the attribute index."""
+        return self._orbits
+    
+    @property
+    def spline_values(self) -> dict[str, dict[str, np.ndarray]]:
+        """Keys: species name. Values: dicts of variable names with values being 3d arrays on the grid."""
+        return self._spline_values
+    
+    @property
+    def Nt(self) -> dict[str, int]:
+        """Number of available time points (snap shots) for each species."""
+        if not hasattr(self, "_Nt"):
+            self._Nt = {}
+            for spec, orbs in self.orbits.items():
+                self._Nt[spec] = orbs.shape[0]
+        return self._Nt
+    
+    @property
+    def Np(self) -> dict[str, int]:
+        """Number of particle orbits for each species."""
+        if not hasattr(self, "_Np"):
+            self._Np = {}
+            for spec, orbs in self.orbits.items():
+                self._Np[spec] = orbs.shape[1]
+        return self._Np
+    
+    @property
+    def Nattr(self) -> dict[str, int]:
+        """Number of particle attributes for each species."""
+        if not hasattr(self, "_Nattr"):
+            self._Nattr = {}
+            for spec, orbs in self.orbits.items():
+                self._Nattr[spec] = orbs.shape[2]
+        return self._Nattr
         
     @property
     def spline_grid_resolution(self):
@@ -666,7 +703,7 @@ def load_data(path: str) -> SimData:
         # species folders
         species = next(os.walk(path_fields))[1]
         for spec in species:
-            simdata.feec_species[spec] = {}
+            simdata.spline_values[spec] = {}
             # simdata.arrays[spec] = {}
             path_spec = os.path.join(path_fields, spec)
             wlk = os.walk(path_spec)
@@ -677,7 +714,7 @@ def load_data(path: str) -> SimData:
                     var = file.split(".")[0]
                     with open(os.path.join(path_spec, file), "rb") as f:
                         # try:
-                        simdata.feec_species[spec][var] = pickle.load(f)
+                        simdata.spline_values[spec][var] = pickle.load(f)
                         # simdata.arrays[spec][var] = pickle.load(f)
                         
     if os.path.exists(path_kinetic):
@@ -686,7 +723,6 @@ def load_data(path: str) -> SimData:
         species = next(os.walk(path_kinetic))[1]
         print(f"{species = }")
         for spec in species:
-            simdata.pic_species[spec] = {}
             path_spec = os.path.join(path_kinetic, spec)
             wlk = os.walk(path_spec)
             sub_folders = next(wlk)[1]
@@ -703,40 +739,37 @@ def load_data(path: str) -> SimData:
                             step = int(file.split(".")[0].split("_")[-1])
                             tmp = np.load(os.path.join(path_dat, file))
                             if n == 0:
-                                orbits = np.zeros((Nt, *tmp.shape), dtype=float)
-                            orbits[step] = tmp
+                                simdata.orbits[spec] = np.zeros((Nt, *tmp.shape), dtype=float)
+                            simdata.orbits[spec][step] = tmp
                             n += 1
-                    simdata.pic_species[spec][folder] = orbits
                 else:
-                    # simdata.pic_species[spec][folder] = {}
-                    tmp = {}
-                    for file in files:
-                        # print(f"{file = }")
-                        if ".npy" in file:
-                            var = file.split(".")[0]
-                            tmp[var] = np.load(os.path.join(path_dat, file))
-                    # sort dict
-                    simdata.pic_species[spec][folder] = dict(sorted(tmp.items()))
+                    raise NotImplementedError
+                    # # simdata.pic_species[spec][folder] = {}
+                    # tmp = {}
+                    # for file in files:
+                    #     # print(f"{file = }")
+                    #     if ".npy" in file:
+                    #         var = file.split(".")[0]
+                    #         tmp[var] = np.load(os.path.join(path_dat, file))
+                    # # sort dict
+                    # simdata.pic_species[spec][folder] = dict(sorted(tmp.items()))
                         
     print("\nThe following data has been loaded:")
     print(f"{simdata.time_grid_size = }")
     print(f"{simdata.spline_grid_resolution = }")
-    print(f"simdata.feec_species:")
-    for k, v in simdata.feec_species.items():
+    print(f"simdata.spline_values:")
+    for k, v in simdata.spline_values.items():
         print(f"  {k}:")
         for kk, vv in v.items():
             print(f"    {kk}")
-    print(f"simdata.pic_species:")
-    for k, v in simdata.pic_species.items():
-        print(f"  {k}:")
-        for kk, vv in v.items():
-            print(f"    {kk}")
+    print(f"simdata.orbits:")
+    for k, v in simdata.orbits.items():
+        print(f"  {k}")
+        # for kk, vv in v.items():
+        #     print(f"    {kk}")
     print(f"simdata.sph_species:")
                         
     return simdata
-
-
-
 
 
 if __name__ == "__main__":
