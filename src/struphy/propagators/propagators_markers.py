@@ -25,7 +25,6 @@ from struphy.io.options import check_option
 from psydac.linalg.basic import LinearOperator
 
 
-@dataclass
 class PushEta(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -43,8 +42,22 @@ class PushEta(Propagator):
 
     * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
-    # variables to be updated
-    var: PICVariable = None
+    class Variables:
+        def __init__(self):
+            self._var: PICVariable = None
+        
+        @property  
+        def var(self) -> PICVariable:
+            return self._var
+        
+        @var.setter
+        def var(self, new):
+            assert isinstance(new, PICVariable)
+            self._var = new
+
+    def __init__(self):
+        # variables to be updated
+        self.variables = self.Variables()
 
     ## abstract methods
     def set_options(self,
@@ -78,7 +91,7 @@ class PushEta(Propagator):
         )
 
         self._pusher = Pusher(
-            self.var.particles,
+            self.variables.var.particles,
             kernel,
             args_kernel,
             self.domain.args_domain,
@@ -91,11 +104,10 @@ class PushEta(Propagator):
         self._pusher(dt)
 
         # update_weights
-        if self.var.particles.control_variate:
-            self.var.particles.update_weights()
+        if self.variables.var.particles.control_variate:
+            self.variables.var.particles.update_weights()
 
 
-@dataclass
 class PushVxB(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -112,8 +124,23 @@ class PushVxB(Propagator):
 
     Available algorithms: ``analytic``, ``implicit``.
     """
-    # variables to be updated
-    ions: PICVariable = None
+    class Variables:
+        def __init__(self):
+            self._ions: PICVariable = None
+        
+        @property  
+        def ions(self) -> PICVariable:
+            return self._ions
+        
+        @ions.setter
+        def ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles6D"
+            self._ions = new
+            
+    def __init__(self):
+        # variables to be updated
+        self.variables = self.Variables()
     
     # propagator specific options
     OptsAlgo = Literal["analytic", "implicit"]
@@ -170,7 +197,7 @@ class PushVxB(Propagator):
         )
 
         self._pusher = Pusher(
-            self.ions.particles,
+            self.variables.ions.particles,
             kernel,
             args_kernel,
             self.domain.args_domain,
@@ -194,8 +221,8 @@ class PushVxB(Propagator):
         self._pusher(self.options.kappa * dt)
 
         # update_weights
-        if self.ions.particles.control_variate:
-            self.ions.particles.update_weights()
+        if self.variables.ions.particles.control_variate:
+            self.variables.ions.particles.update_weights()
 
 
 class PushVinEfield(Propagator):
@@ -365,6 +392,7 @@ class PushEtaPC(Propagator):
             self.particles[0].update_weights()
 
 
+@dataclass
 class PushGuidingCenterBxEstar(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -394,6 +422,8 @@ class PushGuidingCenterBxEstar(Propagator):
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
     """
+    # variables to be updated
+    ions: PICVariable = None
 
     @staticmethod
     def options(default=False):

@@ -35,6 +35,7 @@ class Maxwell(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    
     ## species
     
     class EMFields(FieldSpecies):
@@ -62,10 +63,8 @@ class Maxwell(StruphyModel):
         self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
-        self.propagators.maxwell.assign_variables(
-            e = self.em_fields.e_field,
-            b = self.em_fields.b_field,
-            )
+        self.propagators.maxwell.variables.e = self.em_fields.e_field
+        self.propagators.maxwell.variables.b = self.em_fields.b_field
         
         # define scalars for update_scalar_quantities
         self.add_scalar("electric energy")
@@ -114,6 +113,7 @@ class Vlasov(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    
     ## species
     
     class KineticIons(KineticSpecies):
@@ -141,13 +141,8 @@ class Vlasov(StruphyModel):
         self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
-        self.propagators.push_vxb.assign_variables(
-            ions = self.kinetic_ions.var,
-            )
-        
-        self.propagators.push_eta.assign_variables(
-            var = self.kinetic_ions.var,
-            )
+        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
+        self.propagators.push_eta.variables.var = self.kinetic_ions.var
         
         # define scalars for update_scalar_quantities
         self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
@@ -208,35 +203,65 @@ class GuidingCenter(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    
+    ## species
+    
+    class KineticIons(KineticSpecies):
+        def __init__(self):
+            self.var = PICVariable(space="Particles5D")
+            self.init_variables()
+        
+    ## propagators
+    
+    class Propagators:
+        def __init__(self):
+            self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
+            self.push_parallel = propagators_markers.PushGuidingCenterParallel()
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## abstract methods
 
-        dct["kinetic"]["ions"] = "Particles5D"
-        return dct
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}' ***")
+            
+        # 1. instantiate all species, variables
+        self.kinetic_ions = self.KineticIons()
 
-    @staticmethod
-    def bulk_species():
-        return "ions"
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+        
+        # 3. assign variables to propagators
+        self.propagators.push_bxe.assign_variables(
+            ions = self.kinetic_ions.var,
+            )
+        
+        self.propagators.push_parallel.assign_variables(
+            var = self.kinetic_ions.var,
+            )
+        
+        # define scalars for update_scalar_quantities
+        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
 
-    @staticmethod
-    def velocity_scale():
+    @property
+    def bulk_species(self):
+        return self.kinetic_ions
+
+    @property
+    def velocity_scale(self):
         return "alfvén"
+    
+    def allocate_helpers(self):
+        self._tmp = np.empty(1, dtype=float) 
 
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_markers.PushGuidingCenterBxEstar: ["ions"],
-            propagators_markers.PushGuidingCenterParallel: ["ions"],
-        }
+    def update_scalar_quantities(self):
+        particles = self.kinetic_ions.var.particles
+        self._tmp[0] = particles.markers_wo_holes[:, 6].dot(
+            particles.markers_wo_holes[:, 3] ** 2
+            + particles.markers_wo_holes[:, 4] ** 2
+            + particles.markers_wo_holes[:, 5] ** 2,
+        ) / (2 * particles.Np)
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+        self.update_scalar("en_f", self._tmp[0])
 
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
