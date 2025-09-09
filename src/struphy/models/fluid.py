@@ -78,16 +78,12 @@ class LinearMHD(StruphyModel):
         self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
-        self.propagators.shear_alf.assign_variables(
-            u = self.mhd.velocity,
-            b = self.em_fields.b_field,
-            )
-        
-        self.propagators.mag_sonic.assign_variables(
-            n = self.mhd.density,
-            u = self.mhd.velocity,
-            p = self.mhd.pressure,
-            )
+        self.propagators.shear_alf.variables.u = self.mhd.velocity
+        self.propagators.shear_alf.variables.b = self.em_fields.b_field
+
+        self.propagators.mag_sonic.variables.n = self.mhd.density
+        self.propagators.mag_sonic.variables.u = self.mhd.velocity
+        self.propagators.mag_sonic.variables.p = self.mhd.pressure
         
         # define scalars for update_scalar_quantities
         self.add_scalar("en_U")

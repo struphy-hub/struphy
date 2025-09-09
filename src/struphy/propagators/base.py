@@ -23,6 +23,26 @@ class Propagator(metaclass=ABCMeta):
     in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
     Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
     """
+    @abstractmethod
+    def __init__(self):
+        # variables to be updated
+        self.variables = self.Variables()
+        
+    @abstractmethod
+    class Variables:
+        """Define variable names and types to be updated by the propagator."""
+        def __init__(self):
+            self._var1 = None
+        
+        @property
+        def var1(self):
+            return self._var1
+        
+        @var1.setter
+        def var1(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles6D"
+            self._var1 = new
 
     @abstractmethod
     def set_options(self, **kwargs):
@@ -71,9 +91,9 @@ class Propagator(metaclass=ABCMeta):
             max_diff for all feec variables.
         """
         diffs = {}
-        assert len(new_coeffs) == len(self.variables), f"Coefficients must be passed in the following order: {self.variables}, but is {new_coeffs}."
-        for ((k, new), (kp, vp)) in zip(new_coeffs.items(), self.variables.items()):
-            assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.variables}."
+        assert len(new_coeffs) == len(self.variables.__dict__), f"Coefficients must be passed in the following order: {self.variables}, but is {new_coeffs}."
+        for ((k, new), (kp, vp)) in zip(new_coeffs.items(), self.variables.__dict__.items()):
+            assert k in kp, f"Variable name '{k}' not in '{kp}'; variables must be passed in the order {self.variables.__dict__}."
             assert isinstance(new, (StencilVector, BlockVector))
             assert isinstance(vp, FEECVariable)
             old = vp.spline.vector
@@ -90,11 +110,11 @@ class Propagator(metaclass=ABCMeta):
 
         return diffs
 
-    @property
-    def variables(self):
-        """Dict of Variables to be updated by the propagator.
-        """
-        return self._variables
+    # @property
+    # def variables(self):
+    #     """Dict of Variables to be updated by the propagator.
+    #     """
+    #     return self._variables
 
     @property
     def init_kernels(self):

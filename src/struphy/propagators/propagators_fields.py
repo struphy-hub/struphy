@@ -57,7 +57,6 @@ from struphy.io.options import (check_option, OptsSymmSolver, OptsMassPrecond, O
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 
 
-@dataclass
 class Maxwell(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf E \in H(\textnormal{curl})` and  :math:`\mathbf B \in H(\textnormal{div})` such that
@@ -70,9 +69,34 @@ class Maxwell(Propagator):
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
-    # variables to be updated
-    e: FEECVariable = None
-    b: FEECVariable = None
+    class Variables:
+        def __init__(self):
+            self._e: FEECVariable = None
+            self._b: FEECVariable = None
+        
+        @property  
+        def e(self) -> FEECVariable:
+            return self._e
+        
+        @e.setter
+        def e(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hcurl"
+            self._e = new
+            
+        @property  
+        def b(self) -> FEECVariable:
+            return self._b
+        
+        @b.setter
+        def b(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hdiv"
+            self._b = new
+
+    def __init__(self):
+        # variables to be updated
+        self.variables = self.Variables()
     
     # propagator specific options
     OptsAlgo = Literal["implicit", "explicit"]
@@ -156,8 +180,8 @@ class Maxwell(Propagator):
             weak_curl = M1_inv @ curl.T @ M2
 
             # allocate output of vector field
-            out1 = self.e.spline.vector.space.zeros()
-            out2 = self.b.spline.vector.space.zeros()
+            out1 = self.variables.e.spline.vector.space.zeros()
+            out2 = self.variables.b.spline.vector.space.zeros()
 
             def f1(t, y1, y2, out: BlockVector = out1):
                 weak_curl.dot(y2, out=out)
@@ -170,18 +194,18 @@ class Maxwell(Propagator):
                 out.update_ghost_regions()
                 return out
 
-            vector_field = {self.e.spline.vector: f1, self.b.spline.vector: f2}
+            vector_field = {self.variables.e.spline.vector: f1, self.variables.b.spline.vector: f2}
             self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
 
         # allocate place-holder vectors to avoid temporary array allocations in __call__
-        self._e_tmp1 = self.e.spline.vector.space.zeros()
-        self._e_tmp2 = self.e.spline.vector.space.zeros()
-        self._b_tmp1 = self.b.spline.vector.space.zeros()
+        self._e_tmp1 = self.variables.e.spline.vector.space.zeros()
+        self._e_tmp2 = self.variables.e.spline.vector.space.zeros()
+        self._b_tmp1 = self.variables.b.spline.vector.space.zeros()
 
     def __call__(self, dt):
         # current FE coeffs
-        en = self.e.spline.vector
-        bn = self.b.spline.vector
+        en = self.variables.e.spline.vector
+        bn = self.variables.b.spline.vector
 
         if self.options.algo == "implicit":
             # solve for new e coeffs
@@ -426,7 +450,6 @@ class JxBCold(Propagator):
             print()
 
 
-@dataclass
 class ShearAlfven(Propagator):
     r""":ref:`FEEC <gempic>` discretization of the following equations:
     find :math:`\mathbf U \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}` and  :math:`\mathbf B \in H(\textnormal{div})` such that
@@ -450,9 +473,34 @@ class ShearAlfven(Propagator):
     where :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
     the MHD equilibirum density. The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
     """
-    # variables to be updated
-    u: FEECVariable = None
-    b: FEECVariable = None
+    class Variables:
+        def __init__(self):
+            self._u: FEECVariable = None
+            self._b: FEECVariable = None
+        
+        @property  
+        def u(self) -> FEECVariable:
+            return self._u
+        
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hcurl", "Hdiv", "H1vec")
+            self._u = new
+            
+        @property  
+        def b(self) -> FEECVariable:
+            return self._b
+        
+        @b.setter
+        def b(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hdiv"
+            self._b = new
+
+    def __init__(self):
+        # variables to be updated
+        self.variables = self.Variables()
     
     # propagator specific options
     OptsAlgo = Literal["implicit", "explicit"]
@@ -545,8 +593,8 @@ class ShearAlfven(Propagator):
             _f2 = curl @ _T
 
             # allocate output of vector field
-            out1 = self.u.spline.vector.space.zeros()
-            out2 = self.b.spline.vector.space.zeros()
+            out1 = self.variables.u.spline.vector.space.zeros()
+            out2 = self.variables.b.spline.vector.space.zeros()
 
             def f1(t, y1, y2, out: BlockVector = out1):
                 _f1.dot(y2, out=out)
@@ -559,18 +607,18 @@ class ShearAlfven(Propagator):
                 out.update_ghost_regions()
                 return out
 
-            vector_field = {self.u.spline.vector: f1, self.b.spline.vector: f2}
+            vector_field = {self.variables.u.spline.vector: f1, self.variables.b.spline.vector: f2}
             self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
 
         # allocate dummy vectors to avoid temporary array allocations
-        self._u_tmp1 = self.u.spline.vector.space.zeros()
-        self._u_tmp2 = self.u.spline.vector.space.zeros()
-        self._b_tmp1 = self.b.spline.vector.space.zeros()
+        self._u_tmp1 = self.variables.u.spline.vector.space.zeros()
+        self._u_tmp2 = self.variables.u.spline.vector.space.zeros()
+        self._b_tmp1 = self.variables.b.spline.vector.space.zeros()
 
     def __call__(self, dt):
         # current FE coeffs
-        un = self.u.spline.vector
-        bn = self.b.spline.vector
+        un = self.variables.u.spline.vector
+        bn = self.variables.b.spline.vector
 
         if self.options.algo == "implicit":
             # solve for new u coeffs
@@ -847,7 +895,6 @@ class Hall(Propagator):
             print()
 
 
-@dataclass
 class Magnetosonic(Propagator):
     r"""
     :ref:`FEEC <gempic>` discretization of the following equations:
@@ -881,10 +928,45 @@ class Magnetosonic(Propagator):
 
         \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,.
     """
-    # variables to be updated
-    n: FEECVariable = None
-    u: FEECVariable = None
-    p: FEECVariable = None
+    class Variables:
+        def __init__(self):
+            self._n: FEECVariable = None
+            self._u: FEECVariable = None
+            self._p: FEECVariable = None
+        
+        @property  
+        def n(self) -> FEECVariable:
+            return self._n
+        
+        @n.setter
+        def n(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "L2"
+            self._n = new
+        
+        @property  
+        def u(self) -> FEECVariable:
+            return self._u
+        
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hcurl", "Hdiv", "H1vec")
+            self._u = new
+            
+        @property  
+        def p(self) -> FEECVariable:
+            return self._p
+        
+        @p.setter
+        def p(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "L2"
+            self._p = new
+
+    def __init__(self):
+        # variables to be updated
+        self.variables = self.Variables()
     
     ## abstract methods
     def set_options(self, 
@@ -938,8 +1020,8 @@ class Magnetosonic(Propagator):
         _K = getattr(self.basis_ops, id_K)
 
         if id_U is None:
-            _U = IdentityOperator(self.u.spline.vector.space)
-            _UT = IdentityOperator(self.u.spline.vector.space)
+            _U = IdentityOperator(self.variables.u.spline.vector.space)
+            _UT = IdentityOperator(self.variables.u.spline.vector.space)
         else:
             _U = getattr(self.basis_ops, id_U)
             _UT = _U.T
@@ -971,10 +1053,10 @@ class Magnetosonic(Propagator):
         )
 
         # allocate dummy vectors to avoid temporary array allocations
-        self._u_tmp1 = self.u.spline.vector.space.zeros()
-        self._u_tmp2 = self.u.spline.vector.space.zeros()
-        self._p_tmp1 = self.p.spline.vector.space.zeros()
-        self._n_tmp1 = self.n.spline.vector.space.zeros()
+        self._u_tmp1 = self.variables.u.spline.vector.space.zeros()
+        self._u_tmp2 = self.variables.u.spline.vector.space.zeros()
+        self._p_tmp1 = self.variables.p.spline.vector.space.zeros()
+        self._n_tmp1 = self.variables.n.spline.vector.space.zeros()
         self._b_tmp1 = self._b.space.zeros()
 
         self._byn1 = self._B.codomain.zeros()
@@ -982,9 +1064,9 @@ class Magnetosonic(Propagator):
 
     def __call__(self, dt):
         # current FE coeffs
-        nn = self.n.spline.vector
-        un = self.u.spline.vector
-        pn = self.p.spline.vector
+        nn = self.variables.n.spline.vector
+        un = self.variables.u.spline.vector
+        pn = self.variables.p.spline.vector
 
         # solve for new u coeffs (no tmps created here)
         byn1 = self._B.dot(pn, out=self._byn1)
