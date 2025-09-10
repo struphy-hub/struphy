@@ -524,14 +524,13 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
     log_nt = int(np.log10(int(((nt - 1) / step)))) + 1
 
     # directory for .txt files and marker index which will be saved
+    path_orbits = os.path.join(path_out, "orbits")
+    
     if "5D" in kind:
-        path_orbits = os.path.join(path_out, "guiding_center")
         save_index = list(range(0, 6)) + [10] + [-1]
     elif "6D" in kind or "SPH" in kind:
-        path_orbits = os.path.join(path_out, "orbits")
         save_index = list(range(0, 7)) + [-1]
     else:
-        path_orbits = os.path.join(path_out, "orbits")
         save_index = list(range(0, 4)) + [-1]
 
     try:
