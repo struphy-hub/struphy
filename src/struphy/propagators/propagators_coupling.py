@@ -1,5 +1,10 @@
 "Particle and FEEC variables are updated."
 
+import numpy as np
+from dataclasses import dataclass
+from mpi4py import MPI
+from typing import Literal
+
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
@@ -16,8 +21,9 @@ from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.utils.arrays import xp as np
-from struphy.utils.pyccel import Pyccelkernel
+from struphy.models.variables import FEECVariable, PICVariable
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.io.options import (check_option, OptsSymmSolver, OptsMassPrecond, OptsGenSolver, OptsVecSpace)
 
 
 class VlasovAmpere(Propagator):
@@ -70,39 +76,76 @@ class VlasovAmpere(Propagator):
     * For :class:`~struphy.models.hybrid.ColdPlasmaVlasov`: :math:`c_1 = \nu\alpha^2/\varepsilon_\textrm{c} \,, \, c_2 = 1/\varepsilon_\textrm{h}`
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
+    class Variables:
+        def __init__(self):
+            self._e = FEECVariable = None
+            self._ions: PICVariable = None
+        
+        @property  
+        def e(self) -> FEECVariable:
+            return self._e
+        
+        @e.setter
+        def e(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hcurl"
+            self._e = new
+        
+        @property  
+        def ions(self) -> PICVariable:
+            return self._ions
+        
+        @ions.setter
+        def ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles6D"
+            self._ions = new
+            
+    def __init__(self):
+        self.variables = self.Variables()
+    
+    @dataclass
+    class Options:
+        # specific literals
+        OptsCouplingCoeffs = Literal["VlasovAmpere", "VlasovMaxwell", "ColdPlasma"]
+        # propagator options
+        solver: OptsSymmSolver = "pcg" 
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        coeffs: OptsCouplingCoeffs = "VlasovAmpere"
+        
+        def __post_init__(self):
+            # checks
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+            check_option(self.coeffs, self.OptsCouplingCoeffs)
+            
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+                
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f'  {k}: {v}')
+        self._options = new
 
-        return dct
-
-    def __init__(
-        self,
-        e: BlockVector,
-        particles: Particles6D,
-        *,
-        c1: float = 1.0,
-        c2: float = 1.0,
-        solver=options(default=True)["solver"],
-    ):
-        super().__init__(e, particles)
-
-        self._c1 = c1
-        self._c2 = c2
-        self._info = solver["info"]
+    def allocate(self):
+        # equation coeffs
+        if self.options.coeffs == "VlasovAmpere":
+            self._c1 = c1
+            self._c2 = c2
+        
+        self._info = self.options.solver_params.info
 
         # get accumulation kernel
         accum_kernel = Pyccelkernel(accum_kernels.vlasov_maxwell)

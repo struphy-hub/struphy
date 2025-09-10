@@ -1210,37 +1210,6 @@ class Particles(metaclass=ABCMeta):
 
     def _set_initial_condition(self, bp_copy=None, pp_copy=None):
         self._f_init = self.background
-        # """Compute callable initial condition from background + perturbation."""
-        # if bp_copy is None:
-        #     bp_copy = copy.deepcopy(self.bckgr_params)
-        # if pp_copy is None:
-        #     pp_copy = copy.deepcopy(self.pert_params)
-
-        # # Get the initialization function and pass the correct arguments
-        # self._f_init = None
-        # for fi, maxw_params in bp_copy.items():
-        #     if fi[-2] == "_":
-        #         fi_type = fi[:-2]
-        #     else:
-        #         fi_type = fi
-
-        #     pert_params = pp_copy
-        #     if pp_copy is not None:
-        #         if fi in pp_copy:
-        #             pert_params = pp_copy[fi]
-
-        #     if self._f_init is None:
-        #         self._f_init = getattr(maxwellians, fi_type)(
-        #             maxw_params=maxw_params,
-        #             pert_params=pert_params,
-        #             equil=self.equil,
-        #         )
-        #     else:
-        #         self._f_init = self._f_init + getattr(maxwellians, fi_type)(
-        #             maxw_params=maxw_params,
-        #             pert_params=pert_params,
-        #             equil=self.equil,
-        #         )
 
     def _load_external(
         self,

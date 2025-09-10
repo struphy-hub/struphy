@@ -32,8 +32,6 @@ class Maxwell(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_fields.Maxwell`
-
-    :ref:`Model info <add_model>`:
     """
     
     ## species
@@ -110,8 +108,6 @@ class Vlasov(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_markers.PushVxB`
     2. :class:`~struphy.propagators.propagators_markers.PushEta`
-
-    :ref:`Model info <add_model>`:
     """
     
     ## species
@@ -200,8 +196,6 @@ class GuidingCenter(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
     2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
-
-    :ref:`Model info <add_model>`:
     """
     
     ## species
