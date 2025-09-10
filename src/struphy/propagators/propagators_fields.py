@@ -100,7 +100,7 @@ class Maxwell(Propagator):
     
     @dataclass
     class Options:
-        # define specific literals
+        # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
         algo: OptsAlgo = "implicit"
@@ -506,43 +506,48 @@ class ShearAlfven(Propagator):
             self._b = new
 
     def __init__(self):
-        # variables to be updated
         self.variables = self.Variables()
     
-    # propagator specific options
-    OptsAlgo = Literal["implicit", "explicit"]
+    @dataclass
+    class Options:
+        # specific literals
+        OptsAlgo = Literal["implicit", "explicit"]
+        # propagator options
+        u_space: OptsVecSpace = "Hdiv"
+        algo: OptsAlgo = "implicit" 
+        solver: OptsSymmSolver = "pcg" 
+        precond: OptsMassPrecond = "MassMatrixPreconditioner" 
+        solver_params: SolverParameters = None
+        butcher: ButcherTableau = None
     
-    ## abstract methods
-    def set_options(self,
-                    u_space: OptsVecSpace = "Hdiv",
-                    algo: OptsAlgo = "implicit", 
-                    solver: OptsSymmSolver = "pcg", 
-                    precond: OptsMassPrecond = "MassMatrixPreconditioner", 
-                    solver_params: SolverParameters = None,
-                    butcher: ButcherTableau = None,
-                    ):
-    
-        # checks
-        check_option(u_space, OptsVecSpace)
-        check_option(algo, self.OptsAlgo)
-        check_option(solver, OptsSymmSolver)
-        check_option(precond, OptsMassPrecond) 
-        
-        # defaults
-        if solver_params is None:
-            solver_params = SolverParameters()
+        def __post_init__(self):
+            # checks
+            check_option(self.u_space, OptsVecSpace)
+            check_option(self.algo, self.OptsAlgo)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond) 
             
-        if algo == "explicit" and butcher is None:
-            butcher = ButcherTableau()
-        
-        # use setter for options
-        self.options = self.Options(self,
-                                    u_space=u_space,
-                                    algo=algo, 
-                                    solver=solver, 
-                                    precond=precond,
-                                    solver_params=solver_params,
-                                    butcher=butcher,)
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+                
+            if self.algo == "explicit" and self.butcher is None:
+                self.butcher = ButcherTableau()
+                
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f'  {k}: {v}')
+        self._options = new
 
     def allocate(self):
         u_space = self.options.u_space
@@ -972,38 +977,42 @@ class Magnetosonic(Propagator):
             self._p = new
 
     def __init__(self):
-        # variables to be updated
         self.variables = self.Variables()
-    
-    ## abstract methods
-    def set_options(self, 
-                    b_field: FEECVariable = None,
-                    u_space: OptsVecSpace = "Hdiv", 
-                    solver: OptsGenSolver = "pbicgstab", 
-                    precond: OptsMassPrecond = "MassMatrixPreconditioner", 
-                    solver_params: SolverParameters = None,
-                    ):
-    
-        # checks
-        check_option(u_space, OptsVecSpace)
-        check_option(solver, OptsGenSolver)
-        check_option(precond, OptsMassPrecond) 
         
-        # defaults
-        if b_field is None:
-            b_field = FEECVariable(space="Hdiv")
-            b_field.allocate(self.derham, self.domain)
-        if solver_params is None:
-            solver_params = SolverParameters()
+    @dataclass
+    class Options:
+        b_field: FEECVariable = None
+        u_space: OptsVecSpace = "Hdiv" 
+        solver: OptsGenSolver = "pbicgstab"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner" 
+        solver_params: SolverParameters = None
         
-        # use setter for options
-        self.options = self.Options(self, 
-                                    u_space=u_space,
-                                    b_field=b_field,
-                                    solver=solver, 
-                                    precond=precond,
-                                    solver_params=solver_params,
-                                    )
+        def __post_init__(self):
+            # checks
+            check_option(self.u_space, OptsVecSpace)
+            check_option(self.solver, OptsGenSolver)
+            check_option(self.precond, OptsMassPrecond) 
+            
+            # defaults
+            if self.b_field is None:
+                self.b_field = FEECVariable(space="Hdiv")
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+        
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f'  {k}: {v}')
+        self._options = new
 
     def allocate(self):
         u_space = self.options.u_space
@@ -1039,6 +1048,7 @@ class Magnetosonic(Propagator):
         self._MJ = getattr(self.mass_ops, id_MJ)
         self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
 
+        self.options.b_field.allocate(self.derham, self.domain)
         self._b = self.options.b_field.spline.vector
 
         # preconditioner
