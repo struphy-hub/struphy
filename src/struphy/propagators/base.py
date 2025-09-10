@@ -76,11 +76,11 @@ class Propagator(metaclass=ABCMeta):
         self._options = new
         
     @abstractmethod
-    def allocate():
+    def allocate(self):
         """Allocate all data/objects of the instance."""
-    
+        
     @abstractmethod
-    def __call__(self, dt):
+    def __call__(self, dt: float):
         """Update variables from t -> t + dt.
         Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
 
@@ -198,8 +198,9 @@ class Propagator(metaclass=ABCMeta):
         return self._projected_equil
 
     @projected_equil.setter
-    def projected_equil(self, projected_equil):
-        self._projected_equil = projected_equil
+    def projected_equil(self, new):
+        assert isinstance(new, ProjectedFluidEquilibriumWithB)
+        self._projected_equil = new
 
     @property
     def time_state(self):
@@ -246,6 +247,9 @@ class Propagator(metaclass=ABCMeta):
             comps = np.array([0])  # case for scalar evaluation
         else:
             comps = np.array(comps, dtype=int)
+
+        if not hasattr(self, "_init_kernels"):
+            self._init_kernels = []
 
         self._init_kernels += [
             (
@@ -297,6 +301,9 @@ class Propagator(metaclass=ABCMeta):
             comps = np.array([0])  # case for scalar evaluation
         else:
             comps = np.array(comps, dtype=int)
+
+        if not hasattr(self, "_eval_kernels"):
+            self._eval_kernels = []
 
         self._eval_kernels += [
             (

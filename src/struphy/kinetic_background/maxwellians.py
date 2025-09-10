@@ -3,7 +3,7 @@
 import numpy as np
 from typing import Callable
 
-from struphy.fields_background.base import FluidEquilibrium
+from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
 from struphy.kinetic_background import moment_functions
 from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
@@ -143,47 +143,47 @@ class GyroMaxwellian2D(Maxwellian):
 
     Parameters
     ----------
+    n, u_para, u_perp, vth_para, vth_perp : tuple
+        Moments of the Maxwellian as tuples. The first entry defines the background 
+        (float for constant background or callable), the second entry defines a Perturbation (can be None).
+    
     maxw_params : dict
         Parameters for the kinetic background.
 
     pert_params : dict
         Parameters for the kinetic perturbation added to the background.
 
-    equil : FluidEquilibrium
-        One of :mod:`~struphy.fields_background.equils`.
+    equil : FluidEquilibriumWithB
+        Fluid background.
 
     volume_form : bool
         Whether to represent the Maxwellian as a volume form;
         if True it is multiplied by the Jacobian determinant |v_perp|
         of the polar coordinate transofrmation (default = False).
     """
-
-    @classmethod
-    def default_maxw_params(cls):
-        """Default parameters dictionary defining constant moments of the Maxwellian."""
-        return {
-            "n": 1.0,
-            "u_para": 0.0,
-            "u_perp": 0.0,
-            "vth_para": 1.0,
-            "vth_perp": 1.0,
-        }
-
     def __init__(
         self,
-        maxw_params: dict = None,
-        pert_params: dict = None,
-        equil: FluidEquilibrium = None,
+        n: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
+        u_para: tuple[float | Callable[..., float], Perturbation] = (0.0, None),
+        u_perp: tuple[float | Callable[..., float], Perturbation] = (0.0, None),
+        vth_para: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
+        vth_perp: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
+        equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
     ):
-        super().__init__(
-            maxw_params=maxw_params,
-            pert_params=pert_params,
-            equil=equil,
-        )
+        
+        self._maxw_params = {}
+        self._maxw_params["n"] = n
+        self._maxw_params["u_para"] = u_para
+        self._maxw_params["u_perp"] = u_perp
+        self._maxw_params["vth_para"] = vth_para
+        self._maxw_params["vth_perp"] = vth_perp
+        
+        self.check_maxw_params()
 
         # volume form represenation
         self._volume_form = volume_form
+        self._equil = equil
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
         self._moment_factors = {
@@ -191,6 +191,10 @@ class GyroMaxwellian2D(Maxwellian):
             "u": [1.0, 1.0],
             "vth": [1.0, 1.0],
         }
+
+    @property
+    def maxw_params(self):
+        return self._maxw_params
 
     @property
     def coords(self):
@@ -257,9 +261,14 @@ class GyroMaxwellian2D(Maxwellian):
         return jacobian_det
 
     @property
-    def volume_form(self):
+    def volume_form(self) -> bool:
         """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|)."""
         return self._volume_form
+    
+    @property
+    def equil(self) -> FluidEquilibriumWithB:
+        """Fluid background with B-field."""
+        return self._equil
 
     @property
     def moment_factors(self):
@@ -304,8 +313,8 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
     pert_params : dict
         Parameters for the kinetic perturbation added to the background.
 
-    equil : FluidEquilibrium
-        One of :mod:`~struphy.fields_background.equils`.
+    equil : FluidEquilibriumWithB
+        Fluid background.
 
     volume_form : bool
         Whether to represent the Maxwellian as a volume form;
@@ -326,7 +335,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         self,
         maxw_params: dict = None,
         pert_params: dict = None,
-        equil: FluidEquilibrium = None,
+        equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
     ):
         # Set background parameters
@@ -536,7 +545,7 @@ class ColdPlasma(Maxwellian):
         self,
         maxw_params: dict = None,
         pert_params: dict = None,
-        equil: FluidEquilibrium = None,
+        equil: FluidEquilibriumWithB = None,
     ):
         super().__init__(
             maxw_params=maxw_params,
