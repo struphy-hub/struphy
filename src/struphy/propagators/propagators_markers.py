@@ -3,6 +3,8 @@
 from numpy import array, polynomial, random
 from typing import Literal, get_args
 import copy
+from dataclasses import dataclass
+from mpi4py import MPI
 
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -55,27 +57,38 @@ class PushEta(Propagator):
             self._var = new
 
     def __init__(self):
-        # variables to be updated
         self.variables = self.Variables()
-
-    ## abstract methods
-    def set_options(self,
-                    butcher: ButcherTableau = None,
-                    ):
         
-        if butcher is None:
-            butcher = ButcherTableau()
+    @dataclass
+    class Options:
+        butcher: ButcherTableau = None
         
-        # setter
-        self.options = copy.deepcopy(locals())
-        self.options.pop("self")
+        def __post_init__(self):
+            # defaults
+            if self.butcher is None:
+                self.butcher = ButcherTableau()
+                
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f'  {k}: {v}')
+        self._options = new
 
     def allocate(self):
         # get kernel
         kernel = Pyccelkernel(pusher_kernels.push_eta_stage)
 
         # define algorithm
-        butcher: ButcherTableau = self.options["butcher"]
+        butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
         from struphy.utils.arrays import xp as np
 
@@ -140,22 +153,33 @@ class PushVxB(Propagator):
         # variables to be updated
         self.variables = self.Variables()
     
-    # propagator specific options
-    OptsAlgo = Literal["analytic", "implicit"]
-
-    ## abstract methods
-    def set_options(self,
-                    algo: OptsAlgo = "analytic",
-                    kappa: float = 1.0,
-                    b2_var: FEECVariable = None,
-                    ):
-    
-        # checks
-        check_option(algo, self.OptsAlgo)
+    @dataclass
+    class Options:
+        # specific literals
+        OptsAlgo = Literal["analytic", "implicit"]
+        # propagator options
+        algo: OptsAlgo = "analytic"
+        kappa: float = 1.0
+        b2_var: FEECVariable = None
         
-        # setter
-        self.options = copy.deepcopy(locals())
-        self.options.pop("self")
+        def __post_init__(self):
+            # checks
+            check_option(self.algo, self.OptsAlgo)
+                
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f'  {k}: {v}')
+        self._options = new
 
     def allocate(self):
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment

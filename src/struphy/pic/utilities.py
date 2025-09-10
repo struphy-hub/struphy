@@ -89,7 +89,7 @@ class WeightsParameters:
     control_variate : bool
         Whether to use a control variate for noise reduction.
     
-    rejct_weights : bool
+    reject_weights : bool
         Whether to reject weights below threshold.
         
     threshold : float
