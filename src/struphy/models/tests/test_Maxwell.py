@@ -51,24 +51,24 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     model = Maxwell()
 
     # propagator options
-    model.propagators.maxwell.set_options(algo=algo)
+    model.propagators.maxwell.options = model.propagators.maxwell.Options(algo=algo)
 
     # initial conditions (background + perturbation)
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=123))
 
     # # start run
-    # main.run(model, 
-    #         params_path=None, 
-    #         env=env, 
-    #         base_units=base_units, 
-    #         time_opts=time_opts, 
-    #         domain=domain, 
-    #         equil=equil, 
-    #         grid=grid, 
-    #         derham_opts=derham_opts, 
-    #         verbose=verbose, 
-    #         )
+    main.run(model, 
+            params_path=None, 
+            env=env, 
+            base_units=base_units, 
+            time_opts=time_opts, 
+            domain=domain, 
+            equil=equil, 
+            grid=grid, 
+            derham_opts=derham_opts, 
+            verbose=verbose, 
+            )
     
     # post processing
     if MPI.COMM_WORLD.Get_rank() == 0:
@@ -116,8 +116,8 @@ def test_coaxial(do_plot: bool = False):
     time_opts = Time(dt=0.05, Tend=10.0)
     
     # geometry
-    a1=2.326744
-    a2=3.686839
+    a1 = 2.326744
+    a2 = 3.686839
     Lz = 2.0
     domain = domains.HollowCylinder(a1=a1, a2=a2, Lz=Lz)
 
@@ -137,7 +137,7 @@ def test_coaxial(do_plot: bool = False):
     model = Maxwell()
 
     # propagator options
-    model.propagators.maxwell.set_options(algo="implicit")
+    model.propagators.maxwell.options = model.propagators.maxwell.Options(algo="implicit")
 
     # initial conditions (background + perturbation)
     m = 3

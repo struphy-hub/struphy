@@ -34,6 +34,7 @@ OptsMarkerBC = Literal["periodic", "reflect"]
 OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
 OptsLoading = Literal["pseudo_random", 'sobol_standard', 'sobol_antithetic', 'external', 'restart', "tesselation"]
 OptsSpatialLoading = Literal["uniform", "disc"]
+OptsMPIsort = Literal["each", "last", None]
 
 
 ## Option classes
