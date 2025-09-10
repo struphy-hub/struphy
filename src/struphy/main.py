@@ -180,7 +180,7 @@ def run(
                              Z_bulk=Z_bulk,
                              verbose=verbose,)
     
-    # domain and fluid bckground
+    # domain and fluid background
     model.setup_domain_and_equil(domain, equil)
     
     # default grid
