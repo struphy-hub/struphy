@@ -2,7 +2,7 @@
 
 from numpy import array, polynomial, random
 from typing import Literal, get_args
-from dataclasses import dataclass
+import copy
 
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -20,7 +20,7 @@ from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.models.variables import FEECVariable, PICVariable
-from struphy.io.options import check_option
+from struphy.io.options import check_option, OptsMPIsort
 from psydac.linalg.basic import LinearOperator
 
 
@@ -66,17 +66,16 @@ class PushEta(Propagator):
         if butcher is None:
             butcher = ButcherTableau()
         
-        # use setter for options
-        self.options = self.Options(self,
-                                    butcher=butcher,
-                                    )
+        # setter
+        self.options = copy.deepcopy(locals())
+        self.options.pop("self")
 
     def allocate(self):
         # get kernel
         kernel = Pyccelkernel(pusher_kernels.push_eta_stage)
 
         # define algorithm
-        butcher: ButcherTableau = self.options.butcher
+        butcher: ButcherTableau = self.options["butcher"]
         # temp fix due to refactoring of ButcherTableau:
         from struphy.utils.arrays import xp as np
 
@@ -154,12 +153,9 @@ class PushVxB(Propagator):
         # checks
         check_option(algo, self.OptsAlgo)
         
-        # use setter for options
-        self.options = self.Options(self,
-                                    algo=algo, 
-                                    kappa=kappa,
-                                    b2_var=b2_var,
-                                    )
+        # setter
+        self.options = copy.deepcopy(locals())
+        self.options.pop("self")
 
     def allocate(self):
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
@@ -391,7 +387,6 @@ class PushEtaPC(Propagator):
             self.particles[0].update_weights()
 
 
-@dataclass
 class PushGuidingCenterBxEstar(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -421,32 +416,58 @@ class PushGuidingCenterBxEstar(Propagator):
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
     """
-    # variables to be updated
-    ions: PICVariable = None
-
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["algo"] = {
-            "method": [
-                "discrete_gradient_2nd_order",
+    class Variables:
+        def __init__(self):
+            self._ions: PICVariable = None
+        
+        @property  
+        def ions(self) -> PICVariable:
+            return self._ions
+        
+        @ions.setter
+        def ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles5D"
+            self._ions = new
+            
+    def __init__(self):
+        # variables to be updated
+        self.variables = self.Variables()
+        
+    # propagator specific options
+    OptsAlgo = Literal["discrete_gradient_2nd_order",
                 "discrete_gradient_1st_order",
-                "discrete_gradient_1st_order_newton",
-                "rk4",
-                "forward_euler",
-                "heun2",
-                "rk2",
-                "heun3",
-            ],
-            "maxiter": 20,
-            "tol": 1e-7,
-            "mpi_sort": "each",
-            "verbose": False,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
+                "discrete_gradient_1st_order_newton", "explicit",]
+        
+    ## abstract methods
+    def set_options(self,
+                    algo: OptsAlgo = "discrete_gradient_1st_order",
+                    butcher: ButcherTableau = None,
+                    maxiter: int = 20,
+                    tol: float = 1e-7,
+                    mpi_sort: OptsMPIsort = "each",
+                    verbose: bool = False,
+                    ):
+    
+        # checks
+        check_option(algo, self.OptsAlgo)
+        check_option(mpi_sort, OptsMPIsort)
+        
+        if algo == "explicit" and butcher is None:
+            butcher = ButcherTableau()
+        
+        # use setter for options
+        self.options = self.Options(self,
+                                    algo=algo, 
+                                    butcher=butcher,
+                                    maxiter=maxiter,
+                                    tol=tol,
+                                    mpi_sort=mpi_sort,
+                                    verbose=verbose,
+                                    )
 
-        return dct
+    def allocate(self):
+        pass
 
     def __init__(
         self,
@@ -456,7 +477,7 @@ class PushGuidingCenterBxEstar(Propagator):
         evaluate_e_field: bool = False,
         b_tilde: BlockVector = None,
         epsilon: float = 1.0,
-        algo: dict = options(default=True)["algo"],
+        algo: dict = None,
     ):
         super().__init__(particles)
 

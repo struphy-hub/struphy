@@ -1385,7 +1385,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
             
         file.write("\n# propagator options\n")
         for prop in self.propagators.__dict__:
-            file.write(f"model.propagators.{prop}.set_options()\n")
+            file.write(f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n")
             
         file.write("\n# initial conditions (background + perturbation)\n")
         if has_feec:

@@ -43,6 +43,7 @@ class LinearMHD(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    
     ## species
     
     class EMFields(FieldSpecies):

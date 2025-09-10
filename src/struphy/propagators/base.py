@@ -3,6 +3,8 @@
 from abc import ABCMeta, abstractmethod
 import numpy as np
 from mpi4py import MPI
+from dataclasses import dataclass
+from typing import Literal
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
@@ -12,6 +14,7 @@ from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVar
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.block import BlockVector
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
+from struphy.io.options import check_option
 
 
 class Propagator(metaclass=ABCMeta):
@@ -23,11 +26,6 @@ class Propagator(metaclass=ABCMeta):
     in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
     Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
     """
-    @abstractmethod
-    def __init__(self):
-        # variables to be updated
-        self.variables = self.Variables()
-        
     @abstractmethod
     class Variables:
         """Define variable names and types to be updated by the propagator."""
@@ -43,10 +41,39 @@ class Propagator(metaclass=ABCMeta):
             assert isinstance(new, PICVariable)
             assert new.space == "Particles6D"
             self._var1 = new
-
+            
     @abstractmethod
-    def set_options(self, **kwargs):
-        """Set the dynamical options of the propagator (kwargs)."""
+    def __init__(self):
+        self.variables = self.Variables()
+        
+    @abstractmethod
+    @dataclass
+    class Options:
+        # define specific literals
+        OptsTemplate = Literal["implicit", "explicit"]
+        # propagator options
+        opt1: str = "implicit", 
+        
+        def __post_init__(self):
+            # checks
+            check_option(self.opt1, self.OptsTemplate)
+        
+    @property
+    @abstractmethod
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    @abstractmethod
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nInstance of propagator '{self.__class__.__name__}' with:")
+            for k, v in new.__dict__.items():
+                print(f'  {k}: {v}')
+        self._options = new
         
     @abstractmethod
     def allocate():
@@ -62,24 +89,6 @@ class Propagator(metaclass=ABCMeta):
         dt : float
             Time step size.
         """
-
-    def assign_variables(self, **vars):
-        """Assign the variables to be updated by the propagator.
-        
-        Update variables in __dict__ and set self.variables with user-defined instance variables (allocated).
-        """
-        assert len(vars) == len(self.__dict__), f"Variables must be passed in the following order: {self.__dict__}, but is {vars}."
-        for ((k, v), (kp, vp)) in zip(vars.items(), self.__dict__.items()):
-            assert k == kp, f"Variable name '{k}' not equal to '{kp}'; variables must be passed in the order {self.__dict__}."
-            assert isinstance(v, Variable)
-            if isinstance(v, (PICVariable, SPHVariable)):
-                # comm = var.obj.mpi_comm
-                pass
-            elif isinstance(v, FEECVariable):
-                # comm = var.obj.comm
-                pass
-        self.__dict__.update(vars)
-        self._variables = vars
         
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
@@ -109,12 +118,6 @@ class Propagator(metaclass=ABCMeta):
             old.update_ghost_regions()
 
         return diffs
-
-    # @property
-    # def variables(self):
-    #     """Dict of Variables to be updated by the propagator.
-    #     """
-    #     return self._variables
 
     @property
     def init_kernels(self):
@@ -304,26 +307,3 @@ class Propagator(metaclass=ABCMeta):
                 args_eval,
             )
         ]
-       
-    @property
-    def options(self):
-        if not hasattr(self, "_options"):
-            self._options = self.Options()
-        return self._options
-    
-    @options.setter
-    def options(self, new):
-        assert isinstance(new, self.Options)
-        self._options = new
-       
-    class Options:
-        def __init__(self, prop, **kwargs):
-            self.__dict__.update(kwargs)
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"\nInstance of propagator '{prop.__class__.__name__}' with:")
-                for k, v in self.__dict__.items():
-                    print(f'  {k}: {v}')
-            
-        # @property
-        # def kwargs(self):
-        #     return self._kwargs

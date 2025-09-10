@@ -4,6 +4,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal, get_args
+import copy
 
 import scipy as sc
 from matplotlib import pyplot as plt
@@ -95,40 +96,46 @@ class Maxwell(Propagator):
             self._b = new
 
     def __init__(self):
-        # variables to be updated
         self.variables = self.Variables()
     
-    # propagator specific options
-    OptsAlgo = Literal["implicit", "explicit"]
-
-    ## abstract methods
-    def set_options(self,
-                    algo: OptsAlgo = "implicit", 
-                    solver: OptsSymmSolver = "pcg", 
-                    precond: OptsMassPrecond = "MassMatrixPreconditioner", 
-                    solver_params: SolverParameters = None,
-                    butcher: ButcherTableau = None,
-                    ):
-    
-        # checks
-        check_option(algo, self.OptsAlgo)
-        check_option(solver, OptsSymmSolver)
-        check_option(precond, OptsMassPrecond) 
+    @dataclass
+    class Options:
+        # define specific literals
+        OptsAlgo = Literal["implicit", "explicit"]
+        # propagator options
+        algo: OptsAlgo = "implicit"
+        solver: OptsSymmSolver = "pcg" 
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        butcher: ButcherTableau = None
         
-        # defaults
-        if solver_params is None:
-            solver_params = SolverParameters()
+        def __post_init__(self):
+            # checks
+            check_option(self.algo, self.OptsAlgo)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond) 
             
-        if algo == "explicit" and butcher is None:
-            butcher = ButcherTableau()
-        
-        # use setter for options
-        self.options = self.Options(self,
-                                    algo=algo, 
-                                    solver=solver, 
-                                    precond=precond,
-                                    solver_params=solver_params,
-                                    butcher=butcher,)
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+                
+            if self.algo == "explicit" and self.butcher is None:
+                self.butcher = ButcherTableau()
+                
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f'  {k}: {v}')
+        self._options = new
 
     def allocate(self):
         # obtain needed matrices
