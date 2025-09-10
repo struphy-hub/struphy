@@ -57,8 +57,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     model.mhd.set_phys_params()
 
     # propagator options
-    model.propagators.shear_alf.set_options(algo=algo)
-    model.propagators.mag_sonic.set_options(b_field=model.em_fields.b_field)
+    model.propagators.shear_alf.options = model.propagators.shear_alf.Options(algo=algo)
+    model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)
 
     # initial conditions (background + perturbation)
     model.mhd.velocity.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))

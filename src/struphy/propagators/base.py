@@ -49,7 +49,7 @@ class Propagator(metaclass=ABCMeta):
     @abstractmethod
     @dataclass
     class Options:
-        # define specific literals
+        # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options
         opt1: str = "implicit", 
@@ -70,7 +70,7 @@ class Propagator(metaclass=ABCMeta):
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nInstance of propagator '{self.__class__.__name__}' with:")
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
                 print(f'  {k}: {v}')
         self._options = new

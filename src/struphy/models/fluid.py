@@ -149,8 +149,8 @@ class LinearMHD(StruphyModel):
         new_file = []
         with open(params_path, "r") as f:
             for line in f:
-                if "mag_sonic.set_options" in line:
-                    new_file += ["model.propagators.mag_sonic.set_options(b_field=model.em_fields.b_field)\n"]
+                if "mag_sonic.Options" in line:
+                    new_file += ["model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n"]
                 else:
                     new_file += [line]
                     
