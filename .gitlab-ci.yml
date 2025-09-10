@@ -5,6 +5,7 @@
 # The doc can be built by clicking "Run pipeline" on Gitlab and setting the MAKE_PAGES = true.
 
 variables:
+  FF_SCRIPT_SECTIONS: "true"
   MAKE_PAGES:
     value: "false"
     options: ["true", "false"]
