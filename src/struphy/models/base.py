@@ -603,8 +603,12 @@ class StruphyModel(metaclass=ABCMeta):
                 assert isinstance(spec, KineticSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, (PICVariable, SPHVariable))
-                    v.allocate(derham=self.derham, domain=self.domain, equil=self.equil,
-                               verbose=verbose)
+                    v.allocate(clone_config=self.clone_config,
+                               derham=self.derham, 
+                               domain=self.domain, 
+                               equil=self.equil,
+                               projected_equil=self.projected_equil,
+                               verbose=verbose,)
                 
         # TODO: allocate memory for FE coeffs of diagnostics
         # if self.params.diagnostic_fields is not None:
@@ -1324,8 +1328,12 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                 elif isinstance(var, PICVariable):
                     has_pic = True
                     init_pert_pic = f"perturbation = perturbations.TorusModesCos()\n"
-                    init_bckgr_pic = f"\nmaxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
-                    init_bckgr_pic += f"maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
+                    if "6D" in var.space:
+                        init_bckgr_pic = f"\nmaxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
+                    elif "5D" in var.space:
+                        init_bckgr_pic = f"\nmaxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation))\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None))\n"
                     init_bckgr_pic += f"background = maxwellian_1 + maxwellian_2\n"
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
                     

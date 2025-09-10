@@ -50,8 +50,34 @@ class Species(metaclass=ABCMeta):
         self._charge_number = charge_number
         self._mass_number = mass_number
     
+    class EquationParameters:
+        """Normalization parameters of one species, appearing in scaled equations."""
+    
+        def __init__(self, species, units: Units = None, verbose: bool = False):
+            if units is None:
+                units = Units()
+                
+            Z = species.charge_number
+            A = species.mass_number
+            
+            con = ConstantsOfNature()
+
+            # relevant frequencies
+            om_p = np.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
+            om_c = Z * con.e * units.B / (A * con.mH)
+            
+            # compute equation parameters
+            self.alpha = om_p / om_c
+            self.epsilon = 1.0 / (om_c * units.t)
+            self.kappa = om_p * units.t
+
+            if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                print(f'\nSet normalization parameters for species {species.__class__.__name__}:')
+                for key, val in self.__dict__.items():
+                    print((key + ":").ljust(25), "{:4.3e}".format(val))
+    
     @property
-    def equation_params(self) -> dict:
+    def equation_params(self) -> EquationParameters:
         return self._equation_params
     
     def setup_equation_params(self, units: Units, verbose=False):
@@ -61,23 +87,9 @@ class Species(metaclass=ABCMeta):
         * epsilon = 1 / (cyclotron frequency * time unit)
         * kappa = plasma frequency * time unit
         """
-        Z = self.charge_number
-        A = self.mass_number
-
-        con = ConstantsOfNature()
+        self._equation_params = self.EquationParameters(species=self, units=units, verbose=verbose)
         
-        # compute equation parameters
-        self._equation_params = {}
-        om_p = np.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
-        om_c = Z * con.e * units.B / (A * con.mH)
-        self._equation_params["alpha"] = om_p / om_c
-        self._equation_params["epsilon"] = 1.0 / (om_c * units.t)
-        self._equation_params["kappa"] = om_p * units.t
-
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f'\nSet normalization parameters for species {self.__class__.__name__}:')
-            for key, val in self.equation_params.items():
-                print((key + ":").ljust(25), "{:4.3e}".format(val))
+    
 
 
 class FieldSpecies(Species):
@@ -118,10 +130,13 @@ class KineticSpecies(Species):
             
         if weights_params is None:
             weights_params = WeightsParameters()
+            
+        if boundary_params is None:
+            boundary_params = BoundaryParameters()
         
-        self.boundary_params = boundary_params
         self.loading_params = loading_params
         self.weights_params = weights_params
+        self.boundary_params = boundary_params
         self.bufsize = bufsize
         
     def set_sorting_boxes(self,

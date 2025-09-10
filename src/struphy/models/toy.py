@@ -231,16 +231,13 @@ class GuidingCenter(StruphyModel):
         self.propagators = self.Propagators()
         
         # 3. assign variables to propagators
-        self.propagators.push_bxe.assign_variables(
-            ions = self.kinetic_ions.var,
-            )
-        
-        self.propagators.push_parallel.assign_variables(
-            var = self.kinetic_ions.var,
-            )
+        self.propagators.push_bxe.variables.ions = self.kinetic_ions.var
+        self.propagators.push_parallel.variables.ions = self.kinetic_ions.var
         
         # define scalars for update_scalar_quantities
-        self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
+        self.add_scalar("en_fv", compute="from_particles", variable=self.kinetic_ions.var)
+        self.add_scalar("en_fB", compute="from_particles", variable=self.kinetic_ions.var)
+        self.add_scalar("en_tot", compute="from_particles", variable=self.kinetic_ions.var)
 
     @property
     def bulk_species(self):
@@ -251,77 +248,39 @@ class GuidingCenter(StruphyModel):
         return "alfvén"
     
     def allocate_helpers(self):
-        self._tmp = np.empty(1, dtype=float) 
-
-    def update_scalar_quantities(self):
-        particles = self.kinetic_ions.var.particles
-        self._tmp[0] = particles.markers_wo_holes[:, 6].dot(
-            particles.markers_wo_holes[:, 3] ** 2
-            + particles.markers_wo_holes[:, 4] ** 2
-            + particles.markers_wo_holes[:, 5] ** 2,
-        ) / (2 * particles.Np)
-
-        self.update_scalar("en_f", self._tmp[0])
-
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # prelim
-        ions_params = self.kinetic["ions"]["params"]
-        epsilon = self.equation_params["ions"]["epsilon"]
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushGuidingCenterBxEstar] = {
-            "epsilon": epsilon,
-            "algo": ions_params["options"]["PushGuidingCenterBxEstar"]["algo"],
-        }
-
-        self._kwargs[propagators_markers.PushGuidingCenterParallel] = {
-            "epsilon": epsilon,
-            "algo": ions_params["options"]["PushGuidingCenterParallel"]["algo"],
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
-        self.add_scalar("en_fv", compute="from_particles", species="ions")
-        self.add_scalar("en_fB", compute="from_particles", species="ions")
-        self.add_scalar("en_tot", compute="from_particles", species="ions")
-        self.add_scalar("n_lost_particles", compute="from_particles", species="ions")
-
-        # MPI operations needed for scalar variables
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
         self._en_tot = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
+        particles = self.kinetic_ions.var.particles
+
         # particles' kinetic energy
+        self._en_fv[0] = particles.markers[~particles.holes, 5].dot(
+            particles.markers[~particles.holes, 3] ** 2,
+        ) / (2.0 * particles.Np)
 
-        self._en_fv[0] = self.pointer["ions"].markers[~self.pointer["ions"].holes, 5].dot(
-            self.pointer["ions"].markers[~self.pointer["ions"].holes, 3] ** 2,
-        ) / (2.0 * self.pointer["ions"].Np)
-
-        self.pointer["ions"].save_magnetic_background_energy()
+        particles.save_magnetic_background_energy()
         self._en_tot[0] = (
-            self.pointer["ions"]
-            .markers[~self.pointer["ions"].holes, 5]
-            .dot(
-                self.pointer["ions"].markers[~self.pointer["ions"].holes, 8],
+            particles.markers[~particles.holes, 5].dot(
+                particles.markers[~particles.holes, 8],
             )
-            / self.pointer["ions"].Np
+            / particles.Np
         )
 
         self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
 
-        self._n_lost_particles[0] = self.pointer["ions"].n_lost_markers
-
         self.update_scalar("en_fv", self._en_fv[0])
         self.update_scalar("en_fB", self._en_fB[0])
         self.update_scalar("en_tot", self._en_tot[0])
-        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
+
+        self._n_lost_particles[0] = particles.n_lost_markers
+        self.derham.comm.Allreduce(
+            MPI.IN_PLACE,
+            self._n_lost_particles,
+            op=MPI.SUM,
+        )
 
 
 class ShearAlfven(StruphyModel):

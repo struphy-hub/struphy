@@ -150,7 +150,6 @@ class PushVxB(Propagator):
             self._ions = new
             
     def __init__(self):
-        # variables to be updated
         self.variables = self.Variables()
     
     @dataclass
@@ -455,56 +454,54 @@ class PushGuidingCenterBxEstar(Propagator):
             self._ions = new
             
     def __init__(self):
-        # variables to be updated
         self.variables = self.Variables()
-        
-    # propagator specific options
-    OptsAlgo = Literal["discrete_gradient_2nd_order",
-                "discrete_gradient_1st_order",
-                "discrete_gradient_1st_order_newton", "explicit",]
-        
-    ## abstract methods
-    def set_options(self,
-                    algo: OptsAlgo = "discrete_gradient_1st_order",
-                    butcher: ButcherTableau = None,
-                    maxiter: int = 20,
-                    tol: float = 1e-7,
-                    mpi_sort: OptsMPIsort = "each",
-                    verbose: bool = False,
-                    ):
     
-        # checks
-        check_option(algo, self.OptsAlgo)
-        check_option(mpi_sort, OptsMPIsort)
+    @dataclass
+    class Options:
+        # specific literals
+        OptsAlgo = Literal["discrete_gradient_2nd_order",
+                            "discrete_gradient_1st_order",
+                            "discrete_gradient_1st_order_newton", 
+                            "explicit",]
+        # propagator options
+        phi: FEECVariable = None
+        evaluate_e_field: bool = False
+        b_tilde: FEECVariable = None
+        algo: OptsAlgo = "discrete_gradient_1st_order"
+        butcher: ButcherTableau = None
+        maxiter: int = 20
+        tol: float = 1e-7
+        mpi_sort: OptsMPIsort = "each"
+        verbose: bool = False
         
-        if algo == "explicit" and butcher is None:
-            butcher = ButcherTableau()
+        def __post_init__(self):
+            # checks
+            check_option(self.algo, self.OptsAlgo)
+            check_option(self.mpi_sort, OptsMPIsort)
+            
+            # defaults
+            if self.phi is None:
+                self.phi = FEECVariable(space="H1")
+            
+            if self.algo == "explicit" and self.butcher is None:
+                self.butcher = ButcherTableau()
         
-        # use setter for options
-        self.options = self.Options(self,
-                                    algo=algo, 
-                                    butcher=butcher,
-                                    maxiter=maxiter,
-                                    tol=tol,
-                                    mpi_sort=mpi_sort,
-                                    verbose=verbose,
-                                    )
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f'  {k}: {v}')
+        self._options = new
 
     def allocate(self):
-        pass
-
-    def __init__(
-        self,
-        particles: Particles5D,
-        *,
-        phi: StencilVector = None,
-        evaluate_e_field: bool = False,
-        b_tilde: BlockVector = None,
-        epsilon: float = 1.0,
-        algo: dict = None,
-    ):
-        super().__init__(particles)
-
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
         self._gradB1 = self.projected_equil.gradB1
@@ -512,14 +509,13 @@ class PushGuidingCenterBxEstar(Propagator):
         curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
-        self._b_tilde = b_tilde
-        if self._b_tilde is not None:
+        if self.options.b_tilde is not None:
             self._B_dot_b = self.derham.Vh["0"].zeros()
             self._grad_b_full = self.derham.Vh["1"].zeros()
 
             self._PB = getattr(self.basis_ops, "PB")
 
-            B_dot_b = self._PB.dot(self._b_tilde, out=self._B_dot_b)
+            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
@@ -532,20 +528,20 @@ class PushGuidingCenterBxEstar(Propagator):
             self._B_dot_b = self._absB0
 
         # allocate electric field
-        if phi is None:
-            phi = self.derham.Vh["0"].zeros()
-            self._evaluate_e_field = False
-        self._phi = phi
-        self._evaluate_e_field = evaluate_e_field
+        self.options.phi.allocate(self.derham, self.domain)
+        self._phi = self.options.phi.spline.vector
+        self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.Vh["1"].zeros()
-        self._epsilon = epsilon
+        self._epsilon = self.variables.ions.species.equation_params.epsilon
 
         # choose method
-        if "discrete_gradient" in algo["method"]:
+        particles = self.variables.ions.particles
+        
+        if "discrete_gradient" in self.options.algo:
             # place for storing data during iteration
             first_free_idx = particles.args_markers.first_free_idx
 
-            if "1st_order" in algo["method"]:
+            if "1st_order" in self.options.algo:
                 # init kernels
                 self.add_init_kernel(
                     eval_kernels_gc.driftkinetic_hamiltonian,
@@ -584,7 +580,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     ),
                 )
 
-                if "newton" in algo["method"]:
+                if "newton" in self.options.algo:
                     # eval kernels
                     self.add_eval_kernel(
                         eval_kernels_gc.driftkinetic_hamiltonian,
@@ -700,7 +696,7 @@ class PushGuidingCenterBxEstar(Propagator):
                         self._evaluate_e_field,
                     )
 
-            elif "2nd_order" in algo["method"]:
+            elif "2nd_order" in self.options.algo:
                 # init kernels (evaluate at eta^n and save)
                 self.add_init_kernel(
                     eval_kernels_gc.driftkinetic_hamiltonian,
@@ -751,11 +747,6 @@ class PushGuidingCenterBxEstar(Propagator):
                     self._evaluate_e_field,
                 )
 
-            else:
-                raise NotImplementedError(
-                    f"Chosen method {algo['method']} is not implemented.",
-                )
-
             # Pusher instance
             self._pusher = Pusher(
                 particles,
@@ -765,14 +756,17 @@ class PushGuidingCenterBxEstar(Propagator):
                 alpha_in_kernel=alpha_in_kernel,
                 init_kernels=self.init_kernels,
                 eval_kernels=self.eval_kernels,
-                maxiter=algo["maxiter"],
-                tol=algo["tol"],
-                mpi_sort=algo["mpi_sort"],
-                verbose=algo["verbose"],
+                maxiter=self.options.maxiter,
+                tol=self.options.tol,
+                mpi_sort=self.options.mpi_sort,
+                verbose=self.options.verbose,
             )
 
         else:
-            butcher = ButcherTableau(algo["method"])
+            if self.options.butcher is None:
+                butcher = ButcherTableau()
+            else:
+                butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
             from struphy.utils.arrays import xp as np
 
@@ -808,8 +802,8 @@ class PushGuidingCenterBxEstar(Propagator):
                 self.domain.args_domain,
                 alpha_in_kernel=1.0,
                 n_stages=butcher.n_stages,
-                mpi_sort=algo["mpi_sort"],
-                verbose=algo["verbose"],
+                mpi_sort=self.options.mpi_sort,
+                verbose=self.options.verbose,
             )
 
     def __call__(self, dt):
@@ -820,8 +814,8 @@ class PushGuidingCenterBxEstar(Propagator):
             e_field.update_ghost_regions()
 
         # magnetic perturbation
-        if self._b_tilde is not None:
-            B_dot_b = self._PB.dot(self._b_tilde, out=self._B_dot_b)
+        if self.options.b_tilde is not None:
+            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
@@ -834,8 +828,8 @@ class PushGuidingCenterBxEstar(Propagator):
         self._pusher(dt)
 
         # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if self.variables.ions.species.weights_params.control_variate:
+            self.variables.ions.particles.update_weights()
 
 
 class PushGuidingCenterParallel(Propagator):
@@ -879,45 +873,69 @@ class PushGuidingCenterParallel(Propagator):
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton` 
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order`  
     """
+    class Variables:
+        def __init__(self):
+            self._ions: PICVariable = None
+        
+        @property  
+        def ions(self) -> PICVariable:
+            return self._ions
+        
+        @ions.setter
+        def ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles5D"
+            self._ions = new
+            
+    def __init__(self):
+        self.variables = self.Variables()
+    
+    @dataclass
+    class Options:
+        # specific literals
+        OptsAlgo = Literal["discrete_gradient_2nd_order",
+                            "discrete_gradient_1st_order",
+                            "discrete_gradient_1st_order_newton", 
+                            "explicit",]
+        # propagator options
+        phi: FEECVariable = None
+        evaluate_e_field: bool = False
+        b_tilde: FEECVariable = None
+        algo: OptsAlgo = "discrete_gradient_1st_order"
+        butcher: ButcherTableau = None
+        maxiter: int = 20
+        tol: float = 1e-7
+        mpi_sort: OptsMPIsort = "each"
+        verbose: bool = False
+        
+        def __post_init__(self):
+            # checks
+            check_option(self.algo, self.OptsAlgo)
+            check_option(self.mpi_sort, OptsMPIsort)
+            
+            # defaults
+            if self.phi is None:
+                self.phi = FEECVariable(space="H1")
+            
+            if self.algo == "explicit" and self.butcher is None:
+                self.butcher = ButcherTableau()
+        
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f'  {k}: {v}')
+        self._options = new
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["algo"] = {
-            "method": [
-                "discrete_gradient_2nd_order",
-                "discrete_gradient_1st_order",
-                "discrete_gradient_1st_order_newton",
-                "rk4",
-                "forward_euler",
-                "heun2",
-                "rk2",
-                "heun3",
-            ],
-            "maxiter": 20,
-            "tol": 1e-7,
-            "mpi_sort": "each",
-            "verbose": False,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
-
-        return dct
-
-    def __init__(
-        self,
-        particles: Particles5D,
-        *,
-        phi: StencilVector = None,
-        evaluate_e_field: bool = False,
-        b_tilde: BlockVector = None,
-        epsilon: float = 1.0,
-        algo: dict = options(default=True)["algo"],
-    ):
-        super().__init__(particles)
-
-        self._epsilon = epsilon
-
+    def allocate(self):
         # magnetic equilibrium field
         self._gradB1 = self.projected_equil.gradB1
         b2 = self.projected_equil.b2
@@ -926,14 +944,13 @@ class PushGuidingCenterParallel(Propagator):
         curl_unit_b_dot_b0 = self.projected_equil.curl_unit_b_dot_b0
 
         # magnetic perturbation
-        self._b_tilde = b_tilde
-        if self._b_tilde is not None:
+        if self.options.b_tilde is not None:
             self._B_dot_b = self.derham.Vh["0"].zeros()
             self._grad_b_full = self.derham.Vh["1"].zeros()
 
             self._PB = getattr(self.basis_ops, "PB")
 
-            B_dot_b = self._PB.dot(self._b_tilde, out=self._B_dot_b)
+            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
@@ -946,19 +963,20 @@ class PushGuidingCenterParallel(Propagator):
             self._B_dot_b = self._absB0
 
         # allocate electric field
-        if phi is None:
-            phi = self.derham.Vh["0"].zeros()
-        self._phi = phi
-        self._evaluate_e_field = evaluate_e_field
+        self.options.phi.allocate(self.derham, domain=self.domain)
+        self._phi = self.options.phi.spline.vector
+        self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.Vh["1"].zeros()
-        self._epsilon = epsilon
+        self._epsilon = self.variables.ions.species.equation_params.epsilon
 
         # choose method
-        if "discrete_gradient" in algo["method"]:
+        particles = self.variables.ions.particles
+        
+        if "discrete_gradient" in self.options.algo:
             # place for storing data during iteration
             first_free_idx = particles.args_markers.first_free_idx
 
-            if "1st_order" in algo["method"]:
+            if "1st_order" in self.options.algo:
                 # init kernels
                 self.add_init_kernel(
                     eval_kernels_gc.driftkinetic_hamiltonian,
@@ -1001,7 +1019,7 @@ class PushGuidingCenterParallel(Propagator):
                     ),
                 )
 
-                if "newton" in algo["method"]:
+                if "newton" in self.options.algo:
                     # eval kernels
                     self.add_eval_kernel(
                         eval_kernels_gc.driftkinetic_hamiltonian,
@@ -1116,7 +1134,7 @@ class PushGuidingCenterParallel(Propagator):
                         self._evaluate_e_field,
                     )
 
-            elif "2nd_order" in algo["method"]:
+            elif "2nd_order" in self.options.algo:
                 # init kernels (evaluate at eta^n and save)
                 self.add_init_kernel(
                     eval_kernels_gc.driftkinetic_hamiltonian,
@@ -1170,11 +1188,6 @@ class PushGuidingCenterParallel(Propagator):
                     self._evaluate_e_field,
                 )
 
-            else:
-                raise NotImplementedError(
-                    f"Chosen method {algo['method']} is not implemented.",
-                )
-
             # Pusher instance
             self._pusher = Pusher(
                 particles,
@@ -1184,14 +1197,17 @@ class PushGuidingCenterParallel(Propagator):
                 alpha_in_kernel=alpha_in_kernel,
                 init_kernels=self.init_kernels,
                 eval_kernels=self.eval_kernels,
-                maxiter=algo["maxiter"],
-                tol=algo["tol"],
-                mpi_sort=algo["mpi_sort"],
-                verbose=algo["verbose"],
+                maxiter=self.options.maxiter,
+                tol=self.options.tol,
+                mpi_sort=self.options.mpi_sort,
+                verbose=self.options.verbose,
             )
 
         else:
-            butcher = ButcherTableau(algo["method"])
+            if self.options.butcher is None:
+                butcher = ButcherTableau()
+            else:
+                butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
             from struphy.utils.arrays import xp as np
 
@@ -1230,8 +1246,8 @@ class PushGuidingCenterParallel(Propagator):
                 self.domain.args_domain,
                 alpha_in_kernel=1.0,
                 n_stages=butcher.n_stages,
-                mpi_sort=algo["mpi_sort"],
-                verbose=algo["verbose"],
+                mpi_sort=self.options.mpi_sort,
+                verbose=self.options.verbose,
             )
 
     def __call__(self, dt):
@@ -1242,8 +1258,8 @@ class PushGuidingCenterParallel(Propagator):
             e_field.update_ghost_regions()
 
         # magnetic perturbation
-        if self._b_tilde is not None:
-            B_dot_b = self._PB.dot(self._b_tilde, out=self._B_dot_b)
+        if self.options.b_tilde is not None:
+            B_dot_b = self._PB.dot(self.options.b_tilde.spline.vector, out=self._B_dot_b)
             B_dot_b.update_ghost_regions()
 
             grad_b_full = self.derham.grad.dot(B_dot_b, out=self._grad_b_full)
@@ -1256,8 +1272,8 @@ class PushGuidingCenterParallel(Propagator):
         self._pusher(dt)
 
         # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if self.variables.ions.species.weights_params.control_variate:
+            self.variables.ions.particles.update_weights()
 
 
 class PushDeterministicDiffusion(Propagator):

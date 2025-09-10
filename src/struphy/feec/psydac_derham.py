@@ -1414,6 +1414,9 @@ class SplineFunction:
         
     domain : Domain
         Mapping for pullback/transform of initial condition.
+        
+    equil : FluidEquilibrium
+        Fluid background used for inital condition.
     """
 
     def __init__(

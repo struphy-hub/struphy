@@ -302,20 +302,21 @@ class Particles5D(Particles):
     **kwargs : dict
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
-
     @classmethod
-    def default_bckgr_params(cls):
-        return {"GyroMaxwellian2D": {}}
+    def default_background(cls):
+        return maxwellians.GyroMaxwellian2D()
 
     def __init__(
         self,
         projected_equil: ProjectedFluidEquilibriumWithB,
         **kwargs,
     ):
+        assert projected_equil is not None, "Particles5D needs a projected MHD equilibrium."
+
         kwargs["type"] = "full_f"
 
-        if "bckgr_params" not in kwargs:
-            kwargs["bckgr_params"] = self.default_bckgr_params()
+        # if "bckgr_params" not in kwargs:
+        #     kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 3)
@@ -410,7 +411,11 @@ class Particles5D(Particles):
         }
 
         self._svol = maxwellians.GyroMaxwellian2D(
-            maxw_params=maxw_params,
+            n = (1.0, None),
+            u_para = (self.loading_params.moments[0], None),
+            u_perp = (self.loading_params.moments[1], None),
+            vth_para = (self.loading_params.moments[2], None),
+            vth_perp = (self.loading_params.moments[3], None),
             volume_form=True,
             equil=self._magn_bckgr,
         )
