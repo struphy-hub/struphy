@@ -162,99 +162,99 @@ def plot_region(region_name, groups_include=["*"], groups_skip=[]):
 
 
 def plot_gantt_chart_plotly(
-    paths,
-    output_path,
-    groups_include=["*"],
-    groups_skip=[],
+    path: str,
+    output_path: str,
+    groups_include: list = ["*"],
+    groups_skip: list = [],
+    show: bool = False,
 ):
-    if isinstance(paths, str):
-        paths = [paths]
+    # print(f'Parsing {path}...')
+    with open(path, "rb") as file:
+        profiling_data = pickle.load(file)
 
-    for path in paths:
-        with open(path, "rb") as file:
-            profiling_data = pickle.load(file)
+    region_start_times = {}
+    for rank_data in profiling_data["rank_data"].values():
+        for region_name, info in rank_data.items():
+            first_start_time = np.min(info["start_times"])
+            if region_name not in region_start_times or first_start_time < region_start_times[region_name]:
+                region_start_times[region_name] = first_start_time
 
-        region_start_times = {}
-        for rank_data in profiling_data["rank_data"].values():
-            for region_name, info in rank_data.items():
-                first_start_time = np.min(info["start_times"])
-                if region_name not in region_start_times or first_start_time < region_start_times[region_name]:
-                    region_start_times[region_name] = first_start_time
+    region_names = sorted(region_start_times, key=region_start_times.get)
+    rank_names = list(profiling_data["rank_data"].keys())
+    num_ranks = len(rank_names)
 
-        region_names = sorted(region_start_times, key=region_start_times.get)
-        rank_names = list(profiling_data["rank_data"].keys())
-        num_ranks = len(rank_names)
+    bars = []
 
-        bars = []
-
-        for region_idx, region_name in enumerate(region_names):
-            if not plot_region(region_name, groups_include, groups_skip):
-                continue
-
-            for rank_idx, (rank_name, rank_data) in enumerate(profiling_data["rank_data"].items()):
-                if region_name in rank_data:
-                    info = rank_data[region_name]
-                    start_times = info["start_times"]
-                    end_times = info["end_times"]
-                    durations = end_times - start_times
-
-                    for i in range(len(start_times)):
-                        bars.append(
-                            dict(
-                                Task=region_name,
-                                Rank=rank_name,
-                                Start=start_times[i],
-                                Finish=end_times[i],
-                                Duration=durations[i],
-                            )
-                        )
-
-        if not bars:
-            print("No regions matched the filter.")
+    for region_idx, region_name in enumerate(region_names):
+        if not plot_region(region_name, groups_include, groups_skip):
             continue
 
-        # Create a color map per rank
-        rank_color_map = {rank: f"hsl({360 * i / max(1, num_ranks)}, 70%, 50%)" for i, rank in enumerate(rank_names)}
+        for rank_idx, (rank_name, rank_data) in enumerate(profiling_data["rank_data"].items()):
+            if region_name in rank_data:
+                info = rank_data[region_name]
+                start_times = info["start_times"]
+                end_times = info["end_times"]
+                durations = end_times - start_times
 
-        fig = go.Figure()
+                for i in range(len(start_times)):
+                    bars.append(
+                        dict(
+                            Task=region_name,
+                            Rank=rank_name,
+                            Start=start_times[i],
+                            Finish=end_times[i],
+                            Duration=durations[i],
+                        )
+                    )
 
-        for bar in bars:
-            fig.add_trace(
-                go.Bar(
-                    x=[bar["Duration"]],
-                    y=[bar["Task"]],
-                    base=[bar["Start"]],
-                    orientation="h",
-                    name=bar["Rank"],
-                    marker_color=rank_color_map[bar["Rank"]],
-                    hovertemplate=f"Rank: {bar['Rank']}<br>Start: {bar['Start']:.3f}s<br>Duration: {bar['Duration']:.3f}s",
-                )
+    if len(bars) == 0:
+        print("No regions matched the filter.")
+        return
+
+    # Create a color map per rank
+    rank_color_map = {rank: f"hsl({360 * i / max(1, num_ranks)}, 70%, 50%)" for i, rank in enumerate(rank_names)}
+
+    # Create plotly figure
+    fig = go.Figure()
+    for bar in bars:
+        fig.add_trace(
+            go.Bar(
+                x=[bar["Duration"]],
+                y=[bar["Task"]],
+                base=[bar["Start"]],
+                orientation="h",
+                name=bar["Rank"],
+                marker_color=rank_color_map[bar["Rank"]],
+                hovertemplate=f"Rank: {bar['Rank']}<br>Start: {bar['Start']:.3f}s<br>Duration: {bar['Duration']:.3f}s",
             )
-
-        fig.update_layout(
-            barmode="stack",
-            # title="Gantt Chart of Profiling Regions",
-            xaxis_title="Elapsed Time (s)",
-            yaxis_title="Profiling Regions",
-            height=600 + 20 * len(region_names),
-            # legend_title="MPI Ranks",
-            margin=dict(t=0, b=0, l=0, r=0),
-            showlegend=False,
         )
 
-        mply.format_axes(fig)
-        mply.format_font(fig)
-        mply.format_grid(fig)
-        mply.format_size(fig, width=1600, height=800)
+    fig.update_layout(
+        barmode="stack",
+        # title="Gantt Chart of Profiling Regions",
+        xaxis_title="Elapsed Time (s)",
+        yaxis_title="Profiling Regions",
+        height=600 + 20 * len(region_names),
+        # legend_title="MPI Ranks",
+        margin=dict(t=0, b=0, l=0, r=0),
+        showlegend=False,
+    )
 
-        # Save the plot as HTML
-        figure_path = os.path.join(output_path, "gantt_chart_plotly.html")
-        figure_path_pdf = os.path.join(output_path, "gantt_chart_plotly.pdf")
+    mply.format_axes(fig)
+    mply.format_font(fig)
+    mply.format_grid(fig)
+    mply.format_size(fig, width=1600, height=800)
 
-        fig.write_html(figure_path)
-        # fig.write_image(figure_path_pdf)
-        print(f"Saved interactive gantt chart to:\n{figure_path}\n{figure_path_pdf}")
-        exit()
+    # Save the plot as HTML
+    figure_path = os.path.join(output_path, "gantt_chart_plotly.html")
+    figure_path_pdf = os.path.join(output_path, "gantt_chart_plotly.pdf")
+
+    if show:
+        fig.show()
+    fig.write_html(figure_path)
+
+    # fig.write_image(figure_path_pdf)
+    print(f"Saved interactive gantt chart to: {figure_path}")
 
 
 def plot_gantt_chart(
