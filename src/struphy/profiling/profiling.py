@@ -270,9 +270,9 @@ class ProfileRegion:
         self._region_name = self.config.simulation_label + region_name
         self._time_trace = time_trace
         self._ncalls = 0
-        self._start_times = np.empty(10, dtype=float)
-        self._end_times = np.empty(10, dtype=float)
-        self._durations = np.empty(10, dtype=float)
+        self._start_times = np.empty(1, dtype=float)
+        self._end_times = np.empty(1, dtype=float)
+        self._durations = np.empty(1, dtype=float)
         self._started = False
 
     def __enter__(self):
