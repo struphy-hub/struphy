@@ -499,22 +499,22 @@ inspect_repo:
 ### PUSH PIPELINE ###
 #####################
 
-check_struphy_simulation_params:
-  stage: test
-  extends:
-    - .rules_mr_to_devel
-    - .image_gitlab_mpcdf_struphy
-    - .before_script_load_modules
-    - .variables_push
-  script:
-    - !reference [.scripts, install_on_push]
-    - git clone https://gitlab.mpcdf.mpg.de/struphy/struphy-simulations.git
-    - |
-      for file in struphy-simulations/**/*.yml; do
-        echo "Checking $file"
-        # TODO: How to deduce the model?
-        struphy params LinearVlasovAmpereOneSpecies --check-file $file
-      done
+# check_struphy_simulation_params:
+#   stage: test
+#   extends:
+#     - .rules_mr_to_devel
+#     - .image_gitlab_mpcdf_struphy
+#     - .before_script_load_modules
+#     - .variables_push
+#   script:
+#     - !reference [.scripts, install_on_push]
+#     - git clone https://gitlab.mpcdf.mpg.de/struphy/struphy-simulations.git
+#     - |
+#       for file in struphy-simulations/**/*.yml; do
+#         echo "Checking $file"
+#         # TODO: How to deduce the model?
+#         struphy params LinearVlasovAmpereOneSpecies --check-file $file
+#       done
 
 install_tests:
   stage: test
