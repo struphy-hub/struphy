@@ -419,6 +419,7 @@ stages:
     - struphy params VlasovMaxwellOneSpecies -y
     - ls -1a
     - mv params_VlasovMaxwellOneSpecies.yml test.yml
+    - struphy params VlasovMaxwellOneSpecies --check-file runs/io/inp/params_Vlasov.yml
     - struphy run -i test.yml -o my_first_sim
     - ls my_first_sim/
     - struphy pproc my_first_sim
