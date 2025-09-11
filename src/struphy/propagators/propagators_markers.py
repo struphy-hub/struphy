@@ -124,9 +124,9 @@ class PushVxB(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \kappa \, \mathbf v_p(t) \times (\mathbf B + \mathbf B_{\text{add}}) \,,
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \frac{1}{\varepsilon} \, \mathbf v_p(t) \times (\mathbf B + \mathbf B_{\text{add}}) \,,
 
-    where :math:`\kappa \in \mathbb R` is a constant scaling factor, and for rotation vector :math:`\mathbf B` and optional, additional fixed rotation
+    where :math:`\varepsilon = 1/(\hat\Omega_c \hat t)` is a constant scaling factor, and for rotation vector :math:`\mathbf B` and optional, additional fixed rotation
     vector :math:`\mathbf B_{\text{add}}`, both given as a 2-form:
 
     .. math::
@@ -158,7 +158,6 @@ class PushVxB(Propagator):
         OptsAlgo = Literal["analytic", "implicit"]
         # propagator options
         algo: OptsAlgo = "analytic"
-        kappa: float = 1.0
         b2_var: FEECVariable = None
         
         def __post_init__(self):
@@ -181,6 +180,9 @@ class PushVxB(Propagator):
         self._options = new
 
     def allocate(self):
+        # scaling factor
+        self._epsilon = self.variables.ions.species.equation_params.epsilon
+        
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
         if self.projected_equil is not None:
             self._b2 = self.projected_equil.b2
@@ -234,9 +236,10 @@ class PushVxB(Propagator):
         # extract coefficients to tensor product space
         b_full: BlockVector = self._E2T.dot(tmp, out=self._b_full)
         b_full.update_ghost_regions()
+        b_full /= self._epsilon
 
         # call pusher kernel
-        self._pusher(self.options.kappa * dt)
+        self._pusher(dt)
 
         # update_weights
         if self.variables.ions.particles.control_variate:
@@ -502,6 +505,9 @@ class PushGuidingCenterBxEstar(Propagator):
         self._options = new
 
     def allocate(self):
+        # scaling factor
+        self._epsilon = self.variables.ions.species.equation_params.epsilon
+        
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
         self._gradB1 = self.projected_equil.gradB1
@@ -532,7 +538,6 @@ class PushGuidingCenterBxEstar(Propagator):
         self._phi = self.options.phi.spline.vector
         self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.Vh["1"].zeros()
-        self._epsilon = self.variables.ions.species.equation_params.epsilon
 
         # choose method
         particles = self.variables.ions.particles
@@ -936,6 +941,9 @@ class PushGuidingCenterParallel(Propagator):
         self._options = new
 
     def allocate(self):
+        # scaling factor
+        self._epsilon = self.variables.ions.species.equation_params.epsilon
+        
         # magnetic equilibrium field
         self._gradB1 = self.projected_equil.gradB1
         b2 = self.projected_equil.b2
@@ -967,7 +975,6 @@ class PushGuidingCenterParallel(Propagator):
         self._phi = self.options.phi.spline.vector
         self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.Vh["1"].zeros()
-        self._epsilon = self.variables.ions.species.equation_params.epsilon
 
         # choose method
         particles = self.variables.ions.particles

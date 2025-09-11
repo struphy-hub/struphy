@@ -2669,63 +2669,84 @@ class ImplicitDiffusion(Propagator):
     solver : dict
         Parameters for the iterative solver (see ``__init__`` for details).
     """
+    class Variables:
+        def __init__(self):
+            self._phi: FEECVariable = None
+        
+        @property  
+        def phi(self) -> FEECVariable:
+            return self._phi
+        
+        @phi.setter
+        def phi(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "H1"
+            self._phi = new
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["model"] = {
-            "sigma_1": 1.0,
-            "sigma_2": 0.0,
-            "sigma_3": 1.0,
-            "stab_mat": ["M0", "M0ad", "Id"],
-            "diffusion_mat": ["M1", "M1perp"],
-        }
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
+    def __init__(self):
+        self.variables = self.Variables()
+    
+    @dataclass
+    class Options:
+        # specific literals
+        OptsStabMat = Literal["M0", "M0ad", "Id"]
+        OptsDiffusionMat = Literal["M1", "M1perp"]
+        # propagator options
+        sigma_1: float = 1.0
+        sigma_2: float = 0.0
+        sigma_3: float = 1.0
+        divide_by_dt: bool = False
+        stab_mat: OptsStabMat = "M0"
+        diffusion_mat: OptsDiffusionMat = "M1"
+        rho: StencilVector | tuple | list | Callable = None
+        x0: StencilVector = None
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        
+        def __post_init__(self):
+            # checks
+            check_option(self.stab_mat, self.OptsStabMat)
+            check_option(self.diffusion_mat, self.OptsDiffusionMat)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond) 
+            
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+                
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f'  {k}: {v}')
+        self._options = new
 
-        return dct
-
-    def __init__(
-        self,
-        phi: StencilVector,
-        *,
-        sigma_1: float = options()["model"]["sigma_1"],
-        sigma_2: float = options()["model"]["sigma_2"],
-        sigma_3: float = options()["model"]["sigma_3"],
-        divide_by_dt: bool = False,
-        stab_mat: str = options(default=True)["model"]["stab_mat"],
-        diffusion_mat: str = options(default=True)["model"]["diffusion_mat"],
-        rho: StencilVector | tuple | list | Callable = None,
-        x0: StencilVector = None,
-        solver: dict = options(default=True)["solver"],
-    ):
-        assert phi.space == self.derham.Vh["0"]
-
-        super().__init__(phi)
-
+    def allocate(self):
         # always stabilize
-        if np.abs(sigma_1) < 1e-14:
-            sigma_1 = 1e-14
-            print(f"Stabilizing Poisson solve with {sigma_1 = }")
+        if np.abs(self.options.sigma_1) < 1e-14:
+            self.options.sigma_1 = 1e-14
+            print(f"Stabilizing Poisson solve with {self.options.sigma_1 = }")
 
         # model parameters
-        self._sigma_1 = sigma_1
-        self._sigma_2 = sigma_2
-        self._sigma_3 = sigma_3
-        self._divide_by_dt = divide_by_dt
+        self._sigma_1 = self.options.sigma_1
+        self._sigma_2 = self.options.sigma_2
+        self._sigma_3 = self.options.sigma_3
+        self._divide_by_dt = self.options.divide_by_dt
+
+        phi = self.variables.phi.spline.vector
 
         # collect rhs
+        rho = self.options.rho
+        
         if rho is None:
             self._rho = [phi.space.zeros()]
         else:
@@ -2750,18 +2771,19 @@ class ImplicitDiffusion(Propagator):
             self._rho = rho
 
         # initial guess and solver params
-        self._x0 = x0
-        self._info = solver["info"]
+        self._x0 = self.options.x0
+        self._info = self.options.solver_params.info
 
-        if stab_mat == "Id":
+        if self.options.stab_mat == "Id":
             stab_mat = IdentityOperator(phi.space)
         else:
-            stab_mat = getattr(self.mass_ops, stab_mat)
+            stab_mat = getattr(self.mass_ops, self.options.stab_mat)
 
-        print(f"{diffusion_mat = }")
-        if isinstance(diffusion_mat, str):
-            diffusion_mat = getattr(self.mass_ops, diffusion_mat)
+        print(f"{self.options.diffusion_mat = }")
+        if isinstance(self.options.diffusion_mat, str):
+            diffusion_mat = getattr(self.mass_ops, self.options.diffusion_mat)
         else:
+            diffusion_mat = self.options.diffusion_mat
             assert isinstance(diffusion_mat, WeightedMassOperator)
             assert diffusion_mat.domain == self.derham.grad.codomain
             assert diffusion_mat.codomain == self.derham.grad.codomain
@@ -2771,7 +2793,7 @@ class ImplicitDiffusion(Propagator):
         self._diffusion_op = self.derham.grad.T @ diffusion_mat @ self.derham.grad
 
         # preconditioner and solver for Ax=b
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
             # TODO: waiting for multigrid preconditioner
@@ -2780,13 +2802,13 @@ class ImplicitDiffusion(Propagator):
         # solver just with A_2, but will be set during call with dt
         self._solver = inverse(
             self._diffusion_op,
-            solver["type"][0],
+            self.options.solver,
             pc=pc,
             x0=self.x0,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-            recycle=solver["recycle"],
+            tol=self.options.solver_params.tol,
+            maxiter=self.options.solver_params.maxiter,
+            verbose=self.options.solver_params.verbose,
+            recycle=self.options.solver_params.recycle,
         )
 
         # allocate memory for solution
@@ -2865,7 +2887,7 @@ class ImplicitDiffusion(Propagator):
             sig_3 = self._sigma_3
 
         # compute rhs
-        phin = self.feec_vars[0]
+        phin = self.variables.phi.spline.vector
         rhs = self._stab_mat.dot(phin, out=self._rhs)
         rhs *= sig_2
 
@@ -2889,7 +2911,7 @@ class ImplicitDiffusion(Propagator):
         if self._info:
             print(info)
 
-        self.feec_vars_update(out)
+        self.update_feec_variables(phi=out)
 
 
 class Poisson(ImplicitDiffusion):
@@ -2936,52 +2958,51 @@ class Poisson(ImplicitDiffusion):
     solver : dict
         Parameters for the iterative solver (see ``__init__`` for details).
     """
-
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["stabilization"] = {
-            "stab_eps": 0.0,
-            "stab_mat": ["Id", "M0", "M0ad"],
-        }
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
-
-        return dct
-
-    def __init__(
-        self,
-        phi: StencilVector,
-        *,
-        stab_eps: float = 0.0,
-        stab_mat: str = options(default=True)["stabilization"]["stab_mat"],
-        rho: StencilVector | tuple | list | Callable = None,
-        x0: StencilVector = None,
-        solver: dict = options(default=True)["solver"],
-    ):
-        super().__init__(
-            phi,
-            sigma_1=stab_eps,
-            sigma_2=0.0,
-            sigma_3=1.0,
-            divide_by_dt=False,
-            stab_mat=stab_mat,
-            diffusion_mat="M1",
-            rho=rho,
-            x0=x0,
-            solver=solver,
-        )
+    @dataclass
+    class Options:
+        # specific literals
+        OptsStabMat = Literal["M0", "M0ad", "Id"]
+        # propagator options
+        stab_eps: float = 0.0
+        stab_mat: OptsStabMat = "M0"
+        rho: StencilVector | tuple | list | Callable = None
+        x0: StencilVector = None
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        
+        def __post_init__(self):
+            # checks
+            check_option(self.stab_mat, self.OptsStabMat)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond) 
+            
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+                
+            # Poisson solve (-> set some params of parent class)
+            self.sigma_1 = self.stab_eps
+            self.sigma_2 = 0.0
+            self.sigma_3 = 1.0
+            self.divide_by_dt = False
+            self.diffusion_mat = "M1"
+                
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+    
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                if "sigma" not in k and k not in ("divide_by_dt", "diffusion_mat"):
+                    print(f'  {k}: {v}')
+        self._options = new
 
 
 class VariationalMomentumAdvection(Propagator):

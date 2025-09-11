@@ -1,5 +1,4 @@
 import numpy as np
-from dataclasses import dataclass
 from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
@@ -40,8 +39,6 @@ class LinearMHD(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
     2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
-
-    :ref:`Model info <add_model>`:
     """
     
     ## species
@@ -59,7 +56,7 @@ class LinearMHD(StruphyModel):
             self.init_variables()
         
     ## propagators
-    
+
     class Propagators:
         def __init__(self):
             self.shear_alf = propagators_fields.ShearAlfven()
@@ -71,7 +68,7 @@ class LinearMHD(StruphyModel):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
             
-        # 1. instantiate all species, variables
+        # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.mhd = self.MHD()
 
