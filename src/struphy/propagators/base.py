@@ -98,18 +98,18 @@ class Propagator(metaclass=ABCMeta):
         -------
         diffs : dict
             max_diff for all feec variables.
-        """
+        """        
         diffs = {}
-        assert len(new_coeffs) == len(self.variables.__dict__), f"Coefficients must be passed in the following order: {self.variables}, but is {new_coeffs}."
-        for ((k, new), (kp, vp)) in zip(new_coeffs.items(), self.variables.__dict__.items()):
-            assert k in kp, f"Variable name '{k}' not in '{kp}'; variables must be passed in the order {self.variables.__dict__}."
+        for var, new in new_coeffs.items():
+            assert "_" + var in self.variables.__dict__, f"{var} not in {self.variables.__dict__}."
             assert isinstance(new, (StencilVector, BlockVector))
-            assert isinstance(vp, FEECVariable)
-            old = vp.spline.vector
+            old_var = getattr(self.variables, var)
+            assert isinstance(old_var, FEECVariable)
+            old = old_var.spline.vector
             assert new.space == old.space
  
             # calculate maximum of difference abs(new - old)
-            diffs[k] = np.max(np.abs(new.toarray() - old.toarray()))
+            diffs[var] = np.max(np.abs(new.toarray() - old.toarray()))
 
             # copy new coeffs into old
             new.copy(out=old)

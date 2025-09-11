@@ -190,9 +190,7 @@ def run(
         grid = grids.TensorProductGrid(Nel=Nel)
     
     # allocate derham-related objects
-    if derham_opts is not None:
-        model.allocate_feec(grid, derham_opts)
-    else:
+    if derham_opts is None:
         p = (3, 3, 3)
         spl_kind = (False, False, False)
         print(f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium.")
