@@ -252,7 +252,7 @@ def assemble_dofs_for_weighted_basisfuns_2d(
         cut1 = p1
     else:
         cut1 = p1_out
-        
+
     if dim2_out <= dim2_in:
         cut2 = p2
     else:
@@ -475,7 +475,7 @@ def assemble_dofs_for_weighted_basisfuns_3d(
         cut2 = p2
     else:
         cut2 = p2_out
-        
+
     if dim3_out <= dim3_in:
         cut3 = p3
     else:
