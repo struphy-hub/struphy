@@ -3,7 +3,7 @@
 Tutorials
 =========
 
-All notebooks are available at https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/doc/tutorials/.
+All notebooks are available at https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/tutorials/.
 
 The objects used in these notebooks are the same as in the available :ref:`models`.
 They can thus be used for MPI parallel runs in HPC applications.
@@ -11,6 +11,6 @@ They can thus be used for MPI parallel runs in HPC applications.
 .. toctree::
    :maxdepth: 1
    :caption: Notebook tutorials:
+   :glob:
 
-   ../tutorials/tutorial_01_parameter_files
-   ../tutorials/tutorial_02_test_particles
+   ../source/tutorials/*
