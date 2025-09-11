@@ -6,8 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import plotly.io as pio
 
-pio.kaleido.scope.mathjax = None
-
+# pio.kaleido.scope.mathjax = None
 import struphy.post_processing.likwid.maxplotlylib as mply
 
 
@@ -253,8 +252,9 @@ def plot_gantt_chart_plotly(
         figure_path_pdf = os.path.join(output_path, "gantt_chart_plotly.pdf")
 
         fig.write_html(figure_path)
-        fig.write_image(figure_path_pdf)
+        # fig.write_image(figure_path_pdf)
         print(f"Saved interactive gantt chart to:\n{figure_path}\n{figure_path_pdf}")
+        exit()
 
 
 def plot_gantt_chart(

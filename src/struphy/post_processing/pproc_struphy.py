@@ -61,36 +61,41 @@ def main(
         shutil.rmtree(path_pproc)
         os.mkdir(path_pproc)
 
-    path_time_trace = os.path.join(path, "profiling_time_trace.pkl")
-    if os.path.isfile(path_time_trace):
-        # plot_time_vs_duration(path_time_trace, output_path=path_pproc)
-        # plot_gantt_chart(path_time_trace, output_path=path_pproc)
-        import inspect
+    if len(time_trace) > 0:
+        print(f"Plotting time trace for the following regions: {', '.join(time_trace)}")
+        path_time_trace = os.path.join(path, "profiling_time_trace.pkl")
+        if os.path.isfile(path_time_trace):
+            # plot_time_vs_duration(path_time_trace, output_path=path_pproc)
+            # plot_gantt_chart(path_time_trace, output_path=path_pproc)
+            import inspect
 
-        import struphy.propagators.propagators_coupling as propagators_coupling
-        import struphy.propagators.propagators_fields as propagators_fields
-        import struphy.propagators.propagators_markers as propagators_markers
-        from struphy.post_processing.likwid.plot_time_traces import (
-            plot_gantt_chart,
-            plot_gantt_chart_plotly,
-            plot_time_vs_duration,
-        )
+            import struphy.propagators.propagators_coupling as propagators_coupling
+            import struphy.propagators.propagators_fields as propagators_fields
+            import struphy.propagators.propagators_markers as propagators_markers
+            from struphy.post_processing.likwid.plot_time_traces import (
+                plot_gantt_chart,
+                plot_gantt_chart_plotly,
+                plot_time_vs_duration,
+            )
 
-        propagators = []
-        for module in [propagators_coupling, propagators_markers, propagators_fields]:
-            propagators += [
-                name for name, obj in inspect.getmembers(module, inspect.isclass) if obj.__module__ == module.__name__
-            ]
-        # print(f"{propagators = }")
-        groups_include = time_trace
+            propagators = []
+            for module in [propagators_coupling, propagators_markers, propagators_fields]:
+                propagators += [
+                    name
+                    for name, obj in inspect.getmembers(module, inspect.isclass)
+                    if obj.__module__ == module.__name__
+                ]
+            # print(f"{propagators = }")
+            groups_include = time_trace
 
-        if "kernels" in groups_include:
-            groups_include += ["kernel:*"]
-        if "propagators" in groups_include:
-            groups_include += propagators
-        # print(f"{groups_include = }")
-        plot_gantt_chart_plotly(path_time_trace, output_path=path_pproc, groups_include=groups_include)
-
+            if "kernels" in groups_include:
+                groups_include += ["kernel:*"]
+            if "propagators" in groups_include:
+                groups_include += propagators
+            # print(f"{groups_include = }")
+            plot_gantt_chart_plotly(path_time_trace, output_path=path_pproc, groups_include=groups_include)
+        else:
+            raise FileNotFoundError(f"No profiling time trace found at {path_time_trace}")
     # check for fields and kinetic data in hdf5 file that need post processing
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
 

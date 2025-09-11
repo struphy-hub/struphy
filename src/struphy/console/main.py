@@ -904,10 +904,10 @@ def add_parser_pproc(subparsers, out_folders):
 
     parser_pproc.add_argument(
         "--time-trace",
-        help="whether to plot the time traces. List of regions to include in time trace plot.",
+        help="List of regions to include in time trace plot\n(options: model.integrate, propagators, any propagator name).",
         type=str,
         nargs="+",
-        default=["model.integrate", "propagators"],
+        default=[],
     )
 
 
