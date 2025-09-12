@@ -11,6 +11,7 @@ import shutil
 import pickle
 import h5py
 import copy
+from line_profiler import profile
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.io.output_handling import DataContainer
@@ -39,6 +40,7 @@ from struphy.post_processing.post_processing_tools import (post_process_markers,
 from struphy.post_processing.orbits import orbits_tools
     
 
+@profile
 def run(
     model: StruphyModel,
     *,

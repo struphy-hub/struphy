@@ -5,6 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal, get_args
 import copy
+from line_profiler import profile
 
 import numpy as np
 import scipy as sc
@@ -130,6 +131,7 @@ class Maxwell(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
         # obtain needed matrices
         M1 = self.mass_ops.M1
@@ -202,6 +204,7 @@ class Maxwell(Propagator):
         self._e_tmp2 = self.variables.e.spline.vector.space.zeros()
         self._b_tmp1 = self.variables.b.spline.vector.space.zeros()
 
+    @profile
     def __call__(self, dt):
         # current FE coeffs
         en = self.variables.e.spline.vector
@@ -542,6 +545,7 @@ class ShearAlfven(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
         u_space = self.options.u_space
         
@@ -620,6 +624,7 @@ class ShearAlfven(Propagator):
         self._u_tmp2 = self.variables.u.spline.vector.space.zeros()
         self._b_tmp1 = self.variables.b.spline.vector.space.zeros()
 
+    @profile
     def __call__(self, dt):
         # current FE coeffs
         un = self.variables.u.spline.vector
@@ -1007,6 +1012,7 @@ class Magnetosonic(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
         u_space = self.options.u_space
 
@@ -1072,6 +1078,7 @@ class Magnetosonic(Propagator):
         self._byn1 = self._B.codomain.zeros()
         self._byn2 = self._B.codomain.zeros()
 
+    @profile
     def __call__(self, dt):
         # current FE coeffs
         nn = self.variables.n.spline.vector
@@ -2723,6 +2730,7 @@ class ImplicitDiffusion(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
         # always stabilize
         if np.abs(self.options.sigma_1) < 1e-14:
@@ -2867,6 +2875,7 @@ class ImplicitDiffusion(Propagator):
         else:
             self._x0[:] = value[:]
 
+    @profile
     def __call__(self, dt):
         # set parameters
         if self._divide_by_dt:

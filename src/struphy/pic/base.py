@@ -2,6 +2,7 @@ import copy
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
+from line_profiler import profile
 
 import h5py
 import numpy as np
@@ -1546,6 +1547,7 @@ class Particles(metaclass=ABCMeta):
             self.mpi_sort_markers()
             self.do_sort()
 
+    @profile
     def mpi_sort_markers(
         self,
         apply_bc: bool = True,
@@ -1706,6 +1708,7 @@ class Particles(metaclass=ABCMeta):
         else:
             self.weights = self.weights0
 
+    @profile
     def update_weights(self):
         """
         Applies the control variate method, i.e. updates the time-dependent marker weights
@@ -1869,6 +1872,7 @@ class Particles(metaclass=ABCMeta):
 
         return outside_inds
 
+    @profile
     def apply_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -2381,6 +2385,7 @@ class Particles(metaclass=ABCMeta):
         self._argsort_array[:] = self._markers[:, sorting_axis].argsort()
         self._markers[:, :] = self._markers[self._argsort_array]
 
+    @profile
     def put_particles_in_boxes(self):
         """Assign the right box to the particles and the list of the particles to each box.
         If sorting_boxes was instantiated with an MPI comm, then the particles in the
@@ -2408,6 +2413,7 @@ class Particles(metaclass=ABCMeta):
             )
             self.update_ghost_particles()
 
+    @profile
     def do_sort(self):
         """Assign the particles to boxes and then sort them."""
         nx = self._sorting_boxes.nx
@@ -2789,6 +2795,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
             self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
+    @profile
     def communicate_boxes(self, verbose=False):
         if verbose:
             n_valid = np.count_nonzero(self.valid_mks)

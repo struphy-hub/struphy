@@ -6,6 +6,7 @@ from typing import Literal, get_args
 import copy
 from dataclasses import dataclass
 from mpi4py import MPI
+from line_profiler import profile
 
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -84,6 +85,7 @@ class PushEta(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
         # get kernel
         kernel = pusher_kernels.push_eta_stage
@@ -112,6 +114,7 @@ class PushEta(Propagator):
             mpi_sort="each",
         )
 
+    @profile
     def __call__(self, dt):
         self._pusher(dt)
 
@@ -180,6 +183,7 @@ class PushVxB(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
@@ -228,6 +232,7 @@ class PushVxB(Propagator):
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T: LinearOperator = self.derham.extraction_ops["2"].transpose()
 
+    @profile
     def __call__(self, dt):
         # sum up total magnetic field
         tmp = self._b2.copy(out=self._tmp)
@@ -505,6 +510,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
@@ -812,6 +818,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 verbose=self.options.verbose,
             )
 
+    @profile
     def __call__(self, dt):
         # electric field
         # TODO: add out to __neg__ of StencilVector
@@ -941,6 +948,7 @@ class PushGuidingCenterParallel(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
@@ -1258,6 +1266,7 @@ class PushGuidingCenterParallel(Propagator):
                 verbose=self.options.verbose,
             )
 
+    @profile
     def __call__(self, dt):
         # electric field
         # TODO: add out to __neg__ of StencilVector
