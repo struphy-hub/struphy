@@ -13,7 +13,9 @@ from struphy.physics.physics import ConstantsOfNature
 from struphy.models.variables import Variable
 from struphy.pic.utilities import (LoadingParameters, 
                                    WeightsParameters, 
-                                   BoundaryParameters,)
+                                   BoundaryParameters,
+                                   BinningPlot,
+                                   )
 
 
 class Species(metaclass=ABCMeta):
@@ -191,12 +193,12 @@ class KineticSpecies(Species):
         
     def set_save_data(self,
                       n_markers: int | float = 3,
-                      f_binned: dict = None,
+                      binning_plots: tuple[BinningPlot] = (),
                       n_sph: dict = None,
                       ):
         """Saving marker orits, binned data and kernel density reconstructions."""
         self.n_markers = n_markers
-        self.f_binned = f_binned
+        self.binning_plots = binning_plots
         self.n_sph = n_sph  
 
 
