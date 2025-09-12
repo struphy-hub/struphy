@@ -1,13 +1,13 @@
+from dataclasses import dataclass
 
 import numpy as np
-from dataclasses import dataclass
 from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
-from struphy.propagators.base import Propagator
+from struphy.models.species import FieldSpecies, FluidSpecies, KineticSpecies
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-from struphy.models.species import KineticSpecies, FluidSpecies, FieldSpecies
-from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
+from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -35,22 +35,22 @@ class Maxwell(StruphyModel):
     """
     
     ## species
-    
+
     class EMFields(FieldSpecies):
         def __init__(self):
             self.e_field = FEECVariable(space="Hcurl")
             self.b_field = FEECVariable(space="Hdiv")
             self.init_variables()
-    
+
     ## propagators
-    
+
     class Propagators:
         def __init__(self):
             self.maxwell = propagators_fields.Maxwell()
 
     ## abstract methods
 
-    def __init__(self):        
+    def __init__(self):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
         
@@ -59,7 +59,7 @@ class Maxwell(StruphyModel):
 
         # 2. instantiate all propagators
         self.propagators = self.Propagators()
-        
+
         # 3. assign variables to propagators
         self.propagators.maxwell.variables.e = self.em_fields.e_field
         self.propagators.maxwell.variables.b = self.em_fields.b_field
@@ -68,8 +68,8 @@ class Maxwell(StruphyModel):
         self.add_scalar("electric energy")
         self.add_scalar("magnetic energy")
         self.add_scalar("total energy")
-        
-    @property 
+
+    @property
     def bulk_species(self):
         return None
 
@@ -81,13 +81,17 @@ class Maxwell(StruphyModel):
         pass
 
     def update_scalar_quantities(self):
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.em_fields.e_field.spline.vector, self.em_fields.e_field.spline.vector)
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.em_fields.b_field.spline.vector, self.em_fields.b_field.spline.vector)
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(
+            self.em_fields.e_field.spline.vector, self.em_fields.e_field.spline.vector
+        )
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+            self.em_fields.b_field.spline.vector, self.em_fields.b_field.spline.vector
+        )
 
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)
         self.update_scalar("total energy", en_E + en_B)
-        
+
 
 class Vlasov(StruphyModel):
     r"""Vlasov equation in static background magnetic field.
@@ -111,14 +115,14 @@ class Vlasov(StruphyModel):
     """
     
     ## species
-    
+
     class KineticIons(KineticSpecies):
         def __init__(self):
             self.var = PICVariable(space="Particles6D")
             self.init_variables()
-        
+
     ## propagators
-    
+
     class Propagators:
         def __init__(self):
             self.push_vxb = propagators_markers.PushVxB()
@@ -135,7 +139,7 @@ class Vlasov(StruphyModel):
 
         # 2. instantiate all propagators
         self.propagators = self.Propagators()
-        
+
         # 3. assign variables to propagators
         self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
@@ -150,9 +154,9 @@ class Vlasov(StruphyModel):
     @property
     def velocity_scale(self):
         return "cyclotron"
-    
+
     def allocate_helpers(self):
-        self._tmp = np.empty(1, dtype=float) 
+        self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         particles = self.kinetic_ions.var.particles

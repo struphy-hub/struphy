@@ -1,16 +1,16 @@
-import numpy as np
 from dataclasses import dataclass
 from typing import Literal, get_args
 
+import numpy as np
 
 OptsButcher = Literal[
-            "rk4",
-            "forward_euler",
-            "heun2",
-            "rk2",
-            "heun3",
-            "3/8 rule",
-        ]
+    "rk4",
+    "forward_euler",
+    "heun2",
+    "rk2",
+    "heun3",
+    "3/8 rule",
+]
 
 
 @dataclass
@@ -29,7 +29,7 @@ class ButcherTableau:
     algo : OptsButcher
         Name of the RK method.
     """
-    
+
     algo: OptsButcher = "rk4"
 
     def __post_init__(self):

@@ -1,15 +1,16 @@
+import warnings
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
 from copy import deepcopy
+from dataclasses import dataclass
 from typing import Callable
+
 import numpy as np
 from mpi4py import MPI
 import warnings
 
 from struphy.fields_background.base import FluidEquilibrium
-from struphy.kinetic_background.base import KineticBackground
 from struphy.io.options import Units
-from struphy.physics.physics import ConstantsOfNature
+from struphy.kinetic_background.base import KineticBackground
 from struphy.models.variables import Variable
 from struphy.pic.utilities import (LoadingParameters, 
                                    WeightsParameters, 
@@ -20,11 +21,11 @@ from struphy.pic.utilities import (LoadingParameters,
 
 class Species(metaclass=ABCMeta):
     """Single species of a StruphyModel."""
-    
+
     @abstractmethod
     def __init__(self):
         self.init_variables()
-    
+
     # set species attribute for each variable
     def init_variables(self):
         self._variables = {}
@@ -32,17 +33,17 @@ class Species(metaclass=ABCMeta):
             if isinstance(v, Variable):
                 v._name = k
                 v._species = self
-                self._variables[k] = v 
-    
+                self._variables[k] = v
+
     @property
     def variables(self) -> dict:
         return self._variables
-    
+
     @property
     def charge_number(self) -> int:
         """Charge number in units of elementary charge."""
         return self._charge_number
-    
+
     @property
     def mass_number(self) -> int:
         """Mass number in units of proton mass."""
@@ -112,10 +113,10 @@ class Species(metaclass=ABCMeta):
     @property
     def equation_params(self) -> EquationParameters:
         return self._equation_params
-    
+
     def setup_equation_params(self, units: Units, verbose=False):
         """Set the following equation parameters:
-        
+
         * alpha = plasma-frequenca / cyclotron frequency
         * epsilon = 1 / (cyclotron frequency * time unit)
         * kappa = plasma frequency * time unit
@@ -136,36 +137,38 @@ class FieldSpecies(Species):
 
 class FluidSpecies(Species):
     """Single fluid species in 3d configuration space."""
+
     pass
 
 
 class KineticSpecies(Species):
     """Single kinetic species in 3d + vdim phase space."""
-    
-    def set_markers(self, 
-                    loading_params: LoadingParameters = None,
-                    weights_params: WeightsParameters = None,
-                    boundary_params: BoundaryParameters = None,
-                    bufsize: float = 1.0,
-                    ):
+
+    def set_markers(
+        self,
+        loading_params: LoadingParameters = None,
+        weights_params: WeightsParameters = None,
+        boundary_params: BoundaryParameters = None,
+        bufsize: float = 1.0,
+    ):
         """Set marker parameters for loading, weight calculation, kernel density reconstruction
         and boundary conditions.
-        
+
         Parameters
         ----------
         loading_params : LoadingParameters
-        
+
         weights_params : WeightsParameters
-        
+
         boundary_params : BoundaryParameters
-        
+
         bufsize : float
             Size of buffer (as multiple of total size, default=.25) in markers array."""
-        
+
         # defaults
         if loading_params is None:
             loading_params = LoadingParameters()
-            
+
         if weights_params is None:
             weights_params = WeightsParameters()
             
@@ -176,14 +179,15 @@ class KineticSpecies(Species):
         self.weights_params = weights_params
         self.boundary_params = boundary_params
         self.bufsize = bufsize
-        
-    def set_sorting_boxes(self,
-                    do_sort: bool = False,
-                    sorting_frequency: int = 0,
-                    boxes_per_dim: tuple = (16, 1, 1),
-                    box_bufsize: float = 2.0,
-                    dims_maks: tuple = (True, True, True),
-                    ):
+
+    def set_sorting_boxes(
+        self,
+        do_sort: bool = False,
+        sorting_frequency: int = 0,
+        boxes_per_dim: tuple = (16, 1, 1),
+        box_bufsize: float = 2.0,
+        dims_maks: tuple = (True, True, True),
+    ):
         """For sorting markers in memory."""
         self.do_sort = do_sort
         self.sorting_fequency = sorting_frequency
@@ -204,6 +208,5 @@ class KineticSpecies(Species):
 
 class DiagnosticSpecies(Species):
     """Diagnostic species (fields) without mass and charge."""
-    pass
 
-    
+    pass

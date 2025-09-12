@@ -1,18 +1,17 @@
-import importlib.util
-import sys
 import glob
+import importlib.util
 import os
 import shutil
-import yaml
+import sys
 from types import ModuleType
 
+import yaml
 from mpi4py import MPI
 
-from struphy.io.options import DerhamOptions
-from struphy.topology.grids import TensorProductGrid
 from struphy.geometry.base import Domain
 from struphy.geometry.domains import Cuboid
-from struphy.io.options import Units, Time
+from struphy.io.options import DerhamOptions, Time, Units
+from struphy.topology.grids import TensorProductGrid
 
 
 def import_parameters_py(params_path: str) -> ModuleType:
@@ -121,7 +120,7 @@ def setup_derham(
     Nel = grid.Nel
     # mpi
     mpi_dims_mask = grid.mpi_dims_mask
-    
+
     # spline degrees
     p = options.p
     # spline types (clamped vs. periodic)

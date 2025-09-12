@@ -1,14 +1,20 @@
 import numpy as np
 from mpi4py import MPI
 
+from struphy.feec.projectors import L2Projector
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
+from struphy.models.species import FieldSpecies, FluidSpecies, KineticSpecies
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 from struphy.models.species import KineticSpecies, FluidSpecies, FieldSpecies
 from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.feec.projectors import L2Projector
+
+rank = MPI.COMM_WORLD.Get_rank()
 
 rank = MPI.COMM_WORLD.Get_rank()
 

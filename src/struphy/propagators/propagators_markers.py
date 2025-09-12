@@ -8,13 +8,20 @@ from dataclasses import dataclass
 from mpi4py import MPI
 from line_profiler import profile
 
+import numpy as np
+from line_profiler import profile
+from mpi4py import MPI
+from numpy import array, polynomial, random
+from psydac.linalg.basic import LinearOperator
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
+from struphy.io.options import OptsMPIsort, check_option
 from struphy.io.setup import descend_options_dict
+from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
@@ -194,13 +201,13 @@ class PushVxB(Propagator):
             assert self._b2.space == self.derham.Vh["2"]
         else:
             self._b2 = self.derham.Vh["2"].zeros()
-        
+
         if self.options.b2_var is None:
             self._b2_var = None
         else:
             assert self.options.b2_var.spline.vector.space == self.derham.Vh["2"]
             self._b2_var = self.options.b2_var.spline.vector
-        
+
         # allocate dummy vectors to avoid temporary array allocations
         self._tmp = self.derham.Vh["2"].zeros()
         self._b_full = self.derham.Vh["2"].zeros()
