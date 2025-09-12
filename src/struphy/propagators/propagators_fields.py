@@ -7437,6 +7437,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         dct["method_to_solve"] = "DirectNPInverse"
         dct["preconditioner"] = False
         dct["spectralanalysis"] = False
+        dct["lifting"] = False
         dct["dimension"] = "2D"
         dct["1D_dt"] = 0.001
         if default:
@@ -7465,6 +7466,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         method_to_solve: str = options(default=True)["method_to_solve"],
         preconditioner: bool = options(default=True)["preconditioner"],
         spectralanalysis: bool = options(default=True)["spectralanalysis"],
+        lifting: bool = options(default=False)["lifting"],
         dimension: str = options(default=True)["dimension"],
         D1_dt: float = options(default=True)["1D_dt"],
     ):
@@ -7491,71 +7493,46 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._preconditioner = preconditioner
         self._dimension = dimension
         self._spectralanalysis = spectralanalysis
+        self._lifting = lifting
 
+        # Lifting for nontrivial boundary conditions
         # derham had boundary conditions in eta1 direction, the following is in space Hdiv_0
-        self.derhamv0 = Derham(
-            self.derham.Nel,
-            self.derham.p,
-            self.derham.spl_kind,
-            domain=self.domain,
-            dirichlet_bc=[[True, True], [False, False], [False, False]],
-            # nquads = self.derham._nquads,
-            # nq_pr = self.derham._nq_pr,
-            # comm = MPI.COMM_SELF  # comm = MPI.COMM_SELF, self.derham._comm,
-            # polar_ck= self.derham._polar_ck,
-            # local_projectors=self.derham.with_local_projectors
-        )
-
-        self._mass_opsv0 = WeightedMassOperators(
-            self.derhamv0,
-            self.domain,
-            verbose=solver["verbose"],
-            eq_mhd=self.mass_ops.weights["eq_mhd"],
-        )
-        self._basis_opsv0 = BasisProjectionOperators(
-            self.derhamv0,
-            self.domain,
-            verbose=solver["verbose"],
-            eq_mhd=self.basis_ops.weights["eq_mhd"],
-        )
-
-        if self._variant == "GMRES":
-            self._M2 = getattr(self._mass_opsv0, "M2")
-            self._M3 = getattr(self._mass_opsv0, "M3")
-            self._M2B = -getattr(self._mass_opsv0, "M2B")
-            self._M2r1 = getattr(self._mass_opsv0, "M2r1")
-            # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
-            _A11 = (
-                self._M2
-                - self._M2B / self._eps_norm
-                + self._nu
-                * (
-                    self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
-                    + self._basis_opsv0.S21.T
-                    @ self.derhamv0.curl.T
-                    @ self._M2
-                    @ self.derhamv0.curl
-                    @ self._basis_opsv0.S21
-                )
+        if self._lifting:
+            self.derhamv0 = Derham(
+                self.derham.Nel,
+                self.derham.p,
+                self.derham.spl_kind,
+                domain=self.domain,
+                dirichlet_bc=[[True, True], [False, False], [False, False]],
             )
-            _A12 = None
-            _A21 = _A12
-            _A22 = (
-                -self._stab_sigma * IdentityOperator(_A11.domain)
-                + self._M2B / self._eps_norm
-                + self._nu_e
-                * (
-                    self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
-                    + self._basis_opsv0.S21.T
-                    @ self.derhamv0.curl.T
-                    @ self._M2
-                    @ self.derhamv0.curl
-                    @ self._basis_opsv0.S21
-                )
-            )
-            _B1 = -self._M3 @ self.derhamv0.div
-            _B2 = self._M3 @ self.derhamv0.div
 
+            self._mass_opsv0 = WeightedMassOperators(
+                self.derhamv0,
+                self.domain,
+                verbose=solver["verbose"],
+                eq_mhd=self.mass_ops.weights["eq_mhd"],
+            )
+            self._basis_opsv0 = BasisProjectionOperators(
+                self.derhamv0,
+                self.domain,
+                verbose=solver["verbose"],
+                eq_mhd=self.basis_ops.weights["eq_mhd"],
+            )
+        else:
+            self.derhamnumpy = Derham(
+                    self.derham.Nel,
+                    self.derham.p,
+                    self.derham.spl_kind,
+                    domain=self.domain,
+                    # dirichlet_bc=self.derham.dirichlet_bc,
+                    # nquads = self.derham._nquads,
+                    # nq_pr = self.derham._nq_pr,
+                    # comm = MPI.COMM_SELF, # self.derham._comm,
+                    # polar_ck= self.derham._polar_ck,
+                    # local_projectors=self.derham.with_local_projectors
+                )
+
+        # get forceterms for according dimension
         if self._dimension in ["2D", "1D"]:
             ### Manufactured solution ###
             _forceterm_logical = lambda e1, e2, e3: 0 * e1
@@ -7667,14 +7644,17 @@ class TwoFluidQuasiNeutralFull(Propagator):
             fun_electrons_pb_3 = TransformedPformComponent(
                 forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
             )
-            l2_proj = L2Projector(space_id="Hdiv", mass_ops=self._mass_opsv0)
-            self._F1 = l2_proj([fun_pb_1, fun_pb_2, fun_pb_3], apply_bc=True)
-            self._F2 = l2_proj([fun_electrons_pb_1, fun_electrons_pb_2, fun_electrons_pb_3], apply_bc=True)
+            if self._lifting:
+                l2_proj = L2Projector(space_id="Hdiv", mass_ops=self._mass_opsv0)
+            else:
+                l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
+            self._F1 = l2_proj([fun_pb_1, fun_pb_2, fun_pb_3], apply_bc=self._lifting)
+            self._F2 = l2_proj([fun_electrons_pb_1, fun_electrons_pb_2, fun_electrons_pb_3], apply_bc=self._lifting)
 
             ### End Restelli ###
 
         elif self._dimension == "Tokamak":
-            ### Tokamak geometry manufactured solution ###
+            ### Tokamak geometry curl-free manufactured solution ###
 
             _forceterm_logical = lambda e1, e2, e3: 0 * e1
             _funx = getattr(callables, "ManufacturedSolutionForceterm")(
@@ -7785,13 +7765,63 @@ class TwoFluidQuasiNeutralFull(Propagator):
             fun_electrons_pb_3 = TransformedPformComponent(
                 forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
             )
-            l2_proj = L2Projector(space_id="Hdiv", mass_ops=self._mass_opsv0)
-            self._F1 = l2_proj([fun_pb_1, fun_pb_2, fun_pb_3], apply_bc=True)
-            self._F2 = l2_proj([fun_electrons_pb_1, fun_electrons_pb_2, fun_electrons_pb_3], apply_bc=True)
+            if self._lifting:
+                l2_proj = L2Projector(space_id="Hdiv", mass_ops=self._mass_opsv0)
+            else:
+                l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
+            self._F1 = l2_proj([fun_pb_1, fun_pb_2, fun_pb_3], apply_bc=self._lifting)
+            self._F2 = l2_proj([fun_electrons_pb_1, fun_electrons_pb_2, fun_electrons_pb_3], apply_bc=self._lifting)
 
             ### End Tokamak geometry manufactured solution ###
 
         if self._variant == "GMRES":
+            if self._lifting:
+                self._M2 = getattr(self._mass_opsv0, "M2")
+                self._M3 = getattr(self._mass_opsv0, "M3")
+                self._M2B = -getattr(self._mass_opsv0, "M2B")
+                self._div = self.derhamv0.div
+                self._curl = self.derhamv0.curl
+                self._S21 = self._basis_opsv0.S21
+            else:
+                self._M2 = getattr(self.mass_ops, "M2")
+                self._M3 = getattr(self.mass_ops, "M3")
+                self._M2B = -getattr(self.mass_ops, "M2B")
+                self._div = self.derham.div
+                self._curl = self.derham.curl
+                self._S21 = self.basis_ops.S21
+
+            # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
+            _A11 = (
+                self._M2
+                - self._M2B / self._eps_norm
+                + self._nu
+                * (
+                    self._div.T @ self._M3 @ self._div
+                    + self._S21.T
+                    @ self._curl.T
+                    @ self._M2
+                    @ self._curl
+                    @ self._S21
+                )
+            )
+            _A12 = None
+            _A21 = _A12
+            _A22 = (
+                -self._stab_sigma * IdentityOperator(_A11.domain)
+                + self._M2B / self._eps_norm
+                + self._nu_e
+                * (
+                    self._div.T @ self._M3 @ self._div
+                    + self._S21.T
+                    @ self._curl.T
+                    @ self._M2
+                    @ self._curl
+                    @ self._S21
+                )
+            )
+            _B1 = -self._M3 @ self._div
+            _B2 = self._M3 @ self._div
+
             if _A12 is not None:
                 assert _A11.codomain == _A12.codomain
             if _A21 is not None:
@@ -7816,107 +7846,162 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         elif self._variant == "Uzawa":
             # Numpy
-            fun = []
-            for m in range(3):
-                fun += [[]]
-                for n in range(3):
-                    fun[-1] += [
-                        lambda e1, e2, e3, m=m, n=n: self._basis_opsv0.G(e1, e2, e3)[:, :, :, m, n]
-                        / self._basis_opsv0.sqrt_g(e1, e2, e3),
-                    ]
-            self._S21 = None
-            if self.derhamv0.with_local_projectors:
-                self._S21 = BasisProjectionOperatorLocal(
-                    self.derhamv0._Ploc["1"], self.derhamv0.Vh_fem["2"], fun, transposed=False
-                )
+            if self._lifting:
+                fun = []
+                for m in range(3):
+                    fun += [[]]
+                    for n in range(3):
+                        fun[-1] += [
+                            lambda e1, e2, e3, m=m, n=n: self._basis_opsv0.G(e1, e2, e3)[:, :, :, m, n]
+                            / self._basis_opsv0.sqrt_g(e1, e2, e3),
+                        ]
+                self._S21 = None
+                if self.derhamv0.with_local_projectors:
+                    self._S21 = BasisProjectionOperatorLocal(
+                        self.derhamv0._Ploc["1"], self.derhamv0.Vh_fem["2"], fun, transposed=False
+                    )
 
-            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-                Vbc = self._mass_opsv0.M2._V_boundary_op.toarray_struphy()
-                Wbc = self._mass_opsv0.M2._W_boundary_op.toarray_struphy()
-                M2_mat = self._mass_opsv0.M2._mat.toarray()
-                self._M2np = Wbc @ M2_mat @ Vbc
-                Vbc = self._mass_opsv0.M3._V_boundary_op.toarray_struphy()
-                Wbc = self._mass_opsv0.M3._W_boundary_op.toarray_struphy()
-                M3_mat = self._mass_opsv0.M3._mat.toarray()
-                self._M3np = Wbc @ M3_mat @ Vbc
-                if isinstance(self.derhamv0.div, ComposedLinearOperator):
-                    for mult in self.derhamv0.div.multiplicants:
-                        if isinstance(mult, BlockLinearOperator):
-                            if hasattr(self, "_Dnp"):
-                                self._Dnp = self._Dnp @ mult.toarray()
-                            else:
-                                self._Dnp = mult.toarray()
-                            # print(f"{type(mult.toarray())=}")   #with_pads = True
-                        elif isinstance(mult, BoundaryOperator):
-                            if hasattr(self, "_Dnp"):
-                                self._Dnp = self._Dnp @ mult.toarray_struphy()
-                            else:
-                                self._Dnp = mult.toarray_struphy()
-                elif isinstance(self.derhamv0.div, BlockLinearOperator):
-                    self._Dnp = self.derhamv0.div.toarray()
+                if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                    Vbc = self._mass_opsv0.M2._V_boundary_op.toarray_struphy()
+                    Wbc = self._mass_opsv0.M2._W_boundary_op.toarray_struphy()
+                    M2_mat = self._mass_opsv0.M2._mat.toarray()
+                    self._M2np = Wbc @ M2_mat @ Vbc.T
+                    Vbc = self._mass_opsv0.M3._V_boundary_op.toarray_struphy()
+                    Wbc = self._mass_opsv0.M3._W_boundary_op.toarray_struphy()
+                    M3_mat = self._mass_opsv0.M3._mat.toarray()
+                    self._M3np = Wbc @ M3_mat @ Vbc.T
+                    if isinstance(self.derhamv0.div, ComposedLinearOperator):
+                        for mult in self.derhamv0.div.multiplicants:
+                            if isinstance(mult, BlockLinearOperator):
+                                if hasattr(self, "_Dnp"):
+                                    self._Dnp = self._Dnp @ mult.toarray()
+                                else:
+                                    self._Dnp = mult.toarray()
+                                # print(f"{type(mult.toarray())=}")   #with_pads = True
+                            elif isinstance(mult, BoundaryOperator):
+                                if hasattr(self, "_Dnp"):
+                                    self._Dnp = self._Dnp @ mult.T.toarray_struphy()
+                                else:
+                                    self._Dnp = mult.toarray_struphy()
+                    elif isinstance(self.derhamv0.div, BlockLinearOperator):
+                        self._Dnp = self.derhamv0.div.toarray()
+                    if isinstance(self.derhamv0.curl, ComposedLinearOperator):
+                        for mult in self.derhamv0.curl.multiplicants:
+                            if isinstance(mult, BlockLinearOperator):
+                                if hasattr(self, "_Cnp"):
+                                    self._Cnp = self._Cnp @ mult.toarray()
+                                else:
+                                    self._Cnp = mult.toarray()
+                            elif isinstance(mult, BoundaryOperator):
+                                if hasattr(self, "_Cnp"):
+                                    self._Cnp = self._Cnp @ mult.T.toarray_struphy()
+                                else:
+                                    self._Cnp = mult.toarray_struphy()
+                    elif isinstance(self.derhamv0.curl, BlockLinearOperator):
+                        self._Dnp = self.derhamv0.curl.toarray()
 
-                if isinstance(self.derhamv0.curl, ComposedLinearOperator):
-                    for mult in self.derhamv0.curl.multiplicants:
-                        if isinstance(mult, BlockLinearOperator):
-                            if hasattr(self, "_Cnp"):
-                                self._Cnp = self._Cnp @ mult.toarray()
-                            else:
-                                self._Cnp = mult.toarray()
-                        elif isinstance(mult, BoundaryOperator):
-                            if hasattr(self, "_Cnp"):
-                                self._Cnp = self._Cnp @ mult.toarray_struphy()
-                            else:
-                                self._Cnp = mult.toarray_struphy()
-                elif isinstance(self.derhamv0.curl, BlockLinearOperator):
-                    self._Dnp = self.derhamv0.curl.toarray()
+                    if self._S21 is not None:
+                        self._Hodgenp = self._S21.toarray
+                    else:
+                        self._Hodgenp = self._basis_opsv0.S21.toarray_struphy()  # self.basis_ops.S21.toarray
+                    Vbc = self._mass_opsv0.M2B._V_boundary_op.toarray_struphy()
+                    Wbc = self._mass_opsv0.M2B._W_boundary_op.toarray_struphy()
+                    M2B_mat = -self._mass_opsv0.M2B._mat.toarray()      # - sign because of the definition of M2B
+                    self._M2Bnp = Wbc @ M2B_mat @ Vbc.T
+                elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                    Vbc = self._mass_opsv0.M2._V_boundary_op.toarray_struphy(is_sparse=True)
+                    Wbc = self._mass_opsv0.M2._W_boundary_op.toarray_struphy(is_sparse=True)
+                    M2_mat = self._mass_opsv0.M2._mat.tosparse()
+                    self._M2np = Wbc @ M2_mat @ Vbc.T
+                    Vbc = self._mass_opsv0.M3._V_boundary_op.toarray_struphy(is_sparse=True)
+                    Wbc = self._mass_opsv0.M3._W_boundary_op.toarray_struphy(is_sparse=True)
+                    M3_mat = self._mass_opsv0.M3._mat.tosparse()
+                    self._M3np = Wbc @ M3_mat @ Vbc.T
+                    if self._S21 is not None:
+                        self._Hodgenp = self._S21.tosparse
+                    else:
+                        self._Hodgenp = self._basis_opsv0.S21.toarray_struphy(is_sparse=True)   
+                    Vbc = self._mass_opsv0.M2B._V_boundary_op.toarray_struphy(is_sparse=True)
+                    Wbc = self._mass_opsv0.M2B._W_boundary_op.toarray_struphy(is_sparse=True)
+                    M2B_mat = self._mass_opsv0.M2B._mat.tosparse()
+                    self._M2Bnp = - Wbc @ M2B_mat @ Vbc.T # - sign because of the definition of M2B
 
-                if self._S21 is not None:
-                    self._Hodgenp = self._S21.toarray
-                else:
-                    self._Hodgenp = self._basis_opsv0.S21.toarray_struphy()  # self.basis_ops.S21.toarray
-                # self._M2Bnp = -self._mass_opsv0.M2B.toarray
-                Vbc = self._mass_opsv0.M2B._V_boundary_op.toarray_struphy()
-                Wbc = self._mass_opsv0.M2B._W_boundary_op.toarray_struphy()
-                M2B_mat = -self._mass_opsv0.M2B._mat.toarray()
-                self._M2Bnp = Wbc @ M2B_mat @ Vbc
-            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-                self._M2np = self._mass_opsv0.M2.tosparse
-                self._M3np = self._mass_opsv0.M3.tosparse
-                if self._S21 is not None:
-                    self._Hodgenp = self._S21.tosparse
-                else:
-                    self._Hodgenp = self._basis_opsv0.S21.toarray_struphy(is_sparse=True)
-                self._M2Bnp = -self._mass_opsv0.M2B.tosparse
+                    if isinstance(self.derhamv0.div, ComposedLinearOperator):
+                        for mult in self.derhamv0.div.multiplicants:
+                            if isinstance(mult, BlockLinearOperator):
+                                if hasattr(self, "_Dnp"):
+                                    self._Dnp = self._Dnp @ mult.tosparse()
+                                else:
+                                    self._Dnp = mult.tosparse()
+                            elif isinstance(mult, BoundaryOperator):
+                                if hasattr(self, "_Dnp"):
+                                    self._Dnp = self._Dnp @ mult.toarray_struphy(is_sparse=True)
+                                else:
+                                    self._Dnp = mult.toarray_struphy(is_sparse=True)
+                    elif isinstance(self.derhamv0.div, BlockLinearOperator):
+                        self._Dnp = self.derhamv0.div.tosparse()
 
-                if isinstance(self.derhamv0.div, ComposedLinearOperator):
-                    for mult in self.derhamv0.div.multiplicants:
-                        if isinstance(mult, BlockLinearOperator):
-                            if hasattr(self, "_Dnp"):
-                                self._Dnp = self._Dnp @ mult.tosparse()
-                            else:
-                                self._Dnp = mult.tosparse()
-                        elif isinstance(mult, BoundaryOperator):
-                            if hasattr(self, "_Dnp"):
-                                self._Dnp = self._Dnp @ mult.toarray_struphy(is_sparse=True)
-                            else:
-                                self._Dnp = mult.toarray_struphy(is_sparse=True)
-                elif isinstance(self.derhamv0.div, BlockLinearOperator):
-                    self._Dnp = self.derhamv0.div.tosparse()
+                    if isinstance(self.derhamv0.curl, ComposedLinearOperator):
+                        for mult in self.derhamv0.curl.multiplicants:
+                            if isinstance(mult, BlockLinearOperator):
+                                if hasattr(self, "_Cnp"):
+                                    self._Cnp = self._Cnp @ mult.tosparse()
+                                else:
+                                    self._Cnp = mult.tosparse()
+                            elif isinstance(mult, BoundaryOperator):
+                                if hasattr(self, "_Cnp"):
+                                    self._Cnp = self._Cnp @ mult.toarray_struphy(is_sparse=True)
+                                else:
+                                    self._Cnp = mult.toarray_struphy(is_sparse=True)
+                    elif isinstance(self.derhamv0.curl, BlockLinearOperator):
+                        self._Dnp = self.derhamv0.curl.tosparse()
 
-                if isinstance(self.derhamv0.curl, ComposedLinearOperator):
-                    for mult in self.derhamv0.curl.multiplicants:
-                        if isinstance(mult, BlockLinearOperator):
-                            if hasattr(self, "_Cnp"):
-                                self._Cnp = self._Cnp @ mult.tosparse()
-                            else:
-                                self._Cnp = mult.tosparse()
-                        elif isinstance(mult, BoundaryOperator):
-                            if hasattr(self, "_Cnp"):
-                                self._Cnp = self._Cnp @ mult.toarray_struphy(is_sparse=True)
-                            else:
-                                self._Cnp = mult.toarray_struphy(is_sparse=True)
-                elif isinstance(self.derhamv0.curl, BlockLinearOperator):
-                    self._Dnp = self.derhamv0.curl.tosparse()
+            else:   # no lifting, use original Derham
+                fun = []
+                for m in range(3):
+                    fun += [[]]
+                    for n in range(3):
+                        fun[-1] += [
+                            lambda e1, e2, e3, m=m, n=n: self.basis_ops.G(e1, e2, e3)[:, :, :, m, n]
+                            / self.basis_ops.sqrt_g(e1, e2, e3),
+                        ]
+                self._S21 = None
+                if self.derham.with_local_projectors:
+                    self._S21 = BasisProjectionOperatorLocal(
+                        self.derham._Ploc["1"], self.derham.Vh_fem["2"], fun, transposed=False
+                    )
+
+                if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                    Vbc = self.mass_ops.M2._V_boundary_op.toarray_struphy()
+                    Wbc = self.mass_ops.M2._W_boundary_op.toarray_struphy()
+                    M2_mat = self.mass_ops.M2._mat.toarray()
+                    self._M2np = Wbc @ M2_mat @ Vbc.T
+                    Vbc = self.mass_ops.M3._V_boundary_op.toarray_struphy()
+                    Wbc = self.mass_ops.M3._W_boundary_op.toarray_struphy()
+                    M3_mat = self.mass_ops.M3._mat.toarray()
+                    self._M3np = Wbc @ M3_mat @ Vbc.T
+                    self._Dnp = self.derhamnumpy.div.toarray()
+                    self._Cnp = self.derhamnumpy.curl.toarray()
+
+                    if self._S21 is not None:
+                        self._Hodgenp = self._S21.toarray
+                    else:
+                        self._Hodgenp = self.basis_ops.S21.toarray_struphy()  
+                    Vbc = self.mass_ops.M2B._V_boundary_op.toarray_struphy()
+                    Wbc = self.mass_ops.M2B._W_boundary_op.toarray_struphy()
+                    M2B_mat = -self.mass_ops.M2B._mat.toarray()
+                    self._M2Bnp = Wbc @ M2B_mat @ Vbc.T
+                elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                    self._M2np = self.mass_ops.M2.tosparse
+                    self._M3np = self.mass_ops.M3.tosparse
+                    if self._S21 is not None:
+                        self._Hodgenp = self._S21.tosparse
+                    else:
+                        self._Hodgenp = self.basis_ops.S21.toarray_struphy(is_sparse=True)
+                    self._M2Bnp = -self.mass_ops.M2B.tosparse
+
+                    self._Dnp = self.derhamnumpy.div.tosparse()
+                    self._Cnp = self.derhamnumpy.curl.tosparse()
 
             self._A11np_notimedependency = (
                 self._nu
@@ -7927,9 +8012,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 - 1.0 * self._M2Bnp / self._eps_norm
             )
             A11np = self._M2np + self._A11np_notimedependency
-            A11np += self._stab_sigma * np.identity(A11np.shape[0])
 
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                A11np += self._stab_sigma * np.identity(A11np.shape[0])
                 self.A22np = (
                     self._stab_sigma * np.identity(A11np.shape[0])
                     + self._nu_e
@@ -7943,6 +8028,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     np.identity(self.A22np.shape[0]) * self._stab_sigma
                 )  # + self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp)
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                A11np += self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
                 self.A22np = (
                     self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
                     + self._nu_e
@@ -7966,6 +8052,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             self._A11prenp_notimedependency = self._nu * (self._Dnp.T @ self._M3np @ self._Dnp)
             _A11prenp = self._M2np + self._A11prenp_notimedependency
             _Anppre = [_A11prenp, self._A22prenp]
+            
 
         if self._variant == "GMRES":
             self._solver_GMRES = SaddlePointSolver(
@@ -8002,228 +8089,39 @@ class TwoFluidQuasiNeutralFull(Propagator):
         phinfeec = self.feec_vars[2]
 
         if self._variant == "GMRES":
-            phinfeeccopy = self.derhamv0.create_spline_function("phi", space_id="L2")
-            phinfeeccopy.vector = phinfeec
-            # unfeec in space Hdiv, u0 in space Hdiv_0
-            unfeeccopy = self.derhamv0.create_spline_function("u", space_id="Hdiv")
-            u0 = self.derhamv0.create_spline_function("u", space_id="Hdiv")
-            u_prime = self.derhamv0.create_spline_function("u", space_id="Hdiv")
-            u0.vector = uenfeec
-            unfeeccopy.vector = uenfeec
-            apply_essential_bc_stencil(u0.vector[0], axis=0, ext=-1, order=0)
-            apply_essential_bc_stencil(u0.vector[0], axis=0, ext=1, order=0)
-            u_prime.vector = unfeeccopy.vector - u0.vector
+            if self._lifting:
+                phinfeeccopy = self.derhamv0.create_spline_function("phi", space_id="L2")
+                phinfeeccopy.vector = phinfeec
+                # unfeec in space Hdiv, u0 in space Hdiv_0
+                unfeeccopy = self.derhamv0.create_spline_function("u", space_id="Hdiv")
+                u0 = self.derhamv0.create_spline_function("u", space_id="Hdiv")
+                u_prime = self.derhamv0.create_spline_function("u", space_id="Hdiv")
+                u0.vector = uenfeec
+                unfeeccopy.vector = uenfeec
+                apply_essential_bc_stencil(u0.vector[0], axis=0, ext=-1, order=0)
+                apply_essential_bc_stencil(u0.vector[0], axis=0, ext=1, order=0)
+                u_prime.vector = unfeeccopy.vector - u0.vector
 
-            uenfeeccopy = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
-            ue0 = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
-            ue_prime = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
-            ue0.vector = uenfeec
-            uenfeeccopy.vector = uenfeec
-            apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=-1, order=0)
-            apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=1, order=0)
-            ue_prime.vector = uenfeeccopy.vector - ue0.vector
-
-            _A11Laplacebl = (
-                self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
-                + self._basis_opsv0.S21.T @ self.derhamv0.curl.T @ self._M2 @ self.derhamv0.curl @ self._basis_opsv0.S21
-            )
-            _uxbBl = -self._M2B / self._eps_norm
-            _B1bl = -self._M3 @ self.derhamv0.div
-            _B2bl = self._M3 @ self.derhamv0.div
-
-            laplace = _A11Laplacebl.dot(u0.vector)
-            laplace0 = laplace[0].toarray()
-            laplace1 = laplace[1].toarray()
-            laplace2 = laplace[2].toarray()
-            laplaceprime = _A11Laplacebl.dot(u_prime.vector)
-            laplaceprime0 = laplaceprime[0].toarray()
-            laplaceprime1 = laplaceprime[1].toarray()
-            laplaceprime2 = laplaceprime[2].toarray()
-            uxB = _uxbBl.dot(u0.vector)
-            uxB0 = uxB[0].toarray()
-            uxB1 = uxB[1].toarray()
-            uxB2 = uxB[2].toarray()
-            uxBprime = _uxbBl.dot(u_prime.vector)
-            uxBprime0 = uxBprime[0].toarray()
-            uxBprime1 = uxBprime[1].toarray()
-            uxBprime2 = uxBprime[2].toarray()
-            gradphi = _B1bl.T.dot(phinfeeccopy.vector)
-            gradphi0 = gradphi[0].toarray()
-            gradphi1 = gradphi[1].toarray()
-            gradphi2 = gradphi[2].toarray()
-            F = self._M2 @ self._F1
-            F2mat = self._M2 @ self._F2
-            F0 = F[0].toarray() - laplaceprime0  # - uxBprime0
-            F1 = F[1].toarray() - laplaceprime1  # - uxBprime1
-            F2 = F[2].toarray() - laplaceprime2  # - uxBprime2
-            # laplacedivdiv = _A11Laplacebdivdiv.dot(unfeec)
-            # laplacedivdiv0 = laplacedivdiv[0].toarray()
-            # laplacedivdiv1 = laplacedivdiv[1].toarray()
-            # laplacedivdiv2 = laplacedivdiv[2].toarray()
-            # laplacecurlcurl = _A11Laplacecurlcurl.dot(unfeec)
-            # laplacecurlcurl0 = laplacecurlcurl[0].toarray()
-            # laplacecurlcurl1 = laplacecurlcurl[1].toarray()
-            # laplacecurlcurl2 = laplacecurlcurl[2].toarray()
-
-            plt.figure(figsize=(20, 18))
-            ax = plt.subplot(3, 3, 1)
-            ax.plot(F0, color="red", label=r"$F_R- (\mathbb{V}-\frac{1}{\varepsilon}\mathbb{M}_R^2)  \mathbf{u}'_R$")
-            ax.plot(laplace0, color="blue", label=r"$\mathbb{V} \cdot \mathbf{u}_{0R}$")
-            ax.legend(fontsize=20)
-            ax.yaxis.get_offset_text().set_fontsize(18)
-            ax = plt.subplot(3, 3, 2)
-            ax.plot(
-                F1,
-                color="red",
-                label=r"$F_\theta- (\mathbb{V}-\frac{1}{\varepsilon}\mathbb{M}_R^2) \mathbf{u}'_\theta$",
-            )
-            ax.plot(laplace1, color="blue", label=r"$\mathbb{V} \cdot \mathbf{u}_{0 \theta}$")
-            ax.legend(fontsize=20)
-            ax.tick_params(axis="both", which="major", labelsize=18)
-            ax = plt.subplot(3, 3, 3)
-            ax.plot(
-                F2,
-                color="red",
-                label=r"$F_\varphi- (\mathbb{V}-\frac{1}{\varepsilon}\mathbb{M}_R^2) \mathbf{u}'_\varphi$",
-            )
-            ax.plot(laplace2, color="blue", label=r"$\mathbb{V} \cdot \mathbf{u}_{0 \varphi}$")
-            ax.legend(fontsize=20)
-            ax.yaxis.get_offset_text().set_fontsize(18)
-            ax.ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
-            ax = plt.subplot(3, 3, 4)
-            ax.plot(
-                -uxB0 - uxBprime0,
-                color="blue",
-                label=r"$\frac{1}{\varepsilon}\mathbb{M}_R^2 \mathbf{u}_{0R} -\frac{1}{\varepsilon}\mathbb{M}_R^2  \mathbf{u}'_R$",
-            )
-            ax.plot(gradphi0, color="red", label=r"$\mathbb{D}^\top \mathbb{M}^3 \phi$")
-            ax.legend(fontsize=20)
-            ax.yaxis.get_offset_text().set_fontsize(18)
-            ax.tick_params(axis="both", which="major", labelsize=18)
-            ax = plt.subplot(3, 3, 5)
-            ax.plot(
-                -uxB1 - uxBprime1,
-                color="blue",
-                label=r"$\frac{1}{\varepsilon}\mathbb{M}_R^2 \mathbf{u}_{0 \theta} -\frac{1}{\varepsilon}\mathbb{M}_R^2  \mathbf{u}'_{\theta}$",
-            )
-            ax.plot(gradphi1, color="red", label=r"$\mathbb{D}^\top \mathbb{M}^3 \phi$")
-            ax.legend(fontsize=20)
-            ax.ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
-            ax.yaxis.get_offset_text().set_fontsize(18)
-            # ax.set_ylim(-1e-4, 1e-4)
-            ax.tick_params(axis="both", which="major", labelsize=18)
-            ax = plt.subplot(3, 3, 6)
-            ax.plot(
-                -uxB2 - uxBprime2,
-                color="blue",
-                label=r"$\frac{1}{\varepsilon}\mathbb{M}_R^2 \mathbf{u}_{0 \varphi}-\frac{1}{\varepsilon}\mathbb{M}_R^2  \mathbf{u}'_{\varphi}$",
-            )
-            ax.plot(gradphi2, color="red", label=r"$\mathbb{D}^\top \mathbb{M}^3 \phi$")
-            ax.legend(fontsize=20)
-            ax.ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
-            ax.yaxis.get_offset_text().set_fontsize(18)
-            # ax.set_ylim(-1e-14, 1e-14)
-            ax.tick_params(axis="both", which="major", labelsize=18)
-
-            ax = plt.subplot(3, 3, 7)
-            ax.plot(u0.vector[0].toarray(), color="blue", label=r"$u_{0R}$")
-            ax.plot(u_prime.vector[0].toarray(), color="red", label=r"$u_{R}'$")
-            ax.legend(fontsize=20)
-            ax.ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
-            ax.yaxis.get_offset_text().set_fontsize(18)
-            # ax.set_ylim(-1e-15, 1e-15)
-            ax.tick_params(axis="both", which="major", labelsize=18)
-            ax = plt.subplot(3, 3, 8)
-            ax.plot(u0.vector[1].toarray(), color="blue", label=r"$u_{0 \theta}$")
-            ax.plot(u_prime.vector[1].toarray(), color="red", label=r"$u_{\theta}'$")
-            ax.legend(fontsize=20)
-            ax.tick_params(axis="both", which="major", labelsize=18)
-            ax = plt.subplot(3, 3, 9)
-            ax.plot(u0.vector[2].toarray(), color="blue", label=r"$u_{0 \varphi}$")
-            ax.plot(u_prime.vector[2].toarray(), color="red", label=r"$u_{\varphi}'$")
-            ax.legend(fontsize=20)
-            ax.tick_params(axis="both", which="major", labelsize=18)
-            # plt.subplot(8, 3, 10)
-            # plt.plot(u_prime.vector[0].toarray(), color='blue', label="uprime0")
-            # plt.legend()
-            # plt.subplot(8, 3, 11)
-            # plt.plot(u_prime.vector[1].toarray(), color='blue', label="uprime1")
-            # plt.legend()
-            # plt.subplot(8, 3, 12)
-            # plt.plot(u_prime.vector[2].toarray(), color='blue', label="uprime2")
-            # plt.legend()
-            # plt.subplot(8, 3, 13)
-            # plt.plot(laplace0+uxB0+gradphi0, color='blue', label="sum0")
-            # plt.plot(F0, color='red', label="F1[0]")
-            # plt.legend()
-            # plt.subplot(8, 3, 14)
-            # plt.plot(laplace1+uxB1+gradphi1, color='blue', label="sum1")
-            # plt.plot(F1, color='red', label="F1[1]")
-            # plt.legend()
-            # plt.subplot(8, 3, 15)
-            # plt.plot(laplace2+uxB2+gradphi2, color='blue', label="sum2")
-            # plt.plot(F2, color='red', label="F1[2]")
-            # plt.legend()
-
-            #  plt.subplot(8, 3, 7)
-            # plt.plot(F2mat[0].toarray(), color='blue', label="F2[0]")
-            # #plt.plot(F0, color='red', label="F1[0]")
-            # plt.legend()
-            # plt.subplot(8, 3, 8)
-            # plt.plot(F2mat[1].toarray(), color='blue', label="F2[0]")
-            # #plt.plot(F1, color='red', label="F1[1]")
-            # plt.legend()
-            # plt.subplot(8, 3, 9)
-            # plt.plot(F2mat[2].toarray(), color='blue', label="F2[0]")
-            # #plt.plot(F2, color='red', label="F1[2]")
-            # plt.legend()
-            # plt.subplot(8, 3, 10)
-            # plt.plot(laplacecurlcurl0, color='blue', label="curlcurl0")
-            # plt.plot(F0, color='red', label="F1[0]")
-            # plt.legend()
-            # plt.subplot(8, 3, 11)
-            # plt.plot(laplacecurlcurl1, color='blue', label="curlcurl1")
-            # plt.plot(F1, color='red', label="F1[1]")
-            # plt.legend()
-            # plt.subplot(8, 3, 12)
-            # plt.plot(laplacecurlcurl2, color='blue', label="curlcurl2")
-            # plt.plot(F2, color='red', label="F1[2]")
-            # plt.legend()
-
-            ax = plt.subplot(3, 3, 7)
-            ax.plot(u0.vector[0].toarray(), color="blue", label=r"$u_{0R}$")
-            ax.plot(u_prime.vector[0].toarray(), color="red", label=r"$u_{R}'$")
-            ax.legend(fontsize=20)
-            ax.ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
-            ax.yaxis.get_offset_text().set_fontsize(18)
-            # ax.set_ylim(-1e-15, 1e-15)
-            ax.tick_params(axis="both", which="major", labelsize=18)
-            ax = plt.subplot(3, 3, 8)
-            ax.plot(u0.vector[1].toarray(), color="blue", label=r"$u_{0 \theta}$")
-            ax.plot(u_prime.vector[1].toarray(), color="red", label=r"$u_{\theta}'$")
-            ax.legend(fontsize=20)
-            ax.tick_params(axis="both", which="major", labelsize=18)
-            ax = plt.subplot(3, 3, 9)
-            ax.plot(u0.vector[2].toarray(), color="blue", label=r"$u_{0 \varphi}$")
-            ax.plot(u_prime.vector[2].toarray(), color="red", label=r"$u_{\varphi}'$")
-            ax.legend(fontsize=20)
-            ax.tick_params(axis="both", which="major", labelsize=18)
-
-            plt.savefig("LaplacianGMRES.png")
-
-            # exit()
-
+                uenfeeccopy = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue0 = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue_prime = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue0.vector = uenfeec
+                uenfeeccopy.vector = uenfeec
+                apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=-1, order=0)
+                apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=1, order=0)
+                ue_prime.vector = uenfeeccopy.vector - ue0.vector
+            
             _A11 = (
                 self._M2 / dt
                 - self._M2B / self._eps_norm
                 + self._nu
                 * (
-                    self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
-                    + self._basis_opsv0.S21.T
-                    @ self.derhamv0.curl.T
+                    self._div.T @ self._M3 @ self._div
+                    + self._S21.T
+                    @ self._curl.T
                     @ self._M2
-                    @ self.derhamv0.curl
-                    @ self._basis_opsv0.S21
+                    @ self._curl
+                    @ self._S21
                 )
             )
             _A12 = None
@@ -8231,35 +8129,37 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _A22 = (
                 self._nu_e
                 * (
-                    self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
-                    + self._basis_opsv0.S21.T
-                    @ self.derhamv0.curl.T
+                    self._div.T @ self._M3 @ self._div
+                    + self._S21.T
+                    @ self._curl.T
                     @ self._M2
-                    @ self.derhamv0.curl
-                    @ self._basis_opsv0.S21
+                    @ self._curl
+                    @ self._S21
                 )
                 + self._M2B / self._eps_norm
                 - self._stab_sigma * IdentityOperator(_A11.domain)
             )
-            _A11prime = -self._M2B / self._eps_norm + self._nu * (
-                self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
-                + self._basis_opsv0.S21.T @ self.derhamv0.curl.T @ self._M2 @ self.derhamv0.curl @ self._basis_opsv0.S21
-            )
-            _A22prime = (
-                self._nu_e
-                * (
+            
+            if self._lifting:
+                _A11prime = -self._M2B / self._eps_norm + self._nu * (
                     self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
-                    + self._basis_opsv0.S21.T
-                    @ self.derhamv0.curl.T
-                    @ self._M2
-                    @ self.derhamv0.curl
-                    @ self._basis_opsv0.S21
+                    + self._basis_opsv0.S21.T @ self.derhamv0.curl.T @ self._M2 @ self.derhamv0.curl @ self._basis_opsv0.S21
                 )
-                + self._M2B / self._eps_norm
-                - self._stab_sigma * IdentityOperator(_A11.domain)
-            )
-            _B1 = -self._M3 @ self.derhamv0.div
-            _B2 = self._M3 @ self.derhamv0.div
+                _A22prime = (
+                    self._nu_e
+                    * (
+                        self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
+                        + self._basis_opsv0.S21.T
+                        @ self.derhamv0.curl.T
+                        @ self._M2
+                        @ self.derhamv0.curl
+                        @ self._basis_opsv0.S21
+                    )
+                    + self._M2B / self._eps_norm
+                    - self._stab_sigma * IdentityOperator(_A11.domain)
+                )
+            _B1 = -self._M3 @ self._div
+            _B2 = self._M3 @ self._div
 
             if _A12 is not None:
                 assert _A11.codomain == _A12.codomain
@@ -8277,10 +8177,16 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
             _blocksB = [[_B1, _B2]]
             _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
-            _blocksF = [
-                self._M2.dot(self._F1) + self._M2.dot(u0.vector) / dt - _A11prime.dot(u_prime.vector),
-                self._M2.dot(self._F2) - _A22prime.dot(ue_prime.vector),
-            ]
+            if self._lifting:
+                _blocksF = [
+                    self._M2.dot(self._F1) + self._M2.dot(u0.vector) / dt - _A11prime.dot(u_prime.vector),
+                    self._M2.dot(self._F2) - _A22prime.dot(ue_prime.vector),
+                ]
+            else:
+                _blocksF = [
+                    self._M2.dot(self._F1) + self._M2.dot(unfeec) / dt ,
+                    self._M2.dot(self._F2),
+                ]
             _F = BlockVector(self._block_domainA, blocks=_blocksF)
 
             # Imported solver
@@ -8288,38 +8194,36 @@ class TwoFluidQuasiNeutralFull(Propagator):
             self._solver_GMRES.B = _B
             self._solver_GMRES.F = _F
 
-            residual_u = _A[0, 0].dot(u0.vector) + _B[0, 0].T.dot(phinfeeccopy.vector) - _F[0]
-            residual_ue = _A[1, 1].dot(ue0.vector) + _B[0, 1].T.dot(phinfeeccopy.vector) - _F[1]
-            residual_u0 = residual_u[0].toarray()
-            residual_u1 = residual_u[1].toarray()
-            residual_u2 = residual_u[2].toarray()
-            print(f"{np.max(np.abs(residual_u0))=}")
-            print(f"{np.max(np.abs(residual_u1))=}")
-            print(f"{np.max(np.abs(residual_u2))=}")
-            print(f"{np.max(np.abs(residual_u.toarray()))=}")
-            print(f"{np.max(np.abs(residual_ue.toarray()))=}")
-            # exit()
-
-            (
-                _sol1,
-                _sol2,
-                info,
-            ) = self._solver_GMRES(u0.vector, ue0.vector, phinfeec)
-            un = _sol1[0] + u_prime.vector
-            uen = _sol1[1] + ue_prime.vector
-            phin = _sol2
-
+            if self._lifting:
+                (
+                    _sol1,
+                    _sol2,
+                    info,
+                ) = self._solver_GMRES(u0.vector, ue0.vector, phinfeec)
+                un = _sol1[0] + u_prime.vector
+                uen = _sol1[1] + ue_prime.vector
+                phin = _sol2
+            else: 
+                (
+                    _sol1,
+                    _sol2,
+                    info,
+                ) = self._solver_GMRES(unfeec, uenfeec, phinfeec)
+                un = _sol1[0]
+                uen = _sol1[1]
+                phin = _sol2
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
 
         elif self._variant == "Uzawa":
             # Numpy
             A11np = self._M2np / dt + self._A11np_notimedependency
-            A11np += self._stab_sigma * np.identity(A11np.shape[0])
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                A11np += self._stab_sigma * np.identity(A11np.shape[0])
                 _A22prenp = self._A22prenp
                 A22np = self.A22np
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                A11np += self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
                 _A22prenp = self._A22prenp
                 A22np = self.A22np
 
@@ -8329,163 +8233,57 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 _A11prenp = self._M2np / dt  # + self._A11prenp_notimedependency
                 _Anppre = [_A11prenp, _A22prenp]
 
-            # unfeec in space Hdiv, u0 in space Hdiv_0
-            unfeeccopy = self.derhamv0.create_spline_function("u", space_id="Hdiv")
-            u0 = self.derhamv0.create_spline_function("u", space_id="Hdiv")
-            u_prime = self.derham.create_spline_function("u", space_id="Hdiv")
-            u0.vector = unfeec
-            unfeeccopy.vector = unfeec
-            apply_essential_bc_stencil(u0.vector[0], axis=0, ext=-1, order=0)
-            apply_essential_bc_stencil(u0.vector[0], axis=0, ext=1, order=0)
-            u_prime.vector = unfeeccopy.vector - u0.vector
+            if self._lifting:
+                # unfeec in space Hdiv, u0 in space Hdiv_0
+                unfeeccopy = self.derhamv0.create_spline_function("u", space_id="Hdiv")
+                u0 = self.derhamv0.create_spline_function("u", space_id="Hdiv")
+                u_prime = self.derham.create_spline_function("u", space_id="Hdiv")
+                u0.vector = unfeec
+                unfeeccopy.vector = unfeec
+                apply_essential_bc_stencil(u0.vector[0], axis=0, ext=-1, order=0)
+                apply_essential_bc_stencil(u0.vector[0], axis=0, ext=1, order=0)
+                u_prime.vector = unfeeccopy.vector - u0.vector
 
-            uenfeeccopy = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
-            ue0 = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
-            ue_prime = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
-            ue0.vector = uenfeec
-            uenfeeccopy.vector = uenfeec
-            apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=-1, order=0)
-            apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=1, order=0)
-            ue_prime.vector = uenfeeccopy.vector - ue0.vector
+                uenfeeccopy = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue0 = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue_prime = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue0.vector = uenfeec
+                uenfeeccopy.vector = uenfeec
+                apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=-1, order=0)
+                apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=1, order=0)
+                ue_prime.vector = uenfeeccopy.vector - ue0.vector
 
-            _F1np = (
-                self._M2np @ self._F1np
-                + 1.0 / dt * self._M2np.dot(u0.vector.toarray())
-                - self._A11np_notimedependency.dot(u_prime.vector.toarray())
-            )
-            _F2np = self._M2np @ self._F2np - self.A22np.dot(ue_prime.vector.toarray())
-            _Fnp = [_F1np, _F2np]
-
-            A11Laplace = (
-                self._Dnp.T @ self._M3np @ self._Dnp
-                + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
-            )
-            # laplace = self.A22np.dot(ue0.vector.toarray())
-            laplace = A11Laplace.dot(u0.vector.toarray())
-            laplace0 = laplace[0 : unfeec[0].shape[0]]
-            laplace1 = laplace[unfeec[0].shape[0] : unfeec[0].shape[0] + unfeec[1].shape[0]]
-            laplace2 = laplace[unfeec[0].shape[0] + unfeec[1].shape[0] :]
-            uxB = self._M2Bnp.dot(u0.vector.toarray())
-            uxB0 = uxB[0 : unfeec[0].shape[0]]
-            uxB1 = uxB[unfeec[0].shape[0] : unfeec[0].shape[0] + unfeec[1].shape[0]]
-            uxB2 = uxB[unfeec[0].shape[0] + unfeec[1].shape[0] :]
-            # numpy
-            div = self._Dnp
-            gradphi = -self._Dnp.T @ self._M3np.dot(phinfeec.toarray())
-            gradphi0 = gradphi[0 : unfeec[0].shape[0]]
-            gradphi1 = gradphi[unfeec[0].shape[0] : unfeec[0].shape[0] + unfeec[1].shape[0]]
-            gradphi2 = gradphi[unfeec[0].shape[0] + unfeec[1].shape[0] :]
-            F = self._M2np @ self._F1np  # - A11Laplace.dot(u_prime.vector.toarray())
-            F0 = F[0 : unfeec[0].shape[0]]
-            F1 = F[unfeec[0].shape[0] : unfeec[0].shape[0] + unfeec[1].shape[0]]
-            F2 = F[unfeec[0].shape[0] + unfeec[1].shape[0] :]
-
-            # F=self._M2@self._F1
-            # F2mat=self._M2@self._F2
-            # F0=F[0].toarray()
-
-            M2test = getattr(self._mass_opsv0, "M2")
-
-            Ftest = self._mass_opsv0.M2 @ self._F1
-            print(f"{np.max(np.abs(Ftest.toarray()-F))=}")
-            F0test = Ftest[0].toarray()
-            F1test = Ftest[1].toarray()
-            F2test = Ftest[2].toarray()
-
-            Aematr = _Anp[1].dot(uenfeec.toarray()) + self._solver_UzawaNumpy.B[1].T.dot(phinfeec.toarray())
-            Aematr0 = Aematr[0 : uenfeec[0].shape[0]]
-            Aematr1 = Aematr[uenfeec[0].shape[0] : uenfeec[0].shape[0] + uenfeec[1].shape[0]]
-            Aematr2 = Aematr[uenfeec[0].shape[0] + uenfeec[1].shape[0] :]
-
-            Fandgradphi = _Fnp[1]
-            Fandgradphi0 = Fandgradphi[0 : unfeec[0].shape[0]]
-            Fandgradphi1 = Fandgradphi[unfeec[0].shape[0] : unfeec[0].shape[0] + unfeec[1].shape[0]]
-            Fandgradphi2 = Fandgradphi[unfeec[0].shape[0] + unfeec[1].shape[0] :]
-
-            plt.figure(figsize=(20, 18))
-            plt.subplot(4, 3, 1)
-            plt.plot(laplace0, color="blue", label="Laplace0")
-            plt.plot(F0, color="red", label="F1[0]")
-            plt.plot(F0test, color="green", label="F1[0]")
-            plt.legend()
-            plt.subplot(4, 3, 2)
-            plt.plot(laplace1, color="blue", label="Laplace1")
-            plt.plot(F1, color="red", label="F1[1]")
-            plt.plot(F1test, color="green", label="F1[1]")
-            plt.legend()
-            plt.subplot(4, 3, 3)
-            plt.plot(laplace2, color="blue", label="Laplace2")
-            plt.plot(F2, color="red", label="F1[2]")
-            plt.plot(F2test, color="green", label="F1[2]")
-            plt.legend()
-            plt.subplot(4, 3, 4)
-            plt.plot(uxB0, color="blue", label="uxb0")
-            plt.plot(gradphi0, color="red", label="gradphi0")
-            plt.legend()
-            plt.subplot(4, 3, 5)
-            plt.plot(uxB1, color="blue", label="uxb1")
-            plt.plot(gradphi1, color="red", label="gradphi1")
-            plt.legend()
-            plt.subplot(4, 3, 6)
-            plt.plot(uxB2, color="blue", label="uxb1")
-            plt.plot(gradphi2, color="red", label="gradphi2")
-            plt.legend()
-            plt.subplot(4, 3, 7)
-            plt.plot(u0.vector[0].toarray(), color="blue", label=r"u0_R")
-            plt.plot(u_prime.vector[0].toarray(), color="red", label=r"u_R'")
-            plt.legend()
-            plt.subplot(4, 3, 8)
-            plt.plot(u0.vector[1].toarray(), color="blue", label=r"u0_{\theta}")
-            plt.plot(u_prime.vector[1].toarray(), color="red", label=r"u_{\theta}'")
-            plt.legend()
-            plt.subplot(4, 3, 9)
-            plt.plot(u0.vector[2].toarray(), color="blue", label=r"u0_{\varphi}")
-            plt.plot(u_prime.vector[2].toarray(), color="red", label=r"u_{\varphi}'")
-            plt.legend()
-
-            plt.subplot(4, 3, 10)
-            plt.plot(Aematr0, color="blue", label=r"Ae")
-            plt.plot(Fandgradphi0, color="red", label=r"B+Fe'")
-            plt.legend()
-            plt.subplot(4, 3, 11)
-            plt.plot(Aematr1, color="blue", label=r"Ae")
-            plt.plot(Fandgradphi1, color="red", label=r"B+Fe'")
-            plt.legend()
-            plt.subplot(4, 3, 12)
-            plt.plot(Aematr2, color="blue", label=r"Ae")
-            plt.plot(Fandgradphi2, color="red", label=r"B+Fe'")
-            plt.legend()
-
-            plt.savefig("Laplacian.png")
-            exit()
+                _F1np = (
+                    self._M2np @ self._F1np
+                    + 1.0 / dt * self._M2np.dot(u0.vector.toarray())
+                    - self._A11np_notimedependency.dot(u_prime.vector.toarray())
+                )
+                _F2np = self._M2np @ self._F2np - self.A22np.dot(ue_prime.vector.toarray())
+                _Fnp = [_F1np, _F2np]
+            else: 
+                _F1np = (
+                    self._M2np @ self._F1np
+                    + 1.0 / dt * self._M2np.dot(unfeec.toarray())
+                )
+                _F2np = self._M2np @ self._F2np 
+                _Fnp = [_F1np, _F2np]
 
             if self.rank == 0:
                 if self._preconditioner == True:
                     self._solver_UzawaNumpy.Apre = _Anppre
                 self._solver_UzawaNumpy.A = _Anp
                 self._solver_UzawaNumpy.F = _Fnp
-                # Check if input is a solution
-                residual_u = (
-                    _Anp[0].dot(u0.vector.toarray()) + self._solver_UzawaNumpy.B[0].T.dot(phinfeec.toarray()) - _Fnp[0]
-                )
-                residual_ue = (
-                    _Anp[1].dot(ue0.vector.toarray()) + self._solver_UzawaNumpy.B[1].T.dot(phinfeec.toarray()) - _Fnp[1]
-                )
-                residual_u0 = residual_u[0 : unfeec[0].shape[0]]
-                residual_u1 = residual_u[unfeec[0].shape[0] : unfeec[0].shape[0] + unfeec[1].shape[0]]
-                residual_u2 = residual_u[unfeec[0].shape[0] + unfeec[1].shape[0] :]
-                print(f"{np.max(np.abs(residual_u0))=}")
-                print(f"{np.max(np.abs(residual_u1))=}")
-                print(f"{np.max(np.abs(residual_u2))=}")
-                print(f"{np.max(np.abs(residual_u))=}")
-                print(f"{np.max(np.abs(residual_ue))=}")
-                # exit()
-                un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(
-                    u0.vector, ue0.vector, phinfeec
-                )
+                if self._lifting:
+                    un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(
+                        u0.vector, ue0.vector, phinfeec
+                    )
 
-                un += u_prime.vector.toarray()
-                uen += ue_prime.vector.toarray()
+                    un += u_prime.vector.toarray()
+                    uen += ue_prime.vector.toarray()
+                else:
+                    un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(
+                        unfeec, uenfeec, phinfeec
+                    )
 
                 dimlist = [[shp - 2 * pi for shp, pi in zip(unfeec[i][:].shape, self.derham.p)] for i in range(3)]
                 dimphi = [shp - 2 * pi for shp, pi in zip(phinfeec[:].shape, self.derham.p)]
@@ -8519,55 +8317,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
 
-        # import os
-        # import pickle
-        # from collections import defaultdict, namedtuple
-
-        # def load_iteration_log(filename="iteration_log_sigma.pkl"):
-        #     if os.path.exists(filename) and os.path.getsize(filename) > 0:
-        #         with open(filename, "rb") as f:
-        #             data = pickle.load(f)
-        #         # Ensure it's a defaultdict for new keys
-        #         if not isinstance(data, defaultdict):
-        #             data = defaultdict(default_entry, data)
-        #         return data
-        #     else:
-        #         return defaultdict(default_entry)
-
-        # def save_iteration_log(data, filename="iteration_log_sigma.pkl"):
-        #     with open(filename, "wb") as f:
-        #         pickle.dump(data, f)
-
-        # # from struphy.params_2D_variation_run import load_iteration_log, save_iteration_log, default_entry
-
-        # # 1. Load existing data
-        # iteration_log = load_iteration_log()
-
-        # # 2. Define the key tuple using your parameters
-        # key = (
-        #     self._variant,
-        #     tuple(self.derham.Nel),
-        #     tuple(self.derham.p),
-        #     self._stab_sigma,
-        #     self._nu,
-        #     self._nu_e,
-        #     self._method_to_solve,
-        #     self._preconditioner,
-        #     self._eps_norm
-        # )
-        # # 3. Append your iteration number
-        # iteration_log[key]["niter"].append(info["niter"])
-        # if self._spectralanalysis == True and self._variant == "Uzawa":
-        #     iteration_log[key]["A11_cdtnr"].append(spectralresult[2])
-        #     iteration_log[key]["A22_cdtnr"].append(spectralresult[0])
-        #     iteration_log[key]["A22_specnr"].append(spectralresult[1])
-        #     if self._preconditioner == True:
-        #         iteration_log[key]["A22_cdtnr_PC"].append(spectralresult[3])
-        #         iteration_log[key]["A22_specnr_PC"].append(spectralresult[4])
-
-        # # 4. Save the updated data
-        # save_iteration_log(iteration_log)
-
         if self._info and self._rank == 0:
             print("Status     for TwoFluidQuasiNeutralFull:", info["success"])
             print("Iterations for TwoFluidQuasiNeutralFull:", info["niter"])
@@ -8575,15 +8324,3 @@ class TwoFluidQuasiNeutralFull(Propagator):
             print("Maxdiff u_e for TwoFluidQuasiNeutralFull:", max_due)
             print("Maxdiff phi for TwoFluidQuasiNeutralFull:", max_dphi)
             print()
-
-
-def default_entry():
-    return {
-        "niter": [],
-        "timestep": [],
-        "A22_cdtnr": [],
-        "A22_specnr": [],
-        "A22_cdtnr_PC": [],
-        "A22_specnr_PC": [],
-        "A11_cdtnr": [],
-    }
