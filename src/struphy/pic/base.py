@@ -2,6 +2,7 @@ import copy
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
+from line_profiler import profile
 
 import h5py
 import numpy as np
@@ -19,7 +20,7 @@ from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
 from struphy.io.output_handling import DataContainer
-from struphy.kinetic_background.base import KineticBackground
+from struphy.kinetic_background.base import KineticBackground, Maxwellian
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
@@ -553,7 +554,7 @@ class Particles(metaclass=ABCMeta):
         return self._u_init
 
     @property
-    def f0(self):
+    def f0(self) -> Maxwellian:
         assert hasattr(self, "_f0"), AttributeError(
             "No background distribution available, please run self._set_background_function()",
         )
@@ -948,7 +949,8 @@ class Particles(metaclass=ABCMeta):
         return dom_arr, tuple(nprocs)
 
     def _set_background_function(self):
-        self._f0 = self.background
+        self._f0 = copy.deepcopy(self.background)
+        self.f0.add_perturbation = False
         # self._f0 = None
         # if isinstance(self.bckgr_params, FluidEquilibrium):
         #     self._f0 = self.bckgr_params
@@ -1545,6 +1547,7 @@ class Particles(metaclass=ABCMeta):
             self.mpi_sort_markers()
             self.do_sort()
 
+    @profile
     def mpi_sort_markers(
         self,
         apply_bc: bool = True,
@@ -1705,6 +1708,7 @@ class Particles(metaclass=ABCMeta):
         else:
             self.weights = self.weights0
 
+    @profile
     def update_weights(self):
         """
         Applies the control variate method, i.e. updates the time-dependent marker weights
@@ -1739,6 +1743,7 @@ class Particles(metaclass=ABCMeta):
         )[self.mpi_rank]
         self.marker_ids = first_marker_id + np.arange(self.n_mks_loc, dtype=int)
 
+    @profile
     def binning(self, components, bin_edges, divide_by_jac=True):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
         Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
@@ -1868,6 +1873,7 @@ class Particles(metaclass=ABCMeta):
 
         return outside_inds
 
+    @profile
     def apply_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -2380,6 +2386,7 @@ class Particles(metaclass=ABCMeta):
         self._argsort_array[:] = self._markers[:, sorting_axis].argsort()
         self._markers[:, :] = self._markers[self._argsort_array]
 
+    @profile
     def put_particles_in_boxes(self):
         """Assign the right box to the particles and the list of the particles to each box.
         If sorting_boxes was instantiated with an MPI comm, then the particles in the
@@ -2407,6 +2414,7 @@ class Particles(metaclass=ABCMeta):
             )
             self.update_ghost_particles()
 
+    @profile
     def do_sort(self):
         """Assign the particles to boxes and then sort them."""
         nx = self._sorting_boxes.nx
@@ -2788,6 +2796,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
             self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
+    @profile
     def communicate_boxes(self, verbose=False):
         if verbose:
             n_valid = np.count_nonzero(self.valid_mks)

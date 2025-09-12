@@ -54,7 +54,7 @@ class Maxwell(StruphyModel):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
         
-        # 1. instantiate all species, variables
+        # 1. instantiate all species
         self.em_fields = self.EMFields()
 
         # 2. instantiate all propagators
@@ -130,7 +130,7 @@ class Vlasov(StruphyModel):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}' ***")
             
-        # 1. instantiate all species, variables
+        # 1. instantiate all species
         self.kinetic_ions = self.KineticIons()
 
         # 2. instantiate all propagators
@@ -218,7 +218,7 @@ class GuidingCenter(StruphyModel):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}' ***")
             
-        # 1. instantiate all species, variables
+        # 1. instantiate all species
         self.kinetic_ions = self.KineticIons()
 
         # 2. instantiate all propagators

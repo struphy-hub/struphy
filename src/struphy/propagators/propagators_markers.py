@@ -6,6 +6,7 @@ from typing import Literal, get_args
 import copy
 from dataclasses import dataclass
 from mpi4py import MPI
+from line_profiler import profile
 
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -84,6 +85,7 @@ class PushEta(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
         # get kernel
         kernel = pusher_kernels.push_eta_stage
@@ -112,6 +114,7 @@ class PushEta(Propagator):
             mpi_sort="each",
         )
 
+    @profile
     def __call__(self, dt):
         self._pusher(dt)
 
@@ -125,9 +128,9 @@ class PushVxB(Propagator):
 
     .. math::
 
-        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \kappa \, \mathbf v_p(t) \times (\mathbf B + \mathbf B_{\text{add}}) \,,
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} =  \frac{1}{\varepsilon} \, \mathbf v_p(t) \times (\mathbf B + \mathbf B_{\text{add}}) \,,
 
-    where :math:`\kappa \in \mathbb R` is a constant scaling factor, and for rotation vector :math:`\mathbf B` and optional, additional fixed rotation
+    where :math:`\varepsilon = 1/(\hat\Omega_c \hat t)` is a constant scaling factor, and for rotation vector :math:`\mathbf B` and optional, additional fixed rotation
     vector :math:`\mathbf B_{\text{add}}`, both given as a 2-form:
 
     .. math::
@@ -159,7 +162,6 @@ class PushVxB(Propagator):
         OptsAlgo = Literal["analytic", "implicit"]
         # propagator options
         algo: OptsAlgo = "analytic"
-        kappa: float = 1.0
         b2_var: FEECVariable = None
         
         def __post_init__(self):
@@ -181,7 +183,11 @@ class PushVxB(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
+        # scaling factor
+        self._epsilon = self.variables.ions.species.equation_params.epsilon
+        
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
         if self.projected_equil is not None:
             self._b2 = self.projected_equil.b2
@@ -226,6 +232,7 @@ class PushVxB(Propagator):
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T: LinearOperator = self.derham.extraction_ops["2"].transpose()
 
+    @profile
     def __call__(self, dt):
         # sum up total magnetic field
         tmp = self._b2.copy(out=self._tmp)
@@ -235,9 +242,10 @@ class PushVxB(Propagator):
         # extract coefficients to tensor product space
         b_full: BlockVector = self._E2T.dot(tmp, out=self._b_full)
         b_full.update_ghost_regions()
+        b_full /= self._epsilon
 
         # call pusher kernel
-        self._pusher(self.options.kappa * dt)
+        self._pusher(dt)
 
         # update_weights
         if self.variables.ions.particles.control_variate:
@@ -502,7 +510,11 @@ class PushGuidingCenterBxEstar(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
+        # scaling factor
+        self._epsilon = self.variables.ions.species.equation_params.epsilon
+        
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
         self._gradB1 = self.projected_equil.gradB1
@@ -533,7 +545,6 @@ class PushGuidingCenterBxEstar(Propagator):
         self._phi = self.options.phi.spline.vector
         self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.Vh["1"].zeros()
-        self._epsilon = self.variables.ions.species.equation_params.epsilon
 
         # choose method
         particles = self.variables.ions.particles
@@ -807,6 +818,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 verbose=self.options.verbose,
             )
 
+    @profile
     def __call__(self, dt):
         # electric field
         # TODO: add out to __neg__ of StencilVector
@@ -936,7 +948,11 @@ class PushGuidingCenterParallel(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
+        # scaling factor
+        self._epsilon = self.variables.ions.species.equation_params.epsilon
+        
         # magnetic equilibrium field
         self._gradB1 = self.projected_equil.gradB1
         b2 = self.projected_equil.b2
@@ -968,7 +984,6 @@ class PushGuidingCenterParallel(Propagator):
         self._phi = self.options.phi.spline.vector
         self._evaluate_e_field = self.options.evaluate_e_field
         self._e_field = self.derham.Vh["1"].zeros()
-        self._epsilon = self.variables.ions.species.equation_params.epsilon
 
         # choose method
         particles = self.variables.ions.particles
@@ -1251,6 +1266,7 @@ class PushGuidingCenterParallel(Propagator):
                 verbose=self.options.verbose,
             )
 
+    @profile
     def __call__(self, dt):
         # electric field
         # TODO: add out to __neg__ of StencilVector

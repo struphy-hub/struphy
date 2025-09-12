@@ -6,6 +6,7 @@ from typing import Callable
 import os
 import yaml
 import struphy
+from line_profiler import profile
 
 import numpy as np
 import yaml
@@ -164,18 +165,13 @@ class StruphyModel(metaclass=ABCMeta):
     
     ## allocate methods
              
-    def allocate_feec(self,
-                 grid: TensorProductGrid,
-                 derham_opts: DerhamOptions,
-                 comm: MPI.Intracomm = None,
-                 clone_config: CloneConfig = None,
-                 ):
+    def allocate_feec(self, grid: TensorProductGrid, derham_opts: DerhamOptions):
 
         # create discrete derham sequence
-        if clone_config is None:
+        if self.clone_config is None:
             derham_comm = MPI.COMM_WORLD
         else:
-            derham_comm = clone_config.sub_comm
+            derham_comm = self.clone_config.sub_comm
 
         self._derham = setup_derham(
             grid,
@@ -578,6 +574,7 @@ class StruphyModel(metaclass=ABCMeta):
             if isinstance(prop, Propagator):
                 prop.add_time_state(time_state)
 
+    @profile
     def allocate_variables(self, verbose: bool = False):
         """
         Allocate memory for model variables and set initial conditions.
@@ -626,7 +623,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         #             self._pointer[key] = val["obj"].vector
 
-
+    @profile
     def integrate(self, dt, split_algo="LieTrotter"):
         """
         Advance the model by a time step ``dt`` by sequentially calling its Propagators.
@@ -672,6 +669,7 @@ class StruphyModel(metaclass=ABCMeta):
                 f"Splitting scheme {split_algo} not available.",
             )
 
+    @profile
     def update_markers_to_be_saved(self):
         """
         Writes markers with IDs that are supposed to be saved into corresponding array.
@@ -715,6 +713,7 @@ class StruphyModel(metaclass=ABCMeta):
                 var.kinetic_data["markers"][:] = -1.0
                 var.kinetic_data["markers"][:n_markers_on_proc] = obj.markers[markers_on_proc]
 
+    @profile
     def update_distr_functions(self):
         """
         Writes distribution functions slices that are supposed to be saved into corresponding array.
@@ -735,7 +734,7 @@ class StruphyModel(metaclass=ABCMeta):
                     str_dn = f"d{i + 1}"
                     dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
 
-            if species.f_binned is not None:
+            if species.binning_plots:
                 for slice_i, edges in var.kinetic_data["bin_edges"].items():
                     comps = slice_i.split("_")
                     components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
@@ -1093,11 +1092,14 @@ class StruphyModel(metaclass=ABCMeta):
 
             data.add_data({key_spec_restart: obj._markers})
 
+            # TODO: kinetic_data should be a KineticData object, not a dict
             for key1, val1 in var.kinetic_data.items():
                 key_dat = os.path.join(key_spec, key1)
 
-                # case of "f" and "df"
-                if isinstance(val1, dict):
+                if key1 == "bin_edges":
+                    continue
+                elif key1 == "f" or key1 == "df":
+                    assert isinstance(val1, dict)
                     for key2, val2 in val1.items():
                         key_f = os.path.join(key_dat, key2)
                         data.add_data({key_f: val2})
@@ -1327,7 +1329,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     exclude = f"# model.{sn}.{vn}.save_data = False\n"
                 elif isinstance(var, PICVariable):
                     has_pic = True
-                    init_pert_pic = f"perturbation = perturbations.TorusModesCos()\n"
+                    init_pert_pic = f"\nperturbation = perturbations.TorusModesCos()"
                     if "6D" in var.space:
                         init_bckgr_pic = f"\nmaxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
                         init_bckgr_pic += f"maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
@@ -1347,7 +1349,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("from struphy.initial import perturbations\n")
         
         file.write("from struphy.kinetic_background import maxwellians\n")
-        file.write("from struphy.pic.utilities import LoadingParameters, WeightsParameters, BoundaryParameters\n")
+        file.write("from struphy.pic.utilities import LoadingParameters, WeightsParameters, BoundaryParameters, BinningPlot\n")
         file.write("from struphy import main\n")
             
         file.write("\n# import model, set verbosity\n")

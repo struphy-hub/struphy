@@ -11,6 +11,7 @@ import shutil
 import pickle
 import h5py
 import copy
+from line_profiler import profile
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.io.output_handling import DataContainer
@@ -39,6 +40,7 @@ from struphy.post_processing.post_processing_tools import (post_process_markers,
 from struphy.post_processing.orbits import orbits_tools
     
 
+@profile
 def run(
     model: StruphyModel,
     *,
@@ -124,8 +126,8 @@ def run(
         else:
             with open(os.path.join(path_out, "env.bin"), 'wb') as f:
                 pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "units.bin"), 'wb') as f:
-                pickle.dump(units, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "base_units.bin"), 'wb') as f:
+                pickle.dump(base_units, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "time_opts.bin"), 'wb') as f:
                 pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "domain.bin"), 'wb') as f:
@@ -190,9 +192,7 @@ def run(
         grid = grids.TensorProductGrid(Nel=Nel)
     
     # allocate derham-related objects
-    if derham_opts is not None:
-        model.allocate_feec(grid, derham_opts)
-    else:
+    if derham_opts is None:
         p = (3, 3, 3)
         spl_kind = (False, False, False)
         print(f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium.")
@@ -612,6 +612,7 @@ class SimData:
     def __init__(self, path: str):
         self.path = path
         self._orbits = {}
+        self._f = {}
         self._spline_values = {}
         self.sph_species = {}
         self.grids_log: list[np.ndarray] = None
@@ -622,6 +623,11 @@ class SimData:
     def orbits(self) -> dict[str, np.ndarray]:
         """Keys: species name. Values: 3d arrays indexed by (n, p, a), where 'n' is the time index, 'p' the particle index and 'a' the attribute index."""
         return self._orbits
+    
+    @property
+    def f(self) -> dict[str, dict[str, dict[str, np.ndarray]]]:
+        """Keys: species name. Values: dicts of slice names ('e1_v1' etc.) holding dicts of corresponding np.arrays for plotting."""
+        return self._f
     
     @property
     def spline_values(self) -> dict[str, dict[str, np.ndarray]]:
@@ -703,7 +709,7 @@ def load_data(path: str) -> SimData:
         # species folders
         species = next(os.walk(path_fields))[1]
         for spec in species:
-            simdata.spline_values[spec] = {}
+            simdata._spline_values[spec] = {}
             # simdata.arrays[spec] = {}
             path_spec = os.path.join(path_fields, spec)
             wlk = os.walk(path_spec)
@@ -714,7 +720,7 @@ def load_data(path: str) -> SimData:
                     var = file.split(".")[0]
                     with open(os.path.join(path_spec, file), "rb") as f:
                         # try:
-                        simdata.spline_values[spec][var] = pickle.load(f)
+                        simdata._spline_values[spec][var] = pickle.load(f)
                         # simdata.arrays[spec][var] = pickle.load(f)
                         
     if os.path.exists(path_kinetic):
@@ -729,8 +735,8 @@ def load_data(path: str) -> SimData:
             for folder in sub_folders:
                 path_dat = os.path.join(path_spec, folder)
                 sub_wlk = os.walk(path_dat)
-                files = next(sub_wlk)[2]
                 if "orbits" in folder:
+                    files = next(sub_wlk)[2]
                     Nt = len(files) // 2
                     n = 0
                     for file in files:
@@ -739,10 +745,25 @@ def load_data(path: str) -> SimData:
                             step = int(file.split(".")[0].split("_")[-1])
                             tmp = np.load(os.path.join(path_dat, file))
                             if n == 0:
-                                simdata.orbits[spec] = np.zeros((Nt, *tmp.shape), dtype=float)
-                            simdata.orbits[spec][step] = tmp
+                                simdata._orbits[spec] = np.zeros((Nt, *tmp.shape), dtype=float)
+                            simdata._orbits[spec][step] = tmp
                             n += 1
+                elif "distribution_function" in folder:
+                    simdata._f[spec] = {}
+                    slices = next(sub_wlk)[1]
+                    # print(f"{slices = }")
+                    for sli in slices:
+                        simdata._f[spec][sli] = {}
+                        # print(f"{sli = }")
+                        files = next(sub_wlk)[2]
+                        # print(f"{files = }")
+                        for file in files:
+                            name = file.split(".")[0]
+                            tmp = np.load(os.path.join(path_dat, sli, file))
+                            # print(f"{name = }")
+                            simdata._f[spec][sli][name] = tmp
                 else:
+                    print(f"{folder = }")
                     raise NotImplementedError
                     # # simdata.pic_species[spec][folder] = {}
                     # tmp = {}
@@ -757,16 +778,21 @@ def load_data(path: str) -> SimData:
     print("\nThe following data has been loaded:")
     print(f"{simdata.time_grid_size = }")
     print(f"{simdata.spline_grid_resolution = }")
-    print(f"simdata.spline_values:")
+    print(f"\nsimdata.spline_values:")
     for k, v in simdata.spline_values.items():
-        print(f"  {k}:")
+        print(f"  {k}")
         for kk, vv in v.items():
             print(f"    {kk}")
-    print(f"simdata.orbits:")
+    print(f"\nsimdata.orbits:")
     for k, v in simdata.orbits.items():
         print(f"  {k}")
-        # for kk, vv in v.items():
-        #     print(f"    {kk}")
+    print(f"\nsimdata.f:")
+    for k, v in simdata.f.items():
+        print(f"  {k}")
+        for kk, vv in v.items():
+            print(f"    {kk}")
+            for kkk, vvv in vv.items():
+                print(f"      {kkk}")
     print(f"simdata.sph_species:")
                         
     return simdata
