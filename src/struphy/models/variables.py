@@ -1,63 +1,69 @@
-
 # for type checking (cyclic imports)
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 from abc import ABCMeta, abstractmethod
-from mpi4py import MPI
+from typing import TYPE_CHECKING
+
 import numpy as np
+from mpi4py import MPI
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
-from struphy.io.options import (FieldsBackground, OptsFEECSpace, OptsPICSpace, check_option,)
-from struphy.initial.perturbations import Perturbation
-from struphy.geometry.base import Domain
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
-from struphy.pic.base import Particles
+from struphy.geometry.base import Domain
+from struphy.initial.perturbations import Perturbation
+from struphy.io.options import (
+    FieldsBackground,
+    OptsFEECSpace,
+    OptsPICSpace,
+    check_option,
+)
 from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import particles
+from struphy.pic.base import Particles
 from struphy.utils.clone_config import CloneConfig
 
 if TYPE_CHECKING:
-    from struphy.models.species import Species, KineticSpecies, FieldSpecies, FluidSpecies
+    from struphy.models.species import FieldSpecies, FluidSpecies, KineticSpecies, Species
+
 
 class Variable(metaclass=ABCMeta):
     """Single variable (unknown) of a Species."""
-    
+
     @abstractmethod
     def allocate(self):
         """Alocate object and memory for variable."""
-    
+
     @property
     def backgrounds(self):
         if not hasattr(self, "_backgrounds"):
             self._backgrounds = None
         return self._backgrounds
-    
+
     @property
     def perturbations(self):
         if not hasattr(self, "_perturbations"):
             self._perturbations = None
         return self._perturbations
-    
+
     @property
     def save_data(self):
         """Store variable data during simulation (default=True)."""
         if not hasattr(self, "_save_data"):
             self._save_data = True
         return self._save_data
-    
+
     @save_data.setter
     def save_data(self, new):
         assert isinstance(new, bool)
         self._save_data = new
-    
+
     @property
     def species(self) -> Species:
         if not hasattr(self, "_species"):
             self._species = None
         return self._species
-    
+
     @property
     def __name__(self):
         if not hasattr(self, "_name"):
@@ -72,11 +78,13 @@ class Variable(metaclass=ABCMeta):
             if not isinstance(self.backgrounds, list):
                 self._backgrounds = [self.backgrounds]
             self._backgrounds += [background]
-        
+
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added background '{background.__class__.__name__}' with:")
+            print(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added background '{background.__class__.__name__}' with:"
+            )
             for k, v in background.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
 
     def add_perturbation(self, perturbation: Perturbation, verbose=True):
         if not hasattr(self, "_perturbations") or self.perturbations is None:
@@ -85,95 +93,101 @@ class Variable(metaclass=ABCMeta):
             if not isinstance(self.perturbations, list):
                 self._perturbations = [self.perturbations]
             self._perturbations += [perturbation]
-        
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:")
-            for k, v in perturbation.__dict__.items():
-                print(f'  {k}: {v}')
 
-    
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:"
+            )
+            for k, v in perturbation.__dict__.items():
+                print(f"  {k}: {v}")
+
+
 class FEECVariable(Variable):
     def __init__(self, space: OptsFEECSpace = "H1"):
         check_option(space, OptsFEECSpace)
         self._space = space
-        
+
     @property
     def space(self):
         return self._space
-    
+
     @property
     def spline(self) -> SplineFunction:
         return self._spline
-    
+
     @property
     def species(self) -> FieldSpecies | FluidSpecies:
         if not hasattr(self, "_species"):
             self._species = None
         return self._species
-    
+
     def add_background(self, background: FieldsBackground, verbose=True):
         super().add_background(background, verbose=verbose)
-    
-    def allocate(self, derham: Derham, domain: Domain = None, equil: FluidEquilibrium = None,):
+
+    def allocate(
+        self,
+        derham: Derham,
+        domain: Domain = None,
+        equil: FluidEquilibrium = None,
+    ):
         self._spline = derham.create_spline_function(
-                        name=self.__name__,
-                        space_id=self.space,
-                        backgrounds=self.backgrounds,
-                        perturbations=self.perturbations,
-                        domain=domain,
-                        equil=equil,
-                    )
-    
-    
+            name=self.__name__,
+            space_id=self.space,
+            backgrounds=self.backgrounds,
+            perturbations=self.perturbations,
+            domain=domain,
+            equil=equil,
+        )
+
+
 class PICVariable(Variable):
     def __init__(self, space: OptsPICSpace = "Particles6D"):
         check_option(space, OptsPICSpace)
         self._space = space
         self._kinetic_data = {}
-        
+
     @property
     def space(self):
         return self._space
-    
+
     @property
     def particles(self) -> Particles:
         return self._particles
-    
+
     @property
     def kinetic_data(self):
         return self._kinetic_data
-    
+
     @property
     def species(self) -> KineticSpecies:
         if not hasattr(self, "_species"):
             self._species = None
         return self._species
-    
+
     @property
     def n_as_volume_form(self) -> bool:
         """Whether the number density n is given as a volume form or scalar function (=default)."""
         if not hasattr(self, "_n_as_volume_form"):
             self._n_as_volume_form = False
         return self._n_as_volume_form
-    
-    def add_background(self, 
-                       background: KineticBackground,
-                       n_as_volume_form: bool = False,
-                       verbose=True):
+
+    def add_background(self, background: KineticBackground, n_as_volume_form: bool = False, verbose=True):
         self._n_as_volume_form = n_as_volume_form
         super().add_background(background, verbose=verbose)
-    
-    def allocate(self, 
-                 clone_config: CloneConfig = None,
-                 derham: Derham = None, 
-                 domain: Domain = None, 
-                 equil: FluidEquilibrium = None,
-                 projected_equil: ProjectedFluidEquilibrium = None,
-                 verbose: bool = False,
-                 ):
-        
-        #assert isinstance(self.species, KineticSpecies)
-        assert isinstance(self.backgrounds, KineticBackground), f"List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+
+    def allocate(
+        self,
+        clone_config: CloneConfig = None,
+        derham: Derham = None,
+        domain: Domain = None,
+        equil: FluidEquilibrium = None,
+        projected_equil: ProjectedFluidEquilibrium = None,
+        verbose: bool = False,
+    ):
+        # assert isinstance(self.species, KineticSpecies)
+        assert isinstance(self.backgrounds, KineticBackground), (
+            f"List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+        )
 
         if derham is None:
             domain_decomp = None
@@ -209,7 +223,7 @@ class PICVariable(Variable):
             equation_params=self.species.equation_params,
             verbose=verbose,
         )
-        
+
         if self.species.do_sort:
             sort = True
         else:

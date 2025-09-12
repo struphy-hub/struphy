@@ -1,6 +1,9 @@
 "Propagator base class."
 
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+from typing import Literal
+
 import numpy as np
 from mpi4py import MPI
 from dataclasses import dataclass
@@ -9,10 +12,6 @@ from typing import Literal
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry.base import Domain
-from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.io.options import check_option
 
@@ -93,7 +92,7 @@ class Propagator(metaclass=ABCMeta):
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
         update feec coefficients and update ghost regions.
-        
+
         Returns
         -------
         diffs : dict
@@ -107,7 +106,7 @@ class Propagator(metaclass=ABCMeta):
             assert isinstance(old_var, FEECVariable)
             old = old_var.spline.vector
             assert new.space == old.space
- 
+
             # calculate maximum of difference abs(new - old)
             diffs[var] = np.max(np.abs(new.toarray() - old.toarray()))
 
@@ -205,7 +204,7 @@ class Propagator(metaclass=ABCMeta):
     @property
     def time_state(self):
         """A pointer to the time variable of the dynamics ('t')."""
-        return self._time_state 
+        return self._time_state
 
     def add_time_state(self, time_state):
         """Add a pointer to the time variable of the dynamics ('t').

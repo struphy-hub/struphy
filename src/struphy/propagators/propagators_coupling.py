@@ -1,5 +1,8 @@
 "Particle and FEEC variables are updated."
 
+from dataclasses import dataclass
+from typing import Literal
+
 import numpy as np
 from dataclasses import dataclass
 from mpi4py import MPI
@@ -11,10 +14,13 @@ from psydac.linalg.stencil import StencilVector
 
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.io.options import OptsGenSolver, OptsMassPrecond, OptsSymmSolver, OptsVecSpace, check_option
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.pic.particles import Particles5D, Particles6D

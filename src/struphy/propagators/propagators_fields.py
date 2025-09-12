@@ -1,5 +1,6 @@
 "Only FEEC variables are updated."
 
+import copy
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from line_profiler import profile
 
 import numpy as np
 import scipy as sc
+from line_profiler import profile
 from mpi4py import MPI
 from numpy import zeros
 from psydac.linalg.basic import IdentityOperator, ZeroOperator
@@ -33,11 +35,14 @@ from struphy.feec.variational_utilities import (
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations
+from struphy.io.options import OptsGenSolver, OptsMassPrecond, OptsSymmSolver, OptsVecSpace, check_option
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
 from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau, OptsButcher
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
@@ -46,10 +51,6 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.models.variables import Variable
-from struphy.linear_algebra.solver import SolverParameters
-from struphy.io.options import (check_option, OptsSymmSolver, OptsMassPrecond, OptsGenSolver, OptsVecSpace)
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 
 
 class Maxwell(Propagator):
@@ -548,7 +549,7 @@ class ShearAlfven(Propagator):
     @profile
     def allocate(self):
         u_space = self.options.u_space
-        
+
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_M = "M" + self.derham.space_to_form[u_space] + "n"
         id_T = "T" + self.derham.space_to_form[u_space]
@@ -1105,7 +1106,7 @@ class Magnetosonic(Propagator):
         nn1 += nn
 
         diffs = self.update_feec_variables(n=nn1, u=un1, p=pn1)
-        
+
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for Magnetosonic:", info["success"])
             print("Iterations for Magnetosonic:", info["niter"])
@@ -7535,7 +7536,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
     def allocate(self):
         pass
-    
+
     def set_options(self, **kwargs):
         pass
 

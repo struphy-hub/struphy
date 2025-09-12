@@ -1,6 +1,7 @@
 "Accelerated particle pushing."
 
 import numpy as np
+from line_profiler import profile
 from mpi4py.MPI import IN_PLACE, SUM
 from line_profiler import profile
 
