@@ -20,9 +20,9 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     from struphy.feec.utilities import compare_arrays
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
-    from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
-    from struphy.models.variables import FEECVariable
     from struphy.initial import perturbations
+    from struphy.models.variables import FEECVariable
+    from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -93,13 +93,13 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
 
     uvec.add_perturbation(pp_u)
     uvec.allocate(derham, domain, eq_mhd)
-    
+
     u_evec.add_perturbation(pp_ue)
     u_evec.allocate(derham, domain, eq_mhd)
-    
+
     potentialvec.add_perturbation(pp_potential)
     potentialvec.allocate(derham, domain, eq_mhd)
-    
+
     uinitial.allocate(derham, domain, eq_mhd)
 
     # uvec.initialize_coeffs(domain=domain, pert_params=pp_u)

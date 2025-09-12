@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class SolverParameters:
     """Parameters for psydac solvers."""

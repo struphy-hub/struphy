@@ -1,10 +1,10 @@
+import os
 from dataclasses import dataclass
 from typing import Literal, get_args
+
 import numpy as np
-import os
 
 from struphy.physics.physics import ConstantsOfNature
-
 
 ## Literal options
 
@@ -21,7 +21,7 @@ BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
 
 # perturbations
 NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
-GivenInBasis = Literal['0', '1', '2', '3', 'v', 'physical', 'physical_at_eta', 'norm', None]
+GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]
 
 # solvers
 OptsSymmSolver = Literal["pcg", "cg"]
@@ -32,12 +32,13 @@ OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
 OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
 OptsMarkerBC = Literal["periodic", "reflect"]
 OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
-OptsLoading = Literal["pseudo_random", 'sobol_standard', 'sobol_antithetic', 'external', 'restart', "tesselation"]
+OptsLoading = Literal["pseudo_random", "sobol_standard", "sobol_antithetic", "external", "restart", "tesselation"]
 OptsSpatialLoading = Literal["uniform", "disc"]
 OptsMPIsort = Literal["each", "last", None]
 
 
 ## Option classes
+
 
 @dataclass
 class Time:
@@ -47,10 +48,10 @@ class Time:
     ----------
     dt : float
         Time step.
-        
+
     Tend : float
         End time.
-        
+
     split_algo : SplitAlgos
         Splitting algorithm (the order of the propagators is defined in the model).
     """
@@ -80,9 +81,10 @@ class BaseUnits:
         Unit of particle number density in 1e20/m^3.
 
     kBT : float, optional
-        Unit of internal energy in keV. 
+        Unit of internal energy in keV.
         Only in effect if the velocity scale is set to 'thermal'.
     """
+
     x: float = 1.0
     B: float = 1.0
     n: float = 1.0
@@ -97,56 +99,55 @@ class Units:
     def __init__(self, base: BaseUnits = None):
         if base is None:
             base = BaseUnits()
-        
+
         self._x = base.x
         self._B = base.B
         self._n = base.n * 1e20
         self._kBT = base.kBT
-        
+
     @property
     def x(self):
         return self._x
-    
+
     @property
     def B(self):
         return self._B
-    
+
     @property
     def n(self):
         """Unit of particle number density in 1/m^3."""
         return self._n
-    
+
     @property
     def kBT(self):
         return self._kBT
-    
+
     @property
     def v(self):
         """Unit of velocity in m/s."""
         return self._v
-    
+
     @property
     def t(self):
         """Unit of time in s."""
         return self._t
-    
+
     @property
     def p(self):
         """Unit of pressure in Pa, equal to B^2/mu0 if velocity_scale='alfvén'."""
         return self._p
-    
+
     @property
     def rho(self):
         """Unit of mass density in kg/m^3."""
         return self._rho
-    
+
     @property
     def j(self):
         """Unit of current density in A/m^2."""
         return self._j
-    
-    def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None,
-                     verbose=False):
+
+    def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None, verbose=False):
         """Derive the remaining units from the base units, velocity scale and bulk species' A and Z."""
 
         from mpi4py import MPI
@@ -176,7 +177,7 @@ class Units:
 
         # time (s)
         self._t = self.x / self.v
-        
+
         # return if no bulk is present
         if A_bulk is None:
             self._p = None
@@ -184,17 +185,27 @@ class Units:
             self._j = None
         else:
             # pressure (Pa), equal to B^2/mu0 if velocity_scale='alfvén'
-            self._p = A_bulk * con.mH * self.n * self.v ** 2
+            self._p = A_bulk * con.mH * self.n * self.v**2
 
             # mass density (kg/m^3)
             self._rho = A_bulk * con.mH * self.n
 
             # current density (A/m^2)
             self._j = con.e * self.n * self.v
-        
+
         # print to screen
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            units_used = (" m", " T", " m⁻³", "keV", " m/s", " s", " bar", " kg/m³", " A/m²",)
+            units_used = (
+                " m",
+                " T",
+                " m⁻³",
+                "keV",
+                " m/s",
+                " s",
+                " bar",
+                " kg/m³",
+                " A/m²",
+            )
             print("")
             for (k, v), u in zip(self.__dict__.items(), units_used):
                 if v is None:
@@ -220,19 +231,20 @@ class DerhamOptions:
 
     dirichlet_bc : tuple[tuple[bool]]
         Whether to apply homogeneous Dirichlet boundary conditions (at left or right boundary in each direction).
-        
+
     nquads : tuple[int]
         Number of Gauss-Legendre quadrature points in each direction (default = p, leads to exact integration of degree 2p-1 polynomials).
 
     nq_pr : tuple[int]
         Number of Gauss-Legendre quadrature points in each direction for geometric projectors (default = p+1, leads to exact integration of degree 2p+1 polynomials).
-    
+
     polar_ck : PolarRegularity
         Smoothness at a polar singularity at eta_1=0 (default -1 : standard tensor product splines, OR 1 : C1 polar splines)
 
     local_projectors : bool
         Whether to build the local commuting projectors based on quasi-inter-/histopolation.
     """
+
     p: tuple = (1, 1, 1)
     spl_kind: tuple = (True, True, True)
     dirichlet_bc: tuple = ((False, False), (False, False), (False, False))
@@ -248,16 +260,16 @@ class DerhamOptions:
 @dataclass
 class FieldsBackground:
     """Options for backgrounds in configuration (=position) space.
- 
+
     Parameters
     ----------
     type : BackgroundTypes
         Type of background.
-        
+
     values : tuple[float]
-        Values for LogicalConst on the unit cube. 
+        Values for LogicalConst on the unit cube.
         Can be length 1 for scalar functions; must be length 3 for vector-valued functions.
-        
+
     variable : str
         Name of the function in FluidEquilibrium that should be the background.
     """
@@ -268,22 +280,22 @@ class FieldsBackground:
 
     def __post_init__(self):
         check_option(self.type, BackgroundTypes)
-        
-        
+
+
 @dataclass
 class EnvironmentOptions:
-    """Environment options for launching run on current architecture 
-    (these options do not influence the simulation result). 
+    """Environment options for launching run on current architecture
+    (these options do not influence the simulation result).
 
     Parameters
     ----------
     out_folders : str
-        The directory where all sim_folders are stored. 
-        
+        The directory where all sim_folders are stored.
+
     sim_folder : str
         Folder in 'out_folders/' for the current simulation (default='sim_1').
         Will create the folder if it does not exist OR cleans the folder for new runs.
-        
+
     restart : bool
         Whether to restart a run (default=False).
 
@@ -307,20 +319,19 @@ class EnvironmentOptions:
     save_step: int = 1
     sort_step: int = 0
     num_clones: int = 1
-    
+
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)
-        
+
     def __repr__(self):
         for k, v in self.__dict__.items():
             print(f"{k}:".ljust(20), v)
-    
-    
+
+
 def check_option(opt, options):
     """Check if opt is contained in options; if opt is a list, checks for each element."""
     opts = get_args(options)
     if not isinstance(opt, list):
         opt = [opt]
     for o in opt:
-        assert o in opts, f"Option '{o}' is not in {opts}." 
-
+        assert o in opts, f"Option '{o}' is not in {opts}."
