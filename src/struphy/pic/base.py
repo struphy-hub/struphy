@@ -27,7 +27,8 @@ from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
 from struphy.io.output_handling import DataContainer
-from struphy.kinetic_background.base import KineticBackground
+from struphy.kinetic_background.base import KineticBackground, Maxwellian
+from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
@@ -576,7 +577,7 @@ class Particles(metaclass=ABCMeta):
         return self._u_init
 
     @property
-    def f0(self):
+    def f0(self) -> Maxwellian:
         assert hasattr(self, "_f0"), AttributeError(
             "No background distribution available, please run self._set_background_function()",
         )
@@ -971,7 +972,8 @@ class Particles(metaclass=ABCMeta):
         return dom_arr, tuple(nprocs)
 
     def _set_background_function(self):
-        self._f0 = self.background
+        self._f0 = copy.deepcopy(self.background)
+        self.f0.add_perturbation = False
         # self._f0 = None
         # if isinstance(self.bckgr_params, FluidEquilibrium):
         #     self._f0 = self.bckgr_params
