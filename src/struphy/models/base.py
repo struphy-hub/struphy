@@ -1,42 +1,41 @@
 import inspect
 import operator
+import os
 from abc import ABCMeta, abstractmethod
 from functools import reduce
 from typing import Callable
-import os
+
 import yaml
-import struphy
 from line_profiler import profile
-
-import yaml
 from mpi4py import MPI
+from psydac.linalg.stencil import StencilVector
 
+import struphy
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
+from struphy.fields_background.equils import HomogenSlab
 from struphy.fields_background.projected_equils import (
     ProjectedFluidEquilibrium,
     ProjectedFluidEquilibriumWithB,
     ProjectedMHDequilibrium,
 )
-from struphy.io.setup import setup_derham, descend_options_dict
-from struphy.profiling.profiling import ProfileManager
-from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml, read_state
-from struphy.models.species import Species, FieldSpecies, FluidSpecies, KineticSpecies, DiagnosticSpecies
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
-from struphy.io.options import BaseUnits, Units, Time, DerhamOptions
-from struphy.topology.grids import TensorProductGrid
 from struphy.geometry.base import Domain
 from struphy.geometry.domains import Cuboid
-from struphy.fields_background.equils import HomogenSlab
+from struphy.io.options import BaseUnits, DerhamOptions, Time, Units
+from struphy.io.output_handling import DataContainer
+from struphy.io.setup import descend_options_dict, setup_derham
+from struphy.kinetic_background import maxwellians
+from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, KineticSpecies, Species
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic import particles
 from struphy.pic.base import Particles
+from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
-from struphy.kinetic_background import maxwellians
-from psydac.linalg.stencil import StencilVector
-from struphy.io.output_handling import DataContainer
+from struphy.topology.grids import TensorProductGrid
+from struphy.utils.clone_config import CloneConfig
+from struphy.utils.utils import dict_to_yaml, read_state
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -54,12 +53,12 @@ class StruphyModel(metaclass=ABCMeta):
     @abstractmethod
     class Propagators:
         pass
-    
+
     @abstractmethod
     def __init__(self):
         """Light-weight init of model."""
-    
-    @property    
+
+    @property
     @abstractmethod
     def bulk_species() -> Species:
         """Bulk species of the plasma. Must be an attribute of species_static()."""
@@ -89,9 +88,9 @@ class StruphyModel(metaclass=ABCMeta):
         for _, species in self.kinetic_species.items():
             assert isinstance(species, KineticSpecies)
             species.setup_equation_params(units=units, verbose=verbose)
-           
+
     def setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
-        """If a numerical equilibirum is used, the domain is taken from this equilibirum. """
+        """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
         if equil is not None:
             self._equil = equil
             if "Numerical" in self.equil.__class__.__name__:
@@ -101,8 +100,8 @@ class StruphyModel(metaclass=ABCMeta):
                 self._equil.domain = domain
         else:
             self._domain = domain
-            self._equil = None      
-            
+            self._equil = None
+
         if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
             print("\nDOMAIN:")
             print(f"type:".ljust(25), self.domain.__class__.__name__)
@@ -117,9 +116,9 @@ class StruphyModel(metaclass=ABCMeta):
                     print((key + ":").ljust(25), val)
             else:
                 print("None.")
-     
-    ## species 
-     
+
+    ## species
+
     @property
     def field_species(self) -> dict:
         if not hasattr(self, "_field_species"):
@@ -128,7 +127,7 @@ class StruphyModel(metaclass=ABCMeta):
                 if isinstance(v, FieldSpecies):
                     self._field_species[k] = v
         return self._field_species
-    
+
     @property
     def fluid_species(self) -> dict:
         if not hasattr(self, "_fluid_species"):
@@ -137,7 +136,7 @@ class StruphyModel(metaclass=ABCMeta):
                 if isinstance(v, FluidSpecies):
                     self._fluid_species[k] = v
         return self._fluid_species
-    
+
     @property
     def kinetic_species(self) -> dict:
         if not hasattr(self, "_kinetic_species"):
@@ -146,7 +145,7 @@ class StruphyModel(metaclass=ABCMeta):
                 if isinstance(v, KineticSpecies):
                     self._kinetic_species[k] = v
         return self._kinetic_species
-    
+
     @property
     def diagnostic_species(self) -> dict:
         if not hasattr(self, "_diagnostic_species"):
@@ -155,17 +154,16 @@ class StruphyModel(metaclass=ABCMeta):
                 if isinstance(v, DiagnosticSpecies):
                     self._diagnostic_species[k] = v
         return self._diagnostic_species
-    
+
     @property
     def species(self):
         if not hasattr(self, "_species"):
             self._species = self.field_species | self.fluid_species | self.kinetic_species
         return self._species
-    
-    ## allocate methods
-             
-    def allocate_feec(self, grid: TensorProductGrid, derham_opts: DerhamOptions):
 
+    ## allocate methods
+
+    def allocate_feec(self, grid: TensorProductGrid, derham_opts: DerhamOptions):
         # create discrete derham sequence
         if self.clone_config is None:
             derham_comm = MPI.COMM_WORLD
@@ -179,7 +177,7 @@ class StruphyModel(metaclass=ABCMeta):
             domain=self.domain,
             verbose=self.verbose,
         )
-        
+
         # create weighted mass operators
         self._mass_ops = WeightedMassOperators(
             self.derham,
@@ -187,7 +185,7 @@ class StruphyModel(metaclass=ABCMeta):
             verbose=self.verbose,
             eq_mhd=self.equil,
         )
-        
+
         # create projected equilibrium
         if isinstance(self.equil, MHDequilibrium):
             self._projected_equil = ProjectedMHDequilibrium(
@@ -203,10 +201,10 @@ class StruphyModel(metaclass=ABCMeta):
             self._projected_equil = ProjectedFluidEquilibrium(
                 self.equil,
                 self.derham,
-            )  
+            )
         else:
             self._projected_equil = None
-            
+
     def allocate_propagators(self):
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
@@ -220,7 +218,7 @@ class StruphyModel(metaclass=ABCMeta):
                 eq_mhd=self.equil,
             )
             Propagator.projected_equil = self.projected_equil
-            
+
         assert len(self.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.prop_list:
             assert isinstance(prop, Propagator)
@@ -255,7 +253,7 @@ class StruphyModel(metaclass=ABCMeta):
     def clone_config(self):
         """Config in case domain clones are used."""
         return self._clone_config
-    
+
     @clone_config.setter
     def clone_config(self, new):
         assert isinstance(new, CloneConfig) or new is None
@@ -290,9 +288,9 @@ class StruphyModel(metaclass=ABCMeta):
     def units(self) -> Units:
         """All Struphy units."""
         return self._units
-    
+
     @units.setter
-    def units(self, new) :
+    def units(self, new):
         assert isinstance(new, Units)
         self._units = new
 
@@ -300,7 +298,7 @@ class StruphyModel(metaclass=ABCMeta):
     def mass_ops(self):
         """WeighteMassOperators object, see :ref:`mass_ops`."""
         return self._mass_ops
-    
+
     @property
     def prop_list(self):
         """List of Propagator objects."""
@@ -436,8 +434,7 @@ class StruphyModel(metaclass=ABCMeta):
             assert key is not None, "Must provide key if option is not a class."
             setInDict(dct, species + ["options"] + key, option)
 
-    def add_scalar(self, 
-                   name: str, variable: PICVariable | SPHVariable = None, compute=None, summands=None):
+    def add_scalar(self, name: str, variable: PICVariable | SPHVariable = None, compute=None, summands=None):
         """
         Add a scalar to be saved during the simulation.
 
@@ -584,7 +581,11 @@ class StruphyModel(metaclass=ABCMeta):
                 assert isinstance(spec, FieldSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    v.allocate(derham=self.derham, domain=self.domain, equil=self.equil,)
+                    v.allocate(
+                        derham=self.derham,
+                        domain=self.domain,
+                        equil=self.equil,
+                    )
 
         # allocate memory for FE coeffs of fluid variables
         if self.fluid_species:
@@ -592,21 +593,27 @@ class StruphyModel(metaclass=ABCMeta):
                 assert isinstance(spec, FluidSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, FEECVariable)
-                    v.allocate(derham=self.derham, domain=self.domain, equil=self.equil,)
-                    
+                    v.allocate(
+                        derham=self.derham,
+                        domain=self.domain,
+                        equil=self.equil,
+                    )
+
         # allocate memory for marker arrays of kinetic variables
         if self.kinetic_species:
             for species, spec in self.kinetic_species.items():
                 assert isinstance(spec, KineticSpecies)
                 for k, v in spec.variables.items():
                     assert isinstance(v, (PICVariable, SPHVariable))
-                    v.allocate(clone_config=self.clone_config,
-                               derham=self.derham, 
-                               domain=self.domain, 
-                               equil=self.equil,
-                               projected_equil=self.projected_equil,
-                               verbose=verbose,)
-                
+                    v.allocate(
+                        clone_config=self.clone_config,
+                        derham=self.derham,
+                        domain=self.domain,
+                        equil=self.equil,
+                        projected_equil=self.projected_equil,
+                        verbose=verbose,
+                    )
+
         # TODO: allocate memory for FE coeffs of diagnostics
         # if self.params.diagnostic_fields is not None:
         #     for key, val in self.diagnostics.items():
@@ -1031,7 +1038,7 @@ class StruphyModel(metaclass=ABCMeta):
         feec_species = self.field_species | self.fluid_species | self.diagnostic_species
         for species, val in feec_species.items():
             assert isinstance(val, Species)
-            
+
             species_path = os.path.join("feec", species)
             species_path_restart = os.path.join("restart", species)
 
@@ -1108,7 +1115,11 @@ class StruphyModel(metaclass=ABCMeta):
                         for dim in range(dims):
                             data.file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = (
                                 var.kinetic_data["bin_edges"][key2][dim][:-1]
-                                + (var.kinetic_data["bin_edges"][key2][dim][1] - var.kinetic_data["bin_edges"][key2][dim][0]) / 2
+                                + (
+                                    var.kinetic_data["bin_edges"][key2][dim][1]
+                                    - var.kinetic_data["bin_edges"][key2][dim][0]
+                                )
+                                / 2
                             )
                 # case of "n_sph"
                 elif isinstance(val1, list):
@@ -1254,19 +1265,19 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         prompt : bool
             Whether to prompt for overwriting the specified .yml file.
-            
+
         Returns
         -------
         params_path : str
             The path of the parameter file.
         """
-        
+
         if path is None:
             path = os.path.join(os.getcwd(), f"params_{self.__class__.__name__}.py")
 
         # create new default file
         try:
-            file =  open(path, "x")
+            file = open(path, "x")
         except FileExistsError:
             if not prompt:
                 yn = "Y"
@@ -1288,21 +1299,21 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 file = open(path, "x")
             else:
                 print("exiting ...")
-                return   
-                   
+                return
+
         file.write("from struphy.io.options import EnvironmentOptions, BaseUnits, Time\n")
         file.write("from struphy.geometry import domains\n")
         file.write("from struphy.fields_background import equils\n")
-        
+
         species_params = "\n# species parameters\n"
-        kinetic_params = ""    
+        kinetic_params = ""
         has_plasma = False
         has_feec = False
         has_pic = False
         has_sph = False
         for sn, species in self.species.items():
             assert isinstance(species, Species)
-            
+
             if isinstance(species, (FluidSpecies, KineticSpecies)):
                 has_plasma = True
                 species_params += f"model.{sn}.set_phys_params()\n"
@@ -1313,7 +1324,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     kinetic_params += f"model.{sn}.set_markers(loading_params=loading_params, weights_params=weights_params, boundary_params=boundary_params)\n"
                     kinetic_params += f"model.{sn}.set_sorting_boxes()\n"
                     kinetic_params += f"model.{sn}.set_save_data()\n"
-            
+
             for vn, var in species.variables.items():
                 if isinstance(var, FEECVariable):
                     has_feec = True
@@ -1322,10 +1333,12 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                         init_pert_feec = f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos())\n"
                     else:
                         init_bckgr_feec = f"model.{sn}.{vn}.add_background(FieldsBackground())\n"
-                        init_pert_feec = f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=0))\n\
+                        init_pert_feec = (
+                            f"model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=0))\n\
 model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=1))\n\
 model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=2))\n"
-                        
+                        )
+
                     exclude = f"# model.{sn}.{vn}.save_data = False\n"
                 elif isinstance(var, PICVariable):
                     has_pic = True
@@ -1338,65 +1351,67 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                         init_bckgr_pic += f"maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None))\n"
                     init_bckgr_pic += f"background = maxwellian_1 + maxwellian_2\n"
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
-                    
+
                     exclude = f"# model.....save_data = False\n"
                 elif isinstance(var, SPHVariable):
                     has_sph = True
-        
-        file.write("from struphy.topology import grids\n") 
+
+        file.write("from struphy.topology import grids\n")
         file.write("from struphy.io.options import DerhamOptions\n")
         file.write("from struphy.io.options import FieldsBackground\n")
         file.write("from struphy.initial import perturbations\n")
-        
+
         file.write("from struphy.kinetic_background import maxwellians\n")
-        file.write("from struphy.pic.utilities import LoadingParameters, WeightsParameters, BoundaryParameters, BinningPlot\n")
+        file.write(
+            "from struphy.pic.utilities import LoadingParameters, WeightsParameters, BoundaryParameters, BinningPlot\n"
+        )
         file.write("from struphy import main\n")
-            
+
         file.write("\n# import model, set verbosity\n")
         file.write(f"from {self.__module__} import {self.__class__.__name__}\n")
         file.write("verbose = True\n")
-        
+
         file.write("\n# environment options\n")
         file.write("env = EnvironmentOptions()\n")
-        
+
         file.write("\n# units\n")
         file.write("base_units = BaseUnits()\n")
-        
+
         file.write("\n# time stepping\n")
         file.write("time_opts = Time()\n")
-        
+
         file.write("\n# geometry\n")
         file.write("domain = domains.Cuboid()\n")
-        
+
         file.write("\n# fluid equilibrium (can be used as part of initial conditions)\n")
         file.write("equil = equils.HomogenSlab()\n")
-        
+
         if has_feec:
             grid = "grid = grids.TensorProductGrid()\n"
             derham = "derham_opts = DerhamOptions()\n"
         else:
             grid = "grid = None\n"
             derham = "derham_opts = None\n"
-            
+
         file.write("\n# grid\n")
         file.write(grid)
-            
+
         file.write("\n# derham options\n")
         file.write(derham)
-        
+
         file.write("\n# light-weight model instance\n")
         file.write(f"model = {self.__class__.__name__}()\n")
-        
+
         if has_plasma:
             file.write(species_params)
-            
+
         if has_pic:
             file.write(kinetic_params)
-            
+
         file.write("\n# propagator options\n")
         for prop in self.propagators.__dict__:
             file.write(f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n")
-            
+
         file.write("\n# initial conditions (background + perturbation)\n")
         if has_feec:
             file.write(init_bckgr_feec)
@@ -1404,13 +1419,14 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         if has_pic:
             file.write(init_pert_pic)
             file.write(init_bckgr_pic)
-            
+
         file.write("\n# optional: exclude variables from saving\n")
         file.write(exclude)
-        
+
         file.write('\nif __name__ == "__main__":\n')
         file.write("    # start run\n")
-        file.write("    main.run(model, \n\
+        file.write(
+            "    main.run(model, \n\
                 params_path=__file__, \n\
                 env=env, \n\
                 base_units=base_units, \n\
@@ -1420,13 +1436,16 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                 grid=grid, \n\
                 derham_opts=derham_opts, \n\
                 verbose=verbose, \n\
-                )")
-        
+                )"
+        )
+
         file.close()
-        
-        print(f"\nDefault parameter file for '{self.__class__.__name__}' has been created in {path}.\n\
-You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy run -i params_{self.__class__.__name__}.py'")
-        
+
+        print(
+            f"\nDefault parameter file for '{self.__class__.__name__}' has been created in {path}.\n\
+You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy run -i params_{self.__class__.__name__}.py'"
+        )
+
         return path
 
     ###################
@@ -1617,12 +1636,12 @@ You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy
         eta3 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
 
         ##  global parameters
-        
+
         # plasma volume (hat x^3)
         det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
         vol1 = np.mean(np.abs(det_tmp))
         # plasma volume (m⁻³)
-        plasma_volume = vol1 * self.units.x ** 3
+        plasma_volume = vol1 * self.units.x**3
         # transit length (m)
         transit_length = plasma_volume ** (1 / 3)
         # magnetic field (T)

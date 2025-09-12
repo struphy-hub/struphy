@@ -1,11 +1,12 @@
+from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilVector
+
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.base import (
     FluidEquilibrium,
     FluidEquilibriumWithB,
     MHDequilibrium,
 )
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
 
 
 class ProjectedFluidEquilibrium:

@@ -1,14 +1,14 @@
 "Only FEEC variables are updated."
 
+import copy
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Literal, get_args
-import copy
-from line_profiler import profile
 
 import scipy as sc
-from matplotlib import pyplot as plt
+from line_profiler import profile
+from mpi4py import MPI
 from numpy import zeros
 from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.ddm.mpi import mpi as MPI
@@ -40,11 +40,14 @@ from struphy.feec.variational_utilities import (
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations
+from struphy.io.options import OptsGenSolver, OptsMassPrecond, OptsSymmSolver, OptsVecSpace, check_option
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
 from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau, OptsButcher
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
@@ -53,10 +56,6 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.models.variables import Variable
-from struphy.linear_algebra.solver import SolverParameters
-from struphy.io.options import (check_option, OptsSymmSolver, OptsMassPrecond, OptsGenSolver, OptsVecSpace)
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 
 
 class Maxwell(Propagator):
@@ -71,25 +70,26 @@ class Maxwell(Propagator):
 
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
+
     class Variables:
         def __init__(self):
             self._e: FEECVariable = None
             self._b: FEECVariable = None
-        
-        @property  
+
+        @property
         def e(self) -> FEECVariable:
             return self._e
-        
+
         @e.setter
         def e(self, new):
             assert isinstance(new, FEECVariable)
             assert new.space == "Hcurl"
             self._e = new
-            
-        @property  
+
+        @property
         def b(self) -> FEECVariable:
             return self._b
-        
+
         @b.setter
         def b(self, new):
             assert isinstance(new, FEECVariable)
@@ -98,44 +98,44 @@ class Maxwell(Propagator):
 
     def __init__(self):
         self.variables = self.Variables()
-    
+
     @dataclass
     class Options:
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
         algo: OptsAlgo = "implicit"
-        solver: OptsSymmSolver = "pcg" 
+        solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         butcher: ButcherTableau = None
-        
+
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
             check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond) 
-            
+            check_option(self.precond, OptsMassPrecond)
+
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-                
+
             if self.algo == "explicit" and self.butcher is None:
                 self.butcher = ButcherTableau()
-                
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -483,25 +483,26 @@ class ShearAlfven(Propagator):
     where :math:`\alpha \in \{1, 2, v\}` and :math:`\mathbb M^\rho_\alpha` is a weighted mass matrix in :math:`\alpha`-space, the weight being :math:`\rho_0`,
     the MHD equilibirum density. The solution of the above system is based on the :ref:`Schur complement <schur_solver>`.
     """
+
     class Variables:
         def __init__(self):
             self._u: FEECVariable = None
             self._b: FEECVariable = None
-        
-        @property  
+
+        @property
         def u(self) -> FEECVariable:
             return self._u
-        
+
         @u.setter
         def u(self, new):
             assert isinstance(new, FEECVariable)
             assert new.space in ("Hcurl", "Hdiv", "H1vec")
             self._u = new
-            
-        @property  
+
+        @property
         def b(self) -> FEECVariable:
             return self._b
-        
+
         @b.setter
         def b(self, new):
             assert isinstance(new, FEECVariable)
@@ -510,52 +511,52 @@ class ShearAlfven(Propagator):
 
     def __init__(self):
         self.variables = self.Variables()
-    
+
     @dataclass
     class Options:
         # specific literals
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
         u_space: OptsVecSpace = "Hdiv"
-        algo: OptsAlgo = "implicit" 
-        solver: OptsSymmSolver = "pcg" 
-        precond: OptsMassPrecond = "MassMatrixPreconditioner" 
+        algo: OptsAlgo = "implicit"
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         butcher: ButcherTableau = None
-    
+
         def __post_init__(self):
             # checks
             check_option(self.u_space, OptsVecSpace)
             check_option(self.algo, self.OptsAlgo)
             check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond) 
-            
+            check_option(self.precond, OptsMassPrecond)
+
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-                
+
             if self.algo == "explicit" and self.butcher is None:
                 self.butcher = ButcherTableau()
-                
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
         self._options = new
 
     @profile
     def allocate(self):
         u_space = self.options.u_space
-        
+
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         id_M = "M" + self.derham.space_to_form[u_space] + "n"
         id_T = "T" + self.derham.space_to_form[u_space]
@@ -945,36 +946,37 @@ class Magnetosonic(Propagator):
 
         \boldsymbol{\rho}^{n+1} = \boldsymbol{\rho}^n - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,.
     """
+
     class Variables:
         def __init__(self):
             self._n: FEECVariable = None
             self._u: FEECVariable = None
             self._p: FEECVariable = None
-        
-        @property  
+
+        @property
         def n(self) -> FEECVariable:
             return self._n
-        
+
         @n.setter
         def n(self, new):
             assert isinstance(new, FEECVariable)
             assert new.space == "L2"
             self._n = new
-        
-        @property  
+
+        @property
         def u(self) -> FEECVariable:
             return self._u
-        
+
         @u.setter
         def u(self, new):
             assert isinstance(new, FEECVariable)
             assert new.space in ("Hcurl", "Hdiv", "H1vec")
             self._u = new
-            
-        @property  
+
+        @property
         def p(self) -> FEECVariable:
             return self._p
-        
+
         @p.setter
         def p(self, new):
             assert isinstance(new, FEECVariable)
@@ -983,40 +985,40 @@ class Magnetosonic(Propagator):
 
     def __init__(self):
         self.variables = self.Variables()
-        
+
     @dataclass
     class Options:
         b_field: FEECVariable = None
-        u_space: OptsVecSpace = "Hdiv" 
+        u_space: OptsVecSpace = "Hdiv"
         solver: OptsGenSolver = "pbicgstab"
-        precond: OptsMassPrecond = "MassMatrixPreconditioner" 
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        
+
         def __post_init__(self):
             # checks
             check_option(self.u_space, OptsVecSpace)
             check_option(self.solver, OptsGenSolver)
-            check_option(self.precond, OptsMassPrecond) 
-            
+            check_option(self.precond, OptsMassPrecond)
+
             # defaults
             if self.b_field is None:
                 self.b_field = FEECVariable(space="Hdiv")
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-        
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -1112,7 +1114,7 @@ class Magnetosonic(Propagator):
         nn1 += nn
 
         diffs = self.update_feec_variables(n=nn1, u=un1, p=pn1)
-        
+
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for Magnetosonic:", info["success"])
             print("Iterations for Magnetosonic:", info["niter"])
@@ -2676,14 +2678,15 @@ class ImplicitDiffusion(Propagator):
     solver : dict
         Parameters for the iterative solver (see ``__init__`` for details).
     """
+
     class Variables:
         def __init__(self):
             self._phi: FEECVariable = None
-        
-        @property  
+
+        @property
         def phi(self) -> FEECVariable:
             return self._phi
-        
+
         @phi.setter
         def phi(self, new):
             assert isinstance(new, FEECVariable)
@@ -2692,7 +2695,7 @@ class ImplicitDiffusion(Propagator):
 
     def __init__(self):
         self.variables = self.Variables()
-    
+
     @dataclass
     class Options:
         # specific literals
@@ -2710,31 +2713,31 @@ class ImplicitDiffusion(Propagator):
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        
+
         def __post_init__(self):
             # checks
             check_option(self.stab_mat, self.OptsStabMat)
             check_option(self.diffusion_mat, self.OptsDiffusionMat)
             check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond) 
-            
+            check_option(self.precond, OptsMassPrecond)
+
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-                
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -2754,7 +2757,7 @@ class ImplicitDiffusion(Propagator):
 
         # collect rhs
         rho = self.options.rho
-        
+
         if rho is None:
             self._rho = [phi.space.zeros()]
         else:
@@ -2966,6 +2969,7 @@ class Poisson(ImplicitDiffusion):
     solver : dict
         Parameters for the iterative solver (see ``__init__`` for details).
     """
+
     @dataclass
     class Options:
         # specific literals
@@ -2978,30 +2982,30 @@ class Poisson(ImplicitDiffusion):
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        
+
         def __post_init__(self):
             # checks
             check_option(self.stab_mat, self.OptsStabMat)
             check_option(self.solver, OptsSymmSolver)
-            check_option(self.precond, OptsMassPrecond) 
-            
+            check_option(self.precond, OptsMassPrecond)
+
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-                
+
             # Poisson solve (-> set some params of parent class)
             self.sigma_1 = self.stab_eps
             self.sigma_2 = 0.0
             self.sigma_3 = 1.0
             self.divide_by_dt = False
             self.diffusion_mat = "M1"
-                
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
@@ -3009,7 +3013,7 @@ class Poisson(ImplicitDiffusion):
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
                 if "sigma" not in k and k not in ("divide_by_dt", "diffusion_mat"):
-                    print(f'  {k}: {v}')
+                    print(f"  {k}: {v}")
         self._options = new
 
 
@@ -7542,7 +7546,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
     def allocate(self):
         pass
-    
+
     def set_options(self, **kwargs):
         pass
 

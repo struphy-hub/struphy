@@ -1,14 +1,14 @@
 import numpy as np
 from mpi4py import MPI
 
+from struphy.feec.projectors import L2Projector
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
+from struphy.models.species import FieldSpecies, FluidSpecies, KineticSpecies
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
-from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-from struphy.models.species import KineticSpecies, FluidSpecies, FieldSpecies
-from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
-from struphy.feec.projectors import L2Projector
+from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -83,20 +83,20 @@ class VlasovAmpereOneSpecies(StruphyModel):
     """
 
     ## species
-    
+
     class EMFields(FieldSpecies):
         def __init__(self):
             self.e_field = FEECVariable(space="Hcurl")
             self.phi = FEECVariable(space="H1")
             self.init_variables()
-    
+
     class KineticIons(KineticSpecies):
         def __init__(self):
             self.var = PICVariable(space="Particles6D")
             self.init_variables()
-        
+
     ## propagators
-    
+
     class Propagators:
         def __init__(self, with_B0: bool = True):
             self.push_eta = propagators_markers.PushEta()
@@ -109,28 +109,28 @@ class VlasovAmpereOneSpecies(StruphyModel):
     def __init__(self, with_B0: bool = True):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
-        
+
         self.with_B0 = with_B0
-            
+
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.kinetic_ions = self.KineticIons()
 
         # 2. instantiate all propagators
         self.propagators = self.Propagators(with_B0=with_B0)
-        
+
         # 3. assign variables to propagators
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
-        
+
         # define scalars for update_scalar_quantities
         self.add_scalar("en_E")
         self.add_scalar("en_f", compute="from_particles", variable=self.kinetic_ions.var)
         self.add_scalar("en_tot")
-        
+
         # initial Poisson (not a propagator used in time stepping)
         self.initial_poisson = propagators_fields.Poisson()
         self.initial_poisson.variables.phi = self.em_fields.phi
@@ -160,8 +160,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
             / (2 * particles.Np)
             * np.dot(
                 particles.markers_wo_holes[:, 3] ** 2
-              + particles.markers_wo_holes[:, 4] ** 2
-              + particles.markers_wo_holes[:, 5] ** 2,
+                + particles.markers_wo_holes[:, 4] ** 2
+                + particles.markers_wo_holes[:, 5] ** 2,
                 particles.markers_wo_holes[:, 6],
             )
         )
@@ -206,13 +206,13 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
-        
-        l2_proj = L2Projector(space_id='H1', mass_ops=self.mass_ops)
+
+        l2_proj = L2Projector(space_id="H1", mass_ops=self.mass_ops)
         rho_coeffs = l2_proj.solve(charge_accum.vectors[0])
-        
+
         self.initial_poisson.options.rho = alpha**2 / epsilon * rho_coeffs
         self.initial_poisson.allocate()
-        
+
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nSolving initial Poisson problem...")
@@ -224,7 +224,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
             print("Done.")
 
     ## default parameters
-    def generate_default_parameter_file(self, path = None, prompt = True):
+    def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
         new_file = []
         with open(params_path, "r") as f:
@@ -240,10 +240,11 @@ class VlasovAmpereOneSpecies(StruphyModel):
                     new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
                 else:
                     new_file += [line]
-                    
+
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+
 
 class VlasovMaxwellOneSpecies(StruphyModel):
     r"""Vlasov-Maxwell equations for one species.

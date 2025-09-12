@@ -1,22 +1,22 @@
 # from __future__ import annotations
 "Domain-related utility functions."
 
+from typing import Callable
+
 import numpy as np
+
 # from typing import TYPE_CHECKING
 from scipy.optimize import newton, root, root_scalar
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu
-from typing import Callable
 
 from struphy.bsplines import bsplines as bsp
-from struphy.geometry.base import PoloidalSplineTorus
-from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
-from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
-from struphy.utils.arrays import xp as np
 
 # if TYPE_CHECKING:
-from struphy.geometry.base import Domain
+from struphy.geometry.base import Domain, PoloidalSplineTorus
+from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
 from struphy.io.options import GivenInBasis
+from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
 
 
 def field_line_tracing(
@@ -354,7 +354,7 @@ class TransformedPformComponent:
 
     out_form : str
         The p-form representation of the output: '0', '1', '2' '3' or 'v'.
-        
+
     comp : int
         Which component of the vector-valued function to return (=0 for scalars).
 
@@ -362,14 +362,14 @@ class TransformedPformComponent:
         All things mapping. If None, the input fun is just evaluated and not transformed at __call__.
     """
 
-    def __init__(self, 
-                 fun: Callable | list, 
-                 given_in_basis: GivenInBasis, 
-                 out_form: str,
-                 comp: int = 0,
-                 domain: Domain=None,
-                 ):
-        
+    def __init__(
+        self,
+        fun: Callable | list,
+        given_in_basis: GivenInBasis,
+        out_form: str,
+        comp: int = 0,
+        domain: Domain = None,
+    ):
         if isinstance(fun, list):
             assert len(fun) == 1 or len(fun) == 3
         else:
@@ -378,8 +378,10 @@ class TransformedPformComponent:
         self._fun = []
         for f in fun:
             if f is None:
+
                 def f_zero(x, y, z):
                     return 0 * x
+
                 self._fun += [f_zero]
             else:
                 assert callable(f)

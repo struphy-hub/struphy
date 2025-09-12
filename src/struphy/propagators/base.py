@@ -1,20 +1,21 @@
 "Propagator base class."
 
 from abc import ABCMeta, abstractmethod
-import numpy as np
-from mpi4py import MPI
 from dataclasses import dataclass
 from typing import Literal
+
+import numpy as np
+from mpi4py import MPI
+from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry.base import Domain
-from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
-from psydac.linalg.stencil import StencilVector
-from psydac.linalg.block import BlockVector
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
+from struphy.geometry.base import Domain
 from struphy.io.options import check_option
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 
 
 class Propagator(metaclass=ABCMeta):
@@ -26,45 +27,47 @@ class Propagator(metaclass=ABCMeta):
     in one of the modules ``propagators_fields.py``, ``propagators_markers.py`` or ``propagators_coupling.py``.
     Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
     """
+
     @abstractmethod
     class Variables:
         """Define variable names and types to be updated by the propagator."""
+
         def __init__(self):
             self._var1 = None
-        
+
         @property
         def var1(self):
             return self._var1
-        
+
         @var1.setter
         def var1(self, new):
             assert isinstance(new, PICVariable)
             assert new.space == "Particles6D"
             self._var1 = new
-            
+
     @abstractmethod
     def __init__(self):
         self.variables = self.Variables()
-        
+
     @abstractmethod
     @dataclass
     class Options:
         # specific literals
         OptsTemplate = Literal["implicit", "explicit"]
         # propagator options
-        opt1: str = "implicit", 
-        
+        opt1: str = ("implicit",)
+
         def __post_init__(self):
             # checks
             check_option(self.opt1, self.OptsTemplate)
-        
+
     @property
     @abstractmethod
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     @abstractmethod
     def options(self, new):
@@ -72,13 +75,13 @@ class Propagator(metaclass=ABCMeta):
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
         self._options = new
-        
+
     @abstractmethod
     def allocate(self):
         """Allocate all data/objects of the instance."""
-        
+
     @abstractmethod
     def __call__(self, dt: float):
         """Update variables from t -> t + dt.
@@ -89,16 +92,16 @@ class Propagator(metaclass=ABCMeta):
         dt : float
             Time step size.
         """
-        
+
     def update_feec_variables(self, **new_coeffs):
         r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
         update feec coefficients and update ghost regions.
-        
+
         Returns
         -------
         diffs : dict
             max_diff for all feec variables.
-        """        
+        """
         diffs = {}
         for var, new in new_coeffs.items():
             assert "_" + var in self.variables.__dict__, f"{var} not in {self.variables.__dict__}."
@@ -107,7 +110,7 @@ class Propagator(metaclass=ABCMeta):
             assert isinstance(old_var, FEECVariable)
             old = old_var.spline.vector
             assert new.space == old.space
- 
+
             # calculate maximum of difference abs(new - old)
             diffs[var] = np.max(np.abs(new.toarray() - old.toarray()))
 
@@ -205,7 +208,7 @@ class Propagator(metaclass=ABCMeta):
     @property
     def time_state(self):
         """A pointer to the time variable of the dynamics ('t')."""
-        return self._time_state 
+        return self._time_state
 
     def add_time_state(self, time_state):
         """Add a pointer to the time variable of the dynamics ('t').

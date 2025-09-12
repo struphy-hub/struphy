@@ -5,8 +5,8 @@ import yaml
 from psydac.ddm.mpi import mpi as MPI
 
 import struphy
-from struphy.struphy import run
 from struphy.post_processing import pproc_struphy
+from struphy.struphy import run
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

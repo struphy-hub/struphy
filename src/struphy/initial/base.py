@@ -1,24 +1,24 @@
-from typing import Callable
 from abc import ABCMeta, abstractmethod
+from typing import Callable
 
 from struphy.io.options import GivenInBasis, check_option
 
 
 class Perturbation(metaclass=ABCMeta):
     """Base class for perturbations that can be chosen as initial conditions."""
-    
+
     @abstractmethod
     def __call__(self, eta1, eta2, eta3, flat_eval=False):
         pass
-    
+
     def prepare_eval_pts(self):
         # TODO: we could prepare the arguments via a method in this base class (flat_eval, sparse meshgrid, etc.).
         pass
-    
+
     @property
     def given_in_basis(self) -> str:
         r"""In which basis the perturbation is represented, must be set in child class (use the setter below).
-        
+
         Either
             * '0', '1', '2' or  '3' for a p-form basis
             * 'v' for a vector-field basis
@@ -32,7 +32,7 @@ class Perturbation(metaclass=ABCMeta):
     def given_in_basis(self, new: str):
         check_option(new, GivenInBasis)
         self._given_in_basis = new
-        
+
     @property
     def comp(self) -> int:
         """Which component of vector is perturbed (=0 for scalar-valued functions).
@@ -40,9 +40,8 @@ class Perturbation(metaclass=ABCMeta):
         if not hasattr(self, "_comp"):
             self._comp = 0
         return self._comp
-    
+
     @comp.setter
     def comp(self, new: int):
         assert new in (0, 1, 2)
         self._comp = new
-        

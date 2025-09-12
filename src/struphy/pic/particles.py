@@ -302,6 +302,7 @@ class Particles5D(Particles):
     **kwargs : dict
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
+
     @classmethod
     def default_background(cls):
         return maxwellians.GyroMaxwellian2D()
@@ -411,11 +412,11 @@ class Particles5D(Particles):
         }
 
         self._svol = maxwellians.GyroMaxwellian2D(
-            n = (1.0, None),
-            u_para = (self.loading_params.moments[0], None),
-            u_perp = (self.loading_params.moments[1], None),
-            vth_para = (self.loading_params.moments[2], None),
-            vth_perp = (self.loading_params.moments[3], None),
+            n=(1.0, None),
+            u_para=(self.loading_params.moments[0], None),
+            u_perp=(self.loading_params.moments[1], None),
+            vth_para=(self.loading_params.moments[2], None),
+            vth_perp=(self.loading_params.moments[3], None),
             volume_form=True,
             equil=self._magn_bckgr,
         )

@@ -1,5 +1,6 @@
-import numpy as np
 from dataclasses import dataclass
+
+import numpy as np
 
 
 @dataclass
@@ -15,5 +16,6 @@ class TensorProductGrid:
         True if the dimension is to be used in the domain decomposition (=default for each dimension).
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
     """
+
     Nel: tuple = (16, 1, 1)
     mpi_dims_mask: tuple = (True, True, True)

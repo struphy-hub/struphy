@@ -1,19 +1,23 @@
 "Only particle variables are updated."
 
-from numpy import array, polynomial, random
-from typing import Literal, get_args
 import copy
 from dataclasses import dataclass
-from mpi4py import MPI
-from line_profiler import profile
+from typing import Literal, get_args
 
+import numpy as np
+from line_profiler import profile
+from mpi4py import MPI
+from numpy import array, polynomial, random
+from psydac.linalg.basic import LinearOperator
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
+from struphy.io.options import OptsMPIsort, check_option
 from struphy.io.setup import descend_options_dict
+from struphy.models.variables import FEECVariable, PICVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
@@ -22,9 +26,6 @@ from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.models.variables import FEECVariable, PICVariable
-from struphy.io.options import check_option, OptsMPIsort
-from psydac.linalg.basic import LinearOperator
 
 
 class PushEta(Propagator):
@@ -44,14 +45,15 @@ class PushEta(Propagator):
 
     * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
+
     class Variables:
         def __init__(self):
             self._var: PICVariable = None
-        
-        @property  
+
+        @property
         def var(self) -> PICVariable:
             return self._var
-        
+
         @var.setter
         def var(self, new):
             assert isinstance(new, PICVariable)
@@ -59,29 +61,29 @@ class PushEta(Propagator):
 
     def __init__(self):
         self.variables = self.Variables()
-        
+
     @dataclass
     class Options:
         butcher: ButcherTableau = None
-        
+
         def __post_init__(self):
             # defaults
             if self.butcher is None:
                 self.butcher = ButcherTableau()
-                
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -138,23 +140,24 @@ class PushVxB(Propagator):
 
     Available algorithms: ``analytic``, ``implicit``.
     """
+
     class Variables:
         def __init__(self):
             self._ions: PICVariable = None
-        
-        @property  
+
+        @property
         def ions(self) -> PICVariable:
             return self._ions
-        
+
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable)
             assert new.space == "Particles6D"
             self._ions = new
-            
+
     def __init__(self):
         self.variables = self.Variables()
-    
+
     @dataclass
     class Options:
         # specific literals
@@ -162,44 +165,44 @@ class PushVxB(Propagator):
         # propagator options
         algo: OptsAlgo = "analytic"
         b2_var: FEECVariable = None
-        
+
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
-                
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
         self._options = new
 
     @profile
     def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
-        
+
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
         if self.projected_equil is not None:
             self._b2 = self.projected_equil.b2
             assert self._b2.space == self.derham.Vh["2"]
         else:
             self._b2 = self.derham.Vh["2"].zeros()
-        
+
         if self.options.b2_var is None:
             self._b2_var = None
         else:
             assert self.options.b2_var.spline.vector.space == self.derham.Vh["2"]
             self._b2_var = self.options.b2_var.spline.vector
-        
+
         # allocate dummy vectors to avoid temporary array allocations
         self._tmp = self.derham.Vh["2"].zeros()
         self._b_full = self.derham.Vh["2"].zeros()
@@ -447,30 +450,33 @@ class PushGuidingCenterBxEstar(Propagator):
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton`
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order`
     """
+
     class Variables:
         def __init__(self):
             self._ions: PICVariable = None
-        
-        @property  
+
+        @property
         def ions(self) -> PICVariable:
             return self._ions
-        
+
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable)
             assert new.space == "Particles5D"
             self._ions = new
-            
+
     def __init__(self):
         self.variables = self.Variables()
-    
+
     @dataclass
     class Options:
         # specific literals
-        OptsAlgo = Literal["discrete_gradient_2nd_order",
-                            "discrete_gradient_1st_order",
-                            "discrete_gradient_1st_order_newton", 
-                            "explicit",]
+        OptsAlgo = Literal[
+            "discrete_gradient_2nd_order",
+            "discrete_gradient_1st_order",
+            "discrete_gradient_1st_order_newton",
+            "explicit",
+        ]
         # propagator options
         phi: FEECVariable = None
         evaluate_e_field: bool = False
@@ -481,39 +487,39 @@ class PushGuidingCenterBxEstar(Propagator):
         tol: float = 1e-7
         mpi_sort: OptsMPIsort = "each"
         verbose: bool = False
-        
+
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
             check_option(self.mpi_sort, OptsMPIsort)
-            
+
             # defaults
             if self.phi is None:
                 self.phi = FEECVariable(space="H1")
-            
+
             if self.algo == "explicit" and self.butcher is None:
                 self.butcher = ButcherTableau()
-        
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
         self._options = new
 
     @profile
     def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
-        
+
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
         self._gradB1 = self.projected_equil.gradB1
@@ -547,7 +553,7 @@ class PushGuidingCenterBxEstar(Propagator):
 
         # choose method
         particles = self.variables.ions.particles
-        
+
         if "discrete_gradient" in self.options.algo:
             # place for storing data during iteration
             first_free_idx = particles.args_markers.first_free_idx
@@ -885,30 +891,33 @@ class PushGuidingCenterParallel(Propagator):
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton` 
     * :func:`~struphy.pic.pushing.pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order`  
     """
+
     class Variables:
         def __init__(self):
             self._ions: PICVariable = None
-        
-        @property  
+
+        @property
         def ions(self) -> PICVariable:
             return self._ions
-        
+
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable)
             assert new.space == "Particles5D"
             self._ions = new
-            
+
     def __init__(self):
         self.variables = self.Variables()
-    
+
     @dataclass
     class Options:
         # specific literals
-        OptsAlgo = Literal["discrete_gradient_2nd_order",
-                            "discrete_gradient_1st_order",
-                            "discrete_gradient_1st_order_newton", 
-                            "explicit",]
+        OptsAlgo = Literal[
+            "discrete_gradient_2nd_order",
+            "discrete_gradient_1st_order",
+            "discrete_gradient_1st_order_newton",
+            "explicit",
+        ]
         # propagator options
         phi: FEECVariable = None
         evaluate_e_field: bool = False
@@ -919,39 +928,39 @@ class PushGuidingCenterParallel(Propagator):
         tol: float = 1e-7
         mpi_sort: OptsMPIsort = "each"
         verbose: bool = False
-        
+
         def __post_init__(self):
             # checks
             check_option(self.algo, self.OptsAlgo)
             check_option(self.mpi_sort, OptsMPIsort)
-            
+
             # defaults
             if self.phi is None:
                 self.phi = FEECVariable(space="H1")
-            
+
             if self.algo == "explicit" and self.butcher is None:
                 self.butcher = ButcherTableau()
-        
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
         self._options = new
 
     @profile
     def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
-        
+
         # magnetic equilibrium field
         self._gradB1 = self.projected_equil.gradB1
         b2 = self.projected_equil.b2
@@ -986,7 +995,7 @@ class PushGuidingCenterParallel(Propagator):
 
         # choose method
         particles = self.variables.ions.particles
-        
+
         if "discrete_gradient" in self.options.algo:
             # place for storing data during iteration
             first_free_idx = particles.args_markers.first_free_idx

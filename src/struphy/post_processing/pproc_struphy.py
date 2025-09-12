@@ -85,9 +85,9 @@ def main(
                 exist_kinetic["n_sph"] = True
     else:
         exist_kinetic = None
-        
+
     file.close()
-    
+
     # import parameters
     params_in = import_parameters_py(os.path.join(path, "parameters.py"))
 

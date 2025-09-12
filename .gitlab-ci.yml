@@ -1027,6 +1027,20 @@ lint_repo:
     # Lint all files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
     - struphy lint all --output-format plain --verbose
 
+lint_repo_temporary:
+  stage: lint
+  needs: []
+  extends:
+    - .rules_startup
+    - .image_ubuntu_latest
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
+    - !reference [.scripts, inspect_struphy]
+    # Lint all files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
+    - struphy lint all --output-format plain --verbose
+
 # Lint struphy with `struphy lint`
 lint_branch_report:
   stage: lint

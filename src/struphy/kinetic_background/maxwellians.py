@@ -1,13 +1,14 @@
 "Maxwellian (Gaussian) distributions in velocity space."
 
-import numpy as np
 from typing import Callable
+
+import numpy as np
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
+from struphy.initial.base import Perturbation
 from struphy.kinetic_background import moment_functions
 from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
-from struphy.initial.base import Perturbation
 
 
 class Maxwellian3D(Maxwellian):
@@ -16,7 +17,7 @@ class Maxwellian3D(Maxwellian):
     Parameters
     ----------
     n, ui, vthi : tuple
-        Moments of the Maxwellian as tuples. The first entry defines the background 
+        Moments of the Maxwellian as tuples. The first entry defines the background
         (float for constant background or callable), the second entry defines a Perturbation (can be None).
     """
 
@@ -30,7 +31,6 @@ class Maxwellian3D(Maxwellian):
         vth2: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
         vth3: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
     ):
-
         self._maxw_params = {}
         self._maxw_params["n"] = n
         self._maxw_params["u1"] = u1
@@ -39,7 +39,7 @@ class Maxwellian3D(Maxwellian):
         self._maxw_params["vth1"] = vth1
         self._maxw_params["vth2"] = vth2
         self._maxw_params["vth3"] = vth3
-        
+
         self.check_maxw_params()
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
@@ -52,7 +52,7 @@ class Maxwellian3D(Maxwellian):
     @property
     def maxw_params(self):
         return self._maxw_params
-    
+
     @property
     def coords(self):
         """Coordinates of the Maxwellian6D, :math:`(v_1, v_2, v_3)`."""
@@ -144,9 +144,9 @@ class GyroMaxwellian2D(Maxwellian):
     Parameters
     ----------
     n, u_para, u_perp, vth_para, vth_perp : tuple
-        Moments of the Maxwellian as tuples. The first entry defines the background 
+        Moments of the Maxwellian as tuples. The first entry defines the background
         (float for constant background or callable), the second entry defines a Perturbation (can be None).
-    
+
     maxw_params : dict
         Parameters for the kinetic background.
 
@@ -161,6 +161,7 @@ class GyroMaxwellian2D(Maxwellian):
         if True it is multiplied by the Jacobian determinant |v_perp|
         of the polar coordinate transofrmation (default = False).
     """
+
     def __init__(
         self,
         n: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
@@ -171,14 +172,13 @@ class GyroMaxwellian2D(Maxwellian):
         equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
     ):
-        
         self._maxw_params = {}
         self._maxw_params["n"] = n
         self._maxw_params["u_para"] = u_para
         self._maxw_params["u_perp"] = u_perp
         self._maxw_params["vth_para"] = vth_para
         self._maxw_params["vth_perp"] = vth_perp
-        
+
         self.check_maxw_params()
 
         # volume form represenation
@@ -264,7 +264,7 @@ class GyroMaxwellian2D(Maxwellian):
     def volume_form(self) -> bool:
         """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|)."""
         return self._volume_form
-    
+
     @property
     def equil(self) -> FluidEquilibriumWithB:
         """Fluid background with B-field."""

@@ -1,5 +1,6 @@
 import inspect
 from copy import deepcopy
+
 import pytest
 
 
@@ -194,7 +195,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         perturbation_0 = perturbation
                         perturbation_1 = deepcopy(perturbation)
                         perturbation_2 = deepcopy(perturbation)
-                        
+
                         params = {
                             key: {
                                 "given_in_basis": [fun_form] * 3,
@@ -247,7 +248,9 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             )
                             fun1_xyz, fun2_xyz, fun3_xyz = domain.push([tmp1, tmp2, tmp3], eee1, eee2, eee3, kind="v")
                         else:
-                            fun1_xyz, fun2_xyz, fun3_xyz = domain.push([perturbation, perturbation, perturbation], eee1, eee2, eee3, kind=fun_form)
+                            fun1_xyz, fun2_xyz, fun3_xyz = domain.push(
+                                [perturbation, perturbation, perturbation], eee1, eee2, eee3, kind=fun_form
+                            )
 
                         fun_xyz_vec = [fun1_xyz, fun2_xyz, fun3_xyz]
 
