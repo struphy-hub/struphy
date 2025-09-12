@@ -1,11 +1,8 @@
 "Accelerated particle pushing."
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from mpi4py import MPI
-else:
-    from psydac.ddm.mpi import mpi as MPI
+import numpy as np
+from mpi4py.MPI import IN_PLACE, SUM
+from line_profiler import profile
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
@@ -167,6 +164,7 @@ class Pusher:
         else:
             self._box_comm = False
 
+    @profile
     def __call__(self, dt: float):
         """
         Applies the chosen pusher kernel by a time step dt,

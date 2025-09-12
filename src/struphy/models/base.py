@@ -6,6 +6,7 @@ from typing import Callable
 import os
 import yaml
 import struphy
+from line_profiler import profile
 
 import yaml
 from mpi4py import MPI
@@ -163,18 +164,13 @@ class StruphyModel(metaclass=ABCMeta):
     
     ## allocate methods
              
-    def allocate_feec(self,
-                 grid: TensorProductGrid,
-                 derham_opts: DerhamOptions,
-                 comm: MPI.Intracomm = None,
-                 clone_config: CloneConfig = None,
-                 ):
+    def allocate_feec(self, grid: TensorProductGrid, derham_opts: DerhamOptions):
 
         # create discrete derham sequence
-        if clone_config is None:
+        if self.clone_config is None:
             derham_comm = MPI.COMM_WORLD
         else:
-            derham_comm = clone_config.sub_comm
+            derham_comm = self.clone_config.sub_comm
 
         self._derham = setup_derham(
             grid,
@@ -577,6 +573,7 @@ class StruphyModel(metaclass=ABCMeta):
             if isinstance(prop, Propagator):
                 prop.add_time_state(time_state)
 
+    @profile
     def allocate_variables(self, verbose: bool = False):
         """
         Allocate memory for model variables and set initial conditions.
@@ -625,6 +622,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         #             self._pointer[key] = val["obj"].vector
 
+    @profile
     def integrate(self, dt, split_algo="LieTrotter"):
         """
         Advance the model by a time step ``dt`` by sequentially calling its Propagators.
@@ -670,6 +668,7 @@ class StruphyModel(metaclass=ABCMeta):
                 f"Splitting scheme {split_algo} not available.",
             )
 
+    @profile
     def update_markers_to_be_saved(self):
         """
         Writes markers with IDs that are supposed to be saved into corresponding array.
@@ -713,6 +712,7 @@ class StruphyModel(metaclass=ABCMeta):
                 var.kinetic_data["markers"][:] = -1.0
                 var.kinetic_data["markers"][:n_markers_on_proc] = obj.markers[markers_on_proc]
 
+    @profile
     def update_distr_functions(self):
         """
         Writes distribution functions slices that are supposed to be saved into corresponding array.

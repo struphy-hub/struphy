@@ -14,7 +14,7 @@ from struphy.models.base import setup_derham, StruphyModel
 from struphy.models.species import KineticSpecies
 from struphy.models.variables import PICVariable
 from struphy.feec.psydac_derham import SplineFunction
-from struphy.io.options import EnvironmentOptions, Units, Time
+from struphy.io.options import EnvironmentOptions, BaseUnits, Time
 from struphy.topology.grids import TensorProductGrid
 from struphy.geometry import domains
 from struphy.geometry.base import Domain
@@ -25,7 +25,7 @@ class ParamsIn:
     """Holds the input parameters of a Struphy simulation as attributes."""
     def __init__(self, 
                  env: EnvironmentOptions = None,
-                 units: Units = None,
+                 base_units: BaseUnits = None,
                  time_opts: Time = None,
                  domain = None,
                  equil = None,
@@ -33,7 +33,7 @@ class ParamsIn:
                  derham_opts = None,
                  model: StruphyModel = None,):
         self.env = env
-        self.units = units
+        self.units = base_units
         self.time_opts = time_opts
         self.domain = domain
         self.equil = equil
@@ -59,7 +59,7 @@ def get_params_of_run(path: str) -> ParamsIn:
     if os.path.exists(params_path):
         params_in = import_parameters_py(params_path)
         env = params_in.env
-        units = params_in.units
+        base_units = params_in.base_units
         time_opts = params_in.time_opts
         domain = params_in.domain
         equil = params_in.equil
@@ -70,8 +70,8 @@ def get_params_of_run(path: str) -> ParamsIn:
     elif os.path.exists(bin_path):
         with open(os.path.join(path, "env.bin"), "rb") as f:
             env = pickle.load(f)
-        with open(os.path.join(path, "units.bin"), "rb") as f:
-            units = pickle.load(f)
+        with open(os.path.join(path, "base_units.bin"), "rb") as f:
+            base_units = pickle.load(f)
         with open(os.path.join(path, "time_opts.bin"), "rb") as f:
             time_opts = pickle.load(f)
         with open(os.path.join(path, "domain.bin"), "rb") as f:
@@ -98,7 +98,7 @@ def get_params_of_run(path: str) -> ParamsIn:
     print("done.")
     
     return ParamsIn(env=env,
-                    units=units,
+                    base_units=base_units,
                     time_opts=time_opts,
                     domain=domain,
                     equil=equil,
