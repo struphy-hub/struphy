@@ -69,14 +69,14 @@ def power_spectrum_2d(
     fit_branches: int
         How many branches to fit in the dispersion relation.
         Default=0 means no fits are made.
-        
+
     noise_level: float
         Sets the threshold above which local maxima in the power spectrum are taken into account.
-        Computed as threshold = max(spectrum) * noise_level. 
-        
+        Computed as threshold = max(spectrum) * noise_level.
+
     extr_oder: int
         Order given to argrelextrema.
-        
+
     fit_degree: tuple[int]
         Degree of fitting polynomial for each branch (fit_branches) of power spectrum.
 
@@ -99,7 +99,7 @@ def power_spectrum_2d(
 
     dispersion : np.array
         2d array of shape (omega.size, kvec.size) holding the fft.
-        
+
     coeffs : list[list]
         List of fitting coefficients (lenght is fit_branches).
     """
@@ -155,8 +155,8 @@ def power_spectrum_2d(
     if fit_branches > 0:
         assert len(fit_degree) == fit_branches
         # determine maxima for each k
-        k_start = kvec.size // 8 # take only first half of k-vector
-        k_end = kvec.size // 2 # take only first half of k-vector
+        k_start = kvec.size // 8  # take only first half of k-vector
+        k_end = kvec.size // 2  # take only first half of k-vector
         k_fit = []
         omega_fit = {}
         for n in range(fit_branches):
@@ -172,16 +172,18 @@ def power_spectrum_2d(
             intersec.sort()
             # print(f"{intersec = }")
             # print(f"{[omega[intersec[n]] for n in range(fit_branches)]}")
-            assert len(intersec) == fit_branches, f"Number of found branches {len(intersec)} is not {fit_branches = }! \
+            assert len(intersec) == fit_branches, (
+                f"Number of found branches {len(intersec)} is not {fit_branches = }! \
                 Try to lower 'noise_level' or increase 'extr_order'."
+            )
             k_fit += [k]
             for n in range(fit_branches):
                 omega_fit[n] += [omega[intersec[n]]]
-        
+
         # fit
         coeffs = []
         for m, om in omega_fit.items():
-            coeffs += [np.polyfit(k_fit, om, deg=fit_degree[n])]    
+            coeffs += [np.polyfit(k_fit, om, deg=fit_degree[n])]
         print(f"\nFitted {coeffs = }")
 
     if do_plot:
@@ -206,14 +208,16 @@ def power_spectrum_2d(
         ax.set_title(title)
         ax.set_xlabel("$k$ [a.u.]")
         ax.set_ylabel(r"$\omega$ [a.u.]")
-        
+
         if fit_branches > 0:
             for n, cs in enumerate(coeffs):
+
                 def fun(k):
-                    out = k*0.0
+                    out = k * 0.0
                     for i, c in enumerate(np.flip(cs)):
                         out += c * k**i
                     return out
+
                 ax.plot(kvec, fun(kvec), "r:", label=f"fit_{n + 1}")
 
         # analytic solution:

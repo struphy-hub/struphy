@@ -2,11 +2,11 @@ import copy
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
-from line_profiler import profile
 
 import h5py
 import numpy as np
 import scipy.special as sp
+from line_profiler import profile
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
@@ -19,9 +19,10 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial.base import Perturbation
+from struphy.io.options import OptsLoading
 from struphy.io.output_handling import DataContainer
-from struphy.kinetic_background.base import KineticBackground, Maxwellian
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
+from struphy.kinetic_background.base import KineticBackground, Maxwellian
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
@@ -38,13 +39,13 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
 )
+from struphy.pic.utilities import (
+    BoundaryParameters,
+    LoadingParameters,
+    WeightsParameters,
+)
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.pic.utilities import (LoadingParameters, 
-                                   WeightsParameters,
-                                   BoundaryParameters,
-                                   )
-from struphy.io.options import OptsLoading
 
 
 class Particles(metaclass=ABCMeta):
@@ -100,7 +101,7 @@ class Particles(metaclass=ABCMeta):
 
     weights_params : WeightsParameters
         Parameters for particle weights.
-        
+
     boundary_params : BoundaryParameters
         Parameters for particle boundary conditions.
 
@@ -118,7 +119,7 @@ class Particles(metaclass=ABCMeta):
 
     background : KineticBackground
         Kinetic background parameters.
-        
+
     n_as_volume_form: bool
         Whether the number density n is given as a volume form or scalar function (=default).
 
@@ -173,14 +174,14 @@ class Particles(metaclass=ABCMeta):
         self._equil = equil
         self._projected_equil = projected_equil
         self._equation_params = equation_params
-        
+
         # defaults
         if loading_params is None:
             loading_params = LoadingParameters()
-            
+
         if weights_params is None:
             weights_params = WeightsParameters()
-            
+
         if boundary_params is None:
             boundary_params = BoundaryParameters()
 
@@ -292,8 +293,10 @@ class Particles(metaclass=ABCMeta):
         if isinstance(background, FluidEquilibrium):
             self._pforms = (False, False)
         else:
-            self._pforms = (n_as_volume_form,
-                            self.background.volume_form,)
+            self._pforms = (
+                n_as_volume_form,
+                self.background.volume_form,
+            )
 
         # set background function
         self._set_background_function()
@@ -499,11 +502,11 @@ class Particles(metaclass=ABCMeta):
     @property
     def loading_params(self) -> LoadingParameters:
         return self._loading_params
-    
+
     @property
     def weights_params(self) -> WeightsParameters:
         return self._weights_params
-    
+
     @property
     def boundary_params(self) -> BoundaryParameters:
         """Parameters for marker loading."""
@@ -513,7 +516,7 @@ class Particles(metaclass=ABCMeta):
     def reject_weights(self):
         """Whether to reect weights below threshold."""
         return self._reject_weights
-    
+
     @property
     def threshold(self):
         """Threshold for rejecting weights."""
@@ -1106,12 +1109,12 @@ class Particles(metaclass=ABCMeta):
 
     def _generate_sampling_moments(self):
         """Automatically determine moments for sampling distribution (Gaussian) from the given background."""
-        
+
         if self.loading_params.moments is None:
-            self.loading_params.moments = tuple([0.0]*self.vdim + [1.0]*self.vdim)
-            
+            self.loading_params.moments = tuple([0.0] * self.vdim + [1.0] * self.vdim)
+
         # TODO: reformulate this function with KineticBackground methods
-        
+
         # ns = []
         # us = []
         # vths = []

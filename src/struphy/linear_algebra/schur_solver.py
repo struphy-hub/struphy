@@ -1,6 +1,7 @@
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.solvers import inverse
+
 from struphy.linear_algebra.solver import SolverParameters
 
 
@@ -47,16 +48,20 @@ class SchurSolver:
         Must correspond to the chosen solver.
     """
 
-    def __init__(self, A: LinearOperator, BC: LinearOperator, 
-                 solver_name: str, 
-                 precond = None, # TODO: add Preconditioner base class
-                 solver_params: SolverParameters = None,):
+    def __init__(
+        self,
+        A: LinearOperator,
+        BC: LinearOperator,
+        solver_name: str,
+        precond=None,  # TODO: add Preconditioner base class
+        solver_params: SolverParameters = None,
+    ):
         assert isinstance(A, LinearOperator)
         assert isinstance(BC, LinearOperator)
 
         assert A.domain == BC.domain
         assert A.codomain == BC.codomain
-        
+
         if solver_params is None:
             solver_params = SolverParameters()
 
