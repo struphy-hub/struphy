@@ -10,12 +10,15 @@ from struphy.kinetic_background import maxwellians
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background import equils
 from struphy.io.setup import import_parameters_py
-from struphy.models.base import setup_derham
+from struphy.models.base import setup_derham, StruphyModel
+from struphy.models.species import KineticSpecies
+from struphy.models.variables import PICVariable
 from struphy.feec.psydac_derham import SplineFunction
 from struphy.io.options import EnvironmentOptions, Units, Time
 from struphy.topology.grids import TensorProductGrid
 from struphy.geometry import domains
 from struphy.geometry.base import Domain
+from struphy.kinetic_background.base import KineticBackground
 
 
 class ParamsIn:
@@ -27,7 +30,8 @@ class ParamsIn:
                  domain = None,
                  equil = None,
                  grid: TensorProductGrid = None,
-                 derham_opts = None):
+                 derham_opts = None,
+                 model: StruphyModel = None,):
         self.env = env
         self.units = units
         self.time_opts = time_opts
@@ -35,6 +39,7 @@ class ParamsIn:
         self.equil = equil
         self.grid = grid
         self.derham_opts = derham_opts
+        self.model = model
 
 
 def get_params_of_run(path: str) -> ParamsIn:
@@ -60,6 +65,7 @@ def get_params_of_run(path: str) -> ParamsIn:
         equil = params_in.equil
         grid = params_in.grid
         derham_opts = params_in.derham_opts
+        model = params_in.model
         
     elif os.path.exists(bin_path):
         with open(os.path.join(path, "env.bin"), "rb") as f:
@@ -83,6 +89,8 @@ def get_params_of_run(path: str) -> ParamsIn:
             grid = pickle.load(f)
         with open(os.path.join(path, "derham_opts.bin"), "rb") as f:
             derham_opts = pickle.load(f)
+        with open(os.path.join(path, "model.bin"), "rb") as f:
+            model = pickle.load(f)
             
     else:
         raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
@@ -96,6 +104,7 @@ def get_params_of_run(path: str) -> ParamsIn:
                     equil=equil,
                     grid=grid,
                     derham_opts=derham_opts,
+                    model=model,
                     )
 
 
@@ -497,9 +506,6 @@ def post_process_markers(path_in: str, path_out: str, species: str, domain: Doma
     step : int, optional
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
     """
-
-    print(f"{domain = }")
-
     # get # of MPI processes from meta.txt file
     with open(os.path.join(path_in, "meta.yml"), "r") as f:
         meta = yaml.load(f, Loader=yaml.FullLoader)
@@ -614,21 +620,15 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
         Whether to do post-processing at every time step (step=1, default), every second time step (step=2), etc.
 
     compute_bckgr : bool
-        Whehter to compute the kinetic background values and add them to the binning data.
+        Whether to compute the kinetic background values and add them to the binning data.
         This is used if non-standard weights are binned.
     """
+    # get # of MPI processes from meta.txt file
+    with open(os.path.join(path_in, "meta.yml"), "r") as f:
+        meta = yaml.load(f, Loader=yaml.FullLoader)
+    nproc = meta["MPI processes"]
 
-    # get model name and # of MPI processes from meta.txt file
-    with open(os.path.join(path_in, "meta.txt"), "r") as f:
-        lines = f.readlines()
-
-    nproc = lines[4].split()[-1]
-
-    # load parameters
-    with open(os.path.join(path_in, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
-
-    # open hdf5 files
+    # open hdf5 files and get names and number of saved markers of kinetic species
     files = [
         h5py.File(
             os.path.join(
@@ -640,6 +640,9 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
         )
         for i in range(int(nproc))
     ]
+
+    # import parameters
+    params = get_params_of_run(path_in)
 
     # directory for .npy files
     path_distr = os.path.join(path_out, "distribution_function")
@@ -692,23 +695,27 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
         np.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
 
         if compute_bckgr:
-            bckgr_params = params["kinetic"][species]["background"]
+            # bckgr_params = params["kinetic"][species]["background"]
 
-            f_bckgr = None
-            for fi, maxw_params in bckgr_params.items():
-                if fi[-2] == "_":
-                    fi_type = fi[:-2]
-                else:
-                    fi_type = fi
+            # f_bckgr = None
+            # for fi, maxw_params in bckgr_params.items():
+            #     if fi[-2] == "_":
+            #         fi_type = fi[:-2]
+            #     else:
+            #         fi_type = fi
 
-                if f_bckgr is None:
-                    f_bckgr = getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params,
-                    )
-                else:
-                    f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
-                        maxw_params=maxw_params,
-                    )
+            #     if f_bckgr is None:
+            #         f_bckgr = getattr(maxwellians, fi_type)(
+            #             maxw_params=maxw_params,
+            #         )
+            #     else:
+            #         f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
+            #             maxw_params=maxw_params,
+            #         )
+            
+            spec: KineticSpecies = getattr(params.model, species)    
+            var: PICVariable = spec.var  
+            f_bckgr: KineticBackground = var.backgrounds
 
             # load all grids of the variables of f
             grid_tot = []
