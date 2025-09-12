@@ -1,20 +1,23 @@
 "Particle and FEEC variables are updated."
 
-import numpy as np
 from dataclasses import dataclass
-from mpi4py import MPI
 from typing import Literal
-from line_profiler import profile
 
+import numpy as np
+from line_profiler import profile
+from mpi4py import MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
+from struphy.io.options import OptsGenSolver, OptsMassPrecond, OptsSymmSolver, OptsVecSpace, check_option
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import Accumulator
 from struphy.pic.particles import Particles5D, Particles6D
@@ -22,9 +25,6 @@ from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.models.variables import FEECVariable, PICVariable
-from struphy.linear_algebra.solver import SolverParameters
-from struphy.io.options import (check_option, OptsSymmSolver, OptsMassPrecond, OptsGenSolver, OptsVecSpace)
 
 
 class VlasovAmpere(Propagator):
@@ -75,58 +75,58 @@ class VlasovAmpere(Propagator):
         def __init__(self):
             self._e: FEECVariable = None
             self._ions: PICVariable = None
-        
-        @property  
+
+        @property
         def e(self) -> FEECVariable:
             return self._e
-        
+
         @e.setter
         def e(self, new):
             assert isinstance(new, FEECVariable)
             assert new.space == "Hcurl"
             self._e = new
-        
-        @property  
+
+        @property
         def ions(self) -> PICVariable:
             return self._ions
-        
+
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable)
             assert new.space == "Particles6D"
             self._ions = new
-            
+
     def __init__(self):
         self.variables = self.Variables()
-    
+
     @dataclass
     class Options:
-        solver: OptsSymmSolver = "pcg" 
+        solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
-        
+
         def __post_init__(self):
             # checks
             check_option(self.solver, OptsSymmSolver)
             check_option(self.precond, OptsMassPrecond)
-            
+
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-                
+
     @property
     def options(self) -> Options:
         if not hasattr(self, "_options"):
             self._options = self.Options()
         return self._options
-    
+
     @options.setter
     def options(self, new):
         assert isinstance(new, self.Options)
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
-                print(f'  {k}: {v}')
+                print(f"  {k}: {v}")
         self._options = new
 
     @profile
@@ -134,10 +134,10 @@ class VlasovAmpere(Propagator):
         # scaling factors
         alpha = self.variables.ions.species.equation_params.alpha
         epsilon = self.variables.ions.species.equation_params.epsilon
-        
+
         self._c1 = alpha**2 / epsilon
         self._c2 = 1.0 / epsilon
-        
+
         self._info = self.options.solver_params.info
 
         # get accumulation kernel
@@ -145,7 +145,7 @@ class VlasovAmpere(Propagator):
 
         # Initialize Accumulator object
         particles = self.variables.ions.particles
-        
+
         self._accum = Accumulator(
             particles,
             "Hcurl",
