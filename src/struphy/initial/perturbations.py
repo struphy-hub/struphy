@@ -1509,7 +1509,7 @@ class TokamakManufacturedSolutionVelocity:
         A = self._alpha / (self._a * self._R0)
         C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
 
-        uR = A * (R - self._R0) 
+        uR = A * (R - self._R0)
         uZ = A * z
         uphi = 0
 
@@ -1600,7 +1600,7 @@ class TokamakManufacturedSolutionVelocity_1:
         A = self._alpha / (self._a * self._R0)
         C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
 
-        uR = A * (R - self._R0) 
+        uR = A * (R - self._R0)
         uZ = A * z
         uphi = 0
 
@@ -1691,7 +1691,7 @@ class TokamakManufacturedSolutionVelocity_2:
         A = self._alpha / (self._a * self._R0)
         C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
 
-        uR = A * (R - self._R0) 
+        uR = A * (R - self._R0)
         uZ = A * z
         uphi = 0
 

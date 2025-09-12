@@ -228,26 +228,11 @@ class ManufacturedSolutionForceterm:
                 # Covariant basis with transfo DF u withoud phi dependency
                 fR = (
                     self._alpha * self._B0 / self._a * (R - self._R0)
-                    - A
-                    * self._R0
-                    / R
-                    * (
-                        z * self._B0
-                    )
+                    - A * self._R0 / R * (z * self._B0)
                     + self._nu * A / R**2 * self._R0
                 )
-                fZ = (
-                    self._alpha * self._B0 * z / self._a
-                    + A
-                    * self._R0
-                    / R
-                    * (
-                        (R - self._R0) * self._B0
-                    )
-                )
-                fphi = A * self._R0 * self._Bp / (self._a * R**2) * (
-                    (R - self._R0) ** 2 + z**2
-                ) 
+                fZ = self._alpha * self._B0 * z / self._a + A * self._R0 / R * ((R - self._R0) * self._B0)
+                fphi = A * self._R0 * self._Bp / (self._a * R**2) * ((R - self._R0) ** 2 + z**2)
 
                 fx = np.cos(phi) * fR - R * np.sin(phi) * fphi
                 fy = -np.sin(phi) * fR - R * np.cos(phi) * fphi
@@ -292,26 +277,11 @@ class ManufacturedSolutionForceterm:
                 # Covariant basis with transfo DF u Solution without phi dependency
                 fR = (
                     -self._alpha * self._B0 / self._a * (R - self._R0)
-                    + A
-                    * self._R0
-                    / R
-                    * (
-                        z * self._B0
-                    )
-                    + self._nu_e * A * self._R0 / R**2 
+                    + A * self._R0 / R * (z * self._B0)
+                    + self._nu_e * A * self._R0 / R**2
                 )
-                fZ = (
-                    -self._alpha * self._B0 * z / self._a
-                    - A
-                    * self._R0
-                    / R
-                    * (
-                        (R - self._R0) * self._B0
-                    )
-                )
-                fphi = -A * self._R0 * self._Bp / (self._a * R**2) * (
-                    (R - self._R0) ** 2 + z**2
-                ) 
+                fZ = -self._alpha * self._B0 * z / self._a - A * self._R0 / R * ((R - self._R0) * self._B0)
+                fphi = -A * self._R0 * self._Bp / (self._a * R**2) * ((R - self._R0) ** 2 + z**2)
 
                 fx = np.cos(phi) * fR - R * np.sin(phi) * fphi
                 fy = -np.sin(phi) * fR - R * np.cos(phi) * fphi

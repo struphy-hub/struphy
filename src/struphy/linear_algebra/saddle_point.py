@@ -287,7 +287,7 @@ class SaddlePointSolver:
 
             self._blockU = BlockVector(self._A.domain, blocks=[self._U1, self._U2])
             self._solblocks = [self._blockU, self._P1]
-            #comment out the next two lines if working with lifting and GMRES
+            # comment out the next two lines if working with lifting and GMRES
             x0 = BlockVector(self._block_domainM, blocks=self._solblocks)
             self._solverMinv._options["x0"] = x0
 

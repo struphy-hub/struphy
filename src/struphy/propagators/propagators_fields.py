@@ -7520,17 +7520,17 @@ class TwoFluidQuasiNeutralFull(Propagator):
             )
         else:
             self.derhamnumpy = Derham(
-                    self.derham.Nel,
-                    self.derham.p,
-                    self.derham.spl_kind,
-                    domain=self.domain,
-                    # dirichlet_bc=self.derham.dirichlet_bc,
-                    # nquads = self.derham._nquads,
-                    # nq_pr = self.derham._nq_pr,
-                    # comm = MPI.COMM_SELF, # self.derham._comm,
-                    # polar_ck= self.derham._polar_ck,
-                    # local_projectors=self.derham.with_local_projectors
-                )
+                self.derham.Nel,
+                self.derham.p,
+                self.derham.spl_kind,
+                domain=self.domain,
+                # dirichlet_bc=self.derham.dirichlet_bc,
+                # nquads = self.derham._nquads,
+                # nq_pr = self.derham._nq_pr,
+                # comm = MPI.COMM_SELF, # self.derham._comm,
+                # polar_ck= self.derham._polar_ck,
+                # local_projectors=self.derham.with_local_projectors
+            )
 
         # get forceterms for according dimension
         if self._dimension in ["2D", "1D"]:
@@ -7795,14 +7795,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 self._M2
                 - self._M2B / self._eps_norm
                 + self._nu
-                * (
-                    self._div.T @ self._M3 @ self._div
-                    + self._S21.T
-                    @ self._curl.T
-                    @ self._M2
-                    @ self._curl
-                    @ self._S21
-                )
+                * (self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21)
             )
             _A12 = None
             _A21 = _A12
@@ -7810,14 +7803,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 -self._stab_sigma * IdentityOperator(_A11.domain)
                 + self._M2B / self._eps_norm
                 + self._nu_e
-                * (
-                    self._div.T @ self._M3 @ self._div
-                    + self._S21.T
-                    @ self._curl.T
-                    @ self._M2
-                    @ self._curl
-                    @ self._S21
-                )
+                * (self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21)
             )
             _B1 = -self._M3 @ self._div
             _B2 = self._M3 @ self._div
@@ -7906,7 +7892,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                         self._Hodgenp = self._basis_opsv0.S21.toarray_struphy()  # self.basis_ops.S21.toarray
                     Vbc = self._mass_opsv0.M2B._V_boundary_op.toarray_struphy()
                     Wbc = self._mass_opsv0.M2B._W_boundary_op.toarray_struphy()
-                    M2B_mat = -self._mass_opsv0.M2B._mat.toarray()      # - sign because of the definition of M2B
+                    M2B_mat = -self._mass_opsv0.M2B._mat.toarray()  # - sign because of the definition of M2B
                     self._M2Bnp = Wbc @ M2B_mat @ Vbc.T
                 elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
                     Vbc = self._mass_opsv0.M2._V_boundary_op.toarray_struphy(is_sparse=True)
@@ -7920,11 +7906,11 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     if self._S21 is not None:
                         self._Hodgenp = self._S21.tosparse
                     else:
-                        self._Hodgenp = self._basis_opsv0.S21.toarray_struphy(is_sparse=True)   
+                        self._Hodgenp = self._basis_opsv0.S21.toarray_struphy(is_sparse=True)
                     Vbc = self._mass_opsv0.M2B._V_boundary_op.toarray_struphy(is_sparse=True)
                     Wbc = self._mass_opsv0.M2B._W_boundary_op.toarray_struphy(is_sparse=True)
                     M2B_mat = self._mass_opsv0.M2B._mat.tosparse()
-                    self._M2Bnp = - Wbc @ M2B_mat @ Vbc.T # - sign because of the definition of M2B
+                    self._M2Bnp = -Wbc @ M2B_mat @ Vbc.T  # - sign because of the definition of M2B
 
                     if isinstance(self.derhamv0.div, ComposedLinearOperator):
                         for mult in self.derhamv0.div.multiplicants:
@@ -7956,7 +7942,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     elif isinstance(self.derhamv0.curl, BlockLinearOperator):
                         self._Dnp = self.derhamv0.curl.tosparse()
 
-            else:   # no lifting, use original Derham
+            else:  # no lifting, use original Derham
                 fun = []
                 for m in range(3):
                     fun += [[]]
@@ -7986,7 +7972,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                     if self._S21 is not None:
                         self._Hodgenp = self._S21.toarray
                     else:
-                        self._Hodgenp = self.basis_ops.S21.toarray_struphy()  
+                        self._Hodgenp = self.basis_ops.S21.toarray_struphy()
                     Vbc = self.mass_ops.M2B._V_boundary_op.toarray_struphy()
                     Wbc = self.mass_ops.M2B._W_boundary_op.toarray_struphy()
                     M2B_mat = -self.mass_ops.M2B._mat.toarray()
@@ -8052,7 +8038,6 @@ class TwoFluidQuasiNeutralFull(Propagator):
             self._A11prenp_notimedependency = self._nu * (self._Dnp.T @ self._M3np @ self._Dnp)
             _A11prenp = self._M2np + self._A11prenp_notimedependency
             _Anppre = [_A11prenp, self._A22prenp]
-            
 
         if self._variant == "GMRES":
             self._solver_GMRES = SaddlePointSolver(
@@ -8110,40 +8095,30 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=-1, order=0)
                 apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=1, order=0)
                 ue_prime.vector = uenfeeccopy.vector - ue0.vector
-            
+
             _A11 = (
                 self._M2 / dt
                 - self._M2B / self._eps_norm
                 + self._nu
-                * (
-                    self._div.T @ self._M3 @ self._div
-                    + self._S21.T
-                    @ self._curl.T
-                    @ self._M2
-                    @ self._curl
-                    @ self._S21
-                )
+                * (self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21)
             )
             _A12 = None
             _A21 = _A12
             _A22 = (
                 self._nu_e
-                * (
-                    self._div.T @ self._M3 @ self._div
-                    + self._S21.T
-                    @ self._curl.T
-                    @ self._M2
-                    @ self._curl
-                    @ self._S21
-                )
+                * (self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21)
                 + self._M2B / self._eps_norm
                 - self._stab_sigma * IdentityOperator(_A11.domain)
             )
-            
+
             if self._lifting:
                 _A11prime = -self._M2B / self._eps_norm + self._nu * (
                     self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
-                    + self._basis_opsv0.S21.T @ self.derhamv0.curl.T @ self._M2 @ self.derhamv0.curl @ self._basis_opsv0.S21
+                    + self._basis_opsv0.S21.T
+                    @ self.derhamv0.curl.T
+                    @ self._M2
+                    @ self.derhamv0.curl
+                    @ self._basis_opsv0.S21
                 )
                 _A22prime = (
                     self._nu_e
@@ -8184,7 +8159,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 ]
             else:
                 _blocksF = [
-                    self._M2.dot(self._F1) + self._M2.dot(unfeec) / dt ,
+                    self._M2.dot(self._F1) + self._M2.dot(unfeec) / dt,
                     self._M2.dot(self._F2),
                 ]
             _F = BlockVector(self._block_domainA, blocks=_blocksF)
@@ -8203,7 +8178,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 un = _sol1[0] + u_prime.vector
                 uen = _sol1[1] + ue_prime.vector
                 phin = _sol2
-            else: 
+            else:
                 (
                     _sol1,
                     _sol2,
@@ -8260,12 +8235,9 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 )
                 _F2np = self._M2np @ self._F2np - self.A22np.dot(ue_prime.vector.toarray())
                 _Fnp = [_F1np, _F2np]
-            else: 
-                _F1np = (
-                    self._M2np @ self._F1np
-                    + 1.0 / dt * self._M2np.dot(unfeec.toarray())
-                )
-                _F2np = self._M2np @ self._F2np 
+            else:
+                _F1np = self._M2np @ self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
+                _F2np = self._M2np @ self._F2np
                 _Fnp = [_F1np, _F2np]
 
             if self.rank == 0:
