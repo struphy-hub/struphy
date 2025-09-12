@@ -1,12 +1,12 @@
-from struphy.io.options import Units, Time, DerhamOptions, FieldsBackground
 from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.initial import perturbations
+from struphy.io.options import DerhamOptions, FieldsBackground, Time, Units
 from struphy.kinetic_background import maxwellians
-from struphy.topology import grids
 
-# import model 
+# import model
 from struphy.models.toy import Maxwell as Model
+from struphy.topology import grids
 
 # light-weight model instance
 model = Model()

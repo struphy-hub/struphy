@@ -1,7 +1,6 @@
 import os
 import pickle
 from pathlib import Path
-from mpi4py import MPI
 
 import h5py
 import numpy as np
