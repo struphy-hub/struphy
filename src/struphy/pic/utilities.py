@@ -51,9 +51,9 @@ class LoadingParameters:
         Key in .hdf5 file's restart/ folder where marker array is stored.
     """
     def __init__(self,
-                 Np: int = 100,
+                 Np: int = None,
                  ppc: int = None,
-                 ppb: int = None,
+                 ppb: int = 10,
                  loading: OptsLoading = "pseudo_random",
                  seed: int = None,
                  moments: tuple = None,

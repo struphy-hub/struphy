@@ -8,6 +8,7 @@ from struphy.propagators import propagators_coupling, propagators_fields, propag
 from struphy.models.species import KineticSpecies, FluidSpecies, FieldSpecies
 from struphy.models.variables import Variable, FEECVariable, PICVariable, SPHVariable
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.feec.projectors import L2Projector
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -97,27 +98,31 @@ class VlasovAmpereOneSpecies(StruphyModel):
     ## propagators
     
     class Propagators:
-        def __init__(self):
+        def __init__(self, with_B0: bool = True):
             self.push_eta = propagators_markers.PushEta()
-            self.push_vxb = propagators_markers.PushVxB()
+            if with_B0:
+                self.push_vxb = propagators_markers.PushVxB()
             self.coupling_va = propagators_coupling.VlasovAmpere()
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, with_B0: bool = True):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+        
+        self.with_B0 = with_B0
             
         # 1. instantiate all species
         self.em_fields = self.EMFields()
         self.kinetic_ions = self.KineticIons()
 
         # 2. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(with_B0=with_B0)
         
         # 3. assign variables to propagators
         self.propagators.push_eta.variables.var = self.kinetic_ions.var
-        self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
+        if with_B0:
+            self.propagators.push_vxb.variables.ions = self.kinetic_ions.var
         self.propagators.coupling_va.variables.e = self.em_fields.e_field
         self.propagators.coupling_va.variables.ions = self.kinetic_ions.var
         
@@ -198,12 +203,14 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(self.mass_ops)
-        
+
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
         
-        self.initial_poisson.options.rho = alpha**2 / epsilon * charge_accum.vectors[0]
-        # self.initial_poisson.variables.phi.allocate(self.derham, domain=self.domain)
+        l2_proj = L2Projector(space_id='H1', mass_ops=self.mass_ops)
+        rho_coeffs = l2_proj.solve(charge_accum.vectors[0])
+        
+        self.initial_poisson.options.rho = alpha**2 / epsilon * rho_coeffs
         self.initial_poisson.allocate()
         
         # Solve with dt=1. and compute electric field
@@ -225,6 +232,12 @@ class VlasovAmpereOneSpecies(StruphyModel):
                 if "coupling_va.Options" in line:
                     new_file += [line]
                     new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
+                elif "push_vxb.Options" in line:
+                    new_file += ["if model.with_B0:\n"]
+                    new_file += ["    " + line]
+                elif "set_save_data" in line:
+                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
+                    new_file += ["model.kinetic_ions.set_save_data(binning_plots=(binplot,))\n"]
                 else:
                     new_file += [line]
                     

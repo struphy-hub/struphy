@@ -2779,7 +2779,6 @@ class ImplicitDiffusion(Propagator):
         else:
             stab_mat = getattr(self.mass_ops, self.options.stab_mat)
 
-        print(f"{self.options.diffusion_mat = }")
         if isinstance(self.options.diffusion_mat, str):
             diffusion_mat = getattr(self.mass_ops, self.options.diffusion_mat)
         else:
@@ -2964,7 +2963,7 @@ class Poisson(ImplicitDiffusion):
         OptsStabMat = Literal["M0", "M0ad", "Id"]
         # propagator options
         stab_eps: float = 0.0
-        stab_mat: OptsStabMat = "M0"
+        stab_mat: OptsStabMat = "Id"
         rho: StencilVector | tuple | list | Callable = None
         x0: StencilVector = None
         solver: OptsSymmSolver = "pcg"
