@@ -114,13 +114,13 @@ class ManufacturedSolutionForceterm:
 
     .. math::
 
-        f = \left[\begin{array}{c} -\frac{A(R-R_0)}{R}R_0B_0 + \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} +\alpha \frac{B_0}{a}(R-R_0) - \nu \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
-                \frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z + \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} + \alpha \frac{B_0Z}{a} - \nu A (4-\frac{R_0}{R}) \\
-                \left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} + A(R-R_0) \frac{R_0 B_p}{a}Z - \nu \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
+                \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
         \\[2mm]
-        f_e = \left[\begin{array}{c} \frac{A(R-R_0)}{R}R_0B_0 - \frac{C (R-R_0)^3}{R^2} sin(\varphi) \frac{R_0 B_p}{a} -\alpha \frac{B_0}{a}(R-R_0) - \nu_e \left( \frac{2CR_0}{R^2}cos(\varphi) +A\frac{R_0 Z}{R^2} + \frac{2CR_0^2}{R^3}cos(\varphi) \right) \\
-                -\frac{C (R-R_0)^2}{R^2}sin(\varphi)\frac{R_0B_p}{a}Z - \left(A(2R-R_0)Z + 2C(R-R_0)cos(\varphi)  \right) \frac{R_0 B_0}{R^2} - \alpha \frac{B_0Z}{a} - \nu_e A (4-\frac{R_0}{R}) \\
-                -\left( A (2R-R_0)Z + 2C(R-R_0)cos(\varphi) \right) \frac{R_0 B_p}{a} \frac{R-R0}{R} - A(R-R_0) \frac{R_0 B_p}{a}Z - \nu_e \frac{C}{R}sin(\varphi) \left(-3+\frac{R_0^2}{R^2} \right)  \end{array} \right] \,, 
+        f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
+                -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
 
@@ -225,31 +225,16 @@ class ManufacturedSolutionForceterm:
                 fz = 0.0 * x
 
             elif self._dimension == "Tokamak":
-                # fR = -A/R*(R-self._R0)*self._R0*self._B0 + C/R**2 * (R-self._R0)**3 * np.sin(phi) * self._R0*self._Bp/self._a + self._alpha*self._B0/self._a *(R-self._R0) - self._nu*(2*C*self._R0/R**2 * np.cos(phi) + A*self._R0*z/R**2 + 2*C*self._R0**2*np.cos(phi)/R**3)
-                # fZ = C/R**2 * (R-self._R0)**2 * np.sin(phi)*self._R0*self._Bp/self._a*z + (A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi))*self._R0*self._B0/R**2 + self._alpha*self._B0*z/self._a - self._nu*A*(4.0 - self._R0/R)
-                # fphi = (A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi))*self._R0*self._Bp*(R-self._R0)/(self._a*R) + A*(R-self._R0)*self._R0*self._Bp*z/self._a - self._nu*C/R *np.sin(phi)*(-3.0+self._R0**2/R**2)
-
-                # Analytical first
-                # fR = self._alpha*self._B0/self._a *(R-self._R0) - A*self._R0/R**2 * (np.cos(phi)*z*self._B0 - np.sin(phi)*self._Bp/(2.0*self._a)*((R-self._R0)**3 + z**2*(R-self._R0))) - self._nu * A *np.cos(phi)/R**3 * (self._R0**2 + z**2)
-                # fZ = self._alpha*self._B0*z/self._a + A*self._R0/R**2 * (np.sin(phi)*self._Bp/(2.0*self._a)*((R-self._R0)**2*z+z**3) + np.cos(phi)*(R-self._R0)*self._B0) + self._nu*A*np.cos(phi)*z/R**2
-                # fphi = A*self._R0*np.cos(phi)*self._Bp/(self._a*R)*((R-self._R0)**2 + z**2) - self._nu*A*np.sin(phi)/(2.0*R)*(-5.0 + self._R0**2/R**2 + z**2/R**2)
-
-                # Covariant basis?
-                # fR = self._alpha*self._B0/self._a *(R-self._R0) - A*self._R0/R**2 * (np.cos(phi)*z*self._B0 - np.sin(phi)*self._Bp/(2.0*self._a*R)*((R-self._R0)**3 + z**2*(R-self._R0))) - self._nu * A *np.cos(phi)/R* (-1.0 + 1/R + (self._R0**2 + z**2)/R**3)
-                # fZ = self._alpha*self._B0*z/self._a + A*self._R0/R**2 * (np.sin(phi)*self._Bp/(2.0*self._a*R)*((R-self._R0)**2*z+z**3) + np.cos(phi)*(R-self._R0)*self._B0) + self._nu*A*np.cos(phi)*z/R**2
-                # fphi = A*self._R0*np.cos(phi)*self._Bp/(self._a*R)*((R-self._R0)**2 + z**2) - self._nu*A*np.sin(phi)/(R**2)*( (self._R0**2 + z**2)/(2.0*R**2) - self._R0/R - 2.0*R +2.0*self._R0)
-
-                # Covariant basis with transfo DF u
+                # Covariant basis with transfo DF u withoud phi dependency
                 fR = (
                     self._alpha * self._B0 / self._a * (R - self._R0)
                     - A
                     * self._R0
                     / R
                     * (
-                        np.cos(phi) * z * self._B0
-                        - np.sin(phi) * self._Bp / (2.0 * self._a * R) * ((R - self._R0) ** 3 + z**2 * (R - self._R0))
+                        z * self._B0
                     )
-                    - self._nu * A * np.cos(phi) / R**3 * (self._R0**2 + z**2)
+                    + self._nu * A / R**2 * self._R0
                 )
                 fZ = (
                     self._alpha * self._B0 * z / self._a
@@ -257,14 +242,12 @@ class ManufacturedSolutionForceterm:
                     * self._R0
                     / R
                     * (
-                        np.sin(phi) * self._Bp / (2.0 * self._a * R) * ((R - self._R0) ** 2 * z + z**3)
-                        + np.cos(phi) * (R - self._R0) * self._B0
+                        (R - self._R0) * self._B0
                     )
-                    + self._nu * A * np.cos(phi) * z / R**2
                 )
-                fphi = A * self._R0 * np.cos(phi) * self._Bp / (self._a * R**2) * (
+                fphi = A * self._R0 * self._Bp / (self._a * R**2) * (
                     (R - self._R0) ** 2 + z**2
-                ) + self._nu * A * np.sin(phi) / (2.0 * R**2) * (5.0 - (self._R0**2 + z**2) / (R**2))
+                ) 
 
                 fx = np.cos(phi) * fR - R * np.sin(phi) * fphi
                 fy = -np.sin(phi) * fR - R * np.cos(phi) * fphi
@@ -306,31 +289,16 @@ class ManufacturedSolutionForceterm:
                 fz = 0.0 * x
 
             elif self._dimension == "Tokamak":
-                # fR = A/R*(R-self._R0)*self._R0*self._B0 - C/R**2 * (R-self._R0)**3 * np.sin(phi) * self._R0*self._Bp/self._a - self._alpha*self._B0/self._a *(R-self._R0) - self._nu_e*(2*C*self._R0/R**2 * np.cos(phi) + A*self._R0*z/R**2 + 2*C*self._R0**2*np.cos(phi)/R**3)
-                # fZ = -C/R**2 * (R-self._R0)**2 * np.sin(phi)*self._R0*self._Bp/self._a*z - (A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi))*self._R0*self._B0/R**2 - self._alpha*self._B0*z/self._a - self._nu_e*A*(4.0 - self._R0/R)
-                # fphi = -(A*(2*R-self._R0)*z + 2*C*(R-self._R0)*np.cos(phi))*self._R0*self._Bp*(R-self._R0)/(self._a*R) - A*(R-self._R0)*self._R0*self._Bp*z/self._a - self._nu_e*C/R *np.sin(phi)*(-3.0+self._R0**2/R**2)
-
-                # Analytical first
-                # fR = -self._alpha*self._B0/self._a *(R-self._R0) + A*self._R0/R**2 * (np.cos(phi)*z*self._B0 - np.sin(phi)*self._Bp/(2.0*self._a)*((R-self._R0)**3 + z**2*(R-self._R0))) - self._nu_e * A *np.cos(phi)/R**3 * (self._R0**2 + z**2)
-                # fZ = -self._alpha*self._B0*z/self._a - A*self._R0/R**2 * (np.sin(phi)*self._Bp/(2.0*self._a)*((R-self._R0)**2 * z + z**3) + np.cos(phi)*(R-self._R0)*self._B0) + self._nu_e*A*np.cos(phi)*z/R**2
-                # fphi = -A*self._R0*np.cos(phi)*self._Bp/(self._a*R)*((R-self._R0)**2 + z**2) - self._nu_e*A*np.sin(phi)/(2.0*R)*(-5.0 + self._R0**2/R**2 + z**2/R**2)
-
-                # Covariant basis?
-                # fR = -self._alpha*self._B0/self._a *(R-self._R0) + A*self._R0/R**2 * (np.cos(phi)*z*self._B0 - np.sin(phi)*self._Bp/(2.0*self._a*R)*((R-self._R0)**3 + z**2*(R-self._R0))) - self._nu_e * A *np.cos(phi)/R* (-1.0 + 1/R + (self._R0**2 + z**2)/R**3)
-                # fZ = -self._alpha*self._B0*z/self._a - A*self._R0/R**2 * (np.sin(phi)*self._Bp/(2.0*self._a*R)*((R-self._R0)**2 * z + z**3) + np.cos(phi)*(R-self._R0)*self._B0) + self._nu_e*A*np.cos(phi)*z/R**2
-                # fphi = -A*self._R0*np.cos(phi)*self._Bp/(self._a*R)*((R-self._R0)**2 + z**2) + self._nu_e*A*np.sin(phi)/(R**2)*( (self._R0**2 + z**2)/(2.0*R**2) - self._R0/R - 2.0*R +2.0*self._R0)
-
-                # Covariant basis with transfo DF u
+                # Covariant basis with transfo DF u Solution without phi dependency
                 fR = (
                     -self._alpha * self._B0 / self._a * (R - self._R0)
                     + A
                     * self._R0
                     / R
                     * (
-                        np.cos(phi) * z * self._B0
-                        - np.sin(phi) * self._Bp / (2.0 * self._a * R) * ((R - self._R0) ** 3 + z**2 * (R - self._R0))
+                        z * self._B0
                     )
-                    - self._nu_e * A * np.cos(phi) / R**3 * (self._R0**2 + z**2)
+                    + self._nu_e * A * self._R0 / R**2 
                 )
                 fZ = (
                     -self._alpha * self._B0 * z / self._a
@@ -338,14 +306,12 @@ class ManufacturedSolutionForceterm:
                     * self._R0
                     / R
                     * (
-                        np.sin(phi) * self._Bp / (2.0 * self._a * R) * ((R - self._R0) ** 2 * z + z**3)
-                        + np.cos(phi) * (R - self._R0) * self._B0
+                        (R - self._R0) * self._B0
                     )
-                    + self._nu_e * A * np.cos(phi) * z / R**2
                 )
-                fphi = -A * self._R0 * np.cos(phi) * self._Bp / (self._a * R**2) * (
+                fphi = -A * self._R0 * self._Bp / (self._a * R**2) * (
                     (R - self._R0) ** 2 + z**2
-                ) + self._nu_e * A * np.sin(phi) / (2.0 * R**2) * (5.0 - (self._R0**2 + z**2) / (R**2))
+                ) 
 
                 fx = np.cos(phi) * fR - R * np.sin(phi) * fphi
                 fy = -np.sin(phi) * fR - R * np.cos(phi) * fphi
