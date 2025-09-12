@@ -919,12 +919,11 @@ lint_full_repo_report:
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
     - struphy lint all --output-format report
-    - mkdir -p lint_reports
-    - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
   allow_failure: true
   artifacts:
+    expose_as: 'Branch lint report'
     paths:
-      - lint_reports/
+      - code_analysis_report.html
     expire_in: 1 month
 
 # Lint struphy with `struphy lint`
@@ -955,8 +954,6 @@ lint_branch_report:
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
     - struphy lint branch --output-format report
-    # - mkdir -p lint_reports
-    # - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
   allow_failure: true
   artifacts:
     expose_as: 'Branch lint report'
