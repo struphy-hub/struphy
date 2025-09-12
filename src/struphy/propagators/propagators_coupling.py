@@ -4,6 +4,7 @@ import numpy as np
 from dataclasses import dataclass
 from mpi4py import MPI
 from typing import Literal
+from line_profiler import profile
 
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -128,6 +129,7 @@ class VlasovAmpere(Propagator):
                 print(f'  {k}: {v}')
         self._options = new
 
+    @profile
     def allocate(self):
         # scaling factors
         alpha = self.variables.ions.species.equation_params.alpha
@@ -200,6 +202,7 @@ class VlasovAmpere(Propagator):
             alpha_in_kernel=1.0,
         )
 
+    @profile
     def __call__(self, dt):
         # accumulate
         self._accum()

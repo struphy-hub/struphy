@@ -2,6 +2,7 @@ import copy
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
+from line_profiler import profile
 
 import h5py
 import scipy.special as sp
@@ -1591,6 +1592,7 @@ class Particles(metaclass=ABCMeta):
                 self.mpi_sort_markers()
             self.do_sort()
 
+    @profile
     def mpi_sort_markers(
         self,
         apply_bc: bool = True,
@@ -1751,6 +1753,7 @@ class Particles(metaclass=ABCMeta):
         else:
             self.weights = self.weights0
 
+    @profile
     def update_weights(self):
         """
         Applies the control variate method, i.e. updates the time-dependent marker weights
@@ -1914,6 +1917,7 @@ class Particles(metaclass=ABCMeta):
 
         return outside_inds
 
+    @profile
     def apply_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -2500,6 +2504,7 @@ class Particles(metaclass=ABCMeta):
 
         self._markers[:, :] = self._markers[self._argsort_array]
 
+    @profile
     def put_particles_in_boxes(self):
         """Assign the right box to the particles and the list of the particles to each box.
         If sorting_boxes was instantiated with an MPI comm, then the particles in the
@@ -2522,36 +2527,8 @@ class Particles(metaclass=ABCMeta):
             self.check_and_assign_particles_to_boxes()
             self.update_ghost_particles()
 
-        if self.verbose:
-            valid_box_ids = np.nonzero(self._sorting_boxes._boxes[:, 0] != -1)[0]
-            print(f"Boxes holding at least one particle: {valid_box_ids}")
-            for i in valid_box_ids:
-                n_mks_box = np.count_nonzero(self._sorting_boxes._boxes[i] != -1)
-                print(f"Number of markers in box {i} is {n_mks_box}")
-
-    def check_and_assign_particles_to_boxes(self):
-        """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
-        and then assigne the particles to boxes."""
-
-        bcount = np.bincount(np.int64(self.markers_wo_holes[:, -2]))
-        max_in_box = np.max(bcount)
-        if max_in_box > self._sorting_boxes.boxes.shape[1]:
-            warnings.warn(
-                f'Strong load imbalance detected in sorting boxes: \
-max number of markers in a box ({max_in_box}) on rank {self.mpi_rank} \
-exceeds the column-size of the box array ({self._sorting_boxes.boxes.shape[1]}). \
-Increasing the value of "box_bufsize" in the markers parameters for the next run.'
-            )
-            self.mpi_comm.Abort()
-
-        assign_particles_to_boxes(
-            self.markers,
-            self.holes,
-            self._sorting_boxes._boxes,
-            self._sorting_boxes._next_index,
-        )
-
-    def do_sort(self, use_numpy_argsort=False):
+    @profile
+    def do_sort(self):
         """Assign the particles to boxes and then sort them."""
         nx = self._sorting_boxes.nx
         ny = self._sorting_boxes.ny
@@ -3059,6 +3036,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
             self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
+    @profile
     def communicate_boxes(self, verbose=False):
         if verbose:
             n_valid = np.count_nonzero(self.valid_mks)
