@@ -184,8 +184,12 @@ class PICVariable(Variable):
 
         kinetic_class = getattr(particles, self.space)
 
+        comm_world = MPI.COMM_WORLD
+        if comm_world.Get_size() == 1:
+            comm_world = None
+
         self._particles: Particles = kinetic_class(
-            comm_world=MPI.COMM_WORLD,
+            comm_world=comm_world,
             clone_config=clone_config,
             domain_decomp=domain_decomp,
             mpi_dims_mask=self.species.dims_mask,

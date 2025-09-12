@@ -126,8 +126,8 @@ def run(
         else:
             with open(os.path.join(path_out, "env.bin"), 'wb') as f:
                 pickle.dump(env, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "units.bin"), 'wb') as f:
-                pickle.dump(units, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "base_units.bin"), 'wb') as f:
+                pickle.dump(base_units, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "time_opts.bin"), 'wb') as f:
                 pickle.dump(time_opts, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "domain.bin"), 'wb') as f:
