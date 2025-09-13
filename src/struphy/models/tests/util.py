@@ -10,7 +10,6 @@ import struphy
 from struphy.console.main import recursive_get_files
 from struphy.io.setup import descend_options_dict
 from struphy.models.base import StruphyModel
-from struphy.struphy import run
 
 libpath = struphy.__path__[0]
 
