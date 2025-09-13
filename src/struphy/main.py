@@ -38,6 +38,7 @@ from struphy.post_processing.post_processing_tools import (
     create_femfields,
     create_vtk,
     eval_femfields,
+    get_params_of_run,
     post_process_f,
     post_process_markers,
     post_process_n_sph,
@@ -155,8 +156,8 @@ def run(
                 pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "derham_opts.bin"), "wb") as f:
                 pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "model.bin"), "wb") as f:
-                pickle.dump(model, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "model_class.bin"), "wb") as f:
+                pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
 
     # config clones
     if comm is None:
@@ -198,16 +199,18 @@ def run(
     # default grid
     if grid is None:
         Nel = (16, 16, 16)
-        print(f"\nNo grid specified - using TensorProductGrid with {Nel = }.")
+        if rank == 0:
+            print(f"\nNo grid specified - using TensorProductGrid with {Nel = }.")
         grid = grids.TensorProductGrid(Nel=Nel)
 
     # allocate derham-related objects
     if derham_opts is None:
         p = (3, 3, 3)
         spl_kind = (False, False, False)
-        print(
-            f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium."
-        )
+        if rank == 0:
+            print(
+                f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium."
+            )
         derham_opts = DerhamOptions(p=p, spl_kind=spl_kind)
     model.allocate_feec(grid, derham_opts)
 
@@ -518,13 +521,13 @@ def pproc(
 
     # field post-processing
     if exist_fields:
-        fields, t_grid = create_femfields(path, step=step)
+        fields, t_grid = create_femfields(path, params_in=params_in, step=step)
 
-        point_data, grids_log, grids_phy = eval_femfields(path, fields, celldivide=[celldivide, celldivide, celldivide])
+        point_data, grids_log, grids_phy = eval_femfields(params_in, fields, celldivide=[celldivide] * 3)
 
         if physical:
             point_data_phy, grids_log, grids_phy = eval_femfields(
-                path, fields, celldivide=[celldivide, celldivide, celldivide], physical=True
+                params_in, fields, celldivide=[celldivide] * 3, physical=True
             )
 
         # directory for field data
@@ -611,11 +614,24 @@ def pproc(
                 else:
                     compute_bckgr = False
 
-                post_process_f(path, path_kinetics_species, species, step, compute_bckgr=compute_bckgr)
+                post_process_f(
+                    path,
+                    params_in,
+                    path_kinetics_species,
+                    species,
+                    step,
+                    compute_bckgr=compute_bckgr,
+                )
 
             # sph density
             if exist_kinetic["n_sph"]:
-                post_process_n_sph(path, path_kinetics_species, species, step, compute_bckgr=compute_bckgr)
+                post_process_n_sph(
+                    path,
+                    path_kinetics_species,
+                    species,
+                    step,
+                    compute_bckgr=compute_bckgr,
+                )
 
 
 class SimData:

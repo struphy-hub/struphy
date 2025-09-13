@@ -1,9 +1,13 @@
 import copy
 
-from struphy.fields_background.base import FluidEquilibriumWithB
+from struphy.fields_background import equils
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
+from struphy.geometry.utilities import TransformedPformComponent
+from struphy.initial.base import Perturbation
 from struphy.kinetic_background import maxwellians
+from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
 
@@ -31,10 +35,10 @@ class Particles6D(Particles):
     ):
         kwargs["type"] = "full_f"
 
-        # if "backgrounds" not in kwargs:
-        #     kwargs["backgrounds"] = self.default_background()
-        # elif kwargs["backgrounds"] is None:
-        #     kwargs["backgrounds"] = self.default_background()
+        if "background" not in kwargs:
+            kwargs["background"] = self.default_background()
+        elif kwargs["background"] is None:
+            kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
@@ -238,35 +242,45 @@ class DeltaFParticles6D(Particles6D):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"Maxwellian3D": {}}
+    def default_background(cls):
+        return maxwellians.Maxwellian3D()
 
     def __init__(
         self,
         **kwargs,
     ):
         kwargs["type"] = "delta_f"
-        kwargs["control_variate"] = False
+        if "weights_params" in kwargs:
+            kwargs["weights_params"].control_variate = False
         super().__init__(**kwargs)
 
     def _set_initial_condition(self):
-        bp_copy = copy.deepcopy(self.bckgr_params)
-        pp_copy = copy.deepcopy(self.pert_params)
+        # bp_copy = copy.deepcopy(self.bckgr_params)
+        # pp_copy = copy.deepcopy(self.pert_params)
 
-        # Prepare delta-f perturbation parameters
-        if pp_copy is not None:
-            for fi in bp_copy:
-                # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
-                if fi in pp_copy:
-                    if "use_background_n" in pp_copy[fi]:
-                        if not pp_copy[fi]["use_background_n"]:
-                            bp_copy[fi]["n"] = 0.0
-                    else:
-                        bp_copy[fi]["n"] = 0.0
-                else:
-                    bp_copy[fi]["n"] = 0.0
+        # # Prepare delta-f perturbation parameters
+        # if pp_copy is not None:
+        #     for fi in bp_copy:
+        #         # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
+        #         if fi in pp_copy:
+        #             if "use_background_n" in pp_copy[fi]:
+        #                 if not pp_copy[fi]["use_background_n"]:
+        #                     bp_copy[fi]["n"] = 0.0
+        #             else:
+        #                 bp_copy[fi]["n"] = 0.0
+        #         else:
+        #             bp_copy[fi]["n"] = 0.0
+        self.set_n_to_zero(self.initial_condition)
 
-        super()._set_initial_condition(bp_copy=bp_copy, pp_copy=pp_copy)
+        super()._set_initial_condition()
+
+    def set_n_to_zero(self, background: Maxwellian | SumKineticBackground):
+        if isinstance(background, Maxwellian):
+            background.maxw_params["n"] = (0.0, background.maxw_params["n"][1])
+        else:
+            assert isinstance(background, SumKineticBackground)
+            self.set_n_to_zero(background._f1)
+            self.set_n_to_zero(background._f2)
 
 
 class Particles5D(Particles):
@@ -753,8 +767,8 @@ class ParticlesSPH(Particles):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"ConstantVelocity": {}}
+    def default_background(cls):
+        return equils.ConstantVelocity()
 
     def __init__(
         self,
@@ -762,8 +776,14 @@ class ParticlesSPH(Particles):
     ):
         kwargs["type"] = "sph"
 
-        if "bckgr_params" not in kwargs:
-            kwargs["bckgr_params"] = self.default_bckgr_params()
+        if "background" not in kwargs:
+            bckgr = self.default_background()
+            bckgr.domain = kwargs["domain"]
+            kwargs["background"] = bckgr
+        elif kwargs["background"] is None:
+            bckgr = self.default_background()
+            bckgr.domain = kwargs["domain"]
+            kwargs["background"] = bckgr
 
         if "boxes_per_dim" not in kwargs:
             boxes_per_dim = (1, 1, 1)
@@ -868,10 +888,6 @@ class ParticlesSPH(Particles):
 
     def _set_initial_condition(self):
         """Set a callable initial condition f_init as a 0-form (scalar), and u_init in Cartesian coordinates."""
-        from struphy.feec.psydac_derham import transform_perturbation
-        from struphy.fields_background.base import FluidEquilibrium
-
-        pp_copy = copy.deepcopy(self.pert_params)
 
         # Get the initialization function and pass the correct arguments
         self._f_init = None
@@ -879,31 +895,43 @@ class ParticlesSPH(Particles):
         self._f_init = self.f0.n0
         self._u_init = self.f0.u_cart
 
-        if pp_copy is not None:
-            if "n" in pp_copy:
-                for _type, _params in pp_copy["n"].items():  # only one perturbation is taken into account at the moment
-                    _fun = transform_perturbation(_type, _params, "0", self.domain)
+        if self.perturbations is not None:
+            for moment, pert in self.perturbations.items():  # only one perturbation is taken into account at the moment
+                assert isinstance(moment, str)
+                assert isinstance(pert, Perturbation)
 
-                def _f_init(*etas):
-                    if len(etas) == 1:
-                        return self.f0.n0(etas[0]) + _fun(*etas[0].T)
-                    else:
-                        assert len(etas) == 3
-                        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                            etas[0],
-                            etas[1],
-                            etas[2],
-                            flat_eval=False,
-                        )
-                        return self.f0.n0(E1, E2, E3) + _fun(E1, E2, E3)
+                if moment == "n":
+                    _fun = TransformedPformComponent(
+                        pert,
+                        pert.given_in_basis,
+                        "0",
+                        comp=pert.comp,
+                        domain=self.domain,
+                    )
 
-                self._f_init = _f_init
+                    def _f_init(*etas):
+                        if len(etas) == 1:
+                            return self.f0.n0(etas[0]) + _fun(*etas[0].T)
+                        else:
+                            assert len(etas) == 3
+                            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                                etas[0],
+                                etas[1],
+                                etas[2],
+                                flat_eval=False,
+                            )
+                            return self.f0.n0(E1, E2, E3) + _fun(E1, E2, E3)
 
-            if "u1" in pp_copy:
-                for _type, _params in pp_copy[
-                    "u1"
-                ].items():  # only one perturbation is taken into account at the moment
-                    _fun = transform_perturbation(_type, _params, "v", self.domain)
+                    self._f_init = _f_init
+
+                elif moment == "u1":
+                    _fun = TransformedPformComponent(
+                        pert,
+                        pert.given_in_basis,
+                        "v",
+                        comp=pert.comp,
+                        domain=self.domain,
+                    )
                     _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
-                self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
-                # TODO: add other velocity components
+                    self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
+                    # TODO: add other velocity components

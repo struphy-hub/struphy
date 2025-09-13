@@ -5,8 +5,11 @@ import pytest
 from mpi4py import MPI
 
 from struphy.feec.psydac_derham import Derham
+from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry import domains
+from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
+from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.mpi(min_size=2)
@@ -22,27 +25,26 @@ def test_evaluation_mc(Np, bc_x, show_plot=False):
     domain = domain_class(**dom_params)
 
     boxes_per_dim = (16, 1, 1)
-    loading_params = {"seed": 1607}
+    loading_params = LoadingParameters(Np=Np, seed=1607)
+    boundary_params = BoundaryParameters(bc=(bc_x, "periodic", "periodic"))
 
-    cst_vel = {"density_profile": "constant", "n": 1.0}
-    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    background = ConstantVelocity(n=1.0, density_profile="constant")
+    background.domain = domain
 
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-    modes = {"ModesSin": mode_params}
-    pert_params = {"n": modes}
+    pert = {"n": perturbations.ModesSin(ls=(1,), amps=(1e-0,))}
 
     fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1)
 
     particles = ParticlesSPH(
         comm_world=comm,
-        Np=Np,
-        boxes_per_dim=boxes_per_dim,
-        bc=[bc_x, "periodic", "periodic"],
-        bufsize=1.0,
         loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=1.0,
         domain=domain,
-        bckgr_params=bckgr_params,
-        pert_params=pert_params,
+        background=background,
+        perturbations=pert,
+        n_as_volume_form=True,
     )
 
     particles.draw_markers(sort=False)
@@ -66,6 +68,7 @@ def test_evaluation_mc(Np, bc_x, show_plot=False):
         plt.figure(figsize=(12, 8))
         plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
         plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
+        plt.legend()
 
         plt.show()
 
@@ -88,29 +91,26 @@ def test_evaluation_tesselation(boxes_per_dim, ppb, bc_x, show_plot=False):
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
 
-    loading = "tesselation"
-    loading_params = {"n_quad": 1}
+    loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+    boundary_params = BoundaryParameters(bc=(bc_x, "periodic", "periodic"))
 
-    cst_vel = {"density_profile": "constant", "n": 1.0}
-    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    background = ConstantVelocity(n=1.0, density_profile="constant")
+    background.domain = domain
 
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-    modes = {"ModesSin": mode_params}
-    pert_params = {"n": modes}
+    pert = {"n": perturbations.ModesSin(ls=(1,), amps=(1e-0,))}
 
     fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1)
 
     particles = ParticlesSPH(
         comm_world=comm,
-        ppb=ppb,
-        boxes_per_dim=boxes_per_dim,
-        bc=[bc_x, "periodic", "periodic"],
-        bufsize=1.0,
-        loading=loading,
         loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=1.0,
         domain=domain,
-        bckgr_params=bckgr_params,
-        pert_params=pert_params,
+        background=background,
+        perturbations=pert,
+        n_as_volume_form=True,
         verbose=True,
     )
 
@@ -149,10 +149,5 @@ def test_evaluation_tesselation(boxes_per_dim, ppb, bc_x, show_plot=False):
 
 
 if __name__ == "__main__":
-    test_evaluation_mc(40000, "periodic", show_plot=True)
-    # test_evaluation_tesselation(
-    #     (8, 1, 1),
-    #     4,
-    #     "periodic",
-    #     show_plot=True
-    # )
+    # test_evaluation_mc(40000, "periodic", show_plot=True)
+    test_evaluation_tesselation((8, 1, 1), 4, "periodic", show_plot=True)
