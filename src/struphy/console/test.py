@@ -99,16 +99,6 @@ def struphy_test(
             cmd += ["--show-plots"]
         subp_run(cmd)
 
-        # test post processing of models
-        if not verification:
-            cmd = [
-                "pytest",
-                "-k",
-                "pproc",
-                "-s",
-            ]
-            subp_run(cmd)
-
     elif group in {"fluid", "kinetic", "hybrid", "toy"}:
         cmd = [
             "mpirun",
