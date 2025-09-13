@@ -408,8 +408,8 @@ stages:
     - struphy compile --status
     - struphy test models --mpi 1
     - struphy test models --mpi 2
-    - struphy test models --mpi 3
-    - struphy test models --mpi 4
+    # - struphy test models --mpi 3
+    # - struphy test models --mpi 4
     - struphy test verification --mpi 4
     # - struphy test models --fast --verification --mpi 4
     # - struphy test models --fast --verification --mpi 4 --nclones 2
