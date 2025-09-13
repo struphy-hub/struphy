@@ -97,6 +97,7 @@ stages:
   rules:
     - !reference [.rules_common, skip_pages_and_scheduled]
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "devel" && $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "318-parameter-file-as-py" && $CI_PIPELINE_SOURCE == "merge_request_event"
 
 .rules_mr_to_master:
   rules:
