@@ -126,7 +126,7 @@ def struphy_test(
             from struphy.models.tests.test_xxpproc import test_pproc_codes
 
             test_pproc_codes(group=group)
-            
+
     elif "verification" in group:
         cmd = [
             "mpirun",

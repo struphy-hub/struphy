@@ -924,13 +924,19 @@ def add_parser_test(subparsers, list_models):
         parser_test.add_argument(
             "group",
             type=str,
-            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"] + ["verification"],
+            choices=list_models
+            + ["models"]
+            + ["unit"]
+            + ["fluid"]
+            + ["kinetic"]
+            + ["hybrid"]
+            + ["toy"]
+            + ["verification"],
             metavar="GROUP",
             help='can be either:\na) a model name \
                                     \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
                                     \nc) "verification" for running all verification tests \
                                     \nd) "unit" for performing unit tests',
-                                    
         )
 
         parser_test.add_argument(

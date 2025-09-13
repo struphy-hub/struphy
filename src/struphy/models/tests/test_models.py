@@ -1,5 +1,6 @@
 import os
 from types import ModuleType
+
 import pytest
 from mpi4py import MPI
 
@@ -12,26 +13,29 @@ from struphy.models.base import StruphyModel
 rank = MPI.COMM_WORLD.Get_rank()
 
 # available models
-toy_models = ["Maxwell",
-              "Vlasov",
-              "GuidingCenter",
-              ]
+toy_models = [
+    "Maxwell",
+    "Vlasov",
+    "GuidingCenter",
+]
 # for name, obj in inspect.getmembers(toy):
 #     if inspect.isclass(obj) and "models.toy" in obj.__module__:
 #         toy_models += [name]
 if rank == 0:
     print(f"\n{toy_models = }")
 
-fluid_models = ["LinearMHD",
-                ]
+fluid_models = [
+    "LinearMHD",
+]
 # for name, obj in inspect.getmembers(fluid):
 #     if inspect.isclass(obj) and "models.fluid" in obj.__module__:
 #         fluid_models += [name]
 if rank == 0:
     print(f"\n{fluid_models = }")
 
-kinetic_models = ["VlasovAmpereOneSpecies",
-                  ]
+kinetic_models = [
+    "VlasovAmpereOneSpecies",
+]
 # for name, obj in inspect.getmembers(kinetic):
 #     if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
 #         kinetic_models += [name]
@@ -88,7 +92,7 @@ def call_test(model_name: str, module: ModuleType, verbose=True):
         derham_opts=derham_opts,
         verbose=verbose,
     )
-    
+
     MPI.COMM_WORLD.Barrier()
     if rank == 0:
         path_out = os.path.join(test_folder, model_name)
@@ -98,38 +102,46 @@ def call_test(model_name: str, module: ModuleType, verbose=True):
 
 # specific tests
 @pytest.mark.parametrize("model_name", toy_models)
-def test_toy(model_name: str, 
-            fast: bool,
-            vrbose: bool,
-            nclones: int,
-            show_plots: bool,):
+def test_toy(
+    model_name: str,
+    fast: bool,
+    vrbose: bool,
+    nclones: int,
+    show_plots: bool,
+):
     call_test(model_name=model_name, module=toy, verbose=vrbose)
 
 
 @pytest.mark.parametrize("model_name", fluid_models)
-def test_fluid(model_name: str, 
-               fast: bool,
-            vrbose: bool,
-            nclones: int,
-            show_plots: bool,):
+def test_fluid(
+    model_name: str,
+    fast: bool,
+    vrbose: bool,
+    nclones: int,
+    show_plots: bool,
+):
     call_test(model_name=model_name, module=fluid, verbose=vrbose)
 
 
 @pytest.mark.parametrize("model_name", kinetic_models)
-def test_kinetic(model_name: str, 
-                 fast: bool,
-            vrbose: bool,
-            nclones: int,
-            show_plots: bool,):
+def test_kinetic(
+    model_name: str,
+    fast: bool,
+    vrbose: bool,
+    nclones: int,
+    show_plots: bool,
+):
     call_test(model_name=model_name, module=kinetic, verbose=vrbose)
 
 
 @pytest.mark.parametrize("model_name", hybrid_models)
-def test_hybrid(model_name: str, 
-                fast: bool,
-            vrbose: bool,
-            nclones: int,
-            show_plots: bool,):
+def test_hybrid(
+    model_name: str,
+    fast: bool,
+    vrbose: bool,
+    nclones: int,
+    show_plots: bool,
+):
     call_test(model_name=model_name, module=hybrid, verbose=vrbose)
 
 
