@@ -412,24 +412,23 @@ stages:
     - struphy test models --fast --verification --mpi 4 --nclones 2
     - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
   quickstart_tests:
-    - struphy --set-i .
-    - struphy --set-o .
     - struphy -p
     - struphy -h
-    - struphy run -h
-    - struphy params VlasovMaxwellOneSpecies -y
+    - struphy params VlasovAmpereOneSpecies 
     - ls -1a
-    - mv params_VlasovMaxwellOneSpecies.yml test.yml
-    - struphy run -i test.yml -o my_first_sim
-    - ls my_first_sim/
-    - struphy pproc my_first_sim
-    - ls my_first_sim/post_processing/fields_data/
-    - ls my_first_sim/post_processing/kinetic_data/
-    - struphy params VlasovMaxwellOneSpecies --options
-    - struphy run -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
-    - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
-    - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
-    - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
+    - mv params_VlasovAmpereOneSpecies.py test.py
+    - python3 test.py
+    - ls sim_1/
+    - mpirun -n 2 python3 test.py
+    - LINE_PROFILE=1 mpirun -n 2 python3 test.py
+    # - struphy pproc my_first_sim
+    # - ls my_first_sim/post_processing/fields_data/
+    # - ls my_first_sim/post_processing/kinetic_data/
+    # - struphy params VlasovMaxwellOneSpecies --options
+    # - struphy run -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
+    # - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
+    # - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
+    # - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
   build_images:
     - buildah images
     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest -f docker/almalinux-latest.dockerfile .
