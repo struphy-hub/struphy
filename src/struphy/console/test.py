@@ -4,7 +4,7 @@ from struphy.utils.utils import subp_run
 def struphy_test(
     group: str,
     *,
-    mpi: int = 4,
+    mpi: int = 2,
     fast: bool = False,
     with_desc: bool = False,
     Tend: float = None,
@@ -22,7 +22,7 @@ def struphy_test(
         Test identifier: "unit", "models", "fluid", "kinetic", "hybrid", "toy", "verification" or a model name.
 
     mpi : int
-        Number of MPI processes used in tests (must be >1, default=4).
+        Number of MPI processes used in tests (must be >1, default=2).
 
     fast : bool
         Whether to test models just in slab geometry.
