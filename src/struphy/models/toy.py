@@ -1292,6 +1292,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         stokes_spectralanalysis = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"][
             "spectralanalysis"
         ]
+        stokes_lifting = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["lifting"]
         stokes_dimension = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
         stokes_1D_dt = params["time"]["dt"]
 
@@ -1321,6 +1322,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             "spectralanalysis": stokes_spectralanalysis,
             "dimension": stokes_dimension,
             "D1_dt": stokes_1D_dt,
+            "lifting": stokes_lifting,
         }
 
         # Initialize propagators used in splitting substeps
