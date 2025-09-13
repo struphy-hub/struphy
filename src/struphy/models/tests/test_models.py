@@ -9,6 +9,8 @@ from struphy.io.setup import import_parameters_py
 from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel
 
+rank = MPI.COMM_WORLD.Get_rank()
+
 # available models
 toy_models = ["Maxwell",
               "Vlasov",
@@ -17,27 +19,31 @@ toy_models = ["Maxwell",
 # for name, obj in inspect.getmembers(toy):
 #     if inspect.isclass(obj) and "models.toy" in obj.__module__:
 #         toy_models += [name]
-print(f"\n{toy_models = }")
+if rank == 0:
+    print(f"\n{toy_models = }")
 
 fluid_models = ["LinearMHD",
                 ]
 # for name, obj in inspect.getmembers(fluid):
 #     if inspect.isclass(obj) and "models.fluid" in obj.__module__:
 #         fluid_models += [name]
-print(f"\n{fluid_models = }")
+if rank == 0:
+    print(f"\n{fluid_models = }")
 
 kinetic_models = ["VlasovAmpereOneSpecies",
                   ]
 # for name, obj in inspect.getmembers(kinetic):
 #     if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
 #         kinetic_models += [name]
-print(f"\n{kinetic_models = }")
+if rank == 0:
+    print(f"\n{kinetic_models = }")
 
 hybrid_models = []
 # for name, obj in inspect.getmembers(hybrid):
 #     if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
 #         hybrid_models += [name]
-print(f"\n{hybrid_models = }")
+if rank == 0:
+    print(f"\n{hybrid_models = }")
 
 
 # folder for test simulations
@@ -46,7 +52,8 @@ test_folder = os.path.join(os.getcwd(), "struphy_model_tests")
 
 # generic function for calling model tests
 def call_test(model_name: str, module: ModuleType, verbose=True):
-    print(f"\n*** Testing '{model_name}':")
+    if rank == 0:
+        print(f"\n*** Testing '{model_name}':")
     model = getattr(module, model_name)()
     assert isinstance(model, StruphyModel)
 
@@ -54,7 +61,6 @@ def call_test(model_name: str, module: ModuleType, verbose=True):
     path = os.path.join(test_folder, f"params_{model_name}.py")
     model.generate_default_parameter_file(path=path, prompt=False)
     del model
-    print("\nDeleting light-weight instance ...")
 
     # set environment options
     env = EnvironmentOptions(out_folders=test_folder, sim_folder=f"{model_name}")
@@ -84,7 +90,7 @@ def call_test(model_name: str, module: ModuleType, verbose=True):
     )
     
     MPI.COMM_WORLD.Barrier()
-    if MPI.COMM_WORLD.Get_rank() == 0:
+    if rank == 0:
         path_out = os.path.join(test_folder, model_name)
         main.pproc(path=path_out)
         main.load_data(path=path_out)
@@ -97,7 +103,6 @@ def test_toy(model_name: str,
             vrbose: bool,
             nclones: int,
             show_plots: bool,):
-    print(f"########################## {vrbose = }")
     call_test(model_name=model_name, module=toy, verbose=vrbose)
 
 

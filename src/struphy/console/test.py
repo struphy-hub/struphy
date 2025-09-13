@@ -19,7 +19,7 @@ def struphy_test(
     Parameters
     ----------
     group : str
-        Test identifier: "unit", "models", "fluid", "kinetic", "hybrid", "toy" or a model name.
+        Test identifier: "unit", "models", "fluid", "kinetic", "hybrid", "toy", "verification" or a model name.
 
     mpi : int
         Number of MPI processes used in tests (must be >1, default=4).
@@ -126,6 +126,29 @@ def struphy_test(
             from struphy.models.tests.test_xxpproc import test_pproc_codes
 
             test_pproc_codes(group=group)
+            
+    elif "verification" in group:
+        cmd = [
+            "mpirun",
+            "-n",
+            str(mpi),
+            "pytest",
+            "-k",
+            "_verif_",
+            "-s",
+            "--with-mpi",
+        ]
+        if fast:
+            cmd += ["--fast"]
+        if vrbose:
+            cmd += ["--vrbose"]
+        if verification:
+            cmd += ["--verification"]
+        if nclones > 1:
+            cmd += ["--nclones", f"{nclones}"]
+        if show_plots:
+            cmd += ["--show-plots"]
+        subp_run(cmd)
 
     else:
         import os
