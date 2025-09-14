@@ -256,6 +256,7 @@ test_pitagora05:
     - struphy params VlasovMaxwellOneSpecies -y
     - ls -1a
     - mv params_VlasovMaxwellOneSpecies.yml test.yml
+    - struphy params VlasovMaxwellOneSpecies --check-file test.yml
     - struphy run -i test.yml -o my_first_sim
     - ls my_first_sim/
     - struphy pproc my_first_sim
