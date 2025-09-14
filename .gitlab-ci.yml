@@ -116,7 +116,7 @@ test_pitagora05:
     - python -m pip install --upgrade pip
     - pip install --no-binary=mpi4py mpi4py
     - pip install ".[dev]"
-    - python -c "from mpi4py import MPI"
+    - python -c "from mpi4py import MPI; print(MPI)"
     - struphy -h
     - struphy --refresh-models
     - struphy compile
