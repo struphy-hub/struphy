@@ -3244,7 +3244,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
                     "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
                 )
 
-        return out
+        return -out
 
     def g_tor(self, R, Z, dR=0, dZ=0):
         """Toroidal field function g = g(R, Z)."""
@@ -3260,7 +3260,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
                 "Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!",
             )
 
-        return out
+        return -out
 
     def p_xyz(self, x, y, z):
         """Pressure p = p(x, y, z)."""

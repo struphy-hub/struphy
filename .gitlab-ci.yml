@@ -5,6 +5,7 @@
 # The doc can be built by clicking "Run pipeline" on Gitlab and setting the MAKE_PAGES = true.
 
 variables:
+  FF_SCRIPT_SECTIONS: "true"
   MAKE_PAGES:
     value: "false"
     options: ["true", "false"]
@@ -418,6 +419,7 @@ stages:
     - struphy params VlasovMaxwellOneSpecies -y
     - ls -1a
     - mv params_VlasovMaxwellOneSpecies.yml test.yml
+    - struphy params VlasovMaxwellOneSpecies --check-file test.yml
     - struphy run -i test.yml -o my_first_sim
     - ls my_first_sim/
     - struphy pproc my_first_sim
@@ -495,10 +497,27 @@ update_images_buildah:
 # ### PUSH PIPELINE ###
 # #####################
 
+# check_struphy_simulation_params:
+#   stage: test
+#   extends:
+#     - .rules_mr_to_devel
+#     - .image_gitlab_mpcdf_struphy
+#     - .before_script_load_modules
+#     - .variables_push
+#   script:
+#     - !reference [.scripts, install_on_push]
+#     - git clone https://gitlab.mpcdf.mpg.de/struphy/struphy-simulations.git
+#     - |
+#       for file in struphy-simulations/**/*.yml; do
+#         echo "Checking $file"
+#         # TODO: How to deduce the model?
+#         struphy params LinearVlasovAmpereOneSpecies --check-file $file
+#       done
+
 # install_tests:
 #   stage: test
 #   extends:
-#     - .rules_push
+#     - .rules_mr_to_devel
 #     - .image_gitlab_mpcdf_struphy
 #     - .before_script_load_modules
 #     - .parallel_matrix_install
@@ -624,6 +643,7 @@ cleanup_macos:
 ### SCHEDULED PIPELINE ###
 ##########################
 
+
 # install_scheduled:
 #   stage: install
 #   needs: []
@@ -635,7 +655,7 @@ cleanup_macos:
 #     - .artifacts_scheduled
 #   script:
 #     - !reference [.scripts, create_venv_matrix]
-#     - !reference [.scripts, install]
+#     - !reference [.scripts, install_no_binary]
 #     - !reference [.scripts, compile_matrix]
 
 # compile_timing:
