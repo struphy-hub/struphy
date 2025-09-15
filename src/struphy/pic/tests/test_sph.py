@@ -94,16 +94,16 @@ def test_sph_evaluation(Np, boxes_per_dim, ppb, bc_x, tesselation, show_plot=Fal
         
     if tesselation:
         if bc_x == "periodic":
-            assert err_max_norm < 0.0069
+            assert err_max_norm < 0.0031
         elif bc_x == "fixed":
-            assert err_max_norm < 0.031
+            assert err_max_norm < 0.0031
         else:
-            assert err_max_norm < 0.436
+            assert err_max_norm < 0.0031
     else:
         if bc_x in ("periodic", "fixed"):
-            assert err_max_norm < 0.034
+            assert err_max_norm < 0.0366
         else: 
-            assert err_max_norm < 0.444
+            assert err_max_norm < 0.046
 
 
 @pytest.mark.mpi(min_size=2)
@@ -642,18 +642,18 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
 
 
 if __name__ == "__main__":
-    # test_sph_evaluation(
-    #      None,
-    #      (12, 1, 1),
-    #      4,
-    #      "periodic",
-    #      tesselation=True,
-    #      show_plot=True
-    #  )
+     #test_sph_evaluation(
+     #     70000,
+     #     (12, 1, 1),
+     #     None,
+     #     "mirror",
+     #     tesselation=False,
+     #     show_plot=True
+     # ) #for Tesselation false, test with at least Np = 30000  
     
-    #test_evaluation_SPH_Np_convergence_1d((12,1,1), "mirror", tesselation=False, show_plot=True)
-    #test_evaluation_SPH_h_convergence_1d((8,1,1), "mirror", tesselation = True, show_plot=True)
-    #test_evaluation_mc_Np_and_h_convergence_1d((16,1,1),"fixed",tesselation = False,  show_plot=True)
-    test_evaluation_SPH_Np_convergence_2d((32,32,1), "mirror", "fixed", tesselation = False , show_plot=True)
+    #test_evaluation_SPH_Np_convergence_1d((12,1,1), "mirror", tesselation=True, show_plot=True)
+    #test_evaluation_SPH_h_convergence_1d((8,1,1), "mirror", tesselation = False, show_plot=True)
+    #test_evaluation_mc_Np_and_h_convergence_1d((16,1,1),"mirror",tesselation = True,  show_plot=True)
+    test_evaluation_SPH_Np_convergence_2d((32,32,1), "periodic", "fixed", tesselation = False , show_plot=True)
 
     
