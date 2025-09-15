@@ -40,14 +40,14 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     from mpi4py import MPI
 
     from struphy.geometry import domains
+    from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
     from struphy.pic.utilities import (
-    BoundaryParameters,
-    LoadingParameters,
-    WeightsParameters,
-)
-    from struphy.initial import perturbations
+        BoundaryParameters,
+        LoadingParameters,
+        WeightsParameters,
+    )
 
     # Set seed
     seed = 1234
@@ -67,7 +67,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     # ===========================================
     loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform")
     boundary_params = BoundaryParameters(bc=bc_params)
-    
+
     particles = Particles6D(
         loading_params=loading_params,
         boundary_params=boundary_params,
@@ -166,7 +166,12 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     background = maxw_1 + maxw_2
 
     # adapt s0 for importance sampling
-    loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform", moments=(2.5, 0, 0, 3, 1, 1),)
+    loading_params = LoadingParameters(
+        Np=Np,
+        seed=seed,
+        spatial="uniform",
+        moments=(2.5, 0, 0, 3, 1, 1),
+    )
 
     particles = Particles6D(
         loading_params=loading_params,
@@ -191,13 +196,15 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot:
-        s0 = Maxwellian3D(n=(1.0, None),
-                          u1=(particles.loading_params.moments[0], None),
-                          u2=(particles.loading_params.moments[1], None),
-                          u3=(particles.loading_params.moments[2], None),
-                          vth1=(particles.loading_params.moments[3], None),
-                          vth2=(particles.loading_params.moments[4], None),
-                          vth3=(particles.loading_params.moments[5], None),)
+        s0 = Maxwellian3D(
+            n=(1.0, None),
+            u1=(particles.loading_params.moments[0], None),
+            u2=(particles.loading_params.moments[1], None),
+            u3=(particles.loading_params.moments[2], None),
+            vth1=(particles.loading_params.moments[3], None),
+            vth2=(particles.loading_params.moments[4], None),
+            vth3=(particles.loading_params.moments[5], None),
+        )
 
         v1 = np.linspace(-10.0, 10.0, 400)
         phase_space = np.meshgrid(
@@ -266,14 +273,14 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     from mpi4py import MPI
 
     from struphy.geometry import domains
+    from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
     from struphy.pic.utilities import (
-    BoundaryParameters,
-    LoadingParameters,
-    WeightsParameters,
-)
-    from struphy.initial import perturbations
+        BoundaryParameters,
+        LoadingParameters,
+        WeightsParameters,
+    )
 
     # Set seed
     seed = 1234
@@ -293,7 +300,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     # =========================================
     loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform")
     boundary_params = BoundaryParameters(bc=bc_params)
-    
+
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -345,7 +352,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     amp_n2 = 0.1
     l_n1 = 2
     l_n2 = 4
-    
+
     pert_1 = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
     pert_2 = perturbations.ModesCos(ls=(l_n2,), amps=(amp_n2,))
     maxw_1 = Maxwellian3D(n=(n1, pert_1))
@@ -353,7 +360,12 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     background = maxw_1 + maxw_2
 
     # adapt s0 for importance sampling
-    loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform", moments=(2.5, 0, 0, 2, 1, 1),)
+    loading_params = LoadingParameters(
+        Np=Np,
+        seed=seed,
+        spatial="uniform",
+        moments=(2.5, 0, 0, 2, 1, 1),
+    )
 
     particles = DeltaFParticles6D(
         loading_params=loading_params,
@@ -378,13 +390,15 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot:
-        s0 = Maxwellian3D(n=(1.0, None),
-                          u1=(particles.loading_params.moments[0], None),
-                          u2=(particles.loading_params.moments[1], None),
-                          u3=(particles.loading_params.moments[2], None),
-                          vth1=(particles.loading_params.moments[3], None),
-                          vth2=(particles.loading_params.moments[4], None),
-                          vth3=(particles.loading_params.moments[5], None),)
+        s0 = Maxwellian3D(
+            n=(1.0, None),
+            u1=(particles.loading_params.moments[0], None),
+            u2=(particles.loading_params.moments[1], None),
+            u3=(particles.loading_params.moments[2], None),
+            vth1=(particles.loading_params.moments[3], None),
+            vth2=(particles.loading_params.moments[4], None),
+            vth3=(particles.loading_params.moments[5], None),
+        )
 
         v1 = np.linspace(-10.0, 10.0, 400)
         phase_space = np.meshgrid(
@@ -456,14 +470,14 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     from mpi4py import MPI
 
     from struphy.geometry import domains
+    from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
     from struphy.pic.utilities import (
-    BoundaryParameters,
-    LoadingParameters,
-    WeightsParameters,
-)
-    from struphy.initial import perturbations
+        BoundaryParameters,
+        LoadingParameters,
+        WeightsParameters,
+    )
 
     # Set seed
     seed = 1234
@@ -489,7 +503,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     # ===========================================
     loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform")
     boundary_params = BoundaryParameters(bc=bc_params)
-    
+
     particles = Particles6D(
         loading_params=loading_params,
         boundary_params=boundary_params,
@@ -627,7 +641,12 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     background = maxw_1 + maxw_2
 
     # adapt s0 for importance sampling
-    loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform", moments=(2.5, 0, 0, 2, 1, 1),)
+    loading_params = LoadingParameters(
+        Np=Np,
+        seed=seed,
+        spatial="uniform",
+        moments=(2.5, 0, 0, 2, 1, 1),
+    )
 
     particles = Particles6D(
         loading_params=loading_params,
@@ -658,13 +677,15 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot and rank == 0:
-        s0 = Maxwellian3D(n=(1.0, None),
-                          u1=(particles.loading_params.moments[0], None),
-                          u2=(particles.loading_params.moments[1], None),
-                          u3=(particles.loading_params.moments[2], None),
-                          vth1=(particles.loading_params.moments[3], None),
-                          vth2=(particles.loading_params.moments[4], None),
-                          vth3=(particles.loading_params.moments[5], None),)
+        s0 = Maxwellian3D(
+            n=(1.0, None),
+            u1=(particles.loading_params.moments[0], None),
+            u2=(particles.loading_params.moments[1], None),
+            u3=(particles.loading_params.moments[2], None),
+            vth1=(particles.loading_params.moments[3], None),
+            vth2=(particles.loading_params.moments[4], None),
+            vth3=(particles.loading_params.moments[5], None),
+        )
 
         v1 = np.linspace(-10.0, 10.0, 400)
         phase_space = np.meshgrid(
@@ -733,14 +754,14 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     from mpi4py import MPI
 
     from struphy.geometry import domains
+    from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
     from struphy.pic.utilities import (
-    BoundaryParameters,
-    LoadingParameters,
-    WeightsParameters,
-)
-    from struphy.initial import perturbations
+        BoundaryParameters,
+        LoadingParameters,
+        WeightsParameters,
+    )
 
     # Set seed
     seed = 1234
@@ -766,7 +787,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     # =========================================
     loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform")
     boundary_params = BoundaryParameters(bc=bc_params)
-    
+
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -871,7 +892,12 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     background = maxw_1 + maxw_2
 
     # adapt s0 for importance sampling
-    loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform", moments=(2.5, 0, 0, 2, 1, 1),)
+    loading_params = LoadingParameters(
+        Np=Np,
+        seed=seed,
+        spatial="uniform",
+        moments=(2.5, 0, 0, 2, 1, 1),
+    )
 
     particles = DeltaFParticles6D(
         loading_params=loading_params,
@@ -902,13 +928,15 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot and rank == 0:
-        s0 = Maxwellian3D(n=(1.0, None),
-                          u1=(particles.loading_params.moments[0], None),
-                          u2=(particles.loading_params.moments[1], None),
-                          u3=(particles.loading_params.moments[2], None),
-                          vth1=(particles.loading_params.moments[3], None),
-                          vth2=(particles.loading_params.moments[4], None),
-                          vth3=(particles.loading_params.moments[5], None),)
+        s0 = Maxwellian3D(
+            n=(1.0, None),
+            u1=(particles.loading_params.moments[0], None),
+            u2=(particles.loading_params.moments[1], None),
+            u3=(particles.loading_params.moments[2], None),
+            vth1=(particles.loading_params.moments[3], None),
+            vth2=(particles.loading_params.moments[4], None),
+            vth3=(particles.loading_params.moments[5], None),
+        )
 
         v1 = np.linspace(-10.0, 10.0, 400)
         phase_space = np.meshgrid(

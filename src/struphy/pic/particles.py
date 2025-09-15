@@ -267,10 +267,10 @@ class DeltaFParticles6D(Particles6D):
         #                 bp_copy[fi]["n"] = 0.0
         #         else:
         #             bp_copy[fi]["n"] = 0.0
-        self.set_n_to_zero(self.background)    
+        self.set_n_to_zero(self.background)
 
         super()._set_initial_condition()
-        
+
     def set_n_to_zero(self, background: Maxwellian | SumKineticBackground):
         if isinstance(background, Maxwellian):
             background.maxw_params["n"] = (0.0, background.maxw_params["n"][1])
@@ -278,6 +278,7 @@ class DeltaFParticles6D(Particles6D):
             assert isinstance(background, SumKineticBackground)
             self.set_n_to_zero(background._f1)
             self.set_n_to_zero(background._f2)
+
 
 class Particles5D(Particles):
     """

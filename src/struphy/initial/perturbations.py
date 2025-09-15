@@ -1526,11 +1526,13 @@ class ITPA_density(Perturbation):
         n(\eta_1) = n_0*c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
     """
 
-    def __init__(self, 
-                 n0: float = 0.00720655, 
-                 c: tuple = (0.491230, 0.298228, 0.198739, 0.521298),
-                 given_in_basis: GivenInBasis = "0",
-                 comp: int = 0,):
+    def __init__(
+        self,
+        n0: float = 0.00720655,
+        c: tuple = (0.491230, 0.298228, 0.198739, 0.521298),
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
         """
         Parameters
         ----------
@@ -1545,7 +1547,7 @@ class ITPA_density(Perturbation):
 
         self._n0 = n0
         self._c = c
-        
+
         # use the setters
         self.given_in_basis = "physical"
         self.comp = comp

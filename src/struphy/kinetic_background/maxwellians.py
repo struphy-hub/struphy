@@ -358,7 +358,7 @@ class CanonicalMaxwellian:
         self._maxw_params = {}
         self._maxw_params["n"] = n
         self._maxw_params["vth"] = vth
-        
+
         self.check_maxw_params()
 
         # volume form represenation
@@ -413,7 +413,7 @@ class CanonicalMaxwellian:
             absB0 = self.equil.absB0(etas)
 
             return np.sqrt(energy) * 2.0 * np.sqrt(2.0) / absB0
-        
+
     def gaussian(self, e, vth=1.0):
         """3-dim. normal distribution, to which array-valued thermal velocities can be passed.
 
@@ -623,7 +623,7 @@ class CanonicalMaxwellian:
         # TODO: add perturbation
 
         return res * self.moment_factors["vth"]
-    
+
     @property
     def add_perturbation(self) -> bool:
         if not hasattr(self, "_add_perturbation"):
@@ -718,7 +718,7 @@ class ColdPlasma(Maxwellian):
 
     def __call__(self, eta1, eta2, eta3):
         return self.n(eta1, eta2, eta3)
-    
+
     @property
     def add_perturbation(self) -> bool:
         if not hasattr(self, "_add_perturbation"):

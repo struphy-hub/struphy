@@ -54,14 +54,16 @@ def test_maxwellian_3d_uniform(Nel, show_plot=False):
     vth1 = 1.2
     vth2 = 0.5
     vth3 = 0.3
-    
-    maxwellian = Maxwellian3D(n=(2.0, None),
-                              u1=(1.0, None),
-                              u2=(-0.2, None),
-                              u3=(0.1, None),
-                              vth1=(1.2, None),
-                              vth2=(0.5, None),
-                              vth3=(0.3, None),)
+
+    maxwellian = Maxwellian3D(
+        n=(2.0, None),
+        u1=(1.0, None),
+        u2=(-0.2, None),
+        u3=(0.1, None),
+        vth1=(1.2, None),
+        vth2=(0.5, None),
+        vth3=(0.3, None),
+    )
 
     # test Maxwellian profile in v
     for i in range(3):
@@ -94,8 +96,8 @@ def test_maxwellian_3d_perturbed(Nel, show_plot=False):
     import matplotlib.pyplot as plt
     import numpy as np
 
-    from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.initial import perturbations
+    from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     v1 = np.linspace(-5.0, 5.0, 128)
@@ -257,11 +259,11 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
     import numpy as np
 
     from struphy.fields_background import equils
+    from struphy.fields_background.base import FluidEquilibrium
     from struphy.geometry import domains
     from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
     from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.fields_background.base import FluidEquilibrium
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])
@@ -327,21 +329,25 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 except:
                     print(f"Not setting domain for {key}.")
 
-            maxwellian = Maxwellian3D(n=(mhd_equil.n0, None),
-                                      u1=(mhd_equil.u_cart_1, None),
-                                      u2=(mhd_equil.u_cart_2, None),
-                                      u3=(mhd_equil.u_cart_3, None),
-                                      vth1=(mhd_equil.vth0, None),
-                                      vth2=(mhd_equil.vth0, None),
-                                      vth3=(mhd_equil.vth0, None),)
+            maxwellian = Maxwellian3D(
+                n=(mhd_equil.n0, None),
+                u1=(mhd_equil.u_cart_1, None),
+                u2=(mhd_equil.u_cart_2, None),
+                u3=(mhd_equil.u_cart_3, None),
+                vth1=(mhd_equil.vth0, None),
+                vth2=(mhd_equil.vth0, None),
+                vth3=(mhd_equil.vth0, None),
+            )
 
-            maxwellian_1 = Maxwellian3D(n=(1.0, None),
-                                      u1=(mhd_equil.u_cart_1, None),
-                                      u2=(mhd_equil.u_cart_2, None),
-                                      u3=(mhd_equil.u_cart_3, None),
-                                      vth1=(mhd_equil.vth0, None),
-                                      vth2=(mhd_equil.vth0, None),
-                                      vth3=(mhd_equil.vth0, None),)
+            maxwellian_1 = Maxwellian3D(
+                n=(1.0, None),
+                u1=(mhd_equil.u_cart_1, None),
+                u2=(mhd_equil.u_cart_2, None),
+                u3=(mhd_equil.u_cart_3, None),
+                vth1=(mhd_equil.vth0, None),
+                vth2=(mhd_equil.vth0, None),
+                vth3=(mhd_equil.vth0, None),
+            )
 
             # test meshgrid evaluation
             n0 = mhd_equil.n0(*e_meshgrids)
@@ -511,13 +517,13 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
                         # pure perturbation
                         maxwellian_zero_bckgr = Maxwellian3D(
-                                      n=(0.0, pert),
-                                      u1=(0.0, pert),
-                                      u2=(0.0, pert),
-                                      u3=(0.0, pert),
-                                      vth1=(0.0, pert),
-                                      vth2=(0.0, pert),
-                                      vth3=(0.0, pert),
+                            n=(0.0, pert),
+                            u1=(0.0, pert),
+                            u2=(0.0, pert),
+                            u3=(0.0, pert),
+                            vth1=(0.0, pert),
+                            vth2=(0.0, pert),
+                            vth3=(0.0, pert),
                         )
 
                         assert np.allclose(maxwellian_zero_bckgr.n(*e_meshgrids), pert(*e_meshgrids))
@@ -706,12 +712,14 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
     vth_para = 1.2
     vth_perp = 0.5
 
-    maxwellian = GyroMaxwellian2D(n=(n, None),
-                                  u_para=(u_para, None),
-                                  u_perp=(u_perp, None),
-                                  vth_para=(vth_para, None),
-                                  vth_perp=(vth_perp, None),
-                                  volume_form=False,)
+    maxwellian = GyroMaxwellian2D(
+        n=(n, None),
+        u_para=(u_para, None),
+        u_perp=(u_perp, None),
+        vth_para=(vth_para, None),
+        vth_perp=(vth_perp, None),
+        volume_form=False,
+    )
 
     # test Maxwellian profile in v
     v_para = np.linspace(-5, 5, 64)
@@ -752,8 +760,8 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
     import matplotlib.pyplot as plt
     import numpy as np
 
-    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
     from struphy.initial import perturbations
+    from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     v1 = np.linspace(-5.0, 5.0, 128)
@@ -795,9 +803,11 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
     u_para = 1.2
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(n=(2.0, None),
-                                  u_para=(u_para, pert),
-                                  volume_form=False,)
+    maxwellian = GyroMaxwellian2D(
+        n=(2.0, None),
+        u_para=(u_para, pert),
+        volume_form=False,
+    )
 
     v_perp = 0.1
     meshgrids = np.meshgrid(e1, [0.0], [0.0], v1, v_perp)
@@ -837,9 +847,11 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
     u_perp = 1.2
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(n=(2.0, None),
-                                  u_perp=(u_perp, pert),
-                                  volume_form=False,)
+    maxwellian = GyroMaxwellian2D(
+        n=(2.0, None),
+        u_perp=(u_perp, pert),
+        volume_form=False,
+    )
 
     meshgrids = np.meshgrid(e1, [0.0], [0.0], 0.0, v2)
 
@@ -878,9 +890,11 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
     vth_para = 1.2
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(n=(2.0, None),
-                                  vth_para=(vth_para, pert),
-                                  volume_form=False,)
+    maxwellian = GyroMaxwellian2D(
+        n=(2.0, None),
+        vth_para=(vth_para, pert),
+        volume_form=False,
+    )
 
     v_perp = 0.1
     meshgrids = np.meshgrid(
@@ -927,9 +941,11 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
     vth_perp = 1.2
     pert = perturbations.ModesCos(ls=(mode,), amps=(amp,))
 
-    maxwellian = GyroMaxwellian2D(n=(2.0, None),
-                                  vth_perp=(vth_perp, pert),
-                                  volume_form=False,)
+    maxwellian = GyroMaxwellian2D(
+        n=(2.0, None),
+        vth_perp=(vth_perp, pert),
+        volume_form=False,
+    )
 
     meshgrids = np.meshgrid(
         e1,
@@ -1073,18 +1089,21 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 except:
                     print(f"Not setting domain for {key}.")
 
-            maxwellian = GyroMaxwellian2D(n=(mhd_equil.n0, None),
-                                          u_para=(mhd_equil.u_para0, None),
-                                          vth_para=(mhd_equil.vth0, None),
-                                          vth_perp=(mhd_equil.vth0, None),
-                                          volume_form=False,
-                                          )
+            maxwellian = GyroMaxwellian2D(
+                n=(mhd_equil.n0, None),
+                u_para=(mhd_equil.u_para0, None),
+                vth_para=(mhd_equil.vth0, None),
+                vth_perp=(mhd_equil.vth0, None),
+                volume_form=False,
+            )
 
-            maxwellian_1 = GyroMaxwellian2D(n=(1.0, None),
-                                          u_para=(mhd_equil.u_para0, None),
-                                          vth_para=(mhd_equil.vth0, None),
-                                          vth_perp=(mhd_equil.vth0, None),
-                                          volume_form=False,)
+            maxwellian_1 = GyroMaxwellian2D(
+                n=(1.0, None),
+                u_para=(mhd_equil.u_para0, None),
+                vth_para=(mhd_equil.vth0, None),
+                vth_perp=(mhd_equil.vth0, None),
+                volume_form=False,
+            )
 
             # test meshgrid evaluation
             n0 = mhd_equil.n0(*e_meshgrids)
@@ -1229,17 +1248,17 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                         pert = val_2()
                         print(f"{pert = }")
                         assert isinstance(pert, Perturbation)
-                        
+
                         if isinstance(pert, perturbations.Noise):
                             continue
 
                         # background + perturbation
                         maxwellian_perturbed = GyroMaxwellian2D(
-                                          n=(mhd_equil.n0, pert),
-                                          u_para=(mhd_equil.u_para0, pert),
-                                          vth_para=(mhd_equil.vth0, pert),
-                                          vth_perp=(mhd_equil.vth0, pert),
-                                          volume_form=False,
+                            n=(mhd_equil.n0, pert),
+                            u_para=(mhd_equil.u_para0, pert),
+                            vth_para=(mhd_equil.vth0, pert),
+                            vth_perp=(mhd_equil.vth0, pert),
+                            volume_form=False,
                         )
 
                         # test meshgrid evaluation
@@ -1250,12 +1269,12 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
 
                         # pure perturbation
                         maxwellian_zero_bckgr = GyroMaxwellian2D(
-                                          n=(0.0, pert),
-                                          u_para=(0.0, pert),
-                                          u_perp=(0.0, pert),
-                                          vth_para=(0.0, pert),
-                                          vth_perp=(0.0, pert),
-                                          volume_form=False,
+                            n=(0.0, pert),
+                            u_para=(0.0, pert),
+                            u_perp=(0.0, pert),
+                            vth_para=(0.0, pert),
+                            vth_perp=(0.0, pert),
+                            volume_form=False,
                         )
 
                         assert np.allclose(maxwellian_zero_bckgr.n(*e_meshgrids), pert(*e_meshgrids))
@@ -1399,8 +1418,8 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     from struphy.fields_background import equils
     from struphy.geometry import domains
-    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
     from struphy.initial import perturbations
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])

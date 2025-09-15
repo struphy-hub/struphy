@@ -232,8 +232,8 @@ def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     from struphy.feec.utilities import compare_arrays
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
-    from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
     from struphy.models.variables import FEECVariable
+    from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
