@@ -1170,7 +1170,7 @@ class Particles(metaclass=ABCMeta):
 
         # self.loading_params["moments"] = new_moments
 
-    def _set_initial_condition(self, bp_copy=None, pp_copy=None):
+    def _set_initial_condition(self):
         self._f_init = self.background
 
     def _load_external(

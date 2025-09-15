@@ -4,6 +4,7 @@ from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
+from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
 
@@ -31,10 +32,10 @@ class Particles6D(Particles):
     ):
         kwargs["type"] = "full_f"
 
-        # if "backgrounds" not in kwargs:
-        #     kwargs["backgrounds"] = self.default_background()
-        # elif kwargs["backgrounds"] is None:
-        #     kwargs["backgrounds"] = self.default_background()
+        if "background" not in kwargs:
+            kwargs["background"] = self.default_background()
+        elif kwargs["background"] is None:
+            kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
@@ -238,36 +239,45 @@ class DeltaFParticles6D(Particles6D):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"Maxwellian3D": {}}
+    def default_background(cls):
+        return maxwellians.Maxwellian3D()
 
     def __init__(
         self,
         **kwargs,
     ):
         kwargs["type"] = "delta_f"
-        kwargs["control_variate"] = False
+        if "weights_params" in kwargs:
+            kwargs["weights_params"].control_variate = False
         super().__init__(**kwargs)
 
     def _set_initial_condition(self):
-        bp_copy = copy.deepcopy(self.bckgr_params)
-        pp_copy = copy.deepcopy(self.pert_params)
+        # bp_copy = copy.deepcopy(self.bckgr_params)
+        # pp_copy = copy.deepcopy(self.pert_params)
 
-        # Prepare delta-f perturbation parameters
-        if pp_copy is not None:
-            for fi in bp_copy:
-                # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
-                if fi in pp_copy:
-                    if "use_background_n" in pp_copy[fi]:
-                        if not pp_copy[fi]["use_background_n"]:
-                            bp_copy[fi]["n"] = 0.0
-                    else:
-                        bp_copy[fi]["n"] = 0.0
-                else:
-                    bp_copy[fi]["n"] = 0.0
+        # # Prepare delta-f perturbation parameters
+        # if pp_copy is not None:
+        #     for fi in bp_copy:
+        #         # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
+        #         if fi in pp_copy:
+        #             if "use_background_n" in pp_copy[fi]:
+        #                 if not pp_copy[fi]["use_background_n"]:
+        #                     bp_copy[fi]["n"] = 0.0
+        #             else:
+        #                 bp_copy[fi]["n"] = 0.0
+        #         else:
+        #             bp_copy[fi]["n"] = 0.0
+        self.set_n_to_zero(self.background)    
 
-        super()._set_initial_condition(bp_copy=bp_copy, pp_copy=pp_copy)
-
+        super()._set_initial_condition()
+        
+    def set_n_to_zero(self, background: Maxwellian | SumKineticBackground):
+        if isinstance(background, Maxwellian):
+            background.maxw_params["n"] = (0.0, background.maxw_params["n"][1])
+        else:
+            assert isinstance(background, SumKineticBackground)
+            self.set_n_to_zero(background._f1)
+            self.set_n_to_zero(background._f2)
 
 class Particles5D(Particles):
     """
