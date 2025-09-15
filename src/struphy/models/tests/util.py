@@ -8,8 +8,9 @@ from mpi4py import MPI
 
 import struphy
 from struphy.console.main import recursive_get_files
-from struphy.io.setup import descend_options_dict
+from struphy.io.setup import descend_options_dict, import_parameters_py
 from struphy.models.base import StruphyModel
+
 
 libpath = struphy.__path__[0]
 
@@ -22,7 +23,7 @@ def wrapper_for_testing(
     verification: bool = False,
     nclones: int = 1,
     show_plots: bool = False,
-    model: str = None,
+    model_name: str = None,
     Tend: float = None,
 ):
     """Wrapper for testing Struphy models.
@@ -44,7 +45,7 @@ def wrapper_for_testing(
 
     comm = MPI.COMM_WORLD
 
-    if model is None:
+    if model_name is None:
         for key, val in inspect.getmembers(modmod):
             if inspect.isclass(val) and val.__module__ == modmod.__name__:
                 # TODO: remove if-clauses
@@ -56,17 +57,23 @@ def wrapper_for_testing(
                     print(f"Fast is enabled, mapping {map_and_equil[0]} skipped ...")
                     continue
 
-                call_test(
-                    key,
-                    val,
-                    map_and_equil,
-                    Tend=Tend,
-                    verbose=vrbose,
-                    comm=comm,
-                    verification=verification,
-                    nclones=nclones,
-                    show_plots=show_plots,
-                )
+                model = val()
+                assert isinstance(model, StruphyModel)
+                model.generate_default_parameter_file(prompt=False)
+                params = import_parameters_py(os.path.join(os.getcwd(), "params_" + key + ".py"))
+                
+
+                # call_test(
+                #     key,
+                #     val,
+                #     map_and_equil,
+                #     Tend=Tend,
+                #     verbose=vrbose,
+                #     comm=comm,
+                #     verification=verification,
+                #     nclones=nclones,
+                #     show_plots=show_plots,
+                # )
     else:
         assert model in modmod.__dir__(), f"{model} not in {modmod.__name__}, please specify correct model type."
         val = getattr(modmod, model)

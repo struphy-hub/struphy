@@ -1400,6 +1400,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     from struphy.fields_background import equils
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
+    from struphy.initial import perturbations
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])
@@ -1459,7 +1460,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     # ===========================================================
     maxw_params = {"n": 2.0, "vth": 1.0}
 
-    maxwellian = CanonicalMaxwellian(maxw_params=maxw_params)
+    maxwellian = CanonicalMaxwellian(n=(2.0, None), vth=(1.0, None))
 
     # Test constant value at v_para = v_perp = 0.01
     res = maxwellian(energy, mu, psic).squeeze()
@@ -1567,8 +1568,9 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
         "n": {"ITPA_density": {"n0": n0, "c": c}},
         "vth": 1.0,
     }
+    pert = perturbations.ITPA_density(n0=n0, c=c)
 
-    maxwellian = CanonicalMaxwellian(maxw_params=maxw_params, equil=mhd_equil)
+    maxwellian = CanonicalMaxwellian(n=(0.0, pert), equil=mhd_equil, volume_form=False)
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])
