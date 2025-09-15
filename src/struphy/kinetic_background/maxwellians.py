@@ -7,7 +7,6 @@ import numpy as np
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
 from struphy.initial.base import Perturbation
-from struphy.kinetic_background import moment_functions
 from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
 
 
@@ -23,13 +22,13 @@ class Maxwellian3D(Maxwellian):
 
     def __init__(
         self,
-        n: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
-        u1: tuple[float | Callable[..., float], Perturbation] = (0.0, None),
-        u2: tuple[float | Callable[..., float], Perturbation] = (0.0, None),
-        u3: tuple[float | Callable[..., float], Perturbation] = (0.0, None),
-        vth1: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
-        vth2: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
-        vth3: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
+        n: tuple[float | Callable, Perturbation] = (1.0, None),
+        u1: tuple[float | Callable, Perturbation] = (0.0, None),
+        u2: tuple[float | Callable, Perturbation] = (0.0, None),
+        u3: tuple[float | Callable, Perturbation] = (0.0, None),
+        vth1: tuple[float | Callable, Perturbation] = (1.0, None),
+        vth2: tuple[float | Callable, Perturbation] = (1.0, None),
+        vth3: tuple[float | Callable, Perturbation] = (1.0, None),
     ):
         self._maxw_params = {}
         self._maxw_params["n"] = n
@@ -164,11 +163,11 @@ class GyroMaxwellian2D(Maxwellian):
 
     def __init__(
         self,
-        n: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
-        u_para: tuple[float | Callable[..., float], Perturbation] = (0.0, None),
-        u_perp: tuple[float | Callable[..., float], Perturbation] = (0.0, None),
-        vth_para: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
-        vth_perp: tuple[float | Callable[..., float], Perturbation] = (1.0, None),
+        n: tuple[float | Callable, Perturbation] = (1.0, None),
+        u_para: tuple[float | Callable, Perturbation] = (0.0, None),
+        u_perp: tuple[float | Callable, Perturbation] = (0.0, None),
+        vth_para: tuple[float | Callable, Perturbation] = (1.0, None),
+        vth_perp: tuple[float | Callable, Perturbation] = (1.0, None),
         equil: FluidEquilibriumWithB = None,
         volume_form: bool = True,
     ):
@@ -476,6 +475,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         -------
         A float (background value) or a numpy.array of the evaluated density.
         """
+        from struphy.kinetic_background import moment_functions
 
         # collect arguments
         assert isinstance(psic, np.ndarray)

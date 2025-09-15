@@ -9,7 +9,6 @@ from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.initial.base import Perturbation
 from struphy.initial.utilities import Noise
-from struphy.kinetic_background import moment_functions
 
 
 class KineticBackground(metaclass=ABCMeta):
@@ -356,7 +355,8 @@ class Maxwellian(KineticBackground):
             assert isinstance(k, str)
             assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
             assert len(v) == 2
-            assert isinstance(v[0], (float, int, Callable[..., float]))
+
+            assert isinstance(v[0], (float, int, Callable))
             assert isinstance(v[1], Perturbation) or v[1] is None
 
     @classmethod
@@ -542,10 +542,10 @@ class Maxwellian(KineticBackground):
             out += background
         else:
             assert callable(background)
-            if eta1.ndim == 1:
-                out += background(eta1, eta2, eta3)
-            else:
-                out += background(*etas)
+            # if eta1.ndim == 1:
+            #     out += background(eta1, eta2, eta3)
+            # else:
+            out += background(*etas)
 
         # add perturbation
         if add_perturbation is None:

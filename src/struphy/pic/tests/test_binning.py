@@ -42,6 +42,12 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
+    from struphy.pic.utilities import (
+    BoundaryParameters,
+    LoadingParameters,
+    WeightsParameters,
+)
+    from struphy.initial import perturbations
 
     # Set seed
     seed = 1234
@@ -58,15 +64,17 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         "seed": seed,
         "spatial": "uniform",
     }
-    bc_params = ["periodic", "periodic", "periodic"]
+    bc_params = ("periodic", "periodic", "periodic")
 
     # ===========================================
     # ===== Test Maxwellian in v1 direction =====
     # ===========================================
+    loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform")
+    boundary_params = BoundaryParameters(bc=bc_params)
+    
     particles = Particles6D(
-        Np=Np,
-        bc=bc_params,
         loading_params=loading_params,
+        boundary_params=boundary_params,
         domain=domain,
     )
 
@@ -115,13 +123,14 @@ def test_binning_6D_full_f(mapping, show_plot=False):
             }
         }
     }
+    pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
+    maxwellian = Maxwellian3D(n=(1.0, pert))
 
     particles = Particles6D(
-        Np=Np,
-        bc=bc_params,
         loading_params=loading_params,
+        boundary_params=boundary_params,
         domain=domain,
-        pert_params=pert_params,
+        background=maxwellian,
     )
     particles.draw_markers()
     particles.initialize_weights()
