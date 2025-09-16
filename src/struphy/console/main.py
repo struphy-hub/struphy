@@ -63,15 +63,16 @@ def struphy():
     # Load the models and messages
     model_message = "All models are listed on https://struphy.pages.mpcdf.de/struphy/sections/models.html"
     list_models = []
-    try:
-        with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
-            list_models = pickle.load(fp)
-        with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
-            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
-                fp,
-            )
-    except:
-        print("run: struphy --refresh-models")
+    ml_path = os.path.join(libpath, "models", "models_list")
+    if not os.path.isfile(ml_path):
+        utils.refresh_models()
+        
+    with open(ml_path, "rb") as fp:
+        list_models = pickle.load(fp)
+    with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
+        model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
+            fp,
+        )
 
     # 0. basic options
     add_parser_basic_options(parser, i_path, o_path, b_path)
