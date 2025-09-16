@@ -778,9 +778,13 @@ class ParticlesSPH(Particles):
         kwargs["type"] = "sph"
 
         if "background" not in kwargs:
-            kwargs["background"] = self.default_background()
+            bckgr = self.default_background()
+            bckgr.domain = kwargs["domain"]
+            kwargs["background"] = bckgr
         elif kwargs["background"] is None:
-            kwargs["background"] = self.default_background()
+            bckgr = self.default_background()
+            bckgr.domain = kwargs["domain"]
+            kwargs["background"] = bckgr
 
         if "boxes_per_dim" not in kwargs:
             boxes_per_dim = (1, 1, 1)
