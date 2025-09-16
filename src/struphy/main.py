@@ -148,8 +148,8 @@ def run(
                 pickle.dump(grid, f, pickle.HIGHEST_PROTOCOL)
             with open(os.path.join(path_out, "derham_opts.bin"), "wb") as f:
                 pickle.dump(derham_opts, f, pickle.HIGHEST_PROTOCOL)
-            with open(os.path.join(path_out, "model.bin"), "wb") as f:
-                pickle.dump(model, f, pickle.HIGHEST_PROTOCOL)
+            with open(os.path.join(path_out, "model_class.bin"), "wb") as f:
+                pickle.dump(model.__class__, f, pickle.HIGHEST_PROTOCOL)
 
     # config clones
     if comm is None:
@@ -452,8 +452,9 @@ def pproc(
         model: StruphyModel = params_in.model
         domain: Domain = params_in.domain
     except FileNotFoundError:
-        with open(os.path.join(path, "model.bin"), "rb") as f:
-            model: StruphyModel = pickle.load(f)
+        with open(os.path.join(path, "model_class.bin"), "rb") as f:
+            model_class: StruphyModel = pickle.load(f)
+            model = model_class()
         with open(os.path.join(path, "domain.bin"), "rb") as f:
             # domain: Domain = pickle.load(f)
             # print(f"{domain = }")

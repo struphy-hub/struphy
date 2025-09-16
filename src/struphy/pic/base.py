@@ -954,7 +954,16 @@ class Particles(metaclass=ABCMeta):
         if isinstance(self.background, FluidEquilibrium):
             self._f0 = self.background
         else:
+            if hasattr(self.background, "_equil"):
+                tmp = self.background.equil
+                self.background._equil = None
+                
             self._f0 = copy.deepcopy(self.background)
+            
+            if hasattr(self.background, "_equil"):
+                self.background._equil = tmp
+                self.f0._equil = tmp
+                
             self.f0.add_perturbation = False
         # self._f0 = None
         # if isinstance(self.bckgr_params, FluidEquilibrium):

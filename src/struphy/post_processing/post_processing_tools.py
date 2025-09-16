@@ -93,8 +93,9 @@ def get_params_of_run(path: str) -> ParamsIn:
             grid = pickle.load(f)
         with open(os.path.join(path, "derham_opts.bin"), "rb") as f:
             derham_opts = pickle.load(f)
-        with open(os.path.join(path, "model.bin"), "rb") as f:
-            model = pickle.load(f)
+        with open(os.path.join(path, "model_class.bin"), "rb") as f:
+            model_class: StruphyModel = pickle.load(f)
+            model = model_class()
 
     else:
         raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
