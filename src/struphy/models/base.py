@@ -1342,7 +1342,9 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     exclude = f"# model.{sn}.{vn}.save_data = False\n"
                 elif isinstance(var, PICVariable):
                     has_pic = True
-                    init_pert_pic = f"\n# if .add_initial_condition is not called, the background is the initial condition\n"
+                    init_pert_pic = (
+                        f"\n# if .add_initial_condition is not called, the background is the initial condition\n"
+                    )
                     init_pert_pic += f"perturbation = perturbations.TorusModesCos()\n"
                     if "6D" in var.space:
                         init_bckgr_pic = f"maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
@@ -1353,7 +1355,9 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     elif "5D" in var.space:
                         init_bckgr_pic = f"maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
                         init_bckgr_pic += f"maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
-                        init_pert_pic += f"maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
+                        init_pert_pic += (
+                            f"maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
+                        )
                         init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.kinetic_ions.var.add_initial_condition(init)\n"
                     init_bckgr_pic += f"background = maxwellian_1 + maxwellian_2\n"

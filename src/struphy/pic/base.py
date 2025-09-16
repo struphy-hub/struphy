@@ -119,7 +119,7 @@ class Particles(metaclass=ABCMeta):
 
     background : KineticBackground
         Kinetic background.
-        
+
     initial_condition : KineticBackground
         Kinetic initial condition.
 
@@ -309,12 +309,12 @@ class Particles(metaclass=ABCMeta):
 
         # perturbation parameters (needed for fluid background)
         self._perturbations = perturbations
-        
+
         # initial condition
         if initial_condition is None:
             self._initial_condition = self.background
         else:
-            self._initial_condition = initial_condition     
+            self._initial_condition = initial_condition
 
         # for loading
         # if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
@@ -967,13 +967,13 @@ class Particles(metaclass=ABCMeta):
 
     def _set_background_function(self):
         self._f0 = self.background
-        
+
         # if isinstance(self.background, FluidEquilibrium):
         #     self._f0 = self.background
         # else:
         #     self._f0 = copy.deepcopy(self.background)
         #     self.f0.add_perturbation = False
-        
+
         # self._f0 = None
         # if isinstance(self.bckgr_params, FluidEquilibrium):
         #     self._f0 = self.bckgr_params

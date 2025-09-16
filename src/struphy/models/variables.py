@@ -174,7 +174,7 @@ class PICVariable(Variable):
     def add_background(self, background: KineticBackground, n_as_volume_form: bool = False, verbose=True):
         self._n_as_volume_form = n_as_volume_form
         super().add_background(background, verbose=verbose)
-        
+
     def add_initial_condition(self, init: KineticBackground, verbose=True):
         self._initial_condition = init
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
@@ -183,7 +183,7 @@ class PICVariable(Variable):
             )
             for k, v in init.__dict__.items():
                 print(f"  {k}: {v}")
-                
+
     @property
     def initial_condition(self) -> KineticBackground:
         if not hasattr(self, "_initial_condition"):

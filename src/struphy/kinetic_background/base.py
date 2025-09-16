@@ -144,7 +144,7 @@ class SumKineticBackground(KineticBackground):
 
         self._f1 = f1
         self._f2 = f2
-        
+
         if hasattr(f1, "_equil"):
             assert f1.equil is f2.equil
             self._equil = f1.equil
@@ -168,7 +168,7 @@ class SumKineticBackground(KineticBackground):
     def volume_form(self):
         """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian)."""
         return self._f1.volume_form
-    
+
     @property
     def equil(self) -> FluidEquilibriumWithB:
         """Fluid background with B-field."""
