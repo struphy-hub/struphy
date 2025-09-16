@@ -399,6 +399,7 @@ stages:
   inspect_struphy:
     - struphy -p
     - struphy -h
+    - struphy --refresh-models
     - struphy run -h
   unit_tests:
     - struphy compile --status
