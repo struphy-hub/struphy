@@ -118,7 +118,10 @@ class Particles(metaclass=ABCMeta):
         Struphy fluid equilibrium projected into a discrete Derham complex.
 
     background : KineticBackground
-        Kinetic background parameters.
+        Kinetic background.
+        
+    initial_condition : KineticBackground
+        Kinetic initial condition.
 
     n_as_volume_form: bool
         Whether the number density n is given as a volume form or scalar function (=default).
@@ -151,6 +154,7 @@ class Particles(metaclass=ABCMeta):
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
         background: KineticBackground = None,
+        initial_condition: KineticBackground = None,
         perturbations: dict[str, Perturbation] = None,
         n_as_volume_form: bool = False,
         equation_params: dict = None,
@@ -303,8 +307,14 @@ class Particles(metaclass=ABCMeta):
         self._set_background_function()
         self._set_background_coordinates()
 
-        # perturbation parameters
+        # perturbation parameters (needed for fluid background)
         self._perturbations = perturbations
+        
+        # initial condition
+        if initial_condition is None:
+            self._initial_condition = self.background
+        else:
+            self._initial_condition = initial_condition     
 
         # for loading
         # if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
@@ -537,6 +547,11 @@ class Particles(metaclass=ABCMeta):
     def equation_params(self):
         """Parameters appearing in model equation due to Struphy normalization."""
         return self._equation_params
+
+    @property
+    def initial_condition(self) -> KineticBackground:
+        """Kinetic initial condition"""
+        return self._initial_condition
 
     @property
     def f_init(self):
@@ -951,20 +966,14 @@ class Particles(metaclass=ABCMeta):
         return dom_arr, tuple(nprocs)
 
     def _set_background_function(self):
-        if isinstance(self.background, FluidEquilibrium):
-            self._f0 = self.background
-        else:
-            if hasattr(self.background, "_equil"):
-                tmp = self.background.equil
-                self.background._equil = None
-                
-            self._f0 = copy.deepcopy(self.background)
-            
-            if hasattr(self.background, "_equil"):
-                self.background._equil = tmp
-                self.f0._equil = tmp
-                
-            self.f0.add_perturbation = False
+        self._f0 = self.background
+        
+        # if isinstance(self.background, FluidEquilibrium):
+        #     self._f0 = self.background
+        # else:
+        #     self._f0 = copy.deepcopy(self.background)
+        #     self.f0.add_perturbation = False
+        
         # self._f0 = None
         # if isinstance(self.bckgr_params, FluidEquilibrium):
         #     self._f0 = self.bckgr_params
@@ -1182,7 +1191,7 @@ class Particles(metaclass=ABCMeta):
         # self.loading_params["moments"] = new_moments
 
     def _set_initial_condition(self):
-        self._f_init = self.background
+        self._f_init = self.initial_condition
 
     def _load_external(
         self,
