@@ -15,10 +15,10 @@ import argcomplete
 import yaml
 
 # struphy path
-import struphy as _
+import struphy
 from struphy.utils import utils
 
-libpath = _.__path__[0]
+libpath = struphy.__path__[0]
 __version__ = importlib.metadata.version("struphy")
 
 # version message
@@ -66,10 +66,10 @@ def struphy():
     try:
         with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
             list_models = pickle.load(fp)
-        # with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
-        #     model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
-        #         fp,
-        #     )
+        with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
+            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
+                fp,
+            )
     except:
         print("run: struphy --refresh-models")
 
@@ -128,18 +128,18 @@ def struphy():
         sys.exit(0)
 
     # display subset of models
-    # model_flags = [
-    #     (args.fluid, fluid_message),
-    #     (args.kinetic, kinetic_message),
-    #     (args.hybrid, hybrid_message),
-    #     (args.toy, toy_message),
-    # ]
+    model_flags = [
+        (args.fluid, fluid_message),
+        (args.kinetic, kinetic_message),
+        (args.hybrid, hybrid_message),
+        (args.toy, toy_message),
+    ]
 
-    # for flag, message in model_flags:
-    #     if flag:
-    #         print(message)
-    #         print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-    #         sys.exit(0)
+    for flag, message in model_flags:
+        if flag:
+            print(message)
+            print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
+            sys.exit(0)
 
     # Set default input path
     if args.set_i:

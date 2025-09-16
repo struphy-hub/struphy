@@ -270,7 +270,7 @@ class DeltaFParticles6D(Particles6D):
         #                 bp_copy[fi]["n"] = 0.0
         #         else:
         #             bp_copy[fi]["n"] = 0.0
-        self.set_n_to_zero(self.background)
+        self.set_n_to_zero(self.initial_condition)
 
         super()._set_initial_condition()
 
