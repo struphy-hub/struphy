@@ -66,7 +66,7 @@ def struphy():
     ml_path = os.path.join(libpath, "models", "models_list")
     if not os.path.isfile(ml_path):
         utils.refresh_models()
-        
+
     with open(ml_path, "rb") as fp:
         list_models = pickle.load(fp)
     with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
