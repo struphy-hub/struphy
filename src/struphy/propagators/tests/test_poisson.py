@@ -7,11 +7,10 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
-from struphy.propagators.base import Propagator
-from struphy.propagators.propagators_fields import ImplicitDiffusion
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
-
+from struphy.propagators.base import Propagator
+from struphy.propagators.propagators_fields import ImplicitDiffusion
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -169,13 +168,13 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
                 verbose=False,
                 recycle=False,
             )
-            
+
             _phi = FEECVariable(space="H1")
             _phi.allocate(derham=derham, domain=domain)
-            
+
             poisson_solver = ImplicitDiffusion()
             poisson_solver.variables.phi = _phi
-            
+
             poisson_solver.options = poisson_solver.Options(
                 sigma_1=1e-12,
                 sigma_2=0.0,
@@ -183,8 +182,9 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
                 rho=rho_vec,
                 solver="pcg",
                 precond="MassMatrixPreconditioner",
-                solver_params=solver_params,)
-            
+                solver_params=solver_params,
+            )
+
             poisson_solver.allocate()
 
             # Solve Poisson (call propagator with dt=1.)
@@ -363,19 +363,19 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
 
     # Create Poisson solvers
     solver_params = SolverParameters(
-                tol=1.0e-13,
-                maxiter=3000,
-                info=True,
-                verbose=False,
-                recycle=False,
-            )
-    
+        tol=1.0e-13,
+        maxiter=3000,
+        info=True,
+        verbose=False,
+        recycle=False,
+    )
+
     _phi1 = FEECVariable(space="H1")
     _phi1.allocate(derham=derham, domain=domain)
-    
+
     poisson_solver1 = ImplicitDiffusion()
     poisson_solver1.variables.phi = _phi1
-    
+
     poisson_solver1.options = poisson_solver1.Options(
         sigma_1=1e-8,
         sigma_2=0.0,
@@ -383,21 +383,22 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
         rho=rho_vec1,
         solver="pcg",
         precond="MassMatrixPreconditioner",
-        solver_params=solver_params,)
-    
+        solver_params=solver_params,
+    )
+
     poisson_solver1.allocate()
-    
+
     # _phi1 = derham.create_spline_function("test1", "H1")
     # poisson_solver1 = ImplicitDiffusion(
     #     _phi1.vector, sigma_1=1e-8, sigma_2=0.0, sigma_3=1.0, rho=rho_vec1, solver=solver_params
     # )
-    
+
     _phi2 = FEECVariable(space="H1")
     _phi2.allocate(derham=derham, domain=domain)
 
     poisson_solver2 = ImplicitDiffusion()
     poisson_solver2.variables.phi = _phi2
-    
+
     poisson_solver2.options = poisson_solver2.Options(
         sigma_1=1e-8,
         sigma_2=0.0,
@@ -405,8 +406,9 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
         rho=rho_vec2,
         solver="pcg",
         precond="MassMatrixPreconditioner",
-        solver_params=solver_params,)
-    
+        solver_params=solver_params,
+    )
+
     poisson_solver2.allocate()
 
     # _phi2 = derham.create_spline_function("test2", "H1")

@@ -5,11 +5,11 @@ import pytest
 from mpi4py import MPI
 
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry import domains
-from struphy.pic.particles import ParticlesSPH
-from struphy.pic.utilities import LoadingParameters, WeightsParameters, BoundaryParameters
-from struphy.initial import perturbations
 from struphy.fields_background.equils import ConstantVelocity
+from struphy.geometry import domains
+from struphy.initial import perturbations
+from struphy.pic.particles import ParticlesSPH
+from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.mpi(min_size=2)
@@ -93,7 +93,7 @@ def test_evaluation_tesselation(boxes_per_dim, ppb, bc_x, show_plot=False):
 
     loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
     boundary_params = BoundaryParameters(bc=(bc_x, "periodic", "periodic"))
-    
+
     background = ConstantVelocity(n=1.0, density_profile="constant")
     background.domain = domain
 
@@ -150,9 +150,4 @@ def test_evaluation_tesselation(boxes_per_dim, ppb, bc_x, show_plot=False):
 
 if __name__ == "__main__":
     # test_evaluation_mc(40000, "periodic", show_plot=True)
-    test_evaluation_tesselation(
-        (8, 1, 1),
-        4,
-        "periodic",
-        show_plot=True
-    )
+    test_evaluation_tesselation((8, 1, 1), 4, "periodic", show_plot=True)

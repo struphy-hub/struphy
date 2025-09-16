@@ -670,7 +670,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
                 dirichlet_bc[i] = (False, False)
     else:
         dirichlet_bc = [(False, False)] * 3
-        
+
     dirichlet_bc = tuple(dirichlet_bc)
 
     # derham object
@@ -945,7 +945,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
                 dirichlet_bc[i] = (False, False)
     else:
         dirichlet_bc = [(False, False)] * 3
-        
+
     dirichlet_bc = tuple(dirichlet_bc)
 
     # derham object

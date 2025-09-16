@@ -7,7 +7,7 @@ from mpi4py import MPI
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 from struphy.pic.particles import Particles6D
-from struphy.pic.utilities import LoadingParameters, WeightsParameters, BoundaryParameters
+from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.mpi(min_size=2)

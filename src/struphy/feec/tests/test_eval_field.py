@@ -501,7 +501,7 @@ def test_eval_field(Nel, p, spl_kind):
     assert np.all(
         [np.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
     )
-    
+
     print("\nAll assertions passed.")
 
 

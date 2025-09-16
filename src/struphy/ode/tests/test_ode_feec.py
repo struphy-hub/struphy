@@ -1,5 +1,6 @@
-import pytest
 from typing import get_args
+
+import pytest
 
 from struphy.ode.utils import OptsButcher
 

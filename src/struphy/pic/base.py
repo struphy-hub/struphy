@@ -796,8 +796,7 @@ class Particles(metaclass=ABCMeta):
 
     @property
     def is_volume_form(self):
-        """Tuple of size 2 for (position, velocity), defining the p-form representation of f_init: True means volume-form, False means 0-form.
-        """
+        """Tuple of size 2 for (position, velocity), defining the p-form representation of f_init: True means volume-form, False means 0-form."""
         return self._is_volume_form
 
     @property

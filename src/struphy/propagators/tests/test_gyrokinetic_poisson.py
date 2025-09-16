@@ -7,11 +7,10 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
-from struphy.propagators.base import Propagator
-from struphy.propagators.propagators_fields import ImplicitDiffusion
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
-
+from struphy.propagators.base import Propagator
+from struphy.propagators.propagators_fields import ImplicitDiffusion
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -146,13 +145,13 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
                 verbose=False,
                 recycle=False,
             )
-            
+
             _phi = FEECVariable(space="H1")
             _phi.allocate(derham=derham, domain=domain)
-            
+
             poisson_solver = ImplicitDiffusion()
             poisson_solver.variables.phi = _phi
-            
+
             poisson_solver.options = poisson_solver.Options(
                 sigma_1=1e-12,
                 sigma_2=0.0,
@@ -162,8 +161,9 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
                 rho=rho_vec,
                 solver="pcg",
                 precond="MassMatrixPreconditioner",
-                solver_params=solver_params,)
-            
+                solver_params=solver_params,
+            )
+
             poisson_solver.allocate()
 
             # Solve Poisson (call propagator with dt=1.)
@@ -339,19 +339,19 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
 
     # Create Poisson solvers
     solver_params = SolverParameters(
-                tol=1.0e-13,
-                maxiter=3000,
-                info=True,
-                verbose=False,
-                recycle=False,
-            )
-    
+        tol=1.0e-13,
+        maxiter=3000,
+        info=True,
+        verbose=False,
+        recycle=False,
+    )
+
     _phi1 = FEECVariable(space="H1")
     _phi1.allocate(derham=derham, domain=domain)
-    
+
     poisson_solver1 = ImplicitDiffusion()
     poisson_solver1.variables.phi = _phi1
-            
+
     poisson_solver1.options = poisson_solver1.Options(
         sigma_1=1e-8,
         sigma_2=0.0,
@@ -361,16 +361,17 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
         rho=rho_vec1,
         solver="pcg",
         precond="MassMatrixPreconditioner",
-        solver_params=solver_params,)
-    
+        solver_params=solver_params,
+    )
+
     poisson_solver1.allocate()
 
     _phi2 = FEECVariable(space="H1")
     _phi2.allocate(derham=derham, domain=domain)
-    
+
     poisson_solver2 = ImplicitDiffusion()
     poisson_solver2.variables.phi = _phi2
-    
+
     poisson_solver2.options = poisson_solver2.Options(
         sigma_1=1e-8,
         sigma_2=0.0,
@@ -380,8 +381,9 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
         rho=rho_vec2,
         solver="pcg",
         precond="MassMatrixPreconditioner",
-        solver_params=solver_params,)
-    
+        solver_params=solver_params,
+    )
+
     poisson_solver2.allocate()
 
     # Solve Poisson equation (call propagator with dt=1.)
@@ -491,22 +493,22 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
 
     # Create 3d Poisson solver
     solver_params = SolverParameters(
-                tol=1.0e-13,
-                maxiter=3000,
-                info=True,
-                verbose=False,
-                recycle=False,
-            )
-    
+        tol=1.0e-13,
+        maxiter=3000,
+        info=True,
+        verbose=False,
+        recycle=False,
+    )
+
     _phi = FEECVariable(space="H1")
     _phi.allocate(derham=derham, domain=domain)
-    
+
     _phi_2p5d = FEECVariable(space="H1")
     _phi_2p5d.allocate(derham=derham, domain=domain)
-    
+
     poisson_solver_3d = ImplicitDiffusion()
     poisson_solver_3d.variables.phi = _phi
-    
+
     poisson_solver_3d.options = poisson_solver_3d.Options(
         sigma_1=1e-8,
         sigma_2=0.0,
@@ -516,8 +518,9 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         rho=rho_vec,
         solver="pcg",
         precond="MassMatrixPreconditioner",
-        solver_params=solver_params,)
-    
+        solver_params=solver_params,
+    )
+
     poisson_solver_3d.allocate()
 
     s = _phi.spline.starts
@@ -537,10 +540,10 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     _phi_small = FEECVariable(space="H1")
     _phi_small.allocate(derham=derham, domain=domain)
     rhs = derham.create_spline_function("rhs", "H1")
-    
+
     poisson_solver_2p5d = ImplicitDiffusion()
     poisson_solver_2p5d.variables.phi = _phi_small
-    
+
     poisson_solver_2p5d.options = poisson_solver_2p5d.Options(
         sigma_1=1e-8,
         sigma_2=0.0,
@@ -550,8 +553,9 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         rho=rhs.vector,
         solver="pcg",
         precond="MassMatrixPreconditioner",
-        solver_params=solver_params,)
-    
+        solver_params=solver_params,
+    )
+
     poisson_solver_2p5d.allocate()
 
     # Solve Poisson equation (call propagator with dt=1.)
@@ -623,7 +627,7 @@ if __name__ == "__main__":
     direction = 0
     bc_type = "dirichlet"
     mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
-    mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
+    mapping = ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}]
     test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
 
     # Nel = [64, 64, 1]
@@ -635,6 +639,5 @@ if __name__ == "__main__":
 
     Nel = [64, 64, 16]
     p = [2, 2, 1]
-    mapping = ['Cuboid', {'l1': 0., 'r1': 1.,
-                          'l2': 0., 'r2': 1., 'l3': 0., 'r3': 1.}]
+    mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
     # test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=True)

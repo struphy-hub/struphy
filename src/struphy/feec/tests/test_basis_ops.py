@@ -519,7 +519,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
                 dirichlet_bc[i] = (False, False)
     else:
         dirichlet_bc = [(False, False)] * 3
-        
+
     dirichlet_bc = tuple(dirichlet_bc)
 
     # derham object

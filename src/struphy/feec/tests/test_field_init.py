@@ -72,7 +72,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
 
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background import equils
-    from struphy.fields_background.base import FluidEquilibriumWithB, FluidEquilibrium
+    from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
     from struphy.geometry import domains
     from struphy.io.options import FieldsBackground
 
@@ -110,7 +110,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
                 continue
-            
+
             print(f"{mhd_equil.params = }")
 
             if "AdhocTorus" in key:
@@ -1159,7 +1159,9 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     field_0 = derham.create_spline_function("name_0", "H1", backgrounds=bckgr_0, perturbations=[f_sin_0, f_cos_0])
-    field_1 = derham.create_spline_function("name_1", "Hcurl", backgrounds=bckgr_1, perturbations=[f_sin_11, f_sin_13, f_cos_11, f_cos_12])
+    field_1 = derham.create_spline_function(
+        "name_1", "Hcurl", backgrounds=bckgr_1, perturbations=[f_sin_11, f_sin_13, f_cos_11, f_cos_12]
+    )
     field_2 = derham.create_spline_function("name_2", "Hdiv", backgrounds=bckgr_2, perturbations=[f_cos_22])
 
     # evaluation grids for comparisons
@@ -1328,7 +1330,7 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
 
     # initial conditions
     pert = Noise(direction=direction, amp=0.0001, seed=1234, comp=0)
-    
+
     field.initialize_coeffs(perturbations=pert)
     field_np.initialize_coeffs(perturbations=pert)
 
@@ -1358,5 +1360,5 @@ if __name__ == "__main__":
     #     ],
     #     show_plot=False,
     # )
-    test_sincos_init_const([1, 32, 32], [1, 3, 3], [True]*3, show_plot=True)
+    test_sincos_init_const([1, 32, 32], [1, 3, 3], [True] * 3, show_plot=True)
     test_noise_init([4, 8, 6], [1, 1, 1], [True, True, True], "Hcurl", "e1")

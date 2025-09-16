@@ -6,11 +6,11 @@ from matplotlib import pyplot as plt
 from mpi4py import MPI
 
 from struphy.feec.psydac_derham import Derham
-from struphy.geometry import domains
-from struphy.pic.particles import ParticlesSPH
-from struphy.pic.utilities import LoadingParameters, WeightsParameters, BoundaryParameters
-from struphy.initial import perturbations
 from struphy.fields_background.equils import ConstantVelocity
+from struphy.geometry import domains
+from struphy.initial import perturbations
+from struphy.pic.particles import ParticlesSPH
+from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.mpi(min_size=2)
@@ -91,7 +91,7 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
     boxes_per_dim = (nx, ny, nz)
     loading_params = LoadingParameters(ppb=ppb, loading="tesselation", n_quad=n_quad)
     bufsize = 0.5
-    
+
     background = ConstantVelocity(n=1.0, ux=0.0, uy=0.0, uz=0.0, density_profile="constant")
     background.domain = domain
 

@@ -1,15 +1,15 @@
 import copy
 
+from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
+from struphy.geometry.utilities import TransformedPformComponent
+from struphy.initial.base import Perturbation
 from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
-from struphy.fields_background import equils
-from struphy.initial.base import Perturbation
-from struphy.geometry.utilities import TransformedPformComponent 
 
 
 class Particles6D(Particles):
@@ -900,7 +900,7 @@ class ParticlesSPH(Particles):
             for moment, pert in self.perturbations.items():  # only one perturbation is taken into account at the moment
                 assert isinstance(moment, str)
                 assert isinstance(pert, Perturbation)
-                
+
                 if moment == "n":
                     _fun = TransformedPformComponent(
                         pert,
@@ -927,11 +927,11 @@ class ParticlesSPH(Particles):
 
                 elif moment == "u1":
                     _fun = TransformedPformComponent(
-                    pert,
-                    pert.given_in_basis,
-                    "v",
-                    comp=pert.comp,
-                    domain=self.domain,
+                        pert,
+                        pert.given_in_basis,
+                        "v",
+                        comp=pert.comp,
+                        domain=self.domain,
                     )
                     _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
                     self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
