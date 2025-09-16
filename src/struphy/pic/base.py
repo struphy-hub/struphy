@@ -151,6 +151,7 @@ class Particles(metaclass=ABCMeta):
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
         background: KineticBackground = None,
+        perturbations: dict[str, Perturbation] = None,
         n_as_volume_form: bool = False,
         equation_params: dict = None,
         verbose: bool = False,
@@ -289,11 +290,11 @@ class Particles(metaclass=ABCMeta):
         else:
             self._background = background
 
-        # background p-form description in [eta, v] (None means 0-form, "vol" means volume form -> divide by det)
+        # background p-form description in [eta, v] (False means 0-form, True means volume form -> divide by det)
         if isinstance(background, FluidEquilibrium):
-            self._pforms = (False, False)
+            self._is_volume_form = (n_as_volume_form, False)
         else:
-            self._pforms = (
+            self._is_volume_form = (
                 n_as_volume_form,
                 self.background.volume_form,
             )
@@ -303,7 +304,7 @@ class Particles(metaclass=ABCMeta):
         self._set_background_coordinates()
 
         # perturbation parameters
-        # self._perturbations = perturbations
+        self._perturbations = perturbations
 
         # for loading
         # if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
@@ -494,10 +495,10 @@ class Particles(metaclass=ABCMeta):
         """Kinetic background."""
         return self._background
 
-    # @property
-    # def perturbations(self):
-    #     """Kinetic perturbations."""
-    #     return self._perturbations
+    @property
+    def perturbations(self) -> dict[str, Perturbation]:
+        """Kinetic perturbations, keys are the names of moments of the distribution function ("n", "u1", etc.)."""
+        return self._perturbations
 
     @property
     def loading_params(self) -> LoadingParameters:
@@ -794,11 +795,10 @@ class Particles(metaclass=ABCMeta):
         self._markers[self.valid_mks, self.index["ids"]] = new
 
     @property
-    def pforms(self):
-        """Tuple of size 2; each entry must be either "vol" or None, defining the p-form
-        (space and velocity, respectively) of f_init.
+    def is_volume_form(self):
+        """Tuple of size 2 for (position, velocity), defining the p-form representation of f_init: True means volume-form, False means 0-form.
         """
-        return self._pforms
+        return self._is_volume_form
 
     @property
     def spatial(self):
@@ -952,8 +952,11 @@ class Particles(metaclass=ABCMeta):
         return dom_arr, tuple(nprocs)
 
     def _set_background_function(self):
-        self._f0 = copy.deepcopy(self.background)
-        self.f0.add_perturbation = False
+        if isinstance(self.background, FluidEquilibrium):
+            self._f0 = self.background
+        else:
+            self._f0 = copy.deepcopy(self.background)
+            self.f0.add_perturbation = False
         # self._f0 = None
         # if isinstance(self.bckgr_params, FluidEquilibrium):
         #     self._f0 = self.bckgr_params
@@ -1656,7 +1659,7 @@ class Particles(metaclass=ABCMeta):
         """
 
         if self.loading == "tesselation":
-            if self.pforms[0] is None:
+            if not self.is_volume_form[0]:
                 fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
             else:
                 fvol = self.f_init
@@ -1682,10 +1685,10 @@ class Particles(metaclass=ABCMeta):
                 f_init = self.f_init(*self.f_coords.T)
 
             # if f_init is vol-form, transform to 0-form
-            if self.pforms[0] == "vol":
+            if self.is_volume_form[0]:
                 f_init /= self.domain.jacobian_det(self.positions)
 
-            if self.pforms[1] == "vol":
+            if self.is_volume_form[1]:
                 f_init /= self.f_init.velocity_jacobian_det(
                     *self.f_jacobian_coords.T,
                 )
@@ -1728,10 +1731,10 @@ class Particles(metaclass=ABCMeta):
             f0 = self.f0(*self.f_coords.T)
 
         # if f_init is vol-form, transform to 0-form
-        if self.pforms[0] == "vol":
+        if self.is_volume_form[0]:
             f0 /= self.domain.jacobian_det(self.positions)
 
-        if self.pforms[1] == "vol":
+        if self.is_volume_form[1]:
             f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
         self.weights = self.weights0 - f0 / self.sampling_density

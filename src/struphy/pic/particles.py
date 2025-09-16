@@ -1,12 +1,15 @@
 import copy
 
-from struphy.fields_background.base import FluidEquilibriumWithB
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
+from struphy.fields_background import equils
+from struphy.initial.base import Perturbation
+from struphy.geometry.utilities import TransformedPformComponent 
 
 
 class Particles6D(Particles):
@@ -765,8 +768,8 @@ class ParticlesSPH(Particles):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"ConstantVelocity": {}}
+    def default_background(cls):
+        return equils.ConstantVelocity()
 
     def __init__(
         self,
@@ -774,8 +777,10 @@ class ParticlesSPH(Particles):
     ):
         kwargs["type"] = "sph"
 
-        if "bckgr_params" not in kwargs:
-            kwargs["bckgr_params"] = self.default_bckgr_params()
+        if "background" not in kwargs:
+            kwargs["background"] = self.default_background()
+        elif kwargs["background"] is None:
+            kwargs["background"] = self.default_background()
 
         if "boxes_per_dim" not in kwargs:
             boxes_per_dim = (1, 1, 1)
@@ -880,10 +885,6 @@ class ParticlesSPH(Particles):
 
     def _set_initial_condition(self):
         """Set a callable initial condition f_init as a 0-form (scalar), and u_init in Cartesian coordinates."""
-        from struphy.feec.psydac_derham import transform_perturbation
-        from struphy.fields_background.base import FluidEquilibrium
-
-        pp_copy = copy.deepcopy(self.pert_params)
 
         # Get the initialization function and pass the correct arguments
         self._f_init = None
@@ -891,31 +892,43 @@ class ParticlesSPH(Particles):
         self._f_init = self.f0.n0
         self._u_init = self.f0.u_cart
 
-        if pp_copy is not None:
-            if "n" in pp_copy:
-                for _type, _params in pp_copy["n"].items():  # only one perturbation is taken into account at the moment
-                    _fun = transform_perturbation(_type, _params, "0", self.domain)
+        if self.perturbations is not None:
+            for moment, pert in self.perturbations.items():  # only one perturbation is taken into account at the moment
+                assert isinstance(moment, str)
+                assert isinstance(pert, Perturbation)
+                
+                if moment == "n":
+                    _fun = TransformedPformComponent(
+                        pert,
+                        pert.given_in_basis,
+                        "0",
+                        comp=pert.comp,
+                        domain=self.domain,
+                    )
 
-                def _f_init(*etas):
-                    if len(etas) == 1:
-                        return self.f0.n0(etas[0]) + _fun(*etas[0].T)
-                    else:
-                        assert len(etas) == 3
-                        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                            etas[0],
-                            etas[1],
-                            etas[2],
-                            flat_eval=False,
-                        )
-                        return self.f0.n0(E1, E2, E3) + _fun(E1, E2, E3)
+                    def _f_init(*etas):
+                        if len(etas) == 1:
+                            return self.f0.n0(etas[0]) + _fun(*etas[0].T)
+                        else:
+                            assert len(etas) == 3
+                            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                                etas[0],
+                                etas[1],
+                                etas[2],
+                                flat_eval=False,
+                            )
+                            return self.f0.n0(E1, E2, E3) + _fun(E1, E2, E3)
 
-                self._f_init = _f_init
+                    self._f_init = _f_init
 
-            if "u1" in pp_copy:
-                for _type, _params in pp_copy[
-                    "u1"
-                ].items():  # only one perturbation is taken into account at the moment
-                    _fun = transform_perturbation(_type, _params, "v", self.domain)
+                elif moment == "u1":
+                    _fun = TransformedPformComponent(
+                    pert,
+                    pert.given_in_basis,
+                    "v",
+                    comp=pert.comp,
+                    domain=self.domain,
+                    )
                     _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
-                self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
-                # TODO: add other velocity components
+                    self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
+                    # TODO: add other velocity components

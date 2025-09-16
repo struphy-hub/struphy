@@ -56,6 +56,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import Particles6D
     from struphy.utils.clone_config import CloneConfig
+    from struphy.pic.utilities import LoadingParameters, WeightsParameters, BoundaryParameters
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -89,17 +90,15 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         print("Domain decomposition according to", derham.domain_array)
 
     # load distributed markers first and use Send/Receive to make global marker copies for the legacy routines
-    loading_params = {
-        "seed": 1607,
-        "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
-        "spatial": "uniform",
-    }
+    loading_params = LoadingParameters(Np=Np,
+        seed=1607,
+        moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0),
+        spatial="uniform",
+    )
 
     particles = Particles6D(
         comm_world=mpi_comm,
         clone_config=clone_config,
-        Np=Np,
-        bc=["periodic"] * 3,
         loading_params=loading_params,
         domain=domain,
         domain_decomp=domain_decomp,
