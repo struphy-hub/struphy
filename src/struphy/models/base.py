@@ -1342,9 +1342,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     exclude = f"# model.{sn}.{vn}.save_data = False\n"
                 elif isinstance(var, PICVariable):
                     has_pic = True
-                    init_pert_pic = (
-                        f"\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
-                    )
+                    init_pert_pic = f"\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
                     init_pert_pic += f"perturbation = perturbations.TorusModesCos()\n"
                     if "6D" in var.space:
                         init_bckgr_pic = f"maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
