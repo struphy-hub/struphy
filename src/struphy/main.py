@@ -463,7 +463,7 @@ if __name__ == "__main__":
     config.simulation_label = ""
     pylikwid_markerinit()
     with ProfileManager.profile_region("main"):
-        # solve the model
+        # Call main
         main(
             args.model,
             args.input,
