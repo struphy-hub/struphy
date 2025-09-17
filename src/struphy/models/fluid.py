@@ -2256,8 +2256,8 @@ class IsothermalEulerSPH(StruphyModel):
         algo_sph = _p["options"]["PushVinSPHpressure"]["algo"]
         gravity = _p["options"]["PushVinSPHpressure"]["gravity"]
         thermodynamics = _p["options"]["PushVinSPHpressure"]["thermodynamics"]
-        
-        # magnetic field 
+
+        # magnetic field
         # self._b_eq = self.projected_equil.b2
 
         # set keyword arguments for propagators
@@ -2267,12 +2267,12 @@ class IsothermalEulerSPH(StruphyModel):
         }
 
         # self._kwargs[propagators_markers.PushVxB] = {
-        #      "algo": algo_vxb, 
+        #      "algo": algo_vxb,
         #     "kappa": 1.0,
         #     "b2": self._b_eq,
         #     "b2_add": None,
         # }
-        
+
         self._kwargs[propagators_markers.PushVinSPHpressure] = {
             "kernel_type": kernel_type,
             "algo": algo_sph,

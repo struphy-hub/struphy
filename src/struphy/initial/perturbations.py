@@ -388,8 +388,8 @@ class ModesCosCos:
 
     .. math::
 
-        u(x, y, z) = \sum_s A_s \, \chi_s(z) 
-        \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right) 
+        u(x, y, z) = \sum_s A_s \, \chi_s(z)
+        \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
         \cos \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
 
     where :math:`\chi_s(z)` can be either 1 or localized in z.
@@ -407,9 +407,8 @@ class ModesCosCos:
         pfuns_params=(0.0,),
         Lx=1.0,
         Ly=1.0,
-        Lz=1.0, 
+        Lz=1.0,
     ):
-        
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -454,7 +453,6 @@ class ModesCosCos:
         else:
             assert len(pfuns_params) == n_modes
 
-        
         self._ls = ls
         self._ms = ms
         self._amps = amps
@@ -469,17 +467,13 @@ class ModesCosCos:
             if pfun == "Id":
                 self._pfuns += [lambda z: 1.0]
             elif pfun == "localize":
-                self._pfuns += [
-                    lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)
-                ]
+                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
     def __call__(self, x, y, z):
         val = 0.0
-        for amp, l, m, thx, thy, pfun in zip(
-            self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns
-        ):
+        for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
             val += (
                 amp
                 * pfun(z)
@@ -489,14 +483,13 @@ class ModesCosCos:
         return val
 
 
-
 class ModesSinSin:
     r"""
 
     .. math::
 
-        u(x, y, z) = \sum_s A_s \, \chi_s(z) 
-        \sin \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right) 
+        u(x, y, z) = \sum_s A_s \, \chi_s(z)
+        \sin \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
         \sin \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
 
     where :math:`\chi_s(z)` can be either 1 or localized in z.
@@ -515,7 +508,6 @@ class ModesSinSin:
         Ly=1.0,
         Lz=1.0,
     ):
-        
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -560,7 +552,6 @@ class ModesSinSin:
         else:
             assert len(pfuns_params) == n_modes
 
-        
         self._ls = ls
         self._ms = ms
         self._amps = amps
@@ -575,17 +566,13 @@ class ModesSinSin:
             if pfun == "Id":
                 self._pfuns += [lambda z: 1.0]
             elif pfun == "localize":
-                self._pfuns += [
-                    lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)
-                ]
+                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
     def __call__(self, x, y, z):
         val = 0.0
-        for amp, l, m, thx, thy, pfun in zip(
-            self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns
-        ):
+        for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
             val += (
                 amp
                 * pfun(z)
@@ -600,8 +587,8 @@ class ModesSinCos:
 
     .. math::
 
-        u(x, y, z) = \sum_s A_s \, \chi_s(z) 
-        \sin \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right) 
+        u(x, y, z) = \sum_s A_s \, \chi_s(z)
+        \sin \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
         \cos \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
 
     where :math:`\chi_s(z)` can be either 1 or localized in z.
@@ -680,17 +667,13 @@ class ModesSinCos:
             if pfun == "Id":
                 self._pfuns += [lambda z: 1.0]
             elif pfun == "localize":
-                self._pfuns += [
-                    lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)
-                ]
+                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
     def __call__(self, x, y, z):
         val = 0.0
-        for amp, l, m, thx, thy, pfun in zip(
-            self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns
-        ):
+        for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
             val += (
                 amp
                 * pfun(z)
@@ -698,15 +681,15 @@ class ModesSinCos:
                 * np.cos(m * 2.0 * np.pi / self._Ly * y + thy)
             )
         return val
-    
+
 
 class ModesCosSin:
     r"""
 
     .. math::
 
-        u(x, y, z) = \sum_s A_s \, \chi_s(z) 
-        \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right) 
+        u(x, y, z) = \sum_s A_s \, \chi_s(z)
+        \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
         \sin \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
 
     where :math:`\chi_s(z)` can be either 1 or localized in z.
@@ -785,17 +768,13 @@ class ModesCosSin:
             if pfun == "Id":
                 self._pfuns += [lambda z: 1.0]
             elif pfun == "localize":
-                self._pfuns += [
-                    lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)
-                ]
+                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
     def __call__(self, x, y, z):
         val = 0.0
-        for amp, l, m, thx, thy, pfun in zip(
-            self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns
-        ):
+        for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
             val += (
                 amp
                 * pfun(z)
@@ -803,8 +782,6 @@ class ModesCosSin:
                 * np.sin(m * 2.0 * np.pi / self._Ly * y + thy)
             )
         return val
-
-
 
 
 class TorusModesSin:

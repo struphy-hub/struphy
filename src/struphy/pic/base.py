@@ -24,10 +24,10 @@ from struphy.kinetic_background import maxwellians
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
-    flatten_index,
-    initialize_neighbours,
     assign_box_to_each_particle,
     assign_particles_to_boxes,
+    flatten_index,
+    initialize_neighbours,
     sort_boxed_particles,
 )
 from struphy.pic.sph_eval_kernels import (
@@ -97,7 +97,7 @@ class Particles(metaclass=ABCMeta):
 
     bc_refill : list
         Either 'inner' or 'outer'.
-        
+
     bc_sph : list
         Boundary condition for sph density evaluation.
         Either 'periodic', 'mirror', 'static' or 'force' in each direction.
@@ -262,19 +262,19 @@ class Particles(metaclass=ABCMeta):
         if bc_refill is not None:
             for bc_refilli in bc_refill:
                 assert bc_refilli in ("outer", "inner")
-                
+
         self._bc = bc
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
         self._bc_refill = bc_refill
-        
+
         if bc_sph is None:
-            bc_sph = [bci if bci == "periodic" else "mirror" for bci in self.bc] 
+            bc_sph = [bci if bci == "periodic" else "mirror" for bci in self.bc]
 
         for bci in bc_sph:
             assert bci in ("periodic", "mirror", "fixed")
-            
+
         self._bc_sph = bc_sph
 
         # particle type
@@ -469,7 +469,7 @@ class Particles(metaclass=ABCMeta):
     def bc_refill(self):
         """How to re-enter particles if bc is 'refill'."""
         return self._bc_refill
-    
+
     @property
     def bc_sph(self):
         """List of boundary conditions for sph evaluation in each direction."""
@@ -1124,19 +1124,18 @@ class Particles(metaclass=ABCMeta):
 
     def _initialize_sorting_boxes(self):
         """Initializes the sorting boxes.
-        
+
         Each MPI process has exactly the same box structure and numbering.
-        For instance, if boxes_per_dim = (16, 1, 1) and there are 2 MPI processes, 
+        For instance, if boxes_per_dim = (16, 1, 1) and there are 2 MPI processes,
         each process would get 8 boxes in the first direction.
         Hence boxes_per_dim has to be divisible by the number of ranks in each direction.
         """
-        
+
         self._initialized_sorting = False
         if self.boxes_per_dim is not None:
-            
             # split boxes across MPI processes
             nboxes = [nboxes // nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]
-            
+
             # check whether this process touches the domain boundary
             is_domain_boundary = {}
             x_l = self.domain_array[self.mpi_rank, 0]
@@ -1164,12 +1163,12 @@ class Particles(metaclass=ABCMeta):
                 verbose=self.verbose,
                 box_bufsize=self._box_bufsize,
             )
-            
+
             if self.sorting_boxes.communicate:
                 self._get_neighbouring_proc()
 
             self._initialized_sorting = True
-            
+
         else:
             self._sorting_boxes = None
 
@@ -1233,7 +1232,7 @@ class Particles(metaclass=ABCMeta):
 
     def _set_initial_condition(self, bp_copy=None, pp_copy=None):
         """Compute callable initial condition from background + perturbation."""
-        
+
         if bp_copy is None:
             bp_copy = copy.deepcopy(self.bckgr_params)
         if pp_copy is None:
@@ -2034,8 +2033,8 @@ class Particles(metaclass=ABCMeta):
         for axis in self._reflect_axes:
             outside_inds = self._find_outside_particles(axis)
 
-            self.markers[self._is_outside_left, axis] *= -1.0 
-            self.markers[self._is_outside_right, axis] *= -1.0 
+            self.markers[self._is_outside_left, axis] *= -1.0
+            self.markers[self._is_outside_right, axis] *= -1.0
             self.markers[self._is_outside_right, axis] += 2.0
 
             self.markers[self._is_outside, self.first_pusher_idx] = -1.0
@@ -2193,9 +2192,9 @@ class Particles(metaclass=ABCMeta):
 
     class SortingBoxes:
         """Boxes used for the sorting of the particles.
-        
+
         Boxes are represented as a 2D array of integers, where
-        each line coresponds to one box, and all entries of line i that are not -1 
+        each line coresponds to one box, and all entries of line i that are not -1
         correspond to a particles in the i-th box.
 
         Parameters
@@ -2214,11 +2213,11 @@ class Particles(metaclass=ABCMeta):
 
         nz : int
             number of boxes in the z direction.
-            
+
         bc_sph : list
             Boundary condition for sph density evaluation.
             Either 'periodic', 'mirror' or 'fixed' in each direction.
-            
+
         is_domain_boundary: dict
             Has two booleans for each direction; True when the boundary of the MPI process is a domain boundary.
 
@@ -2257,7 +2256,7 @@ class Particles(metaclass=ABCMeta):
             self._verbose = verbose
 
             if bc_sph is None:
-                bc_sph = ["periodic"]*3
+                bc_sph = ["periodic"] * 3
             self._bc_sph = bc_sph
 
             if is_domain_boundary is None:
@@ -2268,7 +2267,7 @@ class Particles(metaclass=ABCMeta):
                 is_domain_boundary["y_p"] = True
                 is_domain_boundary["z_m"] = True
                 is_domain_boundary["z_p"] = True
-                
+
             self._is_domain_boundary = is_domain_boundary
 
             if comm is None:
@@ -2318,17 +2317,17 @@ class Particles(metaclass=ABCMeta):
         @property
         def communicate(self):
             return self._communicate
-        
+
         @property
         def is_domain_boundary(self):
             """Dict with two booleans for each direction (e.g. 'x_m' and 'x_p'); True when the boundary of the MPI process is a domain boundary (0.0 or 1.0)."""
             return self._is_domain_boundary
-        
+
         @property
         def bc_sph(self):
             """List of boundary conditions for sph evaluation in each direction."""
             return self._bc_sph
-        
+
         @property
         def bc_sph_index_shifts(self):
             """Dictionary holding the index shifts of box number for ghost particles in each direction."""
@@ -2345,19 +2344,19 @@ class Particles(metaclass=ABCMeta):
             self._bc_sph_index_shifts["y_p"] = flatten_index(0, self.ny, 0, self.nx, self.ny, self.nz)
             self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
             self._bc_sph_index_shifts["z_p"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
-    
+
             if self.bc_sph[0] in ("mirror", "fixed"):
                 if self.is_domain_boundary["x_m"]:
                     self._bc_sph_index_shifts["x_m"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
                 if self.is_domain_boundary["x_p"]:
                     self._bc_sph_index_shifts["x_p"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
-                
+
             if self.bc_sph[1] in ("mirror", "fixed"):
                 if self.is_domain_boundary["y_m"]:
                     self._bc_sph_index_shifts["y_m"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
                 if self.is_domain_boundary["y_p"]:
                     self._bc_sph_index_shifts["y_p"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
- 
+
             if self.bc_sph[2] in ("mirror", "fixed"):
                 if self.is_domain_boundary["z_m"]:
                     self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, -1, self.nx, self.ny, self.nz)
@@ -2551,11 +2550,11 @@ class Particles(metaclass=ABCMeta):
     def _sort_boxed_particles_numpy(self):
         """Sort the particles by box using numpy.argsort."""
         sorting_axis = self._sorting_boxes.box_index
-        
+
         if not hasattr(self, "_argsort_array"):
             self._argsort_array = np.zeros(self.markers.shape[0], dtype=int)
         self._argsort_array[:] = self._markers[:, sorting_axis].argsort()
-        
+
         self._markers[:, :] = self._markers[self._argsort_array]
 
     def put_particles_in_boxes(self):
@@ -2572,42 +2571,42 @@ class Particles(metaclass=ABCMeta):
             self._sorting_boxes.nz,
             self.domain_array[self.mpi_rank],
         )
-        
+
         self.check_and_assign_particles_to_boxes()
 
         if self.sorting_boxes.communicate:
             self.communicate_boxes()
             self.check_and_assign_particles_to_boxes()
             self.update_ghost_particles()
-            
+
         if self.verbose:
             valid_box_ids = np.nonzero(self._sorting_boxes._boxes[:, 0] != -1)[0]
-            print(f'Boxes holding at least one particle: {valid_box_ids}')
+            print(f"Boxes holding at least one particle: {valid_box_ids}")
             for i in valid_box_ids:
                 n_mks_box = np.count_nonzero(self._sorting_boxes._boxes[i] != -1)
-                print(f'Number of markers in box {i} is {n_mks_box}')
+                print(f"Number of markers in box {i} is {n_mks_box}")
 
     def check_and_assign_particles_to_boxes(self):
         """Check whether the box array has enough columns (detect load impbalance wrt to sorting boxes),
         and then assigne the particles to boxes."""
-        
+
         bcount = np.bincount(np.int64(self.markers_wo_holes[:, -2]))
         max_in_box = np.max(bcount)
         if max_in_box > self._sorting_boxes.boxes.shape[1]:
             warnings.warn(
-                    f'Strong load imbalance detected in sorting boxes: \
+                f'Strong load imbalance detected in sorting boxes: \
 max number of markers in a box ({max_in_box}) on rank {self.mpi_rank} \
 exceeds the column-size of the box array ({self._sorting_boxes.boxes.shape[1]}). \
 Increasing the value of "box_bufsize" in the markers parameters for the next run.'
-                )
+            )
             self.mpi_comm.Abort()
 
         assign_particles_to_boxes(
-                self.markers,
-                self.holes,
-                self._sorting_boxes._boxes,
-                self._sorting_boxes._next_index,
-            )
+            self.markers,
+            self.holes,
+            self._sorting_boxes._boxes,
+            self._sorting_boxes._next_index,
+        )
 
     def do_sort(self, use_numpy_argsort=False):
         """Assign the particles to boxes and then sort them."""
@@ -2641,19 +2640,19 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
 
     def prepare_ghost_particles(self):
         """Markers for boundary conditions and MPI communication.
-        
+
         Does the following:
         1. determine which markers belong to boxes that are at the boundary and put these markers in a new array (e.g. markers_x_m)
-        2. set their last index to -2 to indicate that they will be "ghost particles" after sending 
+        2. set their last index to -2 to indicate that they will be "ghost particles" after sending
         3. set their new box number (boundary conditions enter here)
-        4. optional: mirror position for boundary conditions 
+        4. optional: mirror position for boundary conditions
         """
         shifts = self.sorting_boxes.bc_sph_index_shifts
         if self.verbose:
-            print(f'{self.sorting_boxes.bc_sph_index_shifts = }')
-        
+            print(f"{self.sorting_boxes.bc_sph_index_shifts = }")
+
         ## Faces
-        
+
         # ghost marker arrays
         self._markers_x_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m)
         self._markers_x_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_p)
@@ -2669,7 +2668,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_y_p[:, -1] = -2.0
         self._markers_z_m[:, -1] = -2.0
         self._markers_z_p[:, -1] = -2.0
-        
+
         # Adjust box number
         self._markers_x_m[:, self._sorting_boxes.box_index] += shifts["x_m"]
         self._markers_x_p[:, self._sorting_boxes.box_index] -= shifts["x_p"]
@@ -2677,19 +2676,25 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_y_p[:, self._sorting_boxes.box_index] -= shifts["y_p"]
         self._markers_z_m[:, self._sorting_boxes.box_index] += shifts["z_m"]
         self._markers_z_p[:, self._sorting_boxes.box_index] -= shifts["z_p"]
-        
+
         # Mirror position for boundary condition
         if self.bc_sph[0] in ("mirror", "fixed"):
-            self._mirror_particles("_markers_x_m", "_markers_x_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
-            
+            self._mirror_particles(
+                "_markers_x_m", "_markers_x_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary
+            )
+
         if self.bc_sph[1] in ("mirror", "fixed"):
-            self._mirror_particles("_markers_y_m", "_markers_y_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
-            
+            self._mirror_particles(
+                "_markers_y_m", "_markers_y_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary
+            )
+
         if self.bc_sph[2] in ("mirror", "fixed"):
-            self._mirror_particles("_markers_z_m", "_markers_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
+            self._mirror_particles(
+                "_markers_z_m", "_markers_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary
+            )
 
         ## Edges x-y
-        
+
         # ghost marker arrays
         self._markers_x_m_y_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_y_m)
         self._markers_x_m_y_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_y_p)
@@ -2701,19 +2706,25 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_x_m_y_p[:, -1] = -2.0
         self._markers_x_p_y_m[:, -1] = -2.0
         self._markers_x_p_y_p[:, -1] = -2.0
-        
+
         # Adjust box number
         self._markers_x_m_y_m[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["y_m"]
         self._markers_x_m_y_p[:, self._sorting_boxes.box_index] += shifts["x_m"] - shifts["y_p"]
         self._markers_x_p_y_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["y_m"]
         self._markers_x_p_y_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"]
-            
+
         # Mirror position for boundary condition
         if self.bc_sph[0] in ("mirror", "fixed") or self.bc_sph[1] in ("mirror", "fixed"):
-            self._mirror_particles("_markers_x_m_y_m", "_markers_x_m_y_p", "_markers_x_p_y_m", "_markers_x_p_y_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
+            self._mirror_particles(
+                "_markers_x_m_y_m",
+                "_markers_x_m_y_p",
+                "_markers_x_p_y_m",
+                "_markers_x_p_y_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
+            )
 
         ## Edges x-z
-        
+
         # ghost marker arrays
         self._markers_x_m_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_z_m)
         self._markers_x_m_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_z_p)
@@ -2725,19 +2736,25 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_x_m_z_p[:, -1] = -2.0
         self._markers_x_p_z_m[:, -1] = -2.0
         self._markers_x_p_z_p[:, -1] = -2.0
-        
+
         # Adjust box number
         self._markers_x_m_z_m[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["z_m"]
         self._markers_x_m_z_p[:, self._sorting_boxes.box_index] += shifts["x_m"] - shifts["z_p"]
         self._markers_x_p_z_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["z_m"]
         self._markers_x_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["z_p"]
-        
+
         # Mirror position for boundary condition
         if self.bc_sph[0] in ("mirror", "fixed") or self.bc_sph[2] in ("mirror", "fixed"):
-            self._mirror_particles("_markers_x_m_z_m", "_markers_x_m_z_p", "_markers_x_p_z_m", "_markers_x_p_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
+            self._mirror_particles(
+                "_markers_x_m_z_m",
+                "_markers_x_m_z_p",
+                "_markers_x_p_z_m",
+                "_markers_x_p_z_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
+            )
 
         ## Edges y-z
-        
+
         # ghost marker arrays
         self._markers_y_m_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_y_m_z_m)
         self._markers_y_m_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_y_m_z_p)
@@ -2749,19 +2766,25 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_y_m_z_p[:, -1] = -2.0
         self._markers_y_p_z_m[:, -1] = -2.0
         self._markers_y_p_z_p[:, -1] = -2.0
-        
+
         # Adjust box number
         self._markers_y_m_z_m[:, self._sorting_boxes.box_index] += shifts["y_m"] + shifts["z_m"]
         self._markers_y_m_z_p[:, self._sorting_boxes.box_index] += shifts["y_m"] - shifts["z_p"]
         self._markers_y_p_z_m[:, self._sorting_boxes.box_index] += -shifts["y_p"] + shifts["z_m"]
         self._markers_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["y_p"] - shifts["z_p"]
-        
+
         # Mirror position for boundary condition
         if self.bc_sph[1] in ("mirror", "fixed") or self.bc_sph[2] in ("mirror", "fixed"):
-            self._mirror_particles("_markers_y_m_z_m", "_markers_y_m_z_p", "_markers_y_p_z_m", "_markers_y_p_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
+            self._mirror_particles(
+                "_markers_y_m_z_m",
+                "_markers_y_m_z_p",
+                "_markers_y_p_z_m",
+                "_markers_y_p_z_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
+            )
 
         ## Corners
-        
+
         # ghost marker arrays
         self._markers_x_m_y_m_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_y_m_z_m)
         self._markers_x_m_y_m_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_y_m_z_p)
@@ -2781,7 +2804,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_x_p_y_m_z_p[:, -1] = -2.0
         self._markers_x_p_y_p_z_m[:, -1] = -2.0
         self._markers_x_p_y_p_z_p[:, -1] = -2.0
-        
+
         # Adjust box number
         self._markers_x_m_y_m_z_m[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["y_m"] + shifts["z_m"]
         self._markers_x_m_y_m_z_p[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["y_m"] - shifts["z_p"]
@@ -2791,67 +2814,111 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._markers_x_p_y_m_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["y_m"] - shifts["z_p"]
         self._markers_x_p_y_p_z_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"] + shifts["z_m"]
         self._markers_x_p_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"] - shifts["z_p"]
-        
+
         # Mirror position for boundary condition
         if any([bci in ("mirror", "fixed") for bci in self.bc_sph]):
-            self._mirror_particles("_markers_x_m_y_m_z_m", "_markers_x_m_y_m_z_p", "_markers_x_m_y_p_z_m", "_markers_x_m_y_p_z_p",
-                                   "_markers_x_p_y_m_z_m", "_markers_x_p_y_m_z_p", "_markers_x_p_y_p_z_m", "_markers_x_p_y_p_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary)
+            self._mirror_particles(
+                "_markers_x_m_y_m_z_m",
+                "_markers_x_m_y_m_z_p",
+                "_markers_x_m_y_p_z_m",
+                "_markers_x_m_y_p_z_p",
+                "_markers_x_p_y_m_z_m",
+                "_markers_x_p_y_m_z_p",
+                "_markers_x_p_y_p_z_m",
+                "_markers_x_p_y_p_z_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
+            )
 
     def _mirror_particles(self, *marker_array_names, is_domain_boundary=None):
-        
         if not hasattr(self, "_fixe_markers_set"):
             self._fixed_markers_set = {}
-        
+
         for arr_name in marker_array_names:
             assert isinstance(arr_name, str)
             arr = getattr(self, arr_name)
 
             if arr.size == 0:
                 continue
-            
+
             # x-direction
             if self.bc_sph[0] in ("mirror", "fixed"):
                 if "x_m" in arr_name and is_domain_boundary["x_m"]:
-                    arr[:, 0] *= -1.
+                    arr[:, 0] *= -1.0
                     if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
                         self._fixed_markers_set[arr_name] = True
                 elif "x_p" in arr_name and is_domain_boundary["x_p"]:
-                    arr[:, 0] = 2. - arr[:, 0]
+                    arr[:, 0] = 2.0 - arr[:, 0]
                     if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
                         self._fixed_markers_set[arr_name] = True
-                
+
             # y-direction
             if self.bc_sph[1] in ("mirror", "fixed"):
                 if "y_m" in arr_name and is_domain_boundary["y_m"]:
-                    arr[:, 1] *= -1.
-                    if self.bc_sph[1] == "fixed"  and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                    arr[:, 1] *= -1.0
+                    if self.bc_sph[1] == "fixed" and arr_name not in self._fixed_markers_set:
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
                         self._fixed_markers_set[arr_name] = True
                 elif "y_p" in arr_name and is_domain_boundary["y_p"]:
-                    arr[:, 1] = 2. - arr[:, 1]
-                    if self.bc_sph[1] == "fixed"  and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                    arr[:, 1] = 2.0 - arr[:, 1]
+                    if self.bc_sph[1] == "fixed" and arr_name not in self._fixed_markers_set:
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
                         self._fixed_markers_set[arr_name] = True
-                
+
             # z-direction
             if self.bc_sph[2] in ("mirror", "fixed"):
                 if "z_m" in arr_name and is_domain_boundary["z_m"]:
-                    arr[:, 2] *= -1.
+                    arr[:, 2] *= -1.0
                     if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
                         self._fixed_markers_set[arr_name] = True
                 elif "z_p" in arr_name and is_domain_boundary["z_p"]:
-                    arr[:, 2] = 2. - arr[:, 2]
+                    arr[:, 2] = 2.0 - arr[:, 2]
                     if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
-                        boundary_values = self.f_init(*arr[:, :3].T, flat_eval=True) # evaluation outside of the unit cube - maybe not working for all f_init!
-                        arr[:, self.index["weights"]] = -boundary_values / self.s0(*arr[:, :3].T, flat_eval=True, remove_holes=False,)
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
                         self._fixed_markers_set[arr_name] = True
 
     def determine_markers_in_box(self, list_boxes):
@@ -2872,27 +2939,39 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         # Faces
         if self._x_m_proc is not None:
             self._send_info_box[self._x_m_proc] += len(self._markers_x_m)
-            self._send_list_box[self._x_m_proc] = np.concatenate((self._send_list_box[self._x_m_proc], self._markers_x_m))
+            self._send_list_box[self._x_m_proc] = np.concatenate(
+                (self._send_list_box[self._x_m_proc], self._markers_x_m)
+            )
 
         if self._x_p_proc is not None:
             self._send_info_box[self._x_p_proc] += len(self._markers_x_p)
-            self._send_list_box[self._x_p_proc] = np.concatenate((self._send_list_box[self._x_p_proc], self._markers_x_p))
+            self._send_list_box[self._x_p_proc] = np.concatenate(
+                (self._send_list_box[self._x_p_proc], self._markers_x_p)
+            )
 
         if self._y_m_proc is not None:
             self._send_info_box[self._y_m_proc] += len(self._markers_y_m)
-            self._send_list_box[self._y_m_proc] = np.concatenate((self._send_list_box[self._y_m_proc], self._markers_y_m))
+            self._send_list_box[self._y_m_proc] = np.concatenate(
+                (self._send_list_box[self._y_m_proc], self._markers_y_m)
+            )
 
         if self._y_p_proc is not None:
             self._send_info_box[self._y_p_proc] += len(self._markers_y_p)
-            self._send_list_box[self._y_p_proc] = np.concatenate((self._send_list_box[self._y_p_proc], self._markers_y_p))
+            self._send_list_box[self._y_p_proc] = np.concatenate(
+                (self._send_list_box[self._y_p_proc], self._markers_y_p)
+            )
 
         if self._z_m_proc is not None:
             self._send_info_box[self._z_m_proc] += len(self._markers_z_m)
-            self._send_list_box[self._z_m_proc] = np.concatenate((self._send_list_box[self._z_m_proc], self._markers_z_m))
+            self._send_list_box[self._z_m_proc] = np.concatenate(
+                (self._send_list_box[self._z_m_proc], self._markers_z_m)
+            )
 
         if self._z_p_proc is not None:
             self._send_info_box[self._z_p_proc] += len(self._markers_z_p)
-            self._send_list_box[self._z_p_proc] = np.concatenate((self._send_list_box[self._z_p_proc], self._markers_z_p))
+            self._send_list_box[self._z_p_proc] = np.concatenate(
+                (self._send_list_box[self._z_p_proc], self._markers_z_p)
+            )
 
         # x-y edges
         if self._x_m_y_m_proc is not None:
@@ -3134,12 +3213,12 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
         self.mpi_comm.Barrier()
 
     def _get_neighbouring_proc(self):
-        """Find the neighbouring processes for the sending of boxes. 
-        
+        """Find the neighbouring processes for the sending of boxes.
+
         The left (right) neighbour in direction 1 is called x_m_proc (x_p_proc), etc.
         By default every process is its own neighbour.
         """
-        # Faces 
+        # Faces
         self._x_m_proc = self.mpi_rank
         self._x_p_proc = self.mpi_rank
         self._y_m_proc = self.mpi_rank
@@ -3168,12 +3247,12 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
         self._x_p_y_m_z_p_proc = self.mpi_rank
         self._x_p_y_p_z_m_proc = self.mpi_rank
         self._x_p_y_p_z_p_proc = self.mpi_rank
-        
+
         # periodicitiy for distance computation
         periodic1 = self.bc_sph[0] == "periodic"
         periodic2 = self.bc_sph[1] == "periodic"
         periodic3 = self.bc_sph[2] == "periodic"
-        
+
         # Determine which proc are on which side
         dd = self.domain_array
         x_l = dd[self.mpi_rank][0]

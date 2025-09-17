@@ -18,7 +18,7 @@ def flatten_index(
         algo = "fortran_ordering"
     else:
         algo = algo_in
-    
+
     if algo == "fortran_ordering":
         n_glob = n1 + n2 * (nx + 2) + n3 * (nx + 2) * (ny + 2)
     elif algo == "c_ordering":
@@ -26,7 +26,7 @@ def flatten_index(
     else:
         n_glob = -99
         print(algo, "is not implemented, n_glob set to -99 !!!")
-        
+
     return n_glob
 
 
@@ -45,7 +45,7 @@ def unflatten_index(
         algo = "fortran_ordering"
     else:
         algo = algo_in
-        
+
     if algo == "fortran_ordering":
         n3 = n_glob // ((nx + 2) * (ny + 2))
         rest = n_glob - n3 * (nx + 2) * (ny + 2)
@@ -61,7 +61,7 @@ def unflatten_index(
         n2 = -99
         n3 = -99
         print(algo, "is not implemented, n1, n2 and n3 set to -99 !!!")
-    
+
     return n1, n2, n3
 
 
