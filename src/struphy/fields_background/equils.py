@@ -8,7 +8,6 @@ from time import time
 
 import numpy as np
 
-from struphy.console.run import subp_run
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -24,7 +23,7 @@ from struphy.fields_background.base import (
     NumericalFluidEquilibriumWithB,
     NumericalMHDequilibrium,
 )
-from struphy.utils.utils import read_state
+from struphy.utils.utils import read_state, subp_run
 
 
 class HomogenSlab(CartesianMHDequilibrium):
@@ -3249,7 +3248,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
                     "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
                 )
 
-        return out
+        return -out
 
     def g_tor(self, R, Z, dR=0, dZ=0):
         """Toroidal field function g = g(R, Z)."""
@@ -3265,7 +3264,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
                 "Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!",
             )
 
-        return out
+        return -out
 
     def p_xyz(self, x, y, z):
         """Pressure p = p(x, y, z)."""

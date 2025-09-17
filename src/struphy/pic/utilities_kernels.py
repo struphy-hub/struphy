@@ -4,8 +4,8 @@ from pyccel.decorators import stack_array
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
 import struphy.bsplines.evaluation_kernels_3d as evaluation_kernels_3d
 import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 import struphy.linear_algebra.linalg_kernels as linalg_kernels
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels  # do not remove; needed to identify dependencies
 from struphy.bsplines.evaluation_kernels_3d import (
     eval_0form_spline_mpi,
     eval_1form_spline_mpi,
@@ -14,7 +14,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 
 
 def eval_magnetic_moment_5d(
@@ -444,7 +444,7 @@ def eval_guiding_center_from_6d(
 @stack_array("grad_PB", "tmp")
 def accum_gradI_const(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     grad_PB1: "float[:,:,:]",
     grad_PB2: "float[:,:,:]",
@@ -494,12 +494,12 @@ def accum_gradI_const(
         tmp[:] = markers[ip, 15:18]
         res += linalg_kernels.scalar_dot(tmp, grad_PB) * weight * mu * scale
 
-    return res / n_markers_tot
+    return res / Np
 
 
 def accum_en_fB(
     markers: "float[:,:]",
-    n_markers_tot: "int",
+    Np: "int",
     args_derham: "DerhamArguments",
     PB: "float[:,:,:]",
 ):
@@ -538,7 +538,7 @@ def accum_en_fB(
 
         res += abs(B0) * mu * weight
 
-    return res / n_markers_tot
+    return res / Np
 
 
 @stack_array("e", "e_diff")

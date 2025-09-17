@@ -2,6 +2,8 @@
 "Analytical perturbations (modes)."
 
 import numpy as np
+import scipy
+import scipy.special
 
 
 class ModesSin:
@@ -25,6 +27,34 @@ class ModesSin:
 
     Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
     and :math:`L_x=L_y=L_z=1.0` (default).
+
+    Parameters
+    ----------
+    ls : tuple | list
+        Mode numbers in x-direction (kx = l*2*pi/Lx).
+
+    ms : tuple | list
+        Mode numbers in y-direction (ky = m*2*pi/Ly).
+
+    ns : tuple | list
+        Mode numbers in z-direction (kz = n*2*pi/Lz).
+
+    amps : tuple | list
+        Amplitude of each mode.
+
+    theta : tuple | list
+        Phase of each mode
+
+    pfuns : tuple | list[str]
+        "Id" or "localize" define the profile functions.
+        localize multiply the sinus by :math: `tanh((\eta_3 - 0.5)/\delta)/cosh((\eta_3 - 0.5)/\delta)`
+        to localize it around 0.5. :math: `\delta` is given by the input parameter pfuns_params
+
+    pfuns_params : tuple | list
+        The parameter needed by the profile function
+
+    Lx, Ly, Lz : float
+        Domain lengths.
 
     Note
     ----
@@ -64,36 +94,6 @@ class ModesSin:
         Ly=1.0,
         Lz=1.0,
     ):
-        r"""
-        Parameters
-        ----------
-        ls : tuple | list
-            Mode numbers in x-direction (kx = l*2*pi/Lx).
-
-        ms : tuple | list
-            Mode numbers in y-direction (ky = m*2*pi/Ly).
-
-        ns : tuple | list
-            Mode numbers in z-direction (kz = n*2*pi/Lz).
-
-        amps : tuple | list
-            Amplitude of each mode.
-
-        theta : tuple | list
-            Phase of each mode
-
-        pfuns : tuple | list[str]
-            "Id" or "localize" define the profile functions.
-            localize multiply the sinus by :math: `tanh((\eta_3 - 0.5)/\delta)/cosh((\eta_3 - 0.5)/\delta)`
-            to localize it around 0.5. :math: `\delta` is given by the input parameter pfuns_params
-
-        pfuns_params : tuple | list
-            The parameter needed by the profile function
-
-        Lx, Ly, Lz : float
-            Domain lengths.
-        """
-
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -190,6 +190,23 @@ class ModesCos:
     Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
     and :math:`L_x=L_y=L_z=1.0` (default).
 
+    Parameters
+    ----------
+    ls : tuple | list
+        Mode numbers in x-direction (kx = l*2*pi/Lx).
+
+    ms : tuple | list
+        Mode numbers in y-direction (ky = m*2*pi/Ly).
+
+    ns : tuple | list
+        Mode numbers in z-direction (kz = n*2*pi/Lz).
+
+    amps : tuple | list
+        Amplitude of each mode.
+
+    Lx, Ly, Lz : float
+        Domain lengths.
+
     Note
     ----
     Example of use in a ``.yml`` parameter file::
@@ -209,25 +226,6 @@ class ModesCos:
     """
 
     def __init__(self, ls=None, ms=None, ns=None, amps=(1e-4,), Lx=1.0, Ly=1.0, Lz=1.0):
-        """
-        Parameters
-        ----------
-        ls : tuple | list
-            Mode numbers in x-direction (kx = l*2*pi/Lx).
-
-        ms : tuple | list
-            Mode numbers in y-direction (ky = m*2*pi/Ly).
-
-        ns : tuple | list
-            Mode numbers in z-direction (kz = n*2*pi/Lz).
-
-        amps : tuple | list
-            Amplitude of each mode.
-
-        Lx, Ly, Lz : float
-            Domain lengths.
-        """
-
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -273,7 +271,115 @@ class ModesCos:
             val += amp * np.cos(
                 l * 2.0 * np.pi / self._Lx * x + m * 2.0 * np.pi / self._Ly * y + n * 2.0 * np.pi / self._Lz * z,
             )
+        # print( "Cos max value", val.max())
+        return val
 
+
+class CoaxialWaveguideElectric_r:
+    r"""Initializes function for Coaxial Waveguide electric field in radial direction.
+
+    Solutions taken from TUM master thesis of Alicia Robles Pérez:
+    "Development of a Geometric Particle-in-Cell Method for Cylindrical Coordinate Systems", 2024
+
+    Parameters
+    ----------
+    m : int
+        Number of Modes
+    a1, a2 : float
+        inner and outer radius of Hollow Cylinder
+    a, b : float
+        Parameters of Electric field
+    """
+
+    def __init__(self, m=1, a1=1.0, a2=2.0, a=1, b=-0.28):
+        self._m = m
+        self._r1 = a1
+        self._r2 = a2
+        self._a = a
+        self._b = b
+
+    def __call__(self, eta1, eta2, eta3):
+        val = 0.0
+        r = eta1 * (self._r2 - self._r1) + self._r1
+        theta = eta2 * 2.0 * np.pi
+
+        val += (
+            -self._m
+            / r
+            * np.cos(self._m * theta)
+            * (self._a * scipy.special.jv(self._m, r) + self._b * scipy.special.yn(self._m, r))
+        )
+        return val
+
+
+class CoaxialWaveguideElectric_theta:
+    r"""
+    Initializes funtion for Coaxial Waveguide electric field in the azimuthal direction.
+
+    Solutions taken from TUM master thesis of Alicia Robles Pérez:
+    "Development of a Geometric Particle-in-Cell Method for Cylindrical Coordinate Systems", 2024
+
+    Parameters
+    ----------
+    m : int
+        Number of Modes
+    a1, a2 : float
+        inner and outer radius of Hollow Cylinder
+    a, b : float
+        Parameters of Electric field
+    """
+
+    def __init__(self, m=1, a1=1.0, a2=2.0, a=1, b=-0.28):
+        self._m = m
+        self._r1 = a1
+        self._r2 = a2
+        self._a = a
+        self._b = b
+
+    def __call__(self, eta1, eta2, eta3):
+        val = 0.0
+        r = eta1 * (self._r2 - self._r1) + self._r1
+        theta = eta2 * 2.0 * np.pi
+
+        val += (
+            self._a * ((self._m / r) * scipy.special.jv(self._m, r) - scipy.special.jv(self._m + 1, r))
+            + (self._b * ((self._m / r) * scipy.special.yn(self._m, r) - scipy.special.yn(self._m + 1, r)))
+        ) * np.sin(self._m * theta)
+        return val
+
+
+class CoaxialWaveguideMagnetic:
+    r"""Initializes funtion for Coaxial Waveguide magnetic field in $z$-direction.
+
+    Solutions taken from TUM master thesis of Alicia Robles Pérez:
+    "Development of a Geometric Particle-in-Cell Method for Cylindrical Coordinate Systems", 2024
+
+    Parameters
+    ----------
+    m : int
+        Number of Modes
+    a1, a2 : float
+        inner and outer radius of Hollow Cylinder
+    a, b : float
+        Parameters of Electric field
+    """
+
+    def __init__(self, m=1, a1=1.0, a2=2.0, a=1, b=-0.28):
+        self._m = m
+        self._r1 = a1
+        self._r2 = a2
+        self._a = a
+        self._b = b
+
+    def __call__(self, eta1, eta2, eta3):
+        val = 0.0
+        r = eta1 * (self._r2 - self._r1) + self._r1
+        theta = eta2 * 2.0 * np.pi
+        z = eta3
+
+        val += (self._a * scipy.special.jv(self._m, r) + self._b * scipy.special.yn(self._m, r)) * np.cos(
+            self._m * theta
+        )
         return val
 
 
@@ -724,6 +830,23 @@ class TorusModesSin:
 
     Can only be defined in logical coordinates.
 
+    Parameters
+    ----------
+    ms : tuple | list[int]
+        Poloidal mode numbers.
+
+    ns : tuple | list[int]
+        Toroidal mode numbers.
+
+    pfuns : tuple | list[str]
+        "sin" or "cos" or "exp" to define the profile functions.
+
+    amps : tuple | list[float]
+        Amplitudes of each mode (m_i, n_i).
+
+    pfun_params : tuple | list
+        Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
+
     Note
     ----
     In the parameter .yml, use the following template in the section ``fluid/<species>``::
@@ -758,25 +881,6 @@ class TorusModesSin:
     """
 
     def __init__(self, ms=None, ns=None, amps=(1e-4,), pfuns=("sin",), pfun_params=None):
-        r"""
-        Parameters
-        ----------
-        ms : tuple | list[int]
-            Poloidal mode numbers.
-
-        ns : tuple | list[int]
-            Toroidal mode numbers.
-
-        pfuns : tuple | list[str]
-            "sin" or "cos" or "exp" to define the profile functions.
-
-        amps : tuple | list[float]
-            Amplitudes of each mode (m_i, n_i).
-
-        pfun_params : tuple | list
-            Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
-        """
-
         if ms is not None:
             n_modes = len(ms)
         elif ns is not None:
@@ -869,6 +973,23 @@ class TorusModesCos:
 
     Can only be defined in logical coordinates.
 
+    Parameters
+    ----------
+    ms : tuple | list[int]
+        Poloidal mode numbers.
+
+    ns : tuple | list[int]
+        Toroidal mode numbers.
+
+    pfuns : tuple | list[str]
+        "sin" or "cos" or "exp" to define the profile functions.
+
+    amps : tuple | list[float]
+        Amplitudes of each mode (m_i, n_i).
+
+    pfun_params : tuple | list
+        Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
+
     Note
     ----
     In the parameter .yml, use the following template in the section ``fluid/<species>``::
@@ -903,25 +1024,6 @@ class TorusModesCos:
     """
 
     def __init__(self, ms=None, ns=None, amps=(1e-4,), pfuns=("sin",), pfun_params=None):
-        r"""
-        Parameters
-        ----------
-        ms : tuple | list[int]
-            Poloidal mode numbers.
-
-        ns : tuple | list[int]
-            Toroidal mode numbers.
-
-        pfuns : tuple | list[str]
-            "sin" or "cos" or "exp" to define the profile functions.
-
-        amps : tuple | list[float]
-            Amplitudes of each mode (m_i, n_i).
-
-        pfun_params : tuple | list
-            Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
-        """
-
         if ms is not None:
             n_modes = len(ms)
         elif ns is not None:
@@ -1004,6 +1106,14 @@ class Shear_x:
 
     Can only be used in logical space.
 
+    Parameters
+    ----------
+    amps : float
+        Amplitude of the velocity on each side.
+
+    delta : float
+        Characteristic size of the shear layer
+
     Note
     ----
     In the parameter .yml, use the following in the section ``fluid/<species>``::
@@ -1020,16 +1130,6 @@ class Shear_x:
     """
 
     def __init__(self, amp=1e-4, delta=1 / 15):
-        """
-        Parameters
-        ----------
-        amps : float
-            Amplitude of the velocity on each side.
-
-        delta : float
-            Characteristic size of the shear layer
-        """
-
         self._amp = amp
         self._delta = delta
 
@@ -1048,6 +1148,14 @@ class Shear_y:
 
     Can only be used in logical space.
 
+    Parameters
+    ----------
+    amps : float
+        Amplitude of the velocity on each side.
+
+    delta : float
+        Characteristic size of the shear layer
+
     Note
     ----
     In the parameter .yml, use the following in the section ``fluid/<species>``::
@@ -1064,16 +1172,6 @@ class Shear_y:
     """
 
     def __init__(self, amp=1e-4, delta=1 / 15):
-        """
-        Parameters
-        ----------
-        amps : float
-            Amplitude of the velocity on each side.
-
-        delta : float
-            Characteristic size of the shear layer
-        """
-
         self._amp = amp
         self._delta = delta
 
@@ -1092,6 +1190,14 @@ class Shear_z:
 
     Can only be used in logical space.
 
+    Parameters
+    ----------
+    amps : float
+        Amplitude of the velocity on each side.
+
+    delta : float
+        Characteristic size of the shear layer
+
     Note
     ----
     In the parameter .yml, use the following in the section ``fluid/<species>``::
@@ -1108,16 +1214,6 @@ class Shear_z:
     """
 
     def __init__(self, amp=1e-4, delta=1 / 15):
-        """
-        Parameters
-        ----------
-        amps : float
-            Amplitude of the velocity on each side.
-
-        delta : float
-            Characteristic size of the shear layer
-        """
-
         self._amp = amp
         self._delta = delta
 
@@ -1136,6 +1232,14 @@ class Erf_z:
 
     Can only be used in logical space.
 
+    Parameters
+    ----------
+    amp : float
+        Amplitude of the velocity on each side.
+
+    delta : float
+        Characteristic size of the shear layer
+
     Note
     ----
     In the parameter .yml, use the following in the section ``fluid/<species>``::
@@ -1152,16 +1256,6 @@ class Erf_z:
     """
 
     def __init__(self, amp=1e-4, delta=1 / 15):
-        """
-        Parameters
-        ----------
-        amp : float
-            Amplitude of the velocity on each side.
-
-        delta : float
-            Characteristic size of the shear layer
-        """
-
         self._amp = amp
         self._delta = delta
 
@@ -1200,6 +1294,23 @@ class RestelliAnalyticSolutionVelocity:
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
 
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
     References
     ----------
     [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
@@ -1207,25 +1318,6 @@ class RestelliAnalyticSolutionVelocity:
     """
 
     def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
-        """
-            Parameters
-        ----------
-        comp : string
-            Which component of the solution ('0', '1' or '2').
-        a : float
-            Minor radius of torus (default: 1.).
-        R0 : float
-            Major radius of torus (default: 2.).
-        B0 : float
-            On-axis (r=0) toroidal magnetic field (default: 10.).
-        Bp : float
-            Poloidal magnetic field (default: 12.5).
-        alpha : float
-            (default: 0.1)
-        beta : float
-            (default: 1.0)
-        """
-
         self._comp = comp
         self._a = a
         self._R0 = R0
@@ -1239,23 +1331,28 @@ class RestelliAnalyticSolutionVelocity:
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(y, x)
-        uR = (
+        phi = np.arctan2(-y, x)
+        ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
         )
-        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+        ustarZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
             self._B0 * self._a * R
         ) * (-(R - self._R0))
-        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+        ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        # form normalized to cylindrical coordinates:
+        uR = ustarR
+        uphi = ustarphi / R
+        uZ = ustarZ
+
+        # from cylindrical to cartesian:
 
         if self._comp == "0":
-            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
-            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
-            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1291,6 +1388,23 @@ class RestelliAnalyticSolutionVelocity_2:
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
 
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
     References
     ----------
     [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
@@ -1298,25 +1412,6 @@ class RestelliAnalyticSolutionVelocity_2:
     """
 
     def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
-        """
-            Parameters
-        ----------
-        comp : string
-            Which component of the solution ('0', '1' or '2').
-        a : float
-            Minor radius of torus (default: 1.).
-        R0 : float
-            Major radius of torus (default: 2.).
-        B0 : float
-            On-axis (r=0) toroidal magnetic field (default: 10.).
-        Bp : float
-            Poloidal magnetic field (default: 12.5).
-        alpha : float
-            (default: 0.1)
-        beta : float
-            (default: 1.0)
-        """
-
         self._comp = comp
         self._a = a
         self._R0 = R0
@@ -1330,23 +1425,28 @@ class RestelliAnalyticSolutionVelocity_2:
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(y, x)
-        uR = (
+        phi = np.arctan2(-y, x)
+        ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
         )
-        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+        ustarZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
             self._B0 * self._a * R
         ) * (-(R - self._R0))
-        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+        ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        # form normalized to cylindrical coordinates:
+        uR = ustarR
+        uphi = ustarphi / R
+        uZ = ustarZ
+
+        # from cylindrical to cartesian:
 
         if self._comp == "0":
-            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
-            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
-            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1382,6 +1482,23 @@ class RestelliAnalyticSolutionVelocity_3:
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
 
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
     References
     ----------
     [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
@@ -1389,25 +1506,6 @@ class RestelliAnalyticSolutionVelocity_3:
     """
 
     def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
-        """
-            Parameters
-        ----------
-        comp : string
-            Which component of the solution ('0', '1' or '2').
-        a : float
-            Minor radius of torus (default: 1.).
-        R0 : float
-            Major radius of torus (default: 2.).
-        B0 : float
-            On-axis (r=0) toroidal magnetic field (default: 10.).
-        Bp : float
-            Poloidal magnetic field (default: 12.5).
-        alpha : float
-            (default: 0.1)
-        beta : float
-            (default: 1.0)
-        """
-
         self._comp = comp
         self._a = a
         self._R0 = R0
@@ -1421,23 +1519,28 @@ class RestelliAnalyticSolutionVelocity_3:
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(y, x)
-        uR = (
+        phi = np.arctan2(-y, x)
+        ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
         )
-        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+        ustarZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
             self._B0 * self._a * R
         ) * (-(R - self._R0))
-        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+        ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        # form normalized to cylindrical coordinates:
+        uR = ustarR
+        uphi = ustarphi / R
+        uZ = ustarZ
+
+        # from cylindrical to cartesian:
 
         if self._comp == "0":
-            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
-            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
-            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1473,6 +1576,21 @@ class RestelliAnalyticSolutionPotential:
         \\[2mm]
         R = \sqrt{x^2 + y^2} \,.
 
+    Parameters
+    ----------
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
     References
     ----------
     [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
@@ -1480,23 +1598,6 @@ class RestelliAnalyticSolutionPotential:
     """
 
     def __init__(self, a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
-        """
-            Parameters
-        ----------
-        a : float
-            Minor radius of torus (default: 1.).
-        R0 : float
-            Major radius of torus (default: 2.).
-        B0 : float
-            On-axis (r=0) toroidal magnetic field (default: 10.).
-        Bp : float
-            Poloidal magnetic field (default: 12.5).
-        alpha : float
-            (default: 0.1)
-        beta : float
-            (default: 1.0)
-        """
-
         self._a = a
         self._R0 = R0
         self._B0 = B0
@@ -1534,22 +1635,20 @@ class ManufacturedSolutionVelocity:
     .. math::
         u =  \left[\begin{array}{c} -sin(2 \pi x) sin(2 \pi y) \\ -cos(2 \pi y) cos(2 \pi y) \\ 0 \end{array} \right] \,,
         u_e =  \left[\begin{array}{c} -sin(4 \pi x) sin(4 \pi y) \\ -cos(4 \pi y) cos(4 \pi y) \\ 0 \end{array} \right] \,.
+        
+    Parameters
+    ----------
+    species : string
+        'Ions' or 'Electrons'.
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    dimension: string
+        Defines the manufactured solution to be selected ('1D' or '2D').
+    b0 : float
+        Magnetic field (default: 1.0).
     """
 
     def __init__(self, species="Ions", comp="0", dimension="1D", b0=1.0):
-        """
-            Parameters
-        ----------
-        species : string
-            'Ions' or 'Electrons'.
-        comp : string
-            Which component of the solution ('0', '1' or '2').
-        dimension: string
-            Defines the manufactured solution to be selected ('1D' or '2D').
-        b0 : float
-            Magnetic field (default: 1.0).
-        """
-
         self._b = b0
         self._species = species
         self._comp = comp
@@ -1640,18 +1739,16 @@ class ManufacturedSolutionPotential:
 
     .. math::
         \phi =  cos(2\pi x) + sin(2\pi y) \,.
+        
+    Parameters
+    ----------
+    dimension: string
+        Defines the manufactured solution to be selected ('1D' or '2D').
+    b0 : float
+        Magnetic field (default: 1.0).
     """
 
     def __init__(self, dimension="1D", b0=1.0):
-        """
-            Parameters
-        ----------
-        dimension: string
-            Defines the manufactured solution to be selected ('1D' or '2D').
-        b0 : float
-            Magnetic field (default: 1.0).
-        """
-
         self._ab = b0
         self._dimension = dimension
 
@@ -1687,22 +1784,20 @@ class ManufacturedSolutionVelocity_2:
     .. math::
         u =  \left[\begin{array}{c} -sin(2 \pi x) sin(2 \pi y) \\ -cos(2 \pi y) cos(2 \pi y) \\ 0 \end{array} \right] \,,
         u_e =  \left[\begin{array}{c} -sin(4 \pi x) sin(4 \pi y) \\ -cos(4 \pi y) cos(4 \pi y) \\ 0 \end{array} \right] \,.
+        
+    Parameters
+    ----------
+    species : string
+        'Ions' or 'Electrons'.
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    dimension: string
+        Defines the manufactured solution to be selected ('1D' or '2D').
+    b0 : float
+        Magnetic field (default: 1.0).
     """
 
     def __init__(self, species="Ions", comp="0", dimension="1D", b0=1.0):
-        """
-            Parameters
-        ----------
-        species : string
-            'Ions' or 'Electrons'.
-        comp : string
-            Which component of the solution ('0', '1' or '2').
-        dimension: string
-            Defines the manufactured solution to be selected ('1D' or '2D').
-        b0 : float
-            Magnetic field (default: 1.0).
-        """
-
         self._b = b0
         self._species = species
         self._comp = comp
@@ -1764,3 +1859,276 @@ class ManufacturedSolutionVelocity_2:
 
         else:
             raise ValueError(f"Invalid species '{self._species}'. Must be 'Ions' or 'Electrons'.")
+
+
+class TokamakManufacturedSolutionVelocity:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
+                \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
+                -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
+        A = self._alpha / (self._a * self._R0)
+        C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
+
+        uR = A * (R - self._R0)
+        uZ = A * z
+        uphi = 0
+
+        # from cylindrical to cartesian:
+
+        if self._comp == "0":
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+
+class TokamakManufacturedSolutionVelocity_1:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
+                \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
+                -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
+        A = self._alpha / (self._a * self._R0)
+        C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
+
+        uR = A * (R - self._R0)
+        uZ = A * z
+        uphi = 0
+
+        # from cylindrical to cartesian:
+
+        if self._comp == "0":
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+
+class TokamakManufacturedSolutionVelocity_2:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
+                \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
+                -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
+        A = self._alpha / (self._a * self._R0)
+        C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
+
+        uR = A * (R - self._R0)
+        uZ = A * z
+        uphi = 0
+
+        # from cylindrical to cartesian:
+
+        if self._comp == "0":
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
