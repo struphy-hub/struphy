@@ -7,7 +7,7 @@ except ImportError:
 class Amrex:
     def __init__(self):
         if amr:
-            # initialize pyAMReX
+            # initialize AMReX
 
             amr.initialize(
                 [
@@ -21,7 +21,7 @@ class Amrex:
                 ]
             )
         else:
-            ModuleNotFoundError("pyAMReX must be installed")
+            raise ModuleNotFoundError("pyAMReX must be installed")
 
     def finalize(self):
         amr.finalize()

@@ -350,7 +350,7 @@ def push_eta_stage(
         # pull-back of velocity
         v = array([v1, v2, v3]).T
         v = v[..., newaxis]  # Npx3x1
-        # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly. Squeeze to take away the unnecessary 1 dim
+        # If either argument is N-D, N > 2, it is treated as a stack of matrices residing in the last two indexes and broadcast accordingly
         k = matmul(jacobian_inv, v)
         # accumulation for last stage
         temp = dt * b[stage] * k
