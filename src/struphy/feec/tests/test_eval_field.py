@@ -14,6 +14,7 @@ def test_eval_field(Nel, p, spl_kind):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.geometry.base import Domain
+    from struphy.initial import perturbations
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -28,55 +29,28 @@ def test_eval_field(Nel, p, spl_kind):
     n3 = derham.create_spline_function("density", "L2")
     uv = derham.create_spline_function("velocity", "H1vec")
 
-    # initialize fields as forms
-    comps = {
-        "pressure": "0",
-        "e_field": ["1", "1", "1"],
-        "b_field": ["2", "2", "2"],
-        "density": "3",
-        "velocity": ["v", "v", "v"],
-    }
-
     # initialize with sin/cos perturbations
-    pert_params_p0 = {"ModesCos": {"given_in_basis": "0", "ls": [0], "ms": [0], "ns": [1], "amps": [5.0]}}
+    pert_p0 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,))
 
-    pert_params_E1 = {
-        "ModesCos": {
-            "given_in_basis": ["1", "1", "1"],
-            "ls": [[0], [0], [0]],
-            "ms": [[0], [0], [0]],
-            "ns": [[1], [1], [1]],
-            "amps": [[5.0], [5.0], [5.0]],
-        }
-    }
+    pert_E1_1 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,), given_in_basis="1", comp=0)
+    pert_E1_2 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,), given_in_basis="1", comp=1)
+    pert_E1_3 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,), given_in_basis="1", comp=2)
 
-    pert_params_B2 = {
-        "ModesCos": {
-            "given_in_basis": ["2", "2", "2"],
-            "ls": [[0], [0], [0]],
-            "ms": [[0], [0], [0]],
-            "ns": [[1], [1], [1]],
-            "amps": [[5.0], [5.0], [5.0]],
-        }
-    }
+    pert_B2_1 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,), given_in_basis="2", comp=0)
+    pert_B2_2 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,), given_in_basis="2", comp=1)
+    pert_B2_3 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,), given_in_basis="2", comp=2)
 
-    pert_params_n3 = {"ModesCos": {"given_in_basis": "3", "ls": [0], "ms": [0], "ns": [1], "amps": [5.0]}}
+    pert_n3 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,))
 
-    pert_params_uv = {
-        "ModesCos": {
-            "given_in_basis": ["v", "v", "v"],
-            "ls": [[0], [0], [0]],
-            "ms": [[0], [0], [0]],
-            "ns": [[1], [1], [1]],
-            "amps": [[5.0], [5.0], [5.0]],
-        }
-    }
+    pert_uv_1 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,), given_in_basis="v", comp=0)
+    pert_uv_2 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,), given_in_basis="v", comp=1)
+    pert_uv_3 = perturbations.ModesCos(ls=(0,), ms=(0,), ns=(1,), amps=(5.0,), given_in_basis="v", comp=2)
 
-    p0.initialize_coeffs(pert_params=pert_params_p0)
-    E1.initialize_coeffs(pert_params=pert_params_E1)
-    B2.initialize_coeffs(pert_params=pert_params_B2)
-    n3.initialize_coeffs(pert_params=pert_params_n3)
-    uv.initialize_coeffs(pert_params=pert_params_uv)
+    p0.initialize_coeffs(perturbations=pert_p0)
+    E1.initialize_coeffs(perturbations=[pert_E1_1, pert_E1_2, pert_E1_3])
+    B2.initialize_coeffs(perturbations=[pert_B2_1, pert_B2_2, pert_B2_3])
+    n3.initialize_coeffs(perturbations=pert_n3)
+    uv.initialize_coeffs(perturbations=[pert_uv_1, pert_uv_2, pert_uv_3])
 
     # evaluation points for meshgrid
     eta1 = np.linspace(0, 1, 11)
@@ -527,6 +501,8 @@ def test_eval_field(Nel, p, spl_kind):
     assert np.all(
         [np.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
     )
+
+    print("\nAll assertions passed.")
 
 
 if __name__ == "__main__":

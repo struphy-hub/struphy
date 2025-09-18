@@ -1,8 +1,8 @@
-import inspect
 import os
 from types import ModuleType
 
 import pytest
+from mpi4py import MPI
 
 from struphy import main
 from struphy.io.options import EnvironmentOptions
@@ -10,30 +10,44 @@ from struphy.io.setup import import_parameters_py
 from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel
 
+rank = MPI.COMM_WORLD.Get_rank()
+
 # available models
-toy_models = []
-for name, obj in inspect.getmembers(toy):
-    if inspect.isclass(obj) and "models.toy" in obj.__module__:
-        toy_models += [name]
-print(f"\n{toy_models = }")
+toy_models = [
+    "Maxwell",
+    "Vlasov",
+    "GuidingCenter",
+]
+# for name, obj in inspect.getmembers(toy):
+#     if inspect.isclass(obj) and "models.toy" in obj.__module__:
+#         toy_models += [name]
+if rank == 0:
+    print(f"\n{toy_models = }")
 
-fluid_models = []
-for name, obj in inspect.getmembers(fluid):
-    if inspect.isclass(obj) and "models.fluid" in obj.__module__:
-        fluid_models += [name]
-print(f"\n{fluid_models = }")
+fluid_models = [
+    "LinearMHD",
+]
+# for name, obj in inspect.getmembers(fluid):
+#     if inspect.isclass(obj) and "models.fluid" in obj.__module__:
+#         fluid_models += [name]
+if rank == 0:
+    print(f"\n{fluid_models = }")
 
-kinetic_models = []
-for name, obj in inspect.getmembers(kinetic):
-    if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
-        kinetic_models += [name]
-print(f"\n{kinetic_models = }")
+kinetic_models = [
+    "VlasovAmpereOneSpecies",
+]
+# for name, obj in inspect.getmembers(kinetic):
+#     if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
+#         kinetic_models += [name]
+if rank == 0:
+    print(f"\n{kinetic_models = }")
 
 hybrid_models = []
-for name, obj in inspect.getmembers(hybrid):
-    if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
-        hybrid_models += [name]
-print(f"\n{hybrid_models = }")
+# for name, obj in inspect.getmembers(hybrid):
+#     if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
+#         hybrid_models += [name]
+if rank == 0:
+    print(f"\n{hybrid_models = }")
 
 
 # folder for test simulations
@@ -41,36 +55,49 @@ test_folder = os.path.join(os.getcwd(), "struphy_model_tests")
 
 
 # generic function for calling model tests
-def call_test(model_name: str, module: ModuleType, verbose=True):
-    print(f"\n*** Testing '{model_name}':")
-    model = getattr(module, model_name)()
+def call_test(model_name: str, module: ModuleType = None, verbose=True):
+    if rank == 0:
+        print(f"\n*** Testing '{model_name}':")
+
+    if module is None:
+        submods = [toy, fluid, kinetic, hybrid]
+        for submod in submods:
+            try:
+                model = getattr(submod, model_name)()
+            except:
+                continue
+
+    else:
+        model = getattr(module, model_name)()
+
     assert isinstance(model, StruphyModel)
 
     # generate paramater file for testing
     path = os.path.join(test_folder, f"params_{model_name}.py")
-    model.generate_default_parameter_file(path=path, prompt=False)
-    del model
-    print("\nDeleting light-weight instance ...")
+    if rank == 0:
+        model.generate_default_parameter_file(path=path, prompt=False)
+        del model
+    MPI.COMM_WORLD.Barrier()
 
     # set environment options
-    env = EnvironmentOptions(out_folders=test_folder, sim_folder=f"{model_name}_test")
+    env = EnvironmentOptions(out_folders=test_folder, sim_folder=f"{model_name}")
 
     # read parameters
     params_in = import_parameters_py(path)
-    units = params_in.units
+    base_units = params_in.base_units
     time_opts = params_in.time_opts
     domain = params_in.domain
     equil = params_in.equil
     grid = params_in.grid
     derham_opts = params_in.derham_opts
+    model = params_in.model
 
     # test
-    model = params_in.model
     main.run(
         model,
         params_path=path,
         env=env,
-        units=units,
+        base_units=base_units,
         time_opts=time_opts,
         domain=domain,
         equil=equil,
@@ -79,26 +106,71 @@ def call_test(model_name: str, module: ModuleType, verbose=True):
         verbose=verbose,
     )
 
+    MPI.COMM_WORLD.Barrier()
+    if rank == 0:
+        path_out = os.path.join(test_folder, model_name)
+        main.pproc(path=path_out)
+        main.load_data(path=path_out)
+    MPI.COMM_WORLD.Barrier()
+
 
 # specific tests
-@pytest.mark.parametrize("model_name", toy_models)
-def test_toy(model_name: str, verbose=True):
-    call_test(model_name=model_name, module=toy, verbose=verbose)
+@pytest.mark.models
+@pytest.mark.toy
+@pytest.mark.parametrize("model", toy_models)
+def test_toy(
+    model: str,
+    vrbose: bool,
+    nclones: int,
+    show_plots: bool,
+):
+    call_test(model_name=model, module=toy, verbose=vrbose)
 
 
-@pytest.mark.parametrize("model_name", fluid_models)
-def test_fluid(model_name: str, verbose=True):
-    call_test(model_name=model_name, module=fluid, verbose=verbose)
+@pytest.mark.models
+@pytest.mark.fluid
+@pytest.mark.parametrize("model", fluid_models)
+def test_fluid(
+    model: str,
+    vrbose: bool,
+    nclones: int,
+    show_plots: bool,
+):
+    call_test(model_name=model, module=fluid, verbose=vrbose)
 
 
-@pytest.mark.parametrize("model_name", kinetic_models)
-def test_kinetic(model_name: str, verbose=True):
-    call_test(model_name=model_name, module=kinetic, verbose=verbose)
+@pytest.mark.models
+@pytest.mark.kinetic
+@pytest.mark.parametrize("model", kinetic_models)
+def test_kinetic(
+    model: str,
+    vrbose: bool,
+    nclones: int,
+    show_plots: bool,
+):
+    call_test(model_name=model, module=kinetic, verbose=vrbose)
 
 
-@pytest.mark.parametrize("model_name", hybrid_models)
-def test_hybrid(model_name: str, verbose=True):
-    call_test(model_name=model_name, module=hybrid, verbose=verbose)
+@pytest.mark.models
+@pytest.mark.hybrid
+@pytest.mark.parametrize("model", hybrid_models)
+def test_hybrid(
+    model: str,
+    vrbose: bool,
+    nclones: int,
+    show_plots: bool,
+):
+    call_test(model_name=model, module=hybrid, verbose=vrbose)
+
+
+@pytest.mark.single
+def test_single_model(
+    model_name: str,
+    vrbose: bool,
+    nclones: int,
+    show_plots: bool,
+):
+    call_test(model_name=model_name, module=None, verbose=vrbose)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ from mpi4py import MPI
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 from struphy.pic.particles import Particles6D
+from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.mpi(min_size=2)
@@ -50,13 +51,11 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     nprocs = derham.domain_decomposition.nprocs
     domain_decomp = (domain_array, nprocs)
 
-    loading_params = {"seed": 1607, "moments": [0.0, 0.0, 0.0, 1.0, 2.0, 3.0], "spatial": "uniform"}
+    loading_params = LoadingParameters(Np=Np, seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
     boxes_per_dim = (3, 3, 6)
 
     particles = Particles6D(
         comm_world=mpi_comm,
-        Np=Np,
-        bc=["periodic", "periodic", "periodic"],
         loading_params=loading_params,
         domain_decomp=domain_decomp,
         boxes_per_dim=boxes_per_dim,
