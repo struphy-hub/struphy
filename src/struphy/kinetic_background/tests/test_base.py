@@ -15,8 +15,8 @@ def test_kinetic_background_magics(show_plot=False):
     m1_params = {"n": 0.5, "u1": 3.0}
     m2_params = {"n": 0.5, "u1": -3.0}
 
-    m1 = Maxwellian3D(maxw_params=m1_params)
-    m2 = Maxwellian3D(maxw_params=m2_params)
+    m1 = Maxwellian3D(n=(0.5, None), u1=(3.0, None))
+    m2 = Maxwellian3D(n=(0.5, None), u1=(-3.0, None))
 
     m_add = m1 + m2
     m_rmul_int = 2 * m1

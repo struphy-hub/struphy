@@ -93,8 +93,9 @@ def get_params_of_run(path: str) -> ParamsIn:
             grid = pickle.load(f)
         with open(os.path.join(path, "derham_opts.bin"), "rb") as f:
             derham_opts = pickle.load(f)
-        with open(os.path.join(path, "model.bin"), "rb") as f:
-            model = pickle.load(f)
+        with open(os.path.join(path, "model_class.bin"), "rb") as f:
+            model_class: StruphyModel = pickle.load(f)
+            model = model_class()
 
     else:
         raise FileNotFoundError(f"Neither of the paths {params_path} or {bin_path} exists.")
@@ -115,6 +116,7 @@ def get_params_of_run(path: str) -> ParamsIn:
 
 def create_femfields(
     path: str,
+    params_in: ParamsIn,
     *,
     step: int = 1,
 ):
@@ -124,6 +126,9 @@ def create_femfields(
     ----------
     path : str
         Absolute path of simulation output folder.
+
+    params_in : ParamsIn
+        Simulation parameters.
 
     step : int
         Whether to create FEM fields at every time step (step=1, default), every second time step (step=2), etc.
@@ -140,9 +145,6 @@ def create_femfields(
     with open(os.path.join(path, "meta.yml"), "r") as f:
         meta = yaml.load(f, Loader=yaml.FullLoader)
     nproc = meta["MPI processes"]
-
-    # import parameters
-    params_in = get_params_of_run(path)
 
     derham = setup_derham(
         params_in.grid,
@@ -249,7 +251,7 @@ def create_femfields(
 
 
 def eval_femfields(
-    path: str,
+    params_in: ParamsIn,
     fields: dict,
     *,
     celldivide: list = [1, 1, 1],
@@ -259,8 +261,8 @@ def eval_femfields(
 
     Parameters
     ----------
-    path : str
-        Absolute path of simulation output folder.
+    params_in : ParamsIn
+        Simulation parameters.
 
     fields : dict
         Obtained from struphy.diagnostics.post_processing.create_femfields.
@@ -286,9 +288,6 @@ def eval_femfields(
     grids_phy : 3-list
         Mapped (physical) grids obtained by domain(*grids_log).
     """
-
-    # import parameters
-    params_in = get_params_of_run(path)
 
     # get domain
     domain = params_in.domain
@@ -618,13 +617,23 @@ def post_process_markers(
         file.close()
 
 
-def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
+def post_process_f(
+    path_in,
+    params_in: ParamsIn,
+    path_out,
+    species,
+    step=1,
+    compute_bckgr=False,
+):
     """Computes and saves distribution functions of saved binning data during a simulation.
 
     Parameters
     ----------
     path_in : str
         Absolute path of simulation output folder.
+
+    params_in : ParamsIn
+        Simulation parameters.
 
     path_out : str
         Absolute path of where to store the .txt files. Will be in path_out/orbits.
@@ -656,9 +665,6 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
         )
         for i in range(int(nproc))
     ]
-
-    # import parameters
-    params = get_params_of_run(path_in)
 
     # directory for .npy files
     path_distr = os.path.join(path_out, "distribution_function")
@@ -729,7 +735,7 @@ def post_process_f(path_in, path_out, species, step=1, compute_bckgr=False):
             #             maxw_params=maxw_params,
             #         )
 
-            spec: KineticSpecies = getattr(params.model, species)
+            spec: KineticSpecies = getattr(params_in.model, species)
             var: PICVariable = spec.var
             f_bckgr: KineticBackground = var.backgrounds
 
