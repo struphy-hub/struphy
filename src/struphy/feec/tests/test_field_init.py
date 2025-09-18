@@ -14,6 +14,7 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.io.options import FieldsBackground
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -37,18 +38,18 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     for i, space in enumerate(spaces):
         field = derham.create_spline_function("name_" + str(i), space)
         if space in ("H1", "L2"):
-            bckgr_params = {"LogicalConst": {"values": val}}
-            field.initialize_coeffs(bckgr_params=bckgr_params)
+            background = FieldsBackground(type="LogicalConst", values=(val,))
+            field.initialize_coeffs(backgrounds=background)
             print(
                 f"\n{rank = }, {space = }, after init:\n {np.max(np.abs(field(*meshgrids) - val)) = }",
             )
             # print(f'{field(*meshgrids) = }')
             assert np.allclose(field(*meshgrids), val)
         else:
-            bckgr_params = {"LogicalConst": {"values": [val, None, val]}}
-            field.initialize_coeffs(bckgr_params=bckgr_params)
-            for j in range(3):
-                if bckgr_params["LogicalConst"]["values"][j]:
+            background = FieldsBackground(type="LogicalConst", values=(val, None, val))
+            field.initialize_coeffs(backgrounds=background)
+            for j, val in enumerate(background.values):
+                if val is not None:
                     print(
                         f"\n{rank = }, {space = }, after init:\n {j = }, {np.max(np.abs(field(*meshgrids)[j] - val)) = }",
                     )
@@ -71,8 +72,9 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
 
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background import equils
-    from struphy.fields_background.base import FluidEquilibriumWithB
+    from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
     from struphy.geometry import domains
+    from struphy.io.options import FieldsBackground
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -81,11 +83,11 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # background parameters
-    bckgr_params_0 = {"MHD": {"variable": "absB0"}}
-    bckgr_params_1 = {"MHD": {"variable": "u1"}}
-    bckgr_params_2 = {"MHD": {"variable": "u2"}}
-    bckgr_params_3 = {"MHD": {"variable": "p3"}}
-    bckgr_params_4 = {"MHD": {"variable": "uv"}}
+    bckgr_0 = FieldsBackground(type="FluidEquilibrium", variable="absB0")
+    bckgr_1 = FieldsBackground(type="FluidEquilibrium", variable="u1")
+    bckgr_2 = FieldsBackground(type="FluidEquilibrium", variable="u2")
+    bckgr_3 = FieldsBackground(type="FluidEquilibrium", variable="p3")
+    bckgr_4 = FieldsBackground(type="FluidEquilibrium", variable="uv")
 
     # evaluation grids for comparisons
     e1 = np.linspace(0.0, 1.0, Nel[0])
@@ -106,6 +108,9 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 continue
 
             mhd_equil = val()
+            if not isinstance(mhd_equil, FluidEquilibriumWithB):
+                continue
+
             print(f"{mhd_equil.params = }")
 
             if "AdhocTorus" in key:
@@ -118,7 +123,12 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
             elif "CircularTokamak" in key:
-                mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
+                mhd_equil.domain = domains.HollowTorus(
+                    a1=1e-3,
+                    a2=mhd_equil.params["a"],
+                    R0=mhd_equil.params["R0"],
+                    tor_period=1,
+                )
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
             elif "ShearedSlab" in key:
@@ -148,37 +158,33 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             field_0 = derham.create_spline_function(
                 "name_0",
                 "H1",
-                bckgr_params=bckgr_params_0,
+                backgrounds=bckgr_0,
+                equil=mhd_equil,
             )
             field_1 = derham.create_spline_function(
                 "name_1",
                 "Hcurl",
-                bckgr_params=bckgr_params_1,
+                backgrounds=bckgr_1,
+                equil=mhd_equil,
             )
             field_2 = derham.create_spline_function(
                 "name_2",
                 "Hdiv",
-                bckgr_params=bckgr_params_2,
+                backgrounds=bckgr_2,
+                equil=mhd_equil,
             )
             field_3 = derham.create_spline_function(
                 "name_3",
                 "L2",
-                bckgr_params=bckgr_params_3,
+                backgrounds=bckgr_3,
+                equil=mhd_equil,
             )
             field_4 = derham.create_spline_function(
                 "name_4",
                 "H1vec",
-                bckgr_params=bckgr_params_4,
+                backgrounds=bckgr_4,
+                equil=mhd_equil,
             )
-
-            field_1.initialize_coeffs(bckgr_obj=mhd_equil)
-            print("field_1 initialized.")
-            field_2.initialize_coeffs(bckgr_obj=mhd_equil)
-            print("field_2 initialized.")
-            field_3.initialize_coeffs(bckgr_obj=mhd_equil)
-            print("field_3 initialized.")
-            field_4.initialize_coeffs(bckgr_obj=mhd_equil)
-            print("field_4 initialized.")
 
             # scalar spaces
             print(
@@ -193,8 +199,6 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             )
 
             if isinstance(mhd_equil, FluidEquilibriumWithB):
-                field_0.initialize_coeffs(bckgr_obj=mhd_equil)
-                print("field_0 initialized.")
                 print(
                     f"{np.max(np.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))) / np.max(np.abs(mhd_equil.absB0(*meshgrids)))}"
                 )
@@ -1088,28 +1092,34 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.initial.perturbations import ModesCos, ModesSin
+    from struphy.io.options import FieldsBackground
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 
     # background parameters
-    avg_0 = 1.2
-    avg_1 = [None, 2.6, 3.7]
-    avg_2 = [2, 3, 4.2]
+    avg_0 = (1.2,)
+    avg_1 = (0.0, 2.6, 3.7)
+    avg_2 = (2, 3, 4.2)
 
-    bckgr_params_0 = {"LogicalConst": {"values": avg_0}}
-    bckgr_params_1 = {"LogicalConst": {"values": avg_1}}
-    bckgr_params_2 = {"LogicalConst": {"values": avg_2}}
+    bckgr_0 = FieldsBackground(type="LogicalConst", values=avg_0)
+    bckgr_1 = FieldsBackground(type="LogicalConst", values=avg_1)
+    bckgr_2 = FieldsBackground(type="LogicalConst", values=avg_2)
 
     # perturbations
     ms_s = [0, 2]
     ns_s = [1, 1]
     amps = [0.2]
-    f_sin = ModesSin(ms=ms_s, ns=ns_s, amps=amps)
+    f_sin_0 = ModesSin(ms=ms_s, ns=ns_s, amps=amps)
+    f_sin_11 = ModesSin(ms=ms_s, ns=ns_s, amps=amps, given_in_basis="1", comp=0)
+    f_sin_13 = ModesSin(ms=ms_s, ns=ns_s, amps=amps, given_in_basis="1", comp=2)
 
     ms_c = [1]
     ns_c = [0]
-    f_cos = ModesCos(ms=ms_c, ns=ns_c, amps=amps)
+    f_cos_0 = ModesCos(ms=ms_c, ns=ns_c, amps=amps)
+    f_cos_11 = ModesCos(ms=ms_c, ns=ns_c, amps=amps, given_in_basis="1", comp=0)
+    f_cos_12 = ModesCos(ms=ms_c, ns=ns_c, amps=amps, given_in_basis="1", comp=1)
+    f_cos_22 = ModesCos(ms=ms_c, ns=ns_c, amps=amps, given_in_basis="2", comp=1)
 
     pert_params_0 = {
         "ModesSin": {
@@ -1153,13 +1163,11 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     # Psydac discrete Derham sequence and fields
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
-    field_0 = derham.create_spline_function("name_0", "H1")
-    field_1 = derham.create_spline_function("name_1", "Hcurl")
-    field_2 = derham.create_spline_function("name_2", "Hdiv")
-
-    field_0.initialize_coeffs(bckgr_params=bckgr_params_0, pert_params=pert_params_0)
-    field_1.initialize_coeffs(bckgr_params=bckgr_params_1, pert_params=pert_params_1)
-    field_2.initialize_coeffs(bckgr_params=bckgr_params_2, pert_params=pert_params_2)
+    field_0 = derham.create_spline_function("name_0", "H1", backgrounds=bckgr_0, perturbations=[f_sin_0, f_cos_0])
+    field_1 = derham.create_spline_function(
+        "name_1", "Hcurl", backgrounds=bckgr_1, perturbations=[f_sin_11, f_sin_13, f_cos_11, f_cos_12]
+    )
+    field_2 = derham.create_spline_function("name_2", "Hdiv", backgrounds=bckgr_2, perturbations=[f_cos_22])
 
     # evaluation grids for comparisons
     e1 = np.linspace(0.0, 1.0, Nel[0])
@@ -1167,24 +1175,16 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     e3 = np.linspace(0.0, 1.0, Nel[2])
     meshgrids = np.meshgrid(e1, e2, e3, indexing="ij")
 
-    fun_0 = avg_0 + f_sin(*meshgrids) + f_cos(*meshgrids)
-
-    for i, a in enumerate(avg_1):
-        if a is None:
-            avg_1[i] = 0.0
-
-    for i, a in enumerate(avg_2):
-        if a is None:
-            avg_2[i] = 0.0
+    fun_0 = avg_0 + f_sin_0(*meshgrids) + f_cos_0(*meshgrids)
 
     fun_1 = [
-        avg_1[0] + f_sin(*meshgrids) + +f_cos(*meshgrids),
-        avg_1[1] + f_cos(*meshgrids),
-        avg_1[2] + f_sin(*meshgrids),
+        avg_1[0] + f_sin_11(*meshgrids) + f_cos_11(*meshgrids),
+        avg_1[1] + f_cos_12(*meshgrids),
+        avg_1[2] + f_sin_13(*meshgrids),
     ]
     fun_2 = [
         avg_2[0] + 0.0 * meshgrids[0],
-        avg_2[1] + f_cos(*meshgrids),
+        avg_2[1] + f_cos_22(*meshgrids),
         avg_2[2] + 0.0 * meshgrids[0],
     ]
 
@@ -1321,6 +1321,7 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
+    from struphy.initial.perturbations import Noise
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1333,16 +1334,10 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
     field_np = derham_np.create_spline_function("field", space)
 
     # initial conditions
-    pert_params = {
-        "noise": {
-            "comps": [True, False, False],
-            "direction": direction,
-            "amp": 0.0001,
-            "seed": 1234,
-        },
-    }
-    field.initialize_coeffs(pert_params=pert_params)
-    field_np.initialize_coeffs(pert_params=pert_params)
+    pert = Noise(direction=direction, amp=0.0001, seed=1234, comp=0)
+
+    field.initialize_coeffs(perturbations=pert)
+    field_np.initialize_coeffs(perturbations=pert)
 
     # print('#'*80)
     # print(f'npts={field.vector[0].space.npts}, npts_np={field_np.vector[0].space.npts}')
@@ -1360,15 +1355,15 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
 if __name__ == "__main__":
     # test_bckgr_init_const([8, 10, 12], [1, 2, 3], [False, False, True], [
     #     'H1', 'Hcurl', 'Hdiv'], [True, True, False])
-    test_bckgr_init_mhd(
-        [18, 24, 12],
-        [1, 2, 1],
-        [
-            False,
-            True,
-            True,
-        ],
-        show_plot=True,
-    )
-    # test_sincos_init_const([1, 32, 32], [1, 3, 3], [True]*3, show_plot=True)
-    # test_noise_init([4, 8, 6], [1, 1, 1], [True, True, True], "Hcurl", "e1")
+    # test_bckgr_init_mhd(
+    #     [18, 24, 12],
+    #     [1, 2, 1],
+    #     [
+    #         False,
+    #         True,
+    #         True,
+    #     ],
+    #     show_plot=False,
+    # )
+    test_sincos_init_const([1, 32, 32], [1, 3, 3], [True] * 3, show_plot=True)
+    test_noise_init([4, 8, 6], [1, 1, 1], [True, True, True], "Hcurl", "e1")

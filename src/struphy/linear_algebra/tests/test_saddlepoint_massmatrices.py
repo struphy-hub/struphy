@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.parametrize("Nel", [[12, 8, 1]])
 @pytest.mark.parametrize("p", [[3, 3, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True]])
-@pytest.mark.parametrize("dirichlet_bc", [[[False, False], [False, False], [False, False]]])
+@pytest.mark.parametrize("dirichlet_bc", [((False, False), (False, False), (False, False))])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}]])
 def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Test saddle-point-solver with manufactured solutions."""
@@ -71,11 +71,10 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     nue = 0.01 * 100
     nu = 1.0
     dt = 0.001
-    eps = 1e-6
-    eps2 = eps  # 1e-5#1. #Preconditioner Ae
+    stab_sigma = 1e-4
     method_to_solve = "DirectNPInverse"  # 'ScipySparse', 'DirectNPInverse', 'InexactNPInverse', , 'SparseSolver'
     preconditioner = True
-    spectralanalysis = True
+    spectralanalysis = False
 
     # Create the solver
     rho = 0.0005  # Example descent parameter
@@ -92,16 +91,13 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         A11 = M2 / dt + nu * (D.T @ M3 @ D + S21.T @ C.T @ M2 @ C @ S21) - M2R
         A12 = None
         A21 = A12
-        A22 = eps * IdentityOperator(A11.domain) + nue * (D.T @ M3 @ D + S21.T @ C.T @ M2 @ C @ S21) + M2R
+        A22 = stab_sigma * IdentityOperator(A11.domain) + nue * (D.T @ M3 @ D + S21.T @ C.T @ M2 @ C @ S21) + M2R
         B1 = -M3 @ D
         B1T = B1.T
         B2 = M3 @ D
         B2T = B2.T
         F1 = A11.dot(x1) + B1T.dot(y1_rdm)
         F2 = A22.dot(x2) + B2T.dot(y1_rdm)
-        # Preconditioner
-        _A11 = M2 / dt + nu * (D.T @ M3 @ D)  # + S21.T @ C.T @ M2 @ C @ S21
-        _A22 = nue * (D.T @ M3 @ D) + M2  # +eps2*IdentityOperator(A22.domain)  #
     elif method_for_solving in ("SaddlePointSolverUzawaNumpy"):
         # Change to numpy
         if method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -136,20 +132,25 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         A11np = M2np / dt + nu * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np) - M2Bnp
         if method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
             A22np = (
-                eps * np.identity(A11np.shape[0])
+                stab_sigma * np.identity(A11np.shape[0])
                 + nue * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np)
                 + M2Bnp
             )
-            _A22np_pre = eps * np.identity(A22np.shape[0])  # + nue*(Dnp.T @ M3np @ Dnp)
+            # Preconditioner
+            _A22np_pre = stab_sigma * np.identity(A22np.shape[0])  # + nue*(Dnp.T @ M3np @ Dnp)
+            _A11np_pre = M2np / dt  # + nu * (Dnp.T @ M3np @ Dnp)
         elif method_to_solve in ("SparseSolver", "ScipySparse"):
             A22np = (
-                eps * sc.sparse.identity(A11np.shape[0], format="csr")
+                stab_sigma * sc.sparse.identity(A11np.shape[0], format="csr")
                 + nue * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np)
                 + M2Bnp
             )
-            +nue * (Dnp.T @ M3np @ Dnp) + eps * sc.sparse.identity(A22np.shape[0], format="csr")  #
-            _A22np_pre = eps * sc.sparse.identity(A22np.shape[0], format="csr")  # + nue*(Dnp.T @ M3np @ Dnp)
+            +nue * (Dnp.T @ M3np @ Dnp) + stab_sigma * sc.sparse.identity(A22np.shape[0], format="csr")  #
+            # Preconditioner
+            _A22np_pre = stab_sigma * sc.sparse.identity(A22np.shape[0], format="csr")  # + nue*(Dnp.T @ M3np @ Dnp)
             _A22np_pre = _A22np_pre.tocsr()
+            _A11np_pre = M2np / dt  # + nu * (Dnp.T @ M3np @ Dnp)
+            _A11np_pre = _A11np_pre.tocsr()
         B1np = -M3np @ Dnp
         B2np = M3np @ Dnp
         ynp = y1_rdm.toarray()
@@ -159,7 +160,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         Anp = [A11np, A22np]
         Bnp = [B1np, B2np]
         Fnp = [F1np, F2np]
-        _A11np_pre = M2np / dt + nu * (Dnp.T @ M3np @ Dnp)
+        # Preconditioner not inverted
         Anppre = [_A11np_pre, _A22np_pre]
 
     if method_for_solving in ("SaddlePointSolverGMRES", "SaddlePointSolverGMRESwithPC"):
@@ -259,6 +260,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             spectralanalysis=spectralanalysis,
             tol=tol,
             max_iter=max_iter,
+            verbose=verbose,
         )
         solver.A = Anp
         solver.B = Bnp

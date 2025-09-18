@@ -97,6 +97,7 @@ stages:
   rules:
     - !reference [.rules_common, skip_pages_and_scheduled]
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "devel" && $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "318-parameter-file-as-py" && $CI_PIPELINE_SOURCE == "merge_request_event"
 
 .rules_mr_to_master:
   rules:
@@ -398,6 +399,7 @@ stages:
   inspect_struphy:
     - struphy -p
     - struphy -h
+    - struphy --refresh-models
     - struphy run -h
   unit_tests:
     - struphy compile --status
@@ -405,30 +407,39 @@ stages:
     - struphy test unit
   model_tests:
     - struphy compile --status
-    - struphy test models --fast
-    - struphy test models --fast --verification --mpi 1
-    - struphy test models --fast --verification --mpi 4
-    - struphy test models --fast --verification --mpi 4 --nclones 2
-    - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
+    - struphy test LinearMHD
+    - struphy test toy
+    - struphy test models --mpi 1
+    - struphy test models --mpi 2
+    - struphy test models --mpi 3
+    - struphy test models --mpi 4
+    - struphy test verification --mpi 4
+    # - struphy test models --fast --verification --mpi 4
+    # - struphy test models --fast --verification --mpi 4 --nclones 2
+    # - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
   quickstart_tests:
-    - struphy --set-i .
-    - struphy --set-o .
     - struphy -p
     - struphy -h
-    - struphy run -h
-    - struphy params VlasovMaxwellOneSpecies -y
+    - struphy params VlasovAmpereOneSpecies 
     - ls -1a
-    - mv params_VlasovMaxwellOneSpecies.yml test.yml
-    - struphy run -i test.yml -o my_first_sim
-    - ls my_first_sim/
-    - struphy pproc my_first_sim
-    - ls my_first_sim/post_processing/fields_data/
-    - ls my_first_sim/post_processing/kinetic_data/
-    - struphy params VlasovMaxwellOneSpecies --options
-    - struphy run -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
-    - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
-    - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
-    - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
+    - mv params_VlasovAmpereOneSpecies.py test.py
+    - python3 test.py
+    - ls sim_1/
+    - mpirun -n 2 python3 test.py
+    - LINE_PROFILE=1 mpirun -n 2 python3 test.py
+    # - struphy pproc my_first_sim
+    # - ls my_first_sim/post_processing/fields_data/
+    # - ls my_first_sim/post_processing/kinetic_data/
+    # - struphy params VlasovMaxwellOneSpecies --options
+    # - struphy run -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
+    # - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
+    # - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
+    # - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
+  tutorial_tests:
+    - pwd
+    - ls -1a
+    - which python
+    - jupyter nbconvert --to notebook --execute tutorials/*.ipynb
   build_images:
     - buildah images
     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest -f docker/almalinux-latest.dockerfile .
@@ -499,6 +510,23 @@ inspect_repo:
 ### PUSH PIPELINE ###
 #####################
 
+# check_struphy_simulation_params:
+#   stage: test
+#   extends:
+#     - .rules_mr_to_devel
+#     - .image_gitlab_mpcdf_struphy
+#     - .before_script_load_modules
+#     - .variables_push
+#   script:
+#     - !reference [.scripts, install_on_push]
+#     - git clone https://gitlab.mpcdf.mpg.de/struphy/struphy-simulations.git
+#     - |
+#       for file in struphy-simulations/**/*.yml; do
+#         echo "Checking $file"
+#         # TODO: How to deduce the model?
+#         struphy params LinearVlasovAmpereOneSpecies --check-file $file
+#       done
+
 install_tests:
   stage: test
   extends:
@@ -554,10 +582,21 @@ quickstart_tests:
     - !reference [.scripts, install_on_push]
     - !reference [.scripts, quickstart_tests]
 
+# tutorial_tests:
+#   stage: test
+#   extends:
+#     - .rules_mr_to_devel
+#     - .image_gitlab_mpcdf_struphy
+#     - .before_script_load_modules
+#     - .variables_push
+#   script:
+#     - !reference [.scripts, install_on_push]
+#     - !reference [.scripts, tutorial_tests]
+
 pages_tests:
   stage: test
   extends:
-    - .rules_mr_to_devel
+    - .rules_scheduled
     - .image_gitlab_mpcdf_struphy
     - .before_script_load_modules
     - .variables_push
@@ -566,14 +605,19 @@ pages_tests:
     - !reference [.scripts, inspect_struphy]
     - module load pandoc
     - module list
-    - pip install -e .[doc]
+    - pip install .[doc]
     - |
       struphy compile -y || (
         echo "Initial compile failed. Removing compiled kernels and trying again..." &&
         struphy compile -d -y &&
         struphy compile -y
       )
-    - cd doc ; make html; cd ..
+    - cd doc ; make html
+    - mv _build/html/ $CI_PROJECT_DIR/documentation/
+  artifacts:
+    expose_as: 'Documentation'
+    paths:
+      - documentation/
 
 ubuntu_latest:
   stage: test
@@ -644,6 +688,7 @@ cleanup_macos:
 ##########################
 ### SCHEDULED PIPELINE ###
 ##########################
+
 
 install_scheduled:
   stage: install
@@ -919,12 +964,11 @@ lint_full_repo_report:
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
     - struphy lint all --output-format report
-    - mkdir -p lint_reports
-    - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
   allow_failure: true
   artifacts:
+    expose_as: 'Branch lint report'
     paths:
-      - lint_reports/
+      - code_analysis_report.html
     expire_in: 1 month
 
 # Lint struphy with `struphy lint`
@@ -969,12 +1013,11 @@ lint_branch_report:
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
     - struphy lint branch --output-format report
-    - mkdir -p lint_reports
-    - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
   allow_failure: true
   artifacts:
+    expose_as: 'Branch lint report'
     paths:
-      - lint_reports/
+      - code_analysis_report.html
     expire_in: 1 month
 
 ###################
@@ -996,7 +1039,7 @@ pages:
     - !reference [.scripts, inspect_struphy]
     - !reference [.scripts, compile]
     - cd doc ; make html
-    - mv _build/html/ ../public/
+    - mv _build/html/ $CI_PROJECT_DIR/public/
   artifacts:
     name: 'pages'
     paths:

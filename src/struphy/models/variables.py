@@ -21,10 +21,11 @@ from struphy.io.options import (
 from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import particles
 from struphy.pic.base import Particles
+from struphy.pic.particles import ParticlesSPH
 from struphy.utils.clone_config import CloneConfig
 
 if TYPE_CHECKING:
-    from struphy.models.species import FieldSpecies, FluidSpecies, KineticSpecies, Species
+    from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies, Species
 
 
 class Variable(metaclass=ABCMeta):
@@ -86,21 +87,6 @@ class Variable(metaclass=ABCMeta):
             for k, v in background.__dict__.items():
                 print(f"  {k}: {v}")
 
-    def add_perturbation(self, perturbation: Perturbation, verbose=True):
-        if not hasattr(self, "_perturbations") or self.perturbations is None:
-            self._perturbations = perturbation
-        else:
-            if not isinstance(self.perturbations, list):
-                self._perturbations = [self.perturbations]
-            self._perturbations += [perturbation]
-
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:"
-            )
-            for k, v in perturbation.__dict__.items():
-                print(f"  {k}: {v}")
-
 
 class FEECVariable(Variable):
     def __init__(self, space: OptsFEECSpace = "H1"):
@@ -124,6 +110,21 @@ class FEECVariable(Variable):
     def add_background(self, background: FieldsBackground, verbose=True):
         super().add_background(background, verbose=verbose)
 
+    def add_perturbation(self, perturbation: Perturbation, verbose=True):
+        if not hasattr(self, "_perturbations") or self.perturbations is None:
+            self._perturbations = perturbation
+        else:
+            if not isinstance(self.perturbations, list):
+                self._perturbations = [self.perturbations]
+            self._perturbations += [perturbation]
+
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:"
+            )
+            for k, v in perturbation.__dict__.items():
+                print(f"  {k}: {v}")
+
     def allocate(
         self,
         derham: Derham,
@@ -144,7 +145,7 @@ class PICVariable(Variable):
     def __init__(self, space: OptsPICSpace = "Particles6D"):
         check_option(space, OptsPICSpace)
         self._space = space
-        self._kinetic_data = {}
+        self._particle_data = {}
 
     @property
     def space(self):
@@ -155,11 +156,11 @@ class PICVariable(Variable):
         return self._particles
 
     @property
-    def kinetic_data(self):
-        return self._kinetic_data
+    def particle_data(self) -> dict:
+        return self._particle_data
 
     @property
-    def species(self) -> KineticSpecies:
+    def species(self) -> ParticleSpecies:
         if not hasattr(self, "_species"):
             self._species = None
         return self._species
@@ -174,6 +175,21 @@ class PICVariable(Variable):
     def add_background(self, background: KineticBackground, n_as_volume_form: bool = False, verbose=True):
         self._n_as_volume_form = n_as_volume_form
         super().add_background(background, verbose=verbose)
+
+    def add_initial_condition(self, init: KineticBackground, verbose=True):
+        self._initial_condition = init
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added initial condition '{init.__class__.__name__}' with:"
+            )
+            for k, v in init.__dict__.items():
+                print(f"  {k}: {v}")
+
+    @property
+    def initial_condition(self) -> KineticBackground:
+        if not hasattr(self, "_initial_condition"):
+            self._initial_condition = self.backgrounds
+        return self._initial_condition
 
     def allocate(
         self,
@@ -218,6 +234,7 @@ class PICVariable(Variable):
             equil=equil,
             projected_equil=projected_equil,
             background=self.backgrounds,
+            initial_condition=self.initial_condition,
             n_as_volume_form=self.n_as_volume_form,
             # perturbations=self.perturbations,
             equation_params=self.species.equation_params,
@@ -245,42 +262,193 @@ class PICVariable(Variable):
             assert len(sli.split("_")) == len(ranges) == len(n_bins), (
                 f"Number of slices names ({len(sli.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
             )
-            self.kinetic_data["bin_edges"][sli] = []
+            self.particle_data["bin_edges"][sli] = []
             dims = (len(sli) - 2) // 3 + 1
             for j in range(dims):
-                self.kinetic_data["bin_edges"][sli] += [
+                self.particle_data["bin_edges"][sli] += [
                     np.linspace(
                         ranges[j][0],
                         ranges[j][1],
                         n_bins[j] + 1,
                     ),
                 ]
-            self.kinetic_data["f"][sli] = np.zeros(n_bins, dtype=float)
-            self.kinetic_data["df"][sli] = np.zeros(n_bins, dtype=float)
+            self.particle_data["f"][sli] = np.zeros(n_bins, dtype=float)
+            self.particle_data["df"][sli] = np.zeros(n_bins, dtype=float)
 
         # for storing an sph evaluation of the density n
-        if self.species.n_sph is not None:
-            plot_pts = self.species.n_sph["plot_pts"]
+        self.particle_data["n_sph"] = []
+        self.particle_data["plot_pts"] = []
 
-            self.kinetic_data["n_sph"] = []
-            self.kinetic_data["plot_pts"] = []
-            for i, pts in enumerate(plot_pts):
-                assert len(pts) == 3
-                eta1 = np.linspace(0.0, 1.0, pts[0])
-                eta2 = np.linspace(0.0, 1.0, pts[1])
-                eta3 = np.linspace(0.0, 1.0, pts[2])
-                ee1, ee2, ee3 = np.meshgrid(
-                    eta1,
-                    eta2,
-                    eta3,
-                    indexing="ij",
-                )
-                self.kinetic_data["plot_pts"] += [(ee1, ee2, ee3)]
-                self.kinetic_data["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
+        for kd_plot in self.species.kernel_density_plots:
+            eta1 = np.linspace(0.0, 1.0, kd_plot.pts_e1)
+            eta2 = np.linspace(0.0, 1.0, kd_plot.pts_e2)
+            eta3 = np.linspace(0.0, 1.0, kd_plot.pts_e3)
+            ee1, ee2, ee3 = np.meshgrid(
+                eta1,
+                eta2,
+                eta3,
+                indexing="ij",
+            )
+            self.particle_data["plot_pts"] += [(ee1, ee2, ee3)]
+            self.particle_data["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
 
         # other data (wave-particle power exchange, etc.)
         # TODO   
     
     
 class SPHVariable(Variable):
-    pass
+    def __init__(self):
+        self._space = "ParticlesSPH"
+        self._n_as_volume_form = True
+        self._particle_data = {}
+
+    @property
+    def space(self):
+        return self._space
+
+    @property
+    def particles(self) -> ParticlesSPH:
+        return self._particles
+
+    @property
+    def particle_data(self):
+        return self._particle_data
+
+    @property
+    def species(self) -> ParticleSpecies:
+        if not hasattr(self, "_species"):
+            self._species = None
+        return self._species
+
+    @property
+    def n_as_volume_form(self) -> bool:
+        """Whether the number density n is given as a volume form or scalar function (=default)."""
+        return self._n_as_volume_form
+
+    def add_background(self, background: FluidEquilibrium, verbose=True):
+        super().add_background(background, verbose=verbose)
+
+    def add_perturbation(
+        self,
+        del_n: Perturbation = None,
+        del_u1: Perturbation = None,
+        del_u2: Perturbation = None,
+        del_u3: Perturbation = None,
+        verbose=True,
+    ):
+        self._perturbations = {}
+        self._perturbations["n"] = del_n
+        self._perturbations["u1"] = del_u1
+        self._perturbations["u2"] = del_u2
+        self._perturbations["u3"] = del_u3
+
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation:")
+            for k, v in self._perturbations.items():
+                print(f"  {k}: {v}")
+
+    @property
+    def perturbations(self) -> dict[str, Perturbation]:
+        if not hasattr(self, "_perturbations"):
+            self._perturbations = None
+        return self._perturbations
+
+    def allocate(
+        self,
+        derham: Derham = None,
+        domain: Domain = None,
+        equil: FluidEquilibrium = None,
+        projected_equil: ProjectedFluidEquilibrium = None,
+        verbose: bool = False,
+    ):
+        assert isinstance(self.backgrounds, FluidEquilibrium), (
+            f"List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+        )
+
+        self.backgrounds.domain = domain
+
+        if derham is None:
+            domain_decomp = None
+        else:
+            domain_array = derham.domain_array
+            nprocs = derham.domain_decomposition.nprocs
+            domain_decomp = (domain_array, nprocs)
+
+        comm_world = MPI.COMM_WORLD
+        if comm_world.Get_size() == 1:
+            comm_world = None
+
+        self._particles = ParticlesSPH(
+            comm_world=comm_world,
+            domain_decomp=domain_decomp,
+            mpi_dims_mask=self.species.dims_mask,
+            boxes_per_dim=self.species.boxes_per_dim,
+            box_bufsize=self.species.box_bufsize,
+            name=self.species.__class__.__name__,
+            loading_params=self.species.loading_params,
+            weights_params=self.species.weights_params,
+            boundary_params=self.species.boundary_params,
+            bufsize=self.species.bufsize,
+            domain=domain,
+            equil=equil,
+            projected_equil=projected_equil,
+            background=self.backgrounds,
+            n_as_volume_form=self.n_as_volume_form,
+            perturbations=self.perturbations,
+            equation_params=self.species.equation_params,
+            verbose=verbose,
+        )
+
+        if self.species.do_sort:
+            sort = True
+        else:
+            sort = False
+        self.particles.draw_markers(sort=sort, verbose=verbose)
+        self.particles.initialize_weights()
+
+        # for storing the binned distribution function
+        self.particle_data["bin_edges"] = {}
+        self.particle_data["f"] = {}
+        self.particle_data["df"] = {}
+
+        for bin_plot in self.species.binning_plots:
+            sli = bin_plot.slice
+            n_bins = bin_plot.n_bins
+            ranges = bin_plot.ranges
+
+            assert ((len(sli) - 2) / 3).is_integer(), f"Binning coordinates must be separated by '_', but reads {sli}."
+            assert len(sli.split("_")) == len(ranges) == len(n_bins), (
+                f"Number of slices names ({len(sli.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
+            )
+            self.particle_data["bin_edges"][sli] = []
+            dims = (len(sli) - 2) // 3 + 1
+            for j in range(dims):
+                self.particle_data["bin_edges"][sli] += [
+                    np.linspace(
+                        ranges[j][0],
+                        ranges[j][1],
+                        n_bins[j] + 1,
+                    ),
+                ]
+            self.particle_data["f"][sli] = np.zeros(n_bins, dtype=float)
+            self.particle_data["df"][sli] = np.zeros(n_bins, dtype=float)
+
+        # for storing an sph evaluation of the density n
+        self.particle_data["n_sph"] = []
+        self.particle_data["plot_pts"] = []
+
+        for kd_plot in self.species.kernel_density_plots:
+            eta1 = np.linspace(0.0, 1.0, kd_plot.pts_e1)
+            eta2 = np.linspace(0.0, 1.0, kd_plot.pts_e2)
+            eta3 = np.linspace(0.0, 1.0, kd_plot.pts_e3)
+            ee1, ee2, ee3 = np.meshgrid(
+                eta1,
+                eta2,
+                eta3,
+                indexing="ij",
+            )
+            self.particle_data["plot_pts"] += [(ee1, ee2, ee3)]
+            self.particle_data["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
+
+        # other data (wave-particle power exchange, etc.)
+        # TODO

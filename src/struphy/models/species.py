@@ -141,7 +141,7 @@ class FluidSpecies(Species):
     pass
 
 
-class KineticSpecies(Species):
+class ParticleSpecies(Species):
     """Single kinetic species in 3d + vdim phase space."""
 
     def set_markers(
@@ -184,7 +184,7 @@ class KineticSpecies(Species):
         self,
         do_sort: bool = False,
         sorting_frequency: int = 0,
-        boxes_per_dim: tuple = (16, 1, 1),
+        boxes_per_dim: tuple = (12, 12, 1),
         box_bufsize: float = 2.0,
         dims_maks: tuple = (True, True, True),
     ):

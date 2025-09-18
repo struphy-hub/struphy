@@ -21,7 +21,7 @@ from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.io.options import OptsMPIsort, check_option
 from struphy.io.setup import descend_options_dict
-from struphy.models.variables import FEECVariable, PICVariable
+from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.base import Particles
@@ -62,7 +62,7 @@ class PushEta(Propagator):
         
         @var.setter
         def var(self, new):
-            assert isinstance(new, PICVariable)
+            assert isinstance(new, PICVariable | SPHVariable)
             self._var = new
 
     def __init__(self):

@@ -7,6 +7,8 @@ from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpa
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.solvers import inverse
 
+from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
+
 
 class SaddlePointSolver:
     r"""Solves for :math:`(x, y)` in the saddle point problem
@@ -135,6 +137,7 @@ class SaddlePointSolver:
         self._max_iter = max_iter
         self._spectralanalysis = spectralanalysis
         self._dimension = dimension
+        self._verbose = solver_params["verbose"]
 
         if self._variant == "Inverse_Solver":
             self._BT = B.transpose()
@@ -284,6 +287,7 @@ class SaddlePointSolver:
 
             self._blockU = BlockVector(self._A.domain, blocks=[self._U1, self._U2])
             self._solblocks = [self._blockU, self._P1]
+            # comment out the next two lines if working with lifting and GMRES
             x0 = BlockVector(self._block_domainM, blocks=self._solblocks)
             self._solverMinv._options["x0"] = x0
 
@@ -316,6 +320,13 @@ class SaddlePointSolver:
                 self._Unp = U_init.toarray() if U_init is not None else self._Unp
                 self._Uenp = Ue_init.toarray() if U_init is not None else self._Uenp
 
+            if self._verbose:
+                print("Uzawa solver:")
+                print("+---------+---------------------+")
+                print("+ Iter. # | L2-norm of residual |")
+                print("+---------+---------------------+")
+                template = "| {:7d} | {:19.2e} |"
+
             for iteration in range(self._max_iter):
                 # Step 1: Compute velocity U by solving A U = -Bᵀ P + F -A Un
                 self._rhs0np *= 0
@@ -347,8 +358,13 @@ class SaddlePointSolver:
                 self._residual_norms.append(residual_normR1)  # Store residual norm
                 # Check for convergence based on residual norm
                 if residual_norm < self._tol:
+                    if self._verbose:
+                        print(template.format(iteration + 1, residual_norm))
+                        print("+---------+---------------------+")
                     info["success"] = True
                     info["niter"] = iteration + 1
+                    if self._verbose:
+                        _plot_residual_norms(self._residual_norms)
                     return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
                 # Steepest gradient
@@ -357,9 +373,17 @@ class SaddlePointSolver:
                 # alpha = ((self._Precnp.dot(R)).dot(R)) / ((self._Precnp.dot(R)).dot(self._Precnp.dot(R)))
                 self._Pnp += alpha.real * R.real
 
+                if self._verbose:
+                    print(template.format(iteration + 1, residual_norm))
+
+            if self._verbose:
+                print("+---------+---------------------+")
+
             # Return with info if maximum iterations reached
             info["success"] = False
             info["niter"] = iteration + 1
+            if self._verbose == True:
+                _plot_residual_norms(self._residual_norms)
             return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
     def _setup_inverses(self):
@@ -368,18 +392,18 @@ class SaddlePointSolver:
 
         # === Preconditioner inverses, if used
         if self._preconditioner:
-            A11 = self._Apre[0]
-            A22 = self._Apre[1]
+            A11_pre = self._Apre[0]
+            A22_pre = self._Apre[1]
 
-            if hasattr(self, "_A11npinv") and self._is_inverse_still_valid(self._A11npinv, A11, "A11 pre"):
+            if hasattr(self, "_A11npinv") and self._is_inverse_still_valid(self._A11npinv, A11_pre, "A11 pre"):
                 pass
             else:
-                self._A11npinv = self._compute_inverse(A11, which="A11 pre")
+                self._A11npinv = self._compute_inverse(A11_pre, which="A11 pre")
 
-            if hasattr(self, "_A22npinv") and self._is_inverse_still_valid(self._A22npinv, A22, "A22 pre"):
+            if hasattr(self, "_A22npinv") and self._is_inverse_still_valid(self._A22npinv, A22_pre, "A22 pre"):
                 pass
             else:
-                self._A22npinv = self._compute_inverse(A22, which="A22 pre")
+                self._A22npinv = self._compute_inverse(A22_pre, which="A22 pre")
 
             # === Inverse for A[0] if preconditioned
             if hasattr(self, "_Anpinv") and self._is_inverse_still_valid(self._Anpinv, A0, "A[0]", pre=self._A11npinv):
@@ -458,8 +482,10 @@ class SaddlePointSolver:
         # A11 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
             eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0])
+            condA11_before = np.linalg.cond(self._A[0])
         elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
             eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0].toarray())
+            condA11_before = np.linalg.cond(self._A[0].toarray())
         maxbeforeA11 = max(eigvalsA11_before)
         maxbeforeA11_abs = np.max(np.abs(eigvalsA11_before))
         minbeforeA11_abs = np.min(np.abs(eigvalsA11_before))
@@ -533,7 +559,7 @@ class SaddlePointSolver:
             # print(f'{specA22_aft_prec = }')
             print(f"{specA22_aft_abs_prec = }")
 
-            return condA22_before, specA22_bef_abs, condA22_after, specA22_aft_abs_prec
+            return condA22_before, specA22_bef_abs, condA11_before, condA22_after, specA22_aft_abs_prec
 
         else:
-            return condA22_before, specA22_bef_abs
+            return condA22_before, specA22_bef_abs, condA11_before
