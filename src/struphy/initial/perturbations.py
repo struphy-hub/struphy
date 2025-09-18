@@ -66,20 +66,20 @@ class ModesSin(Perturbation):
 
     Parameters
     ----------
-    ls : tuple | list
+    ls : tuple[int]
         Mode numbers in x-direction (kx = l*2*pi/Lx).
 
-    ms : tuple | list
+    ms : tuple[int]
         Mode numbers in y-direction (ky = m*2*pi/Ly).
 
-    ns : tuple | list
+    ns : tuple[int]
         Mode numbers in z-direction (kz = n*2*pi/Lz).
 
-    amps : tuple | list
+    amps : tuple[float]
         Amplitude of each mode.
 
     theta : tuple | list
-        Phase of each mode
+        Phase of each mode.
 
     pfuns : tuple | list[str]
         "Id" or "localize" define the profile functions.
@@ -101,11 +101,11 @@ class ModesSin(Perturbation):
 
     def __init__(
         self,
-        ls=None,
-        ms=None,
-        ns=None,
-        amps=(1e-4,),
-        theta=None,
+        ls: tuple[int] = None,
+        ms: tuple[int] = None,
+        ns: tuple[int] = None,
+        amps: tuple[float] = (1e-4,),
+        theta: tuple[float] = None,
         pfuns=("Id",),
         pfuns_params=(0.0,),
         Lx=1.0,
@@ -216,16 +216,16 @@ class ModesCos(Perturbation):
 
     Parameters
     ----------
-    ls : tuple | list
+    ls : tuple[int]
         Mode numbers in x-direction (kx = l*2*pi/Lx).
 
-    ms : tuple | list
+    ms : tuple[int]
         Mode numbers in y-direction (ky = m*2*pi/Ly).
 
-    ns : tuple | list
+    ns : tuple[int]
         Mode numbers in z-direction (kz = n*2*pi/Lz).
 
-    amps : tuple | list
+    amps : tuple[float]
         Amplitude of each mode.
 
     Lx, Ly, Lz : float
@@ -240,10 +240,10 @@ class ModesCos(Perturbation):
 
     def __init__(
         self,
-        ls=None,
-        ms=None,
-        ns=None,
-        amps=(1e-4,),
+        ls: tuple[int] = None,
+        ms: tuple[int] = None,
+        ns: tuple[int] = None,
+        amps: tuple[float] = (1e-4,),
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
@@ -1516,3 +1516,54 @@ class ManufacturedSolutionVelocity_2(Perturbation):
 
         else:
             raise ValueError(f"Invalid species '{self._species}'. Must be 'Ions' or 'Electrons'.")
+
+
+class ITPA_density(Perturbation):
+    r"""ITPA radial density profile in `A. Könies et al. 2018  <https://iopscience.iop.org/article/10.1088/1741-4326/aae4e6>`_
+
+    .. math::
+
+        n(\eta_1) = n_0*c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
+    """
+
+    def __init__(
+        self,
+        n0: float = 0.00720655,
+        c: tuple = (0.491230, 0.298228, 0.198739, 0.521298),
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        """
+        Parameters
+        ----------
+        n0 : float
+            ITPA profile density
+
+        c : tuple | list
+            4 ITPA profile coefficients
+        """
+
+        assert len(c) == 4
+
+        self._n0 = n0
+        self._c = c
+
+        # use the setters
+        self.given_in_basis = "physical"
+        self.comp = comp
+
+    def __call__(self, eta1, eta2=None, eta3=None):
+        val = 0.0
+
+        if self._c[2] == 0.0:
+            val = self._c[3] - 0 * eta1
+        else:
+            val = (
+                self._n0
+                * self._c[3]
+                * np.exp(
+                    -self._c[2] / self._c[1] * np.tanh((eta1 - self._c[0]) / self._c[2]),
+                )
+            )
+
+        return val
