@@ -6,7 +6,8 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
-from struphy.propagators import ImplicitDiffusion
+from struphy.linear_algebra.solver import SolverParameters
+from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.utils.arrays import xp as np
 
@@ -28,15 +29,6 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
     """
     Test the convergence of Poisson solver in 1D by means of manufactured solutions.
     """
-
-    solver_params = {
-        "type": ("pcg", "MassMatrixPreconditioner"),
-        "tol": 1.0e-13,
-        "maxiter": 3000,
-        "info": True,
-        "verbose": False,
-        "recycle": False,
-    }
 
     # create domain object
     dom_type = mapping[0]
@@ -89,7 +81,8 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
                 else:
                     if bc_type == "dirichlet":
                         spl_kind = [False, True, True]
-                        dirichlet_bc = [[not kd] * 2 for kd in spl_kind]
+                        dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
+                        dirichlet_bc = tuple(dirichlet_bc)
 
                     def sol1_xyz(x, y, z):
                         return np.sin(2 * np.pi / Lx * x)
@@ -113,7 +106,8 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
                 else:
                     if bc_type == "dirichlet":
                         spl_kind = [True, False, True]
-                        dirichlet_bc = [[not kd] * 2 for kd in spl_kind]
+                        dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
+                        dirichlet_bc = tuple(dirichlet_bc)
 
                     def sol1_xyz(x, y, z):
                         return np.sin(2 * np.pi / Ly * y)
@@ -137,7 +131,8 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
                 else:
                     if bc_type == "dirichlet":
                         spl_kind = [True, True, False]
-                        dirichlet_bc = [[not kd] * 2 for kd in spl_kind]
+                        dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
+                        dirichlet_bc = tuple(dirichlet_bc)
 
                     def sol1_xyz(x, y, z):
                         return np.sin(2 * np.pi / Lz * z)
@@ -164,17 +159,38 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
             rho_vec = L2Projector("H1", mass_ops).get_dofs(rho1, apply_bc=True)
 
             # create Poisson solver
-            _phi = derham.create_spline_function("phi", "H1")
-            poisson_solver = ImplicitDiffusion(
-                _phi.vector, sigma_1=1e-12, sigma_2=0.0, sigma_3=1.0, rho=rho_vec, solver=solver_params
+            solver_params = SolverParameters(
+                tol=1.0e-13,
+                maxiter=3000,
+                info=True,
+                verbose=False,
+                recycle=False,
             )
+
+            _phi = FEECVariable(space="H1")
+            _phi.allocate(derham=derham, domain=domain)
+
+            poisson_solver = ImplicitDiffusion()
+            poisson_solver.variables.phi = _phi
+
+            poisson_solver.options = poisson_solver.Options(
+                sigma_1=1e-12,
+                sigma_2=0.0,
+                sigma_3=1.0,
+                rho=rho_vec,
+                solver="pcg",
+                precond="MassMatrixPreconditioner",
+                solver_params=solver_params,
+            )
+
+            poisson_solver.allocate()
 
             # Solve Poisson (call propagator with dt=1.)
             dt = 1.0
             poisson_solver(dt)
 
             # push numerical solution and compare
-            sol_val1 = domain.push(_phi, e1, e2, e3, kind="0")
+            sol_val1 = domain.push(_phi.spline, e1, e2, e3, kind="0")
             x, y, z = domain(e1, e2, e3)
             analytic_value1 = sol1_xyz(x, y, z)
 
@@ -244,14 +260,6 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
     """
     Test the Poisson solver by means of manufactured solutions in 2D .
     """
-    solver_params = {
-        "type": ("pcg", "MassMatrixPreconditioner"),
-        "tol": 1.0e-13,
-        "maxiter": 3000,
-        "info": True,
-        "verbose": False,
-        "recycle": False,
-    }
 
     # create domain object
     dom_type = mapping[0]
@@ -291,7 +299,8 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
 
     elif bc_type == "dirichlet":
         spl_kind = [False, True, True]
-        dirichlet_bc = [[not kd] * 2 for kd in spl_kind]
+        dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
+        dirichlet_bc = tuple(dirichlet_bc)
         print(f"{dirichlet_bc = }")
 
         # manufactured solution in 2D
@@ -350,15 +359,59 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
     rho_vec2 = l2_proj.get_dofs(rho2, apply_bc=True)
 
     # Create Poisson solvers
-    _phi1 = derham.create_spline_function("test1", "H1")
-    poisson_solver1 = ImplicitDiffusion(
-        _phi1.vector, sigma_1=1e-8, sigma_2=0.0, sigma_3=1.0, rho=rho_vec1, solver=solver_params
+    solver_params = SolverParameters(
+        tol=1.0e-13,
+        maxiter=3000,
+        info=True,
+        verbose=False,
+        recycle=False,
     )
 
-    _phi2 = derham.create_spline_function("test2", "H1")
-    poisson_solver2 = ImplicitDiffusion(
-        _phi2.vector, sigma_1=1e-8, sigma_2=0.0, sigma_3=1.0, rho=rho_vec2, solver=solver_params
+    _phi1 = FEECVariable(space="H1")
+    _phi1.allocate(derham=derham, domain=domain)
+
+    poisson_solver1 = ImplicitDiffusion()
+    poisson_solver1.variables.phi = _phi1
+
+    poisson_solver1.options = poisson_solver1.Options(
+        sigma_1=1e-8,
+        sigma_2=0.0,
+        sigma_3=1.0,
+        rho=rho_vec1,
+        solver="pcg",
+        precond="MassMatrixPreconditioner",
+        solver_params=solver_params,
     )
+
+    poisson_solver1.allocate()
+
+    # _phi1 = derham.create_spline_function("test1", "H1")
+    # poisson_solver1 = ImplicitDiffusion(
+    #     _phi1.vector, sigma_1=1e-8, sigma_2=0.0, sigma_3=1.0, rho=rho_vec1, solver=solver_params
+    # )
+
+    _phi2 = FEECVariable(space="H1")
+    _phi2.allocate(derham=derham, domain=domain)
+
+    poisson_solver2 = ImplicitDiffusion()
+    poisson_solver2.variables.phi = _phi2
+
+    poisson_solver2.options = poisson_solver2.Options(
+        sigma_1=1e-8,
+        sigma_2=0.0,
+        sigma_3=1.0,
+        rho=rho_vec2,
+        solver="pcg",
+        precond="MassMatrixPreconditioner",
+        solver_params=solver_params,
+    )
+
+    poisson_solver2.allocate()
+
+    # _phi2 = derham.create_spline_function("test2", "H1")
+    # poisson_solver2 = ImplicitDiffusion(
+    #     _phi2.vector, sigma_1=1e-8, sigma_2=0.0, sigma_3=1.0, rho=rho_vec2, solver=solver_params
+    # )
 
     # Solve Poisson equation (call propagator with dt=1.)
     dt = 1.0
@@ -366,8 +419,8 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
     poisson_solver2(dt)
 
     # push numerical solutions
-    sol_val1 = domain.push(_phi1, e1, e2, e3, kind="0")
-    sol_val2 = domain.push(_phi2, e1, e2, e3, kind="0")
+    sol_val1 = domain.push(_phi1.spline, e1, e2, e3, kind="0")
+    sol_val2 = domain.push(_phi2.spline, e1, e2, e3, kind="0")
 
     x, y, z = domain(e1, e2, e3)
     analytic_value1 = sol1_xyz(x, y, z)
@@ -412,7 +465,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
 
 
 if __name__ == "__main__":
-    direction = 0
+    direction = 2
     bc_type = "dirichlet"
     mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
     # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]

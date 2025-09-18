@@ -40,7 +40,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
-    from struphy.utils.arrays import xp as np
+    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -64,17 +64,16 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
         print(derham.domain_array)
 
     # create particles
-    loading_params = {
-        "seed": seed,
-        "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
-        "spatial": "uniform",
-    }
+    loading_params = LoadingParameters(
+        ppc=ppc,
+        seed=seed,
+        moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0),
+        spatial="uniform",
+    )
 
     particles = Particles6D(
         comm_world=comm,
-        ppc=ppc,
         domain_decomp=domain_decomp,
-        bc=["periodic", "periodic", "periodic"],
         loading_params=loading_params,
         domain=domain,
     )

@@ -187,7 +187,7 @@ class KineticSpecies(Species):
         self,
         do_sort: bool = False,
         sorting_frequency: int = 0,
-        boxes_per_dim: tuple = (16, 1, 1),
+        boxes_per_dim: tuple = (12, 12, 1),
         box_bufsize: float = 2.0,
         dims_maks: tuple = (True, True, True),
     ):

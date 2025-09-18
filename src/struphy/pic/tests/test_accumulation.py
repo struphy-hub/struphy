@@ -60,7 +60,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.pic.accumulation.particles_to_grid import Accumulator
     from struphy.pic.particles import Particles6D
     from struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
-    from struphy.utils.arrays import xp as np
+    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     if isinstance(MPI.COMM_WORLD, MockComm):
         mpi_comm = None
@@ -91,12 +91,10 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
         print(derham.domain_array)
 
     # load distributed markers first and use Send/Receive to make global marker copies for the legacy routines
-    loading_params = {"seed": 1607, "moments": [0.0, 0.0, 0.0, 1.0, 2.0, 3.0], "spatial": "uniform"}
+    loading_params = LoadingParameters(Np=Np, seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
 
     particles = Particles6D(
         comm_world=mpi_comm,
-        Np=Np,
-        bc=["periodic"] * 3,
         loading_params=loading_params,
         domain=domain,
         domain_decomp=domain_decomp,

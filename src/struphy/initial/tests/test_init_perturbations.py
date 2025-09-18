@@ -78,7 +78,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
         form_vector += ["physical"]
 
     for key, val in inspect.getmembers(perturbations):
-        if inspect.isclass(val):
+        if inspect.isclass(val) and val.__module__ == perturbations.__name__:
             print(key, val)
 
             if key not in ("ModesCos", "ModesSin", "TorusModesCos", "TorusModesSin"):
@@ -107,10 +107,21 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
                 if form in ("0", "3"):
                     for n, fun_form in enumerate(form_scalar):
+                        if "Torus" in key and fun_form == "physical":
+                            continue
+
+                        if "Modes" in key and fun_form == "physical":
+                            perturbation._Lx = Lx
+                            perturbation._Ly = Ly
+                            perturbation._Lz = Lz
+                        else:
+                            perturbation._Lx = 1.0
+                            perturbation._Ly = 1.0
+                            perturbation._Lz = 1.0
                         # use the setter
                         perturbation.given_in_basis = fun_form
 
-                        var = FEECVariable(name=form, space=space)
+                        var = FEECVariable(space=space)
                         var.add_perturbation(perturbation)
                         var.allocate(derham, domain)
                         field = var.spline
@@ -192,6 +203,17 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
                 else:
                     for n, fun_form in enumerate(form_vector):
+                        if "Torus" in key and fun_form == "physical":
+                            continue
+
+                        if "Modes" in key and fun_form == "physical":
+                            perturbation._Lx = Lx
+                            perturbation._Ly = Ly
+                            perturbation._Lz = Lz
+                        else:
+                            perturbation._Lx = 1.0
+                            perturbation._Ly = 1.0
+                            perturbation._Lz = 1.0
                         perturbation_0 = perturbation
                         perturbation_1 = deepcopy(perturbation)
                         perturbation_2 = deepcopy(perturbation)
@@ -220,7 +242,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         perturbation_2.given_in_basis = fun_form
                         perturbation_2.comp = 2
 
-                        var = FEECVariable(name=form, space=space)
+                        var = FEECVariable(space=space)
                         var.add_perturbation(perturbation_0)
                         var.add_perturbation(perturbation_1)
                         var.add_perturbation(perturbation_2)
@@ -303,8 +325,8 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
 
 if __name__ == "__main__":
-    mapping = ["Colella", {"Lx": 4.0, "Ly": 5.0, "alpha": 0.07, "Lz": 6.0}]
-    # mapping = ['HollowCylinder', {'a1': 0.1}]
+    # mapping = ['Colella', {'Lx': 4., 'Ly': 5., 'alpha': .07, 'Lz': 6.}]
+    mapping = ["HollowCylinder", {"a1": 0.1}]
     # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 5., 'l3': 0., 'r3': 6.}]
     test_init_modes([16, 16, 16], [2, 3, 4], [False, True, True], mapping, combine_comps=None, do_plot=False)
     # mapping = ["HollowTorus", {"tor_period": 1}]

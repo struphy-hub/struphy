@@ -34,6 +34,7 @@ dependencies = [
     'argcomplete',
     'pytest',
     'pytest-mpi',
+    'line_profiler',
 ]
 
 [project.license]
@@ -166,4 +167,14 @@ ignore = [
     "F405",
     "D211",
     "D213",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "models",
+    "toy",
+    "fluid",
+    "kinetic",
+    "hybrid",
+    "single",
 ]

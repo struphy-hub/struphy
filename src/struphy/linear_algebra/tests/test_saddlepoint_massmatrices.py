@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.parametrize("Nel", [[12, 8, 1]])
 @pytest.mark.parametrize("p", [[3, 3, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True]])
-@pytest.mark.parametrize("dirichlet_bc", [[[False, False], [False, False], [False, False]]])
+@pytest.mark.parametrize("dirichlet_bc", [((False, False), (False, False), (False, False))])
 @pytest.mark.parametrize("mapping", [["Cuboid", {"l1": 0.0, "r1": 2.0, "l2": 0.0, "r2": 3.0, "l3": 0.0, "r3": 6.0}]])
 def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Test saddle-point-solver with manufactured solutions."""

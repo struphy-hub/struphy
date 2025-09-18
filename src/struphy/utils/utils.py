@@ -111,15 +111,15 @@ def refresh_models():
     list_fluid = []
     fluid_string = ""
     for name, obj in inspect.getmembers(fluid):
-        if inspect.isclass(obj):
-            if name not in {"StruphyModel", "Propagator"}:
-                list_fluid += [name]
-                fluid_string += '"' + name + '"\n'
+        if inspect.isclass(obj) and obj.__module__ == fluid.__name__:
+            # if name not in {"StruphyModel", "Propagator"}:
+            list_fluid += [name]
+            fluid_string += '"' + name + '"\n'
 
     list_kinetic = []
     kinetic_string = ""
     for name, obj in inspect.getmembers(kinetic):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == kinetic.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_kinetic += [name]
                 kinetic_string += '"' + name + '"\n'
@@ -127,7 +127,7 @@ def refresh_models():
     list_hybrid = []
     hybrid_string = ""
     for name, obj in inspect.getmembers(hybrid):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == hybrid.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_hybrid += [name]
                 hybrid_string += '"' + name + '"\n'
@@ -135,7 +135,7 @@ def refresh_models():
     list_toy = []
     toy_string = ""
     for name, obj in inspect.getmembers(toy):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == toy.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_toy += [name]
                 toy_string += '"' + name + '"\n'

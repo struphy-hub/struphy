@@ -33,7 +33,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-    from struphy.utils.arrays import xp as np
+    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -59,14 +59,12 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
     # particle loading and sorting
     seed = 1234
-    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
+    loading_params = LoadingParameters(ppc=2, seed=seed, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
 
     particles = Particles6D(
         comm_world=comm,
-        ppc=2,
         domain_decomp=domain_decomp,
-        bc=["periodic", "periodic", "periodic"],
-        loading_params=loader_params,
+        loading_params=loading_params,
     )
 
     particles.draw_markers()
@@ -169,7 +167,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-    from struphy.utils.arrays import xp as np
+    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -195,14 +193,12 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     # particle loading and sorting
     seed = 1234
-    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
+    loading_params = LoadingParameters(ppc=2, seed=seed, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
 
     particles = Particles6D(
         comm_world=comm,
-        ppc=2,
         domain_decomp=domain_decomp,
-        bc=["periodic", "periodic", "periodic"],
-        loading_params=loader_params,
+        loading_params=loading_params,
     )
 
     particles.draw_markers()
@@ -316,7 +312,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-    from struphy.utils.arrays import xp as np
+    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -342,14 +338,12 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     # particle loading and sorting
     seed = 1234
-    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
+    loading_params = LoadingParameters(ppc=2, seed=seed, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
 
     particles = Particles6D(
         comm_world=comm,
-        ppc=2,
         domain_decomp=domain_decomp,
-        bc=["periodic", "periodic", "periodic"],
-        loading_params=loader_params,
+        loading_params=loading_params,
     )
 
     particles.draw_markers()
@@ -463,7 +457,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-    from struphy.utils.arrays import xp as np
+    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -489,14 +483,12 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     # particle loading and sorting
     seed = 1234
-    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
+    loading_params = LoadingParameters(ppc=2, seed=seed, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
 
     particles = Particles6D(
         comm_world=comm,
-        ppc=2,
         domain_decomp=domain_decomp,
-        bc=["periodic", "periodic", "periodic"],
-        loading_params=loader_params,
+        loading_params=loading_params,
     )
 
     particles.draw_markers()
@@ -610,7 +602,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-    from struphy.utils.arrays import xp as np
+    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -636,14 +628,12 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     # particle loading and sorting
     seed = 1234
-    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
+    loading_params = LoadingParameters(ppc=2, seed=seed, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
 
     particles = Particles6D(
         comm_world=comm,
-        ppc=2,
         domain_decomp=domain_decomp,
-        bc=["periodic", "periodic", "periodic"],
-        loading_params=loader_params,
+        loading_params=loading_params,
     )
 
     particles.draw_markers()
@@ -760,7 +750,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-    from struphy.utils.arrays import xp as np
+    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -787,14 +777,12 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     # particle loading and sorting
     seed = 1234
-    loader_params = {"seed": seed, "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0], "spatial": "uniform"}
+    loading_params = LoadingParameters(ppc=2, seed=seed, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
 
     particles = Particles6D(
         comm_world=comm,
-        ppc=2,
         domain_decomp=domain_decomp,
-        bc=["periodic", "periodic", "periodic"],
-        loading_params=loader_params,
+        loading_params=loading_params,
     )
 
     particles.draw_markers()

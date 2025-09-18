@@ -97,6 +97,7 @@ stages:
   rules:
     - !reference [.rules_common, skip_pages_and_scheduled]
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "devel" && $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "318-parameter-file-as-py" && $CI_PIPELINE_SOURCE == "merge_request_event"
 
 .rules_mr_to_master:
   rules:
@@ -398,6 +399,7 @@ stages:
   inspect_struphy:
     - struphy -p
     - struphy -h
+    - struphy --refresh-models
     - struphy run -h
   unit_tests:
     - struphy compile --status
@@ -409,36 +411,39 @@ stages:
     - struphy test unit --mpi 2
   model_tests:
     - struphy compile --status
-    - struphy test models --fast
-    - struphy test models --fast --verification 
-  model_tests_mpi:
-    - struphy compile --status
-    - struphy test models --fast
-    - struphy test models --fast --mpi 2
-    - struphy test models --fast --verification --mpi 1
-    - struphy test models --fast --verification --mpi 4
-    - struphy test models --fast --verification --mpi 4 --nclones 2
-    - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
+    - struphy test LinearMHD
+    - struphy test toy
+    - struphy test models --mpi 1
+    - struphy test models --mpi 2
+    - struphy test models --mpi 3
+    - struphy test models --mpi 4
+    - struphy test verification --mpi 4
+    # - struphy test models --fast --verification --mpi 4
+    # - struphy test models --fast --verification --mpi 4 --nclones 2
+    # - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
   quickstart_tests:
-    - struphy --set-i .
-    - struphy --set-o .
     - struphy -p
     - struphy -h
-    - struphy run -h
-    - struphy params VlasovMaxwellOneSpecies -y
+    - struphy params VlasovAmpereOneSpecies 
     - ls -1a
-    - mv params_VlasovMaxwellOneSpecies.yml test.yml
-    - struphy params VlasovMaxwellOneSpecies --check-file test.yml
-    - struphy run -i test.yml -o my_first_sim
-    - ls my_first_sim/
-    - struphy pproc my_first_sim
-    - ls my_first_sim/post_processing/fields_data/
-    - ls my_first_sim/post_processing/kinetic_data/
-    - struphy params VlasovMaxwellOneSpecies --options
-    - struphy run -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
-    - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
-    - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
-    - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
+    - mv params_VlasovAmpereOneSpecies.py test.py
+    - python3 test.py
+    - ls sim_1/
+    - mpirun -n 2 python3 test.py
+    - LINE_PROFILE=1 mpirun -n 2 python3 test.py
+    # - struphy pproc my_first_sim
+    # - ls my_first_sim/post_processing/fields_data/
+    # - ls my_first_sim/post_processing/kinetic_data/
+    # - struphy params VlasovMaxwellOneSpecies --options
+    # - struphy run -i test.yml -o my_first_sim_1clone --mpi 4 --nclones 1
+    # - struphy run -i test.yml -o my_first_sim_2clone --mpi 4 --nclones 2
+    # - struphy run -i test.yml -o my_first_sim_4clone --mpi 4 --nclones 4
+    # - struphy pproc my_first_sim_1clone my_first_sim_2clone my_first_sim_4clone
+  tutorial_tests:
+    - pwd
+    - ls -1a
+    - which python
+    - jupyter nbconvert --to notebook --execute tutorials/*.ipynb
   build_images:
     - buildah images
     - buildah build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest -f docker/almalinux-latest.dockerfile .
@@ -634,10 +639,21 @@ quickstart_tests:
     - !reference [.scripts, install_on_push]
     - !reference [.scripts, quickstart_tests]
 
+# tutorial_tests:
+#   stage: test
+#   extends:
+#     - .rules_mr_to_devel
+#     - .image_gitlab_mpcdf_struphy
+#     - .before_script_load_modules
+#     - .variables_push
+#   script:
+#     - !reference [.scripts, install_on_push]
+#     - !reference [.scripts, tutorial_tests]
+
 pages_tests:
   stage: test
   extends:
-    - .rules_mr_to_devel
+    - .rules_scheduled
     - .image_gitlab_mpcdf_struphy
     - .before_script_load_modules
     - .variables_push

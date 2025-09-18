@@ -3,9 +3,12 @@ from matplotlib import pyplot as plt
 from psydac.ddm.mpi import MockComm
 from psydac.ddm.mpi import mpi as MPI
 
+from struphy.feec.psydac_derham import Derham
+from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry import domains
+from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
-from struphy.utils.arrays import xp as np
+from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
@@ -36,55 +39,93 @@ def test_sph_evaluation_1d(
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
 
-    if tesselation:
-        loading = "tesselation"
-        loading_params = {"n_quad": 1}
-        if kernel == "trigonometric_1d" and derivative == 1:
-            ppb = 100
-        else:
-            ppb = 4
-    else:
-        loading = "pseudo_random"
-        loading_params = {"seed": 223}
-        if derivative == 0:
-            ppb = 1000
-        else:
-            ppb = 20000
+    boxes_per_dim = (16, 1, 1)
+    loading_params = LoadingParameters(Np=Np, seed=1607)
+    boundary_params = BoundaryParameters(bc=(bc_x, "periodic", "periodic"))
 
-    # background
-    cst_vel = {"density_profile": "constant", "n": 1.5}
-    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    background = ConstantVelocity(n=1.0, density_profile="constant")
+    background.domain = domain
 
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-    modes = {"ModesCos": mode_params}
-    pert_params = {"n": modes}
+    pert = {"n": perturbations.ModesSin(ls=(1,), amps=(1e-0,))}
 
     if derivative == 0:
         fun_exact = lambda e1, e2, e3: 1.5 + np.cos(2 * np.pi * e1)
     else:
         fun_exact = lambda e1, e2, e3: -2 * np.pi * np.sin(2 * np.pi * e1)
 
-    # boundary conditions
-    bc_sph = [bc_x, "periodic", "periodic"]
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=1.0,
+        domain=domain,
+        background=background,
+        perturbations=pert,
+        n_as_volume_form=True,
+    )
 
     # eval points
     eta1 = np.linspace(0, 1.0, eval_pts)
     eta2 = np.array([0.0])
     eta3 = np.array([0.0])
+    ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+    test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
+    all_eval = np.zeros_like(test_eval)
+
+    comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+
+    if show_plot and comm.Get_rank() == 0:
+        from matplotlib import pyplot as plt
+
+        plt.figure(figsize=(12, 8))
+        plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
+        plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
+        plt.legend()
+
+        plt.show()
+
+    # print(f'{fun_exact(ee1, ee2, ee3) = }')
+    # print(f'{comm.Get_rank() = }, {all_eval = }')
+    # print(f'{np.max(np.abs(all_eval - fun_exact(ee1, ee2, ee3))) = }')
+    assert np.all(np.abs(all_eval - fun_exact(ee1, ee2, ee3)) < 0.065)
+
+
+@pytest.mark.mpi(min_size=2)
+@pytest.mark.parametrize("boxes_per_dim", [(8, 1, 1), (10, 1, 1)])
+@pytest.mark.parametrize("ppb", [4, 9])
+@pytest.mark.parametrize("bc_x", ["periodic", "reflect", "remove"])
+def test_evaluation_tesselation(boxes_per_dim, ppb, bc_x, show_plot=False):
+    comm = MPI.COMM_WORLD
+
+    # DOMAIN object
+    dom_type = "Cuboid"
+    dom_params = {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+    boundary_params = BoundaryParameters(bc=(bc_x, "periodic", "periodic"))
+
+    background = ConstantVelocity(n=1.0, density_profile="constant")
+    background.domain = domain
+
+    pert = {"n": perturbations.ModesSin(ls=(1,), amps=(1e-0,))}
+
+    fun_exact = lambda e1, e2, e3: 1.0 + np.sin(2 * np.pi * e1)
 
     # particles object
     particles = ParticlesSPH(
         comm_world=comm,
-        ppb=ppb,
-        boxes_per_dim=boxes_per_dim,
-        bc_sph=bc_sph,
-        bufsize=1.0,
-        loading=loading,
         loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=1.0,
         domain=domain,
-        bckgr_params=bckgr_params,
-        pert_params=pert_params,
-        verbose=False,
+        background=background,
+        perturbations=pert,
+        n_as_volume_form=True,
+        verbose=True,
     )
 
     particles.draw_markers(sort=False, verbose=False)
@@ -933,48 +974,5 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
 
 
 if __name__ == "__main__":
-    # test_sph_evaluation_1d(
-    #     (24, 1, 1),
-    #     "trigonometric_1d",
-    #     # "gaussian_1d",
-    #     1,
-    #     "periodic",
-    #     # "mirror",
-    #     10,
-    #     tesselation=True,
-    #     show_plot=True
-    # )
-
-    # test_sph_evaluation_2d(
-    #     (12, 12, 1),
-    #     # "trigonometric_2d",
-    #     "gaussian_2d",
-    #     1,
-    #     "periodic",
-    #     "periodic",
-    #     16,
-    #     show_plot=True
-    # )
-
-    # test_sph_evaluation_3d(
-    #     (12, 8, 8),
-    #     # "trigonometric_2d",
-    #     "gaussian_3d",
-    #     2,
-    #     "periodic",
-    #     "periodic",
-    #     "periodic",
-    #     11,
-    #     show_plot=True
-    # )
-
-    # for nb in range(4, 25):
-    #     print(f"\n{nb = }")
-    # test_evaluation_SPH_Np_convergence_1d((12,1,1), "fixed", eval_pts=16, tesselation=False, show_plot=True)
-    # test_evaluation_SPH_h_convergence_1d((12,1,1), "periodic", eval_pts=16, tesselation=True, show_plot=True)
-    # test_evaluation_mc_Np_and_h_convergence_1d((12,1,1),"mirror", eval_pts=16, tesselation = False,  show_plot=True)
-    # test_evaluation_SPH_Np_convergence_2d((24, 24, 1), "periodic", "periodic",  tesselation=True, show_plot=True)
-    test_evaluation_SPH_Np_convergence_2d((24, 24, 1), "periodic", "fixed", tesselation=True, show_plot=True)
-    # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "periodic", tesselation=True, show_plot=True)
-    # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "fixed",   tesselation=True, show_plot=True)
-    # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "mirror", "mirror",  tesselation=True, show_plot=True)
+    # test_evaluation_mc(40000, "periodic", show_plot=True)
+    test_evaluation_tesselation((8, 1, 1), 4, "periodic", show_plot=True)

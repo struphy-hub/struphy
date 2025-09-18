@@ -5,9 +5,11 @@ from matplotlib import pyplot as plt
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.psydac_derham import Derham
+from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry import domains
+from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
-from struphy.utils.arrays import xp as np
+from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.parametrize("ppb", [8, 12])
@@ -24,17 +26,14 @@ def test_draw(ppb, nx, ny, nz):
     domain = domain_class(**dom_params)
 
     boxes_per_dim = (nx, ny, nz)
-    bc = ["periodic"] * 3
-    loading = "tesselation"
     bufsize = 0.5
+    loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
 
     # instantiate Particle object
     particles = ParticlesSPH(
         comm_world=comm,
-        ppb=ppb,
+        loading_params=loading_params,
         boxes_per_dim=boxes_per_dim,
-        bc=bc,
-        loading=loading,
         domain=domain,
         verbose=False,
         bufsize=bufsize,
@@ -87,31 +86,24 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
     domain = domain_class(**dom_params)
 
     boxes_per_dim = (nx, ny, nz)
-    bc = ["periodic"] * 3
-    loading = "tesselation"
-    loading_params = {"n_quad": n_quad}
+    loading_params = LoadingParameters(ppb=ppb, loading="tesselation", n_quad=n_quad)
     bufsize = 0.5
 
-    cst_vel = {"ux": 0.0, "uy": 0.0, "uz": 0.0, "density_profile": "constant"}
-    bckgr_params = {"ConstantVelocity": cst_vel}
+    background = ConstantVelocity(n=1.0, ux=0.0, uy=0.0, uz=0.0, density_profile="constant")
+    background.domain = domain
 
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-    modes = {"ModesSin": mode_params}
-    pert_params = {"n": modes}
+    pert = {"n": perturbations.ModesSin(ls=(1,), amps=(1e-0,))}
 
     # instantiate Particle object
     particles = ParticlesSPH(
         comm_world=comm,
-        ppb=ppb,
         boxes_per_dim=boxes_per_dim,
-        bc=bc,
-        loading=loading,
         loading_params=loading_params,
         domain=domain,
         verbose=False,
         bufsize=bufsize,
-        bckgr_params=bckgr_params,
-        pert_params=pert_params,
+        background=background,
+        perturbations=pert,
     )
 
     particles.draw_markers(sort=False)
@@ -188,5 +180,5 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
 
 
 if __name__ == "__main__":
-    # test_draw(8, 16, 1, 1)
+    test_draw(8, 16, 1, 1)
     test_cell_average(8, 6, 16, 14, n_quad=2, show_plot=True)

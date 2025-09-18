@@ -1342,13 +1342,22 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     exclude = f"# model.{sn}.{vn}.save_data = False\n"
                 elif isinstance(var, PICVariable):
                     has_pic = True
-                    init_pert_pic = f"\nperturbation = perturbations.TorusModesCos()"
+                    init_pert_pic = f"\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
+                    init_pert_pic += f"perturbation = perturbations.TorusModesCos()\n"
                     if "6D" in var.space:
-                        init_bckgr_pic = f"\nmaxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
+                        init_bckgr_pic = f"maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
                         init_bckgr_pic += f"maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
+                        init_pert_pic += f"maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
+                        init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
+                        init_pert_pic += f"model.kinetic_ions.var.add_initial_condition(init)\n"
                     elif "5D" in var.space:
-                        init_bckgr_pic = f"\nmaxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation))\n"
-                        init_bckgr_pic += f"maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None))\n"
+                        init_bckgr_pic = f"maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
+                        init_pert_pic += (
+                            f"maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
+                        )
+                        init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
+                        init_pert_pic += f"model.kinetic_ions.var.add_initial_condition(init)\n"
                     init_bckgr_pic += f"background = maxwellian_1 + maxwellian_2\n"
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
 
@@ -1412,13 +1421,13 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         for prop in self.propagators.__dict__:
             file.write(f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n")
 
-        file.write("\n# initial conditions (background + perturbation)\n")
+        file.write("\n# background and initial conditions\n")
         if has_feec:
             file.write(init_bckgr_feec)
             file.write(init_pert_feec)
         if has_pic:
-            file.write(init_pert_pic)
             file.write(init_bckgr_pic)
+            file.write(init_pert_pic)
 
         file.write("\n# optional: exclude variables from saving\n")
         file.write(exclude)
@@ -1442,8 +1451,8 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.close()
 
         print(
-            f"\nDefault parameter file for '{self.__class__.__name__}' has been created in {path}.\n\
-You can now launch with 'struphy run {self.__class__.__name__}' or with 'struphy run -i params_{self.__class__.__name__}.py'"
+            f"\nDefault parameter file for '{self.__class__.__name__}' has been created in the cwd ({path}).\n\
+You can now launch a simlaltion with 'python params_{self.__class__.__name__}.py'"
         )
 
         return path
