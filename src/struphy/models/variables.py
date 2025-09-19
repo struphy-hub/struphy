@@ -175,6 +175,21 @@ class PICVariable(Variable):
         self._n_as_volume_form = n_as_volume_form
         super().add_background(background, verbose=verbose)
 
+    def add_initial_condition(self, init: KineticBackground, verbose=True):
+        self._initial_condition = init
+        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+            print(
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added initial condition '{init.__class__.__name__}' with:"
+            )
+            for k, v in init.__dict__.items():
+                print(f"  {k}: {v}")
+
+    @property
+    def initial_condition(self) -> KineticBackground:
+        if not hasattr(self, "_initial_condition"):
+            self._initial_condition = self.backgrounds
+        return self._initial_condition
+
     def allocate(
         self,
         clone_config: CloneConfig = None,
@@ -218,6 +233,7 @@ class PICVariable(Variable):
             equil=equil,
             projected_equil=projected_equil,
             background=self.backgrounds,
+            initial_condition=self.initial_condition,
             n_as_volume_form=self.n_as_volume_form,
             # perturbations=self.perturbations,
             equation_params=self.species.equation_params,
