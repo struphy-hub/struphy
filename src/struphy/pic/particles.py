@@ -869,40 +869,13 @@ class ParticlesSPH(Particles):
         pp_copy = copy.deepcopy(self.pert_params)
 
         # Get the initialization function and pass the correct arguments
-        self._f_init = None
         assert isinstance(self.f0, FluidEquilibrium)
-        self._f_init = self.f0.n0
         self._u_init = self.f0.u_cart
 
         if pp_copy is not None:
             if "n" in pp_copy:
                 for _type, _params in pp_copy["n"].items():  # only one perturbation is taken into account at the moment
-                    _fun = transform_perturbation(_type, _params, "0", self.domain)
-
-                def _f_init(*etas, flat_eval=False):
-                    if len(etas) == 1:
-                        return self.f0.n0(etas[0]) + _fun(*etas[0].T)
-                    else:
-                        assert len(etas) == 3
-                        E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                            etas[0],
-                            etas[1],
-                            etas[2],
-                            flat_eval=flat_eval,
-                        )
-
-                        out0 = self.f0.n0(E1, E2, E3)
-                        out1 = _fun(E1, E2, E3)
-                        assert out0.shape == out1.shape
-
-                        if flat_eval:
-                            out0 = np.squeeze(out0)
-                            out1 = np.squeeze(out1)
-
-                        return out0 + out1
-
-                self._f_init = _f_init
-
+                    _fun = transform_perturbation(_type, _params, "0", self.domain)   
             if "u1" in pp_copy:
                 for _type, _params in pp_copy[
                     "u1"
@@ -910,4 +883,39 @@ class ParticlesSPH(Particles):
                     _fun = transform_perturbation(_type, _params, "v", self.domain)
                     _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
                 self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
-                # TODO: add other velocity components
+                # TODO: add other velocity components     
+        else:
+            _fun = None
+
+        def _f_init(*etas, flat_eval=False):
+            if len(etas) == 1:
+                if _fun is None:
+                    out = self.f0.n0(etas[0])
+                else:
+                    out = self.f0.n0(etas[0]) + _fun(*etas[0].T)
+            else:
+                assert len(etas) == 3
+                E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                    etas[0],
+                    etas[1],
+                    etas[2],
+                    flat_eval=flat_eval,
+                )
+
+                out0 = self.f0.n0(E1, E2, E3)
+                
+                if _fun is None:
+                    out = out0
+                else:
+                    out1 = _fun(E1, E2, E3)
+                    assert out0.shape == out1.shape
+                    out = out0 + out1
+
+                if flat_eval:
+                    out = np.squeeze(out)
+
+            return out
+
+        self._f_init = _f_init
+
+            
