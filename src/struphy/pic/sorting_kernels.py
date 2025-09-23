@@ -112,6 +112,14 @@ def find_box(
     domain_array : array
         Information of the domain on the current mpi process.
     """
+    # offset if point is on left boundary
+    if eta1 == domain_array[0]:
+        eta1 += 1e-8
+    if eta2 == domain_array[3]:
+        eta2 += 1e-8
+    if eta3 == domain_array[6]:
+        eta3 += 1e-8
+    
     # offset if point is on right boundary
     if eta1 == domain_array[1]:
         eta1 -= 1e-8
@@ -133,6 +141,7 @@ def find_box(
     n1 = int(floor((eta1 - x_l) / (x_r - x_l) * (nx + 2)))
     n2 = int(floor((eta2 - y_l) / (y_r - y_l) * (ny + 2)))
     n3 = int(floor((eta3 - z_l) / (z_r - z_l) * (nz + 2)))
+
     return flatten_index(n1, n2, n3, nx, ny, nz)
 
 
