@@ -2575,7 +2575,7 @@ class Particles(metaclass=ABCMeta):
         self.check_and_assign_particles_to_boxes()
 
         if self.sorting_boxes.communicate:
-            self.communicate_boxes()
+            self.communicate_boxes(verbose=self.verbose)
             self.check_and_assign_particles_to_boxes()
             self.update_ghost_particles()
 
@@ -2587,7 +2587,7 @@ class Particles(metaclass=ABCMeta):
                 print(f"Number of markers in box {i} is {n_mks_box}")
 
     def check_and_assign_particles_to_boxes(self):
-        """Check whether the box array has enough columns (detect load impbalance wrt to sorting boxes),
+        """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
         and then assigne the particles to boxes."""
 
         bcount = np.bincount(np.int64(self.markers_wo_holes[:, -2]))
@@ -2830,8 +2830,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
             )
 
     def _mirror_particles(self, *marker_array_names, is_domain_boundary=None):
-        if not hasattr(self, "_fixe_markers_set"):
-            self._fixed_markers_set = {}
+        self._fixed_markers_set = {}
 
         for arr_name in marker_array_names:
             assert isinstance(arr_name, str)
@@ -2937,165 +2936,165 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         self._send_list_box = [np.zeros((0, self.n_cols))] * self.mpi_size
 
         # Faces
-        if self._x_m_proc is not None:
-            self._send_info_box[self._x_m_proc] += len(self._markers_x_m)
-            self._send_list_box[self._x_m_proc] = np.concatenate(
-                (self._send_list_box[self._x_m_proc], self._markers_x_m)
-            )
+        # if self._x_m_proc is not None:
+        self._send_info_box[self._x_m_proc] += len(self._markers_x_m)
+        self._send_list_box[self._x_m_proc] = np.concatenate(
+            (self._send_list_box[self._x_m_proc], self._markers_x_m)
+        )
 
-        if self._x_p_proc is not None:
-            self._send_info_box[self._x_p_proc] += len(self._markers_x_p)
-            self._send_list_box[self._x_p_proc] = np.concatenate(
-                (self._send_list_box[self._x_p_proc], self._markers_x_p)
-            )
+        # if self._x_p_proc is not None:
+        self._send_info_box[self._x_p_proc] += len(self._markers_x_p)
+        self._send_list_box[self._x_p_proc] = np.concatenate(
+            (self._send_list_box[self._x_p_proc], self._markers_x_p)
+        )
 
-        if self._y_m_proc is not None:
-            self._send_info_box[self._y_m_proc] += len(self._markers_y_m)
-            self._send_list_box[self._y_m_proc] = np.concatenate(
-                (self._send_list_box[self._y_m_proc], self._markers_y_m)
-            )
+        # if self._y_m_proc is not None:
+        self._send_info_box[self._y_m_proc] += len(self._markers_y_m)
+        self._send_list_box[self._y_m_proc] = np.concatenate(
+            (self._send_list_box[self._y_m_proc], self._markers_y_m)
+        )
 
-        if self._y_p_proc is not None:
-            self._send_info_box[self._y_p_proc] += len(self._markers_y_p)
-            self._send_list_box[self._y_p_proc] = np.concatenate(
-                (self._send_list_box[self._y_p_proc], self._markers_y_p)
-            )
+        # if self._y_p_proc is not None:
+        self._send_info_box[self._y_p_proc] += len(self._markers_y_p)
+        self._send_list_box[self._y_p_proc] = np.concatenate(
+            (self._send_list_box[self._y_p_proc], self._markers_y_p)
+        )
 
-        if self._z_m_proc is not None:
-            self._send_info_box[self._z_m_proc] += len(self._markers_z_m)
-            self._send_list_box[self._z_m_proc] = np.concatenate(
-                (self._send_list_box[self._z_m_proc], self._markers_z_m)
-            )
+        # if self._z_m_proc is not None:
+        self._send_info_box[self._z_m_proc] += len(self._markers_z_m)
+        self._send_list_box[self._z_m_proc] = np.concatenate(
+            (self._send_list_box[self._z_m_proc], self._markers_z_m)
+        )
 
-        if self._z_p_proc is not None:
-            self._send_info_box[self._z_p_proc] += len(self._markers_z_p)
-            self._send_list_box[self._z_p_proc] = np.concatenate(
-                (self._send_list_box[self._z_p_proc], self._markers_z_p)
-            )
+        # if self._z_p_proc is not None:
+        self._send_info_box[self._z_p_proc] += len(self._markers_z_p)
+        self._send_list_box[self._z_p_proc] = np.concatenate(
+            (self._send_list_box[self._z_p_proc], self._markers_z_p)
+        )
 
         # x-y edges
-        if self._x_m_y_m_proc is not None:
-            self._send_info_box[self._x_m_y_m_proc] += len(self._markers_x_m_y_m)
-            self._send_list_box[self._x_m_y_m_proc] = np.concatenate(
-                (self._send_list_box[self._x_m_y_m_proc], self._markers_x_m_y_m)
-            )
+        # if self._x_m_y_m_proc is not None:
+        self._send_info_box[self._x_m_y_m_proc] += len(self._markers_x_m_y_m)
+        self._send_list_box[self._x_m_y_m_proc] = np.concatenate(
+            (self._send_list_box[self._x_m_y_m_proc], self._markers_x_m_y_m)
+        )
 
-        if self._x_m_y_p_proc is not None:
-            self._send_info_box[self._x_m_y_p_proc] += len(self._markers_x_m_y_p)
-            self._send_list_box[self._x_m_y_p_proc] = np.concatenate(
-                (self._send_list_box[self._x_m_y_p_proc], self._markers_x_m_y_p)
-            )
+        # if self._x_m_y_p_proc is not None:
+        self._send_info_box[self._x_m_y_p_proc] += len(self._markers_x_m_y_p)
+        self._send_list_box[self._x_m_y_p_proc] = np.concatenate(
+            (self._send_list_box[self._x_m_y_p_proc], self._markers_x_m_y_p)
+        )
 
-        if self._x_p_y_m_proc is not None:
-            self._send_info_box[self._x_p_y_m_proc] += len(self._markers_x_p_y_m)
-            self._send_list_box[self._x_p_y_m_proc] = np.concatenate(
-                (self._send_list_box[self._x_p_y_m_proc], self._markers_x_p_y_m)
-            )
+        # if self._x_p_y_m_proc is not None:
+        self._send_info_box[self._x_p_y_m_proc] += len(self._markers_x_p_y_m)
+        self._send_list_box[self._x_p_y_m_proc] = np.concatenate(
+            (self._send_list_box[self._x_p_y_m_proc], self._markers_x_p_y_m)
+        )
 
-        if self._x_p_y_p_proc is not None:
-            self._send_info_box[self._x_p_y_p_proc] += len(self._markers_x_p_y_p)
-            self._send_list_box[self._x_p_y_p_proc] = np.concatenate(
-                (self._send_list_box[self._x_p_y_p_proc], self._markers_x_p_y_p)
-            )
+        # if self._x_p_y_p_proc is not None:
+        self._send_info_box[self._x_p_y_p_proc] += len(self._markers_x_p_y_p)
+        self._send_list_box[self._x_p_y_p_proc] = np.concatenate(
+            (self._send_list_box[self._x_p_y_p_proc], self._markers_x_p_y_p)
+        )
 
         # x-z edges
-        if self._x_m_z_m_proc is not None:
-            self._send_info_box[self._x_m_z_m_proc] += len(self._markers_x_m_z_m)
-            self._send_list_box[self._x_m_z_m_proc] = np.concatenate(
-                (self._send_list_box[self._x_m_z_m_proc], self._markers_x_m_z_m)
-            )
+        # if self._x_m_z_m_proc is not None:
+        self._send_info_box[self._x_m_z_m_proc] += len(self._markers_x_m_z_m)
+        self._send_list_box[self._x_m_z_m_proc] = np.concatenate(
+            (self._send_list_box[self._x_m_z_m_proc], self._markers_x_m_z_m)
+        )
 
-        if self._x_m_z_p_proc is not None:
-            self._send_info_box[self._x_m_z_p_proc] += len(self._markers_x_m_z_p)
-            self._send_list_box[self._x_m_z_p_proc] = np.concatenate(
-                (self._send_list_box[self._x_m_z_p_proc], self._markers_x_m_z_p)
-            )
+        # if self._x_m_z_p_proc is not None:
+        self._send_info_box[self._x_m_z_p_proc] += len(self._markers_x_m_z_p)
+        self._send_list_box[self._x_m_z_p_proc] = np.concatenate(
+            (self._send_list_box[self._x_m_z_p_proc], self._markers_x_m_z_p)
+        )
 
-        if self._x_p_z_m_proc is not None:
-            self._send_info_box[self._x_p_z_m_proc] += len(self._markers_x_p_z_m)
-            self._send_list_box[self._x_p_z_m_proc] = np.concatenate(
-                (self._send_list_box[self._x_p_z_m_proc], self._markers_x_p_z_m)
-            )
+        # if self._x_p_z_m_proc is not None:
+        self._send_info_box[self._x_p_z_m_proc] += len(self._markers_x_p_z_m)
+        self._send_list_box[self._x_p_z_m_proc] = np.concatenate(
+            (self._send_list_box[self._x_p_z_m_proc], self._markers_x_p_z_m)
+        )
 
-        if self._x_p_z_p_proc is not None:
-            self._send_info_box[self._x_p_z_p_proc] += len(self._markers_x_p_z_p)
-            self._send_list_box[self._x_p_z_p_proc] = np.concatenate(
-                (self._send_list_box[self._x_p_z_p_proc], self._markers_x_p_z_p)
-            )
+        # if self._x_p_z_p_proc is not None:
+        self._send_info_box[self._x_p_z_p_proc] += len(self._markers_x_p_z_p)
+        self._send_list_box[self._x_p_z_p_proc] = np.concatenate(
+            (self._send_list_box[self._x_p_z_p_proc], self._markers_x_p_z_p)
+        )
 
         # y-z edges
-        if self._y_m_z_m_proc is not None:
-            self._send_info_box[self._y_m_z_m_proc] += len(self._markers_y_m_z_m)
-            self._send_list_box[self._y_m_z_m_proc] = np.concatenate(
-                (self._send_list_box[self._y_m_z_m_proc], self._markers_y_m_z_m)
-            )
+        # if self._y_m_z_m_proc is not None:
+        self._send_info_box[self._y_m_z_m_proc] += len(self._markers_y_m_z_m)
+        self._send_list_box[self._y_m_z_m_proc] = np.concatenate(
+            (self._send_list_box[self._y_m_z_m_proc], self._markers_y_m_z_m)
+        )
 
-        if self._y_m_z_p_proc is not None:
-            self._send_info_box[self._y_m_z_p_proc] += len(self._markers_y_m_z_p)
-            self._send_list_box[self._y_m_z_p_proc] = np.concatenate(
-                (self._send_list_box[self._y_m_z_p_proc], self._markers_y_m_z_p)
-            )
+        # if self._y_m_z_p_proc is not None:
+        self._send_info_box[self._y_m_z_p_proc] += len(self._markers_y_m_z_p)
+        self._send_list_box[self._y_m_z_p_proc] = np.concatenate(
+            (self._send_list_box[self._y_m_z_p_proc], self._markers_y_m_z_p)
+        )
 
-        if self._y_p_z_m_proc is not None:
-            self._send_info_box[self._y_p_z_m_proc] += len(self._markers_y_p_z_m)
-            self._send_list_box[self._y_p_z_m_proc] = np.concatenate(
-                (self._send_list_box[self._y_p_z_m_proc], self._markers_y_p_z_m)
-            )
+        # if self._y_p_z_m_proc is not None:
+        self._send_info_box[self._y_p_z_m_proc] += len(self._markers_y_p_z_m)
+        self._send_list_box[self._y_p_z_m_proc] = np.concatenate(
+            (self._send_list_box[self._y_p_z_m_proc], self._markers_y_p_z_m)
+        )
 
-        if self._y_p_z_p_proc is not None:
-            self._send_info_box[self._y_p_z_p_proc] += len(self._markers_y_p_z_p)
-            self._send_list_box[self._y_p_z_p_proc] = np.concatenate(
-                (self._send_list_box[self._y_p_z_p_proc], self._markers_y_p_z_p)
-            )
+        # if self._y_p_z_p_proc is not None:
+        self._send_info_box[self._y_p_z_p_proc] += len(self._markers_y_p_z_p)
+        self._send_list_box[self._y_p_z_p_proc] = np.concatenate(
+            (self._send_list_box[self._y_p_z_p_proc], self._markers_y_p_z_p)
+        )
 
         # corners
-        if self._x_m_y_m_z_m_proc is not None:
-            self._send_info_box[self._x_m_y_m_z_m_proc] += len(self._markers_x_m_y_m_z_m)
-            self._send_list_box[self._x_m_y_m_z_m_proc] = np.concatenate(
-                (self._send_list_box[self._x_m_y_m_z_m_proc], self._markers_x_m_y_m_z_m)
-            )
+        # if self._x_m_y_m_z_m_proc is not None:
+        self._send_info_box[self._x_m_y_m_z_m_proc] += len(self._markers_x_m_y_m_z_m)
+        self._send_list_box[self._x_m_y_m_z_m_proc] = np.concatenate(
+            (self._send_list_box[self._x_m_y_m_z_m_proc], self._markers_x_m_y_m_z_m)
+        )
 
-        if self._x_m_y_m_z_p_proc is not None:
-            self._send_info_box[self._x_m_y_m_z_p_proc] += len(self._markers_x_m_y_m_z_p)
-            self._send_list_box[self._x_m_y_m_z_p_proc] = np.concatenate(
-                (self._send_list_box[self._x_m_y_m_z_p_proc], self._markers_x_m_y_m_z_p)
-            )
+        # if self._x_m_y_m_z_p_proc is not None:
+        self._send_info_box[self._x_m_y_m_z_p_proc] += len(self._markers_x_m_y_m_z_p)
+        self._send_list_box[self._x_m_y_m_z_p_proc] = np.concatenate(
+            (self._send_list_box[self._x_m_y_m_z_p_proc], self._markers_x_m_y_m_z_p)
+        )
 
-        if self._x_m_y_p_z_m_proc is not None:
-            self._send_info_box[self._x_m_y_p_z_m_proc] += len(self._markers_x_m_y_p_z_m)
-            self._send_list_box[self._x_m_y_p_z_m_proc] = np.concatenate(
-                (self._send_list_box[self._x_m_y_p_z_m_proc], self._markers_x_m_y_p_z_m)
-            )
+        # if self._x_m_y_p_z_m_proc is not None:
+        self._send_info_box[self._x_m_y_p_z_m_proc] += len(self._markers_x_m_y_p_z_m)
+        self._send_list_box[self._x_m_y_p_z_m_proc] = np.concatenate(
+            (self._send_list_box[self._x_m_y_p_z_m_proc], self._markers_x_m_y_p_z_m)
+        )
 
-        if self._x_m_y_p_z_p_proc is not None:
-            self._send_info_box[self._x_m_y_p_z_p_proc] += len(self._markers_x_m_y_p_z_p)
-            self._send_list_box[self._x_m_y_p_z_p_proc] = np.concatenate(
-                (self._send_list_box[self._x_m_y_p_z_p_proc], self._markers_x_m_y_p_z_p)
-            )
+        # if self._x_m_y_p_z_p_proc is not None:
+        self._send_info_box[self._x_m_y_p_z_p_proc] += len(self._markers_x_m_y_p_z_p)
+        self._send_list_box[self._x_m_y_p_z_p_proc] = np.concatenate(
+            (self._send_list_box[self._x_m_y_p_z_p_proc], self._markers_x_m_y_p_z_p)
+        )
 
-        if self._x_p_y_m_z_m_proc is not None:
-            self._send_info_box[self._x_p_y_m_z_m_proc] += len(self._markers_x_p_y_m_z_m)
-            self._send_list_box[self._x_p_y_m_z_m_proc] = np.concatenate(
-                (self._send_list_box[self._x_p_y_m_z_m_proc], self._markers_x_p_y_m_z_m)
-            )
+        # if self._x_p_y_m_z_m_proc is not None:
+        self._send_info_box[self._x_p_y_m_z_m_proc] += len(self._markers_x_p_y_m_z_m)
+        self._send_list_box[self._x_p_y_m_z_m_proc] = np.concatenate(
+            (self._send_list_box[self._x_p_y_m_z_m_proc], self._markers_x_p_y_m_z_m)
+        )
 
-        if self._x_p_y_m_z_p_proc is not None:
-            self._send_info_box[self._x_p_y_m_z_p_proc] += len(self._markers_x_p_y_m_z_p)
-            self._send_list_box[self._x_p_y_m_z_p_proc] = np.concatenate(
-                (self._send_list_box[self._x_p_y_m_z_p_proc], self._markers_x_p_y_m_z_p)
-            )
+        # if self._x_p_y_m_z_p_proc is not None:
+        self._send_info_box[self._x_p_y_m_z_p_proc] += len(self._markers_x_p_y_m_z_p)
+        self._send_list_box[self._x_p_y_m_z_p_proc] = np.concatenate(
+            (self._send_list_box[self._x_p_y_m_z_p_proc], self._markers_x_p_y_m_z_p)
+        )
 
-        if self._x_p_y_p_z_m_proc is not None:
-            self._send_info_box[self._x_p_y_p_z_m_proc] += len(self._markers_x_p_y_p_z_m)
-            self._send_list_box[self._x_p_y_p_z_m_proc] = np.concatenate(
-                (self._send_list_box[self._x_p_y_p_z_m_proc], self._markers_x_p_y_p_z_m)
-            )
+        # if self._x_p_y_p_z_m_proc is not None:
+        self._send_info_box[self._x_p_y_p_z_m_proc] += len(self._markers_x_p_y_p_z_m)
+        self._send_list_box[self._x_p_y_p_z_m_proc] = np.concatenate(
+            (self._send_list_box[self._x_p_y_p_z_m_proc], self._markers_x_p_y_p_z_m)
+        )
 
-        if self._x_p_y_p_z_p_proc is not None:
-            self._send_info_box[self._x_p_y_p_z_p_proc] += len(self._markers_x_p_y_p_z_p)
-            self._send_list_box[self._x_p_y_p_z_p_proc] = np.concatenate(
-                (self._send_list_box[self._x_p_y_p_z_p_proc], self._markers_x_p_y_p_z_p)
-            )
+        # if self._x_p_y_p_z_p_proc is not None:
+        self._send_info_box[self._x_p_y_p_z_p_proc] += len(self._markers_x_p_y_p_z_p)
+        self._send_list_box[self._x_p_y_p_z_p_proc] = np.concatenate(
+            (self._send_list_box[self._x_p_y_p_z_p_proc], self._markers_x_p_y_p_z_p)
+        )
 
     def self_communication_boxes(self):
         """Communicate the particles in case a process is it's own neighbour
@@ -3219,34 +3218,34 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
         By default every process is its own neighbour.
         """
         # Faces
-        self._x_m_proc = self.mpi_rank
-        self._x_p_proc = self.mpi_rank
-        self._y_m_proc = self.mpi_rank
-        self._y_p_proc = self.mpi_rank
-        self._z_m_proc = self.mpi_rank
-        self._z_p_proc = self.mpi_rank
+        self._x_m_proc = None
+        self._x_p_proc = None
+        self._y_m_proc = None
+        self._y_p_proc = None
+        self._z_m_proc = None
+        self._z_p_proc = None
         # Edges
-        self._x_m_y_m_proc = self.mpi_rank
-        self._x_m_y_p_proc = self.mpi_rank
-        self._x_p_y_m_proc = self.mpi_rank
-        self._x_p_y_p_proc = self.mpi_rank
-        self._x_m_z_m_proc = self.mpi_rank
-        self._x_m_z_p_proc = self.mpi_rank
-        self._x_p_z_m_proc = self.mpi_rank
-        self._x_p_z_p_proc = self.mpi_rank
-        self._y_m_z_m_proc = self.mpi_rank
-        self._y_m_z_p_proc = self.mpi_rank
-        self._y_p_z_m_proc = self.mpi_rank
-        self._y_p_z_p_proc = self.mpi_rank
+        self._x_m_y_m_proc = None
+        self._x_m_y_p_proc = None
+        self._x_p_y_m_proc = None
+        self._x_p_y_p_proc = None
+        self._x_m_z_m_proc = None
+        self._x_m_z_p_proc = None
+        self._x_p_z_m_proc = None
+        self._x_p_z_p_proc = None
+        self._y_m_z_m_proc = None
+        self._y_m_z_p_proc = None
+        self._y_p_z_m_proc = None
+        self._y_p_z_p_proc = None
         # Corners
-        self._x_m_y_m_z_m_proc = self.mpi_rank
-        self._x_m_y_m_z_p_proc = self.mpi_rank
-        self._x_m_y_p_z_m_proc = self.mpi_rank
-        self._x_p_y_m_z_m_proc = self.mpi_rank
-        self._x_m_y_p_z_p_proc = self.mpi_rank
-        self._x_p_y_m_z_p_proc = self.mpi_rank
-        self._x_p_y_p_z_m_proc = self.mpi_rank
-        self._x_p_y_p_z_p_proc = self.mpi_rank
+        self._x_m_y_m_z_m_proc = None
+        self._x_m_y_m_z_p_proc = None
+        self._x_m_y_p_z_m_proc = None
+        self._x_p_y_m_z_m_proc = None
+        self._x_m_y_p_z_p_proc = None
+        self._x_p_y_m_z_p_proc = None
+        self._x_p_y_p_z_m_proc = None
+        self._x_p_y_p_z_p_proc = None
 
         # periodicitiy for distance computation
         periodic1 = self.bc_sph[0] == "periodic"
@@ -3255,12 +3254,14 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
         # Determine which proc are on which side
         dd = self.domain_array
-        x_l = dd[self.mpi_rank][0]
-        x_r = dd[self.mpi_rank][1]
-        y_l = dd[self.mpi_rank][3]
-        y_r = dd[self.mpi_rank][4]
-        z_l = dd[self.mpi_rank][6]
-        z_r = dd[self.mpi_rank][7]
+        rank = self.mpi_rank
+        
+        x_l = dd[rank][0]
+        x_r = dd[rank][1]
+        y_l = dd[rank][3]
+        y_r = dd[rank][4]
+        z_l = dd[rank][6]
+        z_r = dd[rank][7]
         for i in range(self.mpi_size):
             xl_i = dd[i][0]
             xr_i = dd[i][1]
@@ -3268,66 +3269,80 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             yr_i = dd[i][4]
             zl_i = dd[i][6]
             zr_i = dd[i][7]
-
+            
+            is_same_x_l = abs(distance(xl_i, x_l, periodic1)) < 1e-5
+            is_same_x_r = abs(distance(xr_i, x_r, periodic1)) < 1e-5
+            is_same_y_l = abs(distance(yl_i, y_l, periodic2)) < 1e-5
+            is_same_y_r = abs(distance(yr_i, y_r, periodic2)) < 1e-5
+            is_same_z_l = abs(distance(zl_i, z_l, periodic3)) < 1e-5
+            is_same_z_r = abs(distance(zr_i, z_r, periodic3)) < 1e-5
+            
+            is_neigh_x_l = abs(distance(xr_i, x_l, periodic1)) < 1e-5
+            is_neigh_x_r = abs(distance(xl_i, x_r, periodic1)) < 1e-5
+            is_neigh_y_l = abs(distance(yr_i, y_l, periodic2)) < 1e-5
+            is_neigh_y_r = abs(distance(yl_i, y_r, periodic2)) < 1e-5
+            is_neigh_z_l = abs(distance(zr_i, z_l, periodic3)) < 1e-5
+            is_neigh_z_r = abs(distance(zl_i, z_r, periodic3)) < 1e-5
+ 
             # Faces
 
             # Process on the left (minus axis) in the x direction
             if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xr_i, x_l, periodic1)) < 1e-5
+                is_same_y_l
+                and is_same_y_r
+                and is_same_z_l
+                and is_same_z_r
+                and is_neigh_x_l
             ):
                 self._x_m_proc = i
 
             # Process on the right (plus axis) in the x direction
             if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xl_i, x_r, periodic1)) < 1e-5
+                is_same_y_l
+                and is_same_y_r
+                and is_same_z_l
+                and is_same_z_r
+                and is_neigh_x_r
             ):
                 self._x_p_proc = i
 
             # Process on the left (minus axis) in the y direction
             if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
+                is_same_x_l
+                and is_same_x_r
+                and is_same_z_l
+                and is_same_z_r
+                and is_neigh_y_l
             ):
                 self._y_m_proc = i
 
             # Process on the right (plus axis) in the y direction
             if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
+                is_same_x_l
+                and is_same_x_r
+                and is_same_z_l
+                and is_same_z_r
+                and is_neigh_y_r
             ):
                 self._y_p_proc = i
 
             # Process on the left (minus axis) in the z direction
             if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
+                is_same_x_l
+                and is_same_x_r
+                and is_same_y_l
+                and is_same_y_r
+                and is_neigh_z_l
             ):
                 self._z_m_proc = i
 
             # Process on the right (plus axis) in the z direction
             if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
+                is_same_x_l
+                and is_same_x_r
+                and is_same_y_l
+                and is_same_y_r
+                and is_neigh_z_r
             ):
                 self._z_p_proc = i
 
@@ -3335,109 +3350,109 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
             # Process on the left in x and left in y axis
             if (
-                abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
+                is_same_z_l
+                and is_same_z_r
+                and is_neigh_x_l
+                and is_neigh_y_l
             ):
                 self._x_m_y_m_proc = i
 
             # Process on the left in x and right in y axis
             if (
-                abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
+                is_same_z_l
+                and is_same_z_r
+                and is_neigh_x_l
+                and is_neigh_y_r
             ):
                 self._x_m_y_p_proc = i
 
             # Process on the right in x and left in y axis
             if (
-                abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
+                is_same_z_l
+                and is_same_z_r
+                and is_neigh_x_r
+                and is_neigh_y_l
             ):
                 self._x_p_y_m_proc = i
 
             # Process on the right in x and right in y axis
             if (
-                abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
+                is_same_z_l
+                and is_same_z_r
+                and is_neigh_x_r
+                and is_neigh_y_r
             ):
                 self._x_p_y_p_proc = i
 
             # Process on the left in x and left in z axis
             if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
+                is_same_y_l
+                and is_same_y_r
+                and is_neigh_x_l
+                and is_neigh_z_l
             ):
                 self._x_m_z_m_proc = i
 
             # Process on the left in x and right in z axis
             if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
+                is_same_y_l
+                and is_same_y_r
+                and is_neigh_x_l
+                and is_neigh_z_r
             ):
                 self._x_m_z_p_proc = i
 
             # Process on the right in x and left in z axis
             if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
+                is_same_y_l
+                and is_same_y_r
+                and is_neigh_x_r
+                and is_neigh_z_l
             ):
                 self._x_p_z_m_proc = i
 
             # Process on the right in x and right in z axis
             if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
+                is_same_y_l
+                and is_same_y_r
+                and is_neigh_x_r
+                and is_neigh_z_r
             ):
                 self._x_p_z_p_proc = i
 
             # Process on the left in y and left in z axis
             if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
+                is_same_x_l
+                and is_same_x_r
+                and is_neigh_y_l
+                and is_neigh_z_l
             ):
                 self._y_m_z_m_proc = i
 
             # Process on the left in y and right in z axis
             if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
+                is_same_x_l
+                and is_same_x_r
+                and is_neigh_y_l
+                and is_neigh_z_r
             ):
                 self._y_m_z_p_proc = i
 
             # Process on the right in y and left in z axis
             if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
+                is_same_x_l
+                and is_same_x_r
+                and is_neigh_y_r
+                and is_neigh_z_l
             ):
                 self._y_p_z_m_proc = i
 
             # Process on the right in y and right in z axis
             if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
+                is_same_x_l
+                and is_same_x_r
+                and is_neigh_y_r
+                and is_neigh_z_r
             ):
                 self._y_p_z_p_proc = i
 
@@ -3445,67 +3460,297 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
             # Process on the left in x, left in y and left in z axis
             if (
-                abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
+                is_neigh_x_l
+                and is_neigh_y_l
+                and is_neigh_z_l
             ):
                 self._x_m_y_m_z_m_proc = i
 
             # Process on the left in x, left in y and right in z axis
             if (
-                abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
+                is_neigh_x_l
+                and is_neigh_y_l
+                and is_neigh_z_r
             ):
                 self._x_m_y_m_z_p_proc = i
 
             # Process on the left in x, right in y and left in z axis
             if (
-                abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
+                is_neigh_x_l
+                and is_neigh_y_r
+                and is_neigh_z_l
             ):
                 self._x_m_y_p_z_m_proc = i
 
             # Process on the left in x, right in y and right in z axis
             if (
-                abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
+                is_neigh_x_l
+                and is_neigh_y_r
+                and is_neigh_z_r
             ):
                 self._x_m_y_p_z_p_proc = i
 
             # Process on the right in x, left in y and left in z axis
             if (
-                abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
+                is_neigh_x_r
+                and is_neigh_y_l
+                and is_neigh_z_l
             ):
                 self._x_p_y_m_z_m_proc = i
 
             # Process on the right in x, left in y and right in z axis
             if (
-                abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
+                is_neigh_x_r
+                and is_neigh_y_l
+                and is_neigh_z_r
             ):
                 self._x_p_y_m_z_p_proc = i
 
             # Process on the right in x, right in y and left in z axis
             if (
-                abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
+                is_neigh_x_r
+                and is_neigh_y_r
+                and is_neigh_z_l
             ):
                 self._x_p_y_p_z_m_proc = i
 
             # Process on the right in x, right in y and right in z axis
             if (
-                abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
+                is_neigh_x_r
+                and is_neigh_y_r
+                and is_neigh_z_r
             ):
                 self._x_p_y_p_z_p_proc = i
+
+        # set empty faces in x
+        if self._x_m_proc is None:
+            self._x_m_proc = rank  
+        if self._x_p_proc is None:
+            self._x_p_proc = rank
+        
+        # set empty faces in y  
+        if self._y_m_proc is None:
+            self._y_m_proc = rank  
+        if self._y_p_proc is None:
+            self._y_p_proc = rank
+        
+        # set empty faces in z    
+        if self._z_m_proc is None:
+            self._z_m_proc = rank  
+        if self._z_p_proc is None:
+            self._z_p_proc = rank
+            
+        # set empty edges in xy
+        if self._x_m_y_m_proc is None:
+            if self._x_m_proc == rank:
+                self._x_m_y_m_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                self._x_m_y_m_proc = self._x_m_proc
+                
+        if self._x_m_y_p_proc is None:
+            if self._x_m_proc == rank:
+                self._x_m_y_p_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                self._x_m_y_p_proc = self._x_m_proc
+                
+        if self._x_p_y_m_proc is None:
+            if self._x_p_proc == rank:
+                self._x_p_y_m_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                self._x_p_y_m_proc = self._x_p_proc
+                
+        if self._x_p_y_p_proc is None:
+            if self._x_p_proc == rank:
+                self._x_p_y_p_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                self._x_p_y_p_proc = self._x_p_proc
+                
+        # set empty edges in xz
+        if self._x_m_z_m_proc is None:
+            if self._x_m_proc == rank:
+                self._x_m_z_m_proc = self._z_m_proc
+            elif self._z_m_proc == rank:
+                self._x_m_z_m_proc = self._x_m_proc
+                
+        if self._x_m_z_p_proc is None:
+            if self._x_m_proc == rank:
+                self._x_m_z_p_proc = self._z_p_proc
+            elif self._z_p_proc == rank:
+                self._x_m_z_p_proc = self._x_m_proc
+                
+        if self._x_p_z_m_proc is None:
+            if self._x_p_proc == rank:
+                self._x_p_z_m_proc = self._z_m_proc
+            elif self._z_m_proc == rank:
+                self._x_p_z_m_proc = self._x_p_proc
+                
+        if self._x_p_z_p_proc is None:
+            if self._x_p_proc == rank:
+                self._x_p_z_p_proc = self._z_p_proc
+            elif self._z_p_proc == rank:
+                self._x_p_z_p_proc = self._x_p_proc
+                
+        # set empty edges in yz
+        if self._y_m_z_m_proc is None:
+            if self._y_m_proc == rank:
+                self._y_m_z_m_proc = self._z_m_proc
+            elif self._z_m_proc == rank:
+                self._y_m_z_m_proc = self._y_m_proc
+                
+        if self._y_m_z_p_proc is None:
+            if self._y_m_proc == rank:
+                self._y_m_z_p_proc = self._z_p_proc
+            elif self._z_p_proc == rank:
+                self._y_m_z_p_proc = self._y_m_proc
+                
+        if self._y_p_z_m_proc is None:
+            if self._y_p_proc == rank:
+                self._y_p_z_m_proc = self._z_m_proc
+            elif self._z_m_proc == rank:
+                self._y_p_z_m_proc = self._y_p_proc
+                
+        if self._y_p_z_p_proc is None:
+            if self._y_p_proc == rank:
+                self._y_p_z_p_proc = self._z_p_proc
+            elif self._z_p_proc == rank:
+                self._y_p_z_p_proc = self._y_p_proc
+                
+        # set empty corners
+        if self._x_m_y_m_z_m_proc is None:
+            if self._x_m_proc == rank:
+                if self._y_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._x_m_proc
+            elif self._z_m_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._y_m_proc
+                elif self._y_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._x_m_proc
+                    
+        if self._x_m_y_m_z_p_proc is None:
+            if self._x_m_proc == rank:
+                if self._y_m_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._x_m_proc
+            elif self._z_p_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._y_m_proc
+                elif self._y_m_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._x_m_proc
+                    
+        if self._x_m_y_p_z_m_proc is None:
+            if self._x_m_proc == rank:
+                if self._y_p_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._x_m_proc
+            elif self._z_m_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._y_p_proc
+                elif self._y_p_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._x_m_proc
+                    
+        if self._x_m_y_p_z_p_proc is None:
+            if self._x_m_proc == rank:
+                if self._y_p_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._x_m_proc
+            elif self._z_p_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._y_p_proc
+                elif self._y_p_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._x_m_proc
+                    
+        if self._x_p_y_m_z_m_proc is None:
+            if self._x_p_proc == rank:
+                if self._y_m_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._x_p_proc
+            elif self._z_m_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._y_m_proc
+                elif self._y_m_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._x_p_proc
+                    
+        if self._x_p_y_m_z_p_proc is None:
+            if self._x_p_proc == rank:
+                if self._y_m_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._x_p_proc
+            elif self._z_p_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._y_m_proc
+                elif self._y_m_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._x_p_proc
+                    
+        if self._x_p_y_p_z_m_proc is None:
+            if self._x_p_proc == rank:
+                if self._y_p_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._x_p_proc
+            elif self._z_m_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._y_p_proc
+                elif self._y_p_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._x_p_proc
+                    
+        if self._x_p_y_p_z_p_proc is None:
+            if self._x_p_proc == rank:
+                if self._y_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._x_p_proc
+            elif self._z_p_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._y_p_proc
+                elif self._y_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._x_p_proc
 
     def eval_density(
         self,
@@ -3669,7 +3914,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             elif len(_shp) == 3:
                 func = naive_evaluation_meshgrid
             func(
-                args_markers,
+                self.args_markers,
                 eta1,
                 eta2,
                 eta3,
