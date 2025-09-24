@@ -10,109 +10,109 @@ from struphy.geometry import domains
 from struphy.pic.particles import ParticlesSPH
 
 
-# @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
-# @pytest.mark.parametrize("kernel", ["trigonometric_1d", "gaussian_1d", "linear_1d"])
-# @pytest.mark.parametrize("derivative", [0, 1])
-# @pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
-# @pytest.mark.parametrize("eval_pts", [11, 16])
-# @pytest.mark.parametrize("tesselation", [False, True])
-# def test_sph_evaluation_1d(boxes_per_dim, kernel, derivative, bc_x, eval_pts, tesselation, show_plot=False,):
-#     comm = MPI.COMM_WORLD
+@pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
+@pytest.mark.parametrize("kernel", ["trigonometric_1d", "gaussian_1d", "linear_1d"])
+@pytest.mark.parametrize("derivative", [0, 1])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("eval_pts", [11, 16])
+@pytest.mark.parametrize("tesselation", [False, True])
+def test_sph_evaluation_1d(boxes_per_dim, kernel, derivative, bc_x, eval_pts, tesselation, show_plot=False,):
+    comm = MPI.COMM_WORLD
 
-#     # DOMAIN object
-#     dom_type = "Cuboid"
-#     dom_params = {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}
-#     domain_class = getattr(domains, dom_type)
-#     domain = domain_class(**dom_params)
+    # DOMAIN object
+    dom_type = "Cuboid"
+    dom_params = {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
 
-#     if tesselation:
-#         loading = "tesselation"
-#         loading_params = {"n_quad": 1}
-#         if kernel == "trigonometric_1d" and derivative == 1:
-#             ppb = 100
-#         else:
-#             ppb = 4
-#     else:
-#         loading = "pseudo_random"
-#         loading_params = {"seed": 223}
-#         if derivative == 0:
-#             ppb = 1000
-#         else:
-#             ppb = 20000
+    if tesselation:
+        loading = "tesselation"
+        loading_params = {"n_quad": 1}
+        if kernel == "trigonometric_1d" and derivative == 1:
+            ppb = 100
+        else:
+            ppb = 4
+    else:
+        loading = "pseudo_random"
+        loading_params = {"seed": 223}
+        if derivative == 0:
+            ppb = 1000
+        else:
+            ppb = 20000
 
-#     # background
-#     cst_vel = {"density_profile": "constant", "n": 1.5}
-#     bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    # background
+    cst_vel = {"density_profile": "constant", "n": 1.5}
+    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
 
-#     mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-#     modes = {"ModesCos": mode_params}
-#     pert_params = {"n": modes}
+    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
+    modes = {"ModesCos": mode_params}
+    pert_params = {"n": modes}
 
-#     if derivative == 0:
-#         fun_exact = lambda e1, e2, e3: 1.5 + np.cos(2 * np.pi * e1)
-#     else:
-#         fun_exact = lambda e1, e2, e3: -2 * np.pi * np.sin(2 * np.pi * e1)
+    if derivative == 0:
+        fun_exact = lambda e1, e2, e3: 1.5 + np.cos(2 * np.pi * e1)
+    else:
+        fun_exact = lambda e1, e2, e3: -2 * np.pi * np.sin(2 * np.pi * e1)
 
-#     # boundary conditions
-#     bc_sph = [bc_x, "periodic", "periodic"]
+    # boundary conditions
+    bc_sph = [bc_x, "periodic", "periodic"]
     
-#     # eval points
-#     eta1 = np.linspace(0, 1.0, eval_pts)
-#     eta2 = np.array([0.0])
-#     eta3 = np.array([0.0])
+    # eval points
+    eta1 = np.linspace(0, 1.0, eval_pts)
+    eta2 = np.array([0.0])
+    eta3 = np.array([0.0])
 
-#     # particles object
-#     particles = ParticlesSPH(
-#         comm_world=comm,
-#         ppb=ppb,
-#         boxes_per_dim=boxes_per_dim,
-#         bc_sph=bc_sph,
-#         bufsize=1.0,
-#         loading=loading,
-#         loading_params=loading_params,
-#         domain=domain,
-#         bckgr_params=bckgr_params,
-#         pert_params=pert_params,
-#         verbose=False,
-#     )
+    # particles object
+    particles = ParticlesSPH(
+        comm_world=comm,
+        ppb=ppb,
+        boxes_per_dim=boxes_per_dim,
+        bc_sph=bc_sph,
+        bufsize=1.0,
+        loading=loading,
+        loading_params=loading_params,
+        domain=domain,
+        bckgr_params=bckgr_params,
+        pert_params=pert_params,
+        verbose=False,
+    )
 
-#     particles.draw_markers(sort=False, verbose=False)
-#     particles.mpi_sort_markers()
-#     particles.initialize_weights()
-#     h1 = 1 / boxes_per_dim[0]
-#     h2 = 1 / boxes_per_dim[1]
-#     h3 = 1 / boxes_per_dim[2]
-#     ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
-#     test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3, kernel_type=kernel, derivative=derivative,)
-#     all_eval = np.zeros_like(test_eval)
+    particles.draw_markers(sort=False, verbose=False)
+    particles.mpi_sort_markers()
+    particles.initialize_weights()
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+    ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+    test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3, kernel_type=kernel, derivative=derivative,)
+    all_eval = np.zeros_like(test_eval)
 
-#     comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+    comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
     
-#     exact_eval = fun_exact(ee1, ee2, ee3)
-#     err_max_norm = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
+    exact_eval = fun_exact(ee1, ee2, ee3)
+    err_max_norm = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
     
-#     if comm.Get_rank() == 0:
-#         print(f"\n{boxes_per_dim = }")
-#         print(f"{kernel = }, {derivative =}")
-#         print(f"{bc_x = }, {eval_pts = }, {tesselation = }, {err_max_norm = }")
-#         if show_plot:
-#             plt.figure(figsize=(12, 8))
-#             plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
-#             plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
-#             plt.xlabel("e1")
-#             plt.legend()
-#             plt.show()
+    if comm.Get_rank() == 0:
+        print(f"\n{boxes_per_dim = }")
+        print(f"{kernel = }, {derivative =}")
+        print(f"{bc_x = }, {eval_pts = }, {tesselation = }, {err_max_norm = }")
+        if show_plot:
+            plt.figure(figsize=(12, 8))
+            plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
+            plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
+            plt.xlabel("e1")
+            plt.legend()
+            plt.show()
 
-#     if tesselation:
-#         if derivative == 0:
-#             assert err_max_norm < 0.0081
-#         else:
-#             assert err_max_norm < 0.027
-#     else:
-#         if derivative == 0:
-#             assert err_max_norm < 0.05
-#         else:
-#             assert err_max_norm < 0.37
+    if tesselation:
+        if derivative == 0:
+            assert err_max_norm < 0.0081
+        else:
+            assert err_max_norm < 0.027
+    else:
+        if derivative == 0:
+            assert err_max_norm < 0.05
+        else:
+            assert err_max_norm < 0.37
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
@@ -212,6 +212,115 @@ def test_sph_evaluation_2d(boxes_per_dim, kernel, derivative, bc_x, bc_y, eval_p
         assert err_max_norm < 0.031
     else:
         assert err_max_norm < 0.069
+
+
+@pytest.mark.parametrize("boxes_per_dim", [(12, 8, 8)])
+@pytest.mark.parametrize("kernel", ["trigonometric_3d", "gaussian_3d", "linear_3d", "linear_isotropic_3d"])
+@pytest.mark.parametrize("derivative", [0, 3])
+@pytest.mark.parametrize("bc_x", ["periodic"])
+@pytest.mark.parametrize("bc_y", ["periodic"])
+@pytest.mark.parametrize("bc_z", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("eval_pts", [11])
+def test_sph_evaluation_3d(boxes_per_dim, kernel, derivative, bc_x, bc_y, bc_z, eval_pts, show_plot=False,):
+    comm = MPI.COMM_WORLD
+
+    tesselation = True
+
+    # DOMAIN object
+    dom_type = "Cuboid"
+    dom_params = {"l1": 1.0, "r1": 2.0, "l2": 0.0, "r2": 2.0, "l3": -1.0, "r3": 2.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    loading = "tesselation"
+    loading_params = {"n_quad": 1}
+    if kernel in ("trigonometric_3d", "linear_isotropic_3d") and derivative != 0:
+        ppb = 100
+    else:
+        ppb = 64
+
+    # background
+    cst_vel = {"density_profile": "constant", "n": 1.5}
+    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    
+    if derivative == 0:
+        fun_exact = lambda e1, e2, e3: 1.5 + 0.0*e1
+    else: 
+        fun_exact = lambda e1, e2, e3: 0.0*e1
+        
+    # boundary conditions
+    bc_sph = [bc_x, bc_y, bc_z]
+    
+    # eval points
+    eta1 = np.linspace(0, 1.0, eval_pts)
+    eta2 = np.linspace(0, 1.0, eval_pts)
+    eta3 = np.linspace(0, 1.0, eval_pts)
+
+    # particles object
+    particles = ParticlesSPH(
+        comm_world=comm,
+        ppb=ppb,
+        boxes_per_dim=boxes_per_dim,
+        bc_sph=bc_sph,
+        bufsize=2.0,
+        loading=loading,
+        loading_params=loading_params,
+        domain=domain,
+        bckgr_params=bckgr_params,
+        # pert_params=pert_params,
+        verbose=False,
+    )
+
+    particles.draw_markers(sort=False, verbose=False)
+    particles.mpi_sort_markers()
+    particles.initialize_weights()
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+    ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+    test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3, kernel_type=kernel, derivative=derivative,)
+    all_eval = np.zeros_like(test_eval)
+
+    comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+    
+    exact_eval = fun_exact(ee1, ee2, ee3)
+    err_max_norm = np.max(np.abs(all_eval - exact_eval))
+    
+    if comm.Get_rank() == 0:
+        print(f"\n{boxes_per_dim = }")
+        print(f"{kernel = }, {derivative =}")
+        print(f"{bc_x = }, {bc_y = }, {bc_z = }, {eval_pts = }, {tesselation = }, {err_max_norm = }")
+        if show_plot:
+            print(f"\n{fun_exact(ee1, ee2, ee3)[5, 5, 5] = }")
+            print(f"{ee1[5, 5, 5] = }, {ee2[5, 5, 5] = }, {ee3[5, 5, 5] = }")
+            print(f"{all_eval[5, 5, 5] = }")
+            
+            print(f"\n{ee1[4, 4, 4] = }, {ee2[4, 4, 4] = }, {ee3[4, 4, 4] = }")
+            print(f"{all_eval[4, 4, 4] = }")
+            
+            print(f"\n{ee1[3, 3, 3] = }, {ee2[3, 3, 3] = }, {ee3[3, 3, 3] = }")
+            print(f"{all_eval[3, 3, 3] = }")
+            
+            print(f"\n{ee1[2, 2, 2] = }, {ee2[2, 2, 2] = }, {ee3[2, 2, 2] = }")
+            print(f"{all_eval[2, 2, 2] = }")
+            
+            print(f"\n{ee1[1, 1, 1] = }, {ee2[1, 1, 1] = }, {ee3[1, 1, 1] = }")
+            print(f"{all_eval[1, 1, 1] = }")
+            
+            print(f"\n{ee1[0, 0, 0] = }, {ee2[0, 0, 0] = }, {ee3[0, 0, 0] = }")
+            print(f"{all_eval[0, 0, 0] = }")
+            # plt.figure(figsize=(12, 24))
+            # plt.subplot(2, 1, 1)
+            # plt.pcolor(ee1[0, :, :], ee2[0, :, :], fun_exact(ee1, ee2, ee3)[0, :, :])
+            # plt.title("exact")
+            # plt.subplot(2, 1, 2)
+            # plt.pcolor(ee1[0, :, :], ee2[0, :, :], all_eval[0, :, :])
+            # plt.title("sph eval")
+            # plt.xlabel("e1")
+            # plt.xlabel("e2")
+            # plt.show()
+
+    assert err_max_norm < 0.03
 
 
 # @pytest.mark.mpi(min_size=2)
@@ -765,15 +874,26 @@ if __name__ == "__main__":
     #     show_plot=True
     # ) 
     
-    test_sph_evaluation_2d(
-        (12, 12, 1),
+    # test_sph_evaluation_2d(
+    #     (12, 12, 1),
+    #     # "trigonometric_2d",
+    #     "gaussian_2d",
+    #     1,
+    #     "periodic",
+    #     "periodic",
+    #     16,
+    #     show_plot=True
+    # )
+    
+    test_sph_evaluation_3d(
+        (12, 8, 8),
         # "trigonometric_2d",
-        "gaussian_2d",
-        1,
+        "gaussian_3d",
+        2,
         "periodic",
         "periodic",
-        16,
-        tesselation=True,
+        "periodic",
+        11,
         show_plot=True
     )
 
