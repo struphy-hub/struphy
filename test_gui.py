@@ -1,13 +1,15 @@
+import ast
+import base64
+import inspect
+import io
+import tempfile
+from typing import get_type_hints
+
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from nicegui import ui
+
 from struphy.geometry import domains
 from struphy.geometry.domains import Domain
-
-from nicegui import ui
-import io
-import base64
-import tempfile
-import inspect
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from typing import get_type_hints
 
 # Collect available domains
 domain_dict = {}
@@ -17,7 +19,7 @@ for name, cls in domains.__dict__.items():
 domain_names = list(domain_dict.keys())
 
 # Globals
-domain_name = "HollowCylinder"
+domain_name = "Tokamak"
 fig_image = None
 param_inputs = {}  # store input fields for parameters
 
@@ -29,6 +31,7 @@ def run_simulation():
     params = {}
     for pname, (input_field, annotation) in param_inputs.items():
         value = input_field.value
+        print(f"{pname}: {value} ({annotation})")
         try:
             if annotation is bool:
                 params[pname] = bool(value)
@@ -36,11 +39,15 @@ def run_simulation():
                 params[pname] = int(value)
             elif annotation is float:
                 params[pname] = float(value)
+            elif annotation is tuple:
+                params[pname] = t = ast.literal_eval(value)
             else:
                 params[pname] = value  # fallback to string
         except Exception:
             params[pname] = value  # fallback if conversion fails
-
+        if params[pname] == "None":
+            params[pname] = None
+    print(f"Running simulation with {params}")
     # Create domain instance
     domain = domain_dict[domain_name](**params)
 
@@ -100,7 +107,9 @@ def update_domain(value):
 # UI layout
 with ui.row():
     ui.label("Select a domain:")
-    ui.select(domain_names, value=domain_name, on_change=lambda e: update_domain(e.value))
+    ui.select(
+        domain_names, value=domain_name, on_change=lambda e: update_domain(e.value)
+    )
 
 param_container = ui.column()  # container for parameter fields
 
