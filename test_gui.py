@@ -111,7 +111,7 @@ with ui.row():
         domain_names, value=domain_name, on_change=lambda e: update_domain(e.value)
     )
 
-param_container = ui.column()  # container for parameter fields
+param_container = ui.row()  # container for parameter fields
 
 # Initialize with default domain
 update_domain(domain_name)
