@@ -1752,6 +1752,8 @@ class Domain(metaclass=ABCMeta):
         else:
             plt.show()
 
+        return fig, ax
+
 
 class Spline(Domain):
     r"""3D IGA spline mapping.
