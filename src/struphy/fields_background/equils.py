@@ -2900,12 +2900,12 @@ class ConstantVelocity(CartesianFluidEquilibrium):
 
     def __init__(
         self,
-        ux: float = 1.0,
-        uy: float = 1.0,
-        uz: float = 1.0,
+        ux: float = 0.0,
+        uy: float = 0.0,
+        uz: float = 0.0,
         n: float = 1.0,
         n1: float = 0.0,
-        density_profile: str = "affine",
+        density_profile: str = "constant",
         p0: float = 1.0,
     ):
         # use params setter
@@ -2938,7 +2938,11 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             return self.params["n"] * np.exp(-(x**2 + y**2) / self.params["p0"])
         elif self.params["density_profile"] == "step_function_x":
             out = 1e-8 + 0 * x
-            out[x < 0.0] = self.params["n"]
+            # mask_x = np.logical_and(x < .6, x > .4)
+            # mask_y = np.logical_and(y < .6, y > .4)
+            # mask = np.logical_and(mask_x, mask_y)
+            mask = x < -2.0
+            out[mask] = self.params["n"]
             return out
 
 
@@ -3154,7 +3158,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
                     "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
                 )
 
-        return out
+        return -out
 
     def g_tor(self, R, Z, dR=0, dZ=0):
         """Toroidal field function g = g(R, Z)."""
@@ -3170,7 +3174,7 @@ class CircularTokamak(AxisymmMHDequilibrium):
                 "Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!",
             )
 
-        return out
+        return -out
 
     def p_xyz(self, x, y, z):
         """Pressure p = p(x, y, z)."""
