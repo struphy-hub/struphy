@@ -20,7 +20,7 @@ class Maxwell1D(DispersionRelations1D):
     Parameters
     ----------
     c : float
-        Speed of light. Remark that :math:`c=1.0` in Struphy units, see :class:`~struphy.models.Maxwell`.
+        Speed of light. Remark that :math:`c=1.0` in Struphy units, see :class:`~struphy.models.toy.Maxwell`.
     """
 
     def __init__(self, c=1.0):
@@ -49,7 +49,7 @@ class Maxwell1D(DispersionRelations1D):
 class MHDhomogenSlab(DispersionRelations1D):
     r"""
     Dispersion relation for linear MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)`
-    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.LinearMHD`):
+    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.fluid.LinearMHD`):
 
     .. math::
 
@@ -127,7 +127,7 @@ class MHDhomogenSlab(DispersionRelations1D):
 class ExtendedMHDhomogenSlab(DispersionRelations1D):
     r"""
     Dispersion relation for linear extended MHD equations in homogeneous background :math:`(n_0,p_0,\mathbf B_0)` 
-    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.LinearExtendedMHD`).
+    and wave propagation along :math:`z`-axis in Struphy units (see :class:`~struphy.models.fluid.LinearExtendedMHD`).
     The linear mode analysis is performed on the following system:
 
     .. math::
