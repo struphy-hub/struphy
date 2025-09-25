@@ -20,12 +20,12 @@ domain_names = list(domain_dict.keys())
 
 # Globals
 domain_name = "Tokamak"
-fig_image = None
+matplotlib_ui = None
 param_inputs = {}  # store input fields for parameters
 
 
 def run_simulation():
-    global fig_image
+    global matplotlib_ui
 
     # Collect typed params
     params = {}
@@ -51,8 +51,17 @@ def run_simulation():
     # Create domain instance
     domain: Domain = domain_dict[domain_name](**params)
 
-    with ui.matplotlib(figsize=(12, 6)).figure as fig:
+    if matplotlib_ui is None:
+        # create once
+        matplotlib_ui = ui.matplotlib(figsize=(12, 6))
+        with matplotlib_ui.figure as fig:
+            domain.show(fig=fig)
+    else:
+        # just clear and redraw
+        fig = matplotlib_ui.figure
+        fig.clear()
         domain.show(fig=fig)
+        matplotlib_ui.update()
 
 
 def update_domain(value):
