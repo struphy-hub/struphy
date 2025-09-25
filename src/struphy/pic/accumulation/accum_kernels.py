@@ -536,9 +536,6 @@ def dfva_e_v_accum_AB_AV(
         v_old[1] = markers[ip, 4]
         v_old[2] = markers[ip, 5]
 
-        # get gamma
-        gamma = gamma_values[ip]
-
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
             eta1,
@@ -560,6 +557,10 @@ def dfva_e_v_accum_AB_AV(
         # filling for matrix
         linalg_kernels.matrix_matrix(df_inv, df_inv_t, filling_m)
 
+        # multiply by gamma
+        filling_m[:, :] *= gamma_values[ip]
+        df_inv_v[:] *= gamma_values[ip]
+
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
             args_derham,
@@ -572,18 +573,18 @@ def dfva_e_v_accum_AB_AV(
             mat22,
             mat23,
             mat33,
-            filling_m[0,0] * gamma,
-            filling_m[0,1] * gamma,
-            filling_m[0,2] * gamma,
-            filling_m[1,1] * gamma,
-            filling_m[1,2] * gamma,
-            filling_m[2,2] * gamma,
+            filling_m[0, 0],
+            filling_m[0, 1],
+            filling_m[0, 2],
+            filling_m[1, 1],
+            filling_m[1, 2],
+            filling_m[2, 2],
             vec1,
             vec2,
             vec3,
-            gamma * df_inv_v[0],
-            gamma * df_inv_v[1],
-            gamma * df_inv_v[2],
+            df_inv_v[0],
+            df_inv_v[1],
+            df_inv_v[2],
         )
 
 @stack_array("v_old", "v_diff", "chi", "sum_vec", "dfm", "df_inv", "df_inv_v")

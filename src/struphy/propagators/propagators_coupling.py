@@ -1122,11 +1122,11 @@ class DeltaFVlasovAmpere(Propagator):
 
     def _call_e_v_Schur(self, dt):
         """ TODO """
-        # Compute gamma at time n
-        self._gamma_values[self.particles[0].valid_mks] = \
-            self._f0(*self.particles[0].phasespace_coords.T) \
-            / self.particles[0].sampling_density \
-            + self.particles[0].weights \
+        # # Compute gamma at time n
+        # self._gamma_values[self.particles[0].valid_mks] = \
+        #     self._f0(*self.particles[0].phasespace_coords.T) \
+        #     / self.particles[0].sampling_density \
+        #     + self.particles[0].weights
 
         # Use predictor for velocities
         self._predict_velocities(dt)
@@ -1146,13 +1146,13 @@ class DeltaFVlasovAmpere(Propagator):
 
         # Compute M/D=M1-AB and AB
         self._accum_mat.operators[0].copy(out=self.MminusAB)
-        self.MminusAB *= dt**2 * self._alpha**2 / (4 * self.particles[0].Np * self._epsilon)
+        self.MminusAB *= dt**2 * self._alpha**2 / (4 * self.particles[0].Np * self._epsilon**2)
         self.MminusAB += self.mass_ops.M1
         self._accum_mat.operators[0].copy(out=self.AB)
 
         # Compute AB @ e^n
         self.AB.dot(self.feec_vars[0], out=self._delta_e_temp1)
-        self._delta_e_temp1 *= (-1.) * dt**2 * self._alpha**2 / (2. * self.particles[0].Np * self._epsilon)
+        self._delta_e_temp1 *= (-1.) * dt**2 * self._alpha**2 / (2. * self.particles[0].Np * self._epsilon**2)
 
         # compute 2 A @ v^n
         self._delta_e_temp2 *= 0.0
@@ -1162,7 +1162,7 @@ class DeltaFVlasovAmpere(Propagator):
         # compute chi
         self._delta_e_temp3 *= 0.0
         self._delta_e_temp3 += self._accum_vec.vectors[0]
-        self._delta_e_temp3 *= (-1.) * dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+        self._delta_e_temp3 *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
 
         # Put it all together
         self._delta_e_temp1 += self._delta_e_temp2
@@ -1195,14 +1195,13 @@ class DeltaFVlasovAmpere(Propagator):
 
             # Compute M/D=M1-AB and AB
             self._accum_mat.operators[0].copy(out=self.MminusAB)
-            self.MminusAB *= dt**2 * self._alpha**2 / (4 * self.particles[0].Np * self._epsilon)
+            self.MminusAB *= dt**2 * self._alpha**2 / (4 * self.particles[0].Np * self._epsilon**2)
             self.MminusAB += self.mass_ops.M1
             self._accum_mat.operators[0].copy(out=self.AB)
-            # self.AB *= (-1.0) * dt**2 * self._alpha**2 / (2 * self.particles[0].Np * self._epsilon)
 
             # Compute AB @ e^n
             self.AB.dot(self.feec_vars[0], out=self._delta_e_temp1)
-            self._delta_e_temp1 *= (-1.) * dt**2 * self._alpha**2 / (2. * self.particles[0].Np * self._epsilon)
+            self._delta_e_temp1 *= (-1.) * dt**2 * self._alpha**2 / (2. * self.particles[0].Np * self._epsilon**2)
 
             # compute 2 A @ v^n
             self._delta_e_temp2 *= 0.0
@@ -1212,7 +1211,7 @@ class DeltaFVlasovAmpere(Propagator):
             # compute chi
             self._delta_e_temp3 *= 0.0
             self._delta_e_temp3 += self._accum_vec.vectors[0]
-            self._delta_e_temp3 *= (-1.) * dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
+            self._delta_e_temp3 *= dt * self._alpha**2 / (self.particles[0].Np * self._epsilon)
 
             # Put it all together
             self._delta_e_temp1 += self._delta_e_temp2
