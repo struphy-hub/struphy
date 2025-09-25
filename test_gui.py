@@ -103,21 +103,31 @@ def update_domain(value):
             param_inputs[pname] = (inp, annotation)
 
 
-# UI layout
-with ui.card().classes(CARD_SETUP):
-    with ui.row():
-        # ui.label("Select a domain:")
-        ui.select(
-            domain_names, value=domain_name, on_change=lambda e: update_domain(e.value)
-        )
 
-with ui.card().classes(CARD_SETUP):
-    param_container = ui.row()  # container for parameter fields
+with ui.tabs().classes('w-full') as tabs:
+    domain_tab = ui.tab('Domain')
+    model_tab = ui.tab('Model')
 
-# Initialize with default domain
-update_domain(domain_name)
+with ui.tab_panels(tabs, value=domain_tab).classes('w-full'):
+    with ui.tab_panel(domain_tab):                
+        # UI layout
+        with ui.card().classes(CARD_SETUP):
+            with ui.row():
+                # ui.label("Select a domain:")
+                ui.select(
+                    domain_names, value=domain_name, on_change=lambda e: update_domain(e.value)
+                )
 
-with ui.row().classes('justify-center'):
-    ui.button("Show domain", on_click=run_simulation)
+        with ui.card().classes(CARD_SETUP):
+            param_container = ui.row()  # container for parameter fields
+
+        # Initialize with default domain
+        update_domain(domain_name)
+
+        with ui.row().classes('justify-center'):
+            ui.button("Show domain", on_click=run_simulation)
+
+    with ui.tab_panel(model_tab):
+        ui.label('Model tab...')
 
 ui.run()
