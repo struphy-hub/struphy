@@ -49,22 +49,10 @@ def run_simulation():
             params[pname] = None
     print(f"Running simulation with {params}")
     # Create domain instance
-    domain = domain_dict[domain_name](**params)
+    domain: Domain = domain_dict[domain_name](**params)
 
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-        fig, ax = domain.show(save_dir=tmp.name)
-
-        buf = io.BytesIO()
-        FigureCanvas(fig).print_png(buf)
-        buf.seek(0)
-
-    img_base64 = base64.b64encode(buf.getvalue()).decode("ascii")
-    img_src = f"data:image/png;base64,{img_base64}"
-
-    if fig_image is None:
-        fig_image = ui.image(img_src)
-    else:
-        fig_image.source = img_src
+    with ui.matplotlib(figsize=(12, 6)).figure as fig:
+        domain.show(fig=fig)
 
 
 def update_domain(value):

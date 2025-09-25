@@ -1374,6 +1374,7 @@ class Domain(metaclass=ABCMeta):
         show_control_pts=False,
         figsize=(12, 5),
         save_dir=None,
+        fig=None,
     ):
         """Plots isolines (and control point in case on spline mappings) of the 2D physical domain for eta3 = 0.
         Markers can be plotted as well (optional).
@@ -1429,7 +1430,8 @@ class Domain(metaclass=ABCMeta):
             else:
                 Y = XYZ[1]
 
-            fig = plt.figure(figsize=figsize)
+            if fig is None:
+                fig = plt.figure(figsize=figsize)
             ax = fig.add_subplot(1, 2, 1)
 
             # eta1-isolines
