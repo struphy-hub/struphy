@@ -3516,8 +3516,8 @@ def push_v_viscosity(
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
     n_cols = shape(markers)[1]
-    f_visc = zeros(3, dtype = float)
-    f_visc_cart = zeros(3, dtype = float)
+    f_visc = zeros(3, dtype=float)
+    f_visc_cart = zeros(3, dtype=float)
 
     # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
     # -- removed omp: #$ omp for
@@ -3529,14 +3529,12 @@ def push_v_viscosity(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         kappa = 1.0  # markers[ip, first_diagnostics_idx]
-        #n_at_eta = markers[ip, first_free_idx]
+        # n_at_eta = markers[ip, first_free_idx]
         loc_box = int(markers[ip, n_cols - 2])
 
-        
-
-        for j in range(3):   # row of viscosity tensor
-            for k in range(3):  #column = derivative direction
-                coeff_idx = first_free_idx + 3*j + k +15
+        for j in range(3):  # row of viscosity tensor
+            for k in range(3):  # column = derivative direction
+                coeff_idx = first_free_idx + 3 * j + k + 15
 
                 # if k == 0:
                 #     deriv_type = kernel_type + 1
@@ -3564,7 +3562,7 @@ def push_v_viscosity(
                     periodic2,
                     periodic3,
                     coeff_idx,
-                    kernel_type +1 +k,
+                    kernel_type + 1 + k,
                     h1,
                     h2,
                     h3,

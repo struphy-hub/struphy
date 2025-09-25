@@ -2294,7 +2294,6 @@ class IsothermalEulerSPH(StruphyModel):
         self.update_scalar("en_kin", en_kin)
 
 
-
 class ViscousEulerSPH(StruphyModel):
     r"""Isothermal Euler equations discretized with smoothed particle hydrodynamics (SPH).
 
@@ -2390,11 +2389,11 @@ class ViscousEulerSPH(StruphyModel):
             "gravity": gravity,
             "thermodynamics": thermodynamics,
         }
-        
+
         self._kwargs[propagators_markers.PushVinViscousPotential] = {
             "kernel_type": kernel_type,
-            "kernel_width": kernel_width, 
-            "algo": algo_sph,   
+            "kernel_width": kernel_width,
+            "algo": algo_sph,
         }
 
         # Initialize propagators used in splitting substeps
@@ -2409,7 +2408,6 @@ class ViscousEulerSPH(StruphyModel):
             valid_markers[:, 3] ** 2 + valid_markers[:, 4] ** 2 + valid_markers[:, 5] ** 2
         ) / (2.0 * self.pointer["euler_fluid"].Np)
         self.update_scalar("en_kin", en_kin)
-
 
 
 class HasegawaWakatani(StruphyModel):

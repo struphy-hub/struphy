@@ -595,8 +595,8 @@ def sph_isotherm_kappa(
             continue
 
         markers[ip, first_diagnostic_idx] = 1.0
-        
-        
+
+
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
 def sph_mean_velocity_coeffs(
     alpha: "float[:]",
@@ -679,11 +679,11 @@ def sph_mean_velocity_coeffs(
         weight = markers[ip, weight_idx]
         velocities = markers[ip, 3:6]
         # save
-        markers[ip, column_nr] = weight / n_at_eta*velocities[0]
-        markers[ip, column_nr + 1] = weight / n_at_eta*velocities[1]
-        markers[ip, column_nr + 2] = weight / n_at_eta*velocities[2]
-        
-        
+        markers[ip, column_nr] = weight / n_at_eta * velocities[0]
+        markers[ip, column_nr + 1] = weight / n_at_eta * velocities[1]
+        markers[ip, column_nr + 2] = weight / n_at_eta * velocities[2]
+
+
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
 def sph_mean_velocity(
     alpha: "float[:]",
@@ -764,7 +764,7 @@ def sph_mean_velocity(
             h2,
             h3,
         )
-        
+
         v2_at_eta = sph_eval_kernels.boxed_based_kernel(
             args_markers,
             eta1,
@@ -777,13 +777,13 @@ def sph_mean_velocity(
             periodic1,
             periodic2,
             periodic3,
-            first_free_idx +1,
+            first_free_idx + 1,
             kernel_type,
             h1,
             h2,
             h3,
         )
-        
+
         v3_at_eta = sph_eval_kernels.boxed_based_kernel(
             args_markers,
             eta1,
@@ -796,7 +796,7 @@ def sph_mean_velocity(
             periodic1,
             periodic2,
             periodic3,
-            first_free_idx +2,
+            first_free_idx + 2,
             kernel_type,
             h1,
             h2,
@@ -806,7 +806,8 @@ def sph_mean_velocity(
         markers[ip, column_nr] = v1_at_eta
         markers[ip, column_nr + 1] = v2_at_eta
         markers[ip, column_nr + 2] = v3_at_eta
-        
+
+
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
 def sph_grad_mean_velocity(
     alpha: "float[:]",
@@ -860,8 +861,7 @@ def sph_grad_mean_velocity(
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
 
-
-    grad_v_at_eta = zeros((3,3), dtype = float)
+    grad_v_at_eta = zeros((3, 3), dtype=float)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle
         if not valid_mks[ip]:
@@ -873,8 +873,7 @@ def sph_grad_mean_velocity(
         loc_box = int(markers[ip, n_cols - 2])
         for j in range(3):
             for k in range(3):
-                
-                grad_v_at_eta[j,k] = sph_eval_kernels.boxed_based_kernel(
+                grad_v_at_eta[j, k] = sph_eval_kernels.boxed_based_kernel(
                     args_markers,
                     eta1,
                     eta2,
@@ -886,16 +885,16 @@ def sph_grad_mean_velocity(
                     periodic1,
                     periodic2,
                     periodic3,
-                    first_free_idx +j,
-                    kernel_type +1 +k,
+                    first_free_idx + j,
+                    kernel_type + 1 + k,
                     h1,
                     h2,
                     h3,
                 )
-        
+
                 # save
-                markers[ip, column_nr + 3*j +k] = grad_v_at_eta[j,k]
-                
+                markers[ip, column_nr + 3 * j + k] = grad_v_at_eta[j, k]
+
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")
 def sph_viscosity_tensor(
@@ -950,9 +949,8 @@ def sph_viscosity_tensor(
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
 
-
-    grad_v_at_eta = zeros((3,3), dtype = float)
-    d_dev = zeros((3,3), dtype = float)
+    grad_v_at_eta = zeros((3, 3), dtype=float)
+    d_dev = zeros((3, 3), dtype=float)
     for ip in range(n_markers):
         # only do something if particle is a "true" particle
         if not valid_mks[ip]:
@@ -983,8 +981,7 @@ def sph_viscosity_tensor(
         weight = markers[ip, weight_idx]
         for j in range(3):
             for k in range(3):
-                
-                grad_v_at_eta[j,k] = sph_eval_kernels.boxed_based_kernel(
+                grad_v_at_eta[j, k] = sph_eval_kernels.boxed_based_kernel(
                     args_markers,
                     eta1,
                     eta2,
@@ -996,21 +993,20 @@ def sph_viscosity_tensor(
                     periodic1,
                     periodic2,
                     periodic3,
-                    first_free_idx +j,
-                    kernel_type +1 +k,
+                    first_free_idx + j,
+                    kernel_type + 1 + k,
                     h1,
                     h2,
                     h3,
                 )
-        
+
         mu = 0.7
         d = 0.5 * (grad_v_at_eta + grad_v_at_eta.T)
         trace_d = d[0, 0] + d[1, 1] + d[2, 2]
-        d_dev[0, 0] = d[0, 0] - (trace_d / 3.0) 
-        d_dev[1, 1] = d[1, 1] - (trace_d / 3.0) 
-        d_dev[2, 2] = d[2, 2] - (trace_d / 3.0) 
-        d_dev *= 2*mu*weight/n_at_eta 
+        d_dev[0, 0] = d[0, 0] - (trace_d / 3.0)
+        d_dev[1, 1] = d[1, 1] - (trace_d / 3.0)
+        d_dev[2, 2] = d[2, 2] - (trace_d / 3.0)
+        d_dev *= 2 * mu * weight / n_at_eta
         for j in range(3):
             for k in range(3):
-                markers[ip, column_nr + 3*j + k] = d_dev[j,k]
-        
+                markers[ip, column_nr + 3 * j + k] = d_dev[j, k]
