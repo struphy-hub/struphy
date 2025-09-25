@@ -306,7 +306,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
             elif "CircularTokamak" in key:
-                mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
+                mhd_equil.domain = domains.HollowTorus(
+                    a1=1e-3, a2=mhd_equil.params["a"], R0=mhd_equil.params["R0"], tor_period=1
+                )
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
             elif "ShearedSlab" in key:
@@ -1066,7 +1068,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
             elif "CircularTokamak" in key:
-                mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
+                mhd_equil.domain = domains.HollowTorus(
+                    a1=1e-3, a2=mhd_equil.params["a"], R0=mhd_equil.params["R0"], tor_period=1
+                )
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
             elif "ShearedSlab" in key:

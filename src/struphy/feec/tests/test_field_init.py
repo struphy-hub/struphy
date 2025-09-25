@@ -123,7 +123,12 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
             elif "CircularTokamak" in key:
-                mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
+                mhd_equil.domain = domains.HollowTorus(
+                    a1=1e-3,
+                    a2=mhd_equil.params["a"],
+                    R0=mhd_equil.params["R0"],
+                    tor_period=1,
+                )
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
             elif "ShearedSlab" in key:

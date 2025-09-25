@@ -3,7 +3,7 @@ from mpi4py import MPI
 from psydac.linalg.block import BlockVector
 
 from struphy.models.base import StruphyModel
-from struphy.models.species import FieldSpecies, FluidSpecies, KineticSpecies
+from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.polar.basic import PolarVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
@@ -2205,7 +2205,8 @@ class IsothermalEulerSPH(StruphyModel):
     :ref:`propagators` (called in sequence):
 
     1. :class:`~struphy.propagators.propagators_markers.PushEta`
-    2. :class:`~struphy.propagators.propagators_markers.PushVinSPHpressure`
+    2. :class:`~struphy.propagators.propagators_markers.PushVxB`
+    3. :class:`~struphy.propagators.propagators_markers.PushVinSPHpressure`
 
     :ref:`Model info <add_model>`:
     """
@@ -2235,6 +2236,7 @@ class IsothermalEulerSPH(StruphyModel):
     def propagators_dct():
         return {
             propagators_markers.PushEta: ["euler_fluid"],
+            # propagators_markers.PushVxB: ["euler_fluid"],
             propagators_markers.PushVinSPHpressure: ["euler_fluid"],
         }
 
@@ -2251,16 +2253,27 @@ class IsothermalEulerSPH(StruphyModel):
         # prelim
         _p = params["kinetic"]["euler_fluid"]
         algo_eta = _p["options"]["PushEta"]["algo"]
+        # algo_vxb = _p["options"]["PushVxB"]["algo"]
         kernel_type = _p["options"]["PushVinSPHpressure"]["kernel_type"]
         algo_sph = _p["options"]["PushVinSPHpressure"]["algo"]
         gravity = _p["options"]["PushVinSPHpressure"]["gravity"]
         thermodynamics = _p["options"]["PushVinSPHpressure"]["thermodynamics"]
+
+        # magnetic field
+        # self._b_eq = self.projected_equil.b2
 
         # set keyword arguments for propagators
         self._kwargs[propagators_markers.PushEta] = {
             "algo": algo_eta,
             # "density_field": self.pointer["projected_density"],
         }
+
+        # self._kwargs[propagators_markers.PushVxB] = {
+        #      "algo": algo_vxb,
+        #     "kappa": 1.0,
+        #     "b2": self._b_eq,
+        #     "b2_add": None,
+        # }
 
         self._kwargs[propagators_markers.PushVinSPHpressure] = {
             "kernel_type": kernel_type,

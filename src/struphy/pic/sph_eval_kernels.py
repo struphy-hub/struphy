@@ -1,5 +1,3 @@
-from numpy import sqrt
-
 import struphy.pic.sorting_kernels as sorting_kernels
 import struphy.pic.sph_smoothing_kernels as sph_smoothing_kernels
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
@@ -492,16 +490,22 @@ def box_based_evaluation_meshgrid(
     out[:] = 0.0
     for i in range(n_eval_1):
         e1 = eta1[i, 0, 0]
-        if e1 < domain_array[0] or e1 > domain_array[1]:
+
+        if e1 < domain_array[0] or e1 >= domain_array[1] and e1 != 1.0:
             continue
+
         for j in range(n_eval_2):
             e2 = eta2[0, j, 0]
-            if e2 < domain_array[3] or e2 > domain_array[4]:
+
+            if e2 < domain_array[3] or e2 >= domain_array[4] and e2 != 1.0:
                 continue
+
             for k in range(n_eval_3):
                 e3 = eta3[0, 0, k]
-                if e3 < domain_array[6] or e3 > domain_array[7]:
+
+                if e3 < domain_array[6] or e3 >= domain_array[7] and e3 != 1.0:
                     continue
+
                 loc_box = sorting_kernels.find_box(
                     e1,
                     e2,

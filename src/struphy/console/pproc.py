@@ -1,3 +1,14 @@
+import inspect
+
+import struphy.post_processing.pproc_struphy as pproc_struphy
+import struphy.propagators.propagators_coupling as propagators_coupling
+import struphy.propagators.propagators_fields as propagators_fields
+import struphy.propagators.propagators_markers as propagators_markers
+from struphy.post_processing.likwid.plot_time_traces import (
+    plot_gantt_chart,
+    plot_gantt_chart_plotly,
+    plot_time_vs_duration,
+)
 from struphy.utils.utils import subp_run
 
 
@@ -10,7 +21,7 @@ def struphy_pproc(
     guiding_center=False,
     classify=False,
     no_vtk=False,
-    time_trace=False,
+    time_trace=[],
 ):
     """Post process data from finished Struphy runs.
 
@@ -53,13 +64,15 @@ def struphy_pproc(
         dirs = [dir_abs]
         use_state_o_path = False
 
+    absolute_paths = []
     for dir in dirs:
         # create absolute path
         if use_state_o_path:
-            path_to_simulation = os.path.join(o_path, dir)
+            absolute_paths.append(os.path.join(o_path, dir))
         else:
-            path_to_simulation = dir
+            absolute_paths.append(dir)
 
+    for path_to_simulation in absolute_paths:
         print(f"Post processing data in {path_to_simulation}")
 
         command = [
@@ -85,7 +98,35 @@ def struphy_pproc(
         if no_vtk:
             command += ["--no-vtk"]
 
-        if time_trace:
-            command += ["--time-trace"]
-
         subp_run(command)
+
+    if len(time_trace) > 0:
+        print(f"Plotting time trace for the following regions: {', '.join(time_trace)}")
+        for path in absolute_paths:
+            path_time_trace = os.path.join(path, "profiling_time_trace.pkl")
+            if not os.path.isfile(path_time_trace):
+                raise FileNotFoundError(f"No profiling time trace found at {path_time_trace}")
+
+            # plot_time_vs_duration(path_time_trace, output_path=path_pproc)
+            # plot_gantt_chart(path_time_trace, output_path=path_pproc)
+
+            propagators = []
+            for module in [propagators_coupling, propagators_markers, propagators_fields]:
+                propagators += [
+                    name
+                    for name, obj in inspect.getmembers(module, inspect.isclass)
+                    if obj.__module__ == module.__name__
+                ]
+            groups_include = time_trace
+
+            if "kernels" in groups_include:
+                groups_include += ["kernel:*"]
+            if "propagators" in groups_include:
+                groups_include += propagators
+
+            plot_gantt_chart_plotly(
+                path_time_trace,
+                output_path=path,
+                groups_include=groups_include,
+                show=False,
+            )

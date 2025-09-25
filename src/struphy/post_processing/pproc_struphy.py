@@ -20,7 +20,6 @@ def main(
     guiding_center: bool = False,
     classify: bool = False,
     no_vtk: bool = False,
-    time_trace: bool = False,
 ):
     """Post-processing of finished Struphy runs.
 
@@ -60,14 +59,6 @@ def main(
     except:
         shutil.rmtree(path_pproc)
         os.mkdir(path_pproc)
-
-    if time_trace:
-        from struphy.post_processing.likwid.plot_time_traces import plot_gantt_chart, plot_time_vs_duration
-
-        path_time_trace = os.path.join(path, "profiling_time_trace.pkl")
-        plot_time_vs_duration(path_time_trace, output_path=path_pproc)
-        plot_gantt_chart(path_time_trace, output_path=path_pproc)
-        return
 
     # check for fields and kinetic data in hdf5 file that need post processing
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
@@ -239,8 +230,6 @@ if __name__ == "__main__":
 
     parser.add_argument("--no-vtk", help="whether vtk files creation should be skipped", action="store_true")
 
-    parser.add_argument("--time-trace", help="whether to plot the time trace", action="store_true")
-
     args = parser.parse_args()
 
     main(
@@ -251,5 +240,4 @@ if __name__ == "__main__":
         guiding_center=args.guiding_center,
         classify=args.classify,
         no_vtk=args.no_vtk,
-        time_trace=args.time_trace,
     )

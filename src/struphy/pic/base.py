@@ -26,10 +26,10 @@ from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
+    assign_box_to_each_particle,
+    assign_particles_to_boxes,
     flatten_index,
     initialize_neighbours,
-    put_particles_in_boxes_kernel,
-    reassign_boxes,
     sort_boxed_particles,
 )
 from struphy.pic.sph_eval_kernels import (
@@ -153,7 +153,7 @@ class Particles(metaclass=ABCMeta):
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
-        background: KineticBackground = None,
+        background: KineticBackground | FluidEquilibrium = None,
         initial_condition: KineticBackground = None,
         perturbations: dict[str, Perturbation] = None,
         n_as_volume_form: bool = False,
@@ -170,16 +170,6 @@ class Particles(metaclass=ABCMeta):
             self._num_clones = self.clone_config.num_clones
             self._clone_id = self.clone_config.clone_id
 
-        # other parameters
-        self._name = name
-        self._loading_params = loading_params
-        self._weights_params = weights_params
-        self._boundary_params = boundary_params
-        self._domain = domain
-        self._equil = equil
-        self._projected_equil = projected_equil
-        self._equation_params = equation_params
-
         # defaults
         if loading_params is None:
             loading_params = LoadingParameters()
@@ -189,6 +179,16 @@ class Particles(metaclass=ABCMeta):
 
         if boundary_params is None:
             boundary_params = BoundaryParameters()
+
+        # other parameters
+        self._name = name
+        self._loading_params = loading_params
+        self._weights_params = weights_params
+        self._boundary_params = boundary_params
+        self._domain = domain
+        self._equil = equil
+        self._projected_equil = projected_equil
+        self._equation_params = equation_params
 
         # check for mpi communicator (i.e. sub_comm of clone)
         if self.mpi_comm is None:
@@ -210,8 +210,8 @@ class Particles(metaclass=ABCMeta):
 
         # total number of cells (equal to mpi_size if no grid)
         n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * self.num_clones
-        if verbose:
-            print(f"\n{self.mpi_rank = }, {n_cells = }")
+        # if verbose:
+        #     print(f"\n{self.mpi_rank = }, {n_cells = }")
 
         # total number of boxes
         if self.boxes_per_dim is None:
@@ -225,8 +225,8 @@ class Particles(metaclass=ABCMeta):
             )
             n_boxes = np.prod(self.boxes_per_dim, dtype=int) * self.num_clones
 
-        if verbose:
-            print(f"\n{self.mpi_rank = }, {n_boxes = }")
+        # if verbose:
+        #     print(f"\n{self.mpi_rank = }, {n_boxes = }")
 
         # total number of markers (Np) and particles per cell (ppc)
         Np = self.loading_params.Np
@@ -265,11 +265,20 @@ class Particles(metaclass=ABCMeta):
         if bc_refill is not None:
             for bc_refilli in bc_refill:
                 assert bc_refilli in ("outer", "inner")
+
         self._bc = bc
         self._periodic_axes = [axis for axis, b_c in enumerate(bc) if b_c == "periodic"]
         self._reflect_axes = [axis for axis, b_c in enumerate(bc) if b_c == "reflect"]
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
         self._bc_refill = bc_refill
+
+        bc_sph = boundary_params.bc_sph
+        if bc_sph is None:
+            bc_sph = [bci if bci == "periodic" else "mirror" for bci in self.bc]
+
+        for bci in bc_sph:
+            assert bci in ("periodic", "mirror", "fixed")
+        self._bc_sph = bc_sph
 
         # particle type
         assert type in ("full_f", "delta_f", "sph")
@@ -443,6 +452,11 @@ class Particles(metaclass=ABCMeta):
     def bc_refill(self):
         """How to re-enter particles if bc is 'refill'."""
         return self._bc_refill
+
+    @property
+    def bc_sph(self):
+        """List of boundary conditions for sph evaluation in each direction."""
+        return self._bc_sph
 
     @property
     def Np(self):
@@ -1105,9 +1119,33 @@ class Particles(metaclass=ABCMeta):
         )
 
     def _initialize_sorting_boxes(self):
+        """Initializes the sorting boxes.
+
+        Each MPI process has exactly the same box structure and numbering.
+        For instance, if boxes_per_dim = (16, 1, 1) and there are 2 MPI processes,
+        each process would get 8 boxes in the first direction.
+        Hence boxes_per_dim has to be divisible by the number of ranks in each direction.
+        """
+
         self._initialized_sorting = False
         if self.boxes_per_dim is not None:
+            # split boxes across MPI processes
             nboxes = [nboxes // nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]
+
+            # check whether this process touches the domain boundary
+            is_domain_boundary = {}
+            x_l = self.domain_array[self.mpi_rank, 0]
+            x_r = self.domain_array[self.mpi_rank, 1]
+            y_l = self.domain_array[self.mpi_rank, 3]
+            y_r = self.domain_array[self.mpi_rank, 4]
+            z_l = self.domain_array[self.mpi_rank, 6]
+            z_r = self.domain_array[self.mpi_rank, 7]
+            is_domain_boundary["x_m"] = x_l == 0.0
+            is_domain_boundary["x_p"] = x_r == 1.0
+            is_domain_boundary["y_m"] = y_l == 0.0
+            is_domain_boundary["y_p"] = y_r == 1.0
+            is_domain_boundary["z_m"] = z_l == 0.0
+            is_domain_boundary["z_p"] = z_r == 1.0
 
             self._sorting_boxes = self.SortingBoxes(
                 self.markers.shape,
@@ -1115,15 +1153,18 @@ class Particles(metaclass=ABCMeta):
                 nx=nboxes[0],
                 ny=nboxes[1],
                 nz=nboxes[2],
+                bc_sph=self.bc_sph,
+                is_domain_boundary=is_domain_boundary,
                 comm=self.mpi_comm,
-                verbose=self.verbose,
+                verbose=False,
                 box_bufsize=self._box_bufsize,
             )
+
             if self.sorting_boxes.communicate:
                 self._get_neighbouring_proc()
 
             self._initialized_sorting = True
-            self._argsort_array = np.zeros(self.markers.shape[0], dtype=int)
+
         else:
             self._sorting_boxes = None
 
@@ -1184,7 +1225,75 @@ class Particles(metaclass=ABCMeta):
         # self.loading_params["moments"] = new_moments
 
     def _set_initial_condition(self):
-        self._f_init = self.initial_condition
+        if self.type != "sph":
+            self._f_init = self.initial_condition
+        else:
+            # Get the initialization function and pass the correct arguments
+            assert isinstance(self.f0, FluidEquilibrium)
+            self._u_init = self.f0.u_cart
+
+            if self.perturbations is not None:
+                for (
+                    moment,
+                    pert,
+                ) in self.perturbations.items():  # only one perturbation is taken into account at the moment
+                    assert isinstance(moment, str)
+                    if pert is None:
+                        continue
+                    assert isinstance(pert, Perturbation)
+
+                    if moment == "n":
+                        _fun = TransformedPformComponent(
+                            pert,
+                            pert.given_in_basis,
+                            "0",
+                            comp=pert.comp,
+                            domain=self.domain,
+                        )
+                    elif moment == "u1":
+                        _fun = TransformedPformComponent(
+                            pert,
+                            pert.given_in_basis,
+                            "v",
+                            comp=pert.comp,
+                            domain=self.domain,
+                        )
+                        _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
+                        self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
+                        # TODO: add other velocity components
+            else:
+                _fun = None
+
+            def _f_init(*etas, flat_eval=False):
+                if len(etas) == 1:
+                    if _fun is None:
+                        out = self.f0.n0(etas[0])
+                    else:
+                        out = self.f0.n0(etas[0]) + _fun(*etas[0].T)
+                else:
+                    assert len(etas) == 3
+                    E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                        etas[0],
+                        etas[1],
+                        etas[2],
+                        flat_eval=flat_eval,
+                    )
+
+                    out0 = self.f0.n0(E1, E2, E3)
+
+                    if _fun is None:
+                        out = out0
+                    else:
+                        out1 = _fun(E1, E2, E3)
+                        assert out0.shape == out1.shape
+                        out = out0 + out1
+
+                    if flat_eval:
+                        out = np.squeeze(out)
+
+                return out
+
+            self._f_init = _f_init
 
     def _load_external(
         self,
@@ -1953,8 +2062,9 @@ class Particles(metaclass=ABCMeta):
         for axis in self._reflect_axes:
             outside_inds = self._find_outside_particles(axis)
 
-            self.markers[self._is_outside_left, axis] = 1e-4
-            self.markers[self._is_outside_right, axis] = 1 - 1e-4
+            self.markers[self._is_outside_left, axis] *= -1.0
+            self.markers[self._is_outside_right, axis] *= -1.0
+            self.markers[self._is_outside_right, axis] += 2.0
 
             self.markers[self._is_outside, self.first_pusher_idx] = -1.0
 
@@ -1963,7 +2073,7 @@ class Particles(metaclass=ABCMeta):
         for axis in self._reflect_axes:
             if len(outside_inds_per_axis[axis]) == 0:
                 continue
-
+            # flip velocity
             reflect(
                 self.markers,
                 self.domain.args_domain,
@@ -2112,9 +2222,9 @@ class Particles(metaclass=ABCMeta):
     class SortingBoxes:
         """Boxes used for the sorting of the particles.
 
-        Represented as a 2D array of integers,
-        each line of the array corespond to one box,
-        and all the non (-1) entries of line i are the particles in the i-th box
+        Boxes are represented as a 2D array of integers, where
+        each line coresponds to one box, and all entries of line i that are not -1
+        correspond to a particles in the i-th box.
 
         Parameters
         ----------
@@ -2132,6 +2242,13 @@ class Particles(metaclass=ABCMeta):
 
         nz : int
             number of boxes in the z direction.
+
+        bc_sph : list
+            Boundary condition for sph density evaluation.
+            Either 'periodic', 'mirror' or 'fixed' in each direction.
+
+        is_domain_boundary: dict
+            Has two booleans for each direction; True when the boundary of the MPI process is a domain boundary.
 
         comm : Intracomm
             MPI communicator or None.
@@ -2151,6 +2268,8 @@ class Particles(metaclass=ABCMeta):
             nx: int = 1,
             ny: int = 1,
             nz: int = 1,
+            bc_sph: list = None,
+            is_domain_boundary: dict = None,
             comm: Intracomm = None,
             box_index: "int" = -2,
             box_bufsize: "float" = 2.0,
@@ -2164,6 +2283,21 @@ class Particles(metaclass=ABCMeta):
             self._box_index = box_index
             self._box_bufsize = box_bufsize
             self._verbose = verbose
+
+            if bc_sph is None:
+                bc_sph = ["periodic"] * 3
+            self._bc_sph = bc_sph
+
+            if is_domain_boundary is None:
+                is_domain_boundary = {}
+                is_domain_boundary["x_m"] = True
+                is_domain_boundary["x_p"] = True
+                is_domain_boundary["y_m"] = True
+                is_domain_boundary["y_p"] = True
+                is_domain_boundary["z_m"] = True
+                is_domain_boundary["z_p"] = True
+
+            self._is_domain_boundary = is_domain_boundary
 
             if comm is None:
                 self._rank = 0
@@ -2212,6 +2346,51 @@ class Particles(metaclass=ABCMeta):
         @property
         def communicate(self):
             return self._communicate
+
+        @property
+        def is_domain_boundary(self):
+            """Dict with two booleans for each direction (e.g. 'x_m' and 'x_p'); True when the boundary of the MPI process is a domain boundary (0.0 or 1.0)."""
+            return self._is_domain_boundary
+
+        @property
+        def bc_sph(self):
+            """List of boundary conditions for sph evaluation in each direction."""
+            return self._bc_sph
+
+        @property
+        def bc_sph_index_shifts(self):
+            """Dictionary holding the index shifts of box number for ghost particles in each direction."""
+            if not hasattr(self, "_bc_sph_index_shifts"):
+                self._compute_sph_index_shifts()
+            return self._bc_sph_index_shifts
+
+        def _compute_sph_index_shifts(self):
+            """The index shifts are applied to ghost particles to indicate their new box after sending."""
+            self._bc_sph_index_shifts = {}
+            self._bc_sph_index_shifts["x_m"] = flatten_index(self.nx, 0, 0, self.nx, self.ny, self.nz)
+            self._bc_sph_index_shifts["x_p"] = flatten_index(self.nx, 0, 0, self.nx, self.ny, self.nz)
+            self._bc_sph_index_shifts["y_m"] = flatten_index(0, self.ny, 0, self.nx, self.ny, self.nz)
+            self._bc_sph_index_shifts["y_p"] = flatten_index(0, self.ny, 0, self.nx, self.ny, self.nz)
+            self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
+            self._bc_sph_index_shifts["z_p"] = flatten_index(0, 0, self.nz, self.nx, self.ny, self.nz)
+
+            if self.bc_sph[0] in ("mirror", "fixed"):
+                if self.is_domain_boundary["x_m"]:
+                    self._bc_sph_index_shifts["x_m"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
+                if self.is_domain_boundary["x_p"]:
+                    self._bc_sph_index_shifts["x_p"] = flatten_index(-1, 0, 0, self.nx, self.ny, self.nz)
+
+            if self.bc_sph[1] in ("mirror", "fixed"):
+                if self.is_domain_boundary["y_m"]:
+                    self._bc_sph_index_shifts["y_m"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
+                if self.is_domain_boundary["y_p"]:
+                    self._bc_sph_index_shifts["y_p"] = flatten_index(0, -1, 0, self.nx, self.ny, self.nz)
+
+            if self.bc_sph[2] in ("mirror", "fixed"):
+                if self.is_domain_boundary["z_m"]:
+                    self._bc_sph_index_shifts["z_m"] = flatten_index(0, 0, -1, self.nx, self.ny, self.nz)
+                if self.is_domain_boundary["z_p"]:
+                    self._bc_sph_index_shifts["z_p"] = flatten_index(0, 0, -1, self.nx, self.ny, self.nz)
 
         def _set_boxes(self):
             """ "(Re)set the box structure."""
@@ -2396,10 +2575,14 @@ class Particles(metaclass=ABCMeta):
                     )
                 )
 
-    def sort_boxed_particles_numpy(self):
-        """Sort the particles by box using numpy.sort."""
+    def _sort_boxed_particles_numpy(self):
+        """Sort the particles by box using numpy.argsort."""
         sorting_axis = self._sorting_boxes.box_index
+
+        if not hasattr(self, "_argsort_array"):
+            self._argsort_array = np.zeros(self.markers.shape[0], dtype=int)
         self._argsort_array[:] = self._markers[:, sorting_axis].argsort()
+
         self._markers[:, :] = self._markers[self._argsort_array]
 
     @profile
@@ -2409,29 +2592,53 @@ class Particles(metaclass=ABCMeta):
         neighbouring boxes of neighbours processors or also communicated"""
         self.remove_ghost_particles()
 
-        put_particles_in_boxes_kernel(
-            self._markers,
+        assign_box_to_each_particle(
+            self.markers,
             self.holes,
             self._sorting_boxes.nx,
             self._sorting_boxes.ny,
             self._sorting_boxes.nz,
-            self._sorting_boxes._boxes,
-            self._sorting_boxes._next_index,
             self.domain_array[self.mpi_rank],
         )
 
+        self.check_and_assign_particles_to_boxes()
+
         if self.sorting_boxes.communicate:
-            self.communicate_boxes()
-            reassign_boxes(
-                self._markers,
-                self.holes,
-                self._sorting_boxes._boxes,
-                self._sorting_boxes._next_index,
-            )
+            self.communicate_boxes(verbose=self.verbose)
+            self.check_and_assign_particles_to_boxes()
             self.update_ghost_particles()
 
+        # if self.verbose:
+        #     valid_box_ids = np.nonzero(self._sorting_boxes._boxes[:, 0] != -1)[0]
+        #     print(f"Boxes holding at least one particle: {valid_box_ids}")
+        #     for i in valid_box_ids:
+        #         n_mks_box = np.count_nonzero(self._sorting_boxes._boxes[i] != -1)
+        #         print(f"Number of markers in box {i} is {n_mks_box}")
+
+    def check_and_assign_particles_to_boxes(self):
+        """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
+        and then assigne the particles to boxes."""
+
+        bcount = np.bincount(np.int64(self.markers_wo_holes[:, -2]))
+        max_in_box = np.max(bcount)
+        if max_in_box > self._sorting_boxes.boxes.shape[1]:
+            warnings.warn(
+                f'Strong load imbalance detected in sorting boxes: \
+max number of markers in a box ({max_in_box}) on rank {self.mpi_rank} \
+exceeds the column-size of the box array ({self._sorting_boxes.boxes.shape[1]}). \
+Increasing the value of "box_bufsize" in the markers parameters for the next run.'
+            )
+            self.mpi_comm.Abort()
+
+        assign_particles_to_boxes(
+            self.markers,
+            self.holes,
+            self._sorting_boxes._boxes,
+            self._sorting_boxes._next_index,
+        )
+
     @profile
-    def do_sort(self):
+    def do_sort(self, use_numpy_argsort=False):
         """Assign the particles to boxes and then sort them."""
         nx = self._sorting_boxes.nx
         ny = self._sorting_boxes.ny
@@ -2440,18 +2647,17 @@ class Particles(metaclass=ABCMeta):
 
         self.put_particles_in_boxes()
 
-        # We could either use numpy routine or kernel to sort
-        # Kernel seems to be 3x faster
-        # self.sort_boxed_particles_numpy()
-
-        sort_boxed_particles(
-            self._markers,
-            self._sorting_boxes._swap_line_1,
-            self._sorting_boxes._swap_line_2,
-            nboxes + 1,
-            self._sorting_boxes._next_index,
-            self._sorting_boxes._cumul_next_index,
-        )
+        if use_numpy_argsort:
+            self._sort_boxed_particles_numpy()
+        else:
+            sort_boxed_particles(
+                self._markers,
+                self._sorting_boxes._swap_line_1,
+                self._sorting_boxes._swap_line_2,
+                nboxes + 1,
+                self._sorting_boxes._next_index,
+                self._sorting_boxes._cumul_next_index,
+            )
 
         if self.sorting_boxes.communicate:
             self.update_ghost_particles()
@@ -2462,27 +2668,28 @@ class Particles(metaclass=ABCMeta):
         self._markers[new_holes] = -1.0
         self.update_holes()
 
-    def determine_send_markers_box(self):
-        """Determine which markers belong to boxes that are at the boundary and put them in a new array"""
-        # Faces
-        self._markers_x_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m)
-        self._markers_x_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_p)
-        self._markers_y_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_y_m)
-        self._markers_y_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_y_p)
-        self._markers_z_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_z_m)
-        self._markers_z_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_z_p)
+    def prepare_ghost_particles(self):
+        """Markers for boundary conditions and MPI communication.
 
-        # Adjust box number
-        self._markers_x_m[:, self._sorting_boxes.box_index] += self._sorting_boxes.nx
-        self._markers_x_p[:, self._sorting_boxes.box_index] -= self._sorting_boxes.nx
-        self._markers_y_m[:, self._sorting_boxes.box_index] += (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-        self._markers_y_p[:, self._sorting_boxes.box_index] -= (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-        self._markers_z_m[:, self._sorting_boxes.box_index] += (
-            (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_z_p[:, self._sorting_boxes.box_index] -= (
-            (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
+        Does the following:
+        1. determine which markers belong to boxes that are at the boundary and put these markers in a new array (e.g. markers_x_m)
+        2. set their last index to -2 to indicate that they will be "ghost particles" after sending
+        3. set their new box number (boundary conditions enter here)
+        4. optional: mirror position for boundary conditions
+        """
+        shifts = self.sorting_boxes.bc_sph_index_shifts
+        # if self.verbose:
+        #     print(f"{self.sorting_boxes.bc_sph_index_shifts = }")
+
+        ## Faces
+
+        # ghost marker arrays
+        self._markers_x_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m)
+        self._markers_x_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_p)
+        self._markers_y_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_y_m)
+        self._markers_y_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_y_p)
+        self._markers_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_z_m)
+        self._markers_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_z_p)
 
         # Put last index to -2 to indicate that they are ghosts on the new process
         self._markers_x_m[:, -1] = -2.0
@@ -2492,147 +2699,133 @@ class Particles(metaclass=ABCMeta):
         self._markers_z_m[:, -1] = -2.0
         self._markers_z_p[:, -1] = -2.0
 
-        # Edges x-y
-        self._markers_x_m_y_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m_y_m)
-        self._markers_x_m_y_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m_y_p)
-        self._markers_x_p_y_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_p_y_m)
-        self._markers_x_p_y_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_p_y_p)
-
         # Adjust box number
-        self._markers_x_m_y_m[:, self._sorting_boxes.box_index] += (
-            self._sorting_boxes.nx + (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-        )
-        self._markers_x_m_y_p[:, self._sorting_boxes.box_index] += (
-            self._sorting_boxes.nx - (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-        )
-        self._markers_x_p_y_m[:, self._sorting_boxes.box_index] += (
-            -self._sorting_boxes.nx + (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-        )
-        self._markers_x_p_y_p[:, self._sorting_boxes.box_index] += (
-            -self._sorting_boxes.nx - (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-        )
+        self._markers_x_m[:, self._sorting_boxes.box_index] += shifts["x_m"]
+        self._markers_x_p[:, self._sorting_boxes.box_index] -= shifts["x_p"]
+        self._markers_y_m[:, self._sorting_boxes.box_index] += shifts["y_m"]
+        self._markers_y_p[:, self._sorting_boxes.box_index] -= shifts["y_p"]
+        self._markers_z_m[:, self._sorting_boxes.box_index] += shifts["z_m"]
+        self._markers_z_p[:, self._sorting_boxes.box_index] -= shifts["z_p"]
 
-        # Put first last index to -2 to indicate that they are ghosts on the new process
+        # Mirror position for boundary condition
+        if self.bc_sph[0] in ("mirror", "fixed"):
+            self._mirror_particles(
+                "_markers_x_m", "_markers_x_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary
+            )
+
+        if self.bc_sph[1] in ("mirror", "fixed"):
+            self._mirror_particles(
+                "_markers_y_m", "_markers_y_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary
+            )
+
+        if self.bc_sph[2] in ("mirror", "fixed"):
+            self._mirror_particles(
+                "_markers_z_m", "_markers_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary
+            )
+
+        ## Edges x-y
+
+        # ghost marker arrays
+        self._markers_x_m_y_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_y_m)
+        self._markers_x_m_y_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_y_p)
+        self._markers_x_p_y_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_p_y_m)
+        self._markers_x_p_y_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_p_y_p)
+
+        # Put last index to -2 to indicate that they are ghosts on the new process
         self._markers_x_m_y_m[:, -1] = -2.0
         self._markers_x_m_y_p[:, -1] = -2.0
         self._markers_x_p_y_m[:, -1] = -2.0
         self._markers_x_p_y_p[:, -1] = -2.0
 
-        # Edges x-z
-        self._markers_x_m_z_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m_z_m)
-        self._markers_x_m_z_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m_z_p)
-        self._markers_x_p_z_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_p_z_m)
-        self._markers_x_p_z_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_p_z_p)
-
         # Adjust box number
-        self._markers_x_m_z_m[:, self._sorting_boxes.box_index] += (
-            self._sorting_boxes.nx
-            + (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_x_m_z_p[:, self._sorting_boxes.box_index] += (
-            self._sorting_boxes.nx
-            - (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_x_p_z_m[:, self._sorting_boxes.box_index] += (
-            -self._sorting_boxes.nx
-            + (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_x_p_z_p[:, self._sorting_boxes.box_index] += (
-            -self._sorting_boxes.nx
-            - (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
+        self._markers_x_m_y_m[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["y_m"]
+        self._markers_x_m_y_p[:, self._sorting_boxes.box_index] += shifts["x_m"] - shifts["y_p"]
+        self._markers_x_p_y_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["y_m"]
+        self._markers_x_p_y_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"]
 
-        # Put first last index to -2 to indicate that they are ghosts on the new process
+        # Mirror position for boundary condition
+        if self.bc_sph[0] in ("mirror", "fixed") or self.bc_sph[1] in ("mirror", "fixed"):
+            self._mirror_particles(
+                "_markers_x_m_y_m",
+                "_markers_x_m_y_p",
+                "_markers_x_p_y_m",
+                "_markers_x_p_y_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
+            )
+
+        ## Edges x-z
+
+        # ghost marker arrays
+        self._markers_x_m_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_z_m)
+        self._markers_x_m_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_z_p)
+        self._markers_x_p_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_p_z_m)
+        self._markers_x_p_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_p_z_p)
+
+        # Put last index to -2 to indicate that they are ghosts on the new process
         self._markers_x_m_z_m[:, -1] = -2.0
         self._markers_x_m_z_p[:, -1] = -2.0
         self._markers_x_p_z_m[:, -1] = -2.0
         self._markers_x_p_z_p[:, -1] = -2.0
 
-        # Edges y-z
-        self._markers_y_m_z_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_y_m_z_m)
-        self._markers_y_m_z_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_y_m_z_p)
-        self._markers_y_p_z_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_y_p_z_m)
-        self._markers_y_p_z_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_y_p_z_p)
-
         # Adjust box number
-        self._markers_y_m_z_m[:, self._sorting_boxes.box_index] += (
-            self._sorting_boxes.nx + 2
-        ) * self._sorting_boxes.ny + (self._sorting_boxes.nx + 2) * (
-            self._sorting_boxes.ny + 2
-        ) * self._sorting_boxes.nz
-        self._markers_y_m_z_p[:, self._sorting_boxes.box_index] += (
-            self._sorting_boxes.nx + 2
-        ) * self._sorting_boxes.ny - (self._sorting_boxes.nx + 2) * (
-            self._sorting_boxes.ny + 2
-        ) * self._sorting_boxes.nz
-        self._markers_y_p_z_m[:, self._sorting_boxes.box_index] += (
-            -(self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-            + (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_y_p_z_p[:, self._sorting_boxes.box_index] += (
-            -(self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-            - (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
+        self._markers_x_m_z_m[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["z_m"]
+        self._markers_x_m_z_p[:, self._sorting_boxes.box_index] += shifts["x_m"] - shifts["z_p"]
+        self._markers_x_p_z_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["z_m"]
+        self._markers_x_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["z_p"]
 
-        # Put first last index to -2 to indicate that they are ghosts on the new process
+        # Mirror position for boundary condition
+        if self.bc_sph[0] in ("mirror", "fixed") or self.bc_sph[2] in ("mirror", "fixed"):
+            self._mirror_particles(
+                "_markers_x_m_z_m",
+                "_markers_x_m_z_p",
+                "_markers_x_p_z_m",
+                "_markers_x_p_z_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
+            )
+
+        ## Edges y-z
+
+        # ghost marker arrays
+        self._markers_y_m_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_y_m_z_m)
+        self._markers_y_m_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_y_m_z_p)
+        self._markers_y_p_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_y_p_z_m)
+        self._markers_y_p_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_y_p_z_p)
+
+        # Put last index to -2 to indicate that they are ghosts on the new process
         self._markers_y_m_z_m[:, -1] = -2.0
         self._markers_y_m_z_p[:, -1] = -2.0
         self._markers_y_p_z_m[:, -1] = -2.0
         self._markers_y_p_z_p[:, -1] = -2.0
 
-        # Corners
-        self._markers_x_m_y_m_z_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m_y_m_z_m)
-        self._markers_x_m_y_m_z_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m_y_m_z_p)
-        self._markers_x_m_y_p_z_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m_y_p_z_m)
-        self._markers_x_m_y_p_z_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_m_y_p_z_p)
-        self._markers_x_p_y_m_z_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_p_y_m_z_m)
-        self._markers_x_p_y_m_z_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_p_y_m_z_p)
-        self._markers_x_p_y_p_z_m = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_p_y_p_z_m)
-        self._markers_x_p_y_p_z_p = self.determine_marker_in_box(self._sorting_boxes._bnd_boxes_x_p_y_p_z_p)
-
         # Adjust box number
-        self._markers_x_m_y_m_z_m[:, self._sorting_boxes.box_index] += (
-            self._sorting_boxes.nx
-            + (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-            + (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_x_m_y_m_z_p[:, self._sorting_boxes.box_index] += (
-            self._sorting_boxes.nx
-            + (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-            - (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_x_m_y_p_z_m[:, self._sorting_boxes.box_index] += (
-            self._sorting_boxes.nx
-            - (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-            + (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_x_m_y_p_z_p[:, self._sorting_boxes.box_index] += (
-            self._sorting_boxes.nx
-            - (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-            - (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_x_p_y_m_z_m[:, self._sorting_boxes.box_index] += (
-            -self._sorting_boxes.nx
-            + (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-            + (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_x_p_y_m_z_p[:, self._sorting_boxes.box_index] += (
-            -self._sorting_boxes.nx
-            + (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-            - (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_x_p_y_p_z_m[:, self._sorting_boxes.box_index] += (
-            -self._sorting_boxes.nx
-            - (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-            + (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
-        self._markers_x_p_y_p_z_p[:, self._sorting_boxes.box_index] += (
-            -self._sorting_boxes.nx
-            - (self._sorting_boxes.nx + 2) * self._sorting_boxes.ny
-            - (self._sorting_boxes.nx + 2) * (self._sorting_boxes.ny + 2) * self._sorting_boxes.nz
-        )
+        self._markers_y_m_z_m[:, self._sorting_boxes.box_index] += shifts["y_m"] + shifts["z_m"]
+        self._markers_y_m_z_p[:, self._sorting_boxes.box_index] += shifts["y_m"] - shifts["z_p"]
+        self._markers_y_p_z_m[:, self._sorting_boxes.box_index] += -shifts["y_p"] + shifts["z_m"]
+        self._markers_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["y_p"] - shifts["z_p"]
 
-        # Put first last index to -2 to indicate that they are ghosts on the new process
+        # Mirror position for boundary condition
+        if self.bc_sph[1] in ("mirror", "fixed") or self.bc_sph[2] in ("mirror", "fixed"):
+            self._mirror_particles(
+                "_markers_y_m_z_m",
+                "_markers_y_m_z_p",
+                "_markers_y_p_z_m",
+                "_markers_y_p_z_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
+            )
+
+        ## Corners
+
+        # ghost marker arrays
+        self._markers_x_m_y_m_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_y_m_z_m)
+        self._markers_x_m_y_m_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_y_m_z_p)
+        self._markers_x_m_y_p_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_y_p_z_m)
+        self._markers_x_m_y_p_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_m_y_p_z_p)
+        self._markers_x_p_y_m_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_p_y_m_z_m)
+        self._markers_x_p_y_m_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_p_y_m_z_p)
+        self._markers_x_p_y_p_z_m = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_p_y_p_z_m)
+        self._markers_x_p_y_p_z_p = self.determine_markers_in_box(self._sorting_boxes._bnd_boxes_x_p_y_p_z_p)
+
+        # Put last index to -2 to indicate that they are ghosts on the new process
         self._markers_x_m_y_m_z_m[:, -1] = -2.0
         self._markers_x_m_y_m_z_p[:, -1] = -2.0
         self._markers_x_m_y_p_z_m[:, -1] = -2.0
@@ -2642,8 +2835,123 @@ class Particles(metaclass=ABCMeta):
         self._markers_x_p_y_p_z_m[:, -1] = -2.0
         self._markers_x_p_y_p_z_p[:, -1] = -2.0
 
-    def determine_marker_in_box(self, list_boxes):
-        """Determine the markers that belong to a certain box and put them in an array"""
+        # Adjust box number
+        self._markers_x_m_y_m_z_m[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["y_m"] + shifts["z_m"]
+        self._markers_x_m_y_m_z_p[:, self._sorting_boxes.box_index] += shifts["x_m"] + shifts["y_m"] - shifts["z_p"]
+        self._markers_x_m_y_p_z_m[:, self._sorting_boxes.box_index] += shifts["x_m"] - shifts["y_p"] + shifts["z_m"]
+        self._markers_x_m_y_p_z_p[:, self._sorting_boxes.box_index] += shifts["x_m"] - shifts["y_p"] - shifts["z_p"]
+        self._markers_x_p_y_m_z_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["y_m"] + shifts["z_m"]
+        self._markers_x_p_y_m_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] + shifts["y_m"] - shifts["z_p"]
+        self._markers_x_p_y_p_z_m[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"] + shifts["z_m"]
+        self._markers_x_p_y_p_z_p[:, self._sorting_boxes.box_index] += -shifts["x_p"] - shifts["y_p"] - shifts["z_p"]
+
+        # Mirror position for boundary condition
+        if any([bci in ("mirror", "fixed") for bci in self.bc_sph]):
+            self._mirror_particles(
+                "_markers_x_m_y_m_z_m",
+                "_markers_x_m_y_m_z_p",
+                "_markers_x_m_y_p_z_m",
+                "_markers_x_m_y_p_z_p",
+                "_markers_x_p_y_m_z_m",
+                "_markers_x_p_y_m_z_p",
+                "_markers_x_p_y_p_z_m",
+                "_markers_x_p_y_p_z_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
+            )
+
+    def _mirror_particles(self, *marker_array_names, is_domain_boundary=None):
+        self._fixed_markers_set = {}
+
+        for arr_name in marker_array_names:
+            assert isinstance(arr_name, str)
+            arr = getattr(self, arr_name)
+
+            if arr.size == 0:
+                continue
+
+            # x-direction
+            if self.bc_sph[0] in ("mirror", "fixed"):
+                if "x_m" in arr_name and is_domain_boundary["x_m"]:
+                    arr[:, 0] *= -1.0
+                    if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
+                        self._fixed_markers_set[arr_name] = True
+                elif "x_p" in arr_name and is_domain_boundary["x_p"]:
+                    arr[:, 0] = 2.0 - arr[:, 0]
+                    if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
+                        self._fixed_markers_set[arr_name] = True
+
+            # y-direction
+            if self.bc_sph[1] in ("mirror", "fixed"):
+                if "y_m" in arr_name and is_domain_boundary["y_m"]:
+                    arr[:, 1] *= -1.0
+                    if self.bc_sph[1] == "fixed" and arr_name not in self._fixed_markers_set:
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
+                        self._fixed_markers_set[arr_name] = True
+                elif "y_p" in arr_name and is_domain_boundary["y_p"]:
+                    arr[:, 1] = 2.0 - arr[:, 1]
+                    if self.bc_sph[1] == "fixed" and arr_name not in self._fixed_markers_set:
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
+                        self._fixed_markers_set[arr_name] = True
+
+            # z-direction
+            if self.bc_sph[2] in ("mirror", "fixed"):
+                if "z_m" in arr_name and is_domain_boundary["z_m"]:
+                    arr[:, 2] *= -1.0
+                    if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
+                        self._fixed_markers_set[arr_name] = True
+                elif "z_p" in arr_name and is_domain_boundary["z_p"]:
+                    arr[:, 2] = 2.0 - arr[:, 2]
+                    if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
+                        boundary_values = self.f_init(
+                            *arr[:, :3].T, flat_eval=True
+                        )  # evaluation outside of the unit cube - maybe not working for all f_init!
+                        arr[:, self.index["weights"]] = -boundary_values / self.s0(
+                            *arr[:, :3].T,
+                            flat_eval=True,
+                            remove_holes=False,
+                        )
+                        self._fixed_markers_set[arr_name] = True
+
+    def determine_markers_in_box(self, list_boxes):
+        """Determine the markers that belong to a certain box (list of boxes) and put them in an array"""
         indices = []
         for i in list_boxes:
             indices += list(self._sorting_boxes._boxes[i][self._sorting_boxes._boxes[i] != -1])
@@ -2658,123 +2966,149 @@ class Particles(metaclass=ABCMeta):
         self._send_list_box = [np.zeros((0, self.n_cols))] * self.mpi_size
 
         # Faces
+        # if self._x_m_proc is not None:
         self._send_info_box[self._x_m_proc] += len(self._markers_x_m)
         self._send_list_box[self._x_m_proc] = np.concatenate((self._send_list_box[self._x_m_proc], self._markers_x_m))
 
+        # if self._x_p_proc is not None:
         self._send_info_box[self._x_p_proc] += len(self._markers_x_p)
         self._send_list_box[self._x_p_proc] = np.concatenate((self._send_list_box[self._x_p_proc], self._markers_x_p))
 
+        # if self._y_m_proc is not None:
         self._send_info_box[self._y_m_proc] += len(self._markers_y_m)
         self._send_list_box[self._y_m_proc] = np.concatenate((self._send_list_box[self._y_m_proc], self._markers_y_m))
 
+        # if self._y_p_proc is not None:
         self._send_info_box[self._y_p_proc] += len(self._markers_y_p)
         self._send_list_box[self._y_p_proc] = np.concatenate((self._send_list_box[self._y_p_proc], self._markers_y_p))
 
+        # if self._z_m_proc is not None:
         self._send_info_box[self._z_m_proc] += len(self._markers_z_m)
         self._send_list_box[self._z_m_proc] = np.concatenate((self._send_list_box[self._z_m_proc], self._markers_z_m))
 
+        # if self._z_p_proc is not None:
         self._send_info_box[self._z_p_proc] += len(self._markers_z_p)
         self._send_list_box[self._z_p_proc] = np.concatenate((self._send_list_box[self._z_p_proc], self._markers_z_p))
 
         # x-y edges
+        # if self._x_m_y_m_proc is not None:
         self._send_info_box[self._x_m_y_m_proc] += len(self._markers_x_m_y_m)
         self._send_list_box[self._x_m_y_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_m_proc], self._markers_x_m_y_m)
         )
 
+        # if self._x_m_y_p_proc is not None:
         self._send_info_box[self._x_m_y_p_proc] += len(self._markers_x_m_y_p)
         self._send_list_box[self._x_m_y_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_p_proc], self._markers_x_m_y_p)
         )
 
+        # if self._x_p_y_m_proc is not None:
         self._send_info_box[self._x_p_y_m_proc] += len(self._markers_x_p_y_m)
         self._send_list_box[self._x_p_y_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_m_proc], self._markers_x_p_y_m)
         )
 
+        # if self._x_p_y_p_proc is not None:
         self._send_info_box[self._x_p_y_p_proc] += len(self._markers_x_p_y_p)
         self._send_list_box[self._x_p_y_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_p_proc], self._markers_x_p_y_p)
         )
 
         # x-z edges
+        # if self._x_m_z_m_proc is not None:
         self._send_info_box[self._x_m_z_m_proc] += len(self._markers_x_m_z_m)
         self._send_list_box[self._x_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_z_m_proc], self._markers_x_m_z_m)
         )
 
+        # if self._x_m_z_p_proc is not None:
         self._send_info_box[self._x_m_z_p_proc] += len(self._markers_x_m_z_p)
         self._send_list_box[self._x_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_z_p_proc], self._markers_x_m_z_p)
         )
 
+        # if self._x_p_z_m_proc is not None:
         self._send_info_box[self._x_p_z_m_proc] += len(self._markers_x_p_z_m)
         self._send_list_box[self._x_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_z_m_proc], self._markers_x_p_z_m)
         )
 
+        # if self._x_p_z_p_proc is not None:
         self._send_info_box[self._x_p_z_p_proc] += len(self._markers_x_p_z_p)
         self._send_list_box[self._x_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_z_p_proc], self._markers_x_p_z_p)
         )
 
         # y-z edges
+        # if self._y_m_z_m_proc is not None:
         self._send_info_box[self._y_m_z_m_proc] += len(self._markers_y_m_z_m)
         self._send_list_box[self._y_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._y_m_z_m_proc], self._markers_y_m_z_m)
         )
 
+        # if self._y_m_z_p_proc is not None:
         self._send_info_box[self._y_m_z_p_proc] += len(self._markers_y_m_z_p)
         self._send_list_box[self._y_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._y_m_z_p_proc], self._markers_y_m_z_p)
         )
 
+        # if self._y_p_z_m_proc is not None:
         self._send_info_box[self._y_p_z_m_proc] += len(self._markers_y_p_z_m)
         self._send_list_box[self._y_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._y_p_z_m_proc], self._markers_y_p_z_m)
         )
 
+        # if self._y_p_z_p_proc is not None:
         self._send_info_box[self._y_p_z_p_proc] += len(self._markers_y_p_z_p)
         self._send_list_box[self._y_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._y_p_z_p_proc], self._markers_y_p_z_p)
         )
 
         # corners
+        # if self._x_m_y_m_z_m_proc is not None:
         self._send_info_box[self._x_m_y_m_z_m_proc] += len(self._markers_x_m_y_m_z_m)
         self._send_list_box[self._x_m_y_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_m_z_m_proc], self._markers_x_m_y_m_z_m)
         )
 
+        # if self._x_m_y_m_z_p_proc is not None:
         self._send_info_box[self._x_m_y_m_z_p_proc] += len(self._markers_x_m_y_m_z_p)
         self._send_list_box[self._x_m_y_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_m_z_p_proc], self._markers_x_m_y_m_z_p)
         )
 
+        # if self._x_m_y_p_z_m_proc is not None:
         self._send_info_box[self._x_m_y_p_z_m_proc] += len(self._markers_x_m_y_p_z_m)
         self._send_list_box[self._x_m_y_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_p_z_m_proc], self._markers_x_m_y_p_z_m)
         )
 
+        # if self._x_m_y_p_z_p_proc is not None:
         self._send_info_box[self._x_m_y_p_z_p_proc] += len(self._markers_x_m_y_p_z_p)
         self._send_list_box[self._x_m_y_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_m_y_p_z_p_proc], self._markers_x_m_y_p_z_p)
         )
 
+        # if self._x_p_y_m_z_m_proc is not None:
         self._send_info_box[self._x_p_y_m_z_m_proc] += len(self._markers_x_p_y_m_z_m)
         self._send_list_box[self._x_p_y_m_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_m_z_m_proc], self._markers_x_p_y_m_z_m)
         )
 
+        # if self._x_p_y_m_z_p_proc is not None:
         self._send_info_box[self._x_p_y_m_z_p_proc] += len(self._markers_x_p_y_m_z_p)
         self._send_list_box[self._x_p_y_m_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_m_z_p_proc], self._markers_x_p_y_m_z_p)
         )
 
+        # if self._x_p_y_p_z_m_proc is not None:
         self._send_info_box[self._x_p_y_p_z_m_proc] += len(self._markers_x_p_y_p_z_m)
         self._send_list_box[self._x_p_y_p_z_m_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_p_z_m_proc], self._markers_x_p_y_p_z_m)
         )
 
+        # if self._x_p_y_p_z_p_proc is not None:
         self._send_info_box[self._x_p_y_p_z_p_proc] += len(self._markers_x_p_y_p_z_p)
         self._send_list_box[self._x_p_y_p_z_p_proc] = np.concatenate(
             (self._send_list_box[self._x_p_y_p_z_p_proc], self._markers_x_p_y_p_z_p)
@@ -2814,13 +3148,13 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
     @profile
     def communicate_boxes(self, verbose=False):
-        if verbose:
-            n_valid = np.count_nonzero(self.valid_mks)
-            n_holes = np.count_nonzero(self.holes)
-            n_ghosts = np.count_nonzero(self.ghost_particles)
-            print(f"before communicate_boxes: {self.mpi_rank = }, {n_valid = } {n_holes = }, {n_ghosts = }")
+        # if verbose:
+        #     n_valid = np.count_nonzero(self.valid_mks)
+        #     n_holes = np.count_nonzero(self.holes)
+        #     n_ghosts = np.count_nonzero(self.ghost_particles)
+        #     print(f"before communicate_boxes: {self.mpi_rank = }, {n_valid = } {n_holes = }, {n_ghosts = }")
 
-        self.determine_send_markers_box()
+        self.prepare_ghost_particles()
         self.get_destinations_box()
         self.self_communication_boxes()
         self.update_holes()
@@ -2831,11 +3165,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             self.update_holes()
         self.update_ghost_particles()
 
-        if verbose:
-            n_valid = np.count_nonzero(self.valid_mks)
-            n_holes = np.count_nonzero(self.holes)
-            n_ghosts = np.count_nonzero(self.ghost_particles)
-            print(f"after communicate_boxes: {self.mpi_rank = }, {n_valid = }, {n_holes = }, {n_ghosts = }")
+        # if verbose:
+        #     n_valid = np.count_nonzero(self.valid_mks)
+        #     n_holes = np.count_nonzero(self.holes)
+        #     n_ghosts = np.count_nonzero(self.ghost_particles)
+        #     print(f"after communicate_boxes: {self.mpi_rank = }, {n_valid = }, {n_holes = }, {n_ghosts = }")
 
     def sendrecv_all_to_all_boxes(self):
         """
@@ -2897,18 +3231,56 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
         self.mpi_comm.Barrier()
 
     def _get_neighbouring_proc(self):
-        """Find the neighbouring processes for the sending of boxes"""
-        dd = self.domain_array
-        periodic1, periodic2, periodic3 = (
-            [True] * 3
-        )  # for the moment we always assume periodicity for the evaluation near the boundary, TODO: fill ghost boxes with suitable markers for other bcs?
+        """Find the neighbouring processes for the sending of boxes.
+
+        The left (right) neighbour in direction 1 is called x_m_proc (x_p_proc), etc.
+        By default every process is its own neighbour.
+        """
+        # Faces
+        self._x_m_proc = None
+        self._x_p_proc = None
+        self._y_m_proc = None
+        self._y_p_proc = None
+        self._z_m_proc = None
+        self._z_p_proc = None
+        # Edges
+        self._x_m_y_m_proc = None
+        self._x_m_y_p_proc = None
+        self._x_p_y_m_proc = None
+        self._x_p_y_p_proc = None
+        self._x_m_z_m_proc = None
+        self._x_m_z_p_proc = None
+        self._x_p_z_m_proc = None
+        self._x_p_z_p_proc = None
+        self._y_m_z_m_proc = None
+        self._y_m_z_p_proc = None
+        self._y_p_z_m_proc = None
+        self._y_p_z_p_proc = None
+        # Corners
+        self._x_m_y_m_z_m_proc = None
+        self._x_m_y_m_z_p_proc = None
+        self._x_m_y_p_z_m_proc = None
+        self._x_p_y_m_z_m_proc = None
+        self._x_m_y_p_z_p_proc = None
+        self._x_p_y_m_z_p_proc = None
+        self._x_p_y_p_z_m_proc = None
+        self._x_p_y_p_z_p_proc = None
+
+        # periodicitiy for distance computation
+        periodic1 = self.bc_sph[0] == "periodic"
+        periodic2 = self.bc_sph[1] == "periodic"
+        periodic3 = self.bc_sph[2] == "periodic"
+
         # Determine which proc are on which side
-        x_l = dd[self.mpi_rank][0]
-        x_r = dd[self.mpi_rank][1]
-        y_l = dd[self.mpi_rank][3]
-        y_r = dd[self.mpi_rank][4]
-        z_l = dd[self.mpi_rank][6]
-        z_r = dd[self.mpi_rank][7]
+        dd = self.domain_array
+        rank = self.mpi_rank
+
+        x_l = dd[rank][0]
+        x_r = dd[rank][1]
+        y_l = dd[rank][3]
+        y_r = dd[rank][4]
+        z_l = dd[rank][6]
+        z_r = dd[rank][7]
         for i in range(self.mpi_size):
             xl_i = dd[i][0]
             xr_i = dd[i][1]
@@ -2917,243 +3289,359 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             zl_i = dd[i][6]
             zr_i = dd[i][7]
 
+            is_same_x_l = abs(distance(xl_i, x_l, periodic1)) < 1e-5
+            is_same_x_r = abs(distance(xr_i, x_r, periodic1)) < 1e-5
+            is_same_y_l = abs(distance(yl_i, y_l, periodic2)) < 1e-5
+            is_same_y_r = abs(distance(yr_i, y_r, periodic2)) < 1e-5
+            is_same_z_l = abs(distance(zl_i, z_l, periodic3)) < 1e-5
+            is_same_z_r = abs(distance(zr_i, z_r, periodic3)) < 1e-5
+
+            is_neigh_x_l = abs(distance(xr_i, x_l, periodic1)) < 1e-5
+            is_neigh_x_r = abs(distance(xl_i, x_r, periodic1)) < 1e-5
+            is_neigh_y_l = abs(distance(yr_i, y_l, periodic2)) < 1e-5
+            is_neigh_y_r = abs(distance(yl_i, y_r, periodic2)) < 1e-5
+            is_neigh_z_l = abs(distance(zr_i, z_l, periodic3)) < 1e-5
+            is_neigh_z_r = abs(distance(zl_i, z_r, periodic3)) < 1e-5
+
             # Faces
 
             # Process on the left (minus axis) in the x direction
-            if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xr_i, x_l, periodic1)) < 1e-5
-            ):
+            if is_same_y_l and is_same_y_r and is_same_z_l and is_same_z_r and is_neigh_x_l:
                 self._x_m_proc = i
 
             # Process on the right (plus axis) in the x direction
-            if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xl_i, x_r, periodic1)) < 1e-5
-            ):
+            if is_same_y_l and is_same_y_r and is_same_z_l and is_same_z_r and is_neigh_x_r:
                 self._x_p_proc = i
 
             # Process on the left (minus axis) in the y direction
-            if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-            ):
+            if is_same_x_l and is_same_x_r and is_same_z_l and is_same_z_r and is_neigh_y_l:
                 self._y_m_proc = i
 
             # Process on the right (plus axis) in the y direction
-            if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-            ):
+            if is_same_x_l and is_same_x_r and is_same_z_l and is_same_z_r and is_neigh_y_r:
                 self._y_p_proc = i
 
             # Process on the left (minus axis) in the z direction
-            if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
-            ):
+            if is_same_x_l and is_same_x_r and is_same_y_l and is_same_y_r and is_neigh_z_l:
                 self._z_m_proc = i
 
             # Process on the right (plus axis) in the z direction
-            if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
-            ):
+            if is_same_x_l and is_same_x_r and is_same_y_l and is_same_y_r and is_neigh_z_r:
                 self._z_p_proc = i
 
             # Edges
 
             # Process on the left in x and left in y axis
-            if (
-                abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-            ):
+            if is_same_z_l and is_same_z_r and is_neigh_x_l and is_neigh_y_l:
                 self._x_m_y_m_proc = i
 
             # Process on the left in x and right in y axis
-            if (
-                abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-            ):
+            if is_same_z_l and is_same_z_r and is_neigh_x_l and is_neigh_y_r:
                 self._x_m_y_p_proc = i
 
             # Process on the right in x and left in y axis
-            if (
-                abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-            ):
+            if is_same_z_l and is_same_z_r and is_neigh_x_r and is_neigh_y_l:
                 self._x_p_y_m_proc = i
 
             # Process on the right in x and right in y axis
-            if (
-                abs(distance(zl_i, z_l, periodic3)) < 1e-5
-                and abs(distance(zr_i, z_r, periodic3)) < 1e-5
-                and abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-            ):
+            if is_same_z_l and is_same_z_r and is_neigh_x_r and is_neigh_y_r:
                 self._x_p_y_p_proc = i
 
             # Process on the left in x and left in z axis
-            if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
-            ):
+            if is_same_y_l and is_same_y_r and is_neigh_x_l and is_neigh_z_l:
                 self._x_m_z_m_proc = i
 
             # Process on the left in x and right in z axis
-            if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
-            ):
+            if is_same_y_l and is_same_y_r and is_neigh_x_l and is_neigh_z_r:
                 self._x_m_z_p_proc = i
 
             # Process on the right in x and left in z axis
-            if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
-            ):
+            if is_same_y_l and is_same_y_r and is_neigh_x_r and is_neigh_z_l:
                 self._x_p_z_m_proc = i
 
             # Process on the right in x and right in z axis
-            if (
-                abs(distance(yl_i, y_l, periodic2)) < 1e-5
-                and abs(distance(yr_i, y_r, periodic2)) < 1e-5
-                and abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
-            ):
+            if is_same_y_l and is_same_y_r and is_neigh_x_r and is_neigh_z_r:
                 self._x_p_z_p_proc = i
 
             # Process on the left in y and left in z axis
-            if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
-            ):
+            if is_same_x_l and is_same_x_r and is_neigh_y_l and is_neigh_z_l:
                 self._y_m_z_m_proc = i
 
             # Process on the left in y and right in z axis
-            if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
-            ):
+            if is_same_x_l and is_same_x_r and is_neigh_y_l and is_neigh_z_r:
                 self._y_m_z_p_proc = i
 
             # Process on the right in y and left in z axis
-            if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
-            ):
+            if is_same_x_l and is_same_x_r and is_neigh_y_r and is_neigh_z_l:
                 self._y_p_z_m_proc = i
 
             # Process on the right in y and right in z axis
-            if (
-                abs(distance(xl_i, x_l, periodic1)) < 1e-5
-                and abs(distance(xr_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
-            ):
+            if is_same_x_l and is_same_x_r and is_neigh_y_r and is_neigh_z_r:
                 self._y_p_z_p_proc = i
 
             # Corners
 
             # Process on the left in x, left in y and left in z axis
-            if (
-                abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
-            ):
+            if is_neigh_x_l and is_neigh_y_l and is_neigh_z_l:
                 self._x_m_y_m_z_m_proc = i
 
             # Process on the left in x, left in y and right in z axis
-            if (
-                abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
-            ):
+            if is_neigh_x_l and is_neigh_y_l and is_neigh_z_r:
                 self._x_m_y_m_z_p_proc = i
 
             # Process on the left in x, right in y and left in z axis
-            if (
-                abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
-            ):
+            if is_neigh_x_l and is_neigh_y_r and is_neigh_z_l:
                 self._x_m_y_p_z_m_proc = i
 
             # Process on the left in x, right in y and right in z axis
-            if (
-                abs(distance(xr_i, x_l, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
-            ):
+            if is_neigh_x_l and is_neigh_y_r and is_neigh_z_r:
                 self._x_m_y_p_z_p_proc = i
 
             # Process on the right in x, left in y and left in z axis
-            if (
-                abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
-            ):
+            if is_neigh_x_r and is_neigh_y_l and is_neigh_z_l:
                 self._x_p_y_m_z_m_proc = i
 
             # Process on the right in x, left in y and right in z axis
-            if (
-                abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yr_i, y_l, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
-            ):
+            if is_neigh_x_r and is_neigh_y_l and is_neigh_z_r:
                 self._x_p_y_m_z_p_proc = i
 
             # Process on the right in x, right in y and left in z axis
-            if (
-                abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zr_i, z_l, periodic3)) < 1e-5
-            ):
+            if is_neigh_x_r and is_neigh_y_r and is_neigh_z_l:
                 self._x_p_y_p_z_m_proc = i
 
             # Process on the right in x, right in y and right in z axis
-            if (
-                abs(distance(xl_i, x_r, periodic1)) < 1e-5
-                and abs(distance(yl_i, y_r, periodic2)) < 1e-5
-                and abs(distance(zl_i, z_r, periodic3)) < 1e-5
-            ):
+            if is_neigh_x_r and is_neigh_y_r and is_neigh_z_r:
                 self._x_p_y_p_z_p_proc = i
+
+        # set empty faces in x
+        if self._x_m_proc is None:
+            self._x_m_proc = rank
+        if self._x_p_proc is None:
+            self._x_p_proc = rank
+
+        # set empty faces in y
+        if self._y_m_proc is None:
+            self._y_m_proc = rank
+        if self._y_p_proc is None:
+            self._y_p_proc = rank
+
+        # set empty faces in z
+        if self._z_m_proc is None:
+            self._z_m_proc = rank
+        if self._z_p_proc is None:
+            self._z_p_proc = rank
+
+        # set empty edges in xy
+        if self._x_m_y_m_proc is None:
+            if self._x_m_proc == rank:
+                self._x_m_y_m_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                self._x_m_y_m_proc = self._x_m_proc
+
+        if self._x_m_y_p_proc is None:
+            if self._x_m_proc == rank:
+                self._x_m_y_p_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                self._x_m_y_p_proc = self._x_m_proc
+
+        if self._x_p_y_m_proc is None:
+            if self._x_p_proc == rank:
+                self._x_p_y_m_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                self._x_p_y_m_proc = self._x_p_proc
+
+        if self._x_p_y_p_proc is None:
+            if self._x_p_proc == rank:
+                self._x_p_y_p_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                self._x_p_y_p_proc = self._x_p_proc
+
+        # set empty edges in xz
+        if self._x_m_z_m_proc is None:
+            if self._x_m_proc == rank:
+                self._x_m_z_m_proc = self._z_m_proc
+            elif self._z_m_proc == rank:
+                self._x_m_z_m_proc = self._x_m_proc
+
+        if self._x_m_z_p_proc is None:
+            if self._x_m_proc == rank:
+                self._x_m_z_p_proc = self._z_p_proc
+            elif self._z_p_proc == rank:
+                self._x_m_z_p_proc = self._x_m_proc
+
+        if self._x_p_z_m_proc is None:
+            if self._x_p_proc == rank:
+                self._x_p_z_m_proc = self._z_m_proc
+            elif self._z_m_proc == rank:
+                self._x_p_z_m_proc = self._x_p_proc
+
+        if self._x_p_z_p_proc is None:
+            if self._x_p_proc == rank:
+                self._x_p_z_p_proc = self._z_p_proc
+            elif self._z_p_proc == rank:
+                self._x_p_z_p_proc = self._x_p_proc
+
+        # set empty edges in yz
+        if self._y_m_z_m_proc is None:
+            if self._y_m_proc == rank:
+                self._y_m_z_m_proc = self._z_m_proc
+            elif self._z_m_proc == rank:
+                self._y_m_z_m_proc = self._y_m_proc
+
+        if self._y_m_z_p_proc is None:
+            if self._y_m_proc == rank:
+                self._y_m_z_p_proc = self._z_p_proc
+            elif self._z_p_proc == rank:
+                self._y_m_z_p_proc = self._y_m_proc
+
+        if self._y_p_z_m_proc is None:
+            if self._y_p_proc == rank:
+                self._y_p_z_m_proc = self._z_m_proc
+            elif self._z_m_proc == rank:
+                self._y_p_z_m_proc = self._y_p_proc
+
+        if self._y_p_z_p_proc is None:
+            if self._y_p_proc == rank:
+                self._y_p_z_p_proc = self._z_p_proc
+            elif self._z_p_proc == rank:
+                self._y_p_z_p_proc = self._y_p_proc
+
+        # set empty corners
+        if self._x_m_y_m_z_m_proc is None:
+            if self._x_m_proc == rank:
+                if self._y_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._x_m_proc
+            elif self._z_m_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._y_m_proc
+                elif self._y_m_proc == rank:
+                    self._x_m_y_m_z_m_proc = self._x_m_proc
+
+        if self._x_m_y_m_z_p_proc is None:
+            if self._x_m_proc == rank:
+                if self._y_m_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._x_m_proc
+            elif self._z_p_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._y_m_proc
+                elif self._y_m_proc == rank:
+                    self._x_m_y_m_z_p_proc = self._x_m_proc
+
+        if self._x_m_y_p_z_m_proc is None:
+            if self._x_m_proc == rank:
+                if self._y_p_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._x_m_proc
+            elif self._z_m_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._y_p_proc
+                elif self._y_p_proc == rank:
+                    self._x_m_y_p_z_m_proc = self._x_m_proc
+
+        if self._x_m_y_p_z_p_proc is None:
+            if self._x_m_proc == rank:
+                if self._y_p_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._x_m_proc
+            elif self._z_p_proc == rank:
+                if self._x_m_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._y_p_proc
+                elif self._y_p_proc == rank:
+                    self._x_m_y_p_z_p_proc = self._x_m_proc
+
+        if self._x_p_y_m_z_m_proc is None:
+            if self._x_p_proc == rank:
+                if self._y_m_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._x_p_proc
+            elif self._z_m_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._y_m_proc
+                elif self._y_m_proc == rank:
+                    self._x_p_y_m_z_m_proc = self._x_p_proc
+
+        if self._x_p_y_m_z_p_proc is None:
+            if self._x_p_proc == rank:
+                if self._y_m_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._y_m_proc
+            elif self._y_m_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._x_p_proc
+            elif self._z_p_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._y_m_proc
+                elif self._y_m_proc == rank:
+                    self._x_p_y_m_z_p_proc = self._x_p_proc
+
+        if self._x_p_y_p_z_m_proc is None:
+            if self._x_p_proc == rank:
+                if self._y_p_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._z_m_proc
+                elif self._z_m_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._x_p_proc
+            elif self._z_m_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._y_p_proc
+                elif self._y_p_proc == rank:
+                    self._x_p_y_p_z_m_proc = self._x_p_proc
+
+        if self._x_p_y_p_z_p_proc is None:
+            if self._x_p_proc == rank:
+                if self._y_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._y_p_proc
+            elif self._y_p_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._z_p_proc
+                elif self._z_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._x_p_proc
+            elif self._z_p_proc == rank:
+                if self._x_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._y_p_proc
+                elif self._y_p_proc == rank:
+                    self._x_p_y_p_z_p_proc = self._x_p_proc
 
     def eval_density(
         self,
