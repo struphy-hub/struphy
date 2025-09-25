@@ -339,7 +339,7 @@ class GuidingCenter(StruphyModel):
 
 
 class ShearAlfven(StruphyModel):
-    r"""ShearAlfven propagator from :class:`~struphy.models.fluid.LinearMHD` with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
+    r"""ShearAlfven propagator from :class:`~struphy.models.LinearMHD` with zero-flow equilibrium (:math:`\mathbf U_0 = 0`).
 
     :ref:`normalization`:
 
