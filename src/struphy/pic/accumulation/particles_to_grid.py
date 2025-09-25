@@ -12,8 +12,6 @@ from struphy.feec.psydac_derham import Derham
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
-from struphy.utils.arrays import xp as np
-from struphy.utils.pyccel import Pyccelkernel
 
 
 class Accumulator:
@@ -207,7 +205,7 @@ class Accumulator:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        with ProfileManager.profile_region("kernel: " + self.kernel.name):
+        with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
             self.kernel(
                 self.particles.args_markers,
                 self.derham.args_derham,
@@ -614,10 +612,10 @@ class AccumulatorVector:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        with ProfileManager.profile_region("kernel: " + self.kernel.name):
+        with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
             self.kernel(
                 self.particles.args_markers,
-                self.derham.args_derham,
+                self.derham._args_derham,
                 self.args_domain,
                 *self._args_data,
                 *optional_args,

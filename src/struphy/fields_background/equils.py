@@ -2900,12 +2900,12 @@ class ConstantVelocity(CartesianFluidEquilibrium):
 
     def __init__(
         self,
-        ux: float = 1.0,
-        uy: float = 1.0,
-        uz: float = 1.0,
+        ux: float = 0.0,
+        uy: float = 0.0,
+        uz: float = 0.0,
         n: float = 1.0,
         n1: float = 0.0,
-        density_profile: str = "affine",
+        density_profile: str = "constant",
         p0: float = 1.0,
     ):
         # use params setter

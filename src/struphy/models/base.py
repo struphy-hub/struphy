@@ -27,7 +27,7 @@ from struphy.io.options import BaseUnits, DerhamOptions, Time, Units
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import descend_options_dict, setup_derham
 from struphy.kinetic_background import maxwellians
-from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, KineticSpecies, Species
+from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic import particles
 from struphy.pic.base import Particles
@@ -85,8 +85,8 @@ class StruphyModel(metaclass=ABCMeta):
             assert isinstance(species, FluidSpecies)
             species.setup_equation_params(units=units, verbose=verbose)
 
-        for _, species in self.kinetic_species.items():
-            assert isinstance(species, KineticSpecies)
+        for _, species in self.particle_species.items():
+            assert isinstance(species, ParticleSpecies)
             species.setup_equation_params(units=units, verbose=verbose)
 
     def setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
@@ -138,13 +138,13 @@ class StruphyModel(metaclass=ABCMeta):
         return self._fluid_species
 
     @property
-    def kinetic_species(self) -> dict:
-        if not hasattr(self, "_kinetic_species"):
-            self._kinetic_species = {}
+    def particle_species(self) -> dict:
+        if not hasattr(self, "_particle_species"):
+            self._particle_species = {}
             for k, v in self.__dict__.items():
-                if isinstance(v, KineticSpecies):
-                    self._kinetic_species[k] = v
-        return self._kinetic_species
+                if isinstance(v, ParticleSpecies):
+                    self._particle_species[k] = v
+        return self._particle_species
 
     @property
     def diagnostic_species(self) -> dict:
@@ -158,7 +158,7 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def species(self):
         if not hasattr(self, "_species"):
-            self._species = self.field_species | self.fluid_species | self.kinetic_species
+            self._species = self.field_species | self.fluid_species | self.particle_species
         return self._species
 
     ## allocate methods
@@ -600,19 +600,27 @@ class StruphyModel(metaclass=ABCMeta):
                     )
 
         # allocate memory for marker arrays of kinetic variables
-        if self.kinetic_species:
-            for species, spec in self.kinetic_species.items():
-                assert isinstance(spec, KineticSpecies)
+        if self.particle_species:
+            for species, spec in self.particle_species.items():
+                assert isinstance(spec, ParticleSpecies)
                 for k, v in spec.variables.items():
-                    assert isinstance(v, (PICVariable, SPHVariable))
-                    v.allocate(
-                        clone_config=self.clone_config,
-                        derham=self.derham,
-                        domain=self.domain,
-                        equil=self.equil,
-                        projected_equil=self.projected_equil,
-                        verbose=verbose,
-                    )
+                    if isinstance(v, PICVariable):
+                        v.allocate(
+                            clone_config=self.clone_config,
+                            derham=self.derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                            projected_equil=self.projected_equil,
+                            verbose=verbose,
+                        )
+                    if isinstance(v, SPHVariable):
+                        v.allocate(
+                            derham=self.derham,
+                            domain=self.domain,
+                            equil=self.equil,
+                            projected_equil=self.projected_equil,
+                            verbose=verbose,
+                        )
 
         # TODO: allocate memory for FE coeffs of diagnostics
         # if self.params.diagnostic_fields is not None:
@@ -681,8 +689,8 @@ class StruphyModel(metaclass=ABCMeta):
         Writes markers with IDs that are supposed to be saved into corresponding array.
         """
 
-        for name, species in self.kinetic_species.items():
-            assert isinstance(species, KineticSpecies)
+        for name, species in self.particle_species.items():
+            assert isinstance(species, ParticleSpecies)
             assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
             for _, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
@@ -705,7 +713,7 @@ class StruphyModel(metaclass=ABCMeta):
                     f"The number of markers for which data should be stored (={self._n_markers_saved}) murst be <= than the total number of markers (={obj.Np})"
                 )
                 if self._n_markers_saved > 0:
-                    var.kinetic_data["markers"] = np.zeros(
+                    var.particle_data["markers"] = np.zeros(
                         (self._n_markers_saved, obj.markers.shape[1]),
                         dtype=float,
                     )
@@ -716,8 +724,8 @@ class StruphyModel(metaclass=ABCMeta):
                     obj.markers[:, -1] < self._n_markers_saved,
                 )
                 n_markers_on_proc = np.count_nonzero(markers_on_proc)
-                var.kinetic_data["markers"][:] = -1.0
-                var.kinetic_data["markers"][:n_markers_on_proc] = obj.markers[markers_on_proc]
+                var.particle_data["markers"][:] = -1.0
+                var.particle_data["markers"][:n_markers_on_proc] = obj.markers[markers_on_proc]
 
     @profile
     def update_distr_functions(self):
@@ -727,53 +735,53 @@ class StruphyModel(metaclass=ABCMeta):
 
         dim_to_int = {"e1": 0, "e2": 1, "e3": 2, "v1": 3, "v2": 4, "v3": 5}
 
-        for name, species in self.kinetic_species.items():
-            assert isinstance(species, KineticSpecies)
+        for name, species in self.particle_species.items():
+            assert isinstance(species, ParticleSpecies)
             assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
             for _, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
                 obj = var.particles
                 assert isinstance(obj, Particles)
 
-            if obj.n_cols_diagnostics > 0:
-                for i in range(obj.n_cols_diagnostics):
-                    str_dn = f"d{i + 1}"
-                    dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
+                if obj.n_cols_diagnostics > 0:
+                    for i in range(obj.n_cols_diagnostics):
+                        str_dn = f"d{i + 1}"
+                        dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
 
-            if species.binning_plots:
-                for slice_i, edges in var.kinetic_data["bin_edges"].items():
-                    comps = slice_i.split("_")
-                    components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
+                if species.binning_plots:
+                    for slice_i, edges in var.particle_data["bin_edges"].items():
+                        comps = slice_i.split("_")
+                        components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
 
-                    for comp in comps:
-                        components[dim_to_int[comp]] = True
+                        for comp in comps:
+                            components[dim_to_int[comp]] = True
 
-                    f_slice, df_slice = obj.binning(components, edges)
+                        f_slice, df_slice = obj.binning(components, edges)
 
-                    var.kinetic_data["f"][slice_i][:] = f_slice
-                    var.kinetic_data["df"][slice_i][:] = df_slice
+                        var.particle_data["f"][slice_i][:] = f_slice
+                        var.particle_data["df"][slice_i][:] = df_slice
 
-            if species.n_sph is not None:
-                h1 = 1 / obj.boxes_per_dim[0]
-                h2 = 1 / obj.boxes_per_dim[1]
-                h3 = 1 / obj.boxes_per_dim[2]
+                if species.kernel_density_plots:
+                    h1 = 1 / obj.boxes_per_dim[0]
+                    h2 = 1 / obj.boxes_per_dim[1]
+                    h3 = 1 / obj.boxes_per_dim[2]
 
-                ndim = np.count_nonzero([d > 1 for d in obj.boxes_per_dim])
-                if ndim == 0:
-                    kernel_type = "gaussian_3d"
-                else:
-                    kernel_type = "gaussian_" + str(ndim) + "d"
+                    ndim = np.count_nonzero([d > 1 for d in obj.boxes_per_dim])
+                    if ndim == 0:
+                        kernel_type = "gaussian_3d"
+                    else:
+                        kernel_type = "gaussian_" + str(ndim) + "d"
 
-                for i, pts in enumerate(val["plot_pts"]):
-                    n_sph = obj.eval_density(
-                        *pts,
-                        h1=h1,
-                        h2=h2,
-                        h3=h3,
-                        kernel_type=kernel_type,
-                        fast=True,
-                    )
-                    val["kinetic_data"]["n_sph"][i][:] = n_sph
+                    for i, pts in enumerate(var.particle_data["plot_pts"]):
+                        n_sph = obj.eval_density(
+                            *pts,
+                            h1=h1,
+                            h2=h2,
+                            h3=h3,
+                            kernel_type=kernel_type,
+                            fast=True,
+                        )
+                        var.particle_data["n_sph"][i][:] = n_sph
 
     def print_scalar_quantities(self):
         """
@@ -1086,8 +1094,8 @@ class StruphyModel(metaclass=ABCMeta):
                         )
 
         # save kinetic data in group 'kinetic/'
-        for name, species in self.kinetic_species.items():
-            assert isinstance(species, KineticSpecies)
+        for name, species in self.particle_species.items():
+            assert isinstance(species, ParticleSpecies)
             assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
             for varname, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
@@ -1099,8 +1107,8 @@ class StruphyModel(metaclass=ABCMeta):
 
             data.add_data({key_spec_restart: obj._markers})
 
-            # TODO: kinetic_data should be a KineticData object, not a dict
-            for key1, val1 in var.kinetic_data.items():
+            # TODO: particle_data should be a KineticData object, not a dict
+            for key1, val1 in var.particle_data.items():
                 key_dat = os.path.join(key_spec, key1)
 
                 if key1 == "bin_edges":
@@ -1114,10 +1122,10 @@ class StruphyModel(metaclass=ABCMeta):
                         dims = (len(key2) - 2) // 3 + 1
                         for dim in range(dims):
                             data.file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = (
-                                var.kinetic_data["bin_edges"][key2][dim][:-1]
+                                var.particle_data["bin_edges"][key2][dim][:-1]
                                 + (
-                                    var.kinetic_data["bin_edges"][key2][dim][1]
-                                    - var.kinetic_data["bin_edges"][key2][dim][0]
+                                    var.particle_data["bin_edges"][key2][dim][1]
+                                    - var.particle_data["bin_edges"][key2][dim][0]
                                 )
                                 / 2
                             )
@@ -1127,9 +1135,9 @@ class StruphyModel(metaclass=ABCMeta):
                         key_n = os.path.join(key_dat, "view_", str(i))
                         data.add_data({key_n: v1})
                         # save 1d point values, not meshgrids, because attrs size is limited
-                        eta1 = var.kinetic_data["plot_pts"][i][0][:, 0, 0]
-                        eta2 = var.kinetic_data["plot_pts"][i][1][0, :, 0]
-                        eta3 = var.kinetic_data["plot_pts"][i][2][0, 0, :]
+                        eta1 = var.particle_data["plot_pts"][i][0][:, 0, 0]
+                        eta2 = var.particle_data["plot_pts"][i][1][0, :, 0]
+                        eta3 = var.particle_data["plot_pts"][i][2][0, 0, :]
                         data.file[key_n].attrs["eta1"] = eta1
                         data.file[key_n].attrs["eta2"] = eta2
                         data.file[key_n].attrs["eta3"] = eta3
@@ -1306,7 +1314,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         file.write("from struphy.fields_background import equils\n")
 
         species_params = "\n# species parameters\n"
-        kinetic_params = ""
+        particle_params = ""
         has_plasma = False
         has_feec = False
         has_pic = False
@@ -1314,16 +1322,16 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         for sn, species in self.species.items():
             assert isinstance(species, Species)
 
-            if isinstance(species, (FluidSpecies, KineticSpecies)):
+            if isinstance(species, (FluidSpecies, ParticleSpecies)):
                 has_plasma = True
                 species_params += f"model.{sn}.set_phys_params()\n"
-                if isinstance(species, KineticSpecies):
-                    kinetic_params += f"\nloading_params = LoadingParameters()\n"
-                    kinetic_params += f"weights_params = WeightsParameters()\n"
-                    kinetic_params += f"boundary_params = BoundaryParameters()\n"
-                    kinetic_params += f"model.{sn}.set_markers(loading_params=loading_params, weights_params=weights_params, boundary_params=boundary_params)\n"
-                    kinetic_params += f"model.{sn}.set_sorting_boxes()\n"
-                    kinetic_params += f"model.{sn}.set_save_data()\n"
+                if isinstance(species, ParticleSpecies):
+                    particle_params += f"\nloading_params = LoadingParameters()\n"
+                    particle_params += f"weights_params = WeightsParameters()\n"
+                    particle_params += f"boundary_params = BoundaryParameters()\n"
+                    particle_params += f"model.{sn}.set_markers(loading_params=loading_params, weights_params=weights_params, boundary_params=boundary_params)\n"
+                    particle_params += f"model.{sn}.set_sorting_boxes()\n"
+                    particle_params += f"model.{sn}.set_save_data()\n"
 
             for vn, var in species.variables.items():
                 if isinstance(var, FEECVariable):
@@ -1339,7 +1347,6 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v', comp=2))\n"
                         )
 
-                    exclude = f"# model.{sn}.{vn}.save_data = False\n"
                 elif isinstance(var, PICVariable):
                     has_pic = True
                     init_pert_pic = f"\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
@@ -1362,8 +1369,14 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
 
                     exclude = f"# model.....save_data = False\n"
+
                 elif isinstance(var, SPHVariable):
                     has_sph = True
+                    init_bckgr_sph = f"background = equils.ConstantVelocity()\n"
+                    init_bckgr_sph += f"model.{sn}.{vn}.add_background(background)\n"
+                    init_pert_sph = f"perturbation = perturbations.TorusModesCos()\n"
+                    init_pert_sph += f"model.{sn}.{vn}.add_perturbation(del_n=perturbation)\n"
+                exclude = f"# model.{sn}.{vn}.save_data = False\n"
 
         file.write("from struphy.topology import grids\n")
         file.write("from struphy.io.options import DerhamOptions\n")
@@ -1414,8 +1427,8 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         if has_plasma:
             file.write(species_params)
 
-        if has_pic:
-            file.write(kinetic_params)
+        if has_pic or has_sph:
+            file.write(particle_params)
 
         file.write("\n# propagator options\n")
         for prop in self.propagators.__dict__:
@@ -1428,6 +1441,9 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         if has_pic:
             file.write(init_bckgr_pic)
             file.write(init_pert_pic)
+        if has_sph:
+            file.write(init_bckgr_sph)
+            file.write(init_pert_sph)
 
         file.write("\n# optional: exclude variables from saving\n")
         file.write(exclude)
@@ -1436,16 +1452,16 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("    # start run\n")
         file.write(
             "    main.run(model, \n\
-                params_path=__file__, \n\
-                env=env, \n\
-                base_units=base_units, \n\
-                time_opts=time_opts, \n\
-                domain=domain, \n\
-                equil=equil, \n\
-                grid=grid, \n\
-                derham_opts=derham_opts, \n\
-                verbose=verbose, \n\
-                )"
+            params_path=__file__, \n\
+            env=env, \n\
+            base_units=base_units, \n\
+            time_opts=time_opts, \n\
+            domain=domain, \n\
+            equil=equil, \n\
+            grid=grid, \n\
+            derham_opts=derham_opts, \n\
+            verbose=verbose, \n\
+            )"
         )
 
         file.close()

@@ -8,10 +8,10 @@ from typing import Literal, get_args
 
 import scipy as sc
 from line_profiler import profile
+from matplotlib import pyplot as plt
 from mpi4py import MPI
 from numpy import zeros
 from psydac.api.essential_bc import apply_essential_bc_stencil
-from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.solvers import inverse

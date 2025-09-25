@@ -53,15 +53,14 @@ class LinOpWithTransp(LinearOperator):
 
         if isinstance(self.domain, BlockVectorSpace):
             comm = self.domain.spaces[0].cart.comm
+            if comm is None:
+                comm = MPI.COMM_SELF
         elif isinstance(self.domain, StencilVectorSpace):
             comm = self.domain.cart.comm
-
-        if comm is None:
-            rank = 0
-            size = 1
-        else:
-            rank = comm.Get_rank()
-            size = comm.Get_size()
+            if comm is None:
+                comm = MPI.COMM_SELF
+        rank = comm.Get_rank()
+        size = comm.Get_size()
 
         if is_sparse == False:
             if out is None:

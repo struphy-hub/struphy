@@ -165,7 +165,7 @@ def run(
             # between the clones : inter_comm
             clone_config = CloneConfig(comm=comm, params=None, num_clones=num_clones)
             clone_config.print_clone_config()
-            if model.kinetic_species:
+            if model.particle_species:
                 clone_config.print_particle_config()
 
     model.clone_config = clone_config

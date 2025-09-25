@@ -7,8 +7,6 @@ from mpi4py.MPI import IN_PLACE, SUM
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
-from struphy.utils.arrays import xp as np
-from struphy.utils.pyccel import Pyccelkernel
 
 
 class Pusher:
@@ -280,7 +278,7 @@ class Pusher:
                     )
 
                 # push markers
-                with ProfileManager.profile_region("kernel: " + self.kernel.name):
+                with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
                     self.kernel(
                         dt,
                         stage,

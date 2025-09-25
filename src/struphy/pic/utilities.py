@@ -170,6 +170,26 @@ class BinningPlot:
         self.ranges = ranges
 
 
+class KernelDensityPlot:
+    """SPH density plot in configuration space.
+
+    Parameters
+    ----------
+    pts_e1, pts_e2, pts_e3 : int
+        Number of evaluation points in each direction.
+    """
+
+    def __init__(
+        self,
+        pts_e1: int = 11,
+        pts_e2: int = 11,
+        pts_e3: int = 11,
+    ):
+        self.pts_e1 = pts_e1
+        self.pts_e2 = pts_e2
+        self.pts_e3 = pts_e3
+
+
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
     """
     This function is for getting kinetic energy of the case when canonical momentum is used, rather than velocity

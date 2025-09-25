@@ -3,7 +3,7 @@ from mpi4py import MPI
 from psydac.linalg.block import BlockVector
 
 from struphy.models.base import StruphyModel
-from struphy.models.species import FieldSpecies, FluidSpecies, KineticSpecies
+from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.polar.basic import PolarVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
@@ -2240,6 +2240,7 @@ class IsothermalEulerSPH(StruphyModel):
             propagators_markers.PushEta: ["euler_fluid"],
             # propagators_markers.PushVxB: ["euler_fluid"],
             propagators_markers.PushVinSPHpressure: ["euler_fluid"],
+            propagators_markers.PushVinViscousPotential: ["euler_fluid"],
         }
 
     __em_fields__ = species()["em_fields"]
@@ -2260,6 +2261,8 @@ class IsothermalEulerSPH(StruphyModel):
         algo_sph = _p["options"]["PushVinSPHpressure"]["algo"]
         gravity = _p["options"]["PushVinSPHpressure"]["gravity"]
         thermodynamics = _p["options"]["PushVinSPHpressure"]["thermodynamics"]
+        kernel_type_2 = _p["options"]["PushVinViscousPotential"]["kernel_type"]
+        kernel_width = _p["options"]["PushVinViscousPotential"]["kernel_width"]
 
         # magnetic field
         # self._b_eq = self.projected_equil.b2
@@ -2276,117 +2279,6 @@ class IsothermalEulerSPH(StruphyModel):
         #     "b2": self._b_eq,
         #     "b2_add": None,
         # }
-
-        self._kwargs[propagators_markers.PushVinSPHpressure] = {
-            "kernel_type": kernel_type,
-            "algo": algo_sph,
-            "gravity": gravity,
-            "thermodynamics": thermodynamics,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
-        self.add_scalar("en_kin", compute="from_sph", species="euler_fluid")
-
-    def update_scalar_quantities(self):
-        valid_markers = self.pointer["euler_fluid"].markers_wo_holes_and_ghost
-        en_kin = valid_markers[:, 6].dot(
-            valid_markers[:, 3] ** 2 + valid_markers[:, 4] ** 2 + valid_markers[:, 5] ** 2
-        ) / (2.0 * self.pointer["euler_fluid"].Np)
-        self.update_scalar("en_kin", en_kin)
-
-
-class ViscousEulerSPH(StruphyModel):
-    r"""Isothermal Euler equations discretized with smoothed particle hydrodynamics (SPH).
-
-    :ref:`normalization`:
-
-    .. math::
-
-        \hat u =  \hat v_\textnormal{th} \,.
-
-    :ref:`Equations <gempic>`:
-
-    .. math::
-
-        \begin{align}
-        \partial_t \rho + \nabla \cdot (\rho \mathbf u) &= 0\,,
-        \\[2mm]
-        \rho(\partial_t \mathbf u + \mathbf u \cdot \nabla \mathbf u) &= - \nabla \left(\rho^2 \frac{\partial \mathcal U(\rho, S)}{\partial \rho} \right)\,,
-        \\[2mm]
-        \partial_t S + \mathbf u \cdot \nabla S &= 0\,,
-        \end{align}
-
-    where :math:`S` denotes the entropy per unit mass and the internal energy per unit mass is
-
-    .. math::
-
-        \mathcal U(\rho, S) = \kappa(S) \log \rho\,.
-
-    :ref:`propagators` (called in sequence):
-
-    1. :class:`~struphy.propagators.propagators_markers.PushEta`
-    2. :class:`~struphy.propagators.propagators_markers.PushVinSPHpressure`
-
-    :ref:`Model info <add_model>`:
-    """
-
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
-
-        dct["kinetic"]["euler_fluid"] = "ParticlesSPH"
-        return dct
-
-    @staticmethod
-    def bulk_species():
-        return "euler_fluid"
-
-    @staticmethod
-    def velocity_scale():
-        return "thermal"
-
-    # @staticmethod
-    # def diagnostics_dct():
-    #     dct = {}
-    #     dct["projected_density"] = "L2"
-    #     return dct
-
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_markers.PushEta: ["euler_fluid"],
-            propagators_markers.PushVinSPHpressure: ["euler_fluid"],
-            propagators_markers.PushVinViscousPotential: ["euler_fluid"],
-        }
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # prelim
-        _p = params["kinetic"]["euler_fluid"]
-        algo_eta = _p["options"]["PushEta"]["algo"]
-        kernel_type_1 = _p["options"]["PushVinSPHpressure"]["kernel_type"]
-        algo_sph = _p["options"]["PushVinSPHpressure"]["algo"]
-        gravity = _p["options"]["PushVinSPHpressure"]["gravity"]
-        thermodynamics = _p["options"]["PushVinSPHpressure"]["thermodynamics"]
-        kernel_type_2 = _p["options"]["PushVinViscousPotential"]["kernel_type"]
-        kernel_width = _p["options"]["PushVinViscousPotential"]["kernel_width"]
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushEta] = {
-            "algo": algo_eta,
-            # "density_field": self.pointer["projected_density"],
-        }
 
         self._kwargs[propagators_markers.PushVinSPHpressure] = {
             "kernel_type": kernel_type_1,

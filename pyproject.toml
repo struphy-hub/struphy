@@ -62,9 +62,6 @@ dev = [
     "pandas",
     "plotly",
 ]
-mpi = [
-    'mpi4py',
-]
 doc = [
     "struphy[phys]",
     "sphinx",
