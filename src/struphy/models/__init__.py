@@ -1,3 +1,22 @@
+# import struphy.models.fluid as fluid
+# import struphy.models.hybrid as hybrid
+# import struphy.models.kinetic as kinetic
+# import struphy.models.toy as toy
+# from struphy.models.base import StruphyModel
+
+# model_names = []
+# for model_type in [toy, fluid, hybrid, kinetic]:
+#     for name, cls in model_type.__dict__.items():
+#         if (
+#             isinstance(cls, type)
+#             and issubclass(cls, StruphyModel)
+#             and cls != StruphyModel
+#         ):
+#             model_names.append(cls.__name__)
+#             print(f"from {model_type.__name__} import {cls.__name__}")
+# print(model_names)
+
+
 from struphy.models.fluid import (
     ColdPlasma,
     HasegawaWakatani,
