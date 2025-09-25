@@ -4,12 +4,15 @@ import inspect
 import io
 import tempfile
 from typing import get_type_hints
-
+# from docutils.core import publish_parts
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from nicegui import ui
+import re
+import struphy.models.toy as toymodels
 
 from struphy.geometry import domains
 from struphy.geometry.domains import Domain
+from struphy.models.base import StruphyModel
 
 CARD_SETUP = "p-4 border-2 border-gray-400 rounded-lg shadow-md"
 
@@ -20,7 +23,15 @@ for name, cls in domains.__dict__.items():
         domain_dict[name] = cls
 domain_names = list(domain_dict.keys())
 
+model_dict = {}
+for name, cls in toymodels.__dict__.items():
+    if isinstance(cls, type) and issubclass(cls, StruphyModel) and cls != StruphyModel:
+        model_dict[name] = cls
+model_names = list(model_dict.keys())
+
+
 # Globals
+model_name = "Vlasov"
 domain_name = "Tokamak"
 matplotlib_ui = None
 param_inputs = {}  # store input fields for parameters
@@ -56,7 +67,7 @@ def run_simulation():
     if matplotlib_ui is None:
         # Create card + matplotlib once
         with ui.card().classes(CARD_SETUP):
-            ui.label('Simulation domain')
+            ui.label("Simulation domain")
             matplotlib_ui = ui.matplotlib(figsize=(12, 6))
 
     # Always redraw the figure
@@ -103,19 +114,68 @@ def update_domain(value):
             param_inputs[pname] = (inp, annotation)
 
 
+def update_model(value):
+    """Update selected domain and refresh parameter UI"""
+    global model_name
+    model_name = value
 
-with ui.tabs().classes('w-full') as tabs:
-    domain_tab = ui.tab('Domain')
-    model_tab = ui.tab('Model')
+    # Clear old parameter inputs
+    model_container.clear()
+    param_inputs = {}
 
-with ui.tab_panels(tabs, value=domain_tab).classes('w-full'):
-    with ui.tab_panel(domain_tab):                
+    # Introspect constructor parameters + type hints
+    cls = model_dict[model_name]
+    sig = inspect.signature(cls.__init__)
+    hints = get_type_hints(cls.__init__)
+
+    with model_container:
+        
+        ui.add_css('''
+                .nicegui-markdown a {
+                    color: orange;
+                    text-decoration: none;
+                }
+                .nicegui-markdown a:hover {
+                    color: red;
+                    text-decoration: underline;
+                }
+            ''')
+        
+        doc = cls.__doc__
+
+        # Replace refs and classes
+        doc = re.sub(r':ref:`([^`]+)`', r'**\1**', doc)
+        doc = re.sub(r':class:`([^`]+)`', r'`\1`', doc)
+
+        # Replace math directive with LaTeX blocks
+        doc = re.sub(r'\.\. math::\n\n(.*?)\n\n', r'$\1$\n\n', doc, flags=re.S)
+
+        with ui.card().classes('p-6'):
+            ui.markdown(doc, extras=["latex"])
+        
+        # Print plain docstring
+        # ui.markdown(doc, extras=["latex"])
+        
+        # html_parts = publish_parts(cls.__doc__, writer_name='html')
+        # html = html_parts['body']
+        # with ui.card().classes('p-6'):
+        #     ui.html(html)
+
+
+with ui.tabs().classes("w-full") as tabs:
+    domain_tab = ui.tab("Domain")
+    model_tab = ui.tab("Model")
+
+with ui.tab_panels(tabs, value=domain_tab).classes("w-full"):
+    with ui.tab_panel(domain_tab):
         # UI layout
         with ui.card().classes(CARD_SETUP):
             with ui.row():
                 # ui.label("Select a domain:")
                 ui.select(
-                    domain_names, value=domain_name, on_change=lambda e: update_domain(e.value)
+                    domain_names,
+                    value=domain_name,
+                    on_change=lambda e: update_domain(e.value),
                 )
 
         with ui.card().classes(CARD_SETUP):
@@ -124,10 +184,24 @@ with ui.tab_panels(tabs, value=domain_tab).classes('w-full'):
         # Initialize with default domain
         update_domain(domain_name)
 
-        with ui.row().classes('justify-center'):
+        with ui.row():#.classes("justify-center"):
             ui.button("Show domain", on_click=run_simulation)
 
     with ui.tab_panel(model_tab):
-        ui.label('Model tab...')
+        # ui.label(f'Model tab')
+        with ui.card().classes(CARD_SETUP):
+            with ui.row():
+                # ui.label("Select a domain:")
+                ui.select(
+                    model_names,
+                    value=model_name,
+                    on_change=lambda e: update_model(e.value),
+                )
+
+        with ui.card().classes(CARD_SETUP):
+            model_container = ui.row()  # container for parameter fields
+
+        # Initialize with default domain
+        update_model(model_name)
 
 ui.run()
