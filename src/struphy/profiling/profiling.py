@@ -163,7 +163,7 @@ class ProfileManager:
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
-        size = comm.Get_size()
+        # size = comm.Get_size()
 
         # Prepare the data to be gathered
         local_data = {}
@@ -209,7 +209,10 @@ class ProfileManager:
 
         if rank == 0:
             # Combine the data from all processes
-            combined_data = {"config": None, "rank_data": {f"rank_{i}": data for i, data in enumerate(all_data)}}
+            combined_data = {
+                "config": None,
+                "rank_data": {f"rank_{i}": data for i, data in enumerate(all_data)},
+            }
 
             # Add the likwid data
             if likwid_data:
@@ -267,22 +270,28 @@ class ProfileRegion:
         self._region_name = self.config.simulation_label + region_name
         self._time_trace = time_trace
         self._ncalls = 0
-        self._start_times = []
-        self._end_times = []
-        self._durations = []
+        self._start_times = np.empty(1, dtype=float)
+        self._end_times = np.empty(1, dtype=float)
+        self._durations = np.empty(1, dtype=float)
         self._started = False
 
     def __enter__(self):
+        if self._ncalls == len(self._start_times):
+            self._start_times = np.append(self._start_times, np.zeros_like(self._start_times))
+            self._end_times = np.append(self._end_times, np.zeros_like(self._end_times))
+            self._durations = np.append(self._durations, np.zeros_like(self._durations))
+
         if self.config.likwid:
             self._pylikwid().markerstartregion(self.region_name)
 
-        self._ncalls += 1
-
         if self._time_trace:
             self._start_time = MPI.Wtime()
-            if self._start_time % self.config.sample_interval < self.config.sample_duration or self._ncalls == 1:
-                self._start_times.append(self._start_time)
+            if self._start_time % self.config.sample_interval < self.config.sample_duration or self._ncalls == 0:
+                self._start_times[self._ncalls] = self._start_time
                 self._started = True
+
+        self._ncalls += 1
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -290,8 +299,8 @@ class ProfileRegion:
             self._pylikwid().markerstopregion(self.region_name)
         if self._time_trace and self.started:
             end_time = MPI.Wtime()
-            self._end_times.append(end_time)
-            self._durations.append(end_time - self._start_time)
+            self._end_times[self._ncalls - 1] = end_time
+            self._durations[self._ncalls - 1] = end_time - self._start_time
             self._started = False
 
     def _pylikwid(self):
