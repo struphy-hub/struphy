@@ -17,6 +17,7 @@ toy_models = [
     "Maxwell",
     "Vlasov",
     "GuidingCenter",
+    "PressureLessSPH",
 ]
 # for name, obj in inspect.getmembers(toy):
 #     if inspect.isclass(obj) and "models.toy" in obj.__module__:
@@ -26,6 +27,7 @@ if rank == 0:
 
 fluid_models = [
     "LinearMHD",
+    "EulerSPH",
 ]
 # for name, obj in inspect.getmembers(fluid):
 #     if inspect.isclass(obj) and "models.fluid" in obj.__module__:

@@ -4,7 +4,7 @@ import numpy as np
 from mpi4py import MPI
 
 from struphy.models.base import StruphyModel
-from struphy.models.species import FieldSpecies, FluidSpecies, KineticSpecies
+from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 from struphy.propagators.base import Propagator
@@ -116,7 +116,7 @@ class Vlasov(StruphyModel):
     
     ## species
 
-    class KineticIons(KineticSpecies):
+    class KineticIons(ParticleSpecies):
         def __init__(self):
             self.var = PICVariable(space="Particles6D")
             self.init_variables()
@@ -1050,7 +1050,9 @@ class PressureLessSPH(StruphyModel):
 
         &\partial_t \rho + \nabla \cdot ( \rho \mathbf u ) = 0 \,,
         \\[4mm]
-        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) = 0 \,.
+        &\partial_t (\rho \mathbf u) + \nabla \cdot (\rho \mathbf u \otimes \mathbf u) = - \nabla \phi_0 \,,
+
+    where :math:`\phi_0` is a static external potential.
 
     :ref:`propagators` (called in sequence):
 
@@ -1059,67 +1061,80 @@ class PressureLessSPH(StruphyModel):
     This is discretized by particles going in straight lines.
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
 
-        dct["kinetic"]["p_fluid"] = "ParticlesSPH"
-        return dct
+    class ColdFluid(ParticleSpecies):
+        def __init__(self):
+            self.var = SPHVariable()
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "p_fluid"
+    ## propagators
 
-    @staticmethod
-    def velocity_scale():
+    class Propagators:
+        def __init__(self):
+            self.push_eta = propagators_markers.PushEta()
+            self.push_v = propagators_markers.PushVinEfield()
+
+    ## abstract methods
+
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.cold_fluid = self.ColdFluid()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.push_eta.variables.var = self.cold_fluid.var
+        self.propagators.push_v.variables.var = self.cold_fluid.var
+
+        # define scalars for update_scalar_quantities
+        self.add_scalar("en_kin", compute="from_particles", variable=self.cold_fluid.var)
+
+    @property
+    def bulk_species(self):
+        return self.cold_fluid
+
+    @property
+    def velocity_scale(self):
         return None
 
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-        dct["projected_density"] = "L2"
-        return dct
+    # @staticmethod
+    # def diagnostics_dct():
+    #     dct = {}
+    #     dct["projected_density"] = "L2"
+    #     return dct
 
-    @staticmethod
-    def propagators_dct():
-        return {propagators_markers.PushEta: ["p_fluid"]}
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from mpi4py.MPI import IN_PLACE, SUM
-
-        # prelim
-        p_fluid_params = self.kinetic["p_fluid"]["params"]
-        algo_eta = params["kinetic"]["p_fluid"]["options"]["PushEta"]["algo"]
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushEta] = {
-            "algo": algo_eta,
-            "density_field": self.pointer["projected_density"],
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
-        self.add_scalar("en_kin", compute="from_particles", species="p_fluid")
+    def allocate_helpers(self):
+        pass
 
     def update_scalar_quantities(self):
-        en_kin = self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 6].dot(
-            self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 3] ** 2
-            + self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 4] ** 2
-            + self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 5] ** 2
-        ) / (2.0 * self.pointer["p_fluid"].Np)
+        particles = self.cold_fluid.var.particles
+        valid_parts = particles.markers_wo_holes_and_ghost
+        en_kin = valid_parts[:, 6].dot(valid_parts[:, 3] ** 2 + valid_parts[:, 4] ** 2 + valid_parts[:, 5] ** 2) / (
+            2.0 * particles.Np
+        )
 
         self.update_scalar("en_kin", en_kin)
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "push_v.Options" in line:
+                    new_file += ["phi = equil.p0\n"]
+                    new_file += ["model.propagators.push_v.options = model.propagators.push_v.Options(phi=phi)\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
 
 class TwoFluidQuasiNeutralToy(StruphyModel):
@@ -1235,6 +1250,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         stokes_spectralanalysis = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"][
             "spectralanalysis"
         ]
+        stokes_lifting = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["lifting"]
         stokes_dimension = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
         stokes_1D_dt = params["time"]["dt"]
 
@@ -1264,6 +1280,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
             "spectralanalysis": stokes_spectralanalysis,
             "dimension": stokes_dimension,
             "D1_dt": stokes_1D_dt,
+            "lifting": stokes_lifting,
         }
 
         # Initialize propagators used in splitting substeps

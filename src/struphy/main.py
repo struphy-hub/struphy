@@ -172,7 +172,7 @@ def run(
             # between the clones : inter_comm
             clone_config = CloneConfig(comm=comm, params=None, num_clones=num_clones)
             clone_config.print_clone_config()
-            if model.kinetic_species:
+            if model.particle_species:
                 clone_config.print_particle_config()
 
     model.clone_config = clone_config
@@ -627,10 +627,10 @@ def pproc(
             if exist_kinetic["n_sph"]:
                 post_process_n_sph(
                     path,
+                    params_in,
                     path_kinetics_species,
                     species,
                     step,
-                    compute_bckgr=compute_bckgr,
                 )
 
 
@@ -648,7 +648,7 @@ class SimData:
         self._orbits = {}
         self._f = {}
         self._spline_values = {}
-        self.sph_species = {}
+        self._n_sph = {}
         self.grids_log: list[np.ndarray] = None
         self.grids_phy: list[np.ndarray] = None
         self.t_grid: np.ndarray = None
@@ -667,6 +667,11 @@ class SimData:
     def spline_values(self) -> dict[str, dict[str, np.ndarray]]:
         """Keys: species name. Values: dicts of variable names with values being 3d arrays on the grid."""
         return self._spline_values
+
+    @property
+    def n_sph(self) -> dict[str, dict[str, dict[str, np.ndarray]]]:
+        """Keys: species name. Values: dicts of view names ('view_0' etc.) holding dicts of corresponding np.arrays for plotting."""
+        return self._n_sph
 
     @property
     def Nt(self) -> dict[str, int]:
@@ -809,6 +814,7 @@ def load_data(path: str) -> SimData:
             for folder in sub_folders:
                 path_dat = os.path.join(path_spec, folder)
                 sub_wlk = os.walk(path_dat)
+
                 if "orbits" in folder:
                     files = next(sub_wlk)[2]
                     Nt = len(files) // 2
@@ -822,6 +828,7 @@ def load_data(path: str) -> SimData:
                                 simdata._orbits[spec] = np.zeros((Nt, *tmp.shape), dtype=float)
                             simdata._orbits[spec][step] = tmp
                             n += 1
+
                 elif "distribution_function" in folder:
                     simdata._f[spec] = {}
                     slices = next(sub_wlk)[1]
@@ -836,6 +843,22 @@ def load_data(path: str) -> SimData:
                             tmp = np.load(os.path.join(path_dat, sli, file))
                             # print(f"{name = }")
                             simdata._f[spec][sli][name] = tmp
+
+                elif "n_sph" in folder:
+                    simdata._n_sph[spec] = {}
+                    slices = next(sub_wlk)[1]
+                    # print(f"{slices = }")
+                    for sli in slices:
+                        simdata._n_sph[spec][sli] = {}
+                        # print(f"{sli = }")
+                        files = next(sub_wlk)[2]
+                        # print(f"{files = }")
+                        for file in files:
+                            name = file.split(".")[0]
+                            tmp = np.load(os.path.join(path_dat, sli, file))
+                            # print(f"{name = }")
+                            simdata._n_sph[spec][sli][name] = tmp
+
                 else:
                     print(f"{folder = }")
                     raise NotImplementedError
@@ -867,7 +890,13 @@ def load_data(path: str) -> SimData:
             print(f"    {kk}")
             for kkk, vvv in vv.items():
                 print(f"      {kkk}")
-    print(f"simdata.sph_species:")
+    print(f"\nsimdata.n_sph:")
+    for k, v in simdata.n_sph.items():
+        print(f"  {k}")
+        for kk, vv in v.items():
+            print(f"    {kk}")
+            for kkk, vvv in vv.items():
+                print(f"      {kkk}")
 
     return simdata
 

@@ -83,7 +83,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
         if inspect.isclass(val) and val.__module__ == perturbations.__name__:
             print(key, val)
 
-            if "Modes" not in key:
+            if key not in ("ModesCos", "ModesSin", "TorusModesCos", "TorusModesSin"):
                 continue
 
             # skip impossible combinations

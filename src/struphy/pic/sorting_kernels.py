@@ -8,12 +8,61 @@ def flatten_index(
     nx: "int",
     ny: "int",
     nz: "int",
+    algo_in: "str" = None,
 ):
     """Find the global index of a box based on its index in all 3 direction.
     At the moment this is simply sorted according to x then y then z but in the future
     more evolved indexing could be implemented.
     """
-    return n1 + n2 * (nx + 2) + n3 * (nx + 2) * (ny + 2)
+    if algo_in is None:
+        algo = "fortran_ordering"
+    else:
+        algo = algo_in
+
+    if algo == "fortran_ordering":
+        n_glob = n1 + n2 * (nx + 2) + n3 * (nx + 2) * (ny + 2)
+    elif algo == "c_ordering":
+        n_glob = n3 + n2 * (nz + 2) + n1 * (nz + 2) * (ny + 2)
+    else:
+        n_glob = -99
+        print(algo, "is not implemented, n_glob set to -99 !!!")
+
+    return n_glob
+
+
+def unflatten_index(
+    n_glob: "int",
+    nx: "int",
+    ny: "int",
+    nz: "int",
+    algo_in: "str" = None,
+):
+    """Find the multi-index (i, j, k) of a box based on its global flattened index.
+    At the moment this is simply sorted according to x then y then z but in the future
+    more evolved indexing could be implemented.
+    """
+    if algo_in is None:
+        algo = "fortran_ordering"
+    else:
+        algo = algo_in
+
+    if algo == "fortran_ordering":
+        n3 = n_glob // ((nx + 2) * (ny + 2))
+        rest = n_glob - n3 * (nx + 2) * (ny + 2)
+        n2 = rest // (nx + 2)
+        n1 = rest - n2 * (nx + 2)
+    elif algo == "c_ordering":
+        n1 = n_glob // ((nz + 2) * (ny + 2))
+        rest = n_glob - n1 * (nz + 2) * (ny + 2)
+        n2 = rest // (nz + 2)
+        n3 = rest - n2 * (nz + 2)
+    else:
+        n1 = -99
+        n2 = -99
+        n3 = -99
+        print(algo, "is not implemented, n1, n2 and n3 set to -99 !!!")
+
+    return n1, n2, n3
 
 
 def initialize_neighbours(
@@ -63,6 +112,14 @@ def find_box(
     domain_array : array
         Information of the domain on the current mpi process.
     """
+    # offset if point is on left boundary
+    if eta1 == domain_array[0]:
+        eta1 += 1e-8
+    if eta2 == domain_array[3]:
+        eta2 += 1e-8
+    if eta3 == domain_array[6]:
+        eta3 += 1e-8
+
     # offset if point is on right boundary
     if eta1 == domain_array[1]:
         eta1 -= 1e-8
@@ -84,45 +141,8 @@ def find_box(
     n1 = int(floor((eta1 - x_l) / (x_r - x_l) * (nx + 2)))
     n2 = int(floor((eta2 - y_l) / (y_r - y_l) * (ny + 2)))
     n3 = int(floor((eta3 - z_l) / (z_r - z_l) * (nz + 2)))
+
     return flatten_index(n1, n2, n3, nx, ny, nz)
-
-
-def put_particles_in_boxes_kernel(
-    markers: "float[:,:]",
-    holes: "bool[:]",
-    nx: "int",
-    ny: "int",
-    nz: "int",
-    boxes: "int[:,:]",
-    next_index: "int[:]",
-    domain_array: "float[:]",
-    box_index: "int" = -2,
-):
-    """Assign the right box to all particles."""
-    boxes[:, :] = -1
-    next_index[:] = 0
-    l = markers.shape[1]
-    for p in range(markers.shape[0]):
-        if holes[p]:
-            n_box = (nx + 2) * (ny + 2) * (nz + 2)
-        else:
-            a = find_box(
-                markers[p, 0],
-                markers[p, 1],
-                markers[p, 2],
-                nx,
-                ny,
-                nz,
-                domain_array,
-            )
-            if a >= (nx + 2) * (ny + 2) * (nz + 2) or a < 0:
-                n_box = (nx + 2) * (ny + 2) * (nz + 2)
-            else:
-                n_box = a
-                boxes[n_box, next_index[n_box]] = p
-        next_index[n_box] += 1
-        b = float(n_box)
-        markers[p, l + box_index] = b
 
 
 def get_next_index(box_nb: "float", next_index: "int[:]", cumul_next_index: "int[:]"):
@@ -177,15 +197,46 @@ def sort_boxed_particles(
                 loc_i += 1
 
 
-def reassign_boxes(
+def assign_box_to_each_particle(
+    markers: "float[:,:]",
+    holes: "bool[:]",
+    nx: "int",
+    ny: "int",
+    nz: "int",
+    domain_array: "float[:]",
+    box_index: "int" = -2,
+):
+    """Assign the right box to each particle, written into column -2 or marker array."""
+    l = markers.shape[1]
+    for p in range(markers.shape[0]):
+        if holes[p]:
+            n_box = (nx + 2) * (ny + 2) * (nz + 2)
+        else:
+            a = find_box(
+                markers[p, 0],
+                markers[p, 1],
+                markers[p, 2],
+                nx,
+                ny,
+                nz,
+                domain_array,
+            )
+            if a >= (nx + 2) * (ny + 2) * (nz + 2) or a < 0:
+                n_box = (nx + 2) * (ny + 2) * (nz + 2)
+            else:
+                n_box = a
+        b = float(n_box)
+        markers[p, l + box_index] = b
+
+
+def assign_particles_to_boxes(
     markers: "float[:,:]",
     holes: "bool[:]",
     boxes: "int[:,:]",
     next_index: "int[:]",
     box_index: "int" = -2,
 ):
-    """Reloop over the particles after communication to update the neighbouring boxes
-    with the right particles and the next_index for later sorting."""
+    """Write particle indices into box array."""
     boxes[:, :] = -1
     next_index[:] = 0
     l = markers.shape[1]

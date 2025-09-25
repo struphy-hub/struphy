@@ -166,8 +166,11 @@ class BinningPlot:
     n_bins : int | tuple[int]
         Number of bins for each coordinate.
 
-    ranges : tuple[int] | tuple[tuple[int]]= (0.0, 1.0)
+    ranges : tuple[int] | tuple[tuple[int]] = (0.0, 1.0)
         Binning range (as an interval in R) for each coordinate.
+
+    divide_by_jac : bool
+        Whether to divide by the Jacobian determinant (volume-to-0-form).
     """
 
     def __init__(
@@ -175,16 +178,45 @@ class BinningPlot:
         slice: str = "e1",
         n_bins: int | tuple[int] = 128,
         ranges: tuple[float] | tuple[tuple[float]] = (0.0, 1.0),
+        divide_by_jac: bool = True,
     ):
-        self.slice = slice
-
         if isinstance(n_bins, int):
             n_bins = (n_bins,)
-        self.n_bins = n_bins
 
         if not isinstance(ranges[0], tuple):
             ranges = (ranges,)
+
+        assert ((len(slice) - 2) / 3).is_integer(), f"Binning coordinates must be separated by '_', but reads {slice}."
+        assert len(slice.split("_")) == len(ranges) == len(n_bins), (
+            f"Number of slices names ({len(slice.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
+        )
+        self.slice = slice
+        self.n_bins = n_bins
         self.ranges = ranges
+        self.divide_by_jac = divide_by_jac
+
+        # computations and allocations
+        self._bin_edges = []
+        for nb, rng in zip(n_bins, ranges):
+            self._bin_edges += [np.linspace(rng[0], rng[1], nb + 1)]
+        self._bin_edges = tuple(self.bin_edges)
+
+        self._f = np.zeros(n_bins, dtype=float)
+        self._df = np.zeros(n_bins, dtype=float)
+
+    @property
+    def bin_edges(self) -> tuple:
+        return self._bin_edges
+
+    @property
+    def f(self) -> np.ndarray:
+        """The binned distribution function (full-f)."""
+        return self._f
+
+    @property
+    def df(self) -> np.ndarray:
+        """The binned distribution function minus the background (delta-f)."""
+        return self._df
 
 class BinningPlot:
     """Binning plot of marker distribution in phase space.
@@ -214,6 +246,38 @@ class BinningPlot:
         if not isinstance(ranges[0], tuple):
             ranges = (ranges,)
         self.ranges = ranges
+
+
+class KernelDensityPlot:
+    """SPH density plot in configuration space.
+
+    Parameters
+    ----------
+    pts_e1, pts_e2, pts_e3 : int
+        Number of evaluation points in each direction.
+    """
+
+    def __init__(
+        self,
+        pts_e1: int = 11,
+        pts_e2: int = 11,
+        pts_e3: int = 11,
+    ):
+        e1 = np.linspace(0.0, 1.0, pts_e1)
+        e2 = np.linspace(0.0, 1.0, pts_e2)
+        e3 = np.linspace(0.0, 1.0, pts_e3)
+        ee1, ee2, ee3 = np.meshgrid(e1, e2, e3, indexing="ij")
+        self._plot_pts = (ee1, ee2, ee3)
+        self._n_sph = np.zeros(ee1.shape, dtype=float)
+
+    @property
+    def plot_pts(self) -> tuple:
+        return self._plot_pts
+
+    @property
+    def n_sph(self) -> np.ndarray:
+        """The evaluated density."""
+        return self._n_sph
 
 
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
