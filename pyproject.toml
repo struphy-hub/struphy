@@ -58,6 +58,9 @@ dev = [
     "nbstripout",
     "tabulate",
     "tomli-w",
+    "kaleido",
+    "pandas",
+    "plotly",
 ]
 doc = [
     "struphy[phys]",
@@ -75,10 +78,7 @@ doc = [
 ]
 likwid = [
     "struphy[dev]",
-    "kaleido",
     "pylikwid",
-    "pandas",
-    "plotly",
 ]
 all = [
     "struphy[phys]",

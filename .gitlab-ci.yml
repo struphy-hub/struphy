@@ -510,6 +510,23 @@ inspect_repo:
 ### PUSH PIPELINE ###
 #####################
 
+# check_struphy_simulation_params:
+#   stage: test
+#   extends:
+#     - .rules_mr_to_devel
+#     - .image_gitlab_mpcdf_struphy
+#     - .before_script_load_modules
+#     - .variables_push
+#   script:
+#     - !reference [.scripts, install_on_push]
+#     - git clone https://gitlab.mpcdf.mpg.de/struphy/struphy-simulations.git
+#     - |
+#       for file in struphy-simulations/**/*.yml; do
+#         echo "Checking $file"
+#         # TODO: How to deduce the model?
+#         struphy params LinearVlasovAmpereOneSpecies --check-file $file
+#       done
+
 install_tests:
   stage: test
   extends:
@@ -588,14 +605,19 @@ pages_tests:
     - !reference [.scripts, inspect_struphy]
     - module load pandoc
     - module list
-    - pip install -e .[doc]
+    - pip install .[doc]
     - |
       struphy compile -y || (
         echo "Initial compile failed. Removing compiled kernels and trying again..." &&
         struphy compile -d -y &&
         struphy compile -y
       )
-    - cd doc ; make html; cd ..
+    - cd doc ; make html
+    - mv _build/html/ $CI_PROJECT_DIR/documentation/
+  artifacts:
+    expose_as: 'Documentation'
+    paths:
+      - documentation/
 
 ubuntu_latest:
   stage: test
@@ -666,6 +688,7 @@ cleanup_macos:
 ##########################
 ### SCHEDULED PIPELINE ###
 ##########################
+
 
 install_scheduled:
   stage: install
@@ -941,12 +964,11 @@ lint_full_repo_report:
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
     - struphy lint all --output-format report
-    - mkdir -p lint_reports
-    - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
   allow_failure: true
   artifacts:
+    expose_as: 'Branch lint report'
     paths:
-      - lint_reports/
+      - code_analysis_report.html
     expire_in: 1 month
 
 # Lint struphy with `struphy lint`
@@ -991,12 +1013,11 @@ lint_branch_report:
     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
     - !reference [.scripts, inspect_struphy]
     - struphy lint branch --output-format report
-    - mkdir -p lint_reports
-    - mv *.html lint_reports/ 2>/dev/null || echo "No HTML files found."
   allow_failure: true
   artifacts:
+    expose_as: 'Branch lint report'
     paths:
-      - lint_reports/
+      - code_analysis_report.html
     expire_in: 1 month
 
 ###################
@@ -1018,7 +1039,7 @@ pages:
     - !reference [.scripts, inspect_struphy]
     - !reference [.scripts, compile]
     - cd doc ; make html
-    - mv _build/html/ ../public/
+    - mv _build/html/ $CI_PROJECT_DIR/public/
   artifacts:
     name: 'pages'
     paths:
