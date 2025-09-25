@@ -11,6 +11,8 @@ from nicegui import ui
 from struphy.geometry import domains
 from struphy.geometry.domains import Domain
 
+CARD_SETUP = "p-4 border-2 border-gray-400 rounded-lg shadow-md"
+
 # Collect available domains
 domain_dict = {}
 for name, cls in domains.__dict__.items():
@@ -47,21 +49,21 @@ def run_simulation():
             params[pname] = value  # fallback if conversion fails
         if params[pname] == "None":
             params[pname] = None
-    print(f"Running simulation with {params}")
+    # print(f"Running simulation with {params}")
     # Create domain instance
     domain: Domain = domain_dict[domain_name](**params)
 
     if matplotlib_ui is None:
-        # create once
-        matplotlib_ui = ui.matplotlib(figsize=(12, 6))
-        with matplotlib_ui.figure as fig:
-            domain.show(fig=fig)
-    else:
-        # just clear and redraw
-        fig = matplotlib_ui.figure
-        fig.clear()
-        domain.show(fig=fig)
-        matplotlib_ui.update()
+        # Create card + matplotlib once
+        with ui.card().classes(CARD_SETUP):
+            ui.label('Simulation domain')
+            matplotlib_ui = ui.matplotlib(figsize=(12, 6))
+
+    # Always redraw the figure
+    fig = matplotlib_ui.figure
+    fig.clear()
+    domain.show(fig=fig)
+    matplotlib_ui.update()
 
 
 def update_domain(value):
@@ -102,17 +104,20 @@ def update_domain(value):
 
 
 # UI layout
-with ui.row():
-    ui.label("Select a domain:")
-    ui.select(
-        domain_names, value=domain_name, on_change=lambda e: update_domain(e.value)
-    )
+with ui.card().classes(CARD_SETUP):
+    with ui.row():
+        # ui.label("Select a domain:")
+        ui.select(
+            domain_names, value=domain_name, on_change=lambda e: update_domain(e.value)
+        )
 
-param_container = ui.row()  # container for parameter fields
+with ui.card().classes(CARD_SETUP):
+    param_container = ui.row()  # container for parameter fields
 
 # Initialize with default domain
 update_domain(domain_name)
 
-ui.button("Show domain", on_click=run_simulation)
+with ui.row().classes('justify-center'):
+    ui.button("Show domain", on_click=run_simulation)
 
 ui.run()
