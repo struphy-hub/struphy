@@ -75,6 +75,54 @@ def charge_density_0form(
     # -- removed omp: #$ omp end parallel
 
 
+def current_density_1form(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+):
+    r"""
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V1 with the filling
+
+    .. math::
+
+        B_p^\mu = \frac{w_p}{N} \mathbf{v}_p \,.
+    """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    for ip in range(shape(markers)[0]):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # filling = w_p / N * v_p
+        filling1 = markers[ip, 6] * markers[ip, 3] / Np
+        filling2 = markers[ip, 6] * markers[ip, 4] / Np
+        filling3 = markers[ip, 6] * markers[ip, 5] / Np
+
+        particle_to_mat_kernels.vec_fill_b_v1(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec1,
+            vec2,
+            vec3,
+            filling1,
+            filling2,
+            filling3,
+        )
+
+
 @stack_array(
     "cell_left",
     "point_left",
@@ -586,6 +634,7 @@ def dfva_e_v_accum_AB_AV(
             df_inv_v[1],
             df_inv_v[2],
         )
+
 
 @stack_array("v_old", "v_diff", "chi", "sum_vec", "dfm", "df_inv", "df_inv_v")
 def dfva_e_v_accum_chi(

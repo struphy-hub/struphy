@@ -1,6 +1,6 @@
 "Pusher kernels for full orbit (6D) particles."
 
-from numpy import cos, empty, floor, shape, sin, sqrt, zeros, expm1
+from numpy import cos, empty, floor, shape, sin, sqrt, zeros, expm1, log
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -2895,6 +2895,231 @@ def push_predict_velocities_in_e_field(
         delta_v_next[ip, 0] = dt / epsilon * df_inv_t_e[0]
         delta_v_next[ip, 1] = dt / epsilon * df_inv_t_e[1]
         delta_v_next[ip, 2] = dt / epsilon * df_inv_t_e[2]
+
+
+@stack_array("e_vec", "v_vec")
+def push_predict_weights_dfva_e_v_w(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    e1_1: "float[:,:,:]",
+    e1_2: "float[:,:,:]",
+    e1_3: "float[:,:,:]",
+    f0_values: "float[:]",
+    delta_w_curr: "float[:]",
+    epsilon: "float",
+    vth: "float",
+):
+    # Allocate some memory
+    e_vec = empty(3, dtype=float)
+    v_vec = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
+
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # velocity
+        v_vec[0] = markers[ip, 3]
+        v_vec[1] = markers[ip, 4]
+        v_vec[2] = markers[ip, 5]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        # E-field (1-form) at time n
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            e1_1,
+            e1_2,
+            e1_3,
+            e_vec,
+        )
+
+        f0p = f0_values[ip]
+        s0p = markers[ip, 7]
+
+        # Compute explicit update
+        delta_w_curr[ip] = dt / (vth**2 * epsilon) * f0p / s0p * linalg_kernels.scalar_dot(v_vec, e_vec)
+
+
+@stack_array("dvp", "v_mid")
+def push_compute_I_dfva_e_v_w(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    f0_values_old: "float[:]",
+    f0_values_midpoint: "float[:]",
+    f0_values_next: "float[:]",
+    delta_v: "float[:,:]",
+    delta_w_curr: "float[:]",
+    vth: "float",
+    res: "float[:]",
+):
+    # Allocate some memory
+    dvp = empty(3, dtype=float)
+    v_mid = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
+
+    res[0] *= 0.0
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        wp = markers[ip, 6]
+        dwp = delta_w_curr[ip]
+        f0p_old = f0_values_old[ip]
+        f0p_mid = f0_values_midpoint[ip]
+        f0p_next = f0_values_next[ip]
+        s0p = markers[ip, 7]
+        dvp[:] = delta_v[ip, :]
+
+        # first summand (H at n+1)
+        temp = vth**2 * (wp + dwp + f0p_next / s0p) * log(1 + (wp + dwp) * s0p / f0p_next)
+        
+        # second summand (H at n)
+        temp -= vth**2 * (wp + f0p_old / s0p) * log(1 + wp * s0p / f0p_old)
+        
+        # third summand (delta w * nabla_w H at n+1/2)
+        temp -= vth**2 * dwp * (log(1 + (wp + 0.5 * dwp) * s0p / f0p_mid) + 1.0)
+        
+        # fourth summand (delta v * nabla_v H at n+1/2)
+        v_mid[:] = markers[ip, 3:6]
+        v_mid[:] += dvp[:]
+        temp += linalg_kernels.scalar_dot(dvp, v_mid) * (f0p_mid / s0p * log(1 + (wp + 0.5 * dwp) * s0p / f0p_mid) - wp - 0.5 * dwp)
+
+        res[0] += temp
+
+
+@stack_array("e_old", "delta_e", "e_mid", "v_old", "dvp", "v_mid", "dgv")
+def push_weights_dfva_e_v_w_explicit(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    e1_old_1: "float[:,:,:]",
+    e1_old_2: "float[:,:,:]",
+    e1_old_3: "float[:,:,:]",
+    delta_e1_1: "float[:,:,:]",
+    delta_e1_2: "float[:,:,:]",
+    delta_e1_3: "float[:,:,:]",
+    f0_values_midpoint: "float[:]",
+    delta_v: "float[:,:]",
+    delta_w_curr: "float[:]",
+    delta_w_next: "float[:]",
+    alpha: "float",
+    epsilon: "float",
+    vth: "float",
+    I: "float",
+    dz: "float",
+):
+    # Allocate some memory
+    e_old = empty(3, dtype=float)
+    delta_e = empty(3, dtype=float)
+    e_mid = empty(3, dtype=float)
+    v_old = empty(3, dtype=float)
+    dvp = empty(3, dtype=float)
+    v_mid = empty(3, dtype=float)
+
+    # Discrete Gradient in v
+    dgv = empty(3, dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    valid_mks = args_markers.valid_mks
+    Np = args_markers.Np
+
+    for ip in range(n_markers):
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # velocity
+        v_old[0] = markers[ip, 3]
+        v_old[1] = markers[ip, 4]
+        v_old[2] = markers[ip, 5]
+
+        # other assignments
+        wp = markers[ip, 6]
+        dwp = delta_w_curr[ip]
+        f0p = f0_values_midpoint[ip]
+        s0p = markers[ip, 7]
+        dvp[:] = delta_v[ip, :]
+        v_mid[:] = v_old[:]
+        v_mid[:] += dvp[:]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        # E-field (1-form) at time n
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            e1_old_1,
+            e1_old_2,
+            e1_old_3,
+            e_old,
+        )
+
+        # Delta E (1-form)
+        eval_1form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            delta_e1_1,
+            delta_e1_2,
+            delta_e1_3,
+            delta_e,
+        )
+
+        # E-field (1-form) at time n+1/2
+        e_mid[:] = e_old[:]
+        e_mid[:] += 0.5 * delta_e[:]
+
+        # Discrete Gradient in W
+        dgw = alpha**2 * vth**2 / Np * log(1.0 + (wp + dwp) * s0p / f0p)
+        dgw += dwp / dz * I
+
+        # Discrete Gradient in V
+        dgv[:] = v_mid[:]
+        dgv[:] *= (-1.0) * alpha**2 / Np * (f0p / s0p * log(1.0 + (wp + dwp) * s0p / f0p) - wp - 0.5 * dwp)
+        dgv[:] += dvp[:] * I / dz
+
+        # Compute update
+        update = alpha**2 / (Np * epsilon) * wp / dgw * linalg_kernels.scalar_dot(v_old, e_mid)
+        update -= linalg_kernels.scalar_dot(dgv, e_old) / (dgw * epsilon)
+
+        # Update delta w
+        delta_w_next[ip] = dt * update
 
 
 @stack_array("e_vec", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
