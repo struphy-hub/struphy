@@ -3031,8 +3031,7 @@ def push_weights_dfva_e_v_w_explicit(
     alpha: "float",
     epsilon: "float",
     vth: "float",
-    I: "float",
-    dz: "float",
+    Idz: "float[:]",
 ):
     # Allocate some memory
     e_old = empty(3, dtype=float)
@@ -3044,6 +3043,9 @@ def push_weights_dfva_e_v_w_explicit(
 
     # Discrete Gradient in v
     dgv = empty(3, dtype=float)
+
+    I = Idz[0]
+    dz = Idz[1]
 
     # get marker arguments
     markers = args_markers.markers

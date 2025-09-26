@@ -763,7 +763,9 @@ class DeltaFVlasovAmpere(Propagator):
         # marker storage
         self._markers = np.zeros((self.particles[0].markers.shape[0], 6), dtype=float)
         self._delta_v = np.zeros((self.particles[0].markers.shape[0], 3), dtype=float)
-        self._vels_temp = np.zeros((self.particles[0].markers.shape[0], 3), dtype=float)
+        self._delta_w_curr = np.zeros((self.particles[0].markers.shape[0]), dtype=float)
+        self._delta_w_next = np.zeros((self.particles[0].markers.shape[0]), dtype=float)
+        self._diff_delta_w = np.zeros((self.particles[0].markers.shape[0]), dtype=float)
 
         self._f0_values_old = np.zeros((self.particles[0].markers.shape[0]), dtype=float)
         self._f0_values_midpoint = np.zeros((self.particles[0].markers.shape[0]), dtype=float)
@@ -774,9 +776,8 @@ class DeltaFVlasovAmpere(Propagator):
         self._delta_e = self.feec_vars[0].space.zeros()
 
         # Allocate for local, global I and dz
-        self._I_loc = np.empty(1, dtype=float)
-        self._I_glob = 0.0
-        self._dz_glob = 0.0
+        self._I_loc = np.zeros((1), dtype=float)
+        self._param = np.zeros((2), dtype=float)
 
         # Instantiate predictor for weights
         args_kernel_predictor_w = (
@@ -784,7 +785,7 @@ class DeltaFVlasovAmpere(Propagator):
             self.feec_vars[0].blocks[0]._data,
             self.feec_vars[0].blocks[1]._data,
             self.feec_vars[0].blocks[2]._data,
-            self._f0_values,
+            self._f0_values_old,
             self._delta_w_next,
             self._epsilon,
             self._vth,
@@ -816,19 +817,20 @@ class DeltaFVlasovAmpere(Propagator):
         )
 
         # Instantiate computer of I
-        args_kernel_predictor = (
+        args_kernel_compute_I = (
             self.derham.args_derham,
-            self._f0_values,
+            self._f0_values_old,
             self._f0_values_midpoint,
-            self._f0_values_midpoint,
+            self._f0_values_next,
             self._delta_v,
             self._delta_w_curr,
             self._vth,
+            self._I_loc,
         )
         self._compute_I = Pusher(
             self.particles[0],
             pusher_kernels.push_compute_I_dfva_e_v_w,
-            args_kernel_predictor,
+            args_kernel_compute_I,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
         )
@@ -844,13 +846,14 @@ class DeltaFVlasovAmpere(Propagator):
             self._delta_e.blocks[2]._data,
             self._f0_values_midpoint,
             self._delta_v,
+            self._delta_w_curr,
+            self._delta_w_next,
             self._alpha,
             self._epsilon,
             self._vth,
-            self._I_glob,
-            self._dz_glob,
+            self._param,
         )
-        self._push_velocities = Pusher(
+        self._push_weights = Pusher(
             self.particles[0],
             pusher_kernels.push_weights_dfva_e_v_w_explicit,
             args_kernel_push_w,
@@ -1127,6 +1130,12 @@ class DeltaFVlasovAmpere(Propagator):
                 self._call_e_v_Picard(dt)
             if self._method_type == "Schur":
                 self._call_e_v_Schur(dt)
+        
+        elif self._variables == "e_v_w":
+            if self._method_type == "explicit":
+                self._call_e_v_w_explicit(dt)
+            elif self._method_type == "implicit":
+                self._call_e_v_w_implicit(dt)
 
         elif self._variables == "e_v_gamma_w":
             if self._method_type == "explicit":
@@ -1443,11 +1452,11 @@ class DeltaFVlasovAmpere(Propagator):
         # Compute w_p^{n+1}
         # =====
 
-        # Predict weights
-        self._predict_weights(dt)
-
         # Compute f0 at time n
         self._f0_values_old[self.particles[0].valid_mks] = self._f0(*self._markers[self.particles[0].valid_mks, :].T)
+
+        # Predict weights
+        self._predict_weights(dt)
 
         # Prepare markers at time n+1/2
         self._markers[self.particles[0].valid_mks, :] = self._particles[0].markers[self.particles[0].valid_mks, :6]
@@ -1471,13 +1480,15 @@ class DeltaFVlasovAmpere(Propagator):
 
             # Compute global I
             self._compute_I(dt)
-            self._I_glob = self.derham.comm.allreduce(self._I_loc[0], op=MPI.LAND)
-            self._I_glob *= self._alpha**2 / self.particles[0].Np
+            _I_glob = self.derham.comm.allreduce(self._I_loc[0], op=MPI.SUM)
+            _I_glob *= self._alpha**2 / self.particles[0].Np
+            self._param[0] = _I_glob
 
             # Compute global dz
             dw_loc = np.sum(self._delta_w_curr[self.particles[0].valid_mks] ** 2)
             dw_glob = self.derham.comm.allreduce(dw_loc, op=MPI.SUM)
-            self._dz_glob = dw_glob + de_dv
+            _dz_glob = dw_glob + de_dv
+            self._param[1] = _dz_glob
 
             # Push weights
             self._push_weights(dt)
@@ -1523,8 +1534,10 @@ class DeltaFVlasovAmpere(Propagator):
 
         # Update weights
         self.particles[0].markers[self.particles[0].valid_mks, 6] += \
-            self._delta_w_next[self.particles[0].valid_mks, :]
+            self._delta_w_next[self.particles[0].valid_mks]
 
+    def _call_e_v_w_implicit(self, dt):
+        pass
 
     def _call_e_v_gamma_w_explicit(self, dt):
         """Do Picard iteration for substep using an explicit-like expression"""
