@@ -3,6 +3,7 @@ import base64
 import inspect
 import io
 import tempfile
+import os
 from typing import get_type_hints
 # from docutils.core import publish_parts
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -29,9 +30,8 @@ for name, cls in toymodels.__dict__.items():
         model_dict[name] = cls
 model_names = list(model_dict.keys())
 
-
 # Globals
-model_name = "Vlasov"
+model_name = "Maxwell"
 domain_name = "Tokamak"
 matplotlib_ui = None
 param_inputs = {}  # store input fields for parameters
@@ -142,25 +142,58 @@ def update_model(value):
             ''')
         
         doc = cls.__doc__
+        # print(repr(doc))
+        doc = doc.replace(":ref:`normalization`:", "Normalization:")
+        doc = doc.replace(":ref:`Equations <gempic>`:", "Equations:")
+        doc = doc.replace(":ref:`propagators` (called in sequence):", "Propagators:")
 
-        # Replace refs and classes
-        doc = re.sub(r':ref:`([^`]+)`', r'**\1**', doc)
-        doc = re.sub(r':class:`([^`]+)`', r'`\1`', doc)
-
-        # Replace math directive with LaTeX blocks
-        doc = re.sub(r'\.\. math::\n\n(.*?)\n\n', r'$\1$\n\n', doc, flags=re.S)
+        # save docstring to replace lines
+        tmp_path = os.path.join(os.getcwd(), "tmp.txt")
+        try:
+            file = open(tmp_path, "x")
+        except FileExistsError:
+            file = open(tmp_path, "w")  
+        file.write(doc)
+        file.close()
+        
+        with open(tmp_path, "r") as file:
+            doc = r""
+            for line in file:
+                if ":class:`~" in line:
+                    # print(repr(line))
+                    s1 = line.split("~")[1]
+                    # print(repr(s1))
+                    s2 = s1.split("`")[0]
+                    # print(repr(s2))
+                    s3 = s2.removeprefix("struphy.propagators.")
+                    # print(repr(s3))
+                    if "_fields" in s2:
+                        doc += f"""`{s3} <https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators_fields.html#{s2}>`_
+                        """
+                    elif "_markers" in s2:
+                        doc += f"""`{s3} <https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators_markers.html#{s2}>`_
+                        """
+                    elif "_coupling" in s2:
+                        doc += f"""`{s3} <https://struphy.pages.mpcdf.de/struphy/sections/subsections/propagators_coupling.html#{s2}>`
+                        """
+                else:
+                    doc += line
 
         with ui.card().classes('p-6'):
-            ui.markdown(doc, extras=["latex"])
-        
-        # Print plain docstring
+            ui.restructured_text(doc)
+            
+        # # Replace refs and classes
+        # doc = re.sub(r':ref:`([^`]+)`', r'**\1**', doc)
+        # doc = re.sub(r':class:`([^`]+)`', r'`\1`', doc)
+
+        # # Replace math directive with LaTeX blocks
+        # doc = re.sub(r'\.\. math::\n\n(.*?)\n\n', r'$\1$\n\n', doc, flags=re.S)
+            
+        # # Print plain docstring
         # ui.markdown(doc, extras=["latex"])
         
-        # html_parts = publish_parts(cls.__doc__, writer_name='html')
+        # html_parts = publish_parts(doc, writer_name='html')
         # html = html_parts['body']
-        # with ui.card().classes('p-6'):
-        #     ui.html(html)
-
 
 with ui.tabs().classes("w-full") as tabs:
     domain_tab = ui.tab("Domain")
