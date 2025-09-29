@@ -1,5 +1,7 @@
 import numpy as np
+from copy import deepcopy
 
+from struphy.io.setup import setup_derham
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
@@ -1241,3 +1243,98 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self.update_scalar("en_phi", en_phi + en_phi1)
         self.update_scalar("en_particles", self._tmp3[0])
         self.update_scalar("en_tot", en_phi + en_phi1 + self._tmp3[0])
+
+
+class QuasiNeutralAdiabatic(StruphyModel):
+    """ Vlasov equation for ions, adiabatic electrons, quasi-neutrality equation.
+    
+    TODO
+    """
+    
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+
+        dct["em_fields"]["phi_fsa"] = "Hcurl"
+        dct["kinetic"]["species1"] = "Particles6D"
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "species1"
+
+    @staticmethod
+    def velocity_scale():
+        return "light"
+
+    @staticmethod
+    def propagators_dct():
+        return {
+        }
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["em_fields"],
+            option=propagators_fields.ImplicitDiffusion,
+            dct=dct,
+        )
+        cls.add_option(
+            species=["kinetic", "species1"],
+            key="override_eq_params",
+            option=[False, {"epsilon": -1.0, "alpha": 1.0}],
+            dct=dct,
+        )
+        return dct
+
+    def __init__(self, params, comm, clone_config=None):
+        # initialize base class
+        super().__init__(params, comm=comm, clone_config=clone_config)
+
+        # Prepare parameters for 1D derham sequence
+        self.params_1D = deepcopy(params)
+        self.params_1D["grid"]["Nel"][1] = 1
+        self.params_1D["grid"]["Nel"][2] = 1
+        self.params_1D["grid"]["p"][1] = 1
+        self.params_1D["grid"]["p"][2] = 1
+        dims_mask = params["grid"]["dims_mask"]
+        if dims_mask is None:
+            dims_mask = [True] * 3
+
+        # Make second derham sequence for just x-direction
+        self.derham_1D = setup_derham(
+            self.params_1D["grid"],
+            comm=self.derham.comm,
+            domain=self.domain,
+            mpi_dims_mask=dims_mask,
+            verbose=self.verbose,
+        )
+
+        # Create 1D spline function for lambda
+        self._em_fields["lambda"] = {}
+        self._em_fields["lambda"]["space"] = "H1"
+        self._em_fields["lambda"]["save_data"] = True
+        self._em_fields["params"] = self.params_1D["em_fields"]
+        self.em_fields["lambda"]["obj"] = self.derham_1D.create_spline_function(
+            "lambda",
+            self.em_fields["lambda"]["space"],
+        )
+        self._pointer["lambda"] = self.em_fields["lambda"]["obj"].vector
+
+    def initialize_from_params(self):
+        # initialize fields and particles
+        super().initialize_from_params()
+
+        for key, _ in self._pointer.items():
+            print(f"{key=}")
+
+    def update_scalar_quantities(self):
+        pass
