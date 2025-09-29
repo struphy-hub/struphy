@@ -1300,19 +1300,19 @@ class QuasiNeutralAdiabatic(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        # Prepare parameters for 1D derham sequence
-        self.params_1D = deepcopy(params)
-        self.params_1D["grid"]["Nel"][1] = 1
-        self.params_1D["grid"]["Nel"][2] = 1
-        self.params_1D["grid"]["p"][1] = 1
-        self.params_1D["grid"]["p"][2] = 1
+        # Prepare parameters for 3D derham sequence in x-direction
+        self.params_3D_x = deepcopy(params)
+        self.params_3D_x["grid"]["Nel"][1] = 1
+        self.params_3D_x["grid"]["Nel"][2] = 1
+        self.params_3D_x["grid"]["p"][1] = 1
+        self.params_3D_x["grid"]["p"][2] = 1
         dims_mask = params["grid"]["dims_mask"]
         if dims_mask is None:
             dims_mask = [True] * 3
 
-        # Make second derham sequence for just x-direction
-        self.derham_1D = setup_derham(
-            self.params_1D["grid"],
+        # Make second 3D derham sequence for just x-direction
+        self.derham_3D_x = setup_derham(
+            self.params_3D_x["grid"],
             comm=self.derham.comm,
             domain=self.domain,
             mpi_dims_mask=dims_mask,
@@ -1323,16 +1323,18 @@ class QuasiNeutralAdiabatic(StruphyModel):
         self._em_fields["lambd"] = {}
         self._em_fields["lambd"]["space"] = "H1"
         self._em_fields["lambd"]["save_data"] = True
-        self._em_fields["params"] = self.params_1D["em_fields"]
-        self.em_fields["lambd"]["obj"] = self.derham_1D.create_spline_function(
+        self._em_fields["params"] = self.params_3D_x["em_fields"]
+        self.em_fields["lambd"]["obj"] = self.derham_3D_x.create_spline_function(
             "lambd",
             self.em_fields["lambd"]["space"],
         )
         self._pointer["lambd"] = self.em_fields["lambd"]["obj"].vector
 
         self._kwargs[propagators_coupling.QNAdiabaticKinetic] = {
-            "derham_1D": self.derham_1D
+            "derham_3D_x": self.derham_3D_x
         }
+
+        self.init_propagators()
 
     def initialize_from_params(self):
         # initialize fields and particles

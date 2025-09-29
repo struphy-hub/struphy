@@ -12,6 +12,7 @@ from numpy import empty, floor, log, shape, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels
+import struphy.bsplines.bsplines_kernels as bsplines_kernels
 
 # do not remove; needed to identify dependencies
 import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
@@ -71,6 +72,62 @@ def charge_density_0form(
         )
 
     # -- removed omp: #$ omp end parallel
+
+
+def x_stiffness_mat_v0(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    mat: "float[:,:,:,:,:,:]",
+):
+    """ Compute the stiffness matrix in x-direction of the V0 space.
+    
+    .. math::
+        \frac{1}{N} \sum_p (\partial_x \Lambda^0)^T w_p \partial_x \Lambda^0
+
+    """
+    left = zeros(args_derham.pn[0], dtype=float)
+    right = zeros(args_derham.pn[0], dtype=float)
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        bsplines_kernels.basis_funs_1st_der(
+            args_derham.tn1,
+            args_derham.pn[0],
+            eta1,
+            int(span1),
+            left,
+            right,
+            args_derham.bn1,
+        )
+
+        args_derham.bn2[:] = 1.0
+        args_derham.bn3[:] = 1.0
+
+        particle_to_mat_kernels.mat_fill_v0(
+            args_derham,
+            span1,
+            span2,
+            span3,
+            mat,
+            markers[ip, 6]
+        )
 
 
 @stack_array(

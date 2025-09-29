@@ -3,11 +3,13 @@
 import numpy as np
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
+from psydac.linalg.solvers import inverse
 
 from struphy.feec import preconditioner
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.io.setup import descend_options_dict
+from struphy.ode.utils import ButcherTableau
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
@@ -481,10 +483,90 @@ class QNAdiabaticKinetic(Propagator):
         lambd: StencilVector,
         particles: Particles6D,
         *,
-        derham_1D: Derham,
+        derham_3D_x: Derham,
+        b2: BlockVector,
         solver=options(default=True)["solver"],
     ):
-        super.__init__(phi_fsa, lambd, particles)
+        super().__init__(phi_fsa, lambd, particles)
+
+        # Accumulate matrix A
+        self._accum = Accumulator(
+            particles,
+            "H1",
+            accum_kernels.x_stiffness_mat_v0,
+            self.mass_ops,
+            self.domain.args_domain,
+            add_vector=False,
+        )
+        self._accum._derham = derham_3D_x
+
+        # Make push in eta
+        butcher = ButcherTableau("forward_euler")
+        butcher._a = np.diag(butcher.a, k=-1)
+        butcher._a = np.array(list(butcher.a) + [0.0])
+        args_kernel_eta = (
+            butcher.a,
+            butcher.b,
+            butcher.c,
+        )
+        self._push_eta = Pusher(
+            particles,
+            pusher_kernels.push_eta_stage,
+            args_kernel_eta,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+            n_stages=butcher.n_stages,
+            mpi_sort="each",
+        )
+
+        # Pusher for V x B
+        args_kernel_vxb= (
+            self.derham.args_derham,
+            self._b_full[0]._data,
+            self._b_full[1]._data,
+            self._b_full[2]._data,
+        )
+        self._push_vxb = Pusher(
+            particles,
+            pusher_kernels.push_vxb_analytic,
+            args_kernel_vxb,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
+        # Invert accumulated matrix
+        self._solver = inverse(
+            self._accum.operators[0],
+            "pcg",
+            tol=1e-10,
+            maxiter=3000,
+        )
+
+    def __call__(self, dt):
+        print("Hello")
+
+        # =====
+        # Verlet scheme
+        # =====
+
+        # Push eta by half a time step
+        self._push_eta(0.5 * dt)
+
+        # Push V x B
+        self._push_vxb(dt)
+
+        # Accumulate A
+        self._accum()
+
+        # Push eta by another half a time step
+        self._push_eta(0.5 * dt)
+
+        # =====
+        # Do correction
+        # =====
+
+        # Accumulate A
+        self._accum()
 
 
 class PressureCoupling6D(Propagator):
