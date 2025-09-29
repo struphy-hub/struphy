@@ -10,6 +10,7 @@ from typing import get_type_hints
 # from docutils.core import publish_parts
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from nicegui import ui
+from sympy import plot
 
 import struphy.models.toy as toymodels
 from struphy.geometry import domains
@@ -17,6 +18,7 @@ from struphy.geometry.domains import Domain
 from struphy.models.base import StruphyModel
 
 CARD_SETUP = "p-4 border-2 border-gray-400 rounded-lg shadow-md"
+CARD_SETUP_NO_PAD = "border-2 border-gray-400 rounded-lg shadow-md"
 
 # Collect available domains
 domain_dict = {}
@@ -33,13 +35,13 @@ model_names = list(model_dict.keys())
 
 # Globals
 model_name = "Maxwell"
-domain_name = "Tokamak"
+domain_name = "Cuboid"
 matplotlib_ui = None
 plotly_ui = None
 param_inputs = {}  # store input fields for parameters
 
 
-def run_simulation():
+def show_domain_interactive():
     global matplotlib_ui
     global plotly_ui
 
@@ -67,21 +69,58 @@ def run_simulation():
     # Create domain instance
     domain: Domain = domain_dict[domain_name](**params)
 
-    fig_plotly = domain.show3D_interactive(logical=False)
+    # fig_plotly = domain.show3D_interactive()
+    # fig_sidetopview = domain.show_plotly()
+    fig_domain = domain.show_combined_plotly()
+    # plotly_ui = None
 
-    with ui.row().classes("w-full gap-4 flex-nowrap"):
-        if plotly_ui is None:
-            with ui.card().classes(CARD_SETUP + " w-1/2 max-w-full"):
-                # ui.label("Simulation domain (interactive)")
-                plotly_ui = ui.plotly(fig_plotly).classes("w-full h-96")
-        else:
-            plotly_ui.figure = fig_plotly
-            plotly_ui.update()
+    if plotly_ui is None:
+        with (
+            ui.card()
+            .classes("p-0 border-2 border-gray-400 rounded-lg shadow-md")
+            .style("width: 90vw; max-width: 100vw; margin: 0;")
+        ):
+            # Plotly figure fills the card completely
+            plotly_ui = ui.plotly(fig_domain).classes("w-full h-[300px]; margin: 10")
+    else:
+        plotly_ui.figure = fig_domain
+        plotly_ui.update()
 
-        if matplotlib_ui is None:
-            with ui.card().classes(CARD_SETUP + " w-1/2 max-w-full"):
-                ui.label("Simulation domain")
-                matplotlib_ui = ui.matplotlib(figsize=(12, 6))
+
+def show_domain():
+    global matplotlib_ui
+    global plotly_ui
+
+    # Collect typed params
+    params = {}
+    for pname, (input_field, annotation) in param_inputs.items():
+        value = input_field.value
+        # print(f"{pname}: {value} ({annotation})")
+        try:
+            if annotation is bool:
+                params[pname] = bool(value)
+            elif annotation is int:
+                params[pname] = int(value)
+            elif annotation is float:
+                params[pname] = float(value)
+            elif annotation is tuple:
+                params[pname] = t = ast.literal_eval(value)
+            else:
+                params[pname] = value  # fallback to string
+        except Exception:
+            params[pname] = value  # fallback if conversion fails
+        if params[pname] == "None":
+            params[pname] = None
+    # print(f"Running simulation with {params}")
+    # Create domain instance
+    domain: Domain = domain_dict[domain_name](**params)
+
+    fig_matplotlib, ax = domain.show()
+
+    if matplotlib_ui is None:
+        with ui.card().classes(CARD_SETUP + " w-full h-full"):
+            ui.label("Simulation domain")
+            matplotlib_ui = ui.matplotlib(figsize=(12, 6))
 
     # Always redraw the figure
     fig_matplotlib = matplotlib_ui.figure
@@ -231,7 +270,8 @@ with ui.tab_panels(tabs, value=domain_tab).classes("w-full"):
         update_domain(domain_name)
 
         with ui.row():  # .classes("justify-center"):
-            ui.button("Show domain", on_click=run_simulation)
+            ui.button("Show domain", on_click=show_domain)
+            ui.button("Show domain (interactive)", on_click=show_domain_interactive)
 
     with ui.tab_panel(model_tab):
         # ui.label(f'Model tab')

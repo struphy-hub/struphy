@@ -1465,6 +1465,284 @@ class Domain(metaclass=ABCMeta):
 
         return fig
 
+    def show_plotly(
+        self,
+        logical=False,
+        grid_info=None,
+        markers=None,
+        marker_coords="logical",
+        show_control_pts=False,
+        save_dir=None,
+        fig=None,
+    ):
+        import numpy as np
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        torus_mappings = (
+            "Tokamak",
+            "GVECunit",
+            "DESCunit",
+            "IGAPolarTorus",
+            "HollowTorus",
+        )
+        is_not_cube = self.kind_map < 10 or self.kind_map > 19
+
+        # --- figure with 2 subplots
+        if fig is None:
+            fig = make_subplots(
+                rows=1,
+                cols=2,
+                subplot_titles=[f"{self.__class__.__name__} at η₃=0", "Top view"],
+            )
+
+        # --- default grid
+        if grid_info is None:
+            e1 = np.linspace(0.0, 1.0, 16)
+            e2 = np.linspace(0.0, 1.0, 65)
+            e3 = np.linspace(0.0, 1.0, 65)
+        else:
+            e1 = np.linspace(0.0, 1.0, grid_info[0] + 1)
+            e2 = np.linspace(0.0, 1.0, grid_info[1] + 1)
+            e3 = np.linspace(0.0, 1.0, grid_info[2] + 1 if len(grid_info) > 2 else 2)
+
+        # --- compute coordinates
+        if logical:
+            E1, E2 = np.meshgrid(e1, e2, indexing="ij")
+            X, Y = E1, E2
+        else:
+            XYZ = self(e1, e2, 0.0, squeeze_out=True)
+            X = XYZ[0]
+            Y = XYZ[2] if self.__class__.__name__ in torus_mappings else XYZ[1]
+
+        # --- subplot 1: side view
+        for i in range(len(e1)):
+            fig.add_trace(
+                go.Scatter(
+                    x=X[i, :],
+                    y=Y[i, :],
+                    mode="lines",
+                    line=dict(color="blue", width=1),
+                    opacity=0.5,
+                ),
+                row=1,
+                col=1,
+            )
+        for j in range(len(e2) - int(is_not_cube)):
+            fig.add_trace(
+                go.Scatter(
+                    x=X[:, j],
+                    y=Y[:, j],
+                    mode="lines",
+                    line=dict(color="blue", width=1),
+                    opacity=0.5,
+                ),
+                row=1,
+                col=1,
+            )
+
+        # --- subplot 2: top view
+        if not logical:
+            theta_0 = self(e1, 0.0, e3, squeeze_out=True)
+            theta_pi = self(e1, 0.5, e3, squeeze_out=True)
+            X0, Z0 = theta_0[0], theta_0[2] if self.__class__.__name__ in torus_mappings else theta_0[2]
+            Xpi, Zpi = theta_pi[0], theta_pi[2] if self.__class__.__name__ in torus_mappings else theta_pi[2]
+
+            for i in range(len(e1)):
+                fig.add_trace(
+                    go.Scatter(x=X0[i, :], y=Z0[i, :], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                    row=1,
+                    col=2,
+                )
+            for j in range(len(e2)):
+                fig.add_trace(
+                    go.Scatter(x=X0[:, j], y=Z0[:, j], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                    row=1,
+                    col=2,
+                )
+
+            if is_not_cube:
+                for i in range(len(e1)):
+                    fig.add_trace(
+                        go.Scatter(
+                            x=Xpi[i, :], y=Zpi[i, :], mode="lines", line=dict(color="blue", width=1), opacity=0.5
+                        ),
+                        row=1,
+                        col=2,
+                    )
+                for j in range(len(e2)):
+                    fig.add_trace(
+                        go.Scatter(
+                            x=Xpi[:, j], y=Zpi[:, j], mode="lines", line=dict(color="blue", width=1), opacity=0.5
+                        ),
+                        row=1,
+                        col=2,
+                    )
+
+        # --- layout
+        fig.update_layout(
+            title_text=f"{self.__class__.__name__} Domain",
+            showlegend=False,
+            autosize=True,
+            margin=dict(l=10, r=10, t=40, b=10),
+        )
+
+        return fig
+
+    def show_combined_plotly(
+        self,
+        logical=False,
+        grid_info=None,
+        markers=None,
+        marker_coords="logical",
+        show_control_pts=False,
+        save_dir=None,
+        fig=None,
+    ):
+        """
+        Combined interactive Plotly figure:
+        1) 3D domain wireframe
+        2) Side view (eta1/eta2)
+        3) Top view (eta1/eta3)
+        """
+        import numpy as np
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        torus_mappings = (
+            "Tokamak",
+            "GVECunit",
+            "DESCunit",
+            "IGAPolarTorus",
+            "HollowTorus",
+        )
+        is_not_cube = self.kind_map < 10 or self.kind_map > 19
+
+        # --- default figure with 3 subplots
+        if fig is None:
+            fig = make_subplots(
+                rows=1,
+                cols=3,
+                specs=[[{"type": "scene"}, {}, {}]],
+                subplot_titles=["3D Domain", f"{self.__class__.__name__} at η₃=0", "Top view"],
+            )
+
+        # --- grid setup
+        if grid_info is None:
+            e1 = np.linspace(0.0, 1.0, 20)
+            e2 = np.linspace(0.0, 1.0, 20)
+            e3 = np.linspace(0.0, 1.0, 20)
+        else:
+            e1 = np.linspace(0.0, 1.0, grid_info[0] + 1)
+            e2 = np.linspace(0.0, 1.0, grid_info[1] + 1)
+            e3 = np.linspace(0.0, 1.0, grid_info[2] + 1 if len(grid_info) > 2 else 2)
+
+        # --- compute coordinates
+        if logical:
+            E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+            X3d, Y3d, Z3d = E1, E2, E3
+            X_side, Y_side = E1[:, :, 0], E2[:, :, 0]
+            X_top, Z_top = E1[:, 0, :], E3[:, 0, :]
+        else:
+            XYZ = self(e1, e2, e3, squeeze_out=True)
+            X3d, Y3d, Z3d = XYZ[0], XYZ[1], XYZ[2]
+
+            # side view at eta3=0
+            XYZ_side = self(e1, e2, 0.0, squeeze_out=True)
+            X_side = XYZ_side[0]
+            Y_side = XYZ_side[2] if self.__class__.__name__ in torus_mappings else XYZ_side[1]
+
+            # top view at eta2=0
+            XYZ_top = self(e1, 0.0, e3, squeeze_out=True)
+            X_top = XYZ_top[0]
+            Z_top = XYZ_top[2] if self.__class__.__name__ in torus_mappings else XYZ_top[2]
+
+        # --- 3D wireframe (subplot 1)
+        axis_colors = ["black", "red", "blue"]
+        # e1 lines
+        for j in range(Y3d.shape[1]):
+            for k in range(Z3d.shape[2]):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X3d[:, j, k],
+                        y=Y3d[:, j, k],
+                        z=Z3d[:, j, k],
+                        mode="lines",
+                        line=dict(color=axis_colors[0], width=1),
+                        opacity=0.3,
+                    ),
+                    row=1,
+                    col=1,
+                )
+        # e2 lines
+        for k in range(Z3d.shape[2]):
+            for i in range(X3d.shape[0]):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X3d[i, :, k],
+                        y=Y3d[i, :, k],
+                        z=Z3d[i, :, k],
+                        mode="lines",
+                        line=dict(color=axis_colors[1], width=1),
+                        opacity=0.3,
+                    ),
+                    row=1,
+                    col=1,
+                )
+        # e3 lines
+        for i in range(X3d.shape[0]):
+            for j in range(Y3d.shape[1]):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X3d[i, j, :],
+                        y=Y3d[i, j, :],
+                        z=Z3d[i, j, :],
+                        mode="lines",
+                        line=dict(color=axis_colors[2], width=1),
+                        opacity=0.3,
+                    ),
+                    row=1,
+                    col=1,
+                )
+
+        # --- Side view (subplot 2)
+        for i in range(X_side.shape[0]):
+            fig.add_trace(
+                go.Scatter(x=X_side[i, :], y=Y_side[i, :], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                row=1,
+                col=2,
+            )
+        for j in range(X_side.shape[1]):
+            fig.add_trace(
+                go.Scatter(x=X_side[:, j], y=Y_side[:, j], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                row=1,
+                col=2,
+            )
+
+        # --- Top view (subplot 3)
+        for i in range(X_top.shape[0]):
+            fig.add_trace(
+                go.Scatter(x=X_top[i, :], y=Z_top[i, :], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                row=1,
+                col=3,
+            )
+        for j in range(X_top.shape[1]):
+            fig.add_trace(
+                go.Scatter(x=X_top[:, j], y=Z_top[:, j], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                row=1,
+                col=3,
+            )
+
+        fig.update_layout(
+            title_text=f"{self.__class__.__name__} Combined Domain",
+            showlegend=False,
+            autosize=True,
+            margin=dict(l=10, r=10, t=40, b=10),
+            height=500,
+        )
+
+        return fig
+
     def show(
         self,
         logical=False,
@@ -1849,10 +2127,10 @@ class Domain(metaclass=ABCMeta):
         ax.set_xlabel("x")
         ax.set_ylabel(ylab)
 
-        if save_dir is not None:
-            plt.savefig(save_dir, bbox_inches="tight")
-        else:
-            plt.show()
+        # if save_dir is not None:
+        #     plt.savefig(save_dir, bbox_inches="tight")
+        # else:
+        #     plt.show()
 
         return fig, ax
 
