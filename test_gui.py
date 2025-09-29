@@ -47,7 +47,7 @@ def run_simulation():
     params = {}
     for pname, (input_field, annotation) in param_inputs.items():
         value = input_field.value
-        print(f"{pname}: {value} ({annotation})")
+        # print(f"{pname}: {value} ({annotation})")
         try:
             if annotation is bool:
                 params[pname] = bool(value)
