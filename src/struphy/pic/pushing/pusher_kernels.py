@@ -2908,7 +2908,7 @@ def push_predict_weights_dfva_e_v_w(
     e1_2: "float[:,:,:]",
     e1_3: "float[:,:,:]",
     f0_values: "float[:]",
-    delta_w_curr: "float[:]",
+    delta_w: "float[:]",
     epsilon: "float",
     vth: "float",
 ):
@@ -2954,7 +2954,7 @@ def push_predict_weights_dfva_e_v_w(
         s0p = markers[ip, 7]
 
         # Compute explicit update
-        delta_w_curr[ip] = dt / (vth**2 * epsilon) * f0p / s0p * linalg_kernels.scalar_dot(v_vec, e_vec)
+        delta_w[ip] = dt / (vth**2 * epsilon) * f0p / s0p * linalg_kernels.scalar_dot(v_vec, e_vec)
 
 
 @stack_array("dvp", "v_mid")
@@ -2996,16 +2996,16 @@ def push_compute_I_dfva_e_v_w(
 
         # first summand (H at n+1)
         temp = vth**2 * (wp + dwp + f0p_next / s0p) * log(1 + (wp + dwp) * s0p / f0p_next)
-        
+
         # second summand (H at n)
         temp -= vth**2 * (wp + f0p_old / s0p) * log(1 + wp * s0p / f0p_old)
-        
+
         # third summand (delta w * nabla_w H at n+1/2)
         temp -= vth**2 * dwp * (log(1 + (wp + 0.5 * dwp) * s0p / f0p_mid) + 1.0)
-        
+
         # fourth summand (delta v * nabla_v H at n+1/2)
         v_mid[:] = markers[ip, 3:6]
-        v_mid[:] += dvp[:]
+        v_mid[:] += 0.5 * dvp[:]
         temp += linalg_kernels.scalar_dot(dvp, v_mid) * (f0p_mid / s0p * log(1 + (wp + 0.5 * dwp) * s0p / f0p_mid) - wp - 0.5 * dwp)
 
         res[0] += temp
@@ -3074,7 +3074,7 @@ def push_weights_dfva_e_v_w_explicit(
         s0p = markers[ip, 7]
         dvp[:] = delta_v[ip, :]
         v_mid[:] = v_old[:]
-        v_mid[:] += dvp[:]
+        v_mid[:] += 0.5 * dvp[:]
 
         # spline evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
@@ -3108,12 +3108,12 @@ def push_weights_dfva_e_v_w_explicit(
         e_mid[:] += 0.5 * delta_e[:]
 
         # Discrete Gradient in W
-        dgw = alpha**2 * vth**2 / Np * log(1.0 + (wp + dwp) * s0p / f0p)
+        dgw = alpha**2 * vth**2 / Np * log(1.0 + (wp + 0.5 * dwp) * s0p / f0p)
         dgw += dwp / dz * I
 
         # Discrete Gradient in V
         dgv[:] = v_mid[:]
-        dgv[:] *= (-1.0) * alpha**2 / Np * (f0p / s0p * log(1.0 + (wp + dwp) * s0p / f0p) - wp - 0.5 * dwp)
+        dgv[:] *= (-1.0) * alpha**2 / Np * (f0p / s0p * log(1.0 + (wp + 0.5 * dwp) * s0p / f0p) - wp - 0.5 * dwp)
         dgv[:] += dvp[:] * I / dz
 
         # Compute update
