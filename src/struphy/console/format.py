@@ -1328,6 +1328,12 @@ document.addEventListener('DOMContentLoaded', (event) => {
 
 
 def construct_models_init_file() -> str:
+    """
+    Constructs the content for the __init__.py file for the models module.
+
+    Returns:
+        str: The content for the __init__.py file as a string.
+    """
     import struphy.models.fluid as fluid
     import struphy.models.hybrid as hybrid
     import struphy.models.kinetic as kinetic
@@ -1348,6 +1354,12 @@ def construct_models_init_file() -> str:
 
 
 def construct_propagators_init_file() -> str:
+    """
+    Constructs the content for the __init__.py file for the propagators module.
+
+    Returns:
+        str: The content for the __init__.py file as a string.
+    """
     import struphy.propagators.propagators_coupling as propagators_coupling
     import struphy.propagators.propagators_fields as propagators_fields
     import struphy.propagators.propagators_markers as propagators_markers
