@@ -221,15 +221,17 @@ class StruphyModel(metaclass=ABCMeta):
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
-        if self.derham is not None:
-            Propagator.mass_ops = self.mass_ops
+        Propagator.mass_ops = self.mass_ops
+        if self.derham is None:
+            Propagator.basis_ops = None
+        else:
             Propagator.basis_ops = BasisProjectionOperators(
                 self.derham,
                 self.domain,
                 verbose=self.verbose,
                 eq_mhd=self.equil,
             )
-            Propagator.projected_equil = self.projected_equil
+        Propagator.projected_equil = self.projected_equil
 
         assert len(self.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.prop_list:
@@ -1405,12 +1407,12 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("\n# fluid equilibrium (can be used as part of initial conditions)\n")
         file.write("equil = equils.HomogenSlab()\n")
 
-        if has_feec:
-            grid = "grid = grids.TensorProductGrid()\n"
-            derham = "derham_opts = DerhamOptions()\n"
-        else:
-            grid = "grid = None\n"
-            derham = "derham_opts = None\n"
+        # if has_feec:
+        grid = "grid = grids.TensorProductGrid()\n"
+        derham = "derham_opts = DerhamOptions()\n"
+        # else:
+        #     grid = "grid = None\n"
+        #     derham = "derham_opts = None\n"
 
         file.write("\n# grid\n")
         file.write(grid)

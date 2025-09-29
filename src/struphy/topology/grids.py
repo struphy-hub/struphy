@@ -17,5 +17,5 @@ class TensorProductGrid:
         If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
     """
 
-    Nel: tuple = (16, 1, 1)
+    Nel: tuple = (24, 10, 1)
     mpi_dims_mask: tuple = (True, True, True)
