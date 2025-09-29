@@ -5,6 +5,7 @@ from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec import preconditioner
+from struphy.feec.psydac_derham import Derham
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
@@ -447,6 +448,43 @@ class EfieldWeights(Propagator):
             )
             print("Maxdiff weights for StepEfieldWeights:", max_diff)
             print()
+
+
+class QNAdiabaticKinetic(Propagator):
+    """ The kinetic substep and consequent update of phi_fsa and lambda.
+    
+    TODO
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["solver"] = {
+            "type": [
+                ("pcg", "MassMatrixPreconditioner"),
+                ("cg", None),
+            ],
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
+        }
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(
+        self,
+        phi_fsa: StencilVector,
+        lambd: StencilVector,
+        particles: Particles6D,
+        *,
+        derham_1D: Derham,
+        solver=options(default=True)["solver"],
+    ):
+        super.__init__(phi_fsa, lambd, particles)
 
 
 class PressureCoupling6D(Propagator):

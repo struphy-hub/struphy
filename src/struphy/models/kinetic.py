@@ -1270,6 +1270,7 @@ class QuasiNeutralAdiabatic(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
+            propagators_coupling.QNAdiabaticKinetic: ["phi_fsa", "lambd", "species1"]
         }
 
     __em_fields__ = species()["em_fields"]
@@ -1318,23 +1319,24 @@ class QuasiNeutralAdiabatic(StruphyModel):
             verbose=self.verbose,
         )
 
-        # Create 1D spline function for lambda
-        self._em_fields["lambda"] = {}
-        self._em_fields["lambda"]["space"] = "H1"
-        self._em_fields["lambda"]["save_data"] = True
+        # Create 1D spline function for lambda (called lambd)
+        self._em_fields["lambd"] = {}
+        self._em_fields["lambd"]["space"] = "H1"
+        self._em_fields["lambd"]["save_data"] = True
         self._em_fields["params"] = self.params_1D["em_fields"]
-        self.em_fields["lambda"]["obj"] = self.derham_1D.create_spline_function(
-            "lambda",
-            self.em_fields["lambda"]["space"],
+        self.em_fields["lambd"]["obj"] = self.derham_1D.create_spline_function(
+            "lambd",
+            self.em_fields["lambd"]["space"],
         )
-        self._pointer["lambda"] = self.em_fields["lambda"]["obj"].vector
+        self._pointer["lambd"] = self.em_fields["lambd"]["obj"].vector
+
+        self._kwargs[propagators_coupling.QNAdiabaticKinetic] = {
+            "derham_1D": self.derham_1D
+        }
 
     def initialize_from_params(self):
         # initialize fields and particles
         super().initialize_from_params()
-
-        for key, _ in self._pointer.items():
-            print(f"{key=}")
 
     def update_scalar_quantities(self):
         pass
