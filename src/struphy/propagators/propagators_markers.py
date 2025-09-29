@@ -19,7 +19,11 @@ from psydac.linalg.stencil import StencilVector
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
-from struphy.io.options import OptsMPIsort, check_option
+from struphy.io.options import (
+    OptsKernel,
+    OptsMPIsort,
+    check_option,
+)
 from struphy.io.setup import descend_options_dict
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
@@ -156,8 +160,8 @@ class PushVxB(Propagator):
         
         @ions.setter
         def ions(self, new):
-            assert isinstance(new, PICVariable)
-            assert new.space == "Particles6D"
+            assert isinstance(new, PICVariable | SPHVariable)
+            assert new.space in ("Particles6D", "ParticlesSPH")
             self._ions = new
             
     def __init__(self):
@@ -264,57 +268,107 @@ class PushVinEfield(Propagator):
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, \mathbf{E}(\mathbf{x}_p) \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon} \, \mathbf{E}(\mathbf{x}_p) \,,
 
-    where :math:`\kappa \in \mathbb R` is a constant and in logical coordinates, given by :math:`\mathbf x = F(\boldsymbol \eta)`:
+    where :math:`\varepsilon \in \mathbb R` is a constant. In logical coordinates, given by :math:`\mathbf x = F(\boldsymbol \eta)`:
 
     .. math::
 
-        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \kappa \, DF^{-\top} \hat{\mathbf E}^1(\boldsymbol \eta_p)  \,,
+        \frac{\text{d} \mathbf{v}_p}{\text{d} t} = \frac{1}{\varepsilon} \, DF^{-\top} \hat{\mathbf E}^1(\boldsymbol \eta_p)  \,,
 
-    which is solved analytically.
+    which is solved analytically. :math:`\mathbf E` can optionally be defined
+    through a potential, :math:`\mathbf E = - \nabla \phi`.
     """
 
-    @staticmethod
-    def options():
-        pass
+    class Variables:
+        def __init__(self):
+            self._var: PICVariable | SPHVariable = None
 
-    def __init__(
-        self,
-        particles: Particles6D,
-        *,
-        e_field: BlockVector | PolarVector,
-        kappa: float = 1.0,
-    ):
-        super().__init__(particles)
+        @property
+        def var(self) -> PICVariable | SPHVariable:
+            return self._var
 
-        self.kappa = kappa
+        @var.setter
+        def var(self, new):
+            assert isinstance(new, PICVariable | SPHVariable)
+            assert new.space in ("Particles6D", "ParticlesSPH")
+            self._var = new
 
-        assert isinstance(e_field, (BlockVector, PolarVector))
-        self._e_field = e_field
+    def __init__(self):
+        self.variables = self.Variables()
 
-        # instantiate Pusher
-        args_kernel = (
-            self.derham.args_derham,
-            self._e_field[0]._data,
-            self._e_field[1]._data,
-            self._e_field[2]._data,
-            self.kappa,
-        )
+    @dataclass
+    class Options:
+        # propagator options
+        e_field: FEECVariable | tuple[Callable] = None
+        phi: FEECVariable | Callable = None
 
-        self._pusher = Pusher(
-            particles,
-            pusher_kernels.push_v_with_efield,
-            args_kernel,
-            self.domain.args_domain,
-            alpha_in_kernel=1.0,
-        )
+        def __post_init__(self):
+            # checks
+            if self.e_field is not None:
+                assert isinstance(self.e_field, tuple[Callable]) or self.e_field.space == "Hcurl"
+            else:
+                if self.phi is not None:
+                    assert isinstance(self.phi, Callable) or self.phi.space == "H1"
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        # scaling factor
+        self._epsilon = self.variables.var.species.equation_params.epsilon
+
+        self._e_field = None
+
+        if self.options.e_field is not None:
+            if isinstance(self.options.e_field, tuple[Callable]):
+                self._e_field = self.derham.P["1"](self.options.e_field)
+            else:
+                self._e_field = self.options.e_field.spline.vector
+
+        if self.options.phi is not None:
+            if isinstance(self.options.phi, Callable):
+                _phi = self.derham.P["0"](self.options.phi)
+            else:
+                _phi = self.options.phi.spline.vector
+            self._e_field = self.derham.grad.dot(_phi)
+            self._e_field.update_ghost_regions()  # very important, we will move it inside grad
+            self._e_field *= -1.0
+
+        if self._e_field is not None:
+            # instantiate Pusher
+            args_kernel = (
+                self.derham.args_derham,
+                self._e_field[0]._data,
+                self._e_field[1]._data,
+                self._e_field[2]._data,
+                1.0 / self._epsilon,
+            )
+
+            self._pusher = Pusher(
+                self.variables.var.particles,
+                pusher_kernels.push_v_with_efield,
+                args_kernel,
+                self.domain.args_domain,
+                alpha_in_kernel=1.0,
+            )
 
     def __call__(self, dt):
-        """
-        TODO
-        """
-        self._pusher(dt)
+        if self._e_field is not None:
+            self._pusher(dt)
 
 
 class PushEtaPC(Propagator):
@@ -1612,15 +1666,155 @@ class PushVinSPHpressure(Propagator):
     * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
 
+    class Variables:
+        def __init__(self):
+            self._fluid: SPHVariable = None
+
+        @property
+        def fluid(self) -> SPHVariable:
+            return self._fluid
+
+        @fluid.setter
+        def fluid(self, new):
+            assert isinstance(new, SPHVariable)
+            assert new.space == "ParticlesSPH"
+            self._fluid = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # specific literals
+        OptsAlgo = Literal["forward_euler"]
+        OptsThermo = Literal["isothermal", "polytropic"]
+        # propagator options
+        kernel_type: OptsKernel = "gaussian_2d"
+        kernel_width: tuple = None
+        algo: OptsAlgo = "forward_euler"
+        gravity: tuple = (0.0, 0.0, 0.0)
+        thermodynamics: OptsThermo = "isothermal"
+
+        def __post_init__(self):
+            # checks
+            check_option(self.kernel_type, OptsKernel)
+            check_option(self.algo, self.OptsAlgo)
+            check_option(self.thermodynamics, self.OptsThermo)
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        # init kernel for evaluating density etc. before each time step.
+        init_kernel = eval_kernels_gc.sph_pressure_coeffs
+
+        particles = self.variables.fluid.particles
+
+        first_free_idx = particles.args_markers.first_free_idx
+        comps = (0, 1, 2)
+
+        boxes = particles.sorting_boxes.boxes
+        neighbours = particles.sorting_boxes.neighbours
+        holes = particles.holes
+        periodic = [bci == "periodic" for bci in particles.bc]
+        kernel_nr = particles.ker_dct()[self.options.kernel_type]
+
+        if self.options.kernel_width is None:
+            self.options.kernel_width = tuple([1 / ni for ni in particles.boxes_per_dim])
+        else:
+            assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, particles.boxes_per_dim)])
+
+        # init kernel
+        args_init = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *self.options.kernel_width,
+        )
+
+        self.add_init_kernel(
+            init_kernel,
+            first_free_idx,
+            comps,
+            args_init,
+        )
+
+        # pusher kernel
+        if self.options.thermodynamics == "isothermal":
+            kernel = pusher_kernels.push_v_sph_pressure
+        elif self.options.thermodynamics == "polytropic":
+            kernel = pusher_kernels.push_v_sph_pressure_ideal_gas
+
+        gravity = np.array(self.options.gravity, dtype=float)
+
+        args_kernel = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *self.options.kernel_width,
+            gravity,
+        )
+
+        # the Pusher class wraps around all kernels
+        self._pusher = Pusher(
+            particles,
+            kernel,
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=0.0,
+            init_kernels=self.init_kernels,
+        )
+
+    @profile
+    def __call__(self, dt):
+        self.variables.fluid.particles.put_particles_in_boxes()
+        self._pusher(dt)
+
+
+class PushVinViscousPotential(Propagator):
+    r"""For each marker :math:`p`, solves
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \kappa_p \sum_{i=1}^N w_i \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_i)} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+
+    where :math:`DF^{-\top}` denotes the inverse transpose Jacobian, and with the smoothed density
+
+    .. math::
+
+        \rho^{N,h}(\boldsymbol \eta) = \frac 1N \sum_{j=1}^N w_j \, W_h(\boldsymbol \eta - \boldsymbol \eta_j)\,,
+
+    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    Time stepping:
+
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+    """
+
     @staticmethod
     def options(default=False):
         dct = {}
         dct["kernel_type"] = list(Particles.ker_dct())
+        dct["kernel_width"] = None
         dct["algo"] = [
             "forward_euler",
         ]  # "heun2", "rk2", "heun3", "rk4"]
-        dct["gravity"] = (0.0, 0.0, 0.0)
-        dct["thermodynamics"] = ["isothermal", "polytropic"]
         if default:
             dct = descend_options_dict(dct, [])
         return dct
@@ -1632,17 +1826,23 @@ class PushVinSPHpressure(Propagator):
         kernel_type: str = "gaussian_2d",
         kernel_width: tuple = None,
         algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
-        gravity: tuple = options(default=True)["gravity"],
-        thermodynamics: str = options(default=True)["thermodynamics"],
     ):
         # base class constructor call
         super().__init__(particles)
 
         # init kernel for evaluating density etc. before each time step.
-        init_kernel = eval_kernels_gc.sph_pressure_coeffs
-
+        init_kernel_1 = eval_kernels_gc.sph_mean_velocity_coeffs
         first_free_idx = particles.args_markers.first_free_idx
         comps = (0, 1, 2)
+
+        init_kernel_2 = eval_kernels_gc.sph_mean_velocity
+        # first_free_idx = particles.args_markers.first_free_idx
+        # comps = (0, 1, 2)
+
+        init_kernel_3 = eval_kernels_gc.sph_grad_mean_velocity
+        comps_tensor = (0, 1, 2, 3, 4, 5, 6, 7, 8)
+
+        init_kernel_4 = eval_kernels_gc.sph_viscosity_tensor
 
         boxes = particles.sorting_boxes.boxes
         neighbours = particles.sorting_boxes.neighbours
@@ -1666,19 +1866,34 @@ class PushVinSPHpressure(Propagator):
         )
 
         self.add_init_kernel(
-            init_kernel,
+            init_kernel_1,
             first_free_idx,
             comps,
             args_init,
         )
 
-        # pusher kernel
-        if thermodynamics == "isothermal":
-            kernel = pusher_kernels.push_v_sph_pressure
-        elif thermodynamics == "polytropic":
-            kernel = pusher_kernels.push_v_sph_pressure_ideal_gas
+        self.add_init_kernel(
+            init_kernel_2,
+            first_free_idx + 3,  # +3 so that the previous one is not overwritten
+            comps,
+            args_init,
+        )
 
-        gravity = np.array(gravity, dtype=float)
+        self.add_init_kernel(
+            init_kernel_3,
+            first_free_idx + 6,  # +3 so that the previous one is not overwritten
+            comps_tensor,
+            args_init,
+        )
+
+        self.add_init_kernel(
+            init_kernel_4,
+            first_free_idx + 15,
+            comps_tensor,
+            args_init,
+        )
+
+        kernel = pusher_kernels.push_v_viscosity
 
         args_kernel = (
             boxes,
@@ -1687,7 +1902,6 @@ class PushVinSPHpressure(Propagator):
             *periodic,
             kernel_nr,
             *kernel_width,
-            gravity,
         )
 
         # the Pusher class wraps around all kernels
