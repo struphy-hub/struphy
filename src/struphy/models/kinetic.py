@@ -1,6 +1,7 @@
 import numpy as np
 from copy import deepcopy
 
+from struphy.feec.mass import WeightedMassOperators
 from struphy.io.setup import setup_derham
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
@@ -1300,6 +1301,12 @@ class QuasiNeutralAdiabatic(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
+        # Get parameters of the background magnetic field
+        if self.projected_equil:
+            self._b_background = self.projected_equil.b2
+        else:
+            self._b_background = self.derham.Vh["2"].zeros()
+
         # Prepare parameters for 3D derham sequence in x-direction
         self.params_3D_x = deepcopy(params)
         self.params_3D_x["grid"]["Nel"][1] = 1
@@ -1319,6 +1326,14 @@ class QuasiNeutralAdiabatic(StruphyModel):
             verbose=self.verbose,
         )
 
+        # Also create mass_ops for just x-direction
+        self.mass_ops_3D_x = WeightedMassOperators(
+            self.derham_3D_x,
+            self.domain,
+            verbose=self.verbose,
+            eq_mhd=self.equil,
+        )
+
         # Create 1D spline function for lambda (called lambd)
         self._em_fields["lambd"] = {}
         self._em_fields["lambd"]["space"] = "H1"
@@ -1331,8 +1346,11 @@ class QuasiNeutralAdiabatic(StruphyModel):
         self._pointer["lambd"] = self.em_fields["lambd"]["obj"].vector
 
         self._kwargs[propagators_coupling.QNAdiabaticKinetic] = {
-            "derham_3D_x": self.derham_3D_x
+            "derham_3D_x": self.derham_3D_x,
+            "mass_ops_3D_x": self.mass_ops_3D_x,
+            "b2": self._b_background,
         }
+
 
         self.init_propagators()
 

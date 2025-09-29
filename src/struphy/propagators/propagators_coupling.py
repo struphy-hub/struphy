@@ -5,6 +5,7 @@ from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 from psydac.linalg.solvers import inverse
 
+from struphy.feec.mass import WeightedMassOperators
 from struphy.feec import preconditioner
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.linear_operators import LinOpWithTransp
@@ -14,7 +15,7 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
-from struphy.pic.accumulation.particles_to_grid import Accumulator
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
@@ -484,21 +485,38 @@ class QNAdiabaticKinetic(Propagator):
         particles: Particles6D,
         *,
         derham_3D_x: Derham,
+        mass_ops_3D_x: WeightedMassOperators,
         b2: BlockVector,
         solver=options(default=True)["solver"],
     ):
         super().__init__(phi_fsa, lambd, particles)
 
+        # Store B-field
+        self._b2 = b2
+
+        # buffer for lambd result
+        self._lambd = lambd.space.zeros()
+
         # Accumulate matrix A
-        self._accum = Accumulator(
+        self._accum_mat = Accumulator(
             particles,
             "H1",
             accum_kernels.x_stiffness_mat_v0,
-            self.mass_ops,
+            mass_ops_3D_x,
             self.domain.args_domain,
             add_vector=False,
         )
-        self._accum._derham = derham_3D_x
+        self._accum_mat._derham = derham_3D_x
+
+        # Accumulate vector for v update
+        self._accum_vec = AccumulatorVector(
+            particles,
+            "H1",
+            accum_kernels.qn_adiabatic_v_vec,
+            mass_ops_3D_x,
+            self.domain.args_domain,
+        )
+        self._accum_vec._derham = derham_3D_x
 
         # Make push in eta
         butcher = ButcherTableau("forward_euler")
@@ -522,9 +540,9 @@ class QNAdiabaticKinetic(Propagator):
         # Pusher for V x B
         args_kernel_vxb= (
             self.derham.args_derham,
-            self._b_full[0]._data,
-            self._b_full[1]._data,
-            self._b_full[2]._data,
+            self._b2[0]._data,
+            self._b2[1]._data,
+            self._b2[2]._data,
         )
         self._push_vxb = Pusher(
             particles,
@@ -536,15 +554,27 @@ class QNAdiabaticKinetic(Propagator):
 
         # Invert accumulated matrix
         self._solver = inverse(
-            self._accum.operators[0],
+            self._accum_mat.operators[0],
             "pcg",
             tol=1e-10,
             maxiter=3000,
         )
 
+        # Velocity push in x-direction
+        args_kernel_v_push = (
+            derham_3D_x.args_derham,
+            self._lambd._data,
+        )
+        self._push_v_x = Pusher(
+            particles,
+            pusher_kernels.push_v_x_QN_adiabatic,
+            args_kernel_v_push,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
     def __call__(self, dt):
         print("Hello")
-
         # =====
         # Verlet scheme
         # =====
@@ -556,7 +586,20 @@ class QNAdiabaticKinetic(Propagator):
         self._push_vxb(dt)
 
         # Accumulate A
-        self._accum()
+        self._accum_mat()
+
+        # Accumulate vector for v update
+        self._accum_vec(
+            self._b2.blocks[0]._data,
+            self._b2.blocks[1]._data,
+            self._b2.blocks[2]._data,
+        )
+
+        # Invert matrix to get lambda
+        self._solver.dot(self._accum_vec.vectors[0], out=self._lambd)
+
+        # Push v by a full step
+        self._push_v_x(dt)
 
         # Push eta by another half a time step
         self._push_eta(0.5 * dt)
@@ -566,7 +609,7 @@ class QNAdiabaticKinetic(Propagator):
         # =====
 
         # Accumulate A
-        self._accum()
+        self._accum_mat()
 
 
 class PressureCoupling6D(Propagator):

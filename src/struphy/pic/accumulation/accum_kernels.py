@@ -130,6 +130,94 @@ def x_stiffness_mat_v0(
         )
 
 
+@stack_array("b_vec")
+def qn_adiabatic_v_vec(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec: "float[:,:,:]",
+    b2_1: "float[:,:,:]",
+    b2_2: "float[:,:,:]",
+    b2_3: "float[:,:,:]",
+):
+    """ TODO """
+    ders = zeros((3, args_derham.pn[0] + 1), dtype=float)
+    left = zeros(args_derham.pn[0], dtype=float)
+    right = zeros(args_derham.pn[0], dtype=float)
+    b_vec = zeros(3, dtype=float)
+
+    # Get marker args
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        bsplines_kernels.basis_funs_all_ders(
+            args_derham.tn1,
+            args_derham.pn[0],
+            eta1,
+            span1,
+            left,
+            right,
+            2,
+            ders,
+        )
+
+        # Evaluate magnetic field
+        eval_2form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_vec,
+        )
+
+        args_derham.bn1[:] = ders[1, :]
+        args_derham.bn2[:] = 1.0
+        args_derham.bn3[:] = 1.0
+
+        # x-component of V x B
+        filling = markers[ip, 4] * b_vec[2] - markers[ip, 5] * b_vec[1]
+        filling *= markers[ip, 6]
+        particle_to_mat_kernels.vec_fill_v0(
+            args_derham,
+            span1,
+            span2,
+            span3,
+            vec,
+            filling,
+        )
+
+        # second derivative times v_x^2
+        args_derham.bn1[:] = ders[2, :]
+        filling = markers[ip, 3] ** 2
+        filling *= markers[ip, 6]
+        particle_to_mat_kernels.vec_fill_v0(
+            args_derham,
+            span1,
+            span2,
+            span3,
+            vec,
+            filling,
+        )
+
+
 @stack_array(
     "cell_left",
     "point_left",
