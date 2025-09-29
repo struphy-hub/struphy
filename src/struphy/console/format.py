@@ -676,7 +676,7 @@ def struphy_format(config, verbose, yes=False):
     config : dict
         Configuration dictionary containing the following keys:
             - input_type : str, optional
-                The type of files to format ('all', 'path', 'staged', or 'branch'). Defaults to 'all'.
+                The type of files to format ('all', 'path', 'staged', 'branch', or '__init__.py'). Defaults to 'all'.
             - path : str, optional
                 Directory or file path where files will be formatted.
             - linters : list
