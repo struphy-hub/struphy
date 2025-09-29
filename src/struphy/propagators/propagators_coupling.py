@@ -633,7 +633,7 @@ class DeltaFVlasovAmpere(Propagator):
 
         self._predict_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_predict_velocities_in_e_field,
+            pusher_kernels.push_velocities_in_e_field_explicit,
             args_kernel_predictor,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -721,7 +721,7 @@ class DeltaFVlasovAmpere(Propagator):
 
         self._predict_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_predict_velocities_in_e_field,
+            pusher_kernels.push_velocities_in_e_field_explicit,
             args_kernel_predictor,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -810,7 +810,7 @@ class DeltaFVlasovAmpere(Propagator):
         )
         self._push_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_predict_velocities_in_e_field,
+            pusher_kernels.push_velocities_in_e_field_explicit,
             args_kernel_push_v,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -902,7 +902,7 @@ class DeltaFVlasovAmpere(Propagator):
         # Use an explicit Euler step to predict velocities
         self._predict_velocities = Pusher(
             self.particles[0],
-            pusher_kernels.push_predict_velocities_in_e_field,
+            pusher_kernels.push_velocities_in_e_field_explicit,
             args_kernel_predictor,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -1448,26 +1448,41 @@ class DeltaFVlasovAmpere(Propagator):
         dv_glob = self.derham.comm.allreduce(dv_loc, op=MPI.SUM)
         de_dv = np.sum(self._delta_e.toarray()**2) + dv_glob
 
+        # # Compute max de
+        # max_diff_e = np.max(np.abs(self._delta_e.toarray()))
+        # # Compute max delta v
+        # max_diff_v = np.max(
+        #     np.sqrt(
+        #         self._delta_v[self.particles[0].valid_mks, 0] ** 2
+        #         + self._delta_v[self.particles[0].valid_mks, 1] ** 2
+        #         + self._delta_v[self.particles[0].valid_mks, 2] ** 2
+        #     )
+        # )
+
+        # print()
+        # print(f"Update for e and v with {max_diff_e=} and {max_diff_v=}")
+        # print()
+        # print("Weights before:")
+        # print(self.particles[0].markers[self.particles[0].valid_mks, 6])
+        # print()
+
         # =====
         # Compute w_p^{n+1}
         # =====
 
         # Compute f0 at time n
+        self._markers[self.particles[0].valid_mks, :] = self._particles[0].markers[self.particles[0].valid_mks, :6]
         self._f0_values_old[self.particles[0].valid_mks] = self._f0(*self._markers[self.particles[0].valid_mks, :].T)
 
         # Predict weights
         self._predict_weights(dt)
 
-        # Prepare markers at time n+1/2
-        self._markers[self.particles[0].valid_mks, :] = self._particles[0].markers[self.particles[0].valid_mks, :6]
-        self._markers[self.particles[0].valid_mks, 3:6] += self._delta_v[self.particles[0].valid_mks, :] * 0.5
         # Compute f0 at time n+1/2
+        self._markers[self.particles[0].valid_mks, 3:6] += self._delta_v[self.particles[0].valid_mks, :] * 0.5
         self._f0_values_midpoint[self.particles[0].valid_mks] = self._f0(*self._markers[self.particles[0].valid_mks, :].T)
 
-        # Prepare markers at time n+1
-        self._markers[self.particles[0].valid_mks, :] = self._particles[0].markers[self.particles[0].valid_mks, :6]
-        self._markers[self.particles[0].valid_mks, 3:6] += self._delta_v[self.particles[0].valid_mks, :]
         # Compute f0 at time n+1
+        self._markers[self.particles[0].valid_mks, 3:6] += self._delta_v[self.particles[0].valid_mks, :] * 0.5
         self._f0_values_next[self.particles[0].valid_mks] = self._f0(*self._markers[self.particles[0].valid_mks, :].T)
 
         converged_glob = False
@@ -1486,9 +1501,18 @@ class DeltaFVlasovAmpere(Propagator):
 
             # Compute global dz
             dw_loc = np.sum(self._delta_w_curr[self.particles[0].valid_mks] ** 2)
+            # print(f"{dw_loc=}")
             dw_glob = self.derham.comm.allreduce(dw_loc, op=MPI.SUM)
             _dz_glob = dw_glob + de_dv
             self._param[1] = _dz_glob
+
+            # print()
+            # print(f"Iteration {k=} , {dw_glob=}")
+            # print()
+            # print(f"I={self._param[0]} and dz={self._param[1]}")
+            # print()
+            # print(self._delta_w_curr[self.particles[0].valid_mks])
+            # print()
 
             # Push weights
             self._push_weights(dt)
@@ -1519,6 +1543,15 @@ class DeltaFVlasovAmpere(Propagator):
             if k >= self._maxiter:
                 print("Max number of iterations reached, breaking..")
                 break
+
+            if np.any(np.isnan(self._delta_w_curr[self.particles[0].valid_mks])):
+                print("NaN values detected, breaking ...")
+                break
+
+        # print()
+        # print("Loop done")
+        # print(self.particles[0].markers[self.particles[0].valid_mks, :7])
+        # print()
 
         # =====
         # Finally update variables

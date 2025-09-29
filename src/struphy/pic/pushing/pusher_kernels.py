@@ -2824,7 +2824,7 @@ def push_weights_with_efield_lin_va(
 
 
 @stack_array("e_vec", "dfm", "df_inv", "df_inv_t", "df_inv_t_e")
-def push_predict_velocities_in_e_field(
+def push_velocities_in_e_field_explicit(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -2892,12 +2892,10 @@ def push_predict_velocities_in_e_field(
         linalg_kernels.matrix_vector(df_inv_t, e_vec, df_inv_t_e)
 
         # compute explicit velocity update
-        delta_v_next[ip, 0] = dt / epsilon * df_inv_t_e[0]
-        delta_v_next[ip, 1] = dt / epsilon * df_inv_t_e[1]
-        delta_v_next[ip, 2] = dt / epsilon * df_inv_t_e[2]
+        delta_v_next[ip, :] = dt / epsilon * df_inv_t_e[:]
 
 
-@stack_array("e_vec", "v_vec")
+@stack_array("e_vec", "v_vec", "dfm", "df_inv", "df_inf_v")
 def push_predict_weights_dfva_e_v_w(
     dt: float,
     stage: int,
@@ -2915,6 +2913,9 @@ def push_predict_weights_dfva_e_v_w(
     # Allocate some memory
     e_vec = empty(3, dtype=float)
     v_vec = empty(3, dtype=float)
+    df_inv_v = empty(3, dtype=float)
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
 
     # get marker arguments
     markers = args_markers.markers
@@ -2950,11 +2951,25 @@ def push_predict_weights_dfva_e_v_w(
             e_vec,
         )
 
+        # Compute Jacobian matrix
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        linalg_kernels.matrix_vector(df_inv, v_vec, df_inv_v)
+
         f0p = f0_values[ip]
         s0p = markers[ip, 7]
 
         # Compute explicit update
-        delta_w[ip] = dt / (vth**2 * epsilon) * f0p / s0p * linalg_kernels.scalar_dot(v_vec, e_vec)
+        delta_w[ip] = dt / (vth**2 * epsilon) * f0p / s0p * linalg_kernels.scalar_dot(df_inv_v, e_vec)
 
 
 @stack_array("dvp", "v_mid")
@@ -3011,7 +3026,7 @@ def push_compute_I_dfva_e_v_w(
         res[0] += temp
 
 
-@stack_array("e_old", "delta_e", "e_mid", "v_old", "dvp", "v_mid", "dgv")
+@stack_array("e_old", "delta_e", "e_mid", "v_old", "dvp", "v_mid", "dgv", "dfm", "df_inv", "df_inf_v", "df_inv_t", "df_inv_t_e")
 def push_weights_dfva_e_v_w_explicit(
     dt: float,
     stage: int,
@@ -3040,6 +3055,11 @@ def push_weights_dfva_e_v_w_explicit(
     v_old = empty(3, dtype=float)
     dvp = empty(3, dtype=float)
     v_mid = empty(3, dtype=float)
+    df_inv_v = empty(3, dtype=float)
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    df_inv_t_e = empty(3, dtype=float)
 
     # Discrete Gradient in v
     dgv = empty(3, dtype=float)
@@ -3107,6 +3127,20 @@ def push_weights_dfva_e_v_w_explicit(
         e_mid[:] = e_old[:]
         e_mid[:] += 0.5 * delta_e[:]
 
+        # Compute Jacobian matrix
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        linalg_kernels.matrix_vector(df_inv, v_old, df_inv_v)
+
         # Discrete Gradient in W
         dgw = alpha**2 * vth**2 / Np * log(1.0 + (wp + 0.5 * dwp) * s0p / f0p)
         dgw += dwp / dz * I
@@ -3116,9 +3150,13 @@ def push_weights_dfva_e_v_w_explicit(
         dgv[:] *= (-1.0) * alpha**2 / Np * (f0p / s0p * log(1.0 + (wp + 0.5 * dwp) * s0p / f0p) - wp - 0.5 * dwp)
         dgv[:] += dvp[:] * I / dz
 
+        # Transpose Jacobian Matrix
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_vector(df_inv_t, e_old, df_inv_t_e)
+
         # Compute update
-        update = alpha**2 / (Np * epsilon) * wp / dgw * linalg_kernels.scalar_dot(v_old, e_mid)
-        update -= linalg_kernels.scalar_dot(dgv, e_old) / (dgw * epsilon)
+        update = alpha**2 / (Np * epsilon) * wp / dgw * linalg_kernels.scalar_dot(df_inv_v, e_mid)
+        update -= linalg_kernels.scalar_dot(dgv, df_inv_t_e) / (dgw * epsilon)
 
         # Update delta w
         delta_w_next[ip] = dt * update

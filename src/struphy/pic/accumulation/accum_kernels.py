@@ -75,6 +75,7 @@ def charge_density_0form(
     # -- removed omp: #$ omp end parallel
 
 
+@stack_array("dfm", "df_inv", "filling_vec", "v_vec")
 def current_density_1form(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
@@ -90,6 +91,10 @@ def current_density_1form(
 
         B_p^\mu = \frac{w_p}{N} \mathbf{v}_p \,.
     """
+    v_vec = empty(3, dtype=float)
+    filling_vec = empty(3, dtype=float)
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
 
     markers = args_markers.markers
     Np = args_markers.Np
@@ -99,15 +104,32 @@ def current_density_1form(
         if markers[ip, 0] == -1.0:
             continue
 
-        # marker positions
+        # position
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
+        # velocity
+        v_vec[0] = markers[ip, 3]
+        v_vec[1] = markers[ip, 4]
+        v_vec[2] = markers[ip, 5]
+
+        # Compute Jacobian matrix
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        linalg_kernels.matrix_vector(df_inv, v_vec, filling_vec)
+
         # filling = w_p / N * v_p
-        filling1 = markers[ip, 6] * markers[ip, 3] / Np
-        filling2 = markers[ip, 6] * markers[ip, 4] / Np
-        filling3 = markers[ip, 6] * markers[ip, 5] / Np
+        filling_vec[:] *= markers[ip, 6] / Np
 
         particle_to_mat_kernels.vec_fill_b_v1(
             args_derham,
@@ -117,9 +139,9 @@ def current_density_1form(
             vec1,
             vec2,
             vec3,
-            filling1,
-            filling2,
-            filling3,
+            filling_vec[0],
+            filling_vec[1],
+            filling_vec[2],
         )
 
 
