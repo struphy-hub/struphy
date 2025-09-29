@@ -32,9 +32,30 @@ OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
 OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
 OptsMarkerBC = Literal["periodic", "reflect"]
 OptsRecontructBC = Literal["periodic", "mirror", "fixed"]
-OptsLoading = Literal["pseudo_random", "sobol_standard", "sobol_antithetic", "external", "restart", "tesselation"]
+OptsLoading = Literal[
+    "pseudo_random",
+    "sobol_standard",
+    "sobol_antithetic",
+    "external",
+    "restart",
+    "tesselation",
+]
 OptsSpatialLoading = Literal["uniform", "disc"]
 OptsMPIsort = Literal["each", "last", None]
+
+# sph
+OptsKernel = Literal[
+    "trigonometric_1d",
+    "gaussian_1d",
+    "linear_1d",
+    "trigonometric_2d",
+    "gaussian_2d",
+    "linear_2d",
+    "trigonometric_3d",
+    "gaussian_3d",
+    "linear_isotropic_3d",
+    "linear_3d",
+]
 
 
 ## Option classes

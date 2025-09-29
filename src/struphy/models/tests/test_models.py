@@ -27,6 +27,7 @@ if rank == 0:
 
 fluid_models = [
     "LinearMHD",
+    "EulerSPH",
 ]
 # for name, obj in inspect.getmembers(fluid):
 #     if inspect.isclass(obj) and "models.fluid" in obj.__module__:

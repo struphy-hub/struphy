@@ -145,7 +145,6 @@ class PICVariable(Variable):
     def __init__(self, space: OptsPICSpace = "Particles6D"):
         check_option(space, OptsPICSpace)
         self._space = space
-        self._particle_data = {}
 
     @property
     def space(self):
@@ -154,10 +153,6 @@ class PICVariable(Variable):
     @property
     def particles(self) -> Particles:
         return self._particles
-
-    @property
-    def particle_data(self) -> dict:
-        return self._particle_data
 
     @property
     def species(self) -> ParticleSpecies:
@@ -262,35 +257,6 @@ class PICVariable(Variable):
             assert len(sli.split("_")) == len(ranges) == len(n_bins), (
                 f"Number of slices names ({len(sli.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
             )
-            self.particle_data["bin_edges"][sli] = []
-            dims = (len(sli) - 2) // 3 + 1
-            for j in range(dims):
-                self.particle_data["bin_edges"][sli] += [
-                    np.linspace(
-                        ranges[j][0],
-                        ranges[j][1],
-                        n_bins[j] + 1,
-                    ),
-                ]
-            self.particle_data["f"][sli] = np.zeros(n_bins, dtype=float)
-            self.particle_data["df"][sli] = np.zeros(n_bins, dtype=float)
-
-        # for storing an sph evaluation of the density n
-        self.particle_data["n_sph"] = []
-        self.particle_data["plot_pts"] = []
-
-        for kd_plot in self.species.kernel_density_plots:
-            eta1 = np.linspace(0.0, 1.0, kd_plot.pts_e1)
-            eta2 = np.linspace(0.0, 1.0, kd_plot.pts_e2)
-            eta3 = np.linspace(0.0, 1.0, kd_plot.pts_e3)
-            ee1, ee2, ee3 = np.meshgrid(
-                eta1,
-                eta2,
-                eta3,
-                indexing="ij",
-            )
-            self.particle_data["plot_pts"] += [(ee1, ee2, ee3)]
-            self.particle_data["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
 
         # other data (wave-particle power exchange, etc.)
         # TODO   
@@ -406,49 +372,32 @@ class SPHVariable(Variable):
         self.particles.draw_markers(sort=sort, verbose=verbose)
         self.particles.initialize_weights()
 
-        # for storing the binned distribution function
-        self.particle_data["bin_edges"] = {}
-        self.particle_data["f"] = {}
-        self.particle_data["df"] = {}
+        # allocate array for saving markers if not present
+        n_markers = self.species.n_markers
+        if isinstance(n_markers, float):
+            if n_markers > 1.0:
+                self._n_to_save = int(n_markers)
+            else:
+                self._n_to_save = int(self.particles.n_mks_global * n_markers)
+        else:
+            self._n_to_save = n_markers
 
-        for bin_plot in self.species.binning_plots:
-            sli = bin_plot.slice
-            n_bins = bin_plot.n_bins
-            ranges = bin_plot.ranges
-
-            assert ((len(sli) - 2) / 3).is_integer(), f"Binning coordinates must be separated by '_', but reads {sli}."
-            assert len(sli.split("_")) == len(ranges) == len(n_bins), (
-                f"Number of slices names ({len(sli.split('_'))}), number of bins ({len(n_bins)}), and number of ranges ({len(ranges)}) are inconsistent with each other!\n\n"
+        assert self._n_to_save <= self.particles.Np, (
+            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
+        )
+        if self._n_to_save > 0:
+            self._saved_markers = np.zeros(
+                (self._n_to_save, self.particles.markers.shape[1]),
+                dtype=float,
             )
-            self.particle_data["bin_edges"][sli] = []
-            dims = (len(sli) - 2) // 3 + 1
-            for j in range(dims):
-                self.particle_data["bin_edges"][sli] += [
-                    np.linspace(
-                        ranges[j][0],
-                        ranges[j][1],
-                        n_bins[j] + 1,
-                    ),
-                ]
-            self.particle_data["f"][sli] = np.zeros(n_bins, dtype=float)
-            self.particle_data["df"][sli] = np.zeros(n_bins, dtype=float)
-
-        # for storing an sph evaluation of the density n
-        self.particle_data["n_sph"] = []
-        self.particle_data["plot_pts"] = []
-
-        for kd_plot in self.species.kernel_density_plots:
-            eta1 = np.linspace(0.0, 1.0, kd_plot.pts_e1)
-            eta2 = np.linspace(0.0, 1.0, kd_plot.pts_e2)
-            eta3 = np.linspace(0.0, 1.0, kd_plot.pts_e3)
-            ee1, ee2, ee3 = np.meshgrid(
-                eta1,
-                eta2,
-                eta3,
-                indexing="ij",
-            )
-            self.particle_data["plot_pts"] += [(ee1, ee2, ee3)]
-            self.particle_data["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
 
         # other data (wave-particle power exchange, etc.)
         # TODO
+
+    @property
+    def n_to_save(self) -> int:
+        return self._n_to_save
+
+    @property
+    def saved_markers(self) -> np.ndarray:
+        return self._saved_markers
