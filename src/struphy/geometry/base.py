@@ -4,7 +4,9 @@
 from abc import ABCMeta, abstractmethod
 
 import h5py
+import matplotlib.pyplot as plt
 import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
@@ -1364,6 +1366,111 @@ class Domain(metaclass=ABCMeta):
         for k, v in self.params.items():
             params_numpy.append(v)
         return np.array(params_numpy)
+
+    def show3D_interactive(
+        self,
+        fig=None,
+        logical=False,
+        grid_info=None,
+        markers=None,
+        marker_coords="logical",
+        show_control_pts=False,
+        save_dir=None,
+    ):
+        import numpy as np
+        import plotly.graph_objects as go
+
+        torus_mappings = (
+            "Tokamak",
+            "GVECunit",
+            "DESCunit",
+            "IGAPolarTorus",
+            "HollowTorus",
+        )
+        if fig is None:
+            fig = go.Figure()
+
+        # --- default grid
+        if grid_info is None:
+            e1 = np.linspace(0.0, 1.0, 20)
+            e2 = np.linspace(0.0, 1.0, 20)
+            e3 = np.linspace(0.0, 1.0, 20)
+
+            if logical:
+                E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+                X, Y, Z = E1, E2, E3
+            else:
+                XYZ = self(e1, e2, e3, squeeze_out=True)
+                X, Y, Z = XYZ[0], XYZ[1], XYZ[2]
+
+            # add wireframes along e1, e2, e3 directions
+            for i in range(len(e1)):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X[i, :, :].flatten(),
+                        y=Y[i, :, :].flatten(),
+                        z=Z[i, :, :].flatten(),
+                        mode="lines",
+                        line=dict(color="blue", width=1),
+                        opacity=0.3,
+                        # name="e1 isoline",
+                    )
+                )
+            for j in range(len(e2)):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X[:, j, :].flatten(),
+                        y=Y[:, j, :].flatten(),
+                        z=Z[:, j, :].flatten(),
+                        mode="lines",
+                        line=dict(color="blue", width=1),
+                        opacity=0.3,
+                        # name="e2 isoline",
+                    )
+                )
+            for k in range(len(e3)):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X[:, :, k].flatten(),
+                        y=Y[:, :, k].flatten(),
+                        z=Z[:, :, k].flatten(),
+                        mode="lines",
+                        line=dict(color="blue", width=1),
+                        opacity=0.3,
+                        # name="e3 isoline",
+                    )
+                )
+
+        # --- control points
+        if not logical and self.kind_map < 10 and show_control_pts:
+            fig.add_trace(
+                go.Scatter3d(
+                    x=self.cx.flatten(),
+                    y=self.cy.flatten(),
+                    z=self.cz.flatten(),
+                    mode="markers",
+                    marker=dict(size=2, color="black"),
+                    # name="control pts"
+                )
+            )
+
+        # Layout
+        fig.update_layout(
+            scene=dict(xaxis_title="x", yaxis_title="y", zaxis_title="z", aspectmode="data"),
+            title=self.__class__.__name__ + " 3D Domain (Interactive)",
+            showlegend=False,
+            autosize=True,
+            margin=dict(l=0, r=0, t=30, b=0),  # remove internal margins
+            width=None,
+            height=None,
+        )
+
+        if save_dir:
+            fig.write_html(save_dir)
+        else:
+            fig.show()
+
+        return fig
 
     def show(
         self,

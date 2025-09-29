@@ -2,15 +2,16 @@ import ast
 import base64
 import inspect
 import io
-import tempfile
 import os
+import re
+import tempfile
 from typing import get_type_hints
+
 # from docutils.core import publish_parts
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from nicegui import ui
-import re
-import struphy.models.toy as toymodels
 
+import struphy.models.toy as toymodels
 from struphy.geometry import domains
 from struphy.geometry.domains import Domain
 from struphy.models.base import StruphyModel
@@ -86,7 +87,7 @@ def update_code(value, code_container):
 
     # Clear old parameter inputs
     code_container.clear()
-    
+
     rst = r"""
 Tl;dr
 =====
@@ -112,9 +113,9 @@ Tl;dr
 | Moreover, an extensive, maintained documentation is provided. 
 | In addition, you can learn Struphy through a series of Jupyter notebook `tutorials <https://struphy.pages.mpcdf.de/struphy/sections/tutorials.html>`_. 
     """
-    
+
     with code_container:
-        with ui.card().classes('p-6'):
+        with ui.card().classes("p-6"):
             ui.restructured_text(rst)
 
 
@@ -170,8 +171,7 @@ def update_model(value, model_container):
     hints = get_type_hints(cls.__init__)
 
     with model_container:
-        
-        ui.add_css('''
+        ui.add_css("""
                 .nicegui-markdown a {
                     color: orange;
                     text-decoration: none;
@@ -180,8 +180,8 @@ def update_model(value, model_container):
                     color: red;
                     text-decoration: underline;
                 }
-            ''')
-        
+            """)
+
         doc = cls.__doc__
         # print(repr(doc))
         doc = doc.replace(":ref:`normalization`:", "Normalization:")
@@ -193,10 +193,10 @@ def update_model(value, model_container):
         try:
             file = open(tmp_path, "x")
         except FileExistsError:
-            file = open(tmp_path, "w")  
+            file = open(tmp_path, "w")
         file.write(doc)
         file.close()
-        
+
         with open(tmp_path, "r") as file:
             doc = r""
             for line in file:
@@ -220,37 +220,38 @@ def update_model(value, model_container):
                 else:
                     doc += line
 
-        with ui.card().classes('p-6'):
+        with ui.card().classes("p-6"):
             ui.restructured_text(doc)
-            
+
         # # Replace refs and classes
         # doc = re.sub(r':ref:`([^`]+)`', r'**\1**', doc)
         # doc = re.sub(r':class:`([^`]+)`', r'`\1`', doc)
 
         # # Replace math directive with LaTeX blocks
         # doc = re.sub(r'\.\. math::\n\n(.*?)\n\n', r'$\1$\n\n', doc, flags=re.S)
-            
+
         # # Print plain docstring
         # ui.markdown(doc, extras=["latex"])
-        
+
         # html_parts = publish_parts(doc, writer_name='html')
         # html = html_parts['body']
 
 
 # --- Page 1: Simulation Center ---
 
-@ui.page('/')
+
+@ui.page("/")
 def cockpit():
     # 1. Header: Simulation Center
-    with ui.header().classes('items-center justify-between'):
-        ui.label('Stellignite - Cockpit').classes('text-3xl font-bold')
+    with ui.header().classes("items-center justify-between"):
+        ui.label("Stellignite - Cockpit").classes("text-3xl font-bold")
 
     # Main content area: Tabs and Panels
-    with ui.row().classes('w-full'):
+    with ui.row().classes("w-full"):
         # 2. Left Column: Tabs
         with ui.column():
             # The tabs container itself
-            with ui.tabs().props("vertical").classes('w-full') as tabs:
+            with ui.tabs().props("vertical").classes("w-full") as tabs:
                 code = ui.tab("Code")
                 model = ui.tab("Model")
                 geometry = ui.tab("Geometry")
@@ -259,7 +260,7 @@ def cockpit():
         # 3. Right Panel: Content Display
         with ui.column():
             # The tab panels container
-            with ui.tab_panels(tabs, value=code).classes('w-full h-full p-4 border rounded-lg bg-white shadow'):
+            with ui.tab_panels(tabs, value=code).classes("w-full h-full p-4 border rounded-lg bg-white shadow"):
                 with ui.tab_panel(code):
                     # 3. Panel Content: "Hello World"
                     with ui.row():
@@ -280,7 +281,7 @@ def cockpit():
                     # Initialize with default domain
                     update_code(code_name, code_container)
                 with ui.tab_panel(model):
-                # 3. Panel Content: "Hello World"
+                    # 3. Panel Content: "Hello World"
                     with ui.row():
                         with ui.column():
                             with ui.card().classes(CARD_SETUP):
@@ -317,34 +318,36 @@ def cockpit():
                         # Initialize with default domain
                         update_domain(domain_name, param_container)
 
-                        with ui.column():#.classes("justify-center"):
+                        with ui.column():  # .classes("justify-center"):
                             ui.button("Show domain", on_click=run_simulation)
 
     # 4. Bottom Right Corner: Checkout Button
     with ui.footer(fixed=False):
-        with ui.row().classes('w-full justify-end'):
+        with ui.row().classes("w-full justify-end"):
             # Button directs to the checkout page
-            ui.button('Checkout', on_click=lambda: ui.navigate.to('/checkout')) \
-              .classes('text-lg px-8 py-2').props('color=green-600')
+            ui.button("Checkout", on_click=lambda: ui.navigate.to("/checkout")).classes("text-lg px-8 py-2").props(
+                "color=green-600"
+            )
+
 
 # --- Page 2: Checkout Page ---
 
-@ui.page('/checkout')
-def checkout_page():
 
+@ui.page("/checkout")
+def checkout_page():
     # Header: Checkout (same as button name)
-    with ui.header().classes('items-center justify-start'):
-        ui.button('Back to Cockpit', on_click=lambda: ui.navigate.to("/"))
-        ui.label('Checkout').classes('text-3xl font-bold ml-4')
+    with ui.header().classes("items-center justify-start"):
+        ui.button("Back to Cockpit", on_click=lambda: ui.navigate.to("/"))
+        ui.label("Checkout").classes("text-3xl font-bold ml-4")
 
     # # Main content area: Text elements with tab names
     # with ui.column().classes('w-full max-w-xl mx-auto p-6'):
     #     ui.label('Contents from Simulation Center Tabs:').classes('text-2xl font-semibold mb-4')
-        
+
     #     # Display text elements with the same names as the left column tabs
     #     for name in tab_names:
     #         ui.label(name).classes('text-lg font-medium p-2 border-b border-gray-300')
-            
+
     #     ui.label('Review and confirm your settings.').classes('mt-6 text-gray-600 italic')
 
 

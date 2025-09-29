@@ -15,37 +15,37 @@ rank = MPI.COMM_WORLD.Get_rank()
 class Maxwell(StruphyModel):
     r"""Maxwell's equations in vacuum.
 
-:ref:`Equations <gempic>`:
+    :ref:`Equations <gempic>`:
 
-.. math::
+    .. math::
 
-    &\frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0\,,
+        &\frac{\partial \mathbf E}{\partial t} - \nabla\times\mathbf B = 0\,,
 
-    &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
+        &\frac{\partial \mathbf B}{\partial t} + \nabla\times\mathbf E = 0\,.
 
-Unknowns:
+    Unknowns:
 
-.. math::
+    .. math::
 
-    & \mathbf E(t, \mathbf{x}) \ \ldots \ \textrm{electric field}
-    
-    & \mathbf B(t, \mathbf{x}) \ \ldots \ \textrm{magnetic field}
-    
-Parameters: 
+        & \mathbf E(t, \mathbf{x}) \ \ldots \ \textrm{electric field}
 
-.. math::
+        & \mathbf B(t, \mathbf{x}) \ \ldots \ \textrm{magnetic field}
 
-    & \textrm{None} 
+    Parameters:
 
-:ref:`normalization`:
+    .. math::
 
-.. math::
+        & \textrm{None}
 
-    \hat E = c \hat B\,.
+    :ref:`normalization`:
 
-:ref:`propagators` (called in sequence):
+    .. math::
 
-1. :class:`~struphy.propagators.propagators_fields.Maxwell`
+        \hat E = c \hat B\,.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.Maxwell`
     """
 
     ## species
@@ -111,34 +111,34 @@ class Vlasov(StruphyModel):
     r"""Vlasov equation in static background magnetic field.
 
 
-:ref:`Equations <gempic>`:
+    :ref:`Equations <gempic>`:
 
-.. math::
+    .. math::
 
-    \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
+        \frac{\partial f}{\partial t} + \mathbf{v} \cdot \nabla f + \left(\mathbf{v}\times\mathbf{B}_0 \right) \cdot \frac{\partial f}{\partial \mathbf{v}} = 0\,.
 
-Unknowns:
+    Unknowns:
 
-.. math::
+    .. math::
 
-    & f(t, \mathbf{x}, \mathbf{v}) \ \ldots \ \textrm{phase space distribution (6D)}
-    
-Parameters: 
+        & f(t, \mathbf{x}, \mathbf{v}) \ \ldots \ \textrm{phase space distribution (6D)}
 
-.. math::
+    Parameters:
 
-    \mathbf{B}_0 \ \ldots \ \textrm{background magnetic field}
-    
-:ref:`normalization`:
+    .. math::
 
-.. math::
+        \mathbf{B}_0 \ \ldots \ \textrm{background magnetic field}
 
-    \hat v = \hat \Omega_\textnormal{c} \hat x\,.
+    :ref:`normalization`:
 
-:ref:`propagators` (called in sequence):
+    .. math::
 
-1. :class:`~struphy.propagators.propagators_markers.PushVxB`
-2. :class:`~struphy.propagators.propagators_markers.PushEta`
+        \hat v = \hat \Omega_\textnormal{c} \hat x\,.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_markers.PushVxB`
+    2. :class:`~struphy.propagators.propagators_markers.PushEta`
     """
 
     ## species
@@ -200,42 +200,42 @@ class GuidingCenter(StruphyModel):
     r"""Guiding-center equation in static background magnetic field.
 
 
-:ref:`Equations <gempic>`:
+    :ref:`Equations <gempic>`:
 
-.. math::
+    .. math::
 
-    \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[\frac{1}{\epsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
+        \frac{\partial f}{\partial t} + \left[ v_\parallel \frac{\mathbf{B}^*}{B^*_\parallel} + \frac{\mathbf{E}^* \times \mathbf{b}_0}{B^*_\parallel}\right] \cdot \frac{\partial f}{\partial \mathbf{X}} + \left[\frac{1}{\epsilon} \frac{\mathbf{B}^*}{B^*_\parallel} \cdot \mathbf{E}^*\right] \cdot \frac{\partial f}{\partial v_\parallel} = 0\,.
 
-where
+    where
 
-.. math::
+    .. math::
 
-    \mathbf{E}^* = -\epsilon \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
+        \mathbf{E}^* = -\epsilon \mu \nabla |B_0| \,,  \qquad \mathbf{B}^* = \mathbf{B}_0 + \epsilon v_\parallel \nabla \times \mathbf{b}_0 \,,\qquad B^*_\parallel = \mathbf B^* \cdot \mathbf b_0  \,.
 
-Unknowns:
+    Unknowns:
 
-.. math::
+    .. math::
 
-    & f(\mathbf{X}, v_\parallel, \mu) \ \ldots \ \textrm{guiding center distribution (5D)}
-    
-Parameters: 
+        & f(\mathbf{X}, v_\parallel, \mu) \ \ldots \ \textrm{guiding center distribution (5D)}
 
-.. math::
+    Parameters:
 
-    & \epsilon = \frac{1 }{ \hat \Omega_{\textnormal{c}} \hat t} \ \ldots \ \textrm{inverse of cyclotron frequency times time unit}
-    
-    & \mathbf{B}_0 \ \ldots \ \textrm{background magnetic field}
+    .. math::
 
-:ref:`normalization`:
+        & \epsilon = \frac{1 }{ \hat \Omega_{\textnormal{c}} \hat t} \ \ldots \ \textrm{inverse of cyclotron frequency times time unit}
 
-.. math::
+        & \mathbf{B}_0 \ \ldots \ \textrm{background magnetic field}
 
-    \hat v = \hat v_\textnormal{A} \,.
-    
-:ref:`propagators` (called in sequence):
+    :ref:`normalization`:
 
-1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
-2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
+    .. math::
+
+        \hat v = \hat v_\textnormal{A} \,.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
+    2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
     """
 
     ## species

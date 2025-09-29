@@ -2,15 +2,16 @@ import ast
 import base64
 import inspect
 import io
-import tempfile
 import os
+import re
+import tempfile
 from typing import get_type_hints
+
 # from docutils.core import publish_parts
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from nicegui import ui
-import re
-import struphy.models.toy as toymodels
 
+import struphy.models.toy as toymodels
 from struphy.geometry import domains
 from struphy.geometry.domains import Domain
 from struphy.models.base import StruphyModel
@@ -34,11 +35,13 @@ model_names = list(model_dict.keys())
 model_name = "Maxwell"
 domain_name = "Tokamak"
 matplotlib_ui = None
+plotly_ui = None
 param_inputs = {}  # store input fields for parameters
 
 
 def run_simulation():
     global matplotlib_ui
+    global plotly_ui
 
     # Collect typed params
     params = {}
@@ -64,16 +67,26 @@ def run_simulation():
     # Create domain instance
     domain: Domain = domain_dict[domain_name](**params)
 
-    if matplotlib_ui is None:
-        # Create card + matplotlib once
-        with ui.card().classes(CARD_SETUP):
-            ui.label("Simulation domain")
-            matplotlib_ui = ui.matplotlib(figsize=(12, 6))
+    fig_plotly = domain.show3D_interactive(logical=False)
+
+    with ui.row().classes("w-full gap-4 flex-nowrap"):
+        if plotly_ui is None:
+            with ui.card().classes(CARD_SETUP + " w-1/2 max-w-full"):
+                # ui.label("Simulation domain (interactive)")
+                plotly_ui = ui.plotly(fig_plotly).classes("w-full h-96")
+        else:
+            plotly_ui.figure = fig_plotly
+            plotly_ui.update()
+
+        if matplotlib_ui is None:
+            with ui.card().classes(CARD_SETUP + " w-1/2 max-w-full"):
+                ui.label("Simulation domain")
+                matplotlib_ui = ui.matplotlib(figsize=(12, 6))
 
     # Always redraw the figure
-    fig = matplotlib_ui.figure
-    fig.clear()
-    domain.show(fig=fig)
+    fig_matplotlib = matplotlib_ui.figure
+    fig_matplotlib.clear()
+    domain.show(fig=fig_matplotlib)
     matplotlib_ui.update()
 
 
@@ -129,8 +142,7 @@ def update_model(value):
     hints = get_type_hints(cls.__init__)
 
     with model_container:
-        
-        ui.add_css('''
+        ui.add_css("""
                 .nicegui-markdown a {
                     color: orange;
                     text-decoration: none;
@@ -139,8 +151,8 @@ def update_model(value):
                     color: red;
                     text-decoration: underline;
                 }
-            ''')
-        
+            """)
+
         doc = cls.__doc__
         # print(repr(doc))
         doc = doc.replace(":ref:`normalization`:", "Normalization:")
@@ -152,10 +164,10 @@ def update_model(value):
         try:
             file = open(tmp_path, "x")
         except FileExistsError:
-            file = open(tmp_path, "w")  
+            file = open(tmp_path, "w")
         file.write(doc)
         file.close()
-        
+
         with open(tmp_path, "r") as file:
             doc = r""
             for line in file:
@@ -179,21 +191,22 @@ def update_model(value):
                 else:
                     doc += line
 
-        with ui.card().classes('p-6'):
+        with ui.card().classes("p-6"):
             ui.restructured_text(doc)
-            
+
         # # Replace refs and classes
         # doc = re.sub(r':ref:`([^`]+)`', r'**\1**', doc)
         # doc = re.sub(r':class:`([^`]+)`', r'`\1`', doc)
 
         # # Replace math directive with LaTeX blocks
         # doc = re.sub(r'\.\. math::\n\n(.*?)\n\n', r'$\1$\n\n', doc, flags=re.S)
-            
+
         # # Print plain docstring
         # ui.markdown(doc, extras=["latex"])
-        
+
         # html_parts = publish_parts(doc, writer_name='html')
         # html = html_parts['body']
+
 
 with ui.tabs().classes("w-full") as tabs:
     domain_tab = ui.tab("Domain")
@@ -217,7 +230,7 @@ with ui.tab_panels(tabs, value=domain_tab).classes("w-full"):
         # Initialize with default domain
         update_domain(domain_name)
 
-        with ui.row():#.classes("justify-center"):
+        with ui.row():  # .classes("justify-center"):
             ui.button("Show domain", on_click=run_simulation)
 
     with ui.tab_panel(model_tab):
