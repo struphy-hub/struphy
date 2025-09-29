@@ -496,6 +496,10 @@ class QNAdiabaticKinetic(Propagator):
 
         # buffer for lambd result
         self._lambd = lambd.space.zeros()
+        self._v_correction_vec = lambd.space.zeros()
+
+        # store old markers
+        self._old_markers = np.empty((particles.markers.shape[0], 6), dtype=float)
 
         # Accumulate matrix A
         self._accum_mat = Accumulator(
@@ -517,6 +521,16 @@ class QNAdiabaticKinetic(Propagator):
             self.domain.args_domain,
         )
         self._accum_vec._derham = derham_3D_x
+
+        # Accumulate vector for v correction
+        self._accum_vec_correc = AccumulatorVector(
+            particles,
+            "H1",
+            accum_kernels.qn_adiabatic_v_correc,
+            mass_ops_3D_x,
+            self.domain.args_domain,
+        )
+        self._accum_vec_correc._derham = derham_3D_x
 
         # Make push in eta
         butcher = ButcherTableau("forward_euler")
@@ -573,8 +587,24 @@ class QNAdiabaticKinetic(Propagator):
             alpha_in_kernel=1.0,
         )
 
+        # Correction push in x-direction
+        args_kernel_v_correc = (
+            derham_3D_x.args_derham,
+            self._lambd._data,
+        )
+        self._push_v_x_correc = Pusher(
+            particles,
+            pusher_kernels.push_v_x_QN_adiabatic,
+            args_kernel_v_correc,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
     def __call__(self, dt):
-        print("Hello")
+        # Store old markers
+        self._old_markers[self.particles[0].valid_mks, :] = \
+            self.particles[0].markers[self.particles[0].valid_mks, :6]
+
         # =====
         # Verlet scheme
         # =====
@@ -610,6 +640,15 @@ class QNAdiabaticKinetic(Propagator):
 
         # Accumulate A
         self._accum_mat()
+
+        # Accumulate correction FE vector
+        self._accum_vec_correc(self._old_markers)
+
+        # Invert A
+        self._solver.dot(self._accum_vec_correc.vectors[0], out=self._v_correction_vec)
+
+        # Do correction step
+        self._push_v_x_correc(dt)
 
 
 class PressureCoupling6D(Propagator):

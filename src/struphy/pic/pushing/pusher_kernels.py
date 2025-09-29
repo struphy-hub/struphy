@@ -564,6 +564,58 @@ def push_v_x_QN_adiabatic(
         markers[ip, 3] += dt * lambd_val / n_markers
 
 
+def push_v_x_correc_QN_adiabatic(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
+    v_correc: "float[:,:,:]",
+):
+    """ TODO """
+    left = zeros(args_derham.pn[0], dtype=float)
+    right = zeros(args_derham.pn[0], dtype=float)
+    
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # position
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        bsplines_kernels.basis_funs_1st_der(
+            args_derham.tn1,
+            args_derham.pn[0],
+            eta1,
+            span1,
+            left,
+            right,
+            args_derham.bn1,
+        )
+
+        args_derham.bn2[:] = 1.0
+        args_derham.bn3[:] = 1.0
+
+        correc_val = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            v_correc,
+        )
+
+        markers[ip, 3] += correc_val
+
+
 @stack_array("dfm", "dfinv", "dfinv_t")
 def push_hybrid_xp_lnn(
     dt: float,
