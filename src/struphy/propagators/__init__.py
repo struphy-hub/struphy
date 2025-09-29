@@ -1,17 +1,3 @@
-# import struphy.propagators.propagators_coupling as propagators_coupling
-# import struphy.propagators.propagators_fields as propagators_fields
-# import struphy.propagators.propagators_markers as propagators_markers
-# from struphy.propagators.base import Propagator
-
-# model_names = []
-# for model_type in [propagators_coupling, propagators_fields, propagators_markers]:
-#     for name, cls in model_type.__dict__.items():
-#         if isinstance(cls, type) and issubclass(cls, Propagator) and cls != Propagator:
-#             model_names.append(cls.__name__)
-#             print(f"from {model_type.__name__} import {cls.__name__}")
-# # print(", ".join(model_names))
-# print(model_names)
-
 from struphy.propagators.propagators_coupling import (
     CurrentCoupling5DCurlb,
     CurrentCoupling5DGradB,
