@@ -1871,16 +1871,21 @@ class Particles(metaclass=ABCMeta):
         self.marker_ids = first_marker_id + np.arange(self.n_mks_loc, dtype=int)
 
     @profile
-    def binning(self, components, bin_edges, divide_by_jac=True):
+    def binning(
+        self,
+        components: tuple[bool],
+        bin_edges: tuple[np.ndarray],
+        divide_by_jac: bool = True,
+    ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
         Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
 
         Parameters
         ----------
-        components : list[bool]
+        components : tuple[bool]
             List of length 3 + vdim; an entry is True if the direction in phase space is to be binned.
 
-        bin_edges : list[array]
+        bin_edges : tuple[array]
             List of bin edges (resolution) having the length of True entries in components.
 
         divide_by_jac : boll

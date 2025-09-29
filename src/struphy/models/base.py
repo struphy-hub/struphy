@@ -3,7 +3,7 @@ import operator
 import os
 from abc import ABCMeta, abstractmethod
 from functools import reduce
-from typing import Callable
+from textwrap import indent
 
 import yaml
 from line_profiler import profile
@@ -509,8 +509,8 @@ class StruphyModel(metaclass=ABCMeta):
             value_array = np.array([value], dtype=np.float64)
 
             # Perform MPI operations based on the compute flags
-            if "sum_world" in compute_operations and self.comm_world is not None:
-                self.comm_world.Allreduce(
+            if "sum_world" in compute_operations:
+                MPI.COMM_WORLD.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
@@ -697,35 +697,14 @@ class StruphyModel(metaclass=ABCMeta):
                 obj = var.particles
                 assert isinstance(obj, Particles)
 
-            # allocate array for saving markers if not present
-            if not hasattr(self, "_n_markers_saved"):
-                n_markers = species.n_markers
-
-                if isinstance(n_markers, float):
-                    if n_markers > 1.0:
-                        self._n_markers_saved = int(n_markers)
-                    else:
-                        self._n_markers_saved = int(obj.n_mks_global * n_markers)
-                else:
-                    self._n_markers_saved = n_markers
-
-                assert self._n_markers_saved <= obj.Np, (
-                    f"The number of markers for which data should be stored (={self._n_markers_saved}) murst be <= than the total number of markers (={obj.Np})"
-                )
-                if self._n_markers_saved > 0:
-                    var.particle_data["markers"] = np.zeros(
-                        (self._n_markers_saved, obj.markers.shape[1]),
-                        dtype=float,
-                    )
-
-            if self._n_markers_saved > 0:
+            if var.n_to_save > 0:
                 markers_on_proc = np.logical_and(
                     obj.markers[:, -1] >= 0.0,
-                    obj.markers[:, -1] < self._n_markers_saved,
+                    obj.markers[:, -1] < var.n_to_save,
                 )
                 n_markers_on_proc = np.count_nonzero(markers_on_proc)
-                var.particle_data["markers"][:] = -1.0
-                var.particle_data["markers"][:n_markers_on_proc] = obj.markers[markers_on_proc]
+                var.saved_markers[:] = -1.0
+                var.saved_markers[:n_markers_on_proc] = obj.markers[markers_on_proc]
 
     @profile
     def update_distr_functions(self):
@@ -748,20 +727,21 @@ class StruphyModel(metaclass=ABCMeta):
                         str_dn = f"d{i + 1}"
                         dim_to_int[str_dn] = 3 + obj.vdim + 3 + i
 
-                if species.binning_plots:
-                    for slice_i, edges in var.particle_data["bin_edges"].items():
-                        comps = slice_i.split("_")
-                        components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
+                for bin_plot in species.binning_plots:
+                    comps = bin_plot.slice.split("_")
+                    components = [False] * (3 + obj.vdim + 3 + obj.n_cols_diagnostics)
 
-                        for comp in comps:
-                            components[dim_to_int[comp]] = True
+                    for comp in comps:
+                        components[dim_to_int[comp]] = True
 
-                        f_slice, df_slice = obj.binning(components, edges)
+                    edges = bin_plot.bin_edges
+                    divide_by_jac = bin_plot.divide_by_jac
+                    f_slice, df_slice = obj.binning(components, edges, divide_by_jac=divide_by_jac)
 
-                        var.particle_data["f"][slice_i][:] = f_slice
-                        var.particle_data["df"][slice_i][:] = df_slice
+                    bin_plot.f[:] = f_slice
+                    bin_plot.df[:] = df_slice
 
-                if species.kernel_density_plots:
+                for kd_plot in species.kernel_density_plots:
                     h1 = 1 / obj.boxes_per_dim[0]
                     h2 = 1 / obj.boxes_per_dim[1]
                     h3 = 1 / obj.boxes_per_dim[2]
@@ -772,16 +752,16 @@ class StruphyModel(metaclass=ABCMeta):
                     else:
                         kernel_type = "gaussian_" + str(ndim) + "d"
 
-                    for i, pts in enumerate(var.particle_data["plot_pts"]):
-                        n_sph = obj.eval_density(
-                            *pts,
-                            h1=h1,
-                            h2=h2,
-                            h3=h3,
-                            kernel_type=kernel_type,
-                            fast=True,
-                        )
-                        var.particle_data["n_sph"][i][:] = n_sph
+                    pts = kd_plot.plot_pts
+                    n_sph = obj.eval_density(
+                        *pts,
+                        h1=h1,
+                        h2=h2,
+                        h3=h3,
+                        kernel_type=kernel_type,
+                        fast=True,
+                    )
+                    kd_plot.n_sph[:] = n_sph
 
     def print_scalar_quantities(self):
         """
@@ -1105,44 +1085,39 @@ class StruphyModel(metaclass=ABCMeta):
             key_spec = os.path.join("kinetic", name)
             key_spec_restart = os.path.join("restart", name)
 
-            data.add_data({key_spec_restart: obj._markers})
+            # restart data
+            data.add_data({key_spec_restart: obj.markers})
 
-            # TODO: particle_data should be a KineticData object, not a dict
-            for key1, val1 in var.particle_data.items():
-                key_dat = os.path.join(key_spec, key1)
+            # marker data
+            key_mks = os.path.join(key_spec, "markers")
+            data.add_data({key_mks: var.saved_markers})
 
-                if key1 == "bin_edges":
-                    continue
-                elif key1 == "f" or key1 == "df":
-                    assert isinstance(val1, dict)
-                    for key2, val2 in val1.items():
-                        key_f = os.path.join(key_dat, key2)
-                        data.add_data({key_f: val2})
+            # binning plot data
+            for bin_plot in species.binning_plots:
+                key_f = os.path.join(key_spec, "f", bin_plot.slice)
+                key_df = os.path.join(key_spec, "df", bin_plot.slice)
 
-                        dims = (len(key2) - 2) // 3 + 1
-                        for dim in range(dims):
-                            data.file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = (
-                                var.particle_data["bin_edges"][key2][dim][:-1]
-                                + (
-                                    var.particle_data["bin_edges"][key2][dim][1]
-                                    - var.particle_data["bin_edges"][key2][dim][0]
-                                )
-                                / 2
-                            )
-                # case of "n_sph"
-                elif isinstance(val1, list):
-                    for i, v1 in enumerate(val1):
-                        key_n = os.path.join(key_dat, "view_", str(i))
-                        data.add_data({key_n: v1})
-                        # save 1d point values, not meshgrids, because attrs size is limited
-                        eta1 = var.particle_data["plot_pts"][i][0][:, 0, 0]
-                        eta2 = var.particle_data["plot_pts"][i][1][0, :, 0]
-                        eta3 = var.particle_data["plot_pts"][i][2][0, 0, :]
-                        data.file[key_n].attrs["eta1"] = eta1
-                        data.file[key_n].attrs["eta2"] = eta2
-                        data.file[key_n].attrs["eta3"] = eta3
-                else:
-                    data.add_data({key_dat: val1})
+                data.add_data({key_f: bin_plot.f})
+                data.add_data({key_df: bin_plot.df})
+
+                for dim, be in enumerate(bin_plot.bin_edges):
+                    data.file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = be[:-1] + (be[1] - be[0]) / 2
+
+            for i, kd_plot in enumerate(species.kernel_density_plots):
+                key_n = os.path.join(key_spec, "n_sph", f"view_{i}")
+
+                data.add_data({key_n: kd_plot.n_sph})
+                # save 1d point values, not meshgrids, because attrs size is limited
+                eta1 = kd_plot.plot_pts[0][:, 0, 0]
+                eta2 = kd_plot.plot_pts[1][0, :, 0]
+                eta3 = kd_plot.plot_pts[2][0, 0, :]
+                data.file[key_n].attrs["eta1"] = eta1
+                data.file[key_n].attrs["eta2"] = eta2
+                data.file[key_n].attrs["eta3"] = eta3
+
+            # TODO: maybe add other data
+            # else:
+            #     data.add_data({key_dat: val1})
 
         # keys to be saved at each time step and only at end (restart)
         save_keys_all = []
@@ -1329,7 +1304,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     particle_params += f"\nloading_params = LoadingParameters()\n"
                     particle_params += f"weights_params = WeightsParameters()\n"
                     particle_params += f"boundary_params = BoundaryParameters()\n"
-                    particle_params += f"model.{sn}.set_markers(loading_params=loading_params, weights_params=weights_params, boundary_params=boundary_params)\n"
+                    particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
+                    txt = f"weights_params=weights_params,\n"
+                    particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                    txt = f"boundary_params=boundary_params,\n"
+                    particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
+                    txt = f")\n"
+                    particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                     particle_params += f"model.{sn}.set_sorting_boxes()\n"
                     particle_params += f"model.{sn}.set_save_data()\n"
 
@@ -1385,7 +1366,12 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write("from struphy.kinetic_background import maxwellians\n")
         file.write(
-            "from struphy.pic.utilities import LoadingParameters, WeightsParameters, BoundaryParameters, BinningPlot\n"
+            "from struphy.pic.utilities import (LoadingParameters,\n\
+                                   WeightsParameters,\n\
+                                   BoundaryParameters,\n\
+                                   BinningPlot,\n\
+                                   KernelDensityPlot,\n\
+                                   )\n"
         )
         file.write("from struphy import main\n")
 
@@ -1434,7 +1420,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         for prop in self.propagators.__dict__:
             file.write(f"model.propagators.{prop}.options = model.propagators.{prop}.Options()\n")
 
-        file.write("\n# background and initial conditions\n")
+        file.write("\n# background, perturbations and initial conditions\n")
         if has_feec:
             file.write(init_bckgr_feec)
             file.write(init_pert_feec)
@@ -1451,24 +1437,24 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write('\nif __name__ == "__main__":\n')
         file.write("    # start run\n")
         file.write(
-            "    main.run(model, \n\
-            params_path=__file__, \n\
-            env=env, \n\
-            base_units=base_units, \n\
-            time_opts=time_opts, \n\
-            domain=domain, \n\
-            equil=equil, \n\
-            grid=grid, \n\
-            derham_opts=derham_opts, \n\
-            verbose=verbose, \n\
-            )"
+            "    main.run(model,\n\
+             params_path=__file__,\n\
+             env=env,\n\
+             base_units=base_units,\n\
+             time_opts=time_opts,\n\
+             domain=domain,\n\
+             equil=equil,\n\
+             grid=grid,\n\
+             derham_opts=derham_opts,\n\
+             verbose=verbose,\n\
+             )"
         )
 
         file.close()
 
         print(
             f"\nDefault parameter file for '{self.__class__.__name__}' has been created in the cwd ({path}).\n\
-You can now launch a simlaltion with 'python params_{self.__class__.__name__}.py'"
+You can now launch a simulation with 'python params_{self.__class__.__name__}.py'"
         )
 
         return path
