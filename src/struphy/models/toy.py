@@ -307,13 +307,32 @@ class ShearAlfven(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.b_field = FEECVariable(space="Hdiv")
+            self.init_variables()
 
-        dct["em_fields"]["b2"] = "Hdiv"
-        dct["fluid"]["mhd"] = {"u2": "Hdiv"}
-        return dct
+    class MHD(FluidSpecies):
+        def __init__(self):
+            self.density = FEECVariable(space="L2")
+            self.velocity = FEECVariable(space="Hdiv")
+            self.pressure = FEECVariable(space="L2")
+            self.init_variables()
+
+    # @staticmethod
+    # def species():
+    #     dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+
+    #     dct["em_fields"]["b2"] = "Hdiv"
+    #     dct["fluid"]["mhd"] = {"u2": "Hdiv"}
+    #     return dct
+
+    ## propagators
+
+    class Propagators:
+        def __init__(self) -> None:
+            self.shear_alf = propagators_fields.ShearAlfven()
 
     @staticmethod
     def bulk_species():
@@ -323,45 +342,63 @@ class ShearAlfven(StruphyModel):
     def velocity_scale():
         return "alfvén"
 
-    @staticmethod
-    def propagators_dct():
-        return {propagators_fields.ShearAlfven: ["mhd_u2", "b2"]}
+    # @staticmethod
+    # def propagators_dct():
+    #     return {propagators_fields.ShearAlfven: ["mhd_u2", "b2"]}
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
+
+
+    # __em_fields__ = species()["em_fields"]
+    # __fluid_species__ = species()["fluid"]
+    # __kinetic_species__ = species()["kinetic"]
     __bulk_species__ = bulk_species()
     __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+    # __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    def __init__(self, params, comm, clone_config=None):
+    ## abstract methods
+
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+        self.mhd = self.MHD()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.shear_alf.variables.u = self.mhd.velocity
+        self.propagators.shear_alf.variables.b = self.em_fields.b_field
+
         # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        # super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from struphy.polar.basic import PolarVector
+        # from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
-        alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
-        alfven_algo = params["fluid"]["mhd"]["options"]["ShearAlfven"]["algo"]
+        # alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
+        # alfven_algo = params["fluid"]["mhd"]["options"]["ShearAlfven"]["algo"]
 
         # project background magnetic field (2-form) and pressure (3-form)
-        self._b_eq = self.derham.P["2"](
-            [
-                self.equil.b2_1,
-                self.equil.b2_2,
-                self.equil.b2_3,
-            ]
-        )
+        # self._b_eq = self.derham.P["2"](
+        #     [
+        #         self.equil.b2_1,
+        #         self.equil.b2_2,
+        #         self.equil.b2_3,
+        #     ]
+        # )
 
         # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ShearAlfven] = {
-            "u_space": "Hdiv",
-            "solver": alfven_solver,
-            "algo": alfven_algo,
-        }
+        # self._kwargs[propagators_fields.ShearAlfven] = {
+        #     "u_space": "Hdiv",
+        #     "solver": alfven_solver,
+        #     "algo": alfven_algo,
+        # }
 
         # Initialize propagators used in splitting substeps
-        self.init_propagators()
+        # self.init_propagators()
 
         # Scalar variables to be saved during simulation
         # self.add_scalar('en_U')
