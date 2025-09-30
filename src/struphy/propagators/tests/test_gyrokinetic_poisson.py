@@ -7,8 +7,8 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
+from struphy.propagators import ImplicitDiffusion
 from struphy.propagators.base import Propagator
-from struphy.propagators.propagators_fields import ImplicitDiffusion
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
