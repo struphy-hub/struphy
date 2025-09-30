@@ -1,37 +1,37 @@
 import os
-from mpi4py import MPI
+
+import h5py
 import numpy as np
+import pytest
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-import pytest
-import h5py
+from mpi4py import MPI
 
-from struphy.io.options import EnvironmentOptions, BaseUnits, Time
-from struphy.geometry import domains
-from struphy.fields_background import equils
-from struphy.topology import grids
-from struphy.io.options import DerhamOptions
-from struphy.io.options import FieldsBackground
-from struphy.initial import perturbations
-from struphy.kinetic_background import maxwellians
-from struphy.pic.utilities import (LoadingParameters,
-                                   WeightsParameters,
-                                   BoundaryParameters,
-                                   BinningPlot,
-                                   KernelDensityPlot,
-                                   )
 from struphy import main
+from struphy.fields_background import equils
+from struphy.geometry import domains
+from struphy.initial import perturbations
+from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
+from struphy.kinetic_background import maxwellians
+from struphy.pic.utilities import (
+    BinningPlot,
+    BoundaryParameters,
+    KernelDensityPlot,
+    LoadingParameters,
+    WeightsParameters,
+)
+from struphy.topology import grids
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 
 
 def test_weak_Landau(do_plot: bool = False):
-    """Verification test for weak Landau damping. 
+    """Verification test for weak Landau damping.
     The computed damping rate is compared to the analytical rate.
     """
     # import model
     from struphy.models.kinetic import VlasovAmpereOneSpecies
-    
+
     # environment options
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="weak_Landau")
@@ -65,14 +65,15 @@ def test_weak_Landau(do_plot: bool = False):
     loading_params = LoadingParameters(ppc=ppc, seed=1234)
     weights_params = WeightsParameters(control_variate=True)
     boundary_params = BoundaryParameters()
-    model.kinetic_ions.set_markers(loading_params=loading_params, 
-                                   weights_params=weights_params, 
-                                   boundary_params=boundary_params,
-                                   bufsize=0.4,
-                                   )
+    model.kinetic_ions.set_markers(
+        loading_params=loading_params,
+        weights_params=weights_params,
+        boundary_params=boundary_params,
+        bufsize=0.4,
+    )
     model.kinetic_ions.set_sorting_boxes(boxes_per_dim=(16, 1, 1), do_sort=True)
 
-    binplot = BinningPlot(slice='e1_v1', n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0)))
+    binplot = BinningPlot(slice="e1_v1", n_bins=(128, 128), ranges=((0.0, 1.0), (-5.0, 5.0)))
     model.kinetic_ions.set_save_data(binning_plots=(binplot,))
 
     # propagator options
@@ -92,20 +93,21 @@ def test_weak_Landau(do_plot: bool = False):
     model.kinetic_ions.var.add_initial_condition(init)
 
     # start run
-    main.run(model,
-             params_path=None,
-             env=env,
-             base_units=base_units,
-             time_opts=time_opts,
-             domain=domain,
-             equil=equil,
-             grid=grid,
-             derham_opts=derham_opts,
-             verbose=False,
-             )
-    
+    main.run(
+        model,
+        params_path=None,
+        env=env,
+        base_units=base_units,
+        time_opts=time_opts,
+        domain=domain,
+        equil=equil,
+        grid=grid,
+        derham_opts=derham_opts,
+        verbose=False,
+    )
+
     # post processing not needed for scalar data
-    
+
     # exat solution
     gamma = -0.1533
 
@@ -116,7 +118,7 @@ def test_weak_Landau(do_plot: bool = False):
         omega = 1.4156
         phi = 0.5362
         return 2 * eps**2 * np.pi / k**2 * r**2 * np.exp(2 * gamma * t) * np.cos(omega * t - phi) ** 2
-    
+
     # get parameters
     dt = time_opts.dt
     algo = time_opts.split_algo
@@ -151,7 +153,7 @@ def test_weak_Landau(do_plot: bool = False):
         plt.ylim([-10, -4])
 
         plt.show()
-        
+
     # linear fit
     linfit = np.polyfit(t_maxima[:5], maxima[:5], 1)
     gamma_num = linfit[0]
@@ -161,6 +163,6 @@ def test_weak_Landau(do_plot: bool = False):
     assert rel_error < 0.22, f"{rank = }: Assertion for weak Landau damping failed: {gamma_num = } vs. {gamma = }."
     print(f"{rank = }: Assertion for weak Landau damping passed ({rel_error = }).")
 
-    
+
 if __name__ == "__main__":
     test_weak_Landau(do_plot=True)
