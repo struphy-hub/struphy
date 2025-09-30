@@ -1271,7 +1271,7 @@ class QuasiNeutralAdiabatic(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
-            propagators_coupling.QNAdiabaticKinetic: ["phi_fsa", "lambd", "species1"]
+            propagators_coupling.QNAdiabatic: ["phi_fsa", "lambd", "species1"]
         }
 
     __em_fields__ = species()["em_fields"]
@@ -1345,12 +1345,11 @@ class QuasiNeutralAdiabatic(StruphyModel):
         )
         self._pointer["lambd"] = self.em_fields["lambd"]["obj"].vector
 
-        self._kwargs[propagators_coupling.QNAdiabaticKinetic] = {
+        self._kwargs[propagators_coupling.QNAdiabatic] = {
             "derham_3D_x": self.derham_3D_x,
             "mass_ops_3D_x": self.mass_ops_3D_x,
             "b2": self._b_background,
         }
-
 
         self.init_propagators()
 

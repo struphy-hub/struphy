@@ -453,7 +453,7 @@ class EfieldWeights(Propagator):
             print()
 
 
-class QNAdiabaticKinetic(Propagator):
+class QNAdiabatic(Propagator):
     """ The kinetic substep and consequent update of phi_fsa and lambda.
     
     TODO
@@ -601,6 +601,10 @@ class QNAdiabaticKinetic(Propagator):
         )
 
     def __call__(self, dt):
+        self._call_kinetic_step(dt)
+    
+    def _call_kinetic_step(self, dt):
+        """ Do kinetic step"""
         # Store old markers
         self._old_markers[self.particles[0].valid_mks, :] = \
             self.particles[0].markers[self.particles[0].valid_mks, :6]
@@ -649,6 +653,10 @@ class QNAdiabaticKinetic(Propagator):
 
         # Do correction step
         self._push_v_x_correc(dt)
+
+    def _call_potential_step(self, dt):
+        # Accumulate A
+        self._accum_mat()
 
 
 class PressureCoupling6D(Propagator):
