@@ -1519,13 +1519,13 @@ class DeltaFVlasovAmpere(Propagator):
             _dz_glob = dw_glob + de_dv
             self._param[1] = _dz_glob
 
-            # print()
-            # print(f"Iteration {k=} , {dw_glob=}")
-            # print()
-            # print(f"I={self._param[0]} and dz={self._param[1]}")
-            # print()
-            # print(self._delta_w_curr[self.particles[0].valid_mks])
-            # print()
+            print()
+            print(f"Iteration {k=} , {dw_glob=}")
+            print()
+            print(f"I={self._param[0]} and dz={self._param[1]}")
+            print()
+            print(self._delta_w_curr[self.particles[0].valid_mks])
+            print()
 
             # Push weights
             self._push_weights(dt)
@@ -1559,7 +1559,7 @@ class DeltaFVlasovAmpere(Propagator):
 
             if np.any(np.isnan(self._delta_w_curr[self.particles[0].valid_mks])):
                 print("NaN values detected, breaking ...")
-                break
+                exit()
 
         # print()
         # print("Loop done")

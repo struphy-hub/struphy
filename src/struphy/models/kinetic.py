@@ -1212,7 +1212,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             "epsilon": self.epsilon,
             "vth": self.vth,
             "f0": self._f0,
-            "gamma": self._gamma,
+            "gamma": self._gamma if self._variables in ("e_v", "e_v_gamma") else None,
             "options": options_coupling,
         }
 
@@ -1309,16 +1309,18 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # evaluate f0
         self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
-        # compute initial gamma
-        self._gamma[self.pointer["species1"].valid_mks] = self.pointer["species1"].weights + np.divide(
-            self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
-        )
-        # compute initial constant gamma (stored at first diagnostic index to be sent around)
-        self.pointer["species1"].markers[self.pointer["species1"].valid_mks, self.pointer["species1"].first_diagnostics_idx] = \
-            self.pointer["species1"].weights + np.divide(
-                self._f0_values[self.pointer["species1"].valid_mks],
-                self.pointer["species1"].sampling_density,
+
+        if self._variables in ("e_v", "e_v_gamma", "e_v_gamma_w"):
+            # compute initial gamma
+            self._gamma[self.pointer["species1"].valid_mks] = self.pointer["species1"].weights + np.divide(
+                self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
             )
+            # compute initial constant gamma (stored at first diagnostic index to be sent around)
+            self.pointer["species1"].markers[self.pointer["species1"].valid_mks, self.pointer["species1"].first_diagnostics_idx] = \
+                self.pointer["species1"].weights + np.divide(
+                    self._f0_values[self.pointer["species1"].valid_mks],
+                    self.pointer["species1"].sampling_density,
+                )
 
         # Solve with dt=1. and compute electric field
         if self.rank_world == 0:
@@ -1447,7 +1449,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         if self._variables in ("e_v_w", "e_v_gamma_w"):
             # sum_p w_p
-            self._tmp[5] = self.alpha**2 * self.vth**2 * self.pointer["species1"].weights.sum()
+            self._tmp[5] = (-1.0) * self.alpha**2 * self.vth**2 * self.pointer["species1"].weights.sum()
             self.update_scalar("sum_w", self._tmp[5])
 
         if self._variables in ("e_v", "e_v_gamma"):
