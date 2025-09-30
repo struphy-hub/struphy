@@ -1,7 +1,7 @@
 from struphy.models.fluid import (
     ColdPlasma,
     HasegawaWakatani,
-    IsothermalEulerSPH,
+    # IsothermalEulerSPH,
     LinearExtendedMHDuniform,
     LinearMHD,
     ViscoresistiveDeltafMHD,

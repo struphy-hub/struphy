@@ -12,7 +12,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from nicegui import ui
 from sympy import plot
 
-import struphy.models.toy as toymodels
+import struphy.models as models
 from struphy.geometry import domains
 from struphy.geometry.domains import Domain
 from struphy.models.base import StruphyModel
@@ -28,7 +28,7 @@ for name, cls in domains.__dict__.items():
 domain_names = list(domain_dict.keys())
 
 model_dict = {}
-for name, cls in toymodels.__dict__.items():
+for name, cls in models.__dict__.items():
     if isinstance(cls, type) and issubclass(cls, StruphyModel) and cls != StruphyModel:
         model_dict[name] = cls
 model_names = list(model_dict.keys())
