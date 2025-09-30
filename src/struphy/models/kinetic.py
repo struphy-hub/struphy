@@ -1144,22 +1144,6 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             self.epsilon = self.equation_params["species1"]["epsilon"]
             self.alpha = self.equation_params["species1"]["alpha"]
 
-        # allocate memory for evaluating f0 and n0 in energy computation
-        self._f0_values = np.zeros(
-            self.pointer["species1"].markers.shape[0],
-            dtype=float,
-        )
-        self._n0_values = np.zeros(
-            self.pointer["species1"].markers.shape[0],
-            dtype=float,
-        )
-
-        # allocate memory for gamma
-        self._gamma = np.zeros(
-            self.pointer["species1"].markers.shape[0],
-            dtype=float,
-        )
-
         # ====================================================================================
         # Create pointers to background electric potential and field
         self._has_background_e = False
@@ -1176,8 +1160,8 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             self._b_background = self.projected_equil.b2
         else:
             self._b_background = None
-        # ====================================================================================
 
+        # ====================================================================================
         # propagator parameters
         self._poisson_params = params["em_fields"]["options"]["ImplicitDiffusion"]["solver"]
         algo_eta = params["kinetic"]["species1"]["options"]["PushEta"]["algo"]
@@ -1188,6 +1172,27 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         else:
             self._variables = propagators_coupling.DeltaFVlasovAmpere.options(default=True)["method"]["variables"]
 
+        # ====================================================================================
+        # allocate memory for evaluating f0 and n0 in energy computation
+        if self._variables in ("e_v", "e_v_w", "e_v_gamma"):
+            self._f0_values = np.zeros(
+                self.pointer["species1"].markers.shape[0],
+                dtype=float,
+            )
+        if self._has_background_e and self._variables in ("e_v", "e_v_gamma", "e_v_gamma_w"):
+            self._n0_values = np.zeros(
+                self.pointer["species1"].markers.shape[0],
+                dtype=float,
+            )
+
+        if self._variables in ("e_v", "e_v_gamma", "e_v_gamma_w"):
+            # allocate memory for gamma
+            self._gamma = np.zeros(
+                self.pointer["species1"].markers.shape[0],
+                dtype=float,
+            )
+
+        # ====================================================================================
         # Initialize propagators/integrators used in splitting substeps
         self._kwargs[propagators_markers.PushEta] = {
             "algo": algo_eta,
@@ -1223,27 +1228,37 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         if not self._baseclass:
             self.init_propagators()
 
+        # ====================================================================================
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
-        if self._has_background_e:
-            self.add_scalar("en_c_ln_n", compute="from_particles", species="species1")
-        self.add_scalar("en_c_v_2", compute="from_particles", species="species1")
-        self.add_scalar("en_w", compute="from_particles", species="species1")
-        if self._variables == "e_v":
-            self.add_scalar("en_c_ln_c", compute="from_particles", species="species1")
-        self.add_scalar("sum_gamma", compute="from_particles", species="species1")
-        summands = [
-                "en_c_v_2",
-                "en_w",
-        ]
-        if self._has_background_e:
-            summands += [
-                "en_c_ln_n",
-            ]
-        if self._variables == "e_v":
-            summands += [
-                "en_c_ln_c",
-            ]
+
+        summands = []
+        if self._variables == "e_v_w":
+            self.add_scalar("w_ln_1p")
+            summands += ["w_ln_1p"]
+            self.add_scalar("f0_ln_1p")
+            summands += ["f0_ln_1p"]
+
+        if self._variables in ("e_v", "e_v_gamma", "e_v_gamma_w"):
+            if self._has_background_e:
+                self.add_scalar("c_ln_n", compute="from_particles", species="species1")
+                summands += ["c_ln_n"]
+            self.add_scalar("c_v_2", compute="from_particles", species="species1")
+            summands += ["c_v_2"]
+
+            # Check if gamma stays constant
+            self.add_scalar("sum_gamma", compute="from_particles", species="species1")
+
+        if self._variables in ("e_v_w", "e_v_gamma_w"):
+            self.add_scalar("sum_w", compute="from_particles", species="species1")
+            summands += ["sum_w"]
+
+        if self._variables in ("e_v", "e_v_gamma"):
+            self.add_scalar("sum_f0", compute="from_particles", species="species1")
+            summands += ["sum_f0"]
+
+        # if self._variables == "e_v":
+        #     self.add_scalar("en_c_ln_c", compute="from_particles", species="species1")
 
         self.add_scalar(
             "en_tot_p",
@@ -1258,7 +1273,7 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         self._mpi_in_place = IN_PLACE
 
         # temporaries
-        self._tmp = np.empty(5, dtype=float)
+        self._tmp = np.empty(10, dtype=float)
 
     def initialize_from_params(self):
         """Solve initial Poisson equation.
@@ -1294,9 +1309,16 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # evaluate f0
         self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
+        # compute initial gamma
         self._gamma[self.pointer["species1"].valid_mks] = self.pointer["species1"].weights + np.divide(
             self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
         )
+        # compute initial constant gamma (stored at first diagnostic index to be sent around)
+        self.pointer["species1"].markers[self.pointer["species1"].valid_mks, self.pointer["species1"].first_diagnostics_idx] = \
+            self.pointer["species1"].weights + np.divide(
+                self._f0_values[self.pointer["species1"].valid_mks],
+                self.pointer["species1"].sampling_density,
+            )
 
         # Solve with dt=1. and compute electric field
         if self.rank_world == 0:
@@ -1314,83 +1336,156 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # evaluate f0
         self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
 
-        if self._variables == "e_v_gamma_w":
+        if self._variables == "e_v_w":
+            # w_p * ln(1 + w_p * s0p / f0p)
+            self._tmp[0] = self.alpha**2 * self.vth**2 * \
+                np.dot(
+                    self.pointer["species1"].markers_wo_holes[:, 6],
+                    np.log(
+                        1. + np.divide(
+                            np.multiply(
+                                self.pointer["species1"].markers_wo_holes[:, 6],
+                                self.pointer["species1"].markers_wo_holes[:, 7],
+                            ),
+                            self._f0_values[self.pointer["species1"].valid_mks],
+                        )
+                    )
+                )
+            self.update_scalar("w_ln_1p", self._tmp[0])
+
+            # f0p / s0p * ln(1 + w_p * s0p / f0p)
+            self._tmp[1] = self.alpha**2 * self.vth**2 * \
+                np.dot(
+                    np.divide(
+                        self._f0_values[self.pointer["species1"].valid_mks],
+                        self.pointer["species1"].markers_wo_holes[:, 7],
+                    ),
+                    np.log(
+                        1. + np.divide(
+                            np.multiply(
+                                self.pointer["species1"].markers_wo_holes[:, 6],
+                                self.pointer["species1"].markers_wo_holes[:, 7],
+                            ),
+                            self._f0_values[self.pointer["species1"].valid_mks],
+                        )
+                    )
+                )
+            self.update_scalar("f0_ln_1p", self._tmp[1])
+
+        if self._variables in ("e_v_gamma", "e_v_gamma_w"):
             # Compute gamma
             self._gamma[self.pointer["species1"].valid_mks] = self.pointer["species1"].weights + np.divide(
                 self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
             )
+            if self._has_background_e:
+                # evaluate n0
+                self._n0_values[self.pointer["species1"].valid_mks] = self._f0.n(
+                    *self.pointer["species1"].phasespace_coords[:, :3].T
+                )
+                # - gamma_p * ln(n_{0,p})
+                self._tmp[2] = (
+                    self.alpha**2
+                    * self.vth**2
+                    * (-1.0)
+                    * np.dot(
+                        self._gamma[self.pointer["species1"].valid_mks],
+                        np.log(self._n0_values[self.pointer["species1"].valid_mks]),
+                    )
+                )
+                self.update_scalar("c_ln_n", self._tmp[2])
 
-        if self._has_background_e:
-            # evaluate n0
-            self._n0_values[self.pointer["species1"].valid_mks] = self._f0.n(
-                *self.pointer["species1"].phasespace_coords[:, :3].T
-            )
-
-            # - gamma_p * ln(n_{0,p})
-            self._tmp[0] = (
-                self.alpha**2
-                * self.vth**2
-                * (-1.0)
+            # gamma_p * |v_p|^2 / (2 vth^2)
+            self._tmp[3] = (
+                self.alpha**2 / 2.
                 * np.dot(
                     self._gamma[self.pointer["species1"].valid_mks],
-                    np.log(self._n0_values[self.pointer["species1"].valid_mks]),
+                    self.pointer["species1"].markers_wo_holes[:, 3] ** 2
+                    + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
+                    + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
                 )
             )
-            self.update_scalar("en_c_ln_n", self._tmp[0])
+            self.update_scalar("c_v_2", self._tmp[3])
 
-        # gamma_p |v_p|^2 / (2 vth^2)
-        self._tmp[1] = (
-            self.alpha**2 / 2.
-            * np.dot(
-                self.pointer["species1"].markers_wo_holes[:, 3] ** 2
-                + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
-                + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
-                self._gamma[self.pointer["species1"].valid_mks],
+        elif self._variables == "e_v":
+            # Because gamma is assumed constant here
+            if self._has_background_e:
+                # evaluate n0
+                self._n0_values[self.pointer["species1"].valid_mks] = self._f0.n(
+                    *self.pointer["species1"].phasespace_coords[:, :3].T
+                )
+                # - gamma_p * ln(n_{0,p})
+                self._tmp[2] = (
+                    self.alpha**2
+                    * self.vth**2
+                    * (-1.0)
+                    * np.dot(
+                        self.pointer["species1"].markers[self.pointer["species1"].valid_mks, self.pointer["species1"].first_diagnostics_idx],
+                        np.log(self._n0_values[self.pointer["species1"].valid_mks]),
+                    )
+                )
+                self.update_scalar("c_ln_n", self._tmp[2])
+
+            # gamma_p * |v_p|^2 / (2 vth^2)
+            self._tmp[3] = (
+                self.alpha**2 / 2.
+                * np.dot(
+                    self.pointer["species1"].markers[self.pointer["species1"].valid_mks, self.pointer["species1"].first_diagnostics_idx],
+                    self.pointer["species1"].markers_wo_holes[:, 3] ** 2
+                    + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
+                    + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
+                )
             )
-        )
-        self.update_scalar("en_c_v_2", self._tmp[1])
+            self.update_scalar("c_v_2", self._tmp[3])
 
-        # w_p
-        if self._variables == "e_v_gamma_w":
-            self._tmp[2] = self.alpha**2 * self.vth**2 * self.pointer["species1"].weights.sum()
-        else:
-            self._tmp[2] = self.alpha**2 * self.vth**2 * \
+            # Compute gamma
+            self._gamma[self.pointer["species1"].valid_mks] = self.pointer["species1"].weights + np.divide(
+                self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
+            )
+            # Check if gamma stays constant
+            self._tmp[4] = self._gamma[self.pointer["species1"].valid_mks].sum()
+            self.update_scalar("sum_gamma", self._tmp[4])
+
+        if self._variables in ("e_v_w", "e_v_gamma_w"):
+            # sum_p w_p
+            self._tmp[5] = self.alpha**2 * self.vth**2 * self.pointer["species1"].weights.sum()
+            self.update_scalar("sum_w", self._tmp[5])
+
+        if self._variables in ("e_v", "e_v_gamma"):
+            # sum_p f0p / s0p
+            self._tmp[6] = self.alpha**2 * self.vth**2 * \
                 np.divide(
                     self._f0_values[self.pointer["species1"].valid_mks],
                     self.pointer["species1"].sampling_density,
                 ).sum()
-        self.update_scalar("en_w", self._tmp[2])
+            self.update_scalar("sum_f0", self._tmp[6])
 
-        # gamma_p * ln(gamma_p) - gamma_p
-        if self._variables == "e_v":
-            temp = - (
-                self.alpha**2
-                * self.vth**2
-                * (
-                    np.multiply(
-                        self._gamma[self.pointer["species1"].valid_mks],
-                        np.log(self._gamma[self.pointer["species1"].valid_mks]),
-                    )
-                    - self._gamma[self.pointer["species1"].valid_mks]
-                )
-            )
-            temp[np.isnan(temp)] = 0.
-            self._tmp[3] = temp.sum()
-            self.update_scalar("en_c_ln_c", self._tmp[3])
+        # # gamma_p * ln(gamma_p) - gamma_p
+        # if self._variables == "e_v":
+        #     temp = - (
+        #         self.alpha**2
+        #         * self.vth**2
+        #         * (
+        #             np.multiply(
+        #                 self._gamma[self.pointer["species1"].valid_mks],
+        #                 np.log(self._gamma[self.pointer["species1"].valid_mks]),
+        #             )
+        #             - self._gamma[self.pointer["species1"].valid_mks]
+        #         )
+        #     )
+        #     temp[np.isnan(temp)] = 0.
+        #     self._tmp[3] = temp.sum()
+        #     self.update_scalar("en_c_ln_c", self._tmp[3])
 
-        # gamma * ln(1 / sqrt( (2*pi*vth^2)^3 ) )
-        # self._tmp[4] = - self.alpha**2 * self.vth**2 * 1.5 * self._gamma[self.pointer["species1"].valid_mks].sum() * np.log(2 * np.pi * self.vth**2)
-        if self._variables == "e_v":
-            self._tmp[4] = (
-                self.alpha**2
-                * self.vth**2
-                * np.divide(
-                    self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
-                ).sum()
-            )
-        elif self._variables == "e_v_gamma_w":
-            self._tmp[4] = self._gamma[self.pointer["species1"].valid_mks].sum()
-        self.update_scalar("sum_gamma", self._tmp[4])
+        # # gamma * ln(1 / sqrt( (2*pi*vth^2)^3 ) )
+        # # self._tmp[4] = - self.alpha**2 * self.vth**2 * 1.5 * self._gamma[self.pointer["species1"].valid_mks].sum() * np.log(2 * np.pi * self.vth**2)
+        # if self._variables == "e_v":
+        #     self._tmp[4] = (
+        #         self.alpha**2
+        #         * self.vth**2
+        #         * np.divide(
+        #             self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
+        #         ).sum()
+        #     )
 
         # total particle energy
         self.update_scalar("en_tot_p")

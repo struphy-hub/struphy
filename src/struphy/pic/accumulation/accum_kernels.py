@@ -667,6 +667,110 @@ def dfva_e_v_accum_chi(
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
     delta_v: "float[:,:]",
+    vth: "float",
+    n0: "float",
+):
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # Allocate memory
+    v_old = empty(3, dtype=float)
+    v_diff = empty(3, dtype=float)
+    chi = empty(3, dtype=float)
+    sum_vec = empty(3, dtype=float)
+
+    # allocate for metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0 or markers[ip, -1] == -2.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # get old velocities v^n
+        v_old[0] = markers[ip, 3]
+        v_old[1] = markers[ip, 4]
+        v_old[2] = markers[ip, 5]
+
+        # get current v^{n+1}
+        v_diff[0] = delta_v[ip, 0]
+        v_diff[1] = delta_v[ip, 1]
+        v_diff[2] = delta_v[ip, 2]
+
+        # Define all kinds of constants
+        a = linalg_kernels.scalar_dot(v_diff, v_diff)
+        b = 2.0 * linalg_kernels.scalar_dot(v_old, v_diff)
+        c = linalg_kernels.scalar_dot(v_old, v_old)
+        nu = 1.0 / (2.0 * vth**2)
+
+        pre_factor = exp(-(a + b + c) * nu) * n0 / (sqrt(2.0 * pi) * vth)**3
+        factor_first_summand = expm1((a + b) * nu) / (2.0 * a * nu)
+        factor_second_summand = exp((2.0 * a + b)**2 * nu / (4.0 * a)) * sqrt(pi / (a * nu)) / 2.0
+        factor_erf = erf(b * sqrt(nu) / (2.0 * sqrt(a))) - erf((2.0 * a + b) * sqrt(nu) / (2.0 * sqrt(a)))
+
+        # compute chi
+        chi[0] = pre_factor * (
+            factor_first_summand * v_diff[0]
+            + factor_second_summand * (b / (2.0 * a) * v_diff[0] - v_old[0]) * factor_erf
+            )
+        chi[1] = pre_factor * (
+            factor_first_summand * v_diff[1]
+            + factor_second_summand * (b / (2.0 * a) * v_diff[1] - v_old[1]) * factor_erf
+            )
+        chi[2] = pre_factor * (
+            factor_first_summand * v_diff[2]
+            + factor_second_summand * (b / (2.0 * a) * v_diff[2] - v_old[2]) * factor_erf
+            )
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            dfm,
+        )
+
+        # invert Jacobian matrix
+        linalg_kernels.matrix_inv(dfm, df_inv)
+
+        # # compute DF^{-1} chi
+        linalg_kernels.matrix_vector(df_inv, chi, df_inv_v)
+
+        # call the appropriate matvec filler
+        particle_to_mat_kernels.vec_fill_b_v1(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec1,
+            vec2,
+            vec3,
+            df_inv_v[0],
+            df_inv_v[1],
+            df_inv_v[2],
+        )
+
+
+@stack_array("v_old", "v_diff", "chi", "sum_vec", "dfm", "df_inv", "df_inv_v")
+def dfva_e_v_accum_chi_Picard(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+    delta_v: "float[:,:]",
     gamma_values: "float[:]",
     vth: "float",
     n0: "float",
@@ -717,12 +821,10 @@ def dfva_e_v_accum_chi(
         c = linalg_kernels.scalar_dot(v_old, v_old)
         nu = 1.0 / (2.0 * vth**2)
 
-        pre_factor = exp(-(a + b + c) * nu) * n0 / sqrt((2.0 * pi)**3)
+        pre_factor = exp(-(a + b + c) * nu) * n0 / (sqrt(2.0 * pi) * vth)**3
         factor_first_summand = expm1((a + b) * nu) / (2.0 * a * nu)
-        # factor_second_summand = exp((a + b) * nu ) * (b * nu / 2.0 - 1.0)
         factor_second_summand = exp((2.0 * a + b)**2 * nu / (4.0 * a)) * sqrt(pi / (a * nu)) / 2.0
         factor_erf = erf(b * sqrt(nu) / (2.0 * sqrt(a))) - erf((2.0 * a + b) * sqrt(nu) / (2.0 * sqrt(a)))
-        # factor_erf = 1.0
 
         # compute chi
         chi[0] = pre_factor * (
@@ -755,7 +857,7 @@ def dfva_e_v_accum_chi(
         sum_vec[1] = gamma * (v_old[1] + 0.5 * v_diff[1]) - chi[1] / markers[ip, 7]
         sum_vec[2] = gamma * (v_old[2] + 0.5 * v_diff[2]) - chi[2] / markers[ip, 7]
 
-        # compute DF^{-1} sum_vec
+        # # compute DF^{-1} sum_vec
         linalg_kernels.matrix_vector(df_inv, sum_vec, df_inv_v)
 
         # call the appropriate matvec filler
