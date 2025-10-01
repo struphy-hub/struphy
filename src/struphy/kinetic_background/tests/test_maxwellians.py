@@ -352,7 +352,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
             elif "CircularTokamak" in key:
-                mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
+                mhd_equil.domain = domains.HollowTorus(
+                    a1=1e-3, a2=mhd_equil.params["a"], R0=mhd_equil.params["R0"], tor_period=1
+                )
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
             elif "ShearedSlab" in key:
@@ -1096,7 +1098,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
             elif "CircularTokamak" in key:
-                mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
+                mhd_equil.domain = domains.HollowTorus(
+                    a1=1e-3, a2=mhd_equil.params["a"], R0=mhd_equil.params["R0"], tor_period=1
+                )
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
             elif "ShearedSlab" in key:
@@ -1480,7 +1484,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     energy = 1 / 2 * v_para**2 + mu * absB
 
     # shifted canonical toroidal momentum
-    a1 = mhd_equil.domain.params_map["a1"]
+    a1 = mhd_equil.domain.params["a1"]
     R0 = mhd_equil.params["R0"]
     B0 = mhd_equil.params["B0"]
 

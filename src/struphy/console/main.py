@@ -713,6 +713,13 @@ def add_parser_params(subparsers, list_models, model_message):
     )
 
     parser_params.add_argument(
+        "--check-file",
+        type=str,
+        metavar="FILE",
+        help="check if the parameters in the .yml file are valid",
+    )
+
+    parser_params.add_argument(
         "-y",
         "--yes",
         help="Say yes on prompt to overwrite .yml FILE",
@@ -904,8 +911,10 @@ def add_parser_pproc(subparsers, out_folders):
 
     parser_pproc.add_argument(
         "--time-trace",
-        help="whether to plot the time traces",
-        action="store_true",
+        help="List of regions to include in time trace plot\n(options: propagators, kernels, any profiling region name).",
+        type=str,
+        nargs="+",
+        default=[],
     )
 
 
@@ -1023,7 +1032,7 @@ def add_parser_format(subparsers):
             subparser.add_argument(
                 "input_type",
                 type=str,
-                choices=["all", "staged", "branch"],
+                choices=["all", "staged", "branch", "__init__.py"],
                 nargs="?",  # optional
                 help="specify the files to process",
             )

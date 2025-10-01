@@ -1,4 +1,10 @@
-def struphy_params(model, file, yes=False, options=False):
+import sys
+
+import yaml
+from mpi4py import MPI
+
+
+def struphy_params(model, file, yes=False, options=False, check_file=None):
     """Create a model's default parameter file and save in current input path.
 
     Parameters
@@ -27,7 +33,20 @@ def struphy_params(model, file, yes=False, options=False):
             pass
 
     # print units
-    if options:
+    if check_file:
+        print(f"Checking {check_file} with model {model_class}")
+        with open(check_file) as file:
+            params = yaml.load(file, Loader=yaml.FullLoader)
+        # TODO: Enable running struphy without any communicators
+        comm = MPI.COMM_WORLD
+        try:
+            model = model_class(params=params, comm=MPI.COMM_WORLD)
+            print("Model initialized successfully.")
+        except Exception as e:
+            print(f"Failed to initialize model: {e}")
+            sys.exit(1)
+
+    elif options:
         model_class.show_options()
     else:
         prompt = not yes

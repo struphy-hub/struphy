@@ -383,6 +383,407 @@ class CoaxialWaveguideMagnetic:
         return val
 
 
+class ModesCosCos:
+    r"""
+
+    .. math::
+
+        u(x, y, z) = \sum_s A_s \, \chi_s(z)
+        \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
+        \cos \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
+
+    where :math:`\chi_s(z)` can be either 1 or localized in z.
+
+    """
+
+    def __init__(
+        self,
+        ls=None,
+        ms=None,
+        amps=(1e-4,),
+        theta_x=None,
+        theta_y=None,
+        pfuns=("Id",),
+        pfuns_params=(0.0,),
+        Lx=1.0,
+        Ly=1.0,
+        Lz=1.0,
+    ):
+        if ls is not None:
+            n_modes = len(ls)
+        elif ms is not None:
+            n_modes = len(ms)
+            ls = [0] * n_modes
+        else:
+            n_modes = 1
+            ls = [0]
+            ms = [0]
+
+        if ms is None:
+            ms = [0] * n_modes
+        else:
+            assert len(ms) == n_modes
+
+        if len(amps) == 1:
+            amps = [amps[0]] * n_modes
+        else:
+            assert len(amps) == n_modes
+
+        if theta_x is None:
+            theta_x = [0] * n_modes
+        elif len(theta_x) == 1:
+            theta_x = [theta_x[0]] * n_modes
+        else:
+            assert len(theta_x) == n_modes
+
+        if theta_y is None:
+            theta_y = [0] * n_modes
+        elif len(theta_y) == 1:
+            theta_y = [theta_y[0]] * n_modes
+        else:
+            assert len(theta_y) == n_modes
+
+        if len(pfuns) == 1:
+            pfuns = [pfuns[0]] * n_modes
+        else:
+            assert len(pfuns) == n_modes
+
+        if len(pfuns_params) == 1:
+            pfuns_params = [pfuns_params[0]] * n_modes
+        else:
+            assert len(pfuns_params) == n_modes
+
+        self._ls = ls
+        self._ms = ms
+        self._amps = amps
+        self._theta_x = theta_x
+        self._theta_y = theta_y
+        self._Lx = Lx
+        self._Ly = Ly
+        self._Lz = Lz
+
+        self._pfuns = []
+        for pfun, params in zip(pfuns, pfuns_params):
+            if pfun == "Id":
+                self._pfuns += [lambda z: 1.0]
+            elif pfun == "localize":
+                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
+            else:
+                raise ValueError(f"Profile function {pfun} is not defined..")
+
+    def __call__(self, x, y, z):
+        val = 0.0
+        for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
+            val += (
+                amp
+                * pfun(z)
+                * np.cos(l * 2.0 * np.pi / self._Lx * x + thx)
+                * np.cos(m * 2.0 * np.pi / self._Ly * y + thy)
+            )
+        return val
+
+
+class ModesSinSin:
+    r"""
+
+    .. math::
+
+        u(x, y, z) = \sum_s A_s \, \chi_s(z)
+        \sin \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
+        \sin \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
+
+    where :math:`\chi_s(z)` can be either 1 or localized in z.
+    """
+
+    def __init__(
+        self,
+        ls=None,
+        ms=None,
+        amps=(1e-4,),
+        theta_x=None,
+        theta_y=None,
+        pfuns=("Id",),
+        pfuns_params=(0.0,),
+        Lx=1.0,
+        Ly=1.0,
+        Lz=1.0,
+    ):
+        if ls is not None:
+            n_modes = len(ls)
+        elif ms is not None:
+            n_modes = len(ms)
+            ls = [0] * n_modes
+        else:
+            n_modes = 1
+            ls = [0]
+            ms = [0]
+
+        if ms is None:
+            ms = [0] * n_modes
+        else:
+            assert len(ms) == n_modes
+
+        if len(amps) == 1:
+            amps = [amps[0]] * n_modes
+        else:
+            assert len(amps) == n_modes
+
+        if theta_x is None:
+            theta_x = [0] * n_modes
+        elif len(theta_x) == 1:
+            theta_x = [theta_x[0]] * n_modes
+        else:
+            assert len(theta_x) == n_modes
+
+        if theta_y is None:
+            theta_y = [0] * n_modes
+        elif len(theta_y) == 1:
+            theta_y = [theta_y[0]] * n_modes
+        else:
+            assert len(theta_y) == n_modes
+
+        if len(pfuns) == 1:
+            pfuns = [pfuns[0]] * n_modes
+        else:
+            assert len(pfuns) == n_modes
+
+        if len(pfuns_params) == 1:
+            pfuns_params = [pfuns_params[0]] * n_modes
+        else:
+            assert len(pfuns_params) == n_modes
+
+        self._ls = ls
+        self._ms = ms
+        self._amps = amps
+        self._theta_x = theta_x
+        self._theta_y = theta_y
+        self._Lx = Lx
+        self._Ly = Ly
+        self._Lz = Lz
+
+        self._pfuns = []
+        for pfun, params in zip(pfuns, pfuns_params):
+            if pfun == "Id":
+                self._pfuns += [lambda z: 1.0]
+            elif pfun == "localize":
+                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
+            else:
+                raise ValueError(f"Profile function {pfun} is not defined..")
+
+    def __call__(self, x, y, z):
+        val = 0.0
+        for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
+            val += (
+                amp
+                * pfun(z)
+                * np.sin(l * 2.0 * np.pi / self._Lx * x + thx)
+                * np.sin(m * 2.0 * np.pi / self._Ly * y + thy)
+            )
+        return val
+
+
+class ModesSinCos:
+    r"""
+
+    .. math::
+
+        u(x, y, z) = \sum_s A_s \, \chi_s(z)
+        \sin \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
+        \cos \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
+
+    where :math:`\chi_s(z)` can be either 1 or localized in z.
+    """
+
+    def __init__(
+        self,
+        ls=None,
+        ms=None,
+        amps=(1e-4,),
+        theta_x=None,
+        theta_y=None,
+        pfuns=("Id",),
+        pfuns_params=(0.0,),
+        Lx=1.0,
+        Ly=1.0,
+        Lz=1.0,
+    ):
+        # number of modes
+        if ls is not None:
+            n_modes = len(ls)
+        elif ms is not None:
+            n_modes = len(ms)
+            ls = [0] * n_modes
+        else:
+            n_modes = 1
+            ls = [0]
+            ms = [0]
+
+        if ms is None:
+            ms = [0] * n_modes
+        else:
+            assert len(ms) == n_modes
+
+        if len(amps) == 1:
+            amps = [amps[0]] * n_modes
+        else:
+            assert len(amps) == n_modes
+
+        if theta_x is None:
+            theta_x = [0] * n_modes
+        elif len(theta_x) == 1:
+            theta_x = [theta_x[0]] * n_modes
+        else:
+            assert len(theta_x) == n_modes
+
+        if theta_y is None:
+            theta_y = [0] * n_modes
+        elif len(theta_y) == 1:
+            theta_y = [theta_y[0]] * n_modes
+        else:
+            assert len(theta_y) == n_modes
+
+        if len(pfuns) == 1:
+            pfuns = [pfuns[0]] * n_modes
+        else:
+            assert len(pfuns) == n_modes
+
+        if len(pfuns_params) == 1:
+            pfuns_params = [pfuns_params[0]] * n_modes
+        else:
+            assert len(pfuns_params) == n_modes
+
+        # store
+        self._ls = ls
+        self._ms = ms
+        self._amps = amps
+        self._theta_x = theta_x
+        self._theta_y = theta_y
+        self._Lx = Lx
+        self._Ly = Ly
+        self._Lz = Lz
+
+        self._pfuns = []
+        for pfun, params in zip(pfuns, pfuns_params):
+            if pfun == "Id":
+                self._pfuns += [lambda z: 1.0]
+            elif pfun == "localize":
+                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
+            else:
+                raise ValueError(f"Profile function {pfun} is not defined..")
+
+    def __call__(self, x, y, z):
+        val = 0.0
+        for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
+            val += (
+                amp
+                * pfun(z)
+                * np.sin(l * 2.0 * np.pi / self._Lx * x + thx)
+                * np.cos(m * 2.0 * np.pi / self._Ly * y + thy)
+            )
+        return val
+
+
+class ModesCosSin:
+    r"""
+
+    .. math::
+
+        u(x, y, z) = \sum_s A_s \, \chi_s(z)
+        \cos \!\left(l_s \tfrac{2\pi}{L_x} x + \theta_{x,s}\right)
+        \sin \!\left(m_s \tfrac{2\pi}{L_y} y + \theta_{y,s}\right)
+
+    where :math:`\chi_s(z)` can be either 1 or localized in z.
+    """
+
+    def __init__(
+        self,
+        ls=None,
+        ms=None,
+        amps=(1e-4,),
+        theta_x=None,
+        theta_y=None,
+        pfuns=("Id",),
+        pfuns_params=(0.0,),
+        Lx=1.0,
+        Ly=1.0,
+        Lz=1.0,
+    ):
+        # number of modes
+        if ls is not None:
+            n_modes = len(ls)
+        elif ms is not None:
+            n_modes = len(ms)
+            ls = [0] * n_modes
+        else:
+            n_modes = 1
+            ls = [0]
+            ms = [0]
+
+        if ms is None:
+            ms = [0] * n_modes
+        else:
+            assert len(ms) == n_modes
+
+        if len(amps) == 1:
+            amps = [amps[0]] * n_modes
+        else:
+            assert len(amps) == n_modes
+
+        if theta_x is None:
+            theta_x = [0] * n_modes
+        elif len(theta_x) == 1:
+            theta_x = [theta_x[0]] * n_modes
+        else:
+            assert len(theta_x) == n_modes
+
+        if theta_y is None:
+            theta_y = [0] * n_modes
+        elif len(theta_y) == 1:
+            theta_y = [theta_y[0]] * n_modes
+        else:
+            assert len(theta_y) == n_modes
+
+        if len(pfuns) == 1:
+            pfuns = [pfuns[0]] * n_modes
+        else:
+            assert len(pfuns) == n_modes
+
+        if len(pfuns_params) == 1:
+            pfuns_params = [pfuns_params[0]] * n_modes
+        else:
+            assert len(pfuns_params) == n_modes
+
+        # store
+        self._ls = ls
+        self._ms = ms
+        self._amps = amps
+        self._theta_x = theta_x
+        self._theta_y = theta_y
+        self._Lx = Lx
+        self._Ly = Ly
+        self._Lz = Lz
+
+        self._pfuns = []
+        for pfun, params in zip(pfuns, pfuns_params):
+            if pfun == "Id":
+                self._pfuns += [lambda z: 1.0]
+            elif pfun == "localize":
+                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
+            else:
+                raise ValueError(f"Profile function {pfun} is not defined..")
+
+    def __call__(self, x, y, z):
+        val = 0.0
+        for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
+            val += (
+                amp
+                * pfun(z)
+                * np.cos(l * 2.0 * np.pi / self._Lx * x + thx)
+                * np.sin(m * 2.0 * np.pi / self._Ly * y + thy)
+            )
+        return val
+
+
 class TorusModesSin:
     r"""Sinusoidal function in the periodic coordinates of a Torus.
 
@@ -907,23 +1308,28 @@ class RestelliAnalyticSolutionVelocity:
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(y, x)
-        uR = (
+        phi = np.arctan2(-y, x)
+        ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
         )
-        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+        ustarZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
             self._B0 * self._a * R
         ) * (-(R - self._R0))
-        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+        ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        # form normalized to cylindrical coordinates:
+        uR = ustarR
+        uphi = ustarphi / R
+        uZ = ustarZ
+
+        # from cylindrical to cartesian:
 
         if self._comp == "0":
-            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
-            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
-            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -996,23 +1402,28 @@ class RestelliAnalyticSolutionVelocity_2:
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(y, x)
-        uR = (
+        phi = np.arctan2(-y, x)
+        ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
         )
-        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+        ustarZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
             self._B0 * self._a * R
         ) * (-(R - self._R0))
-        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+        ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        # form normalized to cylindrical coordinates:
+        uR = ustarR
+        uphi = ustarphi / R
+        uZ = ustarZ
+
+        # from cylindrical to cartesian:
 
         if self._comp == "0":
-            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
-            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
-            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1085,23 +1496,28 @@ class RestelliAnalyticSolutionVelocity_3:
         """Velocity of ions and electrons."""
         R = np.sqrt(x**2 + y**2)
         R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(y, x)
-        uR = (
+        phi = np.arctan2(-y, x)
+        ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
         )
-        uZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
+        ustarZ = self._alpha * R / (self._a * self._R0) * (R - self._R0) + self._beta * self._Bp * self._R0 / (
             self._B0 * self._a * R
         ) * (-(R - self._R0))
-        uphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+        ustarphi = self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * self._B0 * self._a / self._Bp
+
+        # form normalized to cylindrical coordinates:
+        uR = ustarR
+        uphi = ustarphi / R
+        uZ = ustarZ
+
+        # from cylindrical to cartesian:
 
         if self._comp == "0":
-            # ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
-            ux = np.cos(phi) * uR - np.sin(phi) * uphi
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            # uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
-            uy = np.sin(phi) * uR + np.cos(phi) * uphi
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1420,3 +1836,276 @@ class ManufacturedSolutionVelocity_2:
 
         else:
             raise ValueError(f"Invalid species '{self._species}'. Must be 'Ions' or 'Electrons'.")
+
+
+class TokamakManufacturedSolutionVelocity:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
+                \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
+                -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
+        A = self._alpha / (self._a * self._R0)
+        C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
+
+        uR = A * (R - self._R0)
+        uZ = A * z
+        uphi = 0
+
+        # from cylindrical to cartesian:
+
+        if self._comp == "0":
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+
+class TokamakManufacturedSolutionVelocity_1:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
+                \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
+                -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
+        A = self._alpha / (self._a * self._R0)
+        C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
+
+        uR = A * (R - self._R0)
+        uZ = A * z
+        uphi = 0
+
+        # from cylindrical to cartesian:
+
+        if self._comp == "0":
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+
+
+class TokamakManufacturedSolutionVelocity_2:
+    r"""Analytic solution :math:`u=u_e` of the system:
+
+    .. math::
+
+        \partial_t u = - \nabla \phi + u \times B + \nu \Delta u + f \,,\\
+        0 = \nabla \phi- u_e \times B + \nu_e \Delta u_e + f_e \,, \\
+        \nabla \cdot (u-u_e) = 0 \,.
+
+    where :math:`f` is defined as follows: 
+
+    .. math::
+
+        f = \left[\begin{array}{c} \alpha \frac{B_0}{a}(R-R_0) - \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 \alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} + \alpha \frac{B_0Z}{a} \\
+                \alpha \frac{1}{a R_0} \frac{R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        f = \left[\begin{array}{c} -\alpha \frac{B_0}{a}(R-R_0) + \alpha \frac{1}{a R_0} \frac{R_0 B_0 Z}{R} + \nu_e \alpha \frac{1}{a R_0} \frac{R_0}{R^2}   \\
+                 -\alpha \frac{1}{a R_0} (R-R_0) \frac{R_0 B_0}{R} - \alpha \frac{B_0 Z}{a} \\
+                -\alpha \frac{1}{a R_0} \frac{ R_0 B_p}{a R^2} \left( (R-R_0)^2 + Z^2\right)  \end{array} \right] \,, 
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Can only be defined in Cartesian coordinates. 
+    The solution is given by:
+
+    .. math::
+        \mathbf{u} = \alpha \frac{1}{a R_0} \left[\begin{array}{c} R-R_0 \\ z \\ 0 \end{array} \right]  \,,
+        \\[2mm]
+        R = \sqrt{x^2 + y^2} \,.
+
+    Parameters
+    ----------
+    comp : string
+        Which component of the solution ('0', '1' or '2').
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+    alpha : float
+        (default: 0.1)
+    beta : float
+        (default: 1.0)
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+        self._comp = comp
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+
+    # equilibrium ion velocity
+    def __call__(self, x, y, z):
+        """Velocity of ions and electrons."""
+        R = np.sqrt(x**2 + y**2)
+        R = np.where(R == 0.0, 1e-9, R)
+        phi = np.arctan2(-y, x)
+        A = self._alpha / (self._a * self._R0)
+        C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
+
+        uR = A * (R - self._R0)
+        uZ = A * z
+        uphi = 0
+
+        # from cylindrical to cartesian:
+
+        if self._comp == "0":
+            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            return ux
+        elif self._comp == "1":
+            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            return uy
+        elif self._comp == "2":
+            uz = uZ
+            return uz
+        else:
+            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
