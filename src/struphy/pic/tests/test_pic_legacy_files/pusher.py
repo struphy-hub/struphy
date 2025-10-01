@@ -3,9 +3,10 @@ import numpy as np
 import struphy.pic.tests.test_pic_legacy_files.pusher_pos as push_pos
 import struphy.pic.tests.test_pic_legacy_files.pusher_vel_2d as push_vel_2d
 import struphy.pic.tests.test_pic_legacy_files.pusher_vel_3d as push_vel_3d
+from struphy.utils.base import StruphyBaseClass
 
 
-class Pusher:
+class Pusher(StruphyBaseClass):
     """
     TODO
     """

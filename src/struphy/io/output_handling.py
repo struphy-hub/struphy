@@ -4,8 +4,10 @@ import os
 import h5py
 import numpy as np
 
+from struphy.utils.base import StruphyBaseClass
 
-class DataContainer:
+
+class DataContainer(StruphyBaseClass):
     """
     Creates/opens a hdf5 file for data ouput (each process locally).
 

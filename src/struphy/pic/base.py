@@ -38,10 +38,11 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_meshgrid,
 )
 from struphy.utils import utils
+from struphy.utils.base import StruphyBaseClass
 from struphy.utils.clone_config import CloneConfig
 
 
-class Particles(metaclass=ABCMeta):
+class Particles(StruphyBaseClass):
     r"""
     Base class for particle species.
 
@@ -2190,7 +2191,7 @@ class Particles(metaclass=ABCMeta):
 
         return np.logical_and(1.0 > gc_etas[0], gc_etas[0] > 0.0)
 
-    class SortingBoxes:
+    class SortingBoxes(StruphyBaseClass):
         """Boxes used for the sorting of the particles.
 
         Boxes are represented as a 2D array of integers, where
@@ -4018,7 +4019,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
         return _tmp
 
 
-class Tesselation:
+class Tesselation(StruphyBaseClass):
     """
     Make a tesselation of the simulation domain into tiles of equal size.
 

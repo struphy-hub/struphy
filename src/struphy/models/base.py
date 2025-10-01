@@ -20,11 +20,12 @@ from struphy.fields_background.projected_equils import (
 from struphy.io.setup import setup_derham, setup_domain_and_equil
 from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
+from struphy.utils.base import StruphyBaseClass
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 
 
-class StruphyModel(metaclass=ABCMeta):
+class StruphyModel(StruphyBaseClass):
     """
     Base class for all Struphy models.
 

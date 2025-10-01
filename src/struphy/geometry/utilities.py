@@ -9,6 +9,7 @@ from struphy.bsplines import bsplines as bsp
 from struphy.geometry.base import PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
+from struphy.utils.base import StruphyBaseClass
 
 
 def field_line_tracing(
@@ -327,7 +328,7 @@ def field_line_tracing(
         return cR, cZ
 
 
-class TransformedPformComponent:
+class TransformedPformComponent(StruphyBaseClass):
     r"""
     Construct callable component of p-form on logical domain (unit cube).
 

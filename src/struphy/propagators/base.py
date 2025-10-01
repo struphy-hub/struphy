@@ -8,9 +8,10 @@ from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
+from struphy.utils.base import StruphyBaseClass
 
 
-class Propagator(metaclass=ABCMeta):
+class Propagator(StruphyBaseClass):
     """Base class for Struphy propagators used in Struphy models.
 
     Note

@@ -13,9 +13,10 @@ from struphy.feec.psydac_derham import Derham
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
+from struphy.utils.base import StruphyBaseClass
 
 
-class Accumulator:
+class Accumulator(StruphyBaseClass):
     r"""
     Struphy accumulation (block) matrices and vectors
 
@@ -501,7 +502,7 @@ class Accumulator:
         plt.show()
 
 
-class AccumulatorVector:
+class AccumulatorVector(StruphyBaseClass):
     r"""
     Same as :class:`~struphy.pic.accumulation.particles_to_grid.Accumulator` but only for vectors :math:`V`.
 

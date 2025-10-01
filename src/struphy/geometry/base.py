@@ -12,9 +12,10 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
+from struphy.utils.base import StruphyBaseClass
 
 
-class Domain(metaclass=ABCMeta):
+class Domain(StruphyBaseClass):
     r"""Base class for mapped domains (single patch).
 
     The (physical) domain :math:`\Omega \subset \mathbb R^3` is an open subset of :math:`\mathbb R^3`,
