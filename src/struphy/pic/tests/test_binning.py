@@ -239,7 +239,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         f0_vals = particles._f_init(*phase_space).squeeze()
         s0_vals *= f0_vals.max() / s0_vals.max()
 
-        plt.plot(v1[:-1] + dv / 2., s0_vals, label=r"$s_0$")
+        plt.plot(v1[:-1] + dv / 2.0, s0_vals, label=r"$s_0$")
         plt.plot(v1, f0_vals, label=r"$f_0$")
         plt.legend()
         plt.xlabel(r"$v_1$")
@@ -454,7 +454,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         f0_vals = particles._f_init(*phase_space).squeeze()
         s0_vals *= f0_vals.max() / s0_vals.max()
 
-        plt.plot(v1[:-1] + dv / 2., s0_vals, label=r"$s_0$")
+        plt.plot(v1[:-1] + dv / 2.0, s0_vals, label=r"$s_0$")
         plt.plot(v1, f0_vals, label=r"$f_0$")
         plt.legend()
         plt.xlabel(r"$v_1$")
@@ -733,7 +733,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         f0_vals = particles._f_init(*phase_space).squeeze()
         s0_vals *= f0_vals.max() / s0_vals.max()
 
-        plt.plot(v1[:-1] + dv / 2., s0_vals, label=r"$s_0$")
+        plt.plot(v1[:-1] + dv / 2.0, s0_vals, label=r"$s_0$")
         plt.plot(v1, f0_vals, label=r"$f_0$")
         plt.legend()
         plt.xlabel(r"$v_1$")
@@ -966,7 +966,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         f0_vals = particles._f_init(*phase_space).squeeze()
         s0_vals *= f0_vals.max() / s0_vals.max()
 
-        plt.plot(v1[:-1] + dv / 2., s0_vals, label=r"$s_0$")
+        plt.plot(v1[:-1] + dv / 2.0, s0_vals, label=r"$s_0$")
         plt.plot(v1, f0_vals, label=r"$f_0$")
         plt.legend()
         plt.xlabel(r"$v_1$")
