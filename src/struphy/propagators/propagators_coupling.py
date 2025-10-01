@@ -917,11 +917,11 @@ class CurrentCoupling6DCurrent(Propagator):
 
         # load particle pusher kernel
         if u_space == "Hcurl":
-            kernel = pusher_kernels.push_bxu_Hcurl
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_Hcurl)
         elif u_space == "Hdiv":
-            kernel = pusher_kernels.push_bxu_Hdiv
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_Hdiv)
         elif u_space == "H1vec":
-            kernel = pusher_kernels.push_bxu_H1vec
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_H1vec)
         else:
             raise ValueError(
                 f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
@@ -1210,11 +1210,11 @@ class CurrentCoupling5DCurlb(Propagator):
         )
 
         if u_space == "Hcurl":
-            kernel = pusher_kernels_gc.push_gc_cc_J1_Hcurl
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_Hcurl)
         elif u_space == "Hdiv":
-            kernel = pusher_kernels_gc.push_gc_cc_J1_Hdiv
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_Hdiv)
         elif u_space == "H1vec":
-            kernel = pusher_kernels_gc.push_gc_cc_J1_H1vec
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_H1vec)
         else:
             raise ValueError(
                 f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
@@ -1666,9 +1666,9 @@ class CurrentCoupling5DGradB(Propagator):
 
         # instantiate Pusher
         if u_space == "Hdiv":
-            kernel = pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv)
         elif u_space == "H1vec":
-            kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J2_stage_H1vec)
         else:
             raise ValueError(
                 f'{u_space = } not valid, choose from "Hdiv" or "H1vec.',

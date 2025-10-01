@@ -17,6 +17,7 @@ from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class PushEta(Propagator):
@@ -67,7 +68,7 @@ class PushEta(Propagator):
         super().__init__(particles)
 
         # get kernel
-        kernel = pusher_kernels.push_eta_stage
+        kernel = Pyccelkernel(pusher_kernels.push_eta_stage)
 
         # define algorithm
         butcher = ButcherTableau(algo)
@@ -168,9 +169,9 @@ class PushVxB(Propagator):
 
         # define pusher kernel
         if algo == "analytic":
-            kernel = pusher_kernels.push_vxb_analytic
+            kernel = Pyccelkernel(pusher_kernels.push_vxb_analytic)
         elif algo == "implicit":
-            kernel = pusher_kernels.push_vxb_implicit
+            kernel = Pyccelkernel(pusher_kernels.push_vxb_implicit)
         else:
             raise ValueError(f"{algo = } not supported.")
 
@@ -324,22 +325,22 @@ class PushEtaPC(Propagator):
         # call Pusher class
         if use_perp_model:
             if u_space == "Hcurl":
-                kernel = pusher_kernels.push_pc_eta_rk4_Hcurl
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hcurl)
             elif u_space == "Hdiv":
-                kernel = pusher_kernels.push_pc_eta_rk4_Hdiv
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hdiv)
             elif u_space == "H1vec":
-                kernel = pusher_kernels.push_pc_eta_rk4_H1vec
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_H1vec)
             else:
                 raise ValueError(
                     f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
                 )
         else:
             if u_space == "Hcurl":
-                kernel = pusher_kernels.push_pc_eta_rk4_Hcurl_full
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hcurl_full)
             elif u_space == "Hdiv":
-                kernel = pusher_kernels.push_pc_eta_rk4_Hdiv_full
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hdiv_full)
             elif u_space == "H1vec":
-                kernel = pusher_kernels.push_pc_eta_rk4_H1vec_full
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_H1vec_full)
             else:
                 raise ValueError(
                     f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
@@ -590,7 +591,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     )
 
                     # pusher kernel
-                    kernel = pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton
+                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order_newton)
 
                     alpha_in_kernel = 1.0  # evaluate at eta^{n+1,k} and save
                     args_kernel = (
@@ -624,7 +625,7 @@ class PushGuidingCenterBxEstar(Propagator):
                     )  # evaluate at eta^{n+1,k} and save
 
                     # pusher kernel
-                    kernel = pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order
+                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_1st_order)
 
                     alpha_in_kernel = 0.5  # evaluate at mid-point
                     args_kernel = (
@@ -670,7 +671,7 @@ class PushGuidingCenterBxEstar(Propagator):
                 )  # evaluate at eta^{n+1,k} and save)
 
                 # pusher kernel
-                kernel = pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order
+                kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_discrete_gradient_2nd_order)
 
                 alpha_in_kernel = 0.5  # evaluate at mid-point
                 args_kernel = (
@@ -718,7 +719,7 @@ class PushGuidingCenterBxEstar(Propagator):
             butcher._a = np.diag(butcher.a, k=-1)
             butcher._a = np.array(list(butcher.a) + [0.0])
 
-            kernel = pusher_kernels_gc.push_gc_bxEstar_explicit_multistage
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_explicit_multistage)
 
             args_kernel = (
                 self.derham.args_derham,
@@ -1007,7 +1008,7 @@ class PushGuidingCenterParallel(Propagator):
                     )
 
                     # pusher kernel
-                    kernel = pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton
+                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order_newton)
 
                     alpha_in_kernel = 1.0  # evaluate at eta^{n+1,k} and save
                     args_kernel = (
@@ -1040,7 +1041,7 @@ class PushGuidingCenterParallel(Propagator):
                     )  # evaluate at Z^{n+1,k} and save
 
                     # pusher kernel
-                    kernel = pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order
+                    kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_1st_order)
 
                     alpha_in_kernel = 0.5  # evaluate at mid-point
                     args_kernel = (
@@ -1086,7 +1087,7 @@ class PushGuidingCenterParallel(Propagator):
                 )  # evaluate at Z^{n+1,k} and save
 
                 # pusher kernel
-                kernel = pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order
+                kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_discrete_gradient_2nd_order)
 
                 alpha_in_kernel = 0.5  # evaluate at mid-point
                 args_kernel = (
@@ -1137,7 +1138,7 @@ class PushGuidingCenterParallel(Propagator):
             butcher._a = np.diag(butcher.a, k=-1)
             butcher._a = np.array(list(butcher.a) + [0.0])
 
-            kernel = pusher_kernels_gc.push_gc_Bstar_explicit_multistage
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_explicit_multistage)
 
             args_kernel = (
                 self.derham.args_derham,
@@ -1538,7 +1539,7 @@ class PushVinSPHpressure(Propagator):
         super().__init__(particles)
 
         # init kernel for evaluating density etc. before each time step.
-        init_kernel = eval_kernels_gc.sph_pressure_coeffs
+        init_kernel = Pyccelkernel(eval_kernels_gc.sph_pressure_coeffs)
 
         first_free_idx = particles.args_markers.first_free_idx
         comps = (0, 1, 2)
@@ -1573,9 +1574,9 @@ class PushVinSPHpressure(Propagator):
 
         # pusher kernel
         if thermodynamics == "isothermal":
-            kernel = pusher_kernels.push_v_sph_pressure
+            kernel = Pyccelkernel(pusher_kernels.push_v_sph_pressure)
         elif thermodynamics == "polytropic":
-            kernel = pusher_kernels.push_v_sph_pressure_ideal_gas
+            kernel = Pyccelkernel(pusher_kernels.push_v_sph_pressure_ideal_gas)
 
         gravity = np.array(gravity, dtype=float)
 
@@ -1709,7 +1710,7 @@ class PushVinViscousPotential(Propagator):
             args_init,
         )
 
-        kernel = pusher_kernels.push_v_viscosity
+        kernel = Pyccelkernel(pusher_kernels.push_v_viscosity)
 
         args_kernel = (
             boxes,

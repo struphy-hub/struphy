@@ -110,10 +110,9 @@ class Pusher:
         tol: float = 1.0e-8,
         mpi_sort: str = None,
         verbose: bool = False,
-        use_cupy: bool = False,
     ):
         self._particles = particles
-        self._kernel = Pyccelkernel(kernel, use_cupy=use_cupy)
+        self._kernel = Pyccelkernel(kernel)
         self._newton = "newton" in kernel.__name__
         self._args_kernel = args_kernel
         self._args_domain = args_domain

@@ -70,9 +70,6 @@ class Accumulator:
     filter_params : dict
         Params for the accumulation filter: use_filter(string, either `three_point or `fourier), repeat(int), alpha(float) and modes(list with int).
 
-    use_cupy : bool
-        Use cupy arrays
-
     Note
     ----
         Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accumulation/accum_kernels.py``
@@ -96,11 +93,10 @@ class Accumulator:
             "repeat": None,
             "alpha": None,
         },
-        use_cupy: bool = False,
     ):
         self._particles = particles
         self._space_id = space_id
-        self._kernel = Pyccelkernel(kernel, use_cupy=use_cupy)
+        self._kernel = Pyccelkernel(kernel)
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 
@@ -530,8 +526,6 @@ class AccumulatorVector:
     args_domain : DomainArguments
         Mapping infos.
 
-    use_cupy : bool
-        Use cupy arrays
     """
 
     def __init__(
@@ -541,11 +535,10 @@ class AccumulatorVector:
         kernel: Callable[..., Any],
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
-        use_cupy: bool = False,
     ):
         self._particles = particles
         self._space_id = space_id
-        self._kernel = Pyccelkernel(kernel, use_cupy=use_cupy)
+        self._kernel = Pyccelkernel(kernel)
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 
