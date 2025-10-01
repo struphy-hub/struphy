@@ -2836,10 +2836,10 @@ class ImplicitDiffusion(Propagator):
         in the latter case, the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
         and the second entry must be :class:`~struphy.pic.base.Particles`.
         """
-        return self._rho
+        return self.options.rho
 
     @rho.setter
-    def rho(self, value):
+    def rho(self, value: StencilVector | tuple | list | Callable):
         """In-place setter for StencilVector/PolarVector.
         If rho is a list, len(value) msut be len(rho) and value can contain None.
         """
@@ -2852,40 +2852,43 @@ class ImplicitDiffusion(Propagator):
                     assert isinstance(val[0], AccumulatorVector)
                     assert isinstance(val[1], Particles)
                     assert isinstance(r, tuple)
-                    self._rho[i] = val
+                    self.options.rho[i] = val
                 else:
                     assert val.space == r.space
                     r[:] = val[:]
-        elif isinstance(ValueError, tuple):
+        elif isinstance(value, tuple):
             assert isinstance(value[0], AccumulatorVector)
             assert isinstance(value[1], Particles)
             assert len(self.rho) == 1
             # assert rho[0].space_id == 'H1'
-            self._rho[0] = value
+            self.options.rho[0] = value
         else:
             assert value.space == self.derham.Vh["0"]
-            assert len(self.rho) == 1
-            self._rho[0][:] = value[:]
+            if self.options.rho is None:
+                self.options.rho = [value]
+            else:
+                assert len(self.rho) == 1
+                self.options.rho[0][:] = value[:]
 
     @property
     def x0(self):
         """
         psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
         """
-        return self._x0
+        return self.options.x0
 
     @x0.setter
-    def x0(self, value):
+    def x0(self, value: StencilVector):
         """In-place setter for StencilVector/PolarVector. First guess of the iterative solver."""
         assert value.space == self.derham.Vh["0"]
         assert value.space.symbolic_space == "H1", (
             f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
         )
 
-        if self._x0 is None:
-            self._x0 = value
+        if self.options.x0 is None:
+            self.options.x0 = value
         else:
-            self._x0[:] = value[:]
+            self.options.x0[:] = value[:]
 
     @profile
     def __call__(self, dt):
@@ -7052,49 +7055,76 @@ class TimeDependentSource(Propagator):
     * :math:`h(\omega t) = \cos(\omega t)` (default)
     * :math:`h(\omega t) = \sin(\omega t)`
     """
+    class Variables:
+        def __init__(self):
+            self._source: FEECVariable = None
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["omega"] = 1.0
-        dct["hfun"] = ["cos", "sin"]
-        if default:
-            dct = descend_options_dict(dct, [])
-        return dct
+        @property
+        def source(self) -> FEECVariable:
+            return self._source
 
-    def __init__(
-        self,
-        c: StencilVector,
-        *,
-        omega: float = options()["omega"],
-        hfun: str = options(default=True)["hfun"],
-    ):
-        super().__init__(c)
+        @source.setter
+        def source(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "H1"
+            self._source = new
 
-        if hfun == "cos":
+    def __init__(self):
+        self.variables = self.Variables()
 
+    @dataclass
+    class Options:
+        # specific literals
+        OptsTimeSource = Literal["cos", "sin"]
+        # propagator options
+        omega: float = 1.0
+        hfun: OptsTimeSource = "cos"
+
+        def __post_init__(self):
+            # checks
+            check_option(self.hfun, self.OptsTimeSource)
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        if self.options.hfun == "cos":
             def hfun(t):
-                return np.cos(omega * t)
-        elif hfun == "sin":
-
+                return np.cos(self.options.omega * t)
+        elif self.options.hfun == "sin":
             def hfun(t):
-                return np.sin(omega * t)
+                return np.sin(self.options.omega * t)
         else:
-            raise NotImplementedError(f"{hfun = } not implemented.")
-
+            raise NotImplementedError(f"{self.options.hfun = } not implemented.")
+        
         self._hfun = hfun
 
+    @profile
     def __call__(self, dt):
         print(f"{self.time_state[0] = }")
         if self.time_state[0] == 0.0:
-            self._c0 = self.feec_vars[0].copy()
+            self._c0 = self.variables.source.spline.vector.copy()
             print("Initial source coeffs set.")
 
         # new coeffs
         cn1 = self._c0 * self._hfun(self.time_state[0])
 
         # write new coeffs into self.feec_vars
-        max_dc = self.feec_vars_update(cn1)
+        # max_dc = self.feec_vars_update(cn1)
+        max_dc = self.update_feec_variables(source=cn1)
 
 
 class AdiabaticPhi(Propagator):

@@ -331,6 +331,8 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def scalar_quantities(self):
         """A dictionary of scalar quantities to be saved during the simulation."""
+        if not hasattr(self, "_scalar_quantities"):
+            self._scalar_quantities = {}
         return self._scalar_quantities
 
     @property
@@ -1006,7 +1008,7 @@ class StruphyModel(metaclass=ABCMeta):
         save_keys_end : list
             Keys of datasets which are saved at the end of a simulation to enable restarts.
         """
-
+        
         # save scalar quantities in group 'scalar/'
         for key, scalar in self.scalar_quantities.items():
             val = scalar["value"]
@@ -1377,7 +1379,6 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write("\n# import model, set verbosity\n")
         file.write(f"from {self.__module__} import {self.__class__.__name__}\n")
-        file.write("verbose = True\n")
 
         file.write("\n# environment options\n")
         file.write("env = EnvironmentOptions()\n")
@@ -1435,7 +1436,8 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write(exclude)
 
         file.write('\nif __name__ == "__main__":\n')
-        file.write("    # start run\n")
+        file.write("    # start run\n\n")
+        file.write("    verbose = True\n\n")
         file.write(
             "    main.run(model,\n\
              params_path=__file__,\n\

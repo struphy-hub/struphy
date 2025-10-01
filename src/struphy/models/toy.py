@@ -803,65 +803,62 @@ class Poisson(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    ## species
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.phi = FEECVariable(space="H1")
+            self.source = FEECVariable(space="H1")
+            self.init_variables()
 
-        dct["em_fields"]["phi"] = "H1"
-        dct["em_fields"]["source"] = "H1"
-        return dct
+    ## propagators
 
-    @staticmethod
-    def bulk_species():
+    class Propagators:
+        def __init__(self):
+            self.source = propagators_fields.TimeDependentSource()
+            self.poisson = propagators_fields.Poisson()
+
+    ## abstract methods
+
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.source.variables.source = self.em_fields.source
+        self.propagators.poisson.variables.phi = self.em_fields.phi
+
+    @property
+    def bulk_species(self):
         return None
 
-    @staticmethod
-    def velocity_scale():
+    @property
+    def velocity_scale(self):
         return None
 
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_fields.TimeDependentSource: ["source"],
-            propagators_fields.ImplicitDiffusion: ["phi"],
-        }
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # extract necessary parameters
-        model_params = params["em_fields"]["options"]["ImplicitDiffusion"]["model"]
-        solver_params = params["em_fields"]["options"]["ImplicitDiffusion"]["solver"]
-        omega = params["em_fields"]["options"]["TimeDependentSource"]["omega"]
-        hfun = params["em_fields"]["options"]["TimeDependentSource"]["hfun"]
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.TimeDependentSource] = {
-            "omega": omega,
-            "hfun": hfun,
-        }
-
-        self._kwargs[propagators_fields.ImplicitDiffusion] = {
-            "sigma_1": model_params["sigma_1"],
-            "stab_mat": model_params["stab_mat"],
-            "diffusion_mat": model_params["diffusion_mat"],
-            "rho": self.pointer["source"],
-            "solver": solver_params,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
+    def allocate_helpers(self):
+        pass
 
     def update_scalar_quantities(self):
         pass
+    
+    def allocate_propagators(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+
+        # initialize fields and particles
+        super().allocate_propagators()
+        
+        # use setter to assign source
+        self.propagators.poisson.rho = self.em_fields.source.spline.vector
 
 
 class DeterministicParticleDiffusion(StruphyModel):
