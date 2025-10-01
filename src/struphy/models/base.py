@@ -1850,7 +1850,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     domain_decomp = (domain_array, nprocs)
 
                 kinetic_class = getattr(particles, val["space"])
-
+                print(f"{kinetic_class = }")
                 val["obj"] = kinetic_class(
                     comm_world=self.comm_world,
                     clone_config=self.clone_config,

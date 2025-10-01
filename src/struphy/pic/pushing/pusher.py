@@ -6,6 +6,7 @@ from mpi4py.MPI import IN_PLACE, SUM
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Pusher:
@@ -109,9 +110,10 @@ class Pusher:
         tol: float = 1.0e-8,
         mpi_sort: str = None,
         verbose: bool = False,
+        use_cupy: bool = False,
     ):
         self._particles = particles
-        self._kernel = kernel
+        self._kernel = Pyccelkernel(kernel, use_cupy=use_cupy)
         self._newton = "newton" in kernel.__name__
         self._args_kernel = args_kernel
         self._args_domain = args_domain
@@ -278,7 +280,7 @@ class Pusher:
                     )
 
                 # push markers
-                with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+                with ProfileManager.profile_region("kernel: " + self.kernel.name):
                     self.kernel(
                         dt,
                         stage,
