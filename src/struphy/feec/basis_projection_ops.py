@@ -2038,10 +2038,12 @@ class BasisProjectionOperator(LinOpWithTransp):
                         )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = Pyccelkernel(getattr(
-                        basis_projection_kernels,
-                        "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
-                    ))
+                    kernel = Pyccelkernel(
+                        getattr(
+                            basis_projection_kernels,
+                            "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
+                        )
+                    )
 
                     if rank == 0 and verbose:
                         print(f"Assemble block {i, j}")

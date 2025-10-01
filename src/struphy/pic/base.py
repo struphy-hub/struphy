@@ -41,6 +41,7 @@ from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.pyccel import Pyccelkernel
 
+
 class Particles(metaclass=ABCMeta):
     r"""
     Base class for particle species.
