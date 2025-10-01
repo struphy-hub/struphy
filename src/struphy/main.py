@@ -196,22 +196,7 @@ def run(
     # domain and fluid background
     model.setup_domain_and_equil(domain, equil)
 
-    # default grid
-    if grid is None:
-        Nel = (16, 16, 16)
-        if rank == 0:
-            print(f"\nNo grid specified - using TensorProductGrid with {Nel = }.")
-        grid = grids.TensorProductGrid(Nel=Nel)
-
-    # allocate derham-related objects
-    if derham_opts is None:
-        p = (3, 3, 3)
-        spl_kind = (False, False, False)
-        if rank == 0:
-            print(
-                f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium."
-            )
-        derham_opts = DerhamOptions(p=p, spl_kind=spl_kind)
+    # feec
     model.allocate_feec(grid, derham_opts)
 
     # equation paramters

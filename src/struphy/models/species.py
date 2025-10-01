@@ -103,7 +103,8 @@ class Species(metaclass=ABCMeta):
                 self.kappa = om_p * units.t
             else:
                 self.kappa = kappa
-                warnings.warn(f"Override equation parameter {self.kappa = }")
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    warnings.warn(f"Override equation parameter {self.kappa = }")
 
             if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                 print(f'\nSet normalization parameters for species {species.__class__.__name__}:')
