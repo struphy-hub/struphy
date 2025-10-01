@@ -1013,7 +1013,7 @@ def add_parser_format(subparsers):
             subparser.add_argument(
                 "input_type",
                 type=str,
-                choices=["all", "staged", "branch"],
+                choices=["all", "staged", "branch", "__init__.py"],
                 nargs="?",  # optional
                 help="specify the files to process",
             )
