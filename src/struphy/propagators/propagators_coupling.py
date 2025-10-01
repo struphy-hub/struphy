@@ -17,6 +17,7 @@ from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class VlasovAmpere(Propagator):
