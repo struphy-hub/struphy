@@ -1,7 +1,7 @@
 from struphy.models.fluid import (
     ColdPlasma,
     HasegawaWakatani,
-    IsothermalEulerSPH,
+    EulerSPH,
     LinearExtendedMHDuniform,
     LinearMHD,
     ViscoresistiveDeltafMHD,
@@ -11,7 +11,6 @@ from struphy.models.fluid import (
     ViscoresistiveMHD,
     ViscoresistiveMHD_with_p,
     ViscoresistiveMHD_with_q,
-    ViscousEulerSPH,
     ViscousFluid,
 )
 from struphy.models.hybrid import ColdPlasmaVlasov, LinearMHDDriftkineticCC, LinearMHDVlasovCC, LinearMHDVlasovPC
@@ -62,7 +61,6 @@ __all__ = [
     "ViscoresistiveLinearMHD_with_q",
     "ViscoresistiveDeltafMHD_with_q",
     "IsothermalEulerSPH",
-    "ViscousEulerSPH",
     "HasegawaWakatani",
     "LinearMHDVlasovCC",
     "LinearMHDVlasovPC",

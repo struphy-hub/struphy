@@ -8,8 +8,8 @@ from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
+from struphy.propagators import ImplicitDiffusion
 from struphy.propagators.base import Propagator
-from struphy.utils.arrays import xp as np
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

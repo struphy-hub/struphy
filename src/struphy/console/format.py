@@ -507,6 +507,358 @@ def get_python_files(input_type, path=None):
     return python_files
 
 
+def struphy_lint(config, verbose):
+    """Lint Python files based on the given configuration and specified linters.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary containing the following keys:
+            - input_type : str, optional
+                The type of files to lint ('all', 'path', 'staged', or 'branch'). Defaults to 'all'.
+            - output_format: str, optional
+                The format of the lint output ('table', or 'plain'). Defaults to 'table'
+            - path : str, optional
+                Directory or file path to lint.
+            - linters : list
+                List of linter names to apply.
+
+    verbose : bool
+        If True, enables detailed output.
+    """
+
+    # Extract individual settings from config
+    input_type = config.get("input_type", "all")
+    path = config.get("path")
+    output_format = config.get("output_format", "table")
+    linters = config.get("linters", [])
+
+    if input_type is None and path is not None:
+        input_type = "path"
+    # Define standard linters which will be checked in the CI
+    ci_linters = ["ruff", "omp_flags"]
+    python_files = get_python_files(input_type, path)
+    if len(python_files) == 0:
+        sys.exit(0)
+
+    print(
+        tabulate(
+            [[file] for file in python_files],
+            headers=[f"The following files will be linted with {linters}"],
+        ),
+    )
+    print("\n")
+
+    if output_format == "report":
+        generate_report(python_files, linters=linters, verbose=verbose)
+        sys.exit(0)
+
+    max_pathlen = max(len(os.path.relpath(file_path)) for file_path in python_files)
+    stats_list = []
+
+    # Check if all ci_linters are included in linters
+    if all(ci_linter in linters for ci_linter in ci_linters):
+        print(f"Passes CI if {ci_linters} passes")
+        print("-" * 40)
+        check_ci_pass = True
+    else:
+        skipped_ci_linters = [ci_linter for ci_linter in ci_linters if ci_linter not in linters]
+        print(
+            f'The "Pass CI" check is skipped since not --linters {" ".join(skipped_ci_linters)} is used.',
+        )
+        check_ci_pass = False
+    # Collect statistics for each file
+    for ifile, file_path in enumerate(python_files):
+        stats = analyze_file(file_path, linters=linters, verbose=verbose)
+        stats_list.append(stats)
+
+        # Print the statistics in a table
+        if output_format == "table":
+            print_stats_table(
+                [stats],
+                linters,
+                print_header=(ifile == 0),
+                pathlen=max_pathlen,
+            )
+        elif output_format == "plain":
+            print_stats_plain(stats, linters)
+
+    if check_ci_pass:
+        passes_ci = True
+        for stats in stats_list:
+            if not all(stats[f"passes_{ci_linter}"] for ci_linter in ci_linters):
+                passes_ci = False
+        if passes_ci:
+            print("All files will pass CI")
+            sys.exit(0)
+        else:
+            print("Not all files will pass CI")
+            sys.exit(1)
+    print("Not all CI linters were checked, unknown if all files will pass CI")
+    sys.exit(1)
+
+
+def generate_report(python_files, linters=["ruff"], verbose=False):
+    for linter in linters:
+        if linter == "ruff":
+            for python_file in python_files:
+                report_json_filename = "code_analysis_report.json"
+                report_html_filename = "code_analysis_report.html"
+                command = [
+                    "ruff",
+                    "check",
+                    "--preview",
+                    "--select",
+                    "ALL",
+                    "--ignore",
+                    "D211,D213",
+                    "--output-format",
+                    "json",
+                    "-o",
+                    report_json_filename,
+                ] + python_files
+                subprocess.run(command, check=False)
+                parse_json_file_to_html(report_json_filename, report_html_filename)
+                if os.path.exists(report_json_filename):
+                    os.remove(report_json_filename)
+                sys.exit(0)
+
+
+def confirm_formatting(python_files, linters, yes):
+    """Confirm with the user whether to format the listed Python files."""
+    print(
+        tabulate(
+            [[file] for file in python_files],
+            headers=[f"The following files will be formatted with {linters}"],
+        ),
+    )
+    print("\n")
+    if not yes:
+        ans = input("Format files (Y/n)?\n")
+        if ans.lower() not in ("y", "yes", ""):
+            print("Exiting...")
+            sys.exit(1)
+
+
+def files_require_formatting(python_files, linters):
+    """Check if any of the specified files still require formatting based on the specified linters.
+
+    Parameters
+    ----------
+    python_files : list
+        List of Python file paths to check.
+
+    linters : list
+        List of linter names to check against (e.g., ['autopep8', 'isort']).
+
+    Returns
+    -------
+    bool
+        True if any files still require formatting, False otherwise.
+    """
+    linter_check_functions = {
+        "autopep8": check_autopep8,
+        "isort": check_isort,
+        "add-trailing-comma": check_trailing_commas,
+    }
+
+    for file_path in python_files:
+        for linter in linters:
+            check_function = linter_check_functions.get(linter)
+            if check_function and not check_function(file_path):
+                return True
+    return False
+
+
+def run_linters_on_files(linters, python_files, flags, verbose):
+    """Run each linter on the specified files with appropriate flags."""
+    for linter in linters:
+        for python_file in python_files:
+            print(f"Formatting {python_file}")
+            linter_flags = flags.get(linter, [])
+            if isinstance(linter_flags[0], list):
+                # If linter_flags is a list, run each separately
+                for flag in linter_flags:
+                    command = [linter] + flag + [python_file]
+                    if verbose:
+                        print(f"Running command: {' '.join(command)}")
+
+                    subprocess.run(command, check=False)
+            else:
+                # If linter_flags is not a list, treat it as a single value
+                command = [linter] + linter_flags + [python_file]
+                if verbose:
+                    print(f"Running command: {' '.join(command)}")
+                subprocess.run(command, check=False)
+
+            # Loop over each line and replace '# $' with '#$' in place
+            for line in fileinput.input(python_file, inplace=True):
+                if line.lstrip().startswith("# $"):
+                    print(line.replace("# $", "#$"), end="")
+                else:
+                    print(line, end="")
+
+
+def struphy_format(config, verbose, yes=False):
+    """Format Python files with specified linters, optionally iterating multiple times.
+
+    Parameters
+    ----------
+    config : dict
+        Configuration dictionary containing the following keys:
+            - input_type : str, optional
+                The type of files to format ('all', 'path', 'staged', 'branch', or '__init__.py'). Defaults to 'all'.
+            - path : str, optional
+                Directory or file path where files will be formatted.
+            - linters : list
+                List of formatter names to apply.
+            - iterations : int, optional
+                Maximum number of times to apply formatting (default=5).
+
+    verbose : bool
+        If True, enables detailed output, showing each command and iteration.
+
+    yes : bool, optional
+        If True, skips the confirmation prompt before formatting.
+    """
+
+    # Extract individual settings from config
+    input_type = config.get("input_type", "all")
+    path = config.get("path")
+    linters = config.get("linters", [])
+    iterations = config.get("iterations", 5)
+
+    if input_type is None and path is not None:
+        input_type = "path"
+
+    if input_type == "__init__.py":
+        print(f"Rewriting {PROPAGATORS_INIT_PATH}")
+        propagators_init = construct_propagators_init_file()
+        with open(PROPAGATORS_INIT_PATH, "w") as f:
+            f.write(propagators_init)
+
+        print(f"Rewriting {MODELS_INIT_PATH}")
+        models_init = construct_models_init_file()
+        with open(MODELS_INIT_PATH, "w") as f:
+            f.write(models_init)
+
+        python_files = [PROPAGATORS_INIT_PATH, MODELS_INIT_PATH]
+        input_type = "path"
+    else:
+        python_files = get_python_files(input_type, path)
+
+    if len(python_files) == 0:
+        print("No Python files to format.")
+        sys.exit(0)
+
+    confirm_formatting(python_files, linters, yes)
+
+    flags = {
+        "autopep8": ["--in-place"],
+        "isort": [],
+        "add-trailing-comma": ["--exit-zero-even-if-changed"],
+        "ruff": [["check", "--fix", "--select", "I"], ["format"]],
+    }
+
+    # Skip linting with add-trailing-comma since it disagrees with autopep8
+    skip_linters = ["add-trailing-comma"]
+
+    if python_files:
+        for iteration in range(iterations):
+            if verbose:
+                print(f"Iteration {iteration + 1}: Running formatters...")
+
+            run_linters_on_files(
+                linters,
+                python_files,
+                flags,
+                verbose,
+            )
+
+            # Check if any files still require changes
+            if not files_require_formatting(
+                python_files,
+                [lint for lint in linters if lint not in skip_linters],
+            ):
+                print("All files are properly formatted.")
+                break
+        else:
+            if verbose:
+                print(
+                    "Max iterations reached. The following files may still require manual checks:",
+                )
+                for file_path in python_files:
+                    if files_require_formatting([file_path], linters):
+                        print(f" - {file_path}")
+                print("Contact Max about this")
+    else:
+        print("No Python files to format.")
+
+
+def print_stats_plain(stats, linters, ci_linters=["ruff"]):
+    """Print statistics for a single file in plain text format.
+
+    Parameters
+    ----------
+    stats : dict
+        Dictionary containing statistics for a single file.
+
+    linters : list
+        List of linters to display in the output.
+    """
+    print(f"File: {os.path.relpath(stats['path'])}")
+    print(f"  Lines: {stats['num_lines']}")
+    print(f"  Functions: {stats['num_functions']}")
+    print(f"  Classes: {stats['num_classes']}")
+    print(f"  Variables: {stats['num_variables']}")
+
+    if "pylint" in linters:
+        print(f"  Pylint Score: {stats['pylint_score']}/10")
+
+    for linter in linters:
+        status = PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED
+        print(f"  {linter}: {status}")
+
+    # Check for CI pass status if both linters are present
+    if all(linter in linters for linter in ci_linters):
+        # Check if all linters in ci_linters pass
+        passes_ci = all(stats[f"passes_{linter}"] for linter in ci_linters)
+        ci_status = PASS_GREEN if passes_ci else FAIL_RED
+        print(f"  Full CI check: {ci_status}")
+    print("-" * 40)  # Divider between files
+
+
+def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_linters=["ruff"]):
+    """Print statistics for Python files in a tabular format.
+
+    Parameters
+    ----------
+    stats_list : list
+        List of file statistics dictionaries.
+
+    linters : list
+        List of linters to display in the table.
+
+    print_header : bool, optional
+        If True, print the table header (default=True).
+
+    pathlen : int, optional
+        Maximum length for path column formatting (default=0).
+    """
+
+    file_header = " " * int((pathlen - 4) * 0.5)
+    file_header += "File"
+    file_header += " " * int((pathlen - 4) * 0.5)
+    headers = [
+        file_header,
+        "Lines",
+        "Funcs",
+        "Classes",
+        "Vars",
+    ]
+    return python_files
+
+
 def replace_backticks_with_code_tags(text):
     """Recursively replaces inline backticks with <code> tags.
     Handles multiple or nested occurrences.
@@ -892,381 +1244,6 @@ document.addEventListener('DOMContentLoaded', (event) => {
         print(f"An unexpected error occurred: {e}")
 
 
-def generate_report(python_files, linters=["ruff"], verbose=False):
-    for linter in linters:
-        if linter == "ruff":
-            for python_file in python_files:
-                report_json_filename = "code_analysis_report.json"
-                report_html_filename = "code_analysis_report.html"
-                command = [
-                    "ruff",
-                    "check",
-                    "--preview",
-                    "--select",
-                    "ALL",
-                    "--ignore",
-                    "D211,D213",
-                    "--output-format",
-                    "json",
-                    "-o",
-                    report_json_filename,
-                ] + python_files
-                subprocess.run(command, check=False)
-                parse_json_file_to_html(report_json_filename, report_html_filename)
-                if os.path.exists(report_json_filename):
-                    os.remove(report_json_filename)
-                sys.exit(0)
-
-
-def print_stats_plain(stats, linters, ci_linters=["ruff"]):
-    """Print statistics for a single file in plain text format.
-
-    Parameters
-    ----------
-    stats : dict
-        Dictionary containing statistics for a single file.
-
-    linters : list
-        List of linters to display in the output.
-    """
-    print(f"File: {os.path.relpath(stats['path'])}")
-    print(f"  Lines: {stats['num_lines']}")
-    print(f"  Functions: {stats['num_functions']}")
-    print(f"  Classes: {stats['num_classes']}")
-    print(f"  Variables: {stats['num_variables']}")
-
-    if "pylint" in linters:
-        print(f"  Pylint Score: {stats['pylint_score']}/10")
-
-    for linter in linters:
-        status = PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED
-        print(f"  {linter}: {status}")
-
-    # Check for CI pass status if both linters are present
-    if all(linter in linters for linter in ci_linters):
-        # Check if all linters in ci_linters pass
-        passes_ci = all(stats[f"passes_{linter}"] for linter in ci_linters)
-        ci_status = PASS_GREEN if passes_ci else FAIL_RED
-        print(f"  Full CI check: {ci_status}")
-    print("-" * 40)  # Divider between files
-
-
-def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_linters=["ruff"]):
-    """Print statistics for Python files in a tabular format.
-
-    Parameters
-    ----------
-    stats_list : list
-        List of file statistics dictionaries.
-
-    linters : list
-        List of linters to display in the table.
-
-    print_header : bool, optional
-        If True, print the table header (default=True).
-
-    pathlen : int, optional
-        Maximum length for path column formatting (default=0).
-    """
-
-    file_header = " " * int((pathlen - 4) * 0.5)
-    file_header += "File"
-    file_header += " " * int((pathlen - 4) * 0.5)
-    headers = [
-        file_header,
-        "Lines",
-        "Funcs",
-        "Classes",
-        "Vars",
-    ]
-
-    table = []
-    for stats in stats_list:
-        path = os.path.relpath(stats["path"])
-        row = [
-            path,
-            stats["num_lines"],
-            stats["num_functions"],
-            stats["num_classes"],
-            stats["num_variables"],
-        ]
-
-        if "pylint" in linters:
-            headers.append("Pylint #")
-            row.append(f"{stats['pylint_score']}/10")
-        for linter in linters:
-            headers.append(linter)
-        headers.append("Passes CI")
-
-        for linter in linters:
-            row.append(PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED)
-        if all(linter in linters for linter in ci_linters):
-            passes_ci = all(stats[f"passes_{linter}"] for linter in ci_linters)
-            row.append(PASS_GREEN if passes_ci else FAIL_RED)
-        table.append(row)
-    if print_header:
-        print(tabulate(table, headers=headers, tablefmt="grid"))
-    else:
-        lines = tabulate(table, headers=headers, tablefmt="grid").split("\n")
-        print("\n".join(lines[-2:]))
-
-
-def analyze_file(file_path, linters=None, verbose=False):
-    """Analyze a Python file with list of linters.
-
-    Parameters
-    ----------
-    file_path : str
-        Path to the Python file.
-
-    linters : list
-        Linters to apply for analysis (default=["isort", "autopep8"]).
-
-    verbose : bool, optional
-        If True, enables detailed output (default=False).
-
-    Returns
-    -------
-    dict
-        Analysis results including line count, function count, and linter pass status.
-    """
-
-    # We set the default linters here rather than in the function signature to avoid
-    # using a mutable list as a default argument, which can lead to unexpected behavior
-    # due to shared state across function calls.
-    if linters is None:
-        linters = ["isort", "autopep8"]
-
-    stats = {
-        "path": file_path,
-        "num_lines": 0,
-        "num_functions": 0,
-        "num_classes": 0,
-        "num_variables": 0,
-        "pylint_score": None,
-        "passes_isort": False,
-        "passes_autopep8": False,
-        "passes_flake8": False,
-        "passes_pylint": False,
-        "passes_add-trailing-comma": False,
-        "passes_ruff": False,
-        "passes_omp_flags": False,
-        "passes_ssort": False,
-    }
-
-    # Read the file content
-    with open(file_path, "r", encoding="utf-8") as file:
-        source_code = file.read()
-        stats["num_lines"] = len(source_code.splitlines())
-
-    # Parse the AST
-    tree = ast.parse(source_code)
-    stats["num_functions"] = sum(isinstance(node, ast.FunctionDef) for node in ast.walk(tree))
-    stats["num_classes"] = sum(isinstance(node, ast.ClassDef) for node in ast.walk(tree))
-    stats["num_variables"] = sum(isinstance(node, (ast.Assign, ast.AnnAssign)) for node in ast.walk(tree))
-
-    # Run code analysis tools
-    # TODO: This should be a loop
-    if "isort" in linters:
-        stats["passes_isort"] = check_isort(file_path, verbose=verbose)
-    if "autopep8" in linters:
-        stats["passes_autopep8"] = check_autopep8(file_path, verbose=verbose)
-    if "flake8" in linters:
-        stats["passes_flake8"] = check_flake8(file_path, verbose=verbose)
-    if "pylint" in linters:
-        stats["pylint_score"], stats["passes_pylint"] = get_pylint_score(
-            file_path,
-            verbose=verbose,
-        )
-    if "add-trailing-comma" in linters:
-        stats["passes_add-trailing-comma"] = check_trailing_commas(
-            file_path,
-            verbose=verbose,
-        )
-    if "ruff" in linters:
-        stats["passes_ruff"] = check_ruff(
-            file_path,
-            verbose=verbose,
-        )
-    if "omp_flags" in linters:
-        stats["passes_omp_flags"] = check_omp_flags(
-            file_path,
-            verbose=verbose,
-        )
-    if "ssort" in linters:
-        stats["passes_ssort"] = check_ssort(
-            file_path,
-            verbose=verbose,
-        )
-    return stats
-
-
-def struphy_lint(config, verbose):
-    """Lint Python files based on the given configuration and specified linters.
-
-    Parameters
-    ----------
-    config : dict
-        Configuration dictionary containing the following keys:
-            - input_type : str, optional
-                The type of files to lint ('all', 'path', 'staged', or 'branch'). Defaults to 'all'.
-            - output_format: str, optional
-                The format of the lint output ('table', or 'plain'). Defaults to 'table'
-            - path : str, optional
-                Directory or file path to lint.
-            - linters : list
-                List of linter names to apply.
-
-    verbose : bool
-        If True, enables detailed output.
-    """
-
-    # Extract individual settings from config
-    input_type = config.get("input_type", "all")
-    path = config.get("path")
-    output_format = config.get("output_format", "table")
-    linters = config.get("linters", [])
-
-    if input_type is None and path is not None:
-        input_type = "path"
-    # Define standard linters which will be checked in the CI
-    ci_linters = ["ruff", "omp_flags"]
-    python_files = get_python_files(input_type, path)
-    if len(python_files) == 0:
-        sys.exit(0)
-
-    print(
-        tabulate(
-            [[file] for file in python_files],
-            headers=[f"The following files will be linted with {linters}"],
-        ),
-    )
-    print("\n")
-
-    if output_format == "report":
-        generate_report(python_files, linters=linters, verbose=verbose)
-        sys.exit(0)
-
-    max_pathlen = max(len(os.path.relpath(file_path)) for file_path in python_files)
-    stats_list = []
-
-    # Check if all ci_linters are included in linters
-    if all(ci_linter in linters for ci_linter in ci_linters):
-        print(f"Passes CI if {ci_linters} passes")
-        print("-" * 40)
-        check_ci_pass = True
-    else:
-        skipped_ci_linters = [ci_linter for ci_linter in ci_linters if ci_linter not in linters]
-        print(
-            f'The "Pass CI" check is skipped since not --linters {" ".join(skipped_ci_linters)} is used.',
-        )
-        check_ci_pass = False
-    # Collect statistics for each file
-    for ifile, file_path in enumerate(python_files):
-        stats = analyze_file(file_path, linters=linters, verbose=verbose)
-        stats_list.append(stats)
-
-        # Print the statistics in a table
-        if output_format == "table":
-            print_stats_table(
-                [stats],
-                linters,
-                print_header=(ifile == 0),
-                pathlen=max_pathlen,
-            )
-        elif output_format == "plain":
-            print_stats_plain(stats, linters)
-
-    if check_ci_pass:
-        passes_ci = True
-        for stats in stats_list:
-            if not all(stats[f"passes_{ci_linter}"] for ci_linter in ci_linters):
-                passes_ci = False
-        if passes_ci:
-            print("All files will pass CI")
-            sys.exit(0)
-        else:
-            print("Not all files will pass CI")
-            sys.exit(1)
-    print("Not all CI linters were checked, unknown if all files will pass CI")
-    sys.exit(1)
-
-
-def confirm_formatting(python_files, linters, yes):
-    """Confirm with the user whether to format the listed Python files."""
-    print(
-        tabulate(
-            [[file] for file in python_files],
-            headers=[f"The following files will be formatted with {linters}"],
-        ),
-    )
-    print("\n")
-    if not yes:
-        ans = input("Format files (Y/n)?\n")
-        if ans.lower() not in ("y", "yes", ""):
-            print("Exiting...")
-            sys.exit(1)
-
-
-def files_require_formatting(python_files, linters):
-    """Check if any of the specified files still require formatting based on the specified linters.
-
-    Parameters
-    ----------
-    python_files : list
-        List of Python file paths to check.
-
-    linters : list
-        List of linter names to check against (e.g., ['autopep8', 'isort']).
-
-    Returns
-    -------
-    bool
-        True if any files still require formatting, False otherwise.
-    """
-    linter_check_functions = {
-        "autopep8": check_autopep8,
-        "isort": check_isort,
-        "add-trailing-comma": check_trailing_commas,
-    }
-
-    for file_path in python_files:
-        for linter in linters:
-            check_function = linter_check_functions.get(linter)
-            if check_function and not check_function(file_path):
-                return True
-    return False
-
-
-def run_linters_on_files(linters, python_files, flags, verbose):
-    """Run each linter on the specified files with appropriate flags."""
-    for linter in linters:
-        for python_file in python_files:
-            print(f"Formatting {python_file}")
-            linter_flags = flags.get(linter, [])
-            if len(linter_flags) > 0 and isinstance(linter_flags[0], list):
-                # If linter_flags is a list, run each separately
-                for flag in linter_flags:
-                    command = [linter] + flag + [python_file]
-                    if verbose:
-                        print(f"Running command: {' '.join(command)}")
-
-                    subprocess.run(command, check=False)
-            else:
-                # If linter_flags is not a list, treat it as a single value
-                command = [linter] + linter_flags + [python_file]
-                if verbose:
-                    print(f"Running command: {' '.join(command)}")
-                subprocess.run(command, check=False)
-
-            # Loop over each line and replace '# $' with '#$' in place
-            for line in fileinput.input(python_file, inplace=True):
-                if line.lstrip().startswith("# $"):
-                    print(line.replace("# $", "#$"), end="")
-                else:
-                    print(line, end="")
-
-
 def construct_models_init_file() -> str:
     """
     Constructs the content for the __init__.py file for the models module.
@@ -1315,100 +1292,3 @@ def construct_propagators_init_file() -> str:
     propagators_init += "\n\n"
     propagators_init += f"__all__ = {propagators_names}\n"
     return propagators_init
-
-
-def struphy_format(config, verbose, yes=False):
-    """Format Python files with specified linters, optionally iterating multiple times.
-
-    Parameters
-    ----------
-    config : dict
-        Configuration dictionary containing the following keys:
-            - input_type : str, optional
-                The type of files to format ('all', 'path', 'staged', 'branch', or '__init__.py'). Defaults to 'all'.
-            - path : str, optional
-                Directory or file path where files will be formatted.
-            - linters : list
-                List of formatter names to apply.
-            - iterations : int, optional
-                Maximum number of times to apply formatting (default=5).
-
-    verbose : bool
-        If True, enables detailed output, showing each command and iteration.
-
-    yes : bool, optional
-        If True, skips the confirmation prompt before formatting.
-    """
-
-    # Extract individual settings from config
-    input_type = config.get("input_type", "all")
-    path = config.get("path")
-    linters = config.get("linters", [])
-    iterations = config.get("iterations", 5)
-
-    if input_type is None and path is not None:
-        input_type = "path"
-
-    if input_type == "__init__.py":
-        print(f"Rewriting {PROPAGATORS_INIT_PATH}")
-        propagators_init = construct_propagators_init_file()
-        with open(PROPAGATORS_INIT_PATH, "w") as f:
-            f.write(propagators_init)
-
-        print(f"Rewriting {MODELS_INIT_PATH}")
-        models_init = construct_models_init_file()
-        with open(MODELS_INIT_PATH, "w") as f:
-            f.write(models_init)
-
-        python_files = [PROPAGATORS_INIT_PATH, MODELS_INIT_PATH]
-        input_type = "path"
-    else:
-        python_files = get_python_files(input_type, path)
-
-    if len(python_files) == 0:
-        print("No Python files to format.")
-        sys.exit(0)
-
-    confirm_formatting(python_files, linters, yes)
-
-    flags = {
-        "autopep8": ["--in-place"],
-        "isort": [],
-        "add-trailing-comma": ["--exit-zero-even-if-changed"],
-        "ruff": [["check", "--fix", "--select", "I"], ["format"]],
-        "ssort": [],
-    }
-
-    # Skip linting with add-trailing-comma since it disagrees with autopep8
-    skip_linters = ["add-trailing-comma"]
-
-    if python_files:
-        for iteration in range(iterations):
-            if verbose:
-                print(f"Iteration {iteration + 1}: Running formatters...")
-
-            run_linters_on_files(
-                linters,
-                python_files,
-                flags,
-                verbose,
-            )
-
-            # Check if any files still require changes
-            if not files_require_formatting(
-                python_files,
-                [lint for lint in linters if lint not in skip_linters],
-            ):
-                print("All files are properly formatted.")
-                break
-        else:
-            if verbose:
-                print(
-                    "Max iterations reached. The following files may still require manual checks:",
-                )
-                for file_path in python_files:
-                    if files_require_formatting([file_path], linters):
-                        print(f" - {file_path}")
-                print("Contact Max about this")
-    else:
-        print("No Python files to format.")
