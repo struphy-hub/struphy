@@ -81,7 +81,7 @@ class Accumulator:
         self,
         particles: Particles,
         space_id: str,
-        kernel: Callable[..., Any],
+        kernel: Pyccelkernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         *,
@@ -96,7 +96,7 @@ class Accumulator:
     ):
         self._particles = particles
         self._space_id = space_id
-        self._kernel = Pyccelkernel(kernel)
+        self._kernel = kernel
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 

@@ -98,7 +98,7 @@ class Pusher:
     def __init__(
         self,
         particles: Particles,
-        kernel,
+        kernel: Pyccelkernel,
         args_kernel: tuple,
         args_domain: DomainArguments,
         *,
@@ -112,8 +112,8 @@ class Pusher:
         verbose: bool = False,
     ):
         self._particles = particles
-        self._kernel = Pyccelkernel(kernel)
-        self._newton = "newton" in kernel.__name__
+        self._kernel = kernel
+        self._newton = "newton" in kernel.name
         self._args_kernel = args_kernel
         self._args_domain = args_domain
 
