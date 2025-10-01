@@ -7,11 +7,11 @@ from numpy import empty, shape, zeros
 from pyccel.decorators import stack_array
 
 import struphy.geometry.mappings_kernels as mappings_kernels
-import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
 # do not remove; needed to identify dependencies
-import struphy.pic.pushing.pusher_args_kernels as pusher_args_kernels
-from struphy.pic.pushing.pusher_args_kernels import DomainArguments
+import struphy.kernel_arguments.pusher_args_kernels as pusher_args_kernels
+import struphy.linear_algebra.linalg_kernels as linalg_kernels
+from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 
 
 def f(

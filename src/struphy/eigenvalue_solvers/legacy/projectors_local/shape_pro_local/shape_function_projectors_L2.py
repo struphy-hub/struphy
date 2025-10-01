@@ -558,7 +558,7 @@ class projectors_L2_3d:
             self.NbaseD,
             particles_loc.shape[1],
             domain.kind_map,
-            domain.params_map,
+            domain.params,
             domain.T[0],
             domain.T[1],
             domain.T[2],
@@ -570,7 +570,7 @@ class projectors_L2_3d:
             domain.cz,
         )
 
-        # ker_loc.kernel_1_heavy(self.pts[0][0], self.pts[1][0], self.pts[2][0], self.wts[0][0], self.wts[1][0], self.wts[2][0], test1, test2, test3, acc.oneform_temp1, acc.oneform_temp2, acc.oneform_temp3, Np, self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13, self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23, self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.num_cell, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.NbaseN, self.NbaseD, particles_loc.shape[1], domain.kind_map, domain.params_map, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
+        # ker_loc.kernel_1_heavy(self.pts[0][0], self.pts[1][0], self.pts[2][0], self.wts[0][0], self.wts[1][0], self.wts[2][0], test1, test2, test3, acc.oneform_temp1, acc.oneform_temp2, acc.oneform_temp3, Np, self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13, self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23, self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.num_cell, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.NbaseN, self.NbaseD, particles_loc.shape[1], domain.kind_map, domain.params, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
 
     def potential_pi_0(self, particles_loc, Np, domain, mpi_comm):
         """
@@ -601,7 +601,7 @@ class projectors_L2_3d:
                 self.related,
                 particles_loc.shape[1],
                 domain.kind_map,
-                domain.params_map,
+                domain.params,
                 domain.T[0],
                 domain.T[1],
                 domain.T[2],
@@ -648,7 +648,7 @@ class projectors_L2_3d:
                 self.related,
                 particles_loc.shape[1],
                 domain.kind_map,
-                domain.params_map,
+                domain.params,
                 domain.T[0],
                 domain.T[1],
                 domain.T[2],
@@ -742,7 +742,7 @@ class projectors_L2_3d:
                 self.related,
                 particles_loc.shape[1],
                 domain.kind_map,
-                domain.params_map,
+                domain.params,
                 domain.T[0],
                 domain.T[1],
                 domain.T[2],
@@ -799,7 +799,7 @@ class projectors_L2_3d:
                     self.related,
                     particles_loc.shape[1],
                     domain.kind_map,
-                    domain.params_map,
+                    domain.params,
                     domain.T[0],
                     domain.T[1],
                     domain.T[2],
@@ -851,7 +851,7 @@ class projectors_L2_3d:
                     self.related,
                     particles_loc.shape[1],
                     domain.kind_map,
-                    domain.params_map,
+                    domain.params,
                     domain.T[0],
                     domain.T[1],
                     domain.T[2],
@@ -903,7 +903,7 @@ class projectors_L2_3d:
                     self.related,
                     particles_loc.shape[1],
                     domain.kind_map,
-                    domain.params_map,
+                    domain.params,
                     domain.T[0],
                     domain.T[1],
                     domain.T[2],
@@ -955,7 +955,7 @@ class projectors_L2_3d:
                     self.related,
                     particles_loc.shape[1],
                     domain.kind_map,
-                    domain.params_map,
+                    domain.params,
                     domain.T[0],
                     domain.T[1],
                     domain.T[2],

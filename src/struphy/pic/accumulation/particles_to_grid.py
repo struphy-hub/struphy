@@ -10,8 +10,9 @@ import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 import struphy.pic.accumulation.filter_kernels as filters
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.profiling.profiling import ProfileManager
 
 
 class Accumulator:
@@ -203,14 +204,14 @@ class Accumulator:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        self.kernel(
-            self.particles.markers,
-            self.particles.Np,
-            self.derham.args_derham,
-            self.args_domain,
-            *self._args_data,
-            *optional_args,
-        )
+        with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+            self.kernel(
+                self.particles.args_markers,
+                self.derham.args_derham,
+                self.args_domain,
+                *self._args_data,
+                *optional_args,
+            )
 
         # apply filter
         if self.filter_params["use_filter"] is not None:
@@ -608,14 +609,14 @@ class AccumulatorVector:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        self.kernel(
-            self.particles.markers,
-            self.particles.Np,
-            self.derham._args_derham,
-            self.args_domain,
-            *self._args_data,
-            *optional_args,
-        )
+        with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+            self.kernel(
+                self.particles.args_markers,
+                self.derham._args_derham,
+                self.args_domain,
+                *self._args_data,
+                *optional_args,
+            )
 
         if self.particles.clone_config is None:
             num_clones = 1

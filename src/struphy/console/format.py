@@ -97,6 +97,10 @@ FAIL_RED = f"{RED_COLOR}FAIL{BLACK_COLOR}"
 PASS_GREEN = f"{GREEN_COLOR}PASS{BLACK_COLOR}"
 
 
+MODELS_INIT_PATH = os.path.join(LIBPATH, "models/__init__.py")
+PROPAGATORS_INIT_PATH = os.path.join(LIBPATH, "propagators/__init__.py")
+
+
 def check_omp_flags(file_path, verbose=False):
     """Checks if a file contains incorrect OpenMP-like flags (`# $`).
 
@@ -412,7 +416,9 @@ def get_python_files(input_type, path=None):
         python_files = parse_path(LIBPATH)
 
     elif input_type == "path":
+        print(path)
         if os.path.isfile(path):
+            print("isfile")
             python_files = [path]
         else:
             python_files = parse_path(path)
@@ -464,8 +470,9 @@ def get_python_files(input_type, path=None):
         print("No Python files found to check.")
         return []
 
-    python_files = [file for file in python_files if not re.search(r"__\w+__", file)]
-
+    python_files = [
+        f for f in python_files if not (re.match(r"^__\w+__\.py$", os.path.basename(f)) and "__init__.py" not in f)
+    ]
     return python_files
 
 
@@ -669,7 +676,7 @@ def struphy_format(config, verbose, yes=False):
     config : dict
         Configuration dictionary containing the following keys:
             - input_type : str, optional
-                The type of files to format ('all', 'path', 'staged', or 'branch'). Defaults to 'all'.
+                The type of files to format ('all', 'path', 'staged', 'branch', or '__init__.py'). Defaults to 'all'.
             - path : str, optional
                 Directory or file path where files will be formatted.
             - linters : list
@@ -693,8 +700,24 @@ def struphy_format(config, verbose, yes=False):
     if input_type is None and path is not None:
         input_type = "path"
 
-    python_files = get_python_files(input_type, path)
+    if input_type == "__init__.py":
+        print(f"Rewriting {PROPAGATORS_INIT_PATH}")
+        propagators_init = construct_propagators_init_file()
+        with open(PROPAGATORS_INIT_PATH, "w") as f:
+            f.write(propagators_init)
+
+        print(f"Rewriting {MODELS_INIT_PATH}")
+        models_init = construct_models_init_file()
+        with open(MODELS_INIT_PATH, "w") as f:
+            f.write(models_init)
+
+        python_files = [PROPAGATORS_INIT_PATH, MODELS_INIT_PATH]
+        input_type = "path"
+    else:
+        python_files = get_python_files(input_type, path)
+
     if len(python_files) == 0:
+        print("No Python files to format.")
         sys.exit(0)
 
     confirm_formatting(python_files, linters, yes)
@@ -1302,3 +1325,53 @@ document.addEventListener('DOMContentLoaded', (event) => {
         print(f"Error: Failed to parse JSON file. {e}")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+
+
+def construct_models_init_file() -> str:
+    """
+    Constructs the content for the __init__.py file for the models module.
+
+    Returns:
+        str: The content for the __init__.py file as a string.
+    """
+    import struphy.models.fluid as fluid
+    import struphy.models.hybrid as hybrid
+    import struphy.models.kinetic as kinetic
+    import struphy.models.toy as toy
+    from struphy.models.base import StruphyModel
+
+    models_init = ""
+
+    model_names = []
+    for model_type in [toy, fluid, hybrid, kinetic]:
+        for _, cls in model_type.__dict__.items():
+            if isinstance(cls, type) and issubclass(cls, StruphyModel) and cls != StruphyModel:
+                model_names.append(cls.__name__)
+                models_init += f"from {model_type.__name__} import {cls.__name__}\n"
+    models_init += "\n\n"
+    models_init += f"__all__ = {model_names}\n"
+    return models_init
+
+
+def construct_propagators_init_file() -> str:
+    """
+    Constructs the content for the __init__.py file for the propagators module.
+
+    Returns:
+        str: The content for the __init__.py file as a string.
+    """
+    import struphy.propagators.propagators_coupling as propagators_coupling
+    import struphy.propagators.propagators_fields as propagators_fields
+    import struphy.propagators.propagators_markers as propagators_markers
+    from struphy.propagators.base import Propagator
+
+    propagators_init = ""
+    propagators_names = []
+    for model_type in [propagators_coupling, propagators_fields, propagators_markers]:
+        for _, cls in model_type.__dict__.items():
+            if isinstance(cls, type) and issubclass(cls, Propagator) and cls != Propagator:
+                propagators_names.append(cls.__name__)
+                propagators_init += f"from {model_type.__name__} import {cls.__name__}\n"
+    propagators_init += "\n\n"
+    propagators_init += f"__all__ = {propagators_names}\n"
+    return propagators_init

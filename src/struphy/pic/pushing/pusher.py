@@ -3,8 +3,9 @@
 import numpy as np
 from mpi4py.MPI import IN_PLACE, SUM
 
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.profiling.profiling import ProfileManager
 
 
 class Pusher:
@@ -277,13 +278,14 @@ class Pusher:
                     )
 
                 # push markers
-                self.kernel(
-                    dt,
-                    stage,
-                    self.particles.args_markers,
-                    self._args_domain,
-                    *self._args_kernel,
-                )
+                with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+                    self.kernel(
+                        dt,
+                        stage,
+                        self.particles.args_markers,
+                        self._args_domain,
+                        *self._args_kernel,
+                    )
 
                 self.particles.apply_kinetic_bc(newton=self._newton)
                 self.particles.update_holes()

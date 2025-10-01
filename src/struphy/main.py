@@ -117,7 +117,8 @@ def main(
             # between the clones : inter_comm
             clone_config = CloneConfig(comm=comm, params=params, num_clones=num_clones)
             clone_config.print_clone_config()
-            clone_config.print_particle_config()
+            if "kinetic" in params:
+                clone_config.print_particle_config()
 
     # instantiate Struphy model (will allocate model objects and associated memory)
     StruphyModel.verbose = verbose
@@ -462,7 +463,7 @@ if __name__ == "__main__":
     config.simulation_label = ""
     pylikwid_markerinit()
     with ProfileManager.profile_region("main"):
-        # solve the model
+        # Call main
         main(
             args.model,
             args.input,
