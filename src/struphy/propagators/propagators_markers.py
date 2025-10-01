@@ -1735,7 +1735,6 @@ class PushVinViscousPotential(Propagator):
     class Options:
         # specific literals
         OptsAlgo = Literal["forward_euler"]
-        OptsThermo = Literal["isothermal", "polytropic"]
         # propagator options
         kernel_type: OptsKernel = "gaussian_2d"
         kernel_width: tuple = None
@@ -1786,9 +1785,9 @@ class PushVinViscousPotential(Propagator):
         kernel_nr = particles.ker_dct()[self.options.kernel_type]
 
         if self.options.kernel_width is None:
-            self.options.kernel_width = tuple([1 / ni for ni in self.particles[0].boxes_per_dim])
+            self.options.kernel_width = tuple([1 / ni for ni in particles.boxes_per_dim])
         else:
-            assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, self.particles[0].boxes_per_dim)])
+            assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, particles.boxes_per_dim)])
 
         # init kernel
         args_init = (
