@@ -3445,3 +3445,143 @@ def push_v_sph_pressure_ideal_gas(
         markers[ip, 3:6] -= dt * (grad_u_cart - gravity)
 
     # -- removed omp: #$ omp end parallel
+
+
+@stack_array("grad_u", "grad_u_cart", "tmp1", "dfinv", "dfinvT")
+def push_v_viscosity(
+    dt: float,
+    stage: int,
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    boxes: "int[:,:]",
+    neighbours: "int[:, :]",
+    holes: "bool[:]",
+    periodic1: "bool",
+    periodic2: "bool",
+    periodic3: "bool",
+    kernel_type: "int",
+    h1: "float",
+    h2: "float",
+    h3: "float",
+):
+    r"""Updates particle velocities as
+
+    .. math::
+
+        \frac{\mathbf v^{n+1} - \mathbf v^n}{\Delta t} = \kappa_p \sum_{q} w_p\,w_q \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_q)} \right) G^{-1}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_q) \,,
+
+    where :math:`G^{-1}` denotes the inverse metric tensor, and with the smoothed density
+
+    .. math::
+
+        \rho^{N,h}(\boldsymbol \eta_p) = \frac 1N \sum_q w_q \, W_h(\boldsymbol \eta_p - \boldsymbol \eta_q)\,,
+
+    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+
+    Parameters
+    ----------
+    boxes : 2d array
+        Box array of the sorting boxes structure.
+
+    neighbours : 2d array
+        Array containing the 27 neighbouring boxes of each box.
+
+    holes : bool
+        1D array of length markers.shape[0]. True if markers[i] is a hole.
+
+    periodic1, periodic2, periodic3 : bool
+        True if periodic in that dimension.
+
+    kernel_type : int
+        Number of the smoothing kernel.
+
+    h1, h2, h3 : float
+        Kernel width in respective dimension.
+
+    gravity: np.ndarray
+        Constant gravitational force as 3-vector.
+    """
+    # allocate arrays
+    grad_u = zeros(3, dtype=float)
+    grad_u_cart = zeros(3, dtype=float)
+    tmp1 = zeros((3, 3), dtype=float)
+    dfinv = zeros((3, 3), dtype=float)
+    dfinvT = zeros((3, 3), dtype=float)
+
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    Np = args_markers.Np
+    weight_idx = args_markers.weight_idx
+    first_free_idx = args_markers.first_free_idx
+    valid_mks = args_markers.valid_mks
+    n_cols = shape(markers)[1]
+    f_visc = zeros(3, dtype=float)
+    f_visc_cart = zeros(3, dtype=float)
+
+    # -- removed omp: #$ omp parallel private(ip, eta1, eta2, eta3, dfinv)
+    # -- removed omp: #$ omp for
+    for ip in range(n_markers):
+        if not valid_mks[ip]:
+            continue
+
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+        kappa = 1.0  # markers[ip, first_diagnostics_idx]
+        # n_at_eta = markers[ip, first_free_idx]
+        loc_box = int(markers[ip, n_cols - 2])
+
+        for j in range(3):  # row of viscosity tensor
+            for k in range(3):  # column = derivative direction
+                coeff_idx = first_free_idx + 3 * j + k + 15
+
+                # if k == 0:
+                #     deriv_type = kernel_type + 1
+                #     use_component = True
+                # elif k == 1 and kernel_type >= 340:
+                #     deriv_type = kernel_type + 2
+                #     use_component = True
+                # elif k == 2 and kernel_type >= 670:
+                #     deriv_type = kernel_type + 3
+                #     use_component = True
+                # else:
+                #     use_component = False
+
+                # if use_component:
+                f_visc[j] += sph_eval_kernels.boxed_based_kernel(
+                    args_markers,
+                    eta1,
+                    eta2,
+                    eta3,
+                    loc_box,
+                    boxes,
+                    neighbours,
+                    holes,
+                    periodic1,
+                    periodic2,
+                    periodic3,
+                    coeff_idx,
+                    kernel_type + 1 + k,
+                    h1,
+                    h2,
+                    h3,
+                )
+
+        # push to Cartesian coordinates
+        evaluation_kernels.df_inv(
+            eta1,
+            eta2,
+            eta3,
+            args_domain,
+            tmp1,
+            False,
+            dfinv,
+        )
+        linalg_kernels.transpose(dfinv, dfinvT)
+        linalg_kernels.matrix_vector(dfinvT, f_visc, f_visc_cart)
+
+        # update velocities
+        markers[ip, 3:6] -= dt * (f_visc_cart)
+
+    # -- removed omp: #$ omp end parallel

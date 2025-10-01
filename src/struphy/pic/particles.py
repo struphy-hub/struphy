@@ -801,7 +801,7 @@ class ParticlesSPH(Particles):
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
-        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
+        self._n_cols_aux = kwargs.pop("n_cols_aux", 24)
 
         clone_config = kwargs.get("clone_config", None)
         assert clone_config is None, "SPH can only be launched with --nclones 1"
