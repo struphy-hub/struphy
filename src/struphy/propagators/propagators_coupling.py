@@ -1517,15 +1517,15 @@ class DeltaFVlasovAmpere(Propagator):
             # print(f"{dw_loc=}")
             dw_glob = self.derham.comm.allreduce(dw_loc, op=MPI.SUM)
             _dz_glob = dw_glob + de_dv
-            self._param[1] = _dz_glob
+            self._param[1] = _dz_glob / self.particles[0].Np
 
-            print()
-            print(f"Iteration {k=} , {dw_glob=}")
-            print()
-            print(f"I={self._param[0]} and dz={self._param[1]}")
-            print()
-            print(self._delta_w_curr[self.particles[0].valid_mks])
-            print()
+            # print()
+            # print(f"Iteration {k=} , {dw_glob=}")
+            # print()
+            # print(f"I={self._param[0]} and dz={self._param[1]}")
+            # print()
+            # print(self._delta_w_curr[self.particles[0].valid_mks])
+            # print()
 
             # Push weights
             self._push_weights(dt)
@@ -1701,7 +1701,7 @@ class DeltaFVlasovAmpere(Propagator):
         # write new coeffs into self.variables
         (max_diff_e,) = self.feec_vars_update(self._delta_e_next)
 
-        # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
+            # print(f"pushing with {max_diff_e=} and {max_diff_v=} and {max_diff_w=}")
 
     def _call_e_v_gamma_w_midpoint(self, dt):
         """Do Picard iteration for substep using an midpoint-like expression"""

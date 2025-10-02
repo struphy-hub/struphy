@@ -939,8 +939,10 @@ def dfva_e_v_gamma_w_accum_explicit(
         v_tilde /= vth**2
         v_tilde *= (-1.0)
 
-        # factor = f0 / markers[ip, 7] * utils.expm1_minus_x_over_x(-v_tilde / vth**2, n_terms=200) - markers[ip, 6]
-        factor = f0 / markers[ip, 7] * (expm1(v_tilde) / v_tilde - 1.0) - markers[ip, 6]
+        if v_tilde == 0.0:
+            factor = (-1.0) * markers[ip, 6]
+        else:
+            factor = f0 / markers[ip, 7] * (expm1(v_tilde) / v_tilde - 1.0) - markers[ip, 6]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -1042,15 +1044,16 @@ def dfva_e_v_gamma_w_accum_midpoint(
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
         v_tilde /= vth**2
 
-        factor = (
-            f0_curr / (2.0 * markers[ip, 7]) 
-            # * utils.expm1_minus_x_over_x(v_tilde, n_terms=200)
-            * (expm1(v_tilde) / v_tilde - 1.0)
-            + f0 / (2.0 * markers[ip, 7]) 
-            # * utils.expm1_minus_x_over_x(-v_tilde, n_terms=200)
-            * (- expm1(- v_tilde) / v_tilde - 1.0)
-            - markers[ip, 6] - 0.5 * delta_w[ip]
-        )
+        if v_tilde == 0.0:
+            factor = (-1.0) * markers[ip, 6] - 0.5 * delta_w[ip]
+        else:
+            factor = (
+                f0_curr / (2.0 * markers[ip, 7]) 
+                * (expm1(v_tilde) / v_tilde - 1.0)
+                + f0 / (2.0 * markers[ip, 7]) 
+                * (- expm1(- v_tilde) / v_tilde - 1.0)
+                - markers[ip, 6] - 0.5 * delta_w[ip]
+            )
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -1150,12 +1153,14 @@ def dfva_e_v_gamma_w_accum_implicit(
         v_tilde += 0.5 * linalg_kernels.scalar_dot(v_diff, v_diff)
         v_tilde /= vth**2
 
-        factor = (
-            f0_curr / markers[ip, 7]
-            * (expm1(v_tilde) / v_tilde - 1.0)
-            # * utils.expm1_minus_x_over_x(v_tilde, n_terms=200)
-            - markers[ip, 6] - delta_w[ip]
-        )
+        if v_tilde == 0.0:
+            factor = (-1.0) * markers[ip, 6] - delta_w[ip]
+        else:
+            factor = (
+                f0_curr / markers[ip, 7]
+                * (expm1(v_tilde) / v_tilde - 1.0)
+                - markers[ip, 6] - delta_w[ip]
+            )
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(

@@ -856,7 +856,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     def update_scalar_quantities(self):
         # 0.5 * e^T * M_1 * e
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
+        self.en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
         self.update_scalar("en_E", self.en_E)
 
         # evaluate f0
@@ -1174,11 +1174,10 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
         # ====================================================================================
         # allocate memory for evaluating f0 and n0 in energy computation
-        if self._variables in ("e_v", "e_v_w", "e_v_gamma"):
-            self._f0_values = np.zeros(
-                self.pointer["species1"].markers.shape[0],
-                dtype=float,
-            )
+        self._f0_values = np.zeros(
+            self.pointer["species1"].markers.shape[0],
+            dtype=float,
+        )
         if self._has_background_e and self._variables in ("e_v", "e_v_gamma", "e_v_gamma_w"):
             self._n0_values = np.zeros(
                 self.pointer["species1"].markers.shape[0],
@@ -1257,9 +1256,6 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             self.add_scalar("sum_f0", compute="from_particles", species="species1")
             summands += ["sum_f0"]
 
-        # if self._variables == "e_v":
-        #     self.add_scalar("en_c_ln_c", compute="from_particles", species="species1")
-
         self.add_scalar(
             "en_tot_p",
             compute="from_particles",
@@ -1332,8 +1328,11 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
 
     def update_scalar_quantities(self):
         # 0.5 * e^T * M_1 * e
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
-        self.update_scalar("en_E", en_E)
+        self.en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
+        if not np.any(np.isnan(self.en_E)):
+            self.update_scalar("en_E", self.en_E)
+        else:
+            self.update_scalar("en_E", 0.0)
 
         # evaluate f0
         self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
@@ -1408,6 +1407,10 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             )
             self.update_scalar("c_v_2", self._tmp[3])
 
+            # Check if gamma stays constant
+            self._tmp[4] = self._gamma[self.pointer["species1"].valid_mks].sum()
+            self.update_scalar("sum_gamma", self._tmp[4])
+
         elif self._variables == "e_v":
             # Because gamma is assumed constant here
             if self._has_background_e:
@@ -1461,34 +1464,6 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
                 ).sum()
             self.update_scalar("sum_f0", self._tmp[6])
 
-        # # gamma_p * ln(gamma_p) - gamma_p
-        # if self._variables == "e_v":
-        #     temp = - (
-        #         self.alpha**2
-        #         * self.vth**2
-        #         * (
-        #             np.multiply(
-        #                 self._gamma[self.pointer["species1"].valid_mks],
-        #                 np.log(self._gamma[self.pointer["species1"].valid_mks]),
-        #             )
-        #             - self._gamma[self.pointer["species1"].valid_mks]
-        #         )
-        #     )
-        #     temp[np.isnan(temp)] = 0.
-        #     self._tmp[3] = temp.sum()
-        #     self.update_scalar("en_c_ln_c", self._tmp[3])
-
-        # # gamma * ln(1 / sqrt( (2*pi*vth^2)^3 ) )
-        # # self._tmp[4] = - self.alpha**2 * self.vth**2 * 1.5 * self._gamma[self.pointer["species1"].valid_mks].sum() * np.log(2 * np.pi * self.vth**2)
-        # if self._variables == "e_v":
-        #     self._tmp[4] = (
-        #         self.alpha**2
-        #         * self.vth**2
-        #         * np.divide(
-        #             self._f0_values[self.pointer["species1"].valid_mks], self.pointer["species1"].sampling_density
-        #         ).sum()
-        #     )
-
         # total particle energy
         self.update_scalar("en_tot_p")
 
@@ -1501,6 +1476,85 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
         # Compute total energy
         if not self._baseclass:
             self.update_scalar("en_tot")
+
+
+class DeltaFVlasovMaxwellOneSpecies(DeltaFVlasovAmpereOneSpecies):
+    """ TODO"""
+
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+
+        dct["em_fields"]["e_field"] = "Hcurl"
+        dct["em_fields"]["b_field"] = "Hdiv"
+        dct["kinetic"]["species1"] = "DeltaFParticles6D"
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "species1"
+
+    @staticmethod
+    def velocity_scale():
+        return "light"
+
+    @staticmethod
+    def propagators_dct():
+        return {
+            propagators_markers.PushEta: ["species1"],
+            propagators_markers.PushVinEfield: ["species1"],
+            propagators_coupling.DeltaFVlasovAmpere: ["e_field", "species1"],
+            propagators_markers.PushVxB: ["species1"],
+            propagators_fields.Maxwell: ["e_field", "b_field"],
+        }
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["em_fields"],
+            option=propagators_fields.ImplicitDiffusion,
+            dct=dct,
+        )
+        cls.add_option(
+            species=["kinetic", "species1"],
+            key="override_eq_params",
+            option=[False, {"epsilon": -1.0, "alpha": 1.0}],
+            dct=dct,
+        )
+        return dct
+
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params=params, comm=comm, clone_config=clone_config, baseclass=True)
+
+        # propagator parameters
+        params_maxwell = params["em_fields"]["options"]["Maxwell"]["solver"]
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.Maxwell] = {"solver": params_maxwell}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+        # magnetic energy
+        self.add_scalar("en_b")
+
+    def initialize_from_params(self):
+        super().initialize_from_params()
+
+    def update_scalar_quantities(self):
+        super().update_scalar_quantities()
+
+        # 0.5 * b^T * M_2 * b
+        en_B = 0.5 * self._mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
+        self.update_scalar("en_tot", self._tmp[0] + self.en_E + en_B)
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
