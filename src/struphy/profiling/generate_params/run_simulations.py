@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# pip install git+ssh://git@github.com/max-models/slurm-script-generator.git
+# pip install slurm-script-generator
 
 import argparse
 import glob

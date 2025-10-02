@@ -979,7 +979,7 @@ run_jobs_sbatch:
     - struphy -p
     - struphy --set-iob $IOB_DIR
     - struphy -p
-    - pip install git+ssh://git@github.com/max-models/slurm-script-generator.git@main
+    - pip install slurm-script-generator
     # Run strong scaling simulations (same problem size, increasing number of processes)
     - python3 src/struphy/profiling/generate_params/write_ptest_params.py --prefix params_CI_
     # Check which simulation to run
