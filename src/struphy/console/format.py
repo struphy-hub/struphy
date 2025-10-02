@@ -124,6 +124,32 @@ def check_omp_flags(file_path, verbose=False):
     except (IOError, FileNotFoundError) as e:
         raise ValueError(f"Error reading file: {e}")
 
+def check_ssort(file_path, verbose=False):
+    """Check if a file is sorted according to ssort.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the Python file.
+
+    verbose : bool, optional
+        If True, enables detailed output (default=False).
+
+    Returns
+    -------
+    bool
+        True if ssort check passes, False otherwise.
+    """
+    result = subprocess.run(
+        ["ssort", "--check", file_path],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if verbose:
+        print("stdout:", result.stdout.decode("utf-8"))
+        print("stderr:", result.stderr.decode("utf-8"))
+    return result.returncode == 0
 
 def check_ruff(file_path, verbose=False):
     """Check if a file passes Ruff linting.
@@ -505,7 +531,7 @@ def struphy_lint(config, verbose):
     if input_type is None and path is not None:
         input_type = "path"
     # Define standard linters which will be checked in the CI
-    ci_linters = ["ruff", "omp_flags"]
+    ci_linters = ["ssort", "ruff", "omp_flags"]
     python_files = get_python_files(input_type, path)
     if len(python_files) == 0:
         sys.exit(0)
@@ -727,6 +753,7 @@ def struphy_format(config, verbose, yes=False):
         "isort": [],
         "add-trailing-comma": ["--exit-zero-even-if-changed"],
         "ruff": [["check", "--fix", "--select", "I"], ["format"]],
+        "ssort": [],
     }
 
     # Skip linting with add-trailing-comma since it disagrees with autopep8
@@ -897,6 +924,7 @@ def analyze_file(file_path, linters=None, verbose=False):
         "passes_add-trailing-comma": False,
         "passes_ruff": False,
         "passes_omp_flags": False,
+        "passes_ssort",
     }
 
     # Read the file content
@@ -938,7 +966,11 @@ def analyze_file(file_path, linters=None, verbose=False):
             file_path,
             verbose=verbose,
         )
-
+    if "ssort" in linters:
+        stats["passes_ssort"] = check_ssort(
+            file_path,
+            verbose=verbose,
+        )
     return stats
 
 

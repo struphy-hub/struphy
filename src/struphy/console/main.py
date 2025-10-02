@@ -1009,6 +1009,7 @@ def add_parser_format(subparsers):
         import autopep8
         import isort
         import ruff
+        import ssort
 
         add_lintformat_parser = True
     except ModuleNotFoundError:
@@ -1053,7 +1054,7 @@ def add_parser_format(subparsers):
             "--linters",
             type=str,
             nargs="+",
-            default=["ruff"],
+            default=["ssort", "ruff"],
             choices=["add-trailing-comma", "isort", "autopep8", "ruff"],
             help="list of linters to use",
         )
