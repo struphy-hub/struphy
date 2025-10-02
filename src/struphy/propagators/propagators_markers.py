@@ -257,7 +257,7 @@ class PushVinEfield(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_v_with_efield,
+            Pyccelkernel(pusher_kernels.push_v_with_efield),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -1462,7 +1462,7 @@ class PushRandomDiffusion(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_random_diffusion_stage,
+            Pyccelkernel(pusher_kernels.push_random_diffusion_stage),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
