@@ -160,7 +160,7 @@ class VlasovAmpere(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_v_with_efield,
+            Pyccelkernel(pusher_kernels.push_v_with_efield),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -385,7 +385,7 @@ class EfieldWeights(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_weights_with_efield_lin_va,
+            Pyccelkernel(pusher_kernels.push_weights_with_efield_lin_va),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -555,10 +555,10 @@ class PressureCoupling6D(Propagator):
         # Call the accumulation and Pusher class
         if use_perp_model:
             accum_ker = accum_kernels.pc_lin_mhd_6d
-            pusher_ker = pusher_kernels.push_pc_GXu
+            pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu)
         else:
             accum_ker = accum_kernels.pc_lin_mhd_6d_full
-            pusher_ker = pusher_kernels.push_pc_GXu_full
+            pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu_full)
 
         self._coupling_mat = coupling_params["Ah"] / coupling_params["Ab"]
         self._coupling_vec = coupling_params["Ah"] / coupling_params["Ab"]
