@@ -4,6 +4,145 @@ import pytest
 from struphy.fields_background import equils
 
 
+def assert_scalar(result, kind, *etas):
+    if kind == "markers":
+        markers = etas[0]
+        n_p = markers.shape[0]
+
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (n_p,)
+
+        for ip in range(n_p):
+            assert isinstance(result[ip], float)
+            assert not np.isnan(result[ip])
+
+    else:
+        # point-wise
+        if kind == "point":
+            assert isinstance(result, float)
+            assert not np.isnan(result)
+
+        # slices
+        else:
+            assert isinstance(result, np.ndarray)
+
+            # eta1-array
+            if kind == "e1":
+                assert result.shape == (etas[0].size,)
+
+            # eta2-array
+            elif kind == "e2":
+                assert result.shape == (etas[1].size,)
+
+            # eta3-array
+            elif kind == "e3":
+                assert result.shape == (etas[2].size,)
+
+            # eta1-eta2-array
+            elif kind == "e1_e2":
+                assert result.shape == (etas[0].size, etas[1].size)
+
+            # eta1-eta3-array
+            elif kind == "e1_e3":
+                assert result.shape == (etas[0].size, etas[2].size)
+
+            # eta2-eta3-array
+            elif kind == "e2_e3":
+                assert result.shape == (etas[1].size, etas[2].size)
+
+            # eta1-eta2-eta3-array
+            elif kind == "e1_e2_e3":
+                assert result.shape == (etas[0].size, etas[1].size, etas[2].size)
+
+            # 12-matrix
+            elif kind == "e1_e2_m":
+                assert result.shape == (etas[0].shape[0], etas[1].shape[1])
+
+            # 13-matrix
+            elif kind == "e1_e3_m":
+                assert result.shape == (etas[0].shape[0], etas[2].shape[1])
+
+            # 123-matrix
+            elif kind == "e1_e2_e3_m":
+                assert result.shape == (etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
+
+            # 123-matrix (sparse)
+            elif kind == "e1_e2_e3_m_sparse":
+                assert result.shape == (etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
+
+
+def assert_vector(result, kind, *etas):
+    if kind == "markers":
+        markers = etas[0]
+        n_p = markers.shape[0]
+
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (3, n_p)
+
+        for c in range(3):
+            for ip in range(n_p):
+                assert isinstance(result[c, ip], float)
+                assert not np.isnan(result[c, ip])
+
+    else:
+        # point-wise
+        if kind == "point":
+            assert isinstance(result, np.ndarray)
+            assert result.shape == (3,)
+
+            for c in range(3):
+                assert isinstance(result[c], float)
+                assert not np.isnan(result[c])
+
+        # slices
+        else:
+            assert isinstance(result, np.ndarray)
+
+            # eta1-array
+            if kind == "e1":
+                assert result.shape == (3, etas[0].size)
+
+            # eta2-array
+            elif kind == "e2":
+                assert result.shape == (3, etas[1].size)
+
+            # eta3-array
+            elif kind == "e3":
+                assert result.shape == (3, etas[2].size)
+
+            # eta1-eta2-array
+            elif kind == "e1_e2":
+                assert result.shape == (3, etas[0].size, etas[1].size)
+
+            # eta1-eta3-array
+            elif kind == "e1_e3":
+                assert result.shape == (3, etas[0].size, etas[2].size)
+
+            # eta2-eta3-array
+            elif kind == "e3_e3":
+                assert result.shape == (3, etas[1].size, etas[2].size)
+
+            # eta1-eta2-eta3-array
+            elif kind == "e1_e2_e3":
+                assert result.shape == (3, etas[0].size, etas[1].size, etas[2].size)
+
+            # 12-matrix
+            elif kind == "e1_e2_m":
+                assert result.shape == (3, etas[0].shape[0], etas[1].shape[1])
+
+            # 13-matrix
+            elif kind == "e1_e3_m":
+                assert result.shape == (3, etas[0].shape[0], etas[2].shape[1])
+
+            # 123-matrix
+            elif kind == "e1_e2_e3_m":
+                assert result.shape == (3, etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
+
+            # 123-matrix (sparse)
+            elif kind == "e1_e2_e3_m_sparse":
+                assert result.shape == (3, etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
+
+
 @pytest.mark.parametrize(
     "equil_domain_pair",
     [
@@ -841,145 +980,6 @@ def test_equils(equil_domain_pair):
         ("|   " + equil_domain_pair[2]).ljust(20),
         ("|   passed"),
     )
-
-
-def assert_scalar(result, kind, *etas):
-    if kind == "markers":
-        markers = etas[0]
-        n_p = markers.shape[0]
-
-        assert isinstance(result, np.ndarray)
-        assert result.shape == (n_p,)
-
-        for ip in range(n_p):
-            assert isinstance(result[ip], float)
-            assert not np.isnan(result[ip])
-
-    else:
-        # point-wise
-        if kind == "point":
-            assert isinstance(result, float)
-            assert not np.isnan(result)
-
-        # slices
-        else:
-            assert isinstance(result, np.ndarray)
-
-            # eta1-array
-            if kind == "e1":
-                assert result.shape == (etas[0].size,)
-
-            # eta2-array
-            elif kind == "e2":
-                assert result.shape == (etas[1].size,)
-
-            # eta3-array
-            elif kind == "e3":
-                assert result.shape == (etas[2].size,)
-
-            # eta1-eta2-array
-            elif kind == "e1_e2":
-                assert result.shape == (etas[0].size, etas[1].size)
-
-            # eta1-eta3-array
-            elif kind == "e1_e3":
-                assert result.shape == (etas[0].size, etas[2].size)
-
-            # eta2-eta3-array
-            elif kind == "e2_e3":
-                assert result.shape == (etas[1].size, etas[2].size)
-
-            # eta1-eta2-eta3-array
-            elif kind == "e1_e2_e3":
-                assert result.shape == (etas[0].size, etas[1].size, etas[2].size)
-
-            # 12-matrix
-            elif kind == "e1_e2_m":
-                assert result.shape == (etas[0].shape[0], etas[1].shape[1])
-
-            # 13-matrix
-            elif kind == "e1_e3_m":
-                assert result.shape == (etas[0].shape[0], etas[2].shape[1])
-
-            # 123-matrix
-            elif kind == "e1_e2_e3_m":
-                assert result.shape == (etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
-
-            # 123-matrix (sparse)
-            elif kind == "e1_e2_e3_m_sparse":
-                assert result.shape == (etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
-
-
-def assert_vector(result, kind, *etas):
-    if kind == "markers":
-        markers = etas[0]
-        n_p = markers.shape[0]
-
-        assert isinstance(result, np.ndarray)
-        assert result.shape == (3, n_p)
-
-        for c in range(3):
-            for ip in range(n_p):
-                assert isinstance(result[c, ip], float)
-                assert not np.isnan(result[c, ip])
-
-    else:
-        # point-wise
-        if kind == "point":
-            assert isinstance(result, np.ndarray)
-            assert result.shape == (3,)
-
-            for c in range(3):
-                assert isinstance(result[c], float)
-                assert not np.isnan(result[c])
-
-        # slices
-        else:
-            assert isinstance(result, np.ndarray)
-
-            # eta1-array
-            if kind == "e1":
-                assert result.shape == (3, etas[0].size)
-
-            # eta2-array
-            elif kind == "e2":
-                assert result.shape == (3, etas[1].size)
-
-            # eta3-array
-            elif kind == "e3":
-                assert result.shape == (3, etas[2].size)
-
-            # eta1-eta2-array
-            elif kind == "e1_e2":
-                assert result.shape == (3, etas[0].size, etas[1].size)
-
-            # eta1-eta3-array
-            elif kind == "e1_e3":
-                assert result.shape == (3, etas[0].size, etas[2].size)
-
-            # eta2-eta3-array
-            elif kind == "e3_e3":
-                assert result.shape == (3, etas[1].size, etas[2].size)
-
-            # eta1-eta2-eta3-array
-            elif kind == "e1_e2_e3":
-                assert result.shape == (3, etas[0].size, etas[1].size, etas[2].size)
-
-            # 12-matrix
-            elif kind == "e1_e2_m":
-                assert result.shape == (3, etas[0].shape[0], etas[1].shape[1])
-
-            # 13-matrix
-            elif kind == "e1_e3_m":
-                assert result.shape == (3, etas[0].shape[0], etas[2].shape[1])
-
-            # 123-matrix
-            elif kind == "e1_e2_e3_m":
-                assert result.shape == (3, etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
-
-            # 123-matrix (sparse)
-            elif kind == "e1_e2_e3_m_sparse":
-                assert result.shape == (3, etas[0].shape[0], etas[1].shape[1], etas[2].shape[2])
 
 
 if __name__ == "__main__":

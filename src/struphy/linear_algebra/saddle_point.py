@@ -79,6 +79,97 @@ class SaddlePointSolver:
         Maximum number of iterations allowed.
     """
 
+    def _is_inverse_still_valid(self, inv, mat, name="", pre=None):
+        # try:
+        if pre is not None:
+            test_mat = pre @ mat
+        else:
+            test_mat = mat
+        I_approx = inv @ test_mat
+
+        if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+            I_exact = np.eye(test_mat.shape[0])
+            if not np.allclose(I_approx, I_exact, atol=1e-6):
+                diff = I_approx - I_exact
+                max_abs = np.abs(diff).max()
+                print(f"{name} inverse is NOT valid anymore. Max diff: {max_abs:.2e}")
+                return False
+            print(f"{name} inverse is still valid.")
+            return True
+        elif self._method_to_solve == "ScipySparse":
+            I_exact = sc.sparse.identity(I_approx.shape[0], format=I_approx.format)
+            diff = (I_approx - I_exact).tocoo()
+            max_abs = np.abs(diff.data).max() if diff.nnz > 0 else 0.0
+
+            if max_abs > 1e-6:
+                print(f"{name} inverse is NOT valid anymore.")
+                print(f"Max absolute difference: {max_abs:.2e}")
+                print(f"Number of differing entries: {diff.nnz}")
+                return False
+            print(f"{name} inverse is still valid.")
+            return True
+
+    def _compute_inverse(self, mat, which="matrix"):
+        print(f"Computing inverse for {which} using method {self._method_to_solve}")
+        if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+            return np.linalg.inv(mat)
+        elif self._method_to_solve == "ScipySparse":
+            return sc.sparse.linalg.inv(mat)
+        elif self._method_to_solve == "SparseSolver":
+            solver = SparseSolver(mat)
+            return solver.solve(np.eye(mat.shape[0]))
+        else:
+            raise ValueError(f"Unknown solver method {self._method_to_solve}")
+
+    def _setup_inverses(self):
+        A0 = self._A[0]
+        A1 = self._A[1]
+
+        # === Preconditioner inverses, if used
+        if self._preconditioner:
+            A11_pre = self._Apre[0]
+            A22_pre = self._Apre[1]
+
+            if hasattr(self, "_A11npinv") and self._is_inverse_still_valid(self._A11npinv, A11_pre, "A11 pre"):
+                pass
+            else:
+                self._A11npinv = self._compute_inverse(A11_pre, which="A11 pre")
+
+            if hasattr(self, "_A22npinv") and self._is_inverse_still_valid(self._A22npinv, A22_pre, "A22 pre"):
+                pass
+            else:
+                self._A22npinv = self._compute_inverse(A22_pre, which="A22 pre")
+
+            # === Inverse for A[0] if preconditioned
+            if hasattr(self, "_Anpinv") and self._is_inverse_still_valid(self._Anpinv, A0, "A[0]", pre=self._A11npinv):
+                pass
+            else:
+                self._Anpinv = self._compute_inverse(self._A11npinv @ A0, which="A[0]")
+
+            # === Inverse for A[1]
+            if hasattr(self, "_Aenpinv") and self._is_inverse_still_valid(
+                self._Aenpinv, A1, "A[1]", pre=self._A22npinv
+            ):
+                pass
+            else:
+                self._Aenpinv = self._compute_inverse(self._A22npinv @ A1, which="A[1]")
+
+        else:  # No preconditioning:
+            # === Inverse for A[0]
+            if hasattr(self, "_Anpinv") and self._is_inverse_still_valid(self._Anpinv, A0, "A[0]"):
+                pass
+            else:
+                self._Anpinv = self._compute_inverse(A0, which="A[0]")
+
+            # === Inverse for A[1]
+            if hasattr(self, "_Aenpinv") and self._is_inverse_still_valid(self._Aenpinv, A1, "A[1]"):
+                pass
+            else:
+                self._Aenpinv = self._compute_inverse(A1, which="A[1]")
+
+        # Precompute Schur complement
+        self._Precnp = self._B1np @ self._Anpinv @ self._B1np.T + self._B2np @ self._Aenpinv @ self._B2np.T
+
     def __init__(
         self,
         A: Union[list, LinearOperator, BlockLinearOperator],
@@ -250,6 +341,93 @@ class SaddlePointSolver:
         elif self._variant == "Inverse_Solver":
             self._Apre = a
 
+    def _spectral_analysis(self):
+        # Spectral analysis
+        # A11 before
+        if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+            eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0])
+            condA11_before = np.linalg.cond(self._A[0])
+        elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+            eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0].toarray())
+            condA11_before = np.linalg.cond(self._A[0].toarray())
+        maxbeforeA11 = max(eigvalsA11_before)
+        maxbeforeA11_abs = np.max(np.abs(eigvalsA11_before))
+        minbeforeA11_abs = np.min(np.abs(eigvalsA11_before))
+        minbeforeA11 = min(eigvalsA11_before)
+        specA11_bef = maxbeforeA11 / minbeforeA11
+        specA11_bef_abs = maxbeforeA11_abs / minbeforeA11_abs
+        # print(f'{maxbeforeA11 = }')
+        # print(f'{maxbeforeA11_abs = }')
+        # print(f'{minbeforeA11_abs = }')
+        # print(f'{minbeforeA11 = }')
+        # print(f'{specA11_bef = }')
+        print(f"{specA11_bef_abs = }")
+
+        # A22 before
+        if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+            eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1])
+            condA22_before = np.linalg.cond(self._A[1])
+        elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+            eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1].toarray())
+            condA22_before = np.linalg.cond(self._A[1].toarray())
+        maxbeforeA22 = max(eigvalsA22_before)
+        maxbeforeA22_abs = np.max(np.abs(eigvalsA22_before))
+        minbeforeA22_abs = np.min(np.abs(eigvalsA22_before))
+        minbeforeA22 = min(eigvalsA22_before)
+        specA22_bef = maxbeforeA22 / minbeforeA22
+        specA22_bef_abs = maxbeforeA22_abs / minbeforeA22_abs
+        # print(f'{maxbeforeA22 = }')
+        # print(f'{maxbeforeA22_abs = }')
+        # print(f'{minbeforeA22_abs = }')
+        # print(f'{minbeforeA22 = }')
+        # print(f'{specA22_bef = }')
+        print(f"{specA22_bef_abs = }")
+        print(f"{condA22_before = }")
+
+        if self._preconditioner == True:
+            # A11 after preconditioning with its inverse
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                eigvalsA11_after_prec, eigvecs_after = np.linalg.eig(self._A11npinv @ self._A[0])  # Implement this
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                eigvalsA11_after_prec, eigvecs_after = np.linalg.eig((self._A11npinv @ self._A[0]).toarray())
+            maxafterA11_prec = max(eigvalsA11_after_prec)
+            minafterA11_prec = min(eigvalsA11_after_prec)
+            maxafterA11_abs_prec = np.max(np.abs(eigvalsA11_after_prec))
+            minafterA11_abs_prec = np.min(np.abs(eigvalsA11_after_prec))
+            specA11_aft_prec = maxafterA11_prec / minafterA11_prec
+            specA11_aft_abs_prec = maxafterA11_abs_prec / minafterA11_abs_prec
+            # print(f'{maxafterA11_prec = }')
+            # print(f'{maxafterA11_abs_prec = }')
+            # print(f'{minafterA11_abs_prec = }')
+            # print(f'{minafterA11_prec = }')
+            # print(f'{specA11_aft_prec = }')
+            print(f"{specA11_aft_abs_prec = }")
+
+            # A22 after preconditioning with its inverse
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                eigvalsA22_after_prec, eigvecs_after = np.linalg.eig(self._A22npinv @ self._A[1])  # Implement this
+                condA22_after = np.linalg.cond(self._A22npinv @ self._A[1])
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                eigvalsA22_after_prec, eigvecs_after = np.linalg.eig((self._A22npinv @ self._A[1]).toarray())
+                condA22_after = np.linalg.cond((self._A22npinv @ self._A[1]).toarray())
+            maxafterA22_prec = max(eigvalsA22_after_prec)
+            minafterA22_prec = min(eigvalsA22_after_prec)
+            maxafterA22_abs_prec = np.max(np.abs(eigvalsA22_after_prec))
+            minafterA22_abs_prec = np.min(np.abs(eigvalsA22_after_prec))
+            specA22_aft_prec = maxafterA22_prec / minafterA22_prec
+            specA22_aft_abs_prec = maxafterA22_abs_prec / minafterA22_abs_prec
+            # print(f'{maxafterA22_prec = }')
+            # print(f'{maxafterA22_abs_prec = }')
+            # print(f'{minafterA22_abs_prec = }')
+            # print(f'{minafterA22_prec = }')
+            # print(f'{specA22_aft_prec = }')
+            print(f"{specA22_aft_abs_prec = }")
+
+            return condA22_before, specA22_bef_abs, condA11_before, condA22_after, specA22_aft_abs_prec
+
+        else:
+            return condA22_before, specA22_bef_abs, condA11_before
+
     def __call__(self, U_init=None, Ue_init=None, P_init=None, out=None):
         """
         Solves the saddle-point problem using the Uzawa algorithm.
@@ -385,181 +563,3 @@ class SaddlePointSolver:
             if self._verbose == True:
                 _plot_residual_norms(self._residual_norms)
             return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
-
-    def _setup_inverses(self):
-        A0 = self._A[0]
-        A1 = self._A[1]
-
-        # === Preconditioner inverses, if used
-        if self._preconditioner:
-            A11_pre = self._Apre[0]
-            A22_pre = self._Apre[1]
-
-            if hasattr(self, "_A11npinv") and self._is_inverse_still_valid(self._A11npinv, A11_pre, "A11 pre"):
-                pass
-            else:
-                self._A11npinv = self._compute_inverse(A11_pre, which="A11 pre")
-
-            if hasattr(self, "_A22npinv") and self._is_inverse_still_valid(self._A22npinv, A22_pre, "A22 pre"):
-                pass
-            else:
-                self._A22npinv = self._compute_inverse(A22_pre, which="A22 pre")
-
-            # === Inverse for A[0] if preconditioned
-            if hasattr(self, "_Anpinv") and self._is_inverse_still_valid(self._Anpinv, A0, "A[0]", pre=self._A11npinv):
-                pass
-            else:
-                self._Anpinv = self._compute_inverse(self._A11npinv @ A0, which="A[0]")
-
-            # === Inverse for A[1]
-            if hasattr(self, "_Aenpinv") and self._is_inverse_still_valid(
-                self._Aenpinv, A1, "A[1]", pre=self._A22npinv
-            ):
-                pass
-            else:
-                self._Aenpinv = self._compute_inverse(self._A22npinv @ A1, which="A[1]")
-
-        else:  # No preconditioning:
-            # === Inverse for A[0]
-            if hasattr(self, "_Anpinv") and self._is_inverse_still_valid(self._Anpinv, A0, "A[0]"):
-                pass
-            else:
-                self._Anpinv = self._compute_inverse(A0, which="A[0]")
-
-            # === Inverse for A[1]
-            if hasattr(self, "_Aenpinv") and self._is_inverse_still_valid(self._Aenpinv, A1, "A[1]"):
-                pass
-            else:
-                self._Aenpinv = self._compute_inverse(A1, which="A[1]")
-
-        # Precompute Schur complement
-        self._Precnp = self._B1np @ self._Anpinv @ self._B1np.T + self._B2np @ self._Aenpinv @ self._B2np.T
-
-    def _is_inverse_still_valid(self, inv, mat, name="", pre=None):
-        # try:
-        if pre is not None:
-            test_mat = pre @ mat
-        else:
-            test_mat = mat
-        I_approx = inv @ test_mat
-
-        if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            I_exact = np.eye(test_mat.shape[0])
-            if not np.allclose(I_approx, I_exact, atol=1e-6):
-                diff = I_approx - I_exact
-                max_abs = np.abs(diff).max()
-                print(f"{name} inverse is NOT valid anymore. Max diff: {max_abs:.2e}")
-                return False
-            print(f"{name} inverse is still valid.")
-            return True
-        elif self._method_to_solve == "ScipySparse":
-            I_exact = sc.sparse.identity(I_approx.shape[0], format=I_approx.format)
-            diff = (I_approx - I_exact).tocoo()
-            max_abs = np.abs(diff.data).max() if diff.nnz > 0 else 0.0
-
-            if max_abs > 1e-6:
-                print(f"{name} inverse is NOT valid anymore.")
-                print(f"Max absolute difference: {max_abs:.2e}")
-                print(f"Number of differing entries: {diff.nnz}")
-                return False
-            print(f"{name} inverse is still valid.")
-            return True
-
-    def _compute_inverse(self, mat, which="matrix"):
-        print(f"Computing inverse for {which} using method {self._method_to_solve}")
-        if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            return np.linalg.inv(mat)
-        elif self._method_to_solve == "ScipySparse":
-            return sc.sparse.linalg.inv(mat)
-        elif self._method_to_solve == "SparseSolver":
-            solver = SparseSolver(mat)
-            return solver.solve(np.eye(mat.shape[0]))
-        else:
-            raise ValueError(f"Unknown solver method {self._method_to_solve}")
-
-    def _spectral_analysis(self):
-        # Spectral analysis
-        # A11 before
-        if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0])
-            condA11_before = np.linalg.cond(self._A[0])
-        elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-            eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0].toarray())
-            condA11_before = np.linalg.cond(self._A[0].toarray())
-        maxbeforeA11 = max(eigvalsA11_before)
-        maxbeforeA11_abs = np.max(np.abs(eigvalsA11_before))
-        minbeforeA11_abs = np.min(np.abs(eigvalsA11_before))
-        minbeforeA11 = min(eigvalsA11_before)
-        specA11_bef = maxbeforeA11 / minbeforeA11
-        specA11_bef_abs = maxbeforeA11_abs / minbeforeA11_abs
-        # print(f'{maxbeforeA11 = }')
-        # print(f'{maxbeforeA11_abs = }')
-        # print(f'{minbeforeA11_abs = }')
-        # print(f'{minbeforeA11 = }')
-        # print(f'{specA11_bef = }')
-        print(f"{specA11_bef_abs = }")
-
-        # A22 before
-        if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1])
-            condA22_before = np.linalg.cond(self._A[1])
-        elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-            eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1].toarray())
-            condA22_before = np.linalg.cond(self._A[1].toarray())
-        maxbeforeA22 = max(eigvalsA22_before)
-        maxbeforeA22_abs = np.max(np.abs(eigvalsA22_before))
-        minbeforeA22_abs = np.min(np.abs(eigvalsA22_before))
-        minbeforeA22 = min(eigvalsA22_before)
-        specA22_bef = maxbeforeA22 / minbeforeA22
-        specA22_bef_abs = maxbeforeA22_abs / minbeforeA22_abs
-        # print(f'{maxbeforeA22 = }')
-        # print(f'{maxbeforeA22_abs = }')
-        # print(f'{minbeforeA22_abs = }')
-        # print(f'{minbeforeA22 = }')
-        # print(f'{specA22_bef = }')
-        print(f"{specA22_bef_abs = }")
-        print(f"{condA22_before = }")
-
-        if self._preconditioner == True:
-            # A11 after preconditioning with its inverse
-            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-                eigvalsA11_after_prec, eigvecs_after = np.linalg.eig(self._A11npinv @ self._A[0])  # Implement this
-            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-                eigvalsA11_after_prec, eigvecs_after = np.linalg.eig((self._A11npinv @ self._A[0]).toarray())
-            maxafterA11_prec = max(eigvalsA11_after_prec)
-            minafterA11_prec = min(eigvalsA11_after_prec)
-            maxafterA11_abs_prec = np.max(np.abs(eigvalsA11_after_prec))
-            minafterA11_abs_prec = np.min(np.abs(eigvalsA11_after_prec))
-            specA11_aft_prec = maxafterA11_prec / minafterA11_prec
-            specA11_aft_abs_prec = maxafterA11_abs_prec / minafterA11_abs_prec
-            # print(f'{maxafterA11_prec = }')
-            # print(f'{maxafterA11_abs_prec = }')
-            # print(f'{minafterA11_abs_prec = }')
-            # print(f'{minafterA11_prec = }')
-            # print(f'{specA11_aft_prec = }')
-            print(f"{specA11_aft_abs_prec = }")
-
-            # A22 after preconditioning with its inverse
-            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-                eigvalsA22_after_prec, eigvecs_after = np.linalg.eig(self._A22npinv @ self._A[1])  # Implement this
-                condA22_after = np.linalg.cond(self._A22npinv @ self._A[1])
-            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-                eigvalsA22_after_prec, eigvecs_after = np.linalg.eig((self._A22npinv @ self._A[1]).toarray())
-                condA22_after = np.linalg.cond((self._A22npinv @ self._A[1]).toarray())
-            maxafterA22_prec = max(eigvalsA22_after_prec)
-            minafterA22_prec = min(eigvalsA22_after_prec)
-            maxafterA22_abs_prec = np.max(np.abs(eigvalsA22_after_prec))
-            minafterA22_abs_prec = np.min(np.abs(eigvalsA22_after_prec))
-            specA22_aft_prec = maxafterA22_prec / minafterA22_prec
-            specA22_aft_abs_prec = maxafterA22_abs_prec / minafterA22_abs_prec
-            # print(f'{maxafterA22_prec = }')
-            # print(f'{maxafterA22_abs_prec = }')
-            # print(f'{minafterA22_abs_prec = }')
-            # print(f'{minafterA22_prec = }')
-            # print(f'{specA22_aft_prec = }')
-            print(f"{specA22_aft_abs_prec = }")
-
-            return condA22_before, specA22_bef_abs, condA11_before, condA22_after, specA22_aft_abs_prec
-
-        else:
-            return condA22_before, specA22_bef_abs, condA11_before

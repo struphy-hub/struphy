@@ -203,6 +203,33 @@ class PolarDerhamSpace(VectorSpace):
         return x.dot(y)
 
 
+def set_tp_rings_to_zero(v, n_rings):
+    """
+    Sets a certain number of rings of a Stencil-/BlockVector in eta_1 direction to zero.
+
+    Parameters
+    ----------
+    v : StencilVector | BlockVector
+        The vector whose inner rings shall be set to zero.
+
+    n_rings : tuple
+        The number of rings that shall be set to zero (has length 1 for StencilVector and 3 for BlockVector).
+    """
+    assert isinstance(n_rings, tuple)
+
+    if isinstance(v, StencilVector):
+        if v.starts[0] == 0:
+            v[: n_rings[0], :, :] = 0.0
+    elif isinstance(v, BlockVector):
+        for n, starts in enumerate(v.space.starts):
+            if starts[0] == 0:
+                v[n][: n_rings[n], :, :] = 0.0
+    else:
+        raise ValueError(
+            "Input vector must be an instance of StencilVector of BlockVector!",
+        )
+
+
 class PolarVector(Vector):
     """
     Element of a PolarDerhamSpace.
@@ -368,111 +395,6 @@ class PolarVector(Vector):
             np.copyto(w._pol[n], pl, casting="no")
         return w
 
-    def __neg__(self):
-        """TODO"""
-        w = PolarVector(self.space)
-        if isinstance(w.tp, StencilVector):
-            w._pol[0][:] = -self.pol[0]
-            w._tp[:] = -self.tp[:]
-        else:
-            for n in range(3):
-                w._pol[n][:] = -self.pol[n]
-                w._tp[n][:] = -self.tp[n][:]
-        return w
-
-    def __mul__(self, a):
-        """TODO"""
-        w = PolarVector(self.space)
-        if isinstance(w.tp, StencilVector):
-            w._pol[0][:] = self.pol[0] * a
-            w._tp[:] = self.tp[:] * a
-        else:
-            for n in range(3):
-                w._pol[n][:] = self.pol[n] * a
-                w._tp[n][:] = self.tp[n][:] * a
-        return w
-
-    def __rmul__(self, a):
-        """TODO"""
-        w = PolarVector(self.space)
-        if isinstance(w.tp, StencilVector):
-            w._pol[0][:] = a * self.pol[0]
-            w._tp[:] = a * self.tp[:]
-        else:
-            for n in range(3):
-                w._pol[n][:] = a * self.pol[n]
-                w._tp[n][:] = a * self.tp[n][:]
-        return w
-
-    def __add__(self, v):
-        """TODO"""
-        assert isinstance(v, PolarVector)
-        assert v.space == self.space
-
-        w = PolarVector(self.space)
-        if isinstance(w.tp, StencilVector):
-            w._pol[0][:] = self.pol[0] + v.pol[0]
-            w._tp[:] = self.tp[:] + v.tp[:]
-        else:
-            for n in range(3):
-                w._pol[n][:] = self.pol[n] + v.pol[n]
-                w._tp[n][:] = self.tp[n][:] + v.tp[n][:]
-        return w
-
-    def __sub__(self, v):
-        """TODO"""
-        assert isinstance(v, PolarVector)
-        assert v.space == self.space
-
-        w = PolarVector(self.space)
-        if isinstance(w.tp, StencilVector):
-            w._pol[0][:] = self.pol[0] - v.pol[0]
-            w._tp[:] = self.tp[:] - v.tp[:]
-        else:
-            for n in range(3):
-                w._pol[n][:] = self.pol[n] - v.pol[n]
-                w._tp[n][:] = self.tp[n][:] - v.tp[n][:]
-        return w
-
-    def __imul__(self, a):
-        """TODO"""
-        if isinstance(self.tp, StencilVector):
-            self._pol[0] *= a
-            self._tp *= a
-        else:
-            for n in range(3):
-                self._pol[n] *= a
-                self._tp[n] *= a
-        return self
-
-    def __iadd__(self, v):
-        """TODO"""
-        assert isinstance(v, PolarVector)
-        assert v.space == self.space
-
-        if isinstance(self.tp, StencilVector):
-            self._pol[0] += v.pol[0]
-            self._tp += v.tp
-        else:
-            for n in range(3):
-                self._pol[n] += v.pol[n]
-                self._tp[n] += v.tp[n]
-        return self
-
-    def __isub__(self, v):
-        """TODO"""
-        assert isinstance(v, PolarVector)
-        assert v.space == self.space
-
-        if isinstance(self.tp, StencilVector):
-            self._pol[0] -= v.pol[0]
-            self._tp -= v.tp
-        else:
-            for n in range(3):
-                self._pol[n] -= v.pol[n]
-                self._tp[n] -= v.tp[n]
-        return self
-
     # def update_ghost_regions(self, *, direction=None):
     def update_ghost_regions(self):
         """
@@ -508,29 +430,107 @@ class PolarVector(Vector):
         """No need for complex conjugate"""
         pass
 
+    def __add__(self, v):
+        """TODO"""
+        assert isinstance(v, PolarVector)
+        assert v.space == self.space
 
-def set_tp_rings_to_zero(v, n_rings):
-    """
-    Sets a certain number of rings of a Stencil-/BlockVector in eta_1 direction to zero.
+        w = PolarVector(self.space)
+        if isinstance(w.tp, StencilVector):
+            w._pol[0][:] = self.pol[0] + v.pol[0]
+            w._tp[:] = self.tp[:] + v.tp[:]
+        else:
+            for n in range(3):
+                w._pol[n][:] = self.pol[n] + v.pol[n]
+                w._tp[n][:] = self.tp[n][:] + v.tp[n][:]
+        return w
 
-    Parameters
-    ----------
-    v : StencilVector | BlockVector
-        The vector whose inner rings shall be set to zero.
+    def __iadd__(self, v):
+        """TODO"""
+        assert isinstance(v, PolarVector)
+        assert v.space == self.space
 
-    n_rings : tuple
-        The number of rings that shall be set to zero (has length 1 for StencilVector and 3 for BlockVector).
-    """
-    assert isinstance(n_rings, tuple)
+        if isinstance(self.tp, StencilVector):
+            self._pol[0] += v.pol[0]
+            self._tp += v.tp
+        else:
+            for n in range(3):
+                self._pol[n] += v.pol[n]
+                self._tp[n] += v.tp[n]
+        return self
 
-    if isinstance(v, StencilVector):
-        if v.starts[0] == 0:
-            v[: n_rings[0], :, :] = 0.0
-    elif isinstance(v, BlockVector):
-        for n, starts in enumerate(v.space.starts):
-            if starts[0] == 0:
-                v[n][: n_rings[n], :, :] = 0.0
-    else:
-        raise ValueError(
-            "Input vector must be an instance of StencilVector of BlockVector!",
-        )
+    def __sub__(self, v):
+        """TODO"""
+        assert isinstance(v, PolarVector)
+        assert v.space == self.space
+
+        w = PolarVector(self.space)
+        if isinstance(w.tp, StencilVector):
+            w._pol[0][:] = self.pol[0] - v.pol[0]
+            w._tp[:] = self.tp[:] - v.tp[:]
+        else:
+            for n in range(3):
+                w._pol[n][:] = self.pol[n] - v.pol[n]
+                w._tp[n][:] = self.tp[n][:] - v.tp[n][:]
+        return w
+
+    def __isub__(self, v):
+        """TODO"""
+        assert isinstance(v, PolarVector)
+        assert v.space == self.space
+
+        if isinstance(self.tp, StencilVector):
+            self._pol[0] -= v.pol[0]
+            self._tp -= v.tp
+        else:
+            for n in range(3):
+                self._pol[n] -= v.pol[n]
+                self._tp[n] -= v.tp[n]
+        return self
+
+    def __mul__(self, a):
+        """TODO"""
+        w = PolarVector(self.space)
+        if isinstance(w.tp, StencilVector):
+            w._pol[0][:] = self.pol[0] * a
+            w._tp[:] = self.tp[:] * a
+        else:
+            for n in range(3):
+                w._pol[n][:] = self.pol[n] * a
+                w._tp[n][:] = self.tp[n][:] * a
+        return w
+
+    def __rmul__(self, a):
+        """TODO"""
+        w = PolarVector(self.space)
+        if isinstance(w.tp, StencilVector):
+            w._pol[0][:] = a * self.pol[0]
+            w._tp[:] = a * self.tp[:]
+        else:
+            for n in range(3):
+                w._pol[n][:] = a * self.pol[n]
+                w._tp[n][:] = a * self.tp[n][:]
+        return w
+
+    def __imul__(self, a):
+        """TODO"""
+        if isinstance(self.tp, StencilVector):
+            self._pol[0] *= a
+            self._tp *= a
+        else:
+            for n in range(3):
+                self._pol[n] *= a
+                self._tp[n] *= a
+        return self
+
+    def __neg__(self):
+        """TODO"""
+        w = PolarVector(self.space)
+        if isinstance(w.tp, StencilVector):
+            w._pol[0][:] = -self.pol[0]
+            w._tp[:] = -self.tp[:]
+        else:
+            for n in range(3):
+                w._pol[n][:] = -self.pol[n]
+                w._tp[n][:] = -self.tp[n][:]
+        return w

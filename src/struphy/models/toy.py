@@ -36,23 +36,26 @@ class Maxwell(StruphyModel):
         dct["em_fields"]["b_field"] = "Hdiv"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return None
+
+    __bulk_species__ = bulk_species()
 
     @staticmethod
     def velocity_scale():
         return "light"
 
+    __velocity_scale__ = velocity_scale()
+
     @staticmethod
     def propagators_dct():
         return {propagators_fields.Maxwell: ["e_field", "b_field"]}
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -116,13 +119,21 @@ class Vlasov(StruphyModel):
         dct["kinetic"]["ions"] = "Particles6D"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "ions"
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return "cyclotron"
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -131,11 +142,6 @@ class Vlasov(StruphyModel):
             propagators_markers.PushEta: ["ions"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -232,13 +238,21 @@ class GuidingCenter(StruphyModel):
         dct["kinetic"]["ions"] = "Particles5D"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "ions"
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return "alfvén"
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -247,11 +261,6 @@ class GuidingCenter(StruphyModel):
             propagators_markers.PushGuidingCenterParallel: ["ions"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -372,23 +381,26 @@ class ShearAlfven(StruphyModel):
         dct["fluid"]["mhd"] = {"u2": "Hdiv"}
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "mhd"
+
+    __bulk_species__ = bulk_species()
 
     @staticmethod
     def velocity_scale():
         return "alfvén"
 
+    __velocity_scale__ = velocity_scale()
+
     @staticmethod
     def propagators_dct():
         return {propagators_fields.ShearAlfven: ["mhd_u2", "b2"]}
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -492,13 +504,21 @@ class VariationalPressurelessFluid(StruphyModel):
         dct["fluid"]["fluid"] = {"rho3": "L2", "uv": "H1vec"}
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "fluid"
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return "alfvén"
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -507,11 +527,6 @@ class VariationalPressurelessFluid(StruphyModel):
             propagators_fields.VariationalMomentumAdvection: ["fluid_uv"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -591,13 +606,21 @@ class VariationalBarotropicFluid(StruphyModel):
         dct["fluid"]["fluid"] = {"rho3": "L2", "uv": "H1vec"}
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "fluid"
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return "alfvén"
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -606,11 +629,6 @@ class VariationalBarotropicFluid(StruphyModel):
             propagators_fields.VariationalMomentumAdvection: ["fluid_uv"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -700,13 +718,21 @@ class VariationalCompressibleFluid(StruphyModel):
         dct["fluid"]["fluid"] = {"rho3": "L2", "s3": "L2", "uv": "H1vec"}
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "fluid"
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return "alfvén"
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -716,11 +742,6 @@ class VariationalCompressibleFluid(StruphyModel):
             propagators_fields.VariationalEntropyEvolve: ["fluid_s3", "fluid_uv"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -801,6 +822,11 @@ class VariationalCompressibleFluid(StruphyModel):
         en_tot = en_U + en_thermo
         self.update_scalar("en_tot", en_tot)
 
+    def __ener(self, rho, s):
+        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
+        E(rho, s) = rho^gamma*exp(s/rho)"""
+        return np.power(rho, self._gamma) * np.exp(s / rho)
+
     def update_thermo_energy(self):
         """Reuse tmp used in VariationalEntropyEvolve to compute the thermodynamical energy.
 
@@ -826,11 +852,6 @@ class VariationalCompressibleFluid(StruphyModel):
         en_thermo = self._integrator.inner(en_prop._linear_form_dl_ds)
         self.update_scalar("en_thermo", en_thermo)
         return en_thermo
-
-    def __ener(self, rho, s):
-        """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
-        E(rho, s) = rho^gamma*exp(s/rho)"""
-        return np.power(rho, self._gamma) * np.exp(s / rho)
 
 
 class Poisson(StruphyModel):
@@ -869,13 +890,21 @@ class Poisson(StruphyModel):
         dct["em_fields"]["source"] = "H1"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return None
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return None
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -884,11 +913,6 @@ class Poisson(StruphyModel):
             propagators_fields.ImplicitDiffusion: ["phi"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -954,23 +978,26 @@ class DeterministicParticleDiffusion(StruphyModel):
         dct["kinetic"]["species1"] = "Particles3D"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "species1"
+
+    __bulk_species__ = bulk_species()
 
     @staticmethod
     def velocity_scale():
         return None
 
+    __velocity_scale__ = velocity_scale()
+
     @staticmethod
     def propagators_dct():
         return {propagators_markers.PushDeterministicDiffusion: ["species1"]}
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -1042,23 +1069,26 @@ class RandomParticleDiffusion(StruphyModel):
         dct["kinetic"]["species1"] = "Particles3D"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "species1"
+
+    __bulk_species__ = bulk_species()
 
     @staticmethod
     def velocity_scale():
         return None
 
+    __velocity_scale__ = velocity_scale()
+
     @staticmethod
     def propagators_dct():
         return {propagators_markers.PushRandomDiffusion: ["species1"]}
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -1123,29 +1153,26 @@ class PressureLessSPH(StruphyModel):
         dct["kinetic"]["p_fluid"] = "ParticlesSPH"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "p_fluid"
+
+    __bulk_species__ = bulk_species()
 
     @staticmethod
     def velocity_scale():
         return None
 
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-        dct["projected_density"] = "L2"
-        return dct
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
         return {propagators_markers.PushEta: ["p_fluid"]}
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -1168,6 +1195,12 @@ class PressureLessSPH(StruphyModel):
 
         # Scalar variables to be saved during simulation
         self.add_scalar("en_kin", compute="from_particles", species="p_fluid")
+
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+        dct["projected_density"] = "L2"
+        return dct
 
     def update_scalar_quantities(self):
         en_kin = self.pointer["p_fluid"].markers_wo_holes_and_ghost[:, 6].dot(
@@ -1230,35 +1263,27 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         }
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "ions"
+
+    __bulk_species__ = bulk_species()
 
     @staticmethod
     def velocity_scale():
         return "thermal"
 
+    __velocity_scale__ = velocity_scale()
+
     @staticmethod
     def propagators_dct():
         return {propagators_fields.TwoFluidQuasiNeutralFull: ["ions_u", "electrons_u", "potential"]}
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["fluid", "electrons"],
-            option=propagators_fields.TwoFluidQuasiNeutralFull,
-            dct=dct,
-        )
-        return dct
 
     def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
@@ -1327,6 +1352,17 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
 
         # Initialize propagators used in splitting substeps
         self.init_propagators()
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["fluid", "electrons"],
+            option=propagators_fields.TwoFluidQuasiNeutralFull,
+            dct=dct,
+        )
+        return dct
 
     def update_scalar_quantities(self):
         pass

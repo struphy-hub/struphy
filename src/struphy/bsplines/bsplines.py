@@ -380,6 +380,34 @@ def collocation_matrix(knots, degree, xgrid, periodic, normalize=False):
 
 
 # ==============================================================================
+def breakpoints(knots, degree):
+    """
+    Determine breakpoints' coordinates.
+
+    Parameters
+    ----------
+    knots : 1D array_like
+        Knots sequence.
+
+    degree : int
+        Polynomial degree of B-splines.
+
+    Returns
+    -------
+    breaks : numpy.ndarray (1D)
+        Abscissas of all breakpoints.
+
+    """
+
+    if degree == 0:
+        endsl = None
+    else:
+        endsl = -degree
+
+    return np.unique(knots[slice(degree, endsl)])
+
+
+# ==============================================================================
 def histopolation_matrix(knots, degree, xgrid, periodic):
     """
     Computes the histopolation matrix $H_ij = int_{x_i}^x_{i+1} D_j(x) dx$ of the M_splines.
@@ -443,34 +471,6 @@ def histopolation_matrix(knots, degree, xgrid, periodic):
         his = his[1:]
 
     return his
-
-
-# ==============================================================================
-def breakpoints(knots, degree):
-    """
-    Determine breakpoints' coordinates.
-
-    Parameters
-    ----------
-    knots : 1D array_like
-        Knots sequence.
-
-    degree : int
-        Polynomial degree of B-splines.
-
-    Returns
-    -------
-    breaks : numpy.ndarray (1D)
-        Abscissas of all breakpoints.
-
-    """
-
-    if degree == 0:
-        endsl = None
-    else:
-        endsl = -degree
-
-    return np.unique(knots[slice(degree, endsl)])
 
 
 # ==============================================================================

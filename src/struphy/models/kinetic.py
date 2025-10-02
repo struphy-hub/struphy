@@ -85,13 +85,21 @@ class VlasovAmpereOneSpecies(StruphyModel):
         dct["kinetic"]["species1"] = "Particles6D"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "species1"
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return "light"
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -101,29 +109,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
             propagators_coupling.VlasovAmpere: ["e_field", "species1"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["em_fields"],
-            option=propagators_fields.ImplicitDiffusion,
-            dct=dct,
-        )
-        cls.add_option(
-            species=["kinetic", "species1"],
-            key="override_eq_params",
-            option=[False, {"alpha": 1.0, "epsilon": -1.0}],
-            dct=dct,
-        )
-        return dct
 
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
@@ -198,6 +184,23 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # temporaries
         self._tmp = np.empty(1, dtype=float)
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["em_fields"],
+            option=propagators_fields.ImplicitDiffusion,
+            dct=dct,
+        )
+        cls.add_option(
+            species=["kinetic", "species1"],
+            key="override_eq_params",
+            option=[False, {"alpha": 1.0, "epsilon": -1.0}],
+            dct=dct,
+        )
+        return dct
 
     def initialize_from_params(self):
         """Solve initial Poisson equation.
@@ -370,13 +373,21 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         dct["kinetic"]["species1"] = "Particles6D"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "species1"
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return "light"
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -387,29 +398,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
             propagators_coupling.VlasovAmpere: ["e_field", "species1"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["em_fields"],
-            option=propagators_fields.ImplicitDiffusion,
-            dct=dct,
-        )
-        cls.add_option(
-            species=["kinetic", "species1"],
-            key="override_eq_params",
-            option=[False, {"alpha": 1.0, "epsilon": -1.0}],
-            dct=dct,
-        )
-        return dct
 
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
@@ -482,6 +471,23 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         # temporaries
         self._tmp = np.empty(1, dtype=float)
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["em_fields"],
+            option=propagators_fields.ImplicitDiffusion,
+            dct=dct,
+        )
+        cls.add_option(
+            species=["kinetic", "species1"],
+            key="override_eq_params",
+            option=[False, {"alpha": 1.0, "epsilon": -1.0}],
+            dct=dct,
+        )
+        return dct
 
     def initialize_from_params(self):
         """:meta private:"""
@@ -640,13 +646,21 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         dct["kinetic"]["species1"] = "DeltaFParticles6D"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "species1"
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return "light"
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -657,28 +671,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             propagators_markers.PushVxB: ["species1"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["em_fields"],
-            option=propagators_fields.ImplicitDiffusion,
-            dct=dct,
-        )
-        cls.add_option(
-            species=["kinetic", "species1"],
-            key="override_eq_params",
-            option=[False, {"epsilon": -1.0, "alpha": 1.0}],
-            dct=dct,
-        )
-        return dct
 
     def __init__(self, params, comm, clone_config=None, baseclass=False):
         """Initializes the model either as the full model or as a baseclass to inherit from.
@@ -811,6 +804,22 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         # temporaries
         self._tmp = np.empty(1, dtype=float)
         self.en_E = 0.0
+
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["em_fields"],
+            option=propagators_fields.ImplicitDiffusion,
+            dct=dct,
+        )
+        cls.add_option(
+            species=["kinetic", "species1"],
+            key="override_eq_params",
+            option=[False, {"epsilon": -1.0, "alpha": 1.0}],
+            dct=dct,
+        )
+        return dct
 
     def initialize_from_params(self):
         """Solve initial Poisson equation.
@@ -964,13 +973,21 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         dct["kinetic"]["species1"] = "DeltaFParticles6D"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "species1"
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return "light"
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -982,12 +999,22 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             propagators_fields.Maxwell: ["e_field", "b_field"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params=params, comm=comm, clone_config=clone_config, baseclass=True)
+
+        # propagator parameters
+        params_maxwell = params["em_fields"]["options"]["Maxwell"]["solver"]
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.Maxwell] = {"solver": params_maxwell}
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+        # magnetic energy
+        self.add_scalar("en_b")
 
     @classmethod
     def options(cls):
@@ -1004,21 +1031,6 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
             dct=dct,
         )
         return dct
-
-    def __init__(self, params, comm, clone_config=None):
-        super().__init__(params=params, comm=comm, clone_config=clone_config, baseclass=True)
-
-        # propagator parameters
-        params_maxwell = params["em_fields"]["options"]["Maxwell"]["solver"]
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Maxwell] = {"solver": params_maxwell}
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # magnetic energy
-        self.add_scalar("en_b")
 
     def initialize_from_params(self):
         super().initialize_from_params()
@@ -1088,13 +1100,21 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         dct["kinetic"]["ions"] = "Particles5D"
         return dct
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+
     @staticmethod
     def bulk_species():
         return "ions"
 
+    __bulk_species__ = bulk_species()
+
     @staticmethod
     def velocity_scale():
         return "thermal"
+
+    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -1104,24 +1124,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
             propagators_markers.PushGuidingCenterParallel: ["ions"],
         }
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["kinetic", "ions"],
-            key="override_eq_params",
-            option=[False, {"epsilon": 1.0}],
-            dct=dct,
-        )
-        return dct
 
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
@@ -1206,6 +1209,18 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self._mpi_in_place = IN_PLACE
         self._tmp3 = np.empty(1, dtype=float)
         self._e_field = self.derham.Vh["1"].zeros()
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["kinetic", "ions"],
+            key="override_eq_params",
+            option=[False, {"epsilon": 1.0}],
+            dct=dct,
+        )
+        return dct
 
     def update_scalar_quantities(self):
         # energy from polarization

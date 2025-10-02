@@ -60,22 +60,6 @@ class DispersionRelations1D(metaclass=ABCMeta):
         """Dictionary of critical k-values (plotted as vertical lines with self.plot())."""
         return self._k_crit
 
-    @abstractmethod
-    def __call__(self, k):
-        """
-        The evaluation of all branches of a 1d dispersion relation.
-
-        Parameters
-        ----------
-        k : array_like
-            Evaluation wave numbers.
-
-        Returns
-        -------
-        omegas : dict
-            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
-        """
-
     def plot(self, k):
         self(k)
 
@@ -112,6 +96,22 @@ class DispersionRelations1D(metaclass=ABCMeta):
         for lab, kc in self.k_crit.items():
             if kc > np.min(k) and kc < np.max(k):
                 plt.axvline(kc, color="k", linestyle="--", linewidth=0.5, label=lab)
+
+    @abstractmethod
+    def __call__(self, k):
+        """
+        The evaluation of all branches of a 1d dispersion relation.
+
+        Parameters
+        ----------
+        k : array_like
+            Evaluation wave numbers.
+
+        Returns
+        -------
+        omegas : dict
+            A dictionary with key=branch_name and value=omega(k) (complex ndarray).
+        """
 
 
 class ContinuousSpectra1D(metaclass=ABCMeta):

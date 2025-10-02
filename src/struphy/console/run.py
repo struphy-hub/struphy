@@ -12,6 +12,91 @@ from struphy.utils.utils import subp_run
 libpath = struphy.__path__[0]
 
 
+def generate_absolute_io_paths(
+    model,
+    inp,
+    input_abs,
+    output,
+    output_abs,
+    batch,
+    batch_abs,
+    restart,
+):
+    # Read struphy state file
+    state = utils.read_state()
+
+    i_path, o_path, b_path = utils.get_paths(state=state)
+
+    if input_abs is None:
+        if inp is None:
+            if model is None:
+                print("You have to either specify a struphy model or a parameter file which contains the model.")
+                sys.exit(0)
+            default_yml = os.path.join(i_path, f"params_{model}.yml")
+            if os.path.isfile(default_yml):
+                print(f"\nNo input file specified, running with default: {default_yml}")
+                input_abs = default_yml
+            else:
+                # load model class
+                from struphy.models import fluid, hybrid, kinetic, toy
+
+                objs = [fluid, kinetic, hybrid, toy]
+                for obj in objs:
+                    try:
+                        model_class = getattr(obj, model)
+                    except AttributeError:
+                        pass
+
+                params = model_class.generate_default_parameter_file()
+                sys.exit(0)
+        else:
+            input_abs = os.path.join(i_path, inp)
+
+    if output_abs is None:
+        output_abs = os.path.join(o_path, output)
+
+    if batch_abs is None:
+        if batch is not None:
+            batch_abs = os.path.join(b_path, batch)
+
+    # take existing parameter file for restart
+    if restart:
+        input_abs = os.path.join(output_abs, "parameters.yml")
+
+    return input_abs, output_abs, batch_abs
+
+
+def cleanup_batch_environment(output_abs):
+    # create output folder if it does not exit
+    if not os.path.exists(output_abs):
+        os.mkdir(output_abs)
+        os.mkdir(os.path.join(output_abs, "data/"))
+
+    # remove sim.out file
+    file = os.path.join(output_abs, "sim.out")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
+
+    # remove sim.err file
+    file = os.path.join(output_abs, "sim.err")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
+
+    # remove old batch script
+    file = os.path.join(output_abs, "batch_script.sh")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
+
+    # remove struphy.out file
+    file = os.path.join(output_abs, "sim.out")
+    if os.path.exists(file):
+        os.remove(file)
+        print("Removed file " + file)
+
+
 def struphy_run(
     model=None,
     inp=None,
@@ -225,88 +310,3 @@ def struphy_run(
         cmd = ["sbatch", "batch_script.sh"]
         subp_run(cmd, cwd=output_abs)
     return command
-
-
-def generate_absolute_io_paths(
-    model,
-    inp,
-    input_abs,
-    output,
-    output_abs,
-    batch,
-    batch_abs,
-    restart,
-):
-    # Read struphy state file
-    state = utils.read_state()
-
-    i_path, o_path, b_path = utils.get_paths(state=state)
-
-    if input_abs is None:
-        if inp is None:
-            if model is None:
-                print("You have to either specify a struphy model or a parameter file which contains the model.")
-                sys.exit(0)
-            default_yml = os.path.join(i_path, f"params_{model}.yml")
-            if os.path.isfile(default_yml):
-                print(f"\nNo input file specified, running with default: {default_yml}")
-                input_abs = default_yml
-            else:
-                # load model class
-                from struphy.models import fluid, hybrid, kinetic, toy
-
-                objs = [fluid, kinetic, hybrid, toy]
-                for obj in objs:
-                    try:
-                        model_class = getattr(obj, model)
-                    except AttributeError:
-                        pass
-
-                params = model_class.generate_default_parameter_file()
-                sys.exit(0)
-        else:
-            input_abs = os.path.join(i_path, inp)
-
-    if output_abs is None:
-        output_abs = os.path.join(o_path, output)
-
-    if batch_abs is None:
-        if batch is not None:
-            batch_abs = os.path.join(b_path, batch)
-
-    # take existing parameter file for restart
-    if restart:
-        input_abs = os.path.join(output_abs, "parameters.yml")
-
-    return input_abs, output_abs, batch_abs
-
-
-def cleanup_batch_environment(output_abs):
-    # create output folder if it does not exit
-    if not os.path.exists(output_abs):
-        os.mkdir(output_abs)
-        os.mkdir(os.path.join(output_abs, "data/"))
-
-    # remove sim.out file
-    file = os.path.join(output_abs, "sim.out")
-    if os.path.exists(file):
-        os.remove(file)
-        print("Removed file " + file)
-
-    # remove sim.err file
-    file = os.path.join(output_abs, "sim.err")
-    if os.path.exists(file):
-        os.remove(file)
-        print("Removed file " + file)
-
-    # remove old batch script
-    file = os.path.join(output_abs, "batch_script.sh")
-    if os.path.exists(file):
-        os.remove(file)
-        print("Removed file " + file)
-
-    # remove struphy.out file
-    file = os.path.join(output_abs, "sim.out")
-    if os.path.exists(file):
-        os.remove(file)
-        print("Removed file " + file)

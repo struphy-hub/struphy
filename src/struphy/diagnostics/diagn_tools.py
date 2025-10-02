@@ -523,165 +523,6 @@ def plot_distr_fun(
         del delta_f
 
 
-def plots_videos_2d(
-    t_grid,
-    grid_slices,
-    slice_name,
-    plot_full_f,
-    species,
-    path,
-    model_name,
-    output: str = "overview",
-    background_params=None,
-    n_times=6,
-    show_plot=False,
-    save_plot=True,
-    polar_params={},
-):
-    """TODO"""
-    choices = ["overview", "video"]
-    assert output in choices, f"Can only do one of {choices=} but got {output=}"
-
-    # Make sure that the slice that was saved during the simulation is at least 2D
-    if "_" not in slice_name:
-        return
-
-    if polar_params == {}:
-        do_polar = False
-    else:
-        do_polar = polar_params["do_polar"]
-
-    data_path = os.path.join(
-        path,
-        "post_processing",
-        "kinetic_data",
-        species,
-        "distribution_function",
-        slice_name,
-    )
-
-    # Create a folder for the diagnostics
-    diagn_path = os.path.join(path, "diagnostics")
-    if (output == "overview" and save_plot) or output == "video":
-        if not os.path.exists(diagn_path):
-            os.mkdir(diagn_path)
-
-    slices_2d, grids, directions, df_data = get_slices_grids_directions_and_df_data(
-        plot_full_f=plot_full_f,
-        background_params=background_params,
-        grid_slices=grid_slices,
-        data_path=data_path,
-        slice_name=slice_name,
-    )
-
-    # Make plot series for each 2D slice
-    for slc in slices_2d:
-        # Assign some nicer names
-        label_1 = slc[:2]
-        label_2 = slc[-2:]
-
-        # Only needed for "video" option
-        images_path = None
-        if output == "video":
-            # Create folder for saving the images series
-            images_path = os.path.join(
-                diagn_path,
-                "video_frames_" + slc,
-            )
-            if os.path.exists(images_path):
-                shutil.rmtree(images_path)
-
-            os.mkdir(images_path)
-
-        # Get indices of where to plot in other directions
-        grid_idxs = {}
-        for k in range(df_data.ndim - 1):
-            direc = directions[k]
-            grid_idxs[direc] = np.argmin(
-                np.abs(grids[direc] - grid_slices[direc]),
-            )
-
-        grid_1 = np.load(
-            os.path.join(
-                data_path,
-                "grid_" + label_1 + ".npy",
-            ),
-        )
-        grid_2 = np.load(
-            os.path.join(
-                data_path,
-                "grid_" + label_2 + ".npy",
-            ),
-        )
-
-        # Prepare slicing
-        f_slicing = [0] * df_data.ndim
-        for k in range(df_data.ndim):
-            # directions in which f is evaluated at a point
-            if directions[k - 1] in slc:
-                f_slicing[k] = slice(None)
-            else:
-                f_slicing[k] = grid_idxs[directions[k - 1]]
-
-        df_binned = df_data[tuple(f_slicing)].squeeze()
-
-        assert t_grid.ndim == grid_1.ndim == grid_2.ndim == 1, f"Input arrays must be 1D!"
-        assert df_binned.shape[0] == t_grid.size, f"{df_binned.shape =}, {t_grid.shape =}"
-        assert df_binned.shape[1] == grid_1.size, f"{df_binned.shape =}, {grid_1.shape =}"
-        assert df_binned.shape[2] == grid_2.size, f"{df_binned.shape =}, {grid_2.shape =}"
-
-        # Scale the coordinates to cartesian sizes for plot to be more obvious
-        if do_polar:
-            for sl, var in zip([label_1, label_2], [grid_1, grid_2]):
-                if sl in polar_params.values():
-                    if polar_params["radial_coord"] == sl:
-                        var *= polar_params["r_max"] - polar_params["r_min"]
-                        var += polar_params["r_min"]
-                    elif polar_params["angular_coord"] == sl:
-                        var *= 2 * np.pi
-
-        grid_1_mesh, grid_2_mesh = np.meshgrid(grid_1, grid_2, indexing="ij")
-
-        if output == "video":
-            plots_2d_video(
-                t_grid=t_grid,
-                grid_1_mesh=grid_1_mesh,
-                grid_2_mesh=grid_2_mesh,
-                df_binned=df_binned,
-                model_name=model_name,
-                label_1=label_1,
-                label_2=label_2,
-                do_polar=do_polar,
-                images_path=images_path,
-            )
-
-            video_2d(
-                slc=slc,
-                diagn_path=diagn_path,
-                images_path=images_path,
-            )
-
-        elif output == "overview":
-            plots_2d_overview(
-                t_grid=t_grid,
-                grid_1_mesh=grid_1_mesh,
-                grid_2_mesh=grid_2_mesh,
-                slc=slc,
-                df_binned=df_binned,
-                save_path=diagn_path,
-                model_name=model_name,
-                label_1=label_1,
-                label_2=label_2,
-                do_polar=do_polar,
-                n_times=n_times,
-                show_plot=show_plot,
-                save_plot=save_plot,
-            )
-
-        else:
-            raise NotImplementedError(f"{output=} is not implemented!")
-
-
 def video_2d(slc, diagn_path, images_path):
     """Create a video of all 2D slices of the distribution function over time.
 
@@ -1025,3 +866,162 @@ def get_slices_grids_directions_and_df_data(plot_full_f, grid_slices, data_path,
                 slices_2d += [direc1 + "_" + direc2]
 
     return slices_2d, grids, directions, _data
+
+
+def plots_videos_2d(
+    t_grid,
+    grid_slices,
+    slice_name,
+    plot_full_f,
+    species,
+    path,
+    model_name,
+    output: str = "overview",
+    background_params=None,
+    n_times=6,
+    show_plot=False,
+    save_plot=True,
+    polar_params={},
+):
+    """TODO"""
+    choices = ["overview", "video"]
+    assert output in choices, f"Can only do one of {choices=} but got {output=}"
+
+    # Make sure that the slice that was saved during the simulation is at least 2D
+    if "_" not in slice_name:
+        return
+
+    if polar_params == {}:
+        do_polar = False
+    else:
+        do_polar = polar_params["do_polar"]
+
+    data_path = os.path.join(
+        path,
+        "post_processing",
+        "kinetic_data",
+        species,
+        "distribution_function",
+        slice_name,
+    )
+
+    # Create a folder for the diagnostics
+    diagn_path = os.path.join(path, "diagnostics")
+    if (output == "overview" and save_plot) or output == "video":
+        if not os.path.exists(diagn_path):
+            os.mkdir(diagn_path)
+
+    slices_2d, grids, directions, df_data = get_slices_grids_directions_and_df_data(
+        plot_full_f=plot_full_f,
+        background_params=background_params,
+        grid_slices=grid_slices,
+        data_path=data_path,
+        slice_name=slice_name,
+    )
+
+    # Make plot series for each 2D slice
+    for slc in slices_2d:
+        # Assign some nicer names
+        label_1 = slc[:2]
+        label_2 = slc[-2:]
+
+        # Only needed for "video" option
+        images_path = None
+        if output == "video":
+            # Create folder for saving the images series
+            images_path = os.path.join(
+                diagn_path,
+                "video_frames_" + slc,
+            )
+            if os.path.exists(images_path):
+                shutil.rmtree(images_path)
+
+            os.mkdir(images_path)
+
+        # Get indices of where to plot in other directions
+        grid_idxs = {}
+        for k in range(df_data.ndim - 1):
+            direc = directions[k]
+            grid_idxs[direc] = np.argmin(
+                np.abs(grids[direc] - grid_slices[direc]),
+            )
+
+        grid_1 = np.load(
+            os.path.join(
+                data_path,
+                "grid_" + label_1 + ".npy",
+            ),
+        )
+        grid_2 = np.load(
+            os.path.join(
+                data_path,
+                "grid_" + label_2 + ".npy",
+            ),
+        )
+
+        # Prepare slicing
+        f_slicing = [0] * df_data.ndim
+        for k in range(df_data.ndim):
+            # directions in which f is evaluated at a point
+            if directions[k - 1] in slc:
+                f_slicing[k] = slice(None)
+            else:
+                f_slicing[k] = grid_idxs[directions[k - 1]]
+
+        df_binned = df_data[tuple(f_slicing)].squeeze()
+
+        assert t_grid.ndim == grid_1.ndim == grid_2.ndim == 1, f"Input arrays must be 1D!"
+        assert df_binned.shape[0] == t_grid.size, f"{df_binned.shape =}, {t_grid.shape =}"
+        assert df_binned.shape[1] == grid_1.size, f"{df_binned.shape =}, {grid_1.shape =}"
+        assert df_binned.shape[2] == grid_2.size, f"{df_binned.shape =}, {grid_2.shape =}"
+
+        # Scale the coordinates to cartesian sizes for plot to be more obvious
+        if do_polar:
+            for sl, var in zip([label_1, label_2], [grid_1, grid_2]):
+                if sl in polar_params.values():
+                    if polar_params["radial_coord"] == sl:
+                        var *= polar_params["r_max"] - polar_params["r_min"]
+                        var += polar_params["r_min"]
+                    elif polar_params["angular_coord"] == sl:
+                        var *= 2 * np.pi
+
+        grid_1_mesh, grid_2_mesh = np.meshgrid(grid_1, grid_2, indexing="ij")
+
+        if output == "video":
+            plots_2d_video(
+                t_grid=t_grid,
+                grid_1_mesh=grid_1_mesh,
+                grid_2_mesh=grid_2_mesh,
+                df_binned=df_binned,
+                model_name=model_name,
+                label_1=label_1,
+                label_2=label_2,
+                do_polar=do_polar,
+                images_path=images_path,
+            )
+
+            video_2d(
+                slc=slc,
+                diagn_path=diagn_path,
+                images_path=images_path,
+            )
+
+        elif output == "overview":
+            plots_2d_overview(
+                t_grid=t_grid,
+                grid_1_mesh=grid_1_mesh,
+                grid_2_mesh=grid_2_mesh,
+                slc=slc,
+                df_binned=df_binned,
+                save_path=diagn_path,
+                model_name=model_name,
+                label_1=label_1,
+                label_2=label_2,
+                do_polar=do_polar,
+                n_times=n_times,
+                show_plot=show_plot,
+                save_plot=save_plot,
+            )
+
+        else:
+            raise NotImplementedError(f"{output=} is not implemented!")

@@ -29,6 +29,8 @@ class ButcherTableau:
         ]
         return meth_avail
 
+    __available_methods__ = available_methods()
+
     def __init__(self, algo: str = "rk4"):
         # choose algorithm
         if algo == "forward_euler":
@@ -77,8 +79,6 @@ class ButcherTableau:
             self._a[l + 1, : l + 1] = st
 
         self._conv_rate = conv_rate
-
-    __available_methods__ = available_methods()
 
     @property
     def a(self):

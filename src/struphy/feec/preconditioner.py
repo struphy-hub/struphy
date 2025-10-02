@@ -14,6 +14,101 @@ from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
 
 
+def is_circulant(mat):
+    """
+    Returns true if a matrix is circulant.
+
+    Parameters
+    ----------
+    mat : array[float]
+        The matrix that is checked to be circulant.
+
+    Returns
+    -------
+    circulant : bool
+        Whether the matrix is circulant (=True) or not (=False).
+    """
+
+    assert isinstance(mat, np.ndarray)
+    assert len(mat.shape) == 2
+    assert mat.shape[0] == mat.shape[1]
+
+    if mat.shape[0] > 1:
+        for i in range(mat.shape[0] - 1):
+            circulant = np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1))
+            if not circulant:
+                return circulant
+    else:
+        circulant = True
+
+    return circulant
+
+
+class FFTSolver(BandedSolver):
+    """
+    Solve the equation Ax = b for x, assuming A is a circulant matrix.
+    b can contain multiple right-hand sides (RHS) and is of shape (#RHS, N).
+
+    Parameters
+    ----------
+    circmat : np.ndarray
+        Generic circulant matrix.
+    """
+
+    def __init__(self, circmat):
+        assert isinstance(circmat, np.ndarray)
+        assert is_circulant(circmat)
+
+        self._space = np.ndarray
+        self._column = circmat[:, 0]
+
+    # --------------------------------------
+    # Abstract interface
+    # --------------------------------------
+    @property
+    def space(self):
+        return self._space
+
+    # ...
+    def solve(self, rhs, out=None, transposed=False):
+        """
+        Solves for the given right-hand side.
+
+        Parameters
+        ----------
+        rhs : np.ndarray
+            The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order,
+            i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th
+            index denoting the number of the right-hand side, and the 1-st index denoting the element inside
+            a right-hand side.
+
+        out : np.ndarray, optional
+            Output vector. If given, it has to have the same shape and datatype as rhs.
+
+        transposed : bool
+            If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
+        """
+
+        assert rhs.T.shape[0] == self._column.size
+
+        if out is None:
+            out = solve_circulant(self._column, rhs.T).T
+
+        else:
+            assert out.shape == rhs.shape
+            assert out.dtype == rhs.dtype
+
+            try:
+                out[:] = solve_circulant(self._column, rhs.T).T
+            except np.linalg.LinAlgError:
+                eps = 1e-4
+                print(f"Stabilizing singular preconditioning FFTSolver with {eps = }:")
+                self._column[0] *= 1.0 + eps
+                out[:] = solve_circulant(self._column, rhs.T).T
+
+        return out
+
+
 class MassMatrixPreconditioner(LinearOperator):
     """
     Preconditioner for inverting 3d weighted mass matrices.
@@ -855,98 +950,3 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
             self.solve(v, out=out)
 
         return out
-
-
-class FFTSolver(BandedSolver):
-    """
-    Solve the equation Ax = b for x, assuming A is a circulant matrix.
-    b can contain multiple right-hand sides (RHS) and is of shape (#RHS, N).
-
-    Parameters
-    ----------
-    circmat : np.ndarray
-        Generic circulant matrix.
-    """
-
-    def __init__(self, circmat):
-        assert isinstance(circmat, np.ndarray)
-        assert is_circulant(circmat)
-
-        self._space = np.ndarray
-        self._column = circmat[:, 0]
-
-    # --------------------------------------
-    # Abstract interface
-    # --------------------------------------
-    @property
-    def space(self):
-        return self._space
-
-    # ...
-    def solve(self, rhs, out=None, transposed=False):
-        """
-        Solves for the given right-hand side.
-
-        Parameters
-        ----------
-        rhs : np.ndarray
-            The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order,
-            i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th
-            index denoting the number of the right-hand side, and the 1-st index denoting the element inside
-            a right-hand side.
-
-        out : np.ndarray, optional
-            Output vector. If given, it has to have the same shape and datatype as rhs.
-
-        transposed : bool
-            If and only if set to true, we solve against the transposed matrix. (supported by the underlying solver)
-        """
-
-        assert rhs.T.shape[0] == self._column.size
-
-        if out is None:
-            out = solve_circulant(self._column, rhs.T).T
-
-        else:
-            assert out.shape == rhs.shape
-            assert out.dtype == rhs.dtype
-
-            try:
-                out[:] = solve_circulant(self._column, rhs.T).T
-            except np.linalg.LinAlgError:
-                eps = 1e-4
-                print(f"Stabilizing singular preconditioning FFTSolver with {eps = }:")
-                self._column[0] *= 1.0 + eps
-                out[:] = solve_circulant(self._column, rhs.T).T
-
-        return out
-
-
-def is_circulant(mat):
-    """
-    Returns true if a matrix is circulant.
-
-    Parameters
-    ----------
-    mat : array[float]
-        The matrix that is checked to be circulant.
-
-    Returns
-    -------
-    circulant : bool
-        Whether the matrix is circulant (=True) or not (=False).
-    """
-
-    assert isinstance(mat, np.ndarray)
-    assert len(mat.shape) == 2
-    assert mat.shape[0] == mat.shape[1]
-
-    if mat.shape[0] > 1:
-        for i in range(mat.shape[0] - 1):
-            circulant = np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1))
-            if not circulant:
-                return circulant
-    else:
-        circulant = True
-
-    return circulant

@@ -45,6 +45,591 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.
     """
 
+    ###################
+    # Private methods :
+    ###################
+
+    def _init_variable_dicts(self):
+        """
+        Initialize em-fields, fluid and kinetic dictionaries for information on the model variables.
+        """
+
+        # electromagnetic fields, fluid and/or kinetic species
+        self._em_fields = {}
+        self._fluid = {}
+        self._kinetic = {}
+        self._diagnostics = {}
+
+        if self.rank_world == 0 and self.verbose:
+            print("\nMODEL SPECIES:")
+
+        # create dictionaries for each em-field/species and fill in space/class name and parameters
+        for var_name, space in self.species()["em_fields"].items():
+            assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
+            assert "em_fields" in self.params, 'Top-level key "em_fields" is missing in parameter file.'
+
+            if self.rank_world == 0 and self.verbose:
+                print("em_field:".ljust(25), f'"{var_name}" ({space})')
+
+            self._em_fields[var_name] = {}
+
+            # space
+            self._em_fields[var_name]["space"] = space
+
+            # initial conditions
+            if "background" in self.params["em_fields"]:
+                self._em_fields[var_name]["background"] = self.params["em_fields"]["background"].get(var_name)
+            if "perturbation" in self.params["em_fields"]:
+                self._em_fields[var_name]["perturbation"] = self.params["em_fields"]["perturbation"].get(var_name)
+
+            # which components to save
+            if "save_data" in self.params["em_fields"]:
+                self._em_fields[var_name]["save_data"] = self.params["em_fields"]["save_data"]["comps"][var_name]
+            else:
+                self._em_fields[var_name]["save_data"] = True
+
+            # overall parameters
+            self._em_fields["params"] = self.params["em_fields"]
+
+        for var_name, space in self.species()["fluid"].items():
+            assert isinstance(space, dict)
+            assert "fluid" in self.params, 'Top-level key "fluid" is missing in parameter file.'
+            assert var_name in self.params["fluid"], f"Fluid species {var_name} is missing in parameter file."
+
+            if self.rank_world == 0 and self.verbose:
+                print("fluid:".ljust(25), f'"{var_name}" ({space})')
+
+            self._fluid[var_name] = {}
+            for sub_var_name, sub_space in space.items():
+                self._fluid[var_name][sub_var_name] = {}
+
+                # space
+                self._fluid[var_name][sub_var_name]["space"] = sub_space
+
+                # initial conditions
+                if "background" in self.params["fluid"][var_name]:
+                    self._fluid[var_name][sub_var_name]["background"] = self.params["fluid"][var_name][
+                        "background"
+                    ].get(sub_var_name)
+                if "perturbation" in self.params["fluid"][var_name]:
+                    self._fluid[var_name][sub_var_name]["perturbation"] = self.params["fluid"][var_name][
+                        "perturbation"
+                    ].get(sub_var_name)
+
+                # which components to save
+                if "save_data" in self.params["fluid"][var_name]:
+                    self._fluid[var_name][sub_var_name]["save_data"] = self.params["fluid"][var_name]["save_data"][
+                        "comps"
+                    ][sub_var_name]
+
+                else:
+                    self._fluid[var_name][sub_var_name]["save_data"] = True
+
+            # overall parameters
+            self._fluid[var_name]["params"] = self.params["fluid"][var_name]
+
+        for var_name, space in self.species()["kinetic"].items():
+            assert "Particles" in space
+            assert "kinetic" in self.params, 'Top-level key "kinetic" is missing in parameter file.'
+            assert var_name in self.params["kinetic"], f"Kinetic species {var_name} is missing in parameter file."
+
+            if self.rank_world == 0 and self.verbose:
+                print("kinetic:".ljust(25), f'"{var_name}" ({space})')
+
+            self._kinetic[var_name] = {}
+            self._kinetic[var_name]["space"] = space
+            self._kinetic[var_name]["params"] = self.params["kinetic"][var_name]
+
+        if self.diagnostics_dct() is not None:
+            for var_name, space in self.diagnostics_dct().items():
+                assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
+
+                if self.rank_world == 0 and self.verbose:
+                    print("diagnostics:".ljust(25), f'"{var_name}" ({space})')
+
+                self._diagnostics[var_name] = {}
+                self._diagnostics[var_name]["space"] = space
+                self._diagnostics["params"] = self.params["diagnostics"][var_name]
+
+                # which components to save
+                if "save_data" in self.params["diagnostics"][var_name]:
+                    self._diagnostics[var_name]["save_data"] = self.params["diagnostics"][var_name]["save_data"]
+
+                else:
+                    self._diagnostics[var_name]["save_data"] = True
+
+    def _allocate_variables(self):
+        """
+        Allocate memory for model variables.
+        Creates FEM fields for em-fields and fluid variables and a particle class for kinetic species.
+        """
+
+        from struphy.feec.psydac_derham import Derham
+        from struphy.pic import particles
+        from struphy.pic.base import Particles
+
+        # allocate memory for FE coeffs of electromagnetic fields/potentials
+        if "em_fields" in self.params:
+            for variable, dct in self.em_fields.items():
+                if "params" in variable:
+                    continue
+                else:
+                    dct["obj"] = self.derham.create_spline_function(
+                        variable,
+                        dct["space"],
+                        bckgr_params=dct.get("background"),
+                        pert_params=dct.get("perturbation"),
+                    )
+
+                    self._pointer[variable] = dct["obj"].vector
+
+        # allocate memory for FE coeffs of fluid variables
+        if "fluid" in self.params:
+            for species, dct in self.fluid.items():
+                for variable, subdct in dct.items():
+                    if "params" in variable:
+                        continue
+                    else:
+                        subdct["obj"] = self.derham.create_spline_function(
+                            variable,
+                            subdct["space"],
+                            bckgr_params=subdct.get("background"),
+                            pert_params=subdct.get("perturbation"),
+                        )
+
+                        self._pointer[species + "_" + variable] = subdct["obj"].vector
+
+        # marker arrays and plasma parameters of kinetic species
+        if "kinetic" in self.params:
+            for species, val in self.kinetic.items():
+                assert any([key in val["params"]["markers"] for key in ["Np", "ppc", "ppb"]])
+
+                bckgr_params = val["params"].get("background", None)
+                pert_params = val["params"].get("perturbation", None)
+                boxes_per_dim = val["params"].get("boxes_per_dim", None)
+                mpi_dims_mask = val["params"].get("dims_mask", None)
+                weights_params = val["params"].get("weights", None)
+
+                if self.derham is None:
+                    domain_decomp = None
+                else:
+                    domain_array = self.derham.domain_array
+                    nprocs = self.derham.domain_decomposition.nprocs
+                    domain_decomp = (domain_array, nprocs)
+
+                kinetic_class = getattr(particles, val["space"])
+
+                val["obj"] = kinetic_class(
+                    comm_world=self.comm_world,
+                    clone_config=self.clone_config,
+                    **val["params"]["markers"],
+                    weights_params=weights_params,
+                    domain_decomp=domain_decomp,
+                    mpi_dims_mask=mpi_dims_mask,
+                    boxes_per_dim=boxes_per_dim,
+                    name=species,
+                    equation_params=self.equation_params[species],
+                    domain=self.domain,
+                    equil=self.equil,
+                    projected_equil=self.projected_equil,
+                    bckgr_params=bckgr_params,
+                    pert_params=pert_params,
+                )
+
+                obj = val["obj"]
+                assert isinstance(obj, Particles)
+
+                self._pointer[species] = obj
+
+                # for storing markers
+                val["kinetic_data"] = {}
+
+                # for storing the distribution function
+                if "f" in val["params"]["save_data"]:
+                    slices = val["params"]["save_data"]["f"]["slices"]
+                    n_bins = val["params"]["save_data"]["f"]["n_bins"]
+                    ranges = val["params"]["save_data"]["f"]["ranges"]
+
+                    val["kinetic_data"]["f"] = {}
+                    val["kinetic_data"]["df"] = {}
+                    val["bin_edges"] = {}
+                    if len(slices) > 0:
+                        for i, sli in enumerate(slices):
+                            assert ((len(sli) - 2) / 3).is_integer()
+                            assert len(slices[i].split("_")) == len(ranges[i]) == len(n_bins[i]), (
+                                f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
+                            )
+                            val["bin_edges"][sli] = []
+                            dims = (len(sli) - 2) // 3 + 1
+                            for j in range(dims):
+                                val["bin_edges"][sli] += [
+                                    np.linspace(
+                                        ranges[i][j][0],
+                                        ranges[i][j][1],
+                                        n_bins[i][j] + 1,
+                                    ),
+                                ]
+                            val["kinetic_data"]["f"][sli] = np.zeros(
+                                n_bins[i],
+                                dtype=float,
+                            )
+                            val["kinetic_data"]["df"][sli] = np.zeros(
+                                n_bins[i],
+                                dtype=float,
+                            )
+
+                # for storing an sph evaluation of the density n
+                if "n_sph" in val["params"]["save_data"]:
+                    plot_pts = val["params"]["save_data"]["n_sph"]["plot_pts"]
+
+                    val["kinetic_data"]["n_sph"] = []
+                    val["plot_pts"] = []
+                    for i, pts in enumerate(plot_pts):
+                        assert len(pts) == 3
+                        eta1 = np.linspace(0.0, 1.0, pts[0])
+                        eta2 = np.linspace(0.0, 1.0, pts[1])
+                        eta3 = np.linspace(0.0, 1.0, pts[2])
+                        ee1, ee2, ee3 = np.meshgrid(
+                            eta1,
+                            eta2,
+                            eta3,
+                            indexing="ij",
+                        )
+                        val["plot_pts"] += [(ee1, ee2, ee3)]
+                        val["kinetic_data"]["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
+
+                # other data (wave-particle power exchange, etc.)
+                # TODO
+
+        # allocate memory for FE coeffs of diagnostics
+        if "diagnostics" in self.params:
+            for key, val in self.diagnostics.items():
+                if "params" in key:
+                    continue
+                else:
+                    val["obj"] = self.derham.create_spline_function(
+                        key,
+                        val["space"],
+                        bckgr_params=None,
+                        pert_params=None,
+                    )
+
+                    self._pointer[key] = val["obj"].vector
+
+    def _compute_plasma_params(self, verbose=True):
+        """
+        Compute and print volume averaged plasma parameters for each species of the model.
+
+        Global parameters:
+        - plasma volume
+        - transit length
+        - magnetic field
+
+        Species dependent parameters:
+        - mass
+        - charge
+        - density
+        - pressure
+        - thermal energy kBT
+        - Alfvén speed v_A
+        - thermal speed v_th
+        - thermal frequency Omega_th
+        - cyclotron frequency Omega_c
+        - plasma frequency Omega_p
+        - Alfvèn frequency Omega_A
+        - thermal Larmor radius rho_th
+        - MHD length scale v_a/Omega_c
+        - rho/L
+        - alpha = Omega_p/Omega_c
+        - epsilon = 1/(t*Omega_c)
+
+        Returns
+        -------
+            pparams : dict
+                Plasma parameters for each species.
+        """
+
+        from struphy.fields_background import equils
+        from struphy.fields_background.base import FluidEquilibriumWithB
+        from struphy.kinetic_background import maxwellians
+
+        pparams = {}
+
+        # physics constants
+        e = 1.602176634e-19  # elementary charge (C)
+        m_p = 1.67262192369e-27  # proton mass (kg)
+        mu0 = 1.25663706212e-6  # magnetic constant (N*A^-2)
+        eps0 = 8.8541878128e-12  # vacuum permittivity (F*m^-1)
+        kB = 1.380649e-23  # Boltzmann constant (J*K^-1)
+
+        # exit when there is not any plasma species
+        if len(self.fluid) == 0 and len(self.kinetic) == 0:
+            return
+
+        # compute model units
+        units, equation_params = self.model_units(
+            self.params,
+            verbose=False,
+            comm=self.comm_world,
+        )
+
+        # units affices for printing
+        units_affix = {}
+        units_affix["plasma volume"] = " m³"
+        units_affix["transit length"] = " m"
+        units_affix["magnetic field"] = " T"
+        units_affix["mass"] = " kg"
+        units_affix["charge"] = " C"
+        units_affix["density"] = " m⁻³"
+        units_affix["pressure"] = " bar"
+        units_affix["kBT"] = " keV"
+        units_affix["v_A"] = " m/s"
+        units_affix["v_th"] = " m/s"
+        units_affix["vth1"] = " m/s"
+        units_affix["vth2"] = " m/s"
+        units_affix["vth3"] = " m/s"
+        units_affix["Omega_th"] = " Mrad/s"
+        units_affix["Omega_c"] = " Mrad/s"
+        units_affix["Omega_p"] = " Mrad/s"
+        units_affix["Omega_A"] = " Mrad/s"
+        units_affix["rho_th"] = " m"
+        units_affix["v_A/Omega_c"] = " m"
+        units_affix["rho_th/L"] = ""
+        units_affix["alpha"] = ""
+        units_affix["epsilon"] = ""
+
+        h = 1 / 20
+        eta1 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta2 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta3 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+
+        # global parameters
+        # plasma volume (hat x^3)
+        det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
+        vol1 = np.mean(np.abs(det_tmp))
+        # plasma volume (m⁻³)
+        plasma_volume = vol1 * units["x"] ** 3
+        # transit length (m)
+        transit_length = plasma_volume ** (1 / 3)
+        # magnetic field (T)
+        if isinstance(self.equil, FluidEquilibriumWithB):
+            B_tmp = self.equil.absB0(eta1, eta2, eta3)
+        else:
+            B_tmp = np.zeros((eta1.size, eta2.size, eta3.size))
+        magnetic_field = np.mean(B_tmp * np.abs(det_tmp)) / vol1 * units["B"]
+        B_max = np.max(B_tmp) * units["B"]
+        B_min = np.min(B_tmp) * units["B"]
+
+        if magnetic_field < 1e-14:
+            magnetic_field = np.nan
+            # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
+
+        if verbose:
+            print("\nPLASMA PARAMETERS:")
+            print(
+                f"Plasma volume:".ljust(25),
+                "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
+            )
+            print(
+                f"Transit length:".ljust(25),
+                "{:4.3e}".format(transit_length) + units_affix["transit length"],
+            )
+            print(
+                f"Avg. magnetic field:".ljust(25),
+                "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
+            )
+            print(
+                f"Max magnetic field:".ljust(25),
+                "{:4.3e}".format(B_max) + units_affix["magnetic field"],
+            )
+            print(
+                f"Min magnetic field:".ljust(25),
+                "{:4.3e}".format(B_min) + units_affix["magnetic field"],
+            )
+
+        # species dependent parameters
+        pparams = {}
+
+        if len(self.fluid) > 0:
+            for species, val in self.fluid.items():
+                pparams[species] = {}
+                # type
+                pparams[species]["type"] = "fluid"
+                # mass (kg)
+                pparams[species]["mass"] = val["params"]["phys_params"]["A"] * m_p
+                # charge (C)
+                pparams[species]["charge"] = val["params"]["phys_params"]["Z"] * e
+                # density (m⁻³)
+                pparams[species]["density"] = (
+                    np.mean(
+                        self.equil.n0(
+                            eta1,
+                            eta2,
+                            eta3,
+                        )
+                        * np.abs(det_tmp),
+                    )
+                    * units["x"] ** 3
+                    / plasma_volume
+                    * units["n"]
+                )
+                # pressure (bar)
+                pparams[species]["pressure"] = (
+                    np.mean(
+                        self.equil.p0(
+                            eta1,
+                            eta2,
+                            eta3,
+                        )
+                        * np.abs(det_tmp),
+                    )
+                    * units["x"] ** 3
+                    / plasma_volume
+                    * units["p"]
+                    * 1e-5
+                )
+                # thermal energy (keV)
+                pparams[species]["kBT"] = pparams[species]["pressure"] * 1e5 / pparams[species]["density"] / e * 1e-3
+
+        if len(self.kinetic) > 0:
+            eta1mg, eta2mg, eta3mg = np.meshgrid(
+                eta1,
+                eta2,
+                eta3,
+                indexing="ij",
+            )
+
+            for species, val in self.kinetic.items():
+                pparams[species] = {}
+                # type
+                pparams[species]["type"] = "kinetic"
+                # mass (kg)
+                pparams[species]["mass"] = val["params"]["phys_params"]["A"] * m_p
+                # charge (C)
+                pparams[species]["charge"] = val["params"]["phys_params"]["Z"] * e
+
+                # create temp kinetic object for (default) parameter extraction
+                tmp_bckgr = val["params"]["background"]
+
+                if val["space"] != "ParticlesSPH":
+                    tmp = None
+                    for fi, maxw_params in tmp_bckgr.items():
+                        if fi[-2] == "_":
+                            fi_type = fi[:-2]
+                        else:
+                            fi_type = fi
+
+                        if tmp is None:
+                            tmp = getattr(maxwellians, fi_type)(
+                                maxw_params=maxw_params,
+                                equil=self.equil,
+                            )
+                        else:
+                            tmp = tmp + getattr(maxwellians, fi_type)(
+                                maxw_params=maxw_params,
+                                equil=self.equil,
+                            )
+
+                if val["space"] != "ParticlesSPH" and tmp.coords == "constants_of_motion":
+                    # call parameters
+                    a1 = self.domain.params["a1"]
+                    r = eta1mg * (1 - a1) + a1
+                    psi = self.equil.psi_r(r)
+
+                    # density (m⁻³)
+                    pparams[species]["density"] = (
+                        np.mean(tmp.n(psi) * np.abs(det_tmp)) * units["x"] ** 3 / plasma_volume * units["n"]
+                    )
+                    # thermal speed (m/s)
+                    pparams[species]["v_th"] = (
+                        np.mean(tmp.vth(psi) * np.abs(det_tmp)) * units["x"] ** 3 / plasma_volume * units["v"]
+                    )
+                    # thermal energy (keV)
+                    pparams[species]["kBT"] = pparams[species]["mass"] * pparams[species]["v_th"] ** 2 / e * 1e-3
+                    # pressure (bar)
+                    pparams[species]["pressure"] = (
+                        pparams[species]["kBT"] * e * 1e3 * pparams[species]["density"] * 1e-5
+                    )
+
+                else:
+                    # density (m⁻³)
+                    # pparams[species]['density'] = np.mean(tmp.n(
+                    #     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+                    pparams[species]["density"] = 99.0
+                    # thermal speeds (m/s)
+                    vth = []
+                    # vths = tmp.vth(eta1mg, eta2mg, eta3mg)
+                    vths = [99.0]
+                    for k in range(len(vths)):
+                        vth += [
+                            vths[k] * np.abs(det_tmp) * units["x"] ** 3 / plasma_volume * units["v"],
+                        ]
+                    thermal_speed = 0.0
+                    for dir in range(val["obj"].vdim):
+                        # pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
+                        pparams[species]["vth" + str(dir + 1)] = 99.0
+                        thermal_speed += pparams[species]["vth" + str(dir + 1)]
+                    # TODO: here it is assumed that background density parameter is called "n",
+                    # and that background thermal speeds are called "vthn"; make this a convention?
+                    # pparams[species]['v_th'] = thermal_speed / \
+                    #     val['obj'].vdim
+                    pparams[species]["v_th"] = 99.0
+                    # thermal energy (keV)
+                    # pparams[species]['kBT'] = pparams[species]['mass'] * \
+                    #     pparams[species]['v_th']**2 / e * 1e-3
+                    pparams[species]["kBT"] = 99.0
+                    # pressure (bar)
+                    # pparams[species]['pressure'] = pparams[species]['kBT'] * \
+                    #     e * 1e3 * pparams[species]['density'] * 1e-5
+                    pparams[species]["pressure"] = 99.0
+
+        for species in pparams:
+            # alfvén speed (m/s)
+            pparams[species]["v_A"] = magnetic_field / np.sqrt(
+                mu0 * pparams[species]["mass"] * pparams[species]["density"],
+            )
+            # thermal speed (m/s)
+            pparams[species]["v_th"] = np.sqrt(
+                pparams[species]["kBT"] * 1e3 * e / pparams[species]["mass"],
+            )
+            # thermal frequency (Mrad/s)
+            pparams[species]["Omega_th"] = pparams[species]["v_th"] / transit_length * 1e-6
+            # cyclotron frequency (Mrad/s)
+            pparams[species]["Omega_c"] = pparams[species]["charge"] * magnetic_field / pparams[species]["mass"] * 1e-6
+            # plasma frequency (Mrad/s)
+            pparams[species]["Omega_p"] = (
+                np.sqrt(
+                    pparams[species]["density"] * (pparams[species]["charge"]) ** 2 / eps0 / pparams[species]["mass"],
+                )
+                * 1e-6
+            )
+            # alfvén frequency (Mrad/s)
+            pparams[species]["Omega_A"] = pparams[species]["v_A"] / transit_length * 1e-6
+            # Larmor radius (m)
+            pparams[species]["rho_th"] = pparams[species]["v_th"] / (pparams[species]["Omega_c"] * 1e6)
+            # MHD length scale (m)
+            pparams[species]["v_A/Omega_c"] = pparams[species]["v_A"] / (np.abs(pparams[species]["Omega_c"]) * 1e6)
+            # dim-less ratios
+            pparams[species]["rho_th/L"] = pparams[species]["rho_th"] / transit_length
+
+        if verbose:
+            print("\nSPECIES PARAMETERS:")
+            for species, ch in pparams.items():
+                print(f"\nname:".ljust(26), species)
+                print(f"type:".ljust(25), ch["type"])
+                ch.pop("type")
+                print(f"is bulk:".ljust(25), species == self.bulk_species())
+                for kinds, vals in ch.items():
+                    print(
+                        kinds.ljust(25),
+                        "{:+4.3e}".format(
+                            vals,
+                        ),
+                        units_affix[kinds],
+                    )
+
+        return pparams
+
     def __init__(
         self,
         params: dict,
@@ -1676,591 +2261,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         )
 
         return parameters
-
-    ###################
-    # Private methods :
-    ###################
-
-    def _init_variable_dicts(self):
-        """
-        Initialize em-fields, fluid and kinetic dictionaries for information on the model variables.
-        """
-
-        # electromagnetic fields, fluid and/or kinetic species
-        self._em_fields = {}
-        self._fluid = {}
-        self._kinetic = {}
-        self._diagnostics = {}
-
-        if self.rank_world == 0 and self.verbose:
-            print("\nMODEL SPECIES:")
-
-        # create dictionaries for each em-field/species and fill in space/class name and parameters
-        for var_name, space in self.species()["em_fields"].items():
-            assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
-            assert "em_fields" in self.params, 'Top-level key "em_fields" is missing in parameter file.'
-
-            if self.rank_world == 0 and self.verbose:
-                print("em_field:".ljust(25), f'"{var_name}" ({space})')
-
-            self._em_fields[var_name] = {}
-
-            # space
-            self._em_fields[var_name]["space"] = space
-
-            # initial conditions
-            if "background" in self.params["em_fields"]:
-                self._em_fields[var_name]["background"] = self.params["em_fields"]["background"].get(var_name)
-            if "perturbation" in self.params["em_fields"]:
-                self._em_fields[var_name]["perturbation"] = self.params["em_fields"]["perturbation"].get(var_name)
-
-            # which components to save
-            if "save_data" in self.params["em_fields"]:
-                self._em_fields[var_name]["save_data"] = self.params["em_fields"]["save_data"]["comps"][var_name]
-            else:
-                self._em_fields[var_name]["save_data"] = True
-
-            # overall parameters
-            self._em_fields["params"] = self.params["em_fields"]
-
-        for var_name, space in self.species()["fluid"].items():
-            assert isinstance(space, dict)
-            assert "fluid" in self.params, 'Top-level key "fluid" is missing in parameter file.'
-            assert var_name in self.params["fluid"], f"Fluid species {var_name} is missing in parameter file."
-
-            if self.rank_world == 0 and self.verbose:
-                print("fluid:".ljust(25), f'"{var_name}" ({space})')
-
-            self._fluid[var_name] = {}
-            for sub_var_name, sub_space in space.items():
-                self._fluid[var_name][sub_var_name] = {}
-
-                # space
-                self._fluid[var_name][sub_var_name]["space"] = sub_space
-
-                # initial conditions
-                if "background" in self.params["fluid"][var_name]:
-                    self._fluid[var_name][sub_var_name]["background"] = self.params["fluid"][var_name][
-                        "background"
-                    ].get(sub_var_name)
-                if "perturbation" in self.params["fluid"][var_name]:
-                    self._fluid[var_name][sub_var_name]["perturbation"] = self.params["fluid"][var_name][
-                        "perturbation"
-                    ].get(sub_var_name)
-
-                # which components to save
-                if "save_data" in self.params["fluid"][var_name]:
-                    self._fluid[var_name][sub_var_name]["save_data"] = self.params["fluid"][var_name]["save_data"][
-                        "comps"
-                    ][sub_var_name]
-
-                else:
-                    self._fluid[var_name][sub_var_name]["save_data"] = True
-
-            # overall parameters
-            self._fluid[var_name]["params"] = self.params["fluid"][var_name]
-
-        for var_name, space in self.species()["kinetic"].items():
-            assert "Particles" in space
-            assert "kinetic" in self.params, 'Top-level key "kinetic" is missing in parameter file.'
-            assert var_name in self.params["kinetic"], f"Kinetic species {var_name} is missing in parameter file."
-
-            if self.rank_world == 0 and self.verbose:
-                print("kinetic:".ljust(25), f'"{var_name}" ({space})')
-
-            self._kinetic[var_name] = {}
-            self._kinetic[var_name]["space"] = space
-            self._kinetic[var_name]["params"] = self.params["kinetic"][var_name]
-
-        if self.diagnostics_dct() is not None:
-            for var_name, space in self.diagnostics_dct().items():
-                assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
-
-                if self.rank_world == 0 and self.verbose:
-                    print("diagnostics:".ljust(25), f'"{var_name}" ({space})')
-
-                self._diagnostics[var_name] = {}
-                self._diagnostics[var_name]["space"] = space
-                self._diagnostics["params"] = self.params["diagnostics"][var_name]
-
-                # which components to save
-                if "save_data" in self.params["diagnostics"][var_name]:
-                    self._diagnostics[var_name]["save_data"] = self.params["diagnostics"][var_name]["save_data"]
-
-                else:
-                    self._diagnostics[var_name]["save_data"] = True
-
-    def _allocate_variables(self):
-        """
-        Allocate memory for model variables.
-        Creates FEM fields for em-fields and fluid variables and a particle class for kinetic species.
-        """
-
-        from struphy.feec.psydac_derham import Derham
-        from struphy.pic import particles
-        from struphy.pic.base import Particles
-
-        # allocate memory for FE coeffs of electromagnetic fields/potentials
-        if "em_fields" in self.params:
-            for variable, dct in self.em_fields.items():
-                if "params" in variable:
-                    continue
-                else:
-                    dct["obj"] = self.derham.create_spline_function(
-                        variable,
-                        dct["space"],
-                        bckgr_params=dct.get("background"),
-                        pert_params=dct.get("perturbation"),
-                    )
-
-                    self._pointer[variable] = dct["obj"].vector
-
-        # allocate memory for FE coeffs of fluid variables
-        if "fluid" in self.params:
-            for species, dct in self.fluid.items():
-                for variable, subdct in dct.items():
-                    if "params" in variable:
-                        continue
-                    else:
-                        subdct["obj"] = self.derham.create_spline_function(
-                            variable,
-                            subdct["space"],
-                            bckgr_params=subdct.get("background"),
-                            pert_params=subdct.get("perturbation"),
-                        )
-
-                        self._pointer[species + "_" + variable] = subdct["obj"].vector
-
-        # marker arrays and plasma parameters of kinetic species
-        if "kinetic" in self.params:
-            for species, val in self.kinetic.items():
-                assert any([key in val["params"]["markers"] for key in ["Np", "ppc", "ppb"]])
-
-                bckgr_params = val["params"].get("background", None)
-                pert_params = val["params"].get("perturbation", None)
-                boxes_per_dim = val["params"].get("boxes_per_dim", None)
-                mpi_dims_mask = val["params"].get("dims_mask", None)
-                weights_params = val["params"].get("weights", None)
-
-                if self.derham is None:
-                    domain_decomp = None
-                else:
-                    domain_array = self.derham.domain_array
-                    nprocs = self.derham.domain_decomposition.nprocs
-                    domain_decomp = (domain_array, nprocs)
-
-                kinetic_class = getattr(particles, val["space"])
-
-                val["obj"] = kinetic_class(
-                    comm_world=self.comm_world,
-                    clone_config=self.clone_config,
-                    **val["params"]["markers"],
-                    weights_params=weights_params,
-                    domain_decomp=domain_decomp,
-                    mpi_dims_mask=mpi_dims_mask,
-                    boxes_per_dim=boxes_per_dim,
-                    name=species,
-                    equation_params=self.equation_params[species],
-                    domain=self.domain,
-                    equil=self.equil,
-                    projected_equil=self.projected_equil,
-                    bckgr_params=bckgr_params,
-                    pert_params=pert_params,
-                )
-
-                obj = val["obj"]
-                assert isinstance(obj, Particles)
-
-                self._pointer[species] = obj
-
-                # for storing markers
-                val["kinetic_data"] = {}
-
-                # for storing the distribution function
-                if "f" in val["params"]["save_data"]:
-                    slices = val["params"]["save_data"]["f"]["slices"]
-                    n_bins = val["params"]["save_data"]["f"]["n_bins"]
-                    ranges = val["params"]["save_data"]["f"]["ranges"]
-
-                    val["kinetic_data"]["f"] = {}
-                    val["kinetic_data"]["df"] = {}
-                    val["bin_edges"] = {}
-                    if len(slices) > 0:
-                        for i, sli in enumerate(slices):
-                            assert ((len(sli) - 2) / 3).is_integer()
-                            assert len(slices[i].split("_")) == len(ranges[i]) == len(n_bins[i]), (
-                                f"Number of slices names ({len(slices[i].split('_'))}), number of bins ({len(n_bins[i])}), and number of ranges ({len(ranges[i])}) are inconsistent with each other!\n\n"
-                            )
-                            val["bin_edges"][sli] = []
-                            dims = (len(sli) - 2) // 3 + 1
-                            for j in range(dims):
-                                val["bin_edges"][sli] += [
-                                    np.linspace(
-                                        ranges[i][j][0],
-                                        ranges[i][j][1],
-                                        n_bins[i][j] + 1,
-                                    ),
-                                ]
-                            val["kinetic_data"]["f"][sli] = np.zeros(
-                                n_bins[i],
-                                dtype=float,
-                            )
-                            val["kinetic_data"]["df"][sli] = np.zeros(
-                                n_bins[i],
-                                dtype=float,
-                            )
-
-                # for storing an sph evaluation of the density n
-                if "n_sph" in val["params"]["save_data"]:
-                    plot_pts = val["params"]["save_data"]["n_sph"]["plot_pts"]
-
-                    val["kinetic_data"]["n_sph"] = []
-                    val["plot_pts"] = []
-                    for i, pts in enumerate(plot_pts):
-                        assert len(pts) == 3
-                        eta1 = np.linspace(0.0, 1.0, pts[0])
-                        eta2 = np.linspace(0.0, 1.0, pts[1])
-                        eta3 = np.linspace(0.0, 1.0, pts[2])
-                        ee1, ee2, ee3 = np.meshgrid(
-                            eta1,
-                            eta2,
-                            eta3,
-                            indexing="ij",
-                        )
-                        val["plot_pts"] += [(ee1, ee2, ee3)]
-                        val["kinetic_data"]["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
-
-                # other data (wave-particle power exchange, etc.)
-                # TODO
-
-        # allocate memory for FE coeffs of diagnostics
-        if "diagnostics" in self.params:
-            for key, val in self.diagnostics.items():
-                if "params" in key:
-                    continue
-                else:
-                    val["obj"] = self.derham.create_spline_function(
-                        key,
-                        val["space"],
-                        bckgr_params=None,
-                        pert_params=None,
-                    )
-
-                    self._pointer[key] = val["obj"].vector
-
-    def _compute_plasma_params(self, verbose=True):
-        """
-        Compute and print volume averaged plasma parameters for each species of the model.
-
-        Global parameters:
-        - plasma volume
-        - transit length
-        - magnetic field
-
-        Species dependent parameters:
-        - mass
-        - charge
-        - density
-        - pressure
-        - thermal energy kBT
-        - Alfvén speed v_A
-        - thermal speed v_th
-        - thermal frequency Omega_th
-        - cyclotron frequency Omega_c
-        - plasma frequency Omega_p
-        - Alfvèn frequency Omega_A
-        - thermal Larmor radius rho_th
-        - MHD length scale v_a/Omega_c
-        - rho/L
-        - alpha = Omega_p/Omega_c
-        - epsilon = 1/(t*Omega_c)
-
-        Returns
-        -------
-            pparams : dict
-                Plasma parameters for each species.
-        """
-
-        from struphy.fields_background import equils
-        from struphy.fields_background.base import FluidEquilibriumWithB
-        from struphy.kinetic_background import maxwellians
-
-        pparams = {}
-
-        # physics constants
-        e = 1.602176634e-19  # elementary charge (C)
-        m_p = 1.67262192369e-27  # proton mass (kg)
-        mu0 = 1.25663706212e-6  # magnetic constant (N*A^-2)
-        eps0 = 8.8541878128e-12  # vacuum permittivity (F*m^-1)
-        kB = 1.380649e-23  # Boltzmann constant (J*K^-1)
-
-        # exit when there is not any plasma species
-        if len(self.fluid) == 0 and len(self.kinetic) == 0:
-            return
-
-        # compute model units
-        units, equation_params = self.model_units(
-            self.params,
-            verbose=False,
-            comm=self.comm_world,
-        )
-
-        # units affices for printing
-        units_affix = {}
-        units_affix["plasma volume"] = " m³"
-        units_affix["transit length"] = " m"
-        units_affix["magnetic field"] = " T"
-        units_affix["mass"] = " kg"
-        units_affix["charge"] = " C"
-        units_affix["density"] = " m⁻³"
-        units_affix["pressure"] = " bar"
-        units_affix["kBT"] = " keV"
-        units_affix["v_A"] = " m/s"
-        units_affix["v_th"] = " m/s"
-        units_affix["vth1"] = " m/s"
-        units_affix["vth2"] = " m/s"
-        units_affix["vth3"] = " m/s"
-        units_affix["Omega_th"] = " Mrad/s"
-        units_affix["Omega_c"] = " Mrad/s"
-        units_affix["Omega_p"] = " Mrad/s"
-        units_affix["Omega_A"] = " Mrad/s"
-        units_affix["rho_th"] = " m"
-        units_affix["v_A/Omega_c"] = " m"
-        units_affix["rho_th/L"] = ""
-        units_affix["alpha"] = ""
-        units_affix["epsilon"] = ""
-
-        h = 1 / 20
-        eta1 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-        eta2 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-        eta3 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-
-        # global parameters
-        # plasma volume (hat x^3)
-        det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
-        vol1 = np.mean(np.abs(det_tmp))
-        # plasma volume (m⁻³)
-        plasma_volume = vol1 * units["x"] ** 3
-        # transit length (m)
-        transit_length = plasma_volume ** (1 / 3)
-        # magnetic field (T)
-        if isinstance(self.equil, FluidEquilibriumWithB):
-            B_tmp = self.equil.absB0(eta1, eta2, eta3)
-        else:
-            B_tmp = np.zeros((eta1.size, eta2.size, eta3.size))
-        magnetic_field = np.mean(B_tmp * np.abs(det_tmp)) / vol1 * units["B"]
-        B_max = np.max(B_tmp) * units["B"]
-        B_min = np.min(B_tmp) * units["B"]
-
-        if magnetic_field < 1e-14:
-            magnetic_field = np.nan
-            # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
-
-        if verbose:
-            print("\nPLASMA PARAMETERS:")
-            print(
-                f"Plasma volume:".ljust(25),
-                "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
-            )
-            print(
-                f"Transit length:".ljust(25),
-                "{:4.3e}".format(transit_length) + units_affix["transit length"],
-            )
-            print(
-                f"Avg. magnetic field:".ljust(25),
-                "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
-            )
-            print(
-                f"Max magnetic field:".ljust(25),
-                "{:4.3e}".format(B_max) + units_affix["magnetic field"],
-            )
-            print(
-                f"Min magnetic field:".ljust(25),
-                "{:4.3e}".format(B_min) + units_affix["magnetic field"],
-            )
-
-        # species dependent parameters
-        pparams = {}
-
-        if len(self.fluid) > 0:
-            for species, val in self.fluid.items():
-                pparams[species] = {}
-                # type
-                pparams[species]["type"] = "fluid"
-                # mass (kg)
-                pparams[species]["mass"] = val["params"]["phys_params"]["A"] * m_p
-                # charge (C)
-                pparams[species]["charge"] = val["params"]["phys_params"]["Z"] * e
-                # density (m⁻³)
-                pparams[species]["density"] = (
-                    np.mean(
-                        self.equil.n0(
-                            eta1,
-                            eta2,
-                            eta3,
-                        )
-                        * np.abs(det_tmp),
-                    )
-                    * units["x"] ** 3
-                    / plasma_volume
-                    * units["n"]
-                )
-                # pressure (bar)
-                pparams[species]["pressure"] = (
-                    np.mean(
-                        self.equil.p0(
-                            eta1,
-                            eta2,
-                            eta3,
-                        )
-                        * np.abs(det_tmp),
-                    )
-                    * units["x"] ** 3
-                    / plasma_volume
-                    * units["p"]
-                    * 1e-5
-                )
-                # thermal energy (keV)
-                pparams[species]["kBT"] = pparams[species]["pressure"] * 1e5 / pparams[species]["density"] / e * 1e-3
-
-        if len(self.kinetic) > 0:
-            eta1mg, eta2mg, eta3mg = np.meshgrid(
-                eta1,
-                eta2,
-                eta3,
-                indexing="ij",
-            )
-
-            for species, val in self.kinetic.items():
-                pparams[species] = {}
-                # type
-                pparams[species]["type"] = "kinetic"
-                # mass (kg)
-                pparams[species]["mass"] = val["params"]["phys_params"]["A"] * m_p
-                # charge (C)
-                pparams[species]["charge"] = val["params"]["phys_params"]["Z"] * e
-
-                # create temp kinetic object for (default) parameter extraction
-                tmp_bckgr = val["params"]["background"]
-
-                if val["space"] != "ParticlesSPH":
-                    tmp = None
-                    for fi, maxw_params in tmp_bckgr.items():
-                        if fi[-2] == "_":
-                            fi_type = fi[:-2]
-                        else:
-                            fi_type = fi
-
-                        if tmp is None:
-                            tmp = getattr(maxwellians, fi_type)(
-                                maxw_params=maxw_params,
-                                equil=self.equil,
-                            )
-                        else:
-                            tmp = tmp + getattr(maxwellians, fi_type)(
-                                maxw_params=maxw_params,
-                                equil=self.equil,
-                            )
-
-                if val["space"] != "ParticlesSPH" and tmp.coords == "constants_of_motion":
-                    # call parameters
-                    a1 = self.domain.params["a1"]
-                    r = eta1mg * (1 - a1) + a1
-                    psi = self.equil.psi_r(r)
-
-                    # density (m⁻³)
-                    pparams[species]["density"] = (
-                        np.mean(tmp.n(psi) * np.abs(det_tmp)) * units["x"] ** 3 / plasma_volume * units["n"]
-                    )
-                    # thermal speed (m/s)
-                    pparams[species]["v_th"] = (
-                        np.mean(tmp.vth(psi) * np.abs(det_tmp)) * units["x"] ** 3 / plasma_volume * units["v"]
-                    )
-                    # thermal energy (keV)
-                    pparams[species]["kBT"] = pparams[species]["mass"] * pparams[species]["v_th"] ** 2 / e * 1e-3
-                    # pressure (bar)
-                    pparams[species]["pressure"] = (
-                        pparams[species]["kBT"] * e * 1e3 * pparams[species]["density"] * 1e-5
-                    )
-
-                else:
-                    # density (m⁻³)
-                    # pparams[species]['density'] = np.mean(tmp.n(
-                    #     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
-                    pparams[species]["density"] = 99.0
-                    # thermal speeds (m/s)
-                    vth = []
-                    # vths = tmp.vth(eta1mg, eta2mg, eta3mg)
-                    vths = [99.0]
-                    for k in range(len(vths)):
-                        vth += [
-                            vths[k] * np.abs(det_tmp) * units["x"] ** 3 / plasma_volume * units["v"],
-                        ]
-                    thermal_speed = 0.0
-                    for dir in range(val["obj"].vdim):
-                        # pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
-                        pparams[species]["vth" + str(dir + 1)] = 99.0
-                        thermal_speed += pparams[species]["vth" + str(dir + 1)]
-                    # TODO: here it is assumed that background density parameter is called "n",
-                    # and that background thermal speeds are called "vthn"; make this a convention?
-                    # pparams[species]['v_th'] = thermal_speed / \
-                    #     val['obj'].vdim
-                    pparams[species]["v_th"] = 99.0
-                    # thermal energy (keV)
-                    # pparams[species]['kBT'] = pparams[species]['mass'] * \
-                    #     pparams[species]['v_th']**2 / e * 1e-3
-                    pparams[species]["kBT"] = 99.0
-                    # pressure (bar)
-                    # pparams[species]['pressure'] = pparams[species]['kBT'] * \
-                    #     e * 1e3 * pparams[species]['density'] * 1e-5
-                    pparams[species]["pressure"] = 99.0
-
-        for species in pparams:
-            # alfvén speed (m/s)
-            pparams[species]["v_A"] = magnetic_field / np.sqrt(
-                mu0 * pparams[species]["mass"] * pparams[species]["density"],
-            )
-            # thermal speed (m/s)
-            pparams[species]["v_th"] = np.sqrt(
-                pparams[species]["kBT"] * 1e3 * e / pparams[species]["mass"],
-            )
-            # thermal frequency (Mrad/s)
-            pparams[species]["Omega_th"] = pparams[species]["v_th"] / transit_length * 1e-6
-            # cyclotron frequency (Mrad/s)
-            pparams[species]["Omega_c"] = pparams[species]["charge"] * magnetic_field / pparams[species]["mass"] * 1e-6
-            # plasma frequency (Mrad/s)
-            pparams[species]["Omega_p"] = (
-                np.sqrt(
-                    pparams[species]["density"] * (pparams[species]["charge"]) ** 2 / eps0 / pparams[species]["mass"],
-                )
-                * 1e-6
-            )
-            # alfvén frequency (Mrad/s)
-            pparams[species]["Omega_A"] = pparams[species]["v_A"] / transit_length * 1e-6
-            # Larmor radius (m)
-            pparams[species]["rho_th"] = pparams[species]["v_th"] / (pparams[species]["Omega_c"] * 1e6)
-            # MHD length scale (m)
-            pparams[species]["v_A/Omega_c"] = pparams[species]["v_A"] / (np.abs(pparams[species]["Omega_c"]) * 1e6)
-            # dim-less ratios
-            pparams[species]["rho_th/L"] = pparams[species]["rho_th"] / transit_length
-
-        if verbose:
-            print("\nSPECIES PARAMETERS:")
-            for species, ch in pparams.items():
-                print(f"\nname:".ljust(26), species)
-                print(f"type:".ljust(25), ch["type"])
-                ch.pop("type")
-                print(f"is bulk:".ljust(25), species == self.bulk_species())
-                for kinds, vals in ch.items():
-                    print(
-                        kinds.ljust(25),
-                        "{:+4.3e}".format(
-                            vals,
-                        ),
-                        units_affix[kinds],
-                    )
-
-        return pparams
 
 
 class MyDumper(yaml.SafeDumper):

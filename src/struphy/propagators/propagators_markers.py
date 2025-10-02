@@ -227,10 +227,6 @@ class PushVinEfield(Propagator):
     which is solved analytically.
     """
 
-    @staticmethod
-    def options():
-        pass
-
     def __init__(
         self,
         particles: Particles6D,
@@ -261,6 +257,10 @@ class PushVinEfield(Propagator):
             self.domain.args_domain,
             alpha_in_kernel=1.0,
         )
+
+    @staticmethod
+    def options():
+        pass
 
     def __call__(self, dt):
         """

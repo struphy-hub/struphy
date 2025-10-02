@@ -14,6 +14,36 @@ import struphy.utils.utils as utils
 from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_videos_2d
 
 
+def do_plot_and_if_polar(slices_plot, slice_name, geometry_params):
+    """Helper function to determine if a given slice should be plotted, and if yes, wether in polar coords.
+
+    Parameters
+    ----------
+    """
+    slice_name_given = False
+    if slices_plot != []:
+        if slice_name in slices_plot:
+            slice_name_given = True
+    else:
+        slice_name_given = True
+
+    polar_params = {}
+
+    do_polar = False
+    geom_type = geometry_params["type"]
+    if geom_type == "HollowCylinder":
+        if slice_name == "e1_e2":
+            do_polar = True
+            polar_params["radial_coord"] = "e1"
+            polar_params["r_min"] = geometry_params[geom_type]["a1"]
+            polar_params["r_max"] = geometry_params[geom_type]["a2"]
+            polar_params["angular_coord"] = "e2"
+
+    polar_params["do_polar"] = do_polar
+
+    return slice_name_given, polar_params
+
+
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
@@ -374,36 +404,6 @@ def main():
                             )
 
     file.close()
-
-
-def do_plot_and_if_polar(slices_plot, slice_name, geometry_params):
-    """Helper function to determine if a given slice should be plotted, and if yes, wether in polar coords.
-
-    Parameters
-    ----------
-    """
-    slice_name_given = False
-    if slices_plot != []:
-        if slice_name in slices_plot:
-            slice_name_given = True
-    else:
-        slice_name_given = True
-
-    polar_params = {}
-
-    do_polar = False
-    geom_type = geometry_params["type"]
-    if geom_type == "HollowCylinder":
-        if slice_name == "e1_e2":
-            do_polar = True
-            polar_params["radial_coord"] = "e1"
-            polar_params["r_min"] = geometry_params[geom_type]["a1"]
-            polar_params["r_max"] = geometry_params[geom_type]["a2"]
-            polar_params["angular_coord"] = "e2"
-
-    polar_params["do_polar"] = do_polar
-
-    return slice_name_given, polar_params
 
 
 if __name__ == "__main__":
