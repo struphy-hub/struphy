@@ -671,7 +671,7 @@ def run_linters_on_files(linters, python_files, flags, verbose):
         for python_file in python_files:
             print(f"Formatting {python_file}")
             linter_flags = flags.get(linter, [])
-            if isinstance(linter_flags[0], list):
+            if len(linter_flags) > 0 and isinstance(linter_flags[0], list):
                 # If linter_flags is a list, run each separately
                 for flag in linter_flags:
                     command = [linter] + flag + [python_file]
@@ -924,7 +924,7 @@ def analyze_file(file_path, linters=None, verbose=False):
         "passes_add-trailing-comma": False,
         "passes_ruff": False,
         "passes_omp_flags": False,
-        "passes_ssort",
+        "passes_ssort": False,
     }
 
     # Read the file content
