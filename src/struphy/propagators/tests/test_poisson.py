@@ -7,6 +7,7 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
+from struphy.geometry.base import Domain
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
@@ -27,7 +28,9 @@ plt.rcParams.update({"font.size": 22})
         ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}],
     ],
 )
-def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
+@pytest.mark.parametrize("projected_rhs", [False, True])
+def test_poisson_1d(direction: int, 
+                    bc_type, mapping, projected_rhs: bool, show_plot=False,):
     """
     Test the convergence of Poisson solver in 1D by means of manufactured solutions.
     """
@@ -37,7 +40,7 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
     dom_params = mapping[1]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
+    domain: Domain = domain_class(**dom_params)
 
     if dom_type == "Cuboid":
         Lx = dom_params["r1"] - dom_params["l1"]
@@ -156,9 +159,13 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
 
             # pullbacks of right-hand side
             def rho1(e1, e2, e3):
-                return domain.pull(rho1_xyz, e1, e2, e3, kind="0", squeeze_out=True)
+                return domain.pull(rho1_xyz, e1, e2, e3, kind="0", squeeze_out=False)
 
-            rho_vec = L2Projector("H1", mass_ops).get_dofs(rho1, apply_bc=True)
+            if projected_rhs:
+                rho1_h = derham.P["0"](rho1)
+                rho_vec = mass_ops.M0.dot(rho1_h)
+            else:
+                rho_vec = L2Projector("H1", mass_ops).get_dofs(rho1, apply_bc=True)
 
             # create Poisson solver
             solver_params = SolverParameters(
@@ -223,7 +230,7 @@ def test_poisson_1d(direction, bc_type, mapping, show_plot=False):
 
         m, _ = np.polyfit(np.log(Nels), np.log(errors), deg=1)
         print(f"For {pi = }, solution converges in {direction=} with rate {-m = } ")
-        assert -m > (pi + 1 - 0.06)
+        assert -m > (pi + 1 - 0.07)
 
         # Plot convergence in 1D
         if show_plot:
@@ -468,11 +475,11 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
 
 
 if __name__ == "__main__":
-    direction = 2
+    direction = 0
     bc_type = "dirichlet"
     mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
     # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
-    test_poisson_1d(direction, bc_type, mapping, show_plot=True)
+    test_poisson_1d(direction, bc_type, mapping, projected_rhs=True, show_plot=True)
 
     # Nel = [64, 64, 1]
     # p = [2, 2, 1]

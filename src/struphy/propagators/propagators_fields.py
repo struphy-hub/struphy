@@ -2761,7 +2761,7 @@ class ImplicitDiffusion(Propagator):
         rho = self.options.rho
 
         if rho is None:
-            self._rho = [phi.space.zeros()]
+            self.rho = phi.space.zeros()
         else:
             if isinstance(rho, list):
                 for r in rho:
@@ -2781,7 +2781,7 @@ class ImplicitDiffusion(Propagator):
             else:
                 assert rho.space == phi.space
                 rho = [rho]
-            self._rho = rho
+            self.rho = rho
 
         # initial guess and solver params
         self._x0 = self.options.x0
@@ -2843,32 +2843,26 @@ class ImplicitDiffusion(Propagator):
         """In-place setter for StencilVector/PolarVector.
         If rho is a list, len(value) msut be len(rho) and value can contain None.
         """
+        # checks
         if isinstance(value, list):
-            assert len(value) == len(self.rho)
-            for i, (val, r) in enumerate(zip(value, self.rho)):
+            for val in value:
                 if val is None:
                     continue
                 elif isinstance(val, tuple):
                     assert isinstance(val[0], AccumulatorVector)
                     assert isinstance(val[1], Particles)
-                    assert isinstance(r, tuple)
-                    self.options.rho[i] = val
-                else:
-                    assert val.space == r.space
-                    r[:] = val[:]
+                elif isinstance(val, StencilVector):
+                    assert val.space == self.derham.Vh["0"]
         elif isinstance(value, tuple):
             assert isinstance(value[0], AccumulatorVector)
             assert isinstance(value[1], Particles)
-            assert len(self.rho) == 1
-            # assert rho[0].space_id == 'H1'
-            self.options.rho[0] = value
-        else:
+        elif isinstance(value, StencilVector):
             assert value.space == self.derham.Vh["0"]
-            if self.options.rho is None:
-                self.options.rho = [value]
-            else:
-                assert len(self.rho) == 1
-                self.options.rho[0][:] = value[:]
+        
+        if isinstance(value, list):
+            self.options.rho = value
+        else:
+            self.options.rho = [value]
 
     @property
     def x0(self):
@@ -2908,12 +2902,12 @@ class ImplicitDiffusion(Propagator):
         rhs *= sig_2
 
         self._rhs2 *= 0.0
-        for rho in self._rho:
+        for rho in self.rho:
             if isinstance(rho, tuple):
                 rho[0]()  # accumulate
                 self._rhs2 += sig_3 * rho[0].vectors[0]
             else:
-                self._rhs2 += sig_3 * rho
+                self._rhs2 += sig_3 * rho #self.mass_ops.M0.dot(rho)
 
         rhs += self._rhs2
 
@@ -7077,7 +7071,7 @@ class TimeDependentSource(Propagator):
         # specific literals
         OptsTimeSource = Literal["cos", "sin"]
         # propagator options
-        omega: float = 1.0
+        omega: float = 2.0*np.pi
         hfun: OptsTimeSource = "cos"
 
         def __post_init__(self):
@@ -7124,7 +7118,7 @@ class TimeDependentSource(Propagator):
 
         # write new coeffs into self.feec_vars
         # max_dc = self.feec_vars_update(cn1)
-        max_dc = self.update_feec_variables(source=cn1)
+        self.update_feec_variables(source=cn1)
 
 
 class AdiabaticPhi(Propagator):
