@@ -67,6 +67,46 @@ def gc_density_0form(
     # -- removed omp: #$ omp end parallel
 
 
+def gc_mag_density_0form(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec: "float[:,:,:]",
+    scale: "float",  # model specific argument
+):
+    r"""
+    Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with the filling
+
+    .. math::
+
+        B_p^\mu = \mu \frac{w_p}{N} \,.
+    """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
+    # -- removed omp: #$ omp for reduction ( + :vec)
+    for ip in range(shape(markers)[0]):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # marker weight and magnetic moment
+        weight = markers[ip,5]
+        mu = markers[ip, 9]
+
+        # filling =mu*w_p/N
+        filling = mu*weight/Np
+
+        particle_to_mat_kernels.vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling)
+
+
 @stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "tmp1", "tmp2", "b", "b_prod", "bstar", "norm_b1", "curl_norm_b")
 def cc_lin_mhd_5d_D(
     args_markers: "MarkerArguments",
@@ -547,8 +587,7 @@ def cc_lin_mhd_5d_M(
     norm_b12: "float[:,:,:]",  # model specific argument
     norm_b13: "float[:,:,:]",  # model specific argument
     scale_vec: "float",  # model specific argument
-    boundary_cut: "float",
-):  # model specific argument
+):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_fields.ShearAlfvenCurrentCoupling5D` and :class:`~struphy.propagators.propagators_fields.MagnetosonicCurrentCoupling5D`.
 
     Accumulates 2-form vector with the filling functions:
@@ -599,9 +638,6 @@ def cc_lin_mhd_5d_M(
         # marker weight and velocity
         weight = markers[ip, 5]
         mu = markers[ip, 9]
-
-        if eta1 < boundary_cut or eta1 > 1.0 - boundary_cut:
-            continue
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)

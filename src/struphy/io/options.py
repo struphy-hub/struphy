@@ -26,7 +26,7 @@ GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "
 # solvers
 OptsSymmSolver = Literal["pcg", "cg"]
 OptsGenSolver = Literal["pbicgstab", "bicgstab"]
-OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
+OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
 
 # markers
 OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
@@ -36,6 +36,8 @@ OptsLoading = Literal["pseudo_random", "sobol_standard", "sobol_antithetic", "ex
 OptsSpatialLoading = Literal["uniform", "disc"]
 OptsMPIsort = Literal["each", "last", None]
 
+# filters
+OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
 
 ## Option classes
 
@@ -334,4 +336,5 @@ def check_option(opt, options):
     if not isinstance(opt, list):
         opt = [opt]
     for o in opt:
+        print(opts)
         assert o in opts, f"Option '{o}' is not in {opts}."
