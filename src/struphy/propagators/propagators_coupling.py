@@ -105,7 +105,7 @@ class VlasovAmpere(Propagator):
         self._info = solver["info"]
 
         # get accumulation kernel
-        accum_kernel = accum_kernels.vlasov_maxwell
+        accum_kernel = Pyccelkernel(accum_kernels.vlasov_maxwell)
 
         # Initialize Accumulator object
         self._accum = Accumulator(
@@ -330,7 +330,7 @@ class EfieldWeights(Propagator):
         self._accum = Accumulator(
             particles,
             "Hcurl",
-            accum_kernels.linear_vlasov_ampere,
+            Pyccelkernel(accum_kernels.linear_vlasov_ampere),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -554,10 +554,10 @@ class PressureCoupling6D(Propagator):
 
         # Call the accumulation and Pusher class
         if use_perp_model:
-            accum_ker = accum_kernels.pc_lin_mhd_6d
+            accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d)
             pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu)
         else:
-            accum_ker = accum_kernels.pc_lin_mhd_6d_full
+            accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d_full)
             pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu_full)
 
         self._coupling_mat = coupling_params["Ah"] / coupling_params["Ab"]
@@ -859,7 +859,7 @@ class CurrentCoupling6DCurrent(Propagator):
         self._accumulator = Accumulator(
             particles,
             u_space,
-            accum_kernels.cc_lin_mhd_6d_2,
+            Pyccelkernel(accum_kernels.cc_lin_mhd_6d_2),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -1202,7 +1202,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._ACC = Accumulator(
             particles,
             u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_J1,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_J1),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -1564,7 +1564,7 @@ class CurrentCoupling5DGradB(Propagator):
         self._ACC = Accumulator(
             particles,
             u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_J2,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_J2),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,

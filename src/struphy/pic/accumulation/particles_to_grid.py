@@ -96,6 +96,7 @@ class Accumulator:
     ):
         self._particles = particles
         self._space_id = space_id
+        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
         self._kernel = kernel
         self._derham = mass_ops.derham
         self._args_domain = args_domain
