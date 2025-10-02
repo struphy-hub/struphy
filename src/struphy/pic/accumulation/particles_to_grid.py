@@ -532,13 +532,14 @@ class AccumulatorVector:
         self,
         particles: Particles,
         space_id: str,
-        kernel: Callable[..., Any],
+        kernel: Pyccelkernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
     ):
         self._particles = particles
         self._space_id = space_id
-        self._kernel = Pyccelkernel(kernel)
+        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
+        self._kernel = kernel
         self._derham = mass_ops.derham
         self._args_domain = args_domain
 

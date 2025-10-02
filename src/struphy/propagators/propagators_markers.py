@@ -1351,7 +1351,7 @@ class PushDeterministicDiffusion(Propagator):
         self._u_on_grid = AccumulatorVector(
             particles,
             "H1",
-            accum_kernels.charge_density_0form,
+            Pyccelkernel(accum_kernels.charge_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )

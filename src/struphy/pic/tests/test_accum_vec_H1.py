@@ -1,5 +1,7 @@
 import pytest
 
+from struphy.utils.pyccel import Pyccelkernel
+
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
@@ -127,7 +129,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     acc = AccumulatorVector(
         particles,
         "H1",
-        accum_kernels.charge_density_0form,
+        Pyccelkernel(accum_kernels.charge_density_0form),
         mass_ops,
         domain.args_domain,
     )
