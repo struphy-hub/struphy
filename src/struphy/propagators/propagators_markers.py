@@ -1371,7 +1371,7 @@ class PushDeterministicDiffusion(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_deterministic_diffusion_stage,
+            Pyccelkernel(pusher_kernels.push_deterministic_diffusion_stage),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,

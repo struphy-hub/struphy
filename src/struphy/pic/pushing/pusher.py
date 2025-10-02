@@ -112,6 +112,7 @@ class Pusher:
         verbose: bool = False,
     ):
         self._particles = particles
+        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
         self._kernel = kernel
         self._newton = "newton" in kernel.name
         self._args_kernel = args_kernel
