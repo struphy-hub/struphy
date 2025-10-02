@@ -83,14 +83,14 @@ def build_operator(expr: str, namespace: dict):
 def remove_padding(fem_space, v):
     
     #fem_space = derham.Vh_fem[sp_key]
-    symbolic_name = fem_space.symbolic_space.name
+    symbolic_name = fem_space.symbolic_space
     
     if(symbolic_name == 'H1' or symbolic_name == "L2"):
     
         spaces = [fem_space.spaces]
         N = [spaces[0][i].nbasis for i in range(3)]
         
-        starts = np.array(fem_space.vector_space.starts)
+        starts = np.array(fem_space.coeff_space.starts)
         
         #To make it easier to read I will extract the data out of out disregarding all the padding it come with
         v_array = np.zeros(N[0]*N[1]*N[2], dtype=float)
@@ -105,7 +105,7 @@ def remove_padding(fem_space, v):
         spaces = [comp.spaces for comp in fem_space.spaces]
         N = [[spaces[h][i].nbasis for i in range(3)] for h in range(3)]
         
-        starts = np.array([vi.starts for vi in fem_space.vector_space.spaces])
+        starts = np.array([vi.starts for vi in fem_space.coeff_space.spaces])
         
         #To make it easier to read I will extract the data out of out disregarding all the padding it come with
         v_array = np.zeros(N[0][0]*N[0][1]*N[0][2]+N[1][0]*N[1][1]*N[1][2]+N[2][0]*N[2][1]*N[2][2], dtype=float)
@@ -123,16 +123,16 @@ def remove_padding(fem_space, v):
 def direct_solver(A_inv,b, fem_space):
     # A_inv is already the inverse matrix of A
     #fem_space = derham.Vh_fem[sp_key]
-    symbolic_name = fem_space.symbolic_space.name
+    symbolic_name = fem_space.symbolic_space
     
     if(symbolic_name == 'H1' or symbolic_name == "L2"):
         spaces = [fem_space.spaces]
         N = [spaces[0][i].nbasis for i in range(3)]
-        starts = np.array(fem_space.vector_space.starts)
+        starts = np.array(fem_space.coeff_space.starts)
         
         b_vector = remove_padding(fem_space, b)
         x_vector = np.dot(A_inv, b_vector)
-        x = fem_space.vector_space.zeros()
+        x = fem_space.coeff_space.zeros()
         
         cont= 0
         for i0 in range(N[0]):
@@ -144,11 +144,11 @@ def direct_solver(A_inv,b, fem_space):
     else:
         spaces = [comp.spaces for comp in fem_space.spaces]
         N = [[spaces[h][i].nbasis for i in range(3)] for h in range(3)]
-        starts = np.array([vi.starts for vi in fem_space.vector_space.spaces])
+        starts = np.array([vi.starts for vi in fem_space.coeff_space.spaces])
         
         b_vector = remove_padding(fem_space, b)
         x_vector = np.dot(A_inv, b_vector)
-        x = fem_space.vector_space.zeros()
+        x = fem_space.coeff_space.zeros()
         
         cont = 0
         for h in range(3):
@@ -178,8 +178,8 @@ def get_b_spline_degree(V):
     assert isinstance(V, FemSpace)
     p = np.zeros(3, dtype=int)
     
-    if hasattr(V.symbolic_space, "name"):
-        V_name = V.symbolic_space.name
+    if hasattr(V, "symbolic_space"):
+        V_name = V.symbolic_space
     
     if(V_name == "H1"):
         for i, space in enumerate(V.spaces):
@@ -238,16 +238,25 @@ class MultiGridSolver:
                 - parentheses to control precedence
 
         namespace : dict
-            Dictionary mapping symbol names in `expr` to actual Python objects 
-            (scalars, operators, lists, etc.).
+            A dictionary that serves as a **string template** or "recipe book" for
+            building the operators and scalars used in the `expr` string.
+
+            It maps symbol names to **strings of Python code** that describe how to
+            create the corresponding object. This allows the solver to dynamically
+            generate the correct operators for each grid level.
+
+            The string recipes can use variables like `derham`, `WeightedMassOperators` and `domain`, which
+            the solver makes available during the object creation at each level.
+
             Example:
                 {
-                    "epsilon": 1.3,
-                    "mu": 0.7,
-                    "curl.T": derham.curl.T,
-                    "M1": WeightedMassOperators(derham, domain).M1,
-                    "M2": WeightedMassOperators(derham, domain).M2,
-            }
+                    "epsilon": "1.3",
+                    "mu": "0.7",
+                    "curl.T": "derham.curl.T",
+                    "curl": "derham.curl",
+                    "M1": "WeightedMassOperators(derham, domain).M1",
+                    "M2": "WeightedMassOperators(derham, domain).M2",
+                }
             
         """
         self.sp_key = sp_key
@@ -286,16 +295,16 @@ class MultiGridSolver:
             self._V = V
             self._W = W
             
-            print(vars(V))
+            #print(vars(V))
             
             # Store info in object
-            self._domain   = V.vector_space
-            self._codomain = W.vector_space
-            self._dtype = V.vector_space.dtype
+            self._domain   = V.coeff_space
+            self._codomain = W.coeff_space
+            self._dtype = V.coeff_space.dtype
             
             #Can be "H1", "L2", "Hcurl", "Hdiv", "H1H1H1"
-            self._V_name = V.symbolic_space.name
-            self._W_name = W.symbolic_space.name
+            self._V_name = V.symbolic_space
+            self._W_name = W.symbolic_space
             assert(self._V_name == self._W_name)
             
             #This list will tell us in which spatial direction we are halving the problem.
@@ -307,8 +316,8 @@ class MultiGridSolver:
                 self._VNbasis = np.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
                 
                 # We get the start and endpoint for each sublist in input
-                self._in_starts = np.array(V.vector_space.starts)
-                self._in_ends = np.array(V.vector_space.ends)
+                self._in_starts = np.array(V.coeff_space.starts)
+                self._in_ends = np.array(V.coeff_space.ends)
             else:
                 self._V1ds = [comp.spaces for comp in V.spaces]
                 self._VNbasis = np.array(
@@ -324,8 +333,8 @@ class MultiGridSolver:
                 )
                 
                 # We get the start and endpoint for each sublist in input
-                self._in_starts = np.array([vi.starts for vi in V.vector_space.spaces])
-                self._in_ends = np.array([vi.ends for vi in V.vector_space.spaces])
+                self._in_starts = np.array([vi.starts for vi in V.coeff_space.spaces])
+                self._in_ends = np.array([vi.ends for vi in V.coeff_space.spaces])
                 
             # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
             if isinstance(W, TensorFemSpace):
@@ -339,8 +348,8 @@ class MultiGridSolver:
                         self._halving_directions[i] = True
                 
                 # We get the start and endpoint for each sublist in out
-                self._out_starts = np.array(W.vector_space.starts)
-                self._out_ends = np.array(W.vector_space.ends)
+                self._out_starts = np.array(W.coeff_space.starts)
+                self._out_ends = np.array(W.coeff_space.ends)
                 
             else:
                 self._W1ds = [comp.spaces for comp in W.spaces]
@@ -362,8 +371,8 @@ class MultiGridSolver:
                         self._halving_directions[i] = True
                         
                 # We get the start and endpoint for each sublist in out
-                self._out_starts = np.array([vi.starts for vi in W.vector_space.spaces])
-                self._out_ends = np.array([vi.ends for vi in W.vector_space.spaces])
+                self._out_starts = np.array([vi.starts for vi in W.coeff_space.spaces])
+                self._out_ends = np.array([vi.ends for vi in W.coeff_space.spaces])
                 
             
             
@@ -556,13 +565,13 @@ class MultiGridSolver:
             self._W = W
             
             # Store info in object
-            self._domain   = V.vector_space
-            self._codomain = W.vector_space
-            self._dtype = V.vector_space.dtype
+            self._domain   = V.coeff_space
+            self._codomain = W.coeff_space
+            self._dtype = V.coeff_space.dtype
             
             #Can be "H1", "L2", "Hcurl", "Hdiv", "H1H1H1"
-            self._V_name = V.symbolic_space.name
-            self._W_name = W.symbolic_space.name
+            self._V_name = V.symbolic_space
+            self._W_name = W.symbolic_space
             assert(self._V_name == self._W_name)
             
             #This list will tell us in which spatial direction we are halving the problem.
@@ -574,8 +583,8 @@ class MultiGridSolver:
                 self._VNbasis = np.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
                 
                 # We get the start and endpoint for each sublist in input
-                self._in_starts = np.array(V.vector_space.starts)
-                self._in_ends = np.array(V.vector_space.ends)
+                self._in_starts = np.array(V.coeff_space.starts)
+                self._in_ends = np.array(V.coeff_space.ends)
             else:
                 self._V1ds = [comp.spaces for comp in V.spaces]
                 self._VNbasis = np.array(
@@ -591,8 +600,8 @@ class MultiGridSolver:
                 )
                 
                 # We get the start and endpoint for each sublist in input
-                self._in_starts = np.array([vi.starts for vi in V.vector_space.spaces])
-                self._in_ends = np.array([vi.ends for vi in V.vector_space.spaces])
+                self._in_starts = np.array([vi.starts for vi in V.coeff_space.spaces])
+                self._in_ends = np.array([vi.ends for vi in V.coeff_space.spaces])
                 
             # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
             if isinstance(W, TensorFemSpace):
@@ -606,8 +615,8 @@ class MultiGridSolver:
                         self._halving_directions[i] = True
                 
                 # We get the start and endpoint for each sublist in out
-                self._out_starts = np.array(W.vector_space.starts)
-                self._out_ends = np.array(W.vector_space.ends)
+                self._out_starts = np.array(W.coeff_space.starts)
+                self._out_ends = np.array(W.coeff_space.ends)
                 
             else:
                 self._W1ds = [comp.spaces for comp in W.spaces]
@@ -629,8 +638,8 @@ class MultiGridSolver:
                         self._halving_directions[i] = True
                         
                 # We get the start and endpoint for each sublist in out
-                self._out_starts = np.array([vi.starts for vi in W.vector_space.spaces])
-                self._out_ends = np.array([vi.ends for vi in W.vector_space.spaces])
+                self._out_starts = np.array([vi.starts for vi in W.coeff_space.spaces])
+                self._out_ends = np.array([vi.ends for vi in W.coeff_space.spaces])
                 
             
             
@@ -864,7 +873,7 @@ class MultiGridSolver:
                 
             return out
 
-    def solve(self, b):
+    def solve(self, b_external):
         # get global communicator
         comm = MPI.COMM_WORLD
         
@@ -876,9 +885,49 @@ class MultiGridSolver:
             #It might look like we are not using derham but it is being used by updated_namespace 
             #for rebounding the expressions in self.expr to the correct derham level.
             derham = derhamlist[level]
-            updated_namespace = {k: v for k, v in self.namespace.items()}
+            
+            # 1. Create a local context for the eval. It maps string names
+            #    to the actual objects for the CURRENT level.
+            eval_context = {
+                "derham": derham,
+                "domain": self.domain,
+                "WeightedMassOperators": WeightedMassOperators 
+            }
+
+            # 2. Build the namespace by evaluating each string from the template
+            #    within the context of the current level.
+            updated_namespace = {
+                key: eval(recipe_string, {}, eval_context)
+                for key, recipe_string in self.namespace.items()
+            }
+            
             A.append(build_operator(self.expr, updated_namespace))
         
+        
+        # I need to write the information of b into another vector 
+        #that belongs to the same space as A[0]
+        b = derhamlist[0].Vh_fem[self.sp_key].coeff_space.zeros()
+
+        fem_space = derhamlist[0].Vh_fem[self.sp_key]
+        symbolic_name = fem_space.symbolic_space
+
+        if(symbolic_name == 'H1' or symbolic_name == "L2"):
+            starts = np.array(fem_space.coeff_space.starts)
+            ends = np.array(fem_space.coeff_space.ends)
+            
+            for i0 in range(starts[0], ends[0]):
+                for i1 in range(starts[1], ends[1]):
+                    for i2 in range(starts[2], ends[2]):
+                        b[i0,i1,i2] = b_external[i0,i1,i2]
+                
+        else:
+            starts = np.array([vi.starts for vi in fem_space.coeff_space.spaces])
+            ends = np.array([vi.ends for vi in fem_space.coeff_space.spaces])
+            for h in range(3):
+                for i0 in range(starts[h][0], ends[h][0]):
+                    for i1 in range(starts[h][1], ends[h][1]):
+                        for i2 in range(starts[h][2], ends[h][2]):
+                            b[h][i0,i1,i2] = b_external[h][i0,i1,i2]
         
         #We get the inverse of the coarsest system matrix to solve directly the problem in the smaller space
         A_inv = np.linalg.inv(A[-1].toarray())
@@ -939,11 +988,41 @@ class MultiGridSolver:
                 return x_l 
             
             #N_cycles = 6
-            x_0 = derhamlist[0].Vh_fem[self.sp_key].vector_space.zeros()
+            x_0 = derhamlist[0].Vh_fem[self.sp_key].coeff_space.zeros()
+            
+            #symbolic_space
+            # print(f"X_0 space = {derhamlist[0].Vh_fem[self.sp_key].symbolic_space}")
+            
+            # xh1_0 = derhamlist[0].Vh_fem['0'].coeff_space.zeros()
+            # xh1_1 = derhamlist[1].Vh_fem['0'].coeff_space.zeros()
+            # xh1_2 = derhamlist[2].Vh_fem['0'].coeff_space.zeros()
+            # xhcurl = derhamlist[0].Vh_fem['1'].coeff_space.zeros()
+            # xhdiv = derhamlist[0].Vh_fem['2'].coeff_space.zeros()
+            # xl2 = derhamlist[0].Vh_fem['3'].coeff_space.zeros()
+
+            # derham0 = derhamlist[0]
+            # derham1 =  derham0
+            # print(f'{derham0 = }')
+            # print(f'{derham1 = }')
+            
+            
+            
+            
+            # print(f'{xh1_0.space = }')
+            # print(f'{xh1_1.space = }')
+            # print(f'{xh1_2.space = }')
+            # #print(f'{vars(x_0) = }')
+            # print(f'{A[0].codomain = }')
+            # print(f'{A[1].codomain = }')
+            # print(f'{A[2].codomain = }')
             
             timei = time.time()
             for cycle in range(N_cycles):
                 solver = inverse(A[0],method, maxiter= max_iter[0], x0 = x_0)
+                print(f"A[0].domain = {A[0].domain}")
+                print(f"{b.space = }")
+                print(f"{solver._domain._npts = }")
+                
                 x_0 = solver.dot(b)
                 
                 Multigrid_itterations[0] += solver._info['niter']
@@ -1000,20 +1079,39 @@ if __name__ == "__main__":
     sp_key = '0'
     plist = [1,1,1]
     spl_kind = [True,True,True]
-    N_levels = 3
+    N_levels = 2
     domain = Cuboid()
     derham = Derham([Nel[0],Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False)
     
     expr = " grad.T @ M1 @ grad"
-    namespace = {"grad.T": derham.grad.T,
-                'grad': derham.grad,
-                "M1": WeightedMassOperators(derham, domain).M1}
-    A = build_operator(expr, namespace)
+    namespace = {"grad.T": "derham.grad.T",
+    "grad":   "derham.grad",
+    "M1":     "WeightedMassOperators(derham, domain).M1"}
     
+    
+     # 1. Create a local context for the eval. It maps string names
+    #    to the actual objects for the CURRENT level.
+    eval_context = {
+        "derham": derham,
+        "domain": domain,
+        "WeightedMassOperators": WeightedMassOperators 
+    }
+
+    # 2. Build the namespace by evaluating each string from the template
+    #    within the context of the current level.
+    updated_namespace = {
+        key: eval(recipe_string, {}, eval_context)
+        for key, recipe_string in namespace.items()
+    }
+
+    A = build_operator(expr, updated_namespace)
+
     multigrid = MultiGridSolver( sp_key, Nel, plist, spl_kind, N_levels, domain, expr, namespace)
     
     u_stararr, u_star = create_equal_random_arrays(derham.Vh_fem[sp_key], seed=45)
     
+    
+    print(f"A_out =  {A.domain}")
     
     #We compute the rhs
     b = A.dot(u_star)
