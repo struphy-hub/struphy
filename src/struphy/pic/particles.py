@@ -1,5 +1,7 @@
 import copy
 
+import numpy as np
+
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
@@ -783,10 +785,10 @@ class ParticlesSPH(Particles):
             kwargs["background"] = bckgr
 
         if "boxes_per_dim" not in kwargs:
-            boxes_per_dim = (1, 1, 1)
+            kwargs["boxes_per_dim"] = (1, 1, 1)
         else:
             if kwargs["boxes_per_dim"] is None:
-                boxes_per_dim = (1, 1, 1)
+                kwargs["boxes_per_dim"] = (1, 1, 1)
 
         # TODO: maybe this needs a fix
         # else:
@@ -796,7 +798,7 @@ class ParticlesSPH(Particles):
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
-        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
+        self._n_cols_aux = kwargs.pop("n_cols_aux", 24)
 
         clone_config = kwargs.get("clone_config", None)
         assert clone_config is None, "SPH can only be launched with --nclones 1"
@@ -882,53 +884,3 @@ class ParticlesSPH(Particles):
             kind="3_to_0",
             remove_outside=remove_holes,
         )
-
-    def _set_initial_condition(self):
-        """Set a callable initial condition f_init as a 0-form (scalar), and u_init in Cartesian coordinates."""
-
-        # Get the initialization function and pass the correct arguments
-        self._f_init = None
-        assert isinstance(self.f0, FluidEquilibrium)
-        self._f_init = self.f0.n0
-        self._u_init = self.f0.u_cart
-
-        if self.perturbations is not None:
-            for moment, pert in self.perturbations.items():  # only one perturbation is taken into account at the moment
-                assert isinstance(moment, str)
-                assert isinstance(pert, Perturbation)
-
-                if moment == "n":
-                    _fun = TransformedPformComponent(
-                        pert,
-                        pert.given_in_basis,
-                        "0",
-                        comp=pert.comp,
-                        domain=self.domain,
-                    )
-
-                    def _f_init(*etas):
-                        if len(etas) == 1:
-                            return self.f0.n0(etas[0]) + _fun(*etas[0].T)
-                        else:
-                            assert len(etas) == 3
-                            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                                etas[0],
-                                etas[1],
-                                etas[2],
-                                flat_eval=False,
-                            )
-                            return self.f0.n0(E1, E2, E3) + _fun(E1, E2, E3)
-
-                    self._f_init = _f_init
-
-                elif moment == "u1":
-                    _fun = TransformedPformComponent(
-                        pert,
-                        pert.given_in_basis,
-                        "v",
-                        comp=pert.comp,
-                        domain=self.domain,
-                    )
-                    _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
-                    self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
-                    # TODO: add other velocity components

@@ -15,6 +15,7 @@ from struphy.physics.physics import ConstantsOfNature
 from struphy.pic.utilities import (
     BinningPlot,
     BoundaryParameters,
+    KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
 )
@@ -144,7 +145,7 @@ class FluidSpecies(Species):
     pass
 
 
-class KineticSpecies(Species):
+class ParticleSpecies(Species):
     """Single kinetic species in 3d + vdim phase space."""
 
     def set_markers(
@@ -202,12 +203,12 @@ class KineticSpecies(Species):
         self,
         n_markers: int | float = 3,
         binning_plots: tuple[BinningPlot] = (),
-        n_sph: dict = None,
+        kernel_density_plots: tuple[KernelDensityPlot] = (),
     ):
         """Saving marker orits, binned data and kernel density reconstructions."""
         self.n_markers = n_markers
         self.binning_plots = binning_plots
-        self.n_sph = n_sph
+        self.kernel_density_plots = kernel_density_plots
 
 
 class DiagnosticSpecies(Species):
