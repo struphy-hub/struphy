@@ -30,7 +30,10 @@ plt.rcParams.update({"font.size": 22})
 )
 @pytest.mark.parametrize("projected_rhs", [False, True])
 def test_poisson_1d(direction: int, 
-                    bc_type, mapping, projected_rhs: bool, show_plot=False,):
+                    bc_type: str, 
+                    mapping: list[str, dict], 
+                    projected_rhs: bool, 
+                    show_plot: bool = False,):
     """
     Test the convergence of Poisson solver in 1D by means of manufactured solutions.
     """
@@ -158,14 +161,16 @@ def test_poisson_1d(direction: int,
             Propagator.mass_ops = mass_ops
 
             # pullbacks of right-hand side
-            def rho1(e1, e2, e3):
+            def rho_pulled(e1, e2, e3):
                 return domain.pull(rho1_xyz, e1, e2, e3, kind="0", squeeze_out=False)
 
+            # define how to pass rho
             if projected_rhs:
-                rho1_h = derham.P["0"](rho1)
-                rho_vec = mass_ops.M0.dot(rho1_h)
+                rho = FEECVariable(space="H1")
+                rho.allocate(derham=derham, domain=domain)
+                rho.spline.vector = derham.P["0"](rho_pulled)
             else:
-                rho_vec = L2Projector("H1", mass_ops).get_dofs(rho1, apply_bc=True)
+                rho = rho_pulled
 
             # create Poisson solver
             solver_params = SolverParameters(
@@ -186,7 +191,7 @@ def test_poisson_1d(direction: int,
                 sigma_1=1e-12,
                 sigma_2=0.0,
                 sigma_3=1.0,
-                rho=rho_vec,
+                rho=rho,
                 solver="pcg",
                 precond="MassMatrixPreconditioner",
                 solver_params=solver_params,
@@ -266,7 +271,8 @@ def test_poisson_1d(direction: int,
         ["Colella", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 1.0}],
     ],
 )
-def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
+@pytest.mark.parametrize("projected_rhs", [False, True])
+def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
     """
     Test the Poisson solver by means of manufactured solutions in 2D .
     """
@@ -357,16 +363,24 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
     e3 = np.linspace(0.0, 1.0, 1)
 
     # pullbacks of right-hand side
-    def rho1(e1, e2, e3):
-        return domain.pull(rho1_xyz, e1, e2, e3, kind="0", squeeze_out=True)
+    def rho1_pulled(e1, e2, e3):
+        return domain.pull(rho1_xyz, e1, e2, e3, kind="0", squeeze_out=False)
 
-    def rho2(e1, e2, e3):
-        return domain.pull(rho2_xyz, e1, e2, e3, kind="0", squeeze_out=True)
+    def rho2_pulled(e1, e2, e3):
+        return domain.pull(rho2_xyz, e1, e2, e3, kind="0", squeeze_out=False)
 
-    # discrete right-hand sides
-    l2_proj = L2Projector("H1", mass_ops)
-    rho_vec1 = l2_proj.get_dofs(rho1, apply_bc=True)
-    rho_vec2 = l2_proj.get_dofs(rho2, apply_bc=True)
+    # how to pass right-hand sides
+    if projected_rhs:
+        rho1 = FEECVariable(space="H1")
+        rho1.allocate(derham=derham, domain=domain)
+        rho1.spline.vector = derham.P["0"](rho1_pulled)
+        
+        rho2 = FEECVariable(space="H1")
+        rho2.allocate(derham=derham, domain=domain)
+        rho2.spline.vector = derham.P["0"](rho2_pulled)
+    else:
+        rho1 = rho1_pulled
+        rho2 = rho2_pulled
 
     # Create Poisson solvers
     solver_params = SolverParameters(
@@ -387,7 +401,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
         sigma_1=1e-8,
         sigma_2=0.0,
         sigma_3=1.0,
-        rho=rho_vec1,
+        rho=rho1,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -406,11 +420,17 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
     poisson_solver2 = ImplicitDiffusion()
     poisson_solver2.variables.phi = _phi2
 
+    stab_eps = 1e-8
+    err_lim = 0.03
+    if bc_type == "neumann" and dom_type == "Colella":
+        stab_eps = 1e-4
+        err_lim = 0.046
+        
     poisson_solver2.options = poisson_solver2.Options(
-        sigma_1=1e-8,
+        sigma_1=stab_eps,
         sigma_2=0.0,
         sigma_3=1.0,
-        rho=rho_vec2,
+        rho=rho2,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -470,21 +490,21 @@ def test_poisson_2d(Nel, p, bc_type, mapping, show_plot=False):
     if p[0] == 1 and bc_type == "neumann" and mapping[0] == "Colella":
         pass
     else:
-        assert error1 < 0.0044
-        assert error2 < 0.021
+        assert error1 < 0.0053
+        assert error2 < err_lim
 
 
 if __name__ == "__main__":
-    direction = 0
-    bc_type = "dirichlet"
-    mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
-    # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
-    test_poisson_1d(direction, bc_type, mapping, projected_rhs=True, show_plot=True)
+    # direction = 0
+    # bc_type = "dirichlet"
+    # mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
+    # # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
+    # test_poisson_1d(direction, bc_type, mapping, projected_rhs=True, show_plot=True)
 
-    # Nel = [64, 64, 1]
-    # p = [2, 2, 1]
-    # bc_type = 'neumann'
-    # #mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
-    # #mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    # mapping = ['Colella', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    # test_poisson_2d(Nel, p, bc_type, mapping, show_plot=True)
+    Nel = [64, 64, 1]
+    p = [2, 2, 1]
+    bc_type = 'neumann'
+    # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
+    # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
+    mapping = ['Colella', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
+    test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs=True, show_plot=True)

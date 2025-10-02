@@ -1,10 +1,9 @@
 "Only FEEC variables are updated."
 
 import copy
-from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Literal, get_args
+from typing import Literal, get_args, Callable
 
 import numpy as np
 import scipy as sc
@@ -2649,35 +2648,6 @@ class ImplicitDiffusion(Propagator):
     * :math:`\sigma_1=\sigma_2=0` and :math:`\sigma_3 = \Delta t`: **Poisson solver** with a given charge density :math:`\sum_i\rho_i`.
     * :math:`\sigma_2=0` and :math:`\sigma_1 = \sigma_3 = \Delta t` : Poisson with **adiabatic electrons**.
     * :math:`\sigma_1=\sigma_2=1` and :math:`\sigma_3 = 0`: **Implicit heat equation**.
-
-    Parameters
-    ----------
-    phi : StencilVector
-        FE coefficients of the solution as a discrete 0-form.
-
-    sigma_1, sigma_2, sigma_3 : float | int
-        Equation parameters.
-
-    divide_by_dt : bool
-        Whether to divide the sigmas by dt during __call__.
-
-    stab_mat : str
-        Name of the matrix :math:`M^0_{n_0}`.
-
-    diffusion_mat : str
-        Name of the matrix :math:`M^1_{D_0}`.
-
-    rho : StencilVector or tuple or list
-        (List of) right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
-        Can be either a) StencilVector or b) 2-tuple, or a list of those.
-        In case b) the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
-        and the second entry must be :class:`~struphy.pic.base.Particles`.
-
-    x0 : StencilVector
-        Initial guess for the iterative solver (optional, can be set with a setter later).
-
-    solver : dict
-        Parameters for the iterative solver (see ``__init__`` for details).
     """
 
     class Variables:
@@ -2709,7 +2679,7 @@ class ImplicitDiffusion(Propagator):
         divide_by_dt: bool = False
         stab_mat: OptsStabMat = "M0"
         diffusion_mat: OptsDiffusionMat = "M1"
-        rho: StencilVector | tuple | list | Callable = None
+        rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
         x0: StencilVector = None
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
@@ -2758,30 +2728,32 @@ class ImplicitDiffusion(Propagator):
         phi = self.variables.phi.spline.vector
 
         # collect rhs
-        rho = self.options.rho
-
-        if rho is None:
-            self.rho = phi.space.zeros()
-        else:
-            if isinstance(rho, list):
-                for r in rho:
-                    if isinstance(r, tuple):
-                        assert isinstance(r[0], AccumulatorVector)
-                        assert isinstance(r[1], Particles)
-                        # assert r.space_id == 'H1'
-                    else:
-                        assert r.space == phi.space
+        def verify_rhs(rho) -> StencilVector | FEECVariable | tuple:
+            """Perform preliminary operations on rho to comute the rhs and return the result."""
+            if rho is None:
+                rhs = phi.space.zeros()
+            elif isinstance(rho, FEECVariable):
+                assert rho.space == "H1"
+                rhs = rho
+            elif isinstance(rho, Callable):
+                rhs  = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
             elif isinstance(rho, tuple):
+                assert len(rho) == 2
                 assert isinstance(rho[0], AccumulatorVector)
                 assert isinstance(rho[1], Particles)
-                # assert rho[0].space_id == 'H1'
-                rho = [rho]
-            elif isinstance(rho, Callable):
-                rho = [rho()]
+                rhs = rho
             else:
-                assert rho.space == phi.space
-                rho = [rho]
-            self.rho = rho
+                raise TypeError(f"{type(rho) = } is not accepted.")
+                
+            return rhs
+                
+        rho = self.options.rho
+        if isinstance(rho, list):
+            self._sources = []
+            for r in rho:
+                self._sources += [verify_rhs(r)]
+        else:
+            self._sources = [verify_rhs(rho)]
 
         # initial guess and solver params
         self._x0 = self.options.x0
@@ -2827,42 +2799,14 @@ class ImplicitDiffusion(Propagator):
         self._tmp = phi.space.zeros()
         self._rhs = phi.space.zeros()
         self._rhs2 = phi.space.zeros()
+        self._tmp_src = phi.space.zeros()
 
     @property
-    def rho(self):
+    def sources(self) -> list[StencilVector | FEECVariable | tuple]:
         """
-        (List of) right-hand side FE coefficients of a 0-form.
-        The list entries can be either a) StencilVectors or b) 2-tuples;
-        in the latter case, the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
-        and the second entry must be :class:`~struphy.pic.base.Particles`.
+        Right-hand side of the equation (sources).
         """
-        return self.options.rho
-
-    @rho.setter
-    def rho(self, value: StencilVector | tuple | list | Callable):
-        """In-place setter for StencilVector/PolarVector.
-        If rho is a list, len(value) msut be len(rho) and value can contain None.
-        """
-        # checks
-        if isinstance(value, list):
-            for val in value:
-                if val is None:
-                    continue
-                elif isinstance(val, tuple):
-                    assert isinstance(val[0], AccumulatorVector)
-                    assert isinstance(val[1], Particles)
-                elif isinstance(val, StencilVector):
-                    assert val.space == self.derham.Vh["0"]
-        elif isinstance(value, tuple):
-            assert isinstance(value[0], AccumulatorVector)
-            assert isinstance(value[1], Particles)
-        elif isinstance(value, StencilVector):
-            assert value.space == self.derham.Vh["0"]
-        
-        if isinstance(value, list):
-            self.options.rho = value
-        else:
-            self.options.rho = [value]
+        return self._sources
 
     @property
     def x0(self):
@@ -2902,12 +2846,15 @@ class ImplicitDiffusion(Propagator):
         rhs *= sig_2
 
         self._rhs2 *= 0.0
-        for rho in self.rho:
-            if isinstance(rho, tuple):
-                rho[0]()  # accumulate
-                self._rhs2 += sig_3 * rho[0].vectors[0]
-            else:
-                self._rhs2 += sig_3 * rho #self.mass_ops.M0.dot(rho)
+        for src in self.sources:
+            if isinstance(src, StencilVector):
+                self._rhs2 += sig_3 * src
+            elif isinstance(src, FEECVariable):
+                v = src.spline.vector
+                self._rhs2 += sig_3 * self.mass_ops.M0.dot(v, out=self._tmp_src)
+            elif isinstance(src, tuple):
+                src[0]()  # accumulate
+                self._rhs2 += sig_3 * src[0].vectors[0]
 
         rhs += self._rhs2
 
@@ -2976,7 +2923,7 @@ class Poisson(ImplicitDiffusion):
         # propagator options
         stab_eps: float = 0.0
         stab_mat: OptsStabMat = "Id"
-        rho: StencilVector | tuple | list | Callable = None
+        rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
         x0: StencilVector = None
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
