@@ -54,7 +54,11 @@ def main(
     # create post-processing folder
     path_pproc = os.path.join(path, "post_processing")
 
-    os.makedirs(path_pproc, exist_ok=True)
+    try:
+        os.mkdir(path_pproc)
+    except:
+        shutil.rmtree(path_pproc)
+        os.mkdir(path_pproc)
 
     # check for fields and kinetic data in hdf5 file that need post processing
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
