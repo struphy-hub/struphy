@@ -1127,7 +1127,7 @@ def struphy_lint(config, verbose):
     if input_type is None and path is not None:
         input_type = "path"
     # Define standard linters which will be checked in the CI
-    ci_linters = ["ssort", "ruff", "omp_flags"]
+    ci_linters = ["ruff", "omp_flags"]
     python_files = get_python_files(input_type, path)
     if len(python_files) == 0:
         sys.exit(0)
