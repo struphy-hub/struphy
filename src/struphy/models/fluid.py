@@ -2229,6 +2229,7 @@ class EulerSPH(StruphyModel):
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
             self.push_sph_p = propagators_markers.PushVinSPHpressure()
+            
 
     ## abstract methods
 
@@ -2249,7 +2250,8 @@ class EulerSPH(StruphyModel):
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.euler_fluid.var
         self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
-
+        
+        
         # define scalars for update_scalar_quantities
         self.add_scalar("en_kin", compute="from_sph", variable=self.euler_fluid.var)
 
@@ -2351,8 +2353,8 @@ class ViscousEulerSPH(StruphyModel):
             self.push_eta = propagators_markers.PushEta()
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
-            #self.push_sph_p = propagators_markers.PushVinSPHpressure()
-            #self.push_viscous = propagators_markers.PushVinViscousPotential()
+            self.push_sph_p = propagators_markers.PushVinSPHpressure()
+            self.push_viscous = propagators_markers.PushVinViscousPotential()
 
     ## abstract methods
 
@@ -2372,8 +2374,8 @@ class ViscousEulerSPH(StruphyModel):
         self.propagators.push_eta.variables.var = self.euler_fluid.var
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.euler_fluid.var
-        #self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
-        #self.propagators.push_viscous.variables.fluid = self.euler_fluid.var
+        self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
+        self.propagators.push_viscous.variables.fluid = self.euler_fluid.var
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_kin", compute="from_sph", variable=self.euler_fluid.var)
