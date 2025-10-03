@@ -956,7 +956,7 @@ def add_parser_format(subparsers):
             "--linters",
             type=str,
             nargs="+",
-            default=["ruff", "omp_flags"],
+            default=["ssort", "ruff", "omp_flags"],
             choices=["add-trailing-comma", "isort", "autopep8", "flake8", "pylint", "ruff", "omp_flags"],
             help="list of linters to use",
         )
