@@ -7052,21 +7052,16 @@ class TimeDependentSource(Propagator):
             raise NotImplementedError(f"{self.options.hfun = } not implemented.")
         
         self._hfun = hfun
+        self._c0 = self.variables.source.spline.vector.copy()
 
     @profile
     def __call__(self, dt):
-        print(f"{self.time_state[0] = }")
-        if self.time_state[0] == 0.0:
-            self._c0 = self.variables.source.spline.vector.copy()
-            print("Initial source coeffs set.")
-
         # new coeffs
         cn1 = self._c0 * self._hfun(self.time_state[0])
 
         # write new coeffs into self.feec_vars
         # max_dc = self.feec_vars_update(cn1)
         self.update_feec_variables(source=cn1)
-
 
 class AdiabaticPhi(Propagator):
     r"""
