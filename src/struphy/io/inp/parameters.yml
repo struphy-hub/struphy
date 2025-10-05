@@ -109,7 +109,7 @@ kinetic :
                 plot_pts : [[32, 1, 1], [1, 16, 1]] # number of plot points in each direction
         background : # background is mandatory for kinetic species
             Maxwellian3D :
-                n  : 0.05
+                n  : 1.0
                 u2 : 2.5
         perturbation :
             n: 
