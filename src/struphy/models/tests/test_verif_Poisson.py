@@ -28,7 +28,7 @@ def test_poisson_1d(do_plot=False):
 
     # environment options
     out_folders = os.path.join(test_folder, "Poisson")
-    env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
+    env = EnvironmentOptions(out_folders=out_folders, sim_folder="time_source_1d")
 
     # units
     base_units = BaseUnits()
