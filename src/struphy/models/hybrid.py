@@ -4,7 +4,7 @@ from psydac.linalg.block import BlockVector
 
 from struphy.models.base import StruphyModel
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
-from struphy.models.species import FieldSpecies, FluidSpecies, KineticSpecies
+from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.polar.basic import PolarVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
@@ -626,13 +626,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
     4. :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb`
     5. :class:`~struphy.propagators.propagators_fields.CurrentCoupling5DDensity`
     6. :class:`~struphy.propagators.propagators_fields.ShearAlfvenCurrentCoupling5D`
-    7. :class:`~struphy.propagators.propagators_fields.MagnetosonicCurrentCoupling5D`
+    7. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
 
     :ref:`Model info <add_model>`:
     """
 
     ## species
-    class EnergeticIons(KineticSpecies):
+    class EnergeticIons(ParticleSpecies):
         def __init__(self):
             self.var = PICVariable(space="Particles5D")
             self.init_variables()
@@ -652,16 +652,23 @@ class LinearMHDDriftkineticCC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
-            #self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
-            #self.push_parallel = propagators_markers.PushGuidingCenterParallel()
-            self.shearalfen_cc5d = propagators_fields.ShearAlfvenCurrentCoupling5D()
-            #self.magnetosonic_cc5d = propagators_fields.MagnetosonicCurrentCoupling5D()
-            #self.cc5d_density = propagators_fields.CurrentCoupling5DDensity()
-            #self.cc5d_gradb = propagators_coupling.CurrentCoupling5DGradB()
-            #self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
+        def __init__(self, turn_off: tuple[str, ...] = (None,)):
+            if not 'PushGuidingCenterBxEstar' in turn_off:
+                self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
+            if not 'PushGuidingCenterParallel' in turn_off:
+                self.push_parallel = propagators_markers.PushGuidingCenterParallel()
+            if not 'ShearAlfvenCurrentCoupling5D' in turn_off:
+                self.shearalfen_cc5d = propagators_fields.ShearAlfvenCurrentCoupling5D()
+            if not 'Magnetosonic' in turn_off:
+                self.magnetosonic = propagators_fields.Magnetosonic()
+            if not 'CurrentCoupling5DDensity' in turn_off:
+                self.cc5d_density = propagators_fields.CurrentCoupling5DDensity()
+            if not 'CurrentCoupling5DGradB' in turn_off:
+                self.cc5d_gradb = propagators_coupling.CurrentCoupling5DGradB()
+            if not 'CurrentCoupling5DCurlb' in turn_off:
+                self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
 
-    def __init__(self):
+    def __init__(self, turn_off: tuple[str, ...] = (None,)):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
@@ -671,26 +678,28 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.energetic_ions = self.EnergeticIons()
 
         # 2. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(turn_off)
 
         # 3. assign variables to propagators
-        self.propagators.shearalfen_cc5d.variables.u = self.mhd.velocity
-        self.propagators.shearalfen_cc5d.variables.b = self.em_fields.b_field
-
-        #self.propagators.magnetosonic_cc5d.variables.n = self.mhd.density
-        #self.propagators.magnetosonic_cc5d.variables.u = self.mhd.velocity
-        #self.propagators.magnetosonic_cc5d.variables.p = self.mhd.pressure
-
-        #self.propagators.cc5d_density.variables.u = self.mhd.velocity
-
-        #self.propagators.cc5d_gradb.variables.u = self.mhd.velocity
-        #self.propagators.cc5d_gradb.variables.ions = self.energetic_ions.var
-
-        #self.propagators.cc5d_curlb.variables.u = self.mhd.velocity
-        #self.propagators.cc5d_curlb.variables.ions = self.energetic_ions.var
-
-        #self.propagators.push_bxe.variables.ions = self.energetic_ions.var
-        #self.propagators.push_parallel.variables.ions = self.energetic_ions.var
+        if not 'ShearAlfvenCurrentCoupling5D' in turn_off:
+            self.propagators.shearalfen_cc5d.variables.u = self.mhd.velocity
+            self.propagators.shearalfen_cc5d.variables.b = self.em_fields.b_field
+        if not 'Magnetosonic' in turn_off:
+            self.propagators.magnetosonic.variables.n = self.mhd.density
+            self.propagators.magnetosonic.variables.u = self.mhd.velocity
+            self.propagators.magnetosonic.variables.p = self.mhd.pressure
+        if not 'CurrentCoupling5DDensity' in turn_off:
+            self.propagators.cc5d_density.variables.u = self.mhd.velocity
+        if not 'CurrentCoupling5DGradB' in turn_off:
+            self.propagators.cc5d_gradb.variables.u = self.mhd.velocity
+            self.propagators.cc5d_gradb.variables.energetic_ions = self.energetic_ions.var
+        if not 'CurrentCoupling5DCurlb' in turn_off:
+            self.propagators.cc5d_curlb.variables.u = self.mhd.velocity
+            self.propagators.cc5d_curlb.variables.energetic_ions = self.energetic_ions.var
+        if not 'PushGuidingCenterBxEstar' in turn_off:
+            self.propagators.push_bxe.variables.ions = self.energetic_ions.var
+        if not 'PushGuidingCenterParallel' in turn_off:
+            self.propagators.push_parallel.variables.ions = self.energetic_ions.var
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_U")
@@ -747,9 +756,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # particles' energy
         particles = self.energetic_ions.var.particles
 
-        self._en_fv[0] = particles.markers[~particles.holes, 5].dot(
-            particles.markers[~particles.holes, 3] ** 2,
-        ) / 2.0
+        self._en_fv[0] = (
+            particles.markers[~particles.holes, 5].dot(
+                particles.markers[~particles.holes, 3]**2,)/(2.0)*Ah/Ab
+        )
 
         self._PBb = self._PB.dot(self.em_fields.b_field.spline.vector)
         particles.save_magnetic_energy(self._PBb)
@@ -795,9 +805,28 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 if "shearalfen_cc5d.Options" in line:
                     new_file += [
                         """model.propagators.shearalfen_cc5d.options = model.propagators.shearalfen_cc5d.Options(
-                        energetic_ions = model.energetic_ions.var,
-                        )\n"""
+                        energetic_ions = model.energetic_ions.var,)\n"""
                     ]
+
+                elif "magnetosonic.Options" in line:
+                    new_file += [
+                        """model.propagators.magnetosonic.options = model.propagators.magnetosonic.Options(
+                        b_field=model.em_fields.b_field,)\n"""
+                    ]
+
+                elif "cc5d_density.Options" in line:
+                    new_file += [
+                        """model.propagators.cc5d_density.options = model.propagators.cc5d_density.Options(
+                        energetic_ions = model.energetic_ions.var,
+                        b_tilde = model.em_fields.b_field,)\n"""
+                    ]
+
+                elif "cc5d_curlb.Options" in line:
+                    new_file += [
+                        """model.propagators.cc5d_curlb.options = model.propagators.cc5d_curlb.Options(
+                        b_tilde = model.em_fields.b_field,)\n"""
+                    ]
+
                 else:
                     new_file += [line]
 

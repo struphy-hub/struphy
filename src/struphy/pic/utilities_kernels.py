@@ -393,7 +393,7 @@ def eval_magnetic_energy_PBb(
             PBb,
         )
 
-        markers[ip, first_diagnostics_idx] = mu * (dweight * abs_B + weight * PB_b)
+        markers[ip, first_diagnostics_idx] = mu * (abs_B + PB_b)
 
 
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")

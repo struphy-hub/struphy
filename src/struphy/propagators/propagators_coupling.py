@@ -17,6 +17,7 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import SolverParameters
+from struphy.pic.accumulation.filter import FilterParameters
 from struphy.models.variables import FEECVariable, PICVariable
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import Accumulator
@@ -1130,288 +1131,201 @@ class CurrentCoupling5DCurlb(Propagator):
     For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        dct["filter"] = {
-            "use_filter": None,
-            "modes": (1),
-            "repeat": 1,
-            "alpha": 0.5,
-        }
-        dct["boundary_cut"] = {
-            "e1": 0.0,
-            "e2": 0.0,
-            "e3": 0.0,
-        }
-        dct["turn_off"] = False
+    class Variables:
+        def __init__(self):
+            self._u: FEECVariable = None
+            self._energetic_ions: PICVariable = None
 
-        if default:
-            dct = descend_options_dict(dct, [])
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
 
-        return dct
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hcurl", "Hdiv", "H1vec")
+            self._u = new
 
-    def __init__(
-        self,
-        particles: Particles5D,
-        u: BlockVector,
-        *,
-        b: BlockVector,
-        b_eq: BlockVector,
-        unit_b1: BlockVector,
-        absB0: StencilVector,
-        gradB1: BlockVector,
-        curl_unit_b2: BlockVector,
-        u_space: str,
-        solver: dict = options(default=True)["solver"],
-        filter: dict = options(default=True)["filter"],
-        coupling_params: dict,
-        epsilon: float = 1.0,
-        boundary_cut: dict = options(default=True)["boundary_cut"],
-    ):
-        super().__init__(particles, u)
+        @property
+        def energetic_ions(self) -> PICVariable:
+            return self._energetic_ions
 
-        assert u_space in {"Hcurl", "Hdiv", "H1vec"}
+        @energetic_ions.setter
+        def energetic_ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles5D"
+            self._energetic_ions = new
 
-        if u_space == "H1vec":
-            self._space_key_int = 0
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # propagator options
+        b_tilde: FEECVariable = None
+        ep_scale: float= 1.
+        u_space: OptsVecSpace = "Hdiv"
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        filter_params: FilterParameters = None
+
+        def __post_init__(self):
+            # checks
+            check_option(self.u_space, OptsVecSpace)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+            assert isinstance(self.b_tilde, FEECVariable)
+            assert isinstance(self.ep_scale, float)
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+            if self.filter_params is None:
+                self.filter_params = FilterParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        if self.options.u_space == "H1vec":
+            self._u_form_int = 0
         else:
-            self._space_key_int = int(
-                self.derham.space_to_form[u_space],
-            )
+            self._u_form_int = int(self.derham.space_to_form[self.options.u_space])
 
-        self._epsilon = epsilon
-        self._b = b
-        self._b_eq = b_eq
-        self._unit_b1 = unit_b1
-        self._absB0 = absB0
-        self._gradB1 = gradB1
-        self._curl_norm_b = curl_unit_b2
+        # call operatros
+        id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
+        _A = getattr(self.mass_ops, id_M)
 
-        self._info = solver["info"]
-        self._rank = self.derham.comm.Get_rank()
-
-        self._coupling_mat = coupling_params["Ah"] / coupling_params["Ab"]
-        self._coupling_vec = coupling_params["Ah"] / coupling_params["Ab"]
-        self._scale_push = 1
-
-        self._boundary_cut_e1 = boundary_cut["e1"]
-
-        u_id = self.derham.space_to_form[u_space]
-        self._E0T = self.derham.extraction_ops["0"].transpose()
-        self._EuT = self.derham.extraction_ops[u_id].transpose()
-        self._E2T = self.derham.extraction_ops["2"].transpose()
-        self._E1T = self.derham.extraction_ops["1"].transpose()
-
-        self._unit_b1 = self._E1T.dot(self._unit_b1)
-        self._curl_norm_b = self._E2T.dot(self._curl_norm_b)
-        self._curl_norm_b.update_ghost_regions()
-        self._absB0 = self._E0T.dot(self._absB0)
-
-        # define system [[A B], [C I]] [u_new, v_new] = [[A -B], [-C I]] [u_old, v_old] (without time step size dt)
-        _A = getattr(self.mass_ops, "M" + u_id + "n")
-
-        # preconditioner
-        if solver["type"][1] is None:
+        # Preconditioner
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
-            pc = pc_class(_A)
+            pc_class = getattr(preconditioner, self.options.precond)
+            pc = pc_class(getattr(self.mass_ops, id_M))
+
+        # magnetic equilibrium field
+        unit_b1 = self.projected_equil.unit_b1
+        curl_unit_b1 = self.projected_equil.curl_unit_b1
+        self._b2 = self.projected_equil.b2
+        gradB1 = self.projected_equil.gradB1
+        absB0 = self.projected_equil.absB0
+
+        # magnetic field
+        self._b_tilde = self.options.b_tilde.spline.vector
+
+        # scaling factor
+        epsilon = self.variables.energetic_ions.species.equation_params.epsilon
 
         # temporary vectors to avoid memory allocation
-        self._b_full1 = self._b_eq.space.zeros()
-        self._b_full2 = self._E2T.codomain.zeros()
-        self._u_new = u.space.zeros()
-        self._u_avg1 = u.space.zeros()
-        self._u_avg2 = self._EuT.codomain.zeros()
+        self._b_full = self._b2.space.zeros()
+        self._u_new = self.variables.u.spline.vector.space.zeros()
+        self._u_avg = self.variables.u.spline.vector.space.zeros()
 
-        # Call the accumulation and Pusher class
+        # define Accumulator and arguments
         self._ACC = Accumulator(
-            particles,
-            u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_J1,
+            self.variables.energetic_ions.particles,
+            self.options.u_space,
+            accum_kernels_gc.cc_lin_mhd_5d_curlb,
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
             symmetry="symm",
-            filter_params=filter,
+            filter_params=self.options.filter_params,
         )
 
-        if u_space == "Hcurl":
-            kernel = pusher_kernels_gc.push_gc_cc_J1_Hcurl
-        elif u_space == "Hdiv":
-            kernel = pusher_kernels_gc.push_gc_cc_J1_Hdiv
-        elif u_space == "H1vec":
-            kernel = pusher_kernels_gc.push_gc_cc_J1_H1vec
+        self._args_accum_kernel = (
+            epsilon,
+            self.options.ep_scale,
+            self._b_tilde[0]._data,
+            self._b_tilde[1]._data,
+            self._b_tilde[2]._data,
+            self._b2[0]._data,
+            self._b2[1]._data,
+            self._b2[2]._data,
+            unit_b1[0]._data,
+            unit_b1[1]._data,
+            unit_b1[2]._data,
+            curl_unit_b1[0]._data,
+            curl_unit_b1[1]._data,
+            curl_unit_b1[2]._data,
+            self._u_form_int,
+        )
+
+        # define Pusher
+        if self.options.u_space == "Hcurl":
+            pusher_kernel = pusher_kernels_gc.push_gc_cc_J1_Hcurl
+        elif self.options.u_space == "Hdiv":
+            pusher_kernel = pusher_kernels_gc.push_gc_cc_J1_Hdiv
+        elif self.options.u_space == "H1vec":
+            pusher_kernel = pusher_kernels_gc.push_gc_cc_J1_H1vec
         else:
             raise ValueError(
-                f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                f'{self.options.u_space  = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
             )
 
-        # instantiate Pusher
-        args_kernel = (
+        args_pusher_kernel = (
             self.derham.args_derham,
-            self._epsilon,
-            self._b_full2[0]._data,
-            self._b_full2[1]._data,
-            self._b_full2[2]._data,
-            self._unit_b1[0]._data,
-            self._unit_b1[1]._data,
-            self._unit_b1[2]._data,
-            self._curl_norm_b[0]._data,
-            self._curl_norm_b[1]._data,
-            self._curl_norm_b[2]._data,
-            self._u_avg2[0]._data,
-            self._u_avg2[1]._data,
-            self._u_avg2[2]._data,
-            0.0,
+            epsilon,
+            self._b_full[0]._data,
+            self._b_full[1]._data,
+            self._b_full[2]._data,
+            unit_b1[0]._data,
+            unit_b1[1]._data,
+            unit_b1[2]._data,
+            curl_unit_b1[0]._data,
+            curl_unit_b1[1]._data,
+            curl_unit_b1[2]._data,
+            self._u_avg[0]._data,
+            self._u_avg[1]._data,
+            self._u_avg[2]._data,
         )
 
         self._pusher = Pusher(
-            particles,
-            kernel,
-            args_kernel,
+            self.variables.energetic_ions.particles,
+            pusher_kernel,
+            args_pusher_kernel,
             self.domain.args_domain,
-            alpha_in_kernel=1.0,
+            alpha_in_kernel=1.,
         )
 
-        # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
         _BC = -1 / 4 * self._ACC.operators[0]
 
-        # call SchurSolver class
         self._schur_solver = SchurSolver(
             _A,
             _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-            recycle=solver["recycle"],
+            self.options.solver,
+            precond=pc,
+            solver_params=self.options.solver_params,
         )
 
     def __call__(self, dt):
-        un = self.feec_vars[0]
+        # current FE coeffs
+        un = self.variables.u.spline.vector
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        b_full = self._b_eq.copy(out=self._b_full1)
+        b_full = self._b2.copy(out=self._b_full)
 
-        if self._b is not None:
-            self._b_full1 += self._b
+        b_full += self._b_tilde
+        b_full.update_ghost_regions()
 
-        # extract coefficients to tensor product space (in-place)
-        Eb_full = self._E2T.dot(b_full, out=self._b_full2)
+        self._ACC(*self._args_accum_kernel,)
 
-        # update ghost regions because of non-local access in accumulation kernel!
-        Eb_full.update_ghost_regions()
-
-        # perform accumulation (either with or without control variate)
-        # if self.particles[0].control_variate:
-
-        #     # evaluate magnetic field at quadrature points (in-place)
-        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
-        #                                    out=[self._b_at_quad[0], self._b_at_quad[1], self._b_at_quad[2]])
-
-        #     # evaluate B_parallel
-        #     self._B_para_at_quad = np.sum(
-        #         p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
-        #     self._B_para_at_quad += self._unit_b1_dot_curl_norm_b_at_quad
-
-        #     # assemble (B x)(curl norm_b)(curl norm_b)(B x) / B_star_para² / det_df³ * (f0.u_para² + f0.vth_para²) * f0.n
-        #     self._mat11[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
-        #                             self._b_at_quad[2]*self._curl_norm_b_at_quad[1])**2 * \
-        #         self._control_const * self._coupling_mat / \
-        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
-        #     self._mat12[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
-        #                             self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
-        #         (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
-        #          self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
-        #         self._control_const * self._coupling_mat / \
-        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
-        #     self._mat13[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
-        #                             self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
-        #         (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
-        #          self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
-        #         self._control_const * self._coupling_mat / \
-        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
-        #     self._mat22[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
-        #                             self._b_at_quad[0]*self._curl_norm_b_at_quad[2])**2 * \
-        #         self._control_const * self._coupling_mat / \
-        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
-        #     self._mat23[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
-        #                             self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
-        #         (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
-        #          self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
-        #         self._control_const * self._coupling_mat / \
-        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
-        #     self._mat33[:, :, :] = (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
-        #                             self._b_at_quad[1]*self._curl_norm_b_at_quad[0])**2 * \
-        #         self._control_const * self._coupling_mat / \
-        #         self._det_df_at_quad**3 / self._B_para_at_quad**2
-
-        #     self._mat21[:, :, :] = -self._mat12
-        #     self._mat31[:, :, :] = -self._mat13
-        #     self._mat32[:, :, :] = -self._mat23
-
-        #     # assemble (B x)(curl norm_b) / B_star_para / det_df * (f0.u_para² + f0.vth_para²) * f0.n
-        #     self._vec1[:, :, :] = (self._b_at_quad[1]*self._curl_norm_b_at_quad[2] -
-        #                            self._b_at_quad[2]*self._curl_norm_b_at_quad[1]) * \
-        #         self._control_const * self._coupling_vec / \
-        #         self._det_df_at_quad / self._B_para_at_quad
-        #     self._vec2[:, :, :] = (self._b_at_quad[2]*self._curl_norm_b_at_quad[0] -
-        #                            self._b_at_quad[0]*self._curl_norm_b_at_quad[2]) * \
-        #         self._control_const * self._coupling_vec / \
-        #         self._det_df_at_quad / self._B_para_at_quad
-        #     self._vec3[:, :, :] = (self._b_at_quad[0]*self._curl_norm_b_at_quad[1] -
-        #                            self._b_at_quad[1]*self._curl_norm_b_at_quad[0]) * \
-        #         self._control_const * self._coupling_vec / \
-        #         self._det_df_at_quad / self._B_para_at_quad
-
-        #     self._ACC.accumulate(self.particles[0], self._epsilon,
-        #                          Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-        #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-        #                          self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-        #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1,
-        #                          control_mat=[[None, self._mat12, self._mat13],
-        #                                       [self._mat21, None, self._mat23],
-        #                                       [self._mat31, self._mat32, None]],
-        #                          control_vec=[self._vec1, self._vec2, self._vec3])
-        # else:
-        #     self._ACC.accumulate(self.particles[0], self._epsilon,
-        #                          Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-        #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-        #                          self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-        #                          self._space_key_int, self._coupling_mat, self._coupling_vec, 0.1)
-
-        self._ACC(
-            self._epsilon,
-            Eb_full[0]._data,
-            Eb_full[1]._data,
-            Eb_full[2]._data,
-            self._unit_b1[0]._data,
-            self._unit_b1[1]._data,
-            self._unit_b1[2]._data,
-            self._curl_norm_b[0]._data,
-            self._curl_norm_b[1]._data,
-            self._curl_norm_b[2]._data,
-            self._space_key_int,
-            self._coupling_mat,
-            self._coupling_vec,
-            self._boundary_cut_e1,
-        )
-
-        # update u coefficients
+        # solve
         un1, info = self._schur_solver(
             un,
             -self._ACC.vectors[0] / 2,
@@ -1420,27 +1334,25 @@ class CurrentCoupling5DCurlb(Propagator):
         )
 
         # call pusher kernel with average field (u_new + u_old)/2 and update ghost regions because of non-local access in kernel
-        _u = un.copy(out=self._u_avg1)
+        _u = un.copy(out=self._u_avg)
         _u += un1
         _u *= 0.5
 
-        _Eu = self._EuT.dot(_u, out=self._u_avg2)
+        _u.update_ghost_regions()
 
-        _Eu.update_ghost_regions()
+        self._pusher(dt)
 
-        self._pusher(self._scale_push * dt)
-
-        # write new coeffs into Propagator.variables
-        (max_du,) = self.feec_vars_update(un1)
+        # update u coefficients
+        diffs = self.update_feec_variables(u=un1)
 
         # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if self.variables.energetic_ions.species.weights_params.control_variate:
+            self.variables.energetic_ions.particles.update_weights()
 
-        if self._info and self._rank == 0:
+        if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for CurrentCoupling5DCurlb:", info["success"])
             print("Iterations for CurrentCoupling5DCurlb:", info["niter"])
-            print("Maxdiff up for CurrentCoupling5DCurlb:", max_du)
+            print("Maxdiff up for CurrentCoupling5DCurlb:", diffs["u"])
             print()
 
 

@@ -1896,7 +1896,7 @@ def push_gc_cc_J1_H1vec(
         )
 
         # b_star; in H1vec
-        b_star[:] = (b + curl_norm_b * v * epsilon) / det_df
+        b_star[:] = (b + curl_norm_b * v * epsilon)
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
@@ -1905,7 +1905,7 @@ def push_gc_cc_J1_H1vec(
         linalg_kernels.cross(b, u, e)
 
         # curl_norm_b dot electric field
-        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b)
 
         markers[ip, 3] += temp / abs_b_star_para * v * dt
 
@@ -2077,7 +2077,6 @@ def push_gc_cc_J1_Hdiv(
     u1: "float[:,:,:]",
     u2: "float[:,:,:]",
     u3: "float[:,:,:]",
-    boundary_cut: float,
 ):
     r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
 
@@ -2105,8 +2104,6 @@ def push_gc_cc_J1_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    # -- removed omp: #$ omp parallel private(ip, boundary_cut, eta1, eta2, eta3, v, det_df, dfm, span1, span2, span3, b, u, e, curl_norm_b, norm_b1, b_star, temp, abs_b_star_para)
-    # -- removed omp: #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -2116,9 +2113,6 @@ def push_gc_cc_J1_Hdiv(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         v = markers[ip, 3]
-
-        if eta1 < boundary_cut or eta1 > 1.0 - boundary_cut:
-            continue
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -2183,24 +2177,22 @@ def push_gc_cc_J1_Hdiv(
             curl_norm_b,
         )
 
-        # b_star; 2form in H1vec
-        b_star[:] = (b + curl_norm_b * v * epsilon) / det_df
+        # b_star; 2form
+        b_star[:] = (b + curl_norm_b * v * epsilon)
 
-        # calculate abs_b_star_para
+        # calculate 3form abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # transform u into H1vec
-        u = u / det_df
+        u = u/det_df
 
         # electric field E(1) = B(2) X U(0)
         linalg_kernels.cross(b, u, e)
 
         # curl_norm_b dot electric field
-        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b)
 
         markers[ip, 3] += temp / abs_b_star_para * v * dt
-
-    # -- removed omp: #$ omp end parallel
 
 
 @stack_array(
