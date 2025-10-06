@@ -624,11 +624,11 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
 
 
 if __name__ == "__main__":
-    direction = 0
-    bc_type = "dirichlet"
-    mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
-    mapping = ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}]
-    test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
+    # direction = 0
+    # bc_type = "dirichlet"
+    # mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
+    # mapping = ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}]
+    # test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=True)
 
     # Nel = [64, 64, 1]
     # p = [2, 2, 1]
@@ -640,4 +640,4 @@ if __name__ == "__main__":
     Nel = [64, 64, 16]
     p = [2, 2, 1]
     mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
-    # test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=True)
+    test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=True)
