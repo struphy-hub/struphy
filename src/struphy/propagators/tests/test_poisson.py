@@ -11,7 +11,7 @@ from struphy.geometry.base import Domain
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
-from struphy.propagators.propagators_fields import ImplicitDiffusion
+from struphy.propagators.propagators_fields import Poisson
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -184,13 +184,13 @@ def test_poisson_1d(direction: int,
             _phi = FEECVariable(space="H1")
             _phi.allocate(derham=derham, domain=domain)
 
-            poisson_solver = ImplicitDiffusion()
+            poisson_solver = Poisson()
             poisson_solver.variables.phi = _phi
 
             poisson_solver.options = poisson_solver.Options(
-                sigma_1=1e-12,
-                sigma_2=0.0,
-                sigma_3=1.0,
+                stab_eps=1e-12,
+                # sigma_2=0.0,
+                # sigma_3=1.0,
                 rho=rho,
                 solver="pcg",
                 precond="MassMatrixPreconditioner",
@@ -260,6 +260,29 @@ def test_poisson_1d(direction: int,
         plt.show()
 
 
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}],
+        ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}],
+    ],
+)
+def test_poisson_accum_1d(mapping):
+    """Pass accumulators as rhs."""
+    # create domain object
+    dom_type = mapping[0]
+    dom_params = mapping[1]
+
+    domain_class = getattr(domains, dom_type)
+    domain: Domain = domain_class(**dom_params)
+    
+    if dom_type == "Cuboid":
+        Lx = dom_params["r1"] - dom_params["l1"]
+    else:
+        Lx = dom_params["Lx"]
+    
+    
+
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[64, 64, 1]])
 @pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
@@ -282,7 +305,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
     dom_params = mapping[1]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
+    domain: Domain = domain_class(**dom_params)
 
     if dom_type == "Cuboid":
         Lx = dom_params["r1"] - dom_params["l1"]
@@ -394,13 +417,13 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
     _phi1 = FEECVariable(space="H1")
     _phi1.allocate(derham=derham, domain=domain)
 
-    poisson_solver1 = ImplicitDiffusion()
+    poisson_solver1 = Poisson()
     poisson_solver1.variables.phi = _phi1
 
     poisson_solver1.options = poisson_solver1.Options(
-        sigma_1=1e-8,
-        sigma_2=0.0,
-        sigma_3=1.0,
+        stab_eps=1e-8,
+        # sigma_2=0.0,
+        # sigma_3=1.0,
         rho=rho1,
         solver="pcg",
         precond="MassMatrixPreconditioner",
@@ -410,14 +433,14 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
     poisson_solver1.allocate()
 
     # _phi1 = derham.create_spline_function("test1", "H1")
-    # poisson_solver1 = ImplicitDiffusion(
+    # poisson_solver1 = Poisson(
     #     _phi1.vector, sigma_1=1e-8, sigma_2=0.0, sigma_3=1.0, rho=rho_vec1, solver=solver_params
     # )
 
     _phi2 = FEECVariable(space="H1")
     _phi2.allocate(derham=derham, domain=domain)
 
-    poisson_solver2 = ImplicitDiffusion()
+    poisson_solver2 = Poisson()
     poisson_solver2.variables.phi = _phi2
 
     stab_eps = 1e-8
@@ -427,9 +450,9 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
         err_lim = 0.046
         
     poisson_solver2.options = poisson_solver2.Options(
-        sigma_1=stab_eps,
-        sigma_2=0.0,
-        sigma_3=1.0,
+        stab_eps=stab_eps,
+        # sigma_2=0.0,
+        # sigma_3=1.0,
         rho=rho2,
         solver="pcg",
         precond="MassMatrixPreconditioner",
@@ -439,7 +462,7 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
     poisson_solver2.allocate()
 
     # _phi2 = derham.create_spline_function("test2", "H1")
-    # poisson_solver2 = ImplicitDiffusion(
+    # poisson_solver2 = Poisson(
     #     _phi2.vector, sigma_1=1e-8, sigma_2=0.0, sigma_3=1.0, rho=rho_vec2, solver=solver_params
     # )
 
