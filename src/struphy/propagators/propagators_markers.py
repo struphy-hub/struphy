@@ -193,6 +193,7 @@ class PushVxB(Propagator):
     def allocate(self):
         # scaling factor
         self._epsilon = self.variables.ions.species.equation_params.epsilon
+        assert self.derham is not None, f"{self.__class__.__name__} needs a Derham object."
 
         # TODO: treat PolarVector as well, but polar splines are being reworked at the moment
         if self.projected_equil is not None:

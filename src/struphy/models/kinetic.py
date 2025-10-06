@@ -207,10 +207,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
 
-        l2_proj = L2Projector(space_id="H1", mass_ops=self.mass_ops)
-        rho_coeffs = l2_proj.solve(charge_accum.vectors[0])
-
-        self.initial_poisson.options.rho = alpha**2 / epsilon * rho_coeffs
+        self.initial_poisson.options.rho = alpha**2 / epsilon * charge_accum.vectors[0]
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
