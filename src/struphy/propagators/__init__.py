@@ -44,6 +44,7 @@ from struphy.propagators.propagators_markers import (
     PushRandomDiffusion,
     PushVinEfield,
     PushVinSPHpressure,
+    PushVinViscousPotential,
     PushVxB,
     StepStaticEfield,
 )
@@ -92,4 +93,5 @@ __all__ = [
     "PushDeterministicDiffusion",
     "PushRandomDiffusion",
     "PushVinSPHpressure",
+    "PushVinViscousPotential",
 ]
