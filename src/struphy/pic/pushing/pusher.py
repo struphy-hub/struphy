@@ -163,65 +163,6 @@ class Pusher:
         else:
             self._box_comm = False
 
-    @property
-    def particles(self):
-        """Particle object."""
-        return self._particles
-
-    @property
-    def kernel(self):
-        """The pyccelized pusher kernel."""
-        return self._kernel
-
-    @property
-    def init_kernels(self):
-        """A dict of kernels for initial spline evaluation before iteration."""
-        return self._init_kernels
-
-    @property
-    def eval_kernels(self):
-        """A dict of kernels for spline evaluation before execution of kernel during iteration."""
-        return self._eval_kernels
-
-    @property
-    def args_kernel(self):
-        """Optional arguments for kernel."""
-        return self._args_kernel
-
-    @property
-    def args_domain(self):
-        """Mandatory Domain arguments."""
-        return self._args_domain
-
-    @property
-    def n_stages(self):
-        """Number of stages of the pusher."""
-        return self._n_stages
-
-    @property
-    def maxiter(self):
-        """Maximum number of iterations (=1 for explicit pushers)."""
-        return self._maxiter
-
-    @property
-    def tol(self):
-        """Iteration terminates when residual<tol."""
-        return self._tol
-
-    @property
-    def mpi_sort(self):
-        """When to do MPI sorting:
-        * None : no sorting at all.
-        * each : sort markers after each stage.
-        * last : sort markers after last stage.
-        """
-        return self._mpi_sort
-
-    @property
-    def verbose(self):
-        """Print more info."""
-        return self._verbose
-
     def __call__(self, dt: float):
         """
         Applies the chosen pusher kernel by a time step dt,
@@ -422,3 +363,62 @@ class Pusher:
                 self.particles.mpi_sort_markers(do_test=True)
             else:
                 self.particles.apply_kinetic_bc()
+
+    @property
+    def particles(self):
+        """Particle object."""
+        return self._particles
+
+    @property
+    def kernel(self):
+        """The pyccelized pusher kernel."""
+        return self._kernel
+
+    @property
+    def init_kernels(self):
+        """A dict of kernels for initial spline evaluation before iteration."""
+        return self._init_kernels
+
+    @property
+    def eval_kernels(self):
+        """A dict of kernels for spline evaluation before execution of kernel during iteration."""
+        return self._eval_kernels
+
+    @property
+    def args_kernel(self):
+        """Optional arguments for kernel."""
+        return self._args_kernel
+
+    @property
+    def args_domain(self):
+        """Mandatory Domain arguments."""
+        return self._args_domain
+
+    @property
+    def n_stages(self):
+        """Number of stages of the pusher."""
+        return self._n_stages
+
+    @property
+    def maxiter(self):
+        """Maximum number of iterations (=1 for explicit pushers)."""
+        return self._maxiter
+
+    @property
+    def tol(self):
+        """Iteration terminates when residual<tol."""
+        return self._tol
+
+    @property
+    def mpi_sort(self):
+        """When to do MPI sorting:
+        * None : no sorting at all.
+        * each : sort markers after each stage.
+        * last : sort markers after last stage.
+        """
+        return self._mpi_sort
+
+    @property
+    def verbose(self):
+        """Print more info."""
+        return self._verbose

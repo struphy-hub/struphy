@@ -1,23 +1,6 @@
 import pytest
 
 
-def _plot_residual_norms(residual_norms):
-    import matplotlib
-
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    plt.figure(figsize=(8, 6))
-    plt.plot(residual_norms, label="Residual Norm")
-    plt.yscale("log")  # Use logarithmic scale for better visualization
-    plt.xlabel("Iteration")
-    plt.ylabel("Residual Norm")
-    plt.title("Convergence of Residual Norm")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig("residual_norms_plot.png")
-
-
 @pytest.mark.mpi_skip
 @pytest.mark.parametrize("method_for_solving", ["SaddlePointSolverUzawaNumpy", "SaddlePointSolverGMRES"])
 @pytest.mark.parametrize("Nel", [[12, 8, 1]])
@@ -369,6 +352,23 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         compare_arrays(y1_rdm, y_uzawa.toarray(), mpi_rank, atol=1e-5)
         compare_arrays(x1, x_uzawa[0].toarray(), mpi_rank, atol=1e-5)
         compare_arrays(x2, x_uzawa[1].toarray(), mpi_rank, atol=1e-5)
+
+
+def _plot_residual_norms(residual_norms):
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(residual_norms, label="Residual Norm")
+    plt.yscale("log")  # Use logarithmic scale for better visualization
+    plt.xlabel("Iteration")
+    plt.ylabel("Residual Norm")
+    plt.title("Convergence of Residual Norm")
+    plt.legend()
+    plt.grid(True)
+    plt.savefig("residual_norms_plot.png")
 
 
 def _plot_velocity(data_reshaped):

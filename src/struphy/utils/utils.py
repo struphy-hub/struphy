@@ -53,32 +53,6 @@ def update_state(state):
     state["b_path"] = b_path
 
 
-class MyDumper(yaml.SafeDumper):
-    # HACK: insert blank lines between top-level objects
-    # inspired by https://stackoverflow.com/a/44284819/3786245
-    def write_line_break(self, data=None):
-        super().write_line_break(data)
-
-        if len(self.indents) == 1:
-            super().write_line_break()
-
-    def ignore_aliases(self, data):
-        return True
-
-
-def dict_to_yaml(dictionary, output):
-    with open(output, "w") as file:
-        yaml.dump(
-            dictionary,
-            file,
-            Dumper=MyDumper,
-            default_flow_style=None,
-            sort_keys=False,
-            indent=4,
-            line_break="\n",
-        )
-
-
 def save_state(state, libpath=STRUPHY_LIBPATH):
     """Save the state to the state.yml file."""
     state_file = os.path.join(libpath, "state.yml")
@@ -97,6 +71,32 @@ def print_all_attr(obj):
             if "proj_" in k or "quad_grid_" in k:
                 v = "(arrays not displayed)"
             print(k.ljust(26), v)
+
+
+def dict_to_yaml(dictionary, output):
+    with open(output, "w") as file:
+        yaml.dump(
+            dictionary,
+            file,
+            Dumper=MyDumper,
+            default_flow_style=None,
+            sort_keys=False,
+            indent=4,
+            line_break="\n",
+        )
+
+
+class MyDumper(yaml.SafeDumper):
+    # HACK: insert blank lines between top-level objects
+    # inspired by https://stackoverflow.com/a/44284819/3786245
+    def write_line_break(self, data=None):
+        super().write_line_break(data)
+
+        if len(self.indents) == 1:
+            super().write_line_break()
+
+    def ignore_aliases(self, data):
+        return True
 
 
 def refresh_models():

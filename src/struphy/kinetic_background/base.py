@@ -86,16 +86,6 @@ class KineticBackground(metaclass=ABCMeta):
         """
         pass
 
-    def __div__(self, a):
-        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
-        assert a != 0, "Cannot divide by zero!"
-        return ScalarMultiplyKineticBackground(self, 1 / a)
-
-    def __rdiv__(self, a):
-        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
-        assert a != 0, "Cannot divide by zero!"
-        return ScalarMultiplyKineticBackground(self, 1 / a)
-
     @abstractmethod
     def __call__(self, *args):
         """Evaluates the background distribution function f0(etas, v1, ..., vn).
@@ -125,14 +115,24 @@ class KineticBackground(metaclass=ABCMeta):
     def __add__(self, other_f0):
         return SumKineticBackground(self, other_f0)
 
-    def __sub__(self, other_f0):
-        return SumKineticBackground(self, ScalarMultiplyKineticBackground(other_f0, -1.0))
-
     def __mul__(self, a):
         return ScalarMultiplyKineticBackground(self, a)
 
     def __rmul__(self, a):
         return ScalarMultiplyKineticBackground(self, a)
+
+    def __div__(self, a):
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
+        assert a != 0, "Cannot divide by zero!"
+        return ScalarMultiplyKineticBackground(self, 1 / a)
+
+    def __rdiv__(self, a):
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
+        assert a != 0, "Cannot divide by zero!"
+        return ScalarMultiplyKineticBackground(self, 1 / a)
+
+    def __sub__(self, other_f0):
+        return SumKineticBackground(self, ScalarMultiplyKineticBackground(other_f0, -1.0))
 
 
 class SumKineticBackground(KineticBackground):
@@ -434,6 +434,79 @@ class Maxwellian(KineticBackground):
 
         return out
 
+    def __call__(self, *args):
+        """Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
+
+        There are two use-cases for this function in the code:
+
+        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
+        2. Evaluating the function on a meshgrid (in phase space).
+
+        Hence all arguments must always have
+
+        1. the same shape
+        2. either ndim = 1 or ndim = 3 + vdim.
+
+        Parameters
+        ----------
+        *args : array_like
+            Position-velocity arguments in the order eta1, eta2, eta3, v1, ..., vn.
+
+        Returns
+        -------
+        f : np.ndarray
+            The evaluated Maxwellian.
+        """
+
+        # Check that all args have the same shape
+        shape0 = np.shape(args[0])
+        for i, arg in enumerate(args):
+            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
+            assert np.ndim(arg) == 1 or np.ndim(arg) == 3 + self.vdim, (
+                f"{np.ndim(arg) = } not allowed for Maxwellian evaluation."
+            )  # flat or meshgrid evaluation
+
+        # Get result evaluated at eta's
+        res = self.n(*args[: -self.vdim])
+        us = self.u(*args[: -self.vdim])
+        vths = self.vth(*args[: -self.vdim])
+
+        # take care of correct broadcasting, assuming args come from phase space meshgrid
+        if np.ndim(args[0]) > 3:
+            # move eta axes to the back
+            arg_t = np.moveaxis(args[0], 0, -1)
+            arg_t = np.moveaxis(arg_t, 0, -1)
+            arg_t = np.moveaxis(arg_t, 0, -1)
+
+            # broadcast
+            res_broad = res + 0.0 * arg_t
+
+            # move eta axes to the front
+            res = np.moveaxis(res_broad, -1, 0)
+            res = np.moveaxis(res, -1, 0)
+            res = np.moveaxis(res, -1, 0)
+
+        # Multiply result with gaussian in v's
+        for i, v in enumerate(args[-self.vdim :]):
+            # correct broadcasting
+            if np.ndim(args[0]) > 3:
+                u_broad = us[i] + 0.0 * arg_t
+                u = np.moveaxis(u_broad, -1, 0)
+                u = np.moveaxis(u, -1, 0)
+                u = np.moveaxis(u, -1, 0)
+
+                vth_broad = vths[i] + 0.0 * arg_t
+                vth = np.moveaxis(vth_broad, -1, 0)
+                vth = np.moveaxis(vth, -1, 0)
+                vth = np.moveaxis(vth, -1, 0)
+            else:
+                u = us[i]
+                vth = vths[i]
+
+            res *= self.gaussian(v, u=u, vth=vth, polar=self.is_polar[i], volume_form=self.volume_form)
+
+        return res
+
     def _evaluate_moment(self, eta1, eta2, eta3, *, name="n"):
         """Scalar moment evaluation as background + perturbation.
 
@@ -561,79 +634,6 @@ class Maxwellian(KineticBackground):
                         out += perturbation(*etas)
 
         return out
-
-    def __call__(self, *args):
-        """Evaluates the Maxwellian distribution function M(etas, v1, ..., vn).
-
-        There are two use-cases for this function in the code:
-
-        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
-        2. Evaluating the function on a meshgrid (in phase space).
-
-        Hence all arguments must always have
-
-        1. the same shape
-        2. either ndim = 1 or ndim = 3 + vdim.
-
-        Parameters
-        ----------
-        *args : array_like
-            Position-velocity arguments in the order eta1, eta2, eta3, v1, ..., vn.
-
-        Returns
-        -------
-        f : np.ndarray
-            The evaluated Maxwellian.
-        """
-
-        # Check that all args have the same shape
-        shape0 = np.shape(args[0])
-        for i, arg in enumerate(args):
-            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
-            assert np.ndim(arg) == 1 or np.ndim(arg) == 3 + self.vdim, (
-                f"{np.ndim(arg) = } not allowed for Maxwellian evaluation."
-            )  # flat or meshgrid evaluation
-
-        # Get result evaluated at eta's
-        res = self.n(*args[: -self.vdim])
-        us = self.u(*args[: -self.vdim])
-        vths = self.vth(*args[: -self.vdim])
-
-        # take care of correct broadcasting, assuming args come from phase space meshgrid
-        if np.ndim(args[0]) > 3:
-            # move eta axes to the back
-            arg_t = np.moveaxis(args[0], 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
-
-            # broadcast
-            res_broad = res + 0.0 * arg_t
-
-            # move eta axes to the front
-            res = np.moveaxis(res_broad, -1, 0)
-            res = np.moveaxis(res, -1, 0)
-            res = np.moveaxis(res, -1, 0)
-
-        # Multiply result with gaussian in v's
-        for i, v in enumerate(args[-self.vdim :]):
-            # correct broadcasting
-            if np.ndim(args[0]) > 3:
-                u_broad = us[i] + 0.0 * arg_t
-                u = np.moveaxis(u_broad, -1, 0)
-                u = np.moveaxis(u, -1, 0)
-                u = np.moveaxis(u, -1, 0)
-
-                vth_broad = vths[i] + 0.0 * arg_t
-                vth = np.moveaxis(vth_broad, -1, 0)
-                vth = np.moveaxis(vth, -1, 0)
-                vth = np.moveaxis(vth, -1, 0)
-            else:
-                u = us[i]
-                vth = vths[i]
-
-            res *= self.gaussian(v, u=u, vth=vth, polar=self.is_polar[i], volume_form=self.volume_form)
-
-        return res
 
 
 class CanonicalMaxwellian(metaclass=ABCMeta):

@@ -256,130 +256,57 @@ class Domain(metaclass=ABCMeta):
         """Dictionary of str->int for pull, push and transformation functions."""
         return self._dict_transformations
 
-    # ========================
-    # private methods :
-    # ========================
+    def __call__(
+        self,
+        *etas,
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+        identity_map=False,
+    ):
+        r"""
+        Evaluates the mapping :math:`F : (0, 1)^3 \to \mathbb R^3,\, \boldsymbol \eta \mapsto \mathbf x`.
 
-    # ================================
-    def _evaluate_metric_coefficient(self, *etas, which=0, **kwargs):
-        """Evaluates metric coefficients. Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
+        Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
+        The type of evaluation depends on the shape of the input ``etas``.
 
         Parameters
         ----------
         *etas : array-like | tuple
             Logical coordinates at which to evaluate. Two cases are possible:
-
                 1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
                 2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
 
-        which : int
-            Which metric coefficients to be evaluated (0 : F, 1 : DF, 2 : det(DF), 3 : DF^(-1), 4 : G, 5 : G^(-1)).
+        change_out_order : bool
+            If True, the axis corresponding to x, y, z coordinates in the output array is the last one, otherwise the first one.
 
-        **kwargs
-            Addtional boolean keyword arguments (transposed, change_out_order, squeeze_out, remove_outside, avoid_round_off).
+        squeeze_out : bool
+            Whether to remove singleton dimensions in output array.
+
+        remove_outside : bool
+            If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
+
+        identity_map : bool
+            If True, not the mapping F, but the identity map (0, 1)^3 --> (0, 1)^3 is evaluated
 
         Returns
         -------
         out : ndarray | float
-            The metric coefficient evaluated at the given logical coordinates.
+            The Cartesian coordinates corresponding to the given logical ones.
         """
 
-        # set default values
-        transposed = kwargs.get("transposed", False)
-        change_out_order = kwargs.get("change_out_order", False)
-        squeeze_out = kwargs.get("squeeze_out", True)
-        remove_outside = kwargs.get("remove_outside", False)
-        avoid_round_off = kwargs.get("avoid_round_off", True)
-
-        # markers evaluation
-        if len(etas) == 1:
-            markers = etas[0]
-
-            # to keep C-ordering the (3, 3)-part is in the last indices
-            out = np.empty((markers.shape[0], 3, 3), dtype=float)
-
-            n_inside = evaluation_kernels.kernel_evaluate_pic(
-                markers,
-                which,
-                self.args_domain,
-                out,
-                remove_outside,
-                avoid_round_off,
-            )
-
-            # move the (3, 3)-part to front
-            out = np.transpose(out, axes=(1, 2, 0))
-
-            # remove holes
-            out = out[:, :, :n_inside]
-
-            if transposed:
-                out = np.transpose(out, axes=(1, 0, 2))
-
-            # change size of "out" depending on which metric coeff has been evaluated
-            if which == 0 or which == -1:
-                out = out[:, 0, :]
-                if change_out_order:
-                    out = np.transpose(out, axes=(1, 0))
-            elif which == 2:
-                out = out[0, 0, :]
-            else:
-                if change_out_order:
-                    out = np.transpose(out, axes=(2, 0, 1))
-
-        # tensor-product/slice evaluation
+        if identity_map:
+            which = -1
         else:
-            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                etas[0],
-                etas[1],
-                etas[2],
-                flat_eval=False,
-            )
+            which = 0
 
-            # to keep C-ordering the (3, 3)-part is in the last indices
-            out = np.empty(
-                (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
-                dtype=float,
-            )
-            evaluation_kernels.kernel_evaluate(
-                E1,
-                E2,
-                E3,
-                which,
-                self.args_domain,
-                out,
-                is_sparse_meshgrid,
-                avoid_round_off,
-            )
-
-            # move the (3, 3)-part to front
-            out = np.transpose(out, axes=(3, 4, 0, 1, 2))
-
-            if transposed:
-                out = np.transpose(out, axes=(1, 0, 2, 3, 4))
-
-            if which == 0:
-                out = out[:, 0, :, :, :]
-                if change_out_order:
-                    out = np.transpose(out, axes=(1, 2, 3, 0))
-            elif which == 2:
-                out = out[0, 0, :, :, :]
-            else:
-                if change_out_order:
-                    out = np.transpose(out, axes=(2, 3, 4, 0, 1))
-
-            # remove singleton dimensions for slice evaluation
-            if squeeze_out:
-                out = out.squeeze()
-
-            # remove all "dimensions" for point-wise evaluation
-            if out.ndim == 0:
-                out = out.item()
-
-        if isinstance(out, float):
-            return out
-        else:
-            return out.copy()
+        return self._evaluate_metric_coefficient(
+            *etas,
+            which=which,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            remove_outside=remove_outside,
+        )
 
     def jacobian(
         self,
@@ -611,6 +538,321 @@ class Domain(metaclass=ABCMeta):
             avoid_round_off=avoid_round_off,
         )
 
+    def pull(
+        self,
+        a,
+        *etas,
+        flat_eval=False,
+        kind="0",
+        a_kwargs={},
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+        coordinates="physical",
+    ):
+        """Pull-back of a Cartesian scalar/vector field to a differential p-form.
+
+        Parameters
+        ----------
+        a : callable | list | tuple | array-like
+            The function a(x, y, z) resp. [a_x(x, y, z), a_y(x, y, z), a_z(x, y, z)] to be pulled.
+
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+
+            1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+            2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+
+        flat_eval : bool
+            Allows to perform flat evaluation when len(etas) == 3 with 1D arrays of same size.
+
+        kind : str
+            Which pull-back to apply, '0', '1', '2', '3' or 'v'.
+
+        a_kwargs : dict
+            Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
+
+        change_out_order : bool
+            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
+
+        squeeze_out : bool
+            Whether to remove singleton dimensions in output array.
+
+        remove_outside : bool
+            If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
+
+        coordinates : str
+            In which coordinates the input "a" is given (in case of callables). "physical" : a = a(x, y, z).
+            "logical"  : a = a(eta1, eta2, eta3).
+
+        Returns
+        -------
+        out : ndarray | float
+            Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
+        """
+
+        return self._pull_push_transform(
+            "pull",
+            a,
+            kind,
+            *etas,
+            flat_eval=flat_eval,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            remove_outside=remove_outside,
+            coordinates=coordinates,
+            a_kwargs=a_kwargs,
+        )
+
+    def push(
+        self,
+        a,
+        *etas,
+        flat_eval=False,
+        kind="0",
+        a_kwargs={},
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+    ):
+        """Pushforward of a differential p-form to a Cartesian scalar/vector field.
+
+        Parameters
+        -----------
+        a : callable | list | tuple | array-like
+            The function a(e1, e2, e3) resp. [a_1(e1, e2, e3), a_2(e1, e2, e3), a_3(e1, e2, e3)] to be pushed.
+
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+
+        flat_eval : bool
+            Allows to perform flat evaluation when len(etas) == 3 with 1D arrays of same size.
+
+        kind : str
+            Which pushforward to apply, '0', '1', '2', '3' or 'v'.
+
+        a_kwargs : dict
+            Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
+
+        change_out_order : bool
+            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
+
+        squeeze_out : bool
+            Whether to remove singleton dimensions in output array.
+
+        remove_outside : bool
+            If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
+
+        Returns
+        -------
+        out : ndarray | float
+            Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
+        """
+
+        return self._pull_push_transform(
+            "push",
+            a,
+            kind,
+            *etas,
+            flat_eval=flat_eval,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            remove_outside=remove_outside,
+            a_kwargs=a_kwargs,
+        )
+
+    def transform(
+        self,
+        a,
+        *etas,
+        flat_eval=False,
+        kind="0_to_3",
+        a_kwargs={},
+        change_out_order=False,
+        squeeze_out=False,
+        remove_outside=True,
+    ):
+        """Transformation between different differential p-forms and/or vector fields.
+
+        Parameters
+        -----------
+        a : callable | list | tuple | array-like
+            The function a(e1, e2, e3) resp. [a_1(e1, e2, e3), a_2(e1, e2, e3), a_3(e1, e2, e3)] to be transformed.
+
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+
+        flat_eval : bool
+            Allows to perform flat evaluation when len(etas) == 3 with 1D arrays of same size.
+
+        kind : str
+            Which transformation to apply, such as '0_to_3' for example, see dict_transformations['tran'] for all options.
+
+        a_kwargs : dict
+            Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
+
+        change_out_order : bool
+            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
+
+        squeeze_out : bool
+            Whether to remove singleton dimensions in output array.
+
+        remove_outside : bool
+            If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
+
+        Returns
+        -------
+        out : ndarray | float
+            Transformed p-form evaluated at given logical coordinates.
+
+        Notes
+        -----
+        Possible choices for kind are '0_to_3', '3_to_0', '1_to_2', '2_to_1', 'norm_to_v', 'norm_to_1', 'norm_to_2', 'v_to_1', 'v_to_2', '1_to_v' and '2_to_v'.
+        """
+
+        return self._pull_push_transform(
+            "tran",
+            a,
+            kind,
+            *etas,
+            flat_eval=flat_eval,
+            change_out_order=change_out_order,
+            squeeze_out=squeeze_out,
+            remove_outside=remove_outside,
+            a_kwargs=a_kwargs,
+        )
+
+    # ========================
+    # private methods :
+    # ========================
+
+    # ================================
+    def _evaluate_metric_coefficient(self, *etas, which=0, **kwargs):
+        """Evaluates metric coefficients. Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
+
+        Parameters
+        ----------
+        *etas : array-like | tuple
+            Logical coordinates at which to evaluate. Two cases are possible:
+
+                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
+                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
+
+        which : int
+            Which metric coefficients to be evaluated (0 : F, 1 : DF, 2 : det(DF), 3 : DF^(-1), 4 : G, 5 : G^(-1)).
+
+        **kwargs
+            Addtional boolean keyword arguments (transposed, change_out_order, squeeze_out, remove_outside, avoid_round_off).
+
+        Returns
+        -------
+        out : ndarray | float
+            The metric coefficient evaluated at the given logical coordinates.
+        """
+
+        # set default values
+        transposed = kwargs.get("transposed", False)
+        change_out_order = kwargs.get("change_out_order", False)
+        squeeze_out = kwargs.get("squeeze_out", True)
+        remove_outside = kwargs.get("remove_outside", False)
+        avoid_round_off = kwargs.get("avoid_round_off", True)
+
+        # markers evaluation
+        if len(etas) == 1:
+            markers = etas[0]
+
+            # to keep C-ordering the (3, 3)-part is in the last indices
+            out = np.empty((markers.shape[0], 3, 3), dtype=float)
+
+            n_inside = evaluation_kernels.kernel_evaluate_pic(
+                markers,
+                which,
+                self.args_domain,
+                out,
+                remove_outside,
+                avoid_round_off,
+            )
+
+            # move the (3, 3)-part to front
+            out = np.transpose(out, axes=(1, 2, 0))
+
+            # remove holes
+            out = out[:, :, :n_inside]
+
+            if transposed:
+                out = np.transpose(out, axes=(1, 0, 2))
+
+            # change size of "out" depending on which metric coeff has been evaluated
+            if which == 0 or which == -1:
+                out = out[:, 0, :]
+                if change_out_order:
+                    out = np.transpose(out, axes=(1, 0))
+            elif which == 2:
+                out = out[0, 0, :]
+            else:
+                if change_out_order:
+                    out = np.transpose(out, axes=(2, 0, 1))
+
+        # tensor-product/slice evaluation
+        else:
+            E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                etas[0],
+                etas[1],
+                etas[2],
+                flat_eval=False,
+            )
+
+            # to keep C-ordering the (3, 3)-part is in the last indices
+            out = np.empty(
+                (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
+                dtype=float,
+            )
+            evaluation_kernels.kernel_evaluate(
+                E1,
+                E2,
+                E3,
+                which,
+                self.args_domain,
+                out,
+                is_sparse_meshgrid,
+                avoid_round_off,
+            )
+
+            # move the (3, 3)-part to front
+            out = np.transpose(out, axes=(3, 4, 0, 1, 2))
+
+            if transposed:
+                out = np.transpose(out, axes=(1, 0, 2, 3, 4))
+
+            if which == 0:
+                out = out[:, 0, :, :, :]
+                if change_out_order:
+                    out = np.transpose(out, axes=(1, 2, 3, 0))
+            elif which == 2:
+                out = out[0, 0, :, :, :]
+            else:
+                if change_out_order:
+                    out = np.transpose(out, axes=(2, 3, 4, 0, 1))
+
+            # remove singleton dimensions for slice evaluation
+            if squeeze_out:
+                out = out.squeeze()
+
+            # remove all "dimensions" for point-wise evaluation
+            if out.ndim == 0:
+                out = out.item()
+
+        if isinstance(out, float):
+            return out
+        else:
+            return out.copy()
+
     # ================================
     def _pull_push_transform(self, which, a, kind_fun, *etas, flat_eval=False, **kwargs):
         """Evaluates metric coefficients. Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1 for markers evaluation.
@@ -808,196 +1050,6 @@ class Domain(metaclass=ABCMeta):
             return out
         else:
             return out.copy()
-
-    def pull(
-        self,
-        a,
-        *etas,
-        flat_eval=False,
-        kind="0",
-        a_kwargs={},
-        change_out_order=False,
-        squeeze_out=False,
-        remove_outside=True,
-        coordinates="physical",
-    ):
-        """Pull-back of a Cartesian scalar/vector field to a differential p-form.
-
-        Parameters
-        ----------
-        a : callable | list | tuple | array-like
-            The function a(x, y, z) resp. [a_x(x, y, z), a_y(x, y, z), a_z(x, y, z)] to be pulled.
-
-        *etas : array-like | tuple
-            Logical coordinates at which to evaluate. Two cases are possible:
-
-            1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
-            2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-
-        flat_eval : bool
-            Allows to perform flat evaluation when len(etas) == 3 with 1D arrays of same size.
-
-        kind : str
-            Which pull-back to apply, '0', '1', '2', '3' or 'v'.
-
-        a_kwargs : dict
-            Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
-
-        change_out_order : bool
-            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
-
-        squeeze_out : bool
-            Whether to remove singleton dimensions in output array.
-
-        remove_outside : bool
-            If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
-
-        coordinates : str
-            In which coordinates the input "a" is given (in case of callables). "physical" : a = a(x, y, z).
-            "logical"  : a = a(eta1, eta2, eta3).
-
-        Returns
-        -------
-        out : ndarray | float
-            Pullback of Cartesian vector/scalar field to p-form evaluated at given logical coordinates.
-        """
-
-        return self._pull_push_transform(
-            "pull",
-            a,
-            kind,
-            *etas,
-            flat_eval=flat_eval,
-            change_out_order=change_out_order,
-            squeeze_out=squeeze_out,
-            remove_outside=remove_outside,
-            coordinates=coordinates,
-            a_kwargs=a_kwargs,
-        )
-
-    def push(
-        self,
-        a,
-        *etas,
-        flat_eval=False,
-        kind="0",
-        a_kwargs={},
-        change_out_order=False,
-        squeeze_out=False,
-        remove_outside=True,
-    ):
-        """Pushforward of a differential p-form to a Cartesian scalar/vector field.
-
-        Parameters
-        -----------
-        a : callable | list | tuple | array-like
-            The function a(e1, e2, e3) resp. [a_1(e1, e2, e3), a_2(e1, e2, e3), a_3(e1, e2, e3)] to be pushed.
-
-        *etas : array-like | tuple
-            Logical coordinates at which to evaluate. Two cases are possible:
-
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
-                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-
-        flat_eval : bool
-            Allows to perform flat evaluation when len(etas) == 3 with 1D arrays of same size.
-
-        kind : str
-            Which pushforward to apply, '0', '1', '2', '3' or 'v'.
-
-        a_kwargs : dict
-            Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
-
-        change_out_order : bool
-            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
-
-        squeeze_out : bool
-            Whether to remove singleton dimensions in output array.
-
-        remove_outside : bool
-            If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
-
-        Returns
-        -------
-        out : ndarray | float
-            Pushforward of p-form to Cartesian vector/scalar field evaluated at given logical coordinates.
-        """
-
-        return self._pull_push_transform(
-            "push",
-            a,
-            kind,
-            *etas,
-            flat_eval=flat_eval,
-            change_out_order=change_out_order,
-            squeeze_out=squeeze_out,
-            remove_outside=remove_outside,
-            a_kwargs=a_kwargs,
-        )
-
-    def transform(
-        self,
-        a,
-        *etas,
-        flat_eval=False,
-        kind="0_to_3",
-        a_kwargs={},
-        change_out_order=False,
-        squeeze_out=False,
-        remove_outside=True,
-    ):
-        """Transformation between different differential p-forms and/or vector fields.
-
-        Parameters
-        -----------
-        a : callable | list | tuple | array-like
-            The function a(e1, e2, e3) resp. [a_1(e1, e2, e3), a_2(e1, e2, e3), a_3(e1, e2, e3)] to be transformed.
-
-        *etas : array-like | tuple
-            Logical coordinates at which to evaluate. Two cases are possible:
-
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
-                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-
-        flat_eval : bool
-            Allows to perform flat evaluation when len(etas) == 3 with 1D arrays of same size.
-
-        kind : str
-            Which transformation to apply, such as '0_to_3' for example, see dict_transformations['tran'] for all options.
-
-        a_kwargs : dict
-            Keyword arguments passed to parameter "a" if "a" is a callable: is called as a(*etas, **a_kwargs).
-
-        change_out_order : bool
-            If True, the axes corresponding to the 3 components in the output array are the last two, otherwise the first two.
-
-        squeeze_out : bool
-            Whether to remove singleton dimensions in output array.
-
-        remove_outside : bool
-            If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
-
-        Returns
-        -------
-        out : ndarray | float
-            Transformed p-form evaluated at given logical coordinates.
-
-        Notes
-        -----
-        Possible choices for kind are '0_to_3', '3_to_0', '1_to_2', '2_to_1', 'norm_to_v', 'norm_to_1', 'norm_to_2', 'v_to_1', 'v_to_2', '1_to_v' and '2_to_v'.
-        """
-
-        return self._pull_push_transform(
-            "tran",
-            a,
-            kind,
-            *etas,
-            flat_eval=flat_eval,
-            change_out_order=change_out_order,
-            squeeze_out=squeeze_out,
-            remove_outside=remove_outside,
-            a_kwargs=a_kwargs,
-        )
 
     # ========================
     # static methods :
@@ -1700,58 +1752,6 @@ class Domain(metaclass=ABCMeta):
         else:
             plt.show()
 
-    def __call__(
-        self,
-        *etas,
-        change_out_order=False,
-        squeeze_out=False,
-        remove_outside=True,
-        identity_map=False,
-    ):
-        r"""
-        Evaluates the mapping :math:`F : (0, 1)^3 \to \mathbb R^3,\, \boldsymbol \eta \mapsto \mathbf x`.
-
-        Logical coordinates outside of :math:`(0, 1)^3` are evaluated to -1.
-        The type of evaluation depends on the shape of the input ``etas``.
-
-        Parameters
-        ----------
-        *etas : array-like | tuple
-            Logical coordinates at which to evaluate. Two cases are possible:
-                1. 2d numpy array, where coordinates are taken from eta1 = etas[:, 0], eta2 = etas[:, 1], etc. (like markers).
-                2. list/tuple (eta1, eta2, ...), where eta1, eta2, ... can be float or array-like of various shapes.
-
-        change_out_order : bool
-            If True, the axis corresponding to x, y, z coordinates in the output array is the last one, otherwise the first one.
-
-        squeeze_out : bool
-            Whether to remove singleton dimensions in output array.
-
-        remove_outside : bool
-            If True, logical coordinates outside of (0, 1)^3 are NOT evaluated to -1 and are removed in the output array.
-
-        identity_map : bool
-            If True, not the mapping F, but the identity map (0, 1)^3 --> (0, 1)^3 is evaluated
-
-        Returns
-        -------
-        out : ndarray | float
-            The Cartesian coordinates corresponding to the given logical ones.
-        """
-
-        if identity_map:
-            which = -1
-        else:
-            which = 0
-
-        return self._evaluate_metric_coefficient(
-            *etas,
-            which=which,
-            change_out_order=change_out_order,
-            squeeze_out=squeeze_out,
-            remove_outside=remove_outside,
-        )
-
 
 class Spline(Domain):
     r"""3D IGA spline mapping.
@@ -1814,78 +1814,6 @@ class Spline(Domain):
 
         # base class
         super().__init__(Nel=Nel, p=p, spl_kind=spl_kind)
-
-
-def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
-    r"""Interpolates the mapping :math:`F: (0, 1)^3 \to \mathbb R^3` on the given spline space.
-
-    Parameters
-    -----------
-    Nel, p, spl_kind : array-like
-        Defining the spline space.
-
-    X, Y : callable
-        Either X(eta1, eta2) in 2D or X(eta1, eta2, eta3) in 3D.
-
-    Z : callable
-        3rd mapping component Z(eta1, eta2, eta3) in 3D.
-
-    Returns
-    --------
-    cx, cy (, cz) : array-like
-        The control points.
-    """
-
-    # number of basis functions
-    NbaseN = [Nel + p - kind * p for Nel, p, kind in zip(Nel, p, spl_kind)]
-
-    # element boundaries
-    el_b = [np.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
-
-    # spline knot vectors
-    T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl_kind)]
-
-    # greville points
-    I_pts = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
-
-    # 1D interpolation matrices
-    I_mat = [csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind)) for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
-
-    # 2D interpolation
-    if len(Nel) == 2:
-        I = kron(I_mat[0], I_mat[1], format="csc")
-
-        I_pts = np.meshgrid(I_pts[0], I_pts[1], indexing="ij")
-
-        cx = spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(
-            NbaseN[0],
-            NbaseN[1],
-        )
-        cy = spsolve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(
-            NbaseN[0],
-            NbaseN[1],
-        )
-
-        return cx, cy
-
-    # 3D interpolation
-    elif len(Nel) == 3:
-        I_LU = [splu(mat) for mat in I_mat]
-
-        x_size = X(I_pts[0], I_pts[1], I_pts[2])
-        y_size = Y(I_pts[0], I_pts[1], I_pts[2])
-        z_size = Z(I_pts[0], I_pts[1], I_pts[2])
-
-        cx = linalg_kron.kron_lusolve_3d(I_LU, x_size)
-        cy = linalg_kron.kron_lusolve_3d(I_LU, y_size)
-        cz = linalg_kron.kron_lusolve_3d(I_LU, z_size)
-
-        return cx, cy, cz
-
-    else:
-        print("wrong number of elements")
-
-        return 0.0
 
 
 class PoloidalSpline(Domain):
@@ -2071,6 +1999,78 @@ class PoloidalSplineTorus(PoloidalSpline):
             cx=cx,
             cy=cy,
         )
+
+
+def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
+    r"""Interpolates the mapping :math:`F: (0, 1)^3 \to \mathbb R^3` on the given spline space.
+
+    Parameters
+    -----------
+    Nel, p, spl_kind : array-like
+        Defining the spline space.
+
+    X, Y : callable
+        Either X(eta1, eta2) in 2D or X(eta1, eta2, eta3) in 3D.
+
+    Z : callable
+        3rd mapping component Z(eta1, eta2, eta3) in 3D.
+
+    Returns
+    --------
+    cx, cy (, cz) : array-like
+        The control points.
+    """
+
+    # number of basis functions
+    NbaseN = [Nel + p - kind * p for Nel, p, kind in zip(Nel, p, spl_kind)]
+
+    # element boundaries
+    el_b = [np.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
+
+    # spline knot vectors
+    T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl_kind)]
+
+    # greville points
+    I_pts = [bsp.greville(T, p, kind) for T, p, kind in zip(T, p, spl_kind)]
+
+    # 1D interpolation matrices
+    I_mat = [csc_matrix(bsp.collocation_matrix(T, p, I_pts, kind)) for T, p, I_pts, kind in zip(T, p, I_pts, spl_kind)]
+
+    # 2D interpolation
+    if len(Nel) == 2:
+        I = kron(I_mat[0], I_mat[1], format="csc")
+
+        I_pts = np.meshgrid(I_pts[0], I_pts[1], indexing="ij")
+
+        cx = spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(
+            NbaseN[0],
+            NbaseN[1],
+        )
+        cy = spsolve(I, Y(I_pts[0], I_pts[1]).flatten()).reshape(
+            NbaseN[0],
+            NbaseN[1],
+        )
+
+        return cx, cy
+
+    # 3D interpolation
+    elif len(Nel) == 3:
+        I_LU = [splu(mat) for mat in I_mat]
+
+        x_size = X(I_pts[0], I_pts[1], I_pts[2])
+        y_size = Y(I_pts[0], I_pts[1], I_pts[2])
+        z_size = Z(I_pts[0], I_pts[1], I_pts[2])
+
+        cx = linalg_kron.kron_lusolve_3d(I_LU, x_size)
+        cy = linalg_kron.kron_lusolve_3d(I_LU, y_size)
+        cz = linalg_kron.kron_lusolve_3d(I_LU, z_size)
+
+        return cx, cy, cz
+
+    else:
+        print("wrong number of elements")
+
+        return 0.0
 
 
 def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: np.ndarray):

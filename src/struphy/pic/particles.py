@@ -23,6 +23,10 @@ class Particles6D(Particles):
     ===== ============== ======================= ======= ====== ====== ==========
     """
 
+    @classmethod
+    def default_bckgr_params(cls):
+        return {"Maxwellian3D": {}}
+
     def __init__(
         self,
         **kwargs,
@@ -47,10 +51,6 @@ class Particles6D(Particles):
             self._b2_h = self.projected_equil.b2
             self._derham = self.projected_equil.derham
             self._epsilon = self.equation_params["epsilon"]
-
-    @classmethod
-    def default_bckgr_params(cls):
-        return {"Maxwellian3D": {}}
 
     @property
     def vdim(self):
@@ -237,6 +237,10 @@ class DeltaFParticles6D(Particles6D):
     A class for kinetic species in full 6D phase space that solve for delta_f = f - f0.
     """
 
+    @classmethod
+    def default_bckgr_params(cls):
+        return {"Maxwellian3D": {}}
+
     def __init__(
         self,
         **kwargs,
@@ -244,10 +248,6 @@ class DeltaFParticles6D(Particles6D):
         kwargs["type"] = "delta_f"
         kwargs["control_variate"] = False
         super().__init__(**kwargs)
-
-    @classmethod
-    def default_bckgr_params(cls):
-        return {"Maxwellian3D": {}}
 
     def _set_initial_condition(self):
         bp_copy = copy.deepcopy(self.bckgr_params)
@@ -300,6 +300,10 @@ class Particles5D(Particles):
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
+    @classmethod
+    def default_bckgr_params(cls):
+        return {"GyroMaxwellian2D": {}}
+
     def __init__(
         self,
         projected_equil: ProjectedFluidEquilibriumWithB,
@@ -329,10 +333,6 @@ class Particles5D(Particles):
         self._derham = self.projected_equil.derham
 
         self._tmp2 = self.derham.Vh["2"].zeros()
-
-    @classmethod
-    def default_bckgr_params(cls):
-        return {"GyroMaxwellian2D": {}}
 
     @property
     def vdim(self):
@@ -624,6 +624,10 @@ class Particles3D(Particles):
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
+    @classmethod
+    def default_bckgr_params(cls):
+        return {"ColdPlasma": {}}
+
     def __init__(
         self,
         **kwargs,
@@ -638,10 +642,6 @@ class Particles3D(Particles):
         self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
 
         super().__init__(**kwargs)
-
-    @classmethod
-    def default_bckgr_params(cls):
-        return {"ColdPlasma": {}}
 
     @property
     def vdim(self):
@@ -747,6 +747,10 @@ class ParticlesSPH(Particles):
         Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
+    @classmethod
+    def default_bckgr_params(cls):
+        return {"ConstantVelocity": {}}
+
     def __init__(
         self,
         **kwargs,
@@ -776,10 +780,6 @@ class ParticlesSPH(Particles):
         assert clone_config is None, "SPH can only be launched with --nclones 1"
 
         super().__init__(**kwargs)
-
-    @classmethod
-    def default_bckgr_params(cls):
-        return {"ConstantVelocity": {}}
 
     @property
     def vdim(self):

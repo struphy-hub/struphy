@@ -92,6 +92,18 @@ class Propagator(metaclass=ABCMeta):
         """MPI rank, is 0 if no communicator."""
         return self._rank
 
+    @abstractmethod
+    def __call__(self, dt):
+        """Update from t -> t + dt.
+        Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
+
+        Parameters
+        ----------
+        dt : float
+            Time step size.
+        """
+        pass
+
     @staticmethod
     @abstractmethod
     def options():
@@ -298,15 +310,3 @@ class Propagator(metaclass=ABCMeta):
                 args_eval,
             )
         ]
-
-    @abstractmethod
-    def __call__(self, dt):
-        """Update from t -> t + dt.
-        Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
-
-        Parameters
-        ----------
-        dt : float
-            Time step size.
-        """
-        pass

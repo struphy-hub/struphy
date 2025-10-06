@@ -176,165 +176,6 @@ class Accumulator:
                     for bl in vec.blocks:
                         self._args_data += (bl._data,)
 
-    @property
-    def particles(self):
-        """Particle object."""
-        return self._particles
-
-    @property
-    def kernel(self):
-        """The accumulation kernel."""
-        return self._kernel
-
-    @property
-    def derham(self):
-        """Discrete Derham complex on the logical unit cube."""
-        return self._derham
-
-    @property
-    def args_domain(self):
-        """Mapping info for evaluating metric coefficients."""
-        return self._args_domain
-
-    @property
-    def space_id(self):
-        """Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into."""
-        return self._space_id
-
-    @property
-    def form(self):
-        """p-form ("0", "1", "2", "3" or "v") to be accumulated into."""
-        return self._form
-
-    @property
-    def symmetry(self):
-        """Symmetry of the accumulation matrix (diagonal, symmetric, asymmetric, etc.)."""
-        return self._symmetry
-
-    @property
-    def operators(self):
-        """List of WeightedMassOperators of the accumulator. Matrices can be accessed e.g. with operators[0].matrix."""
-        return self._operators
-
-    @property
-    def vectors(self):
-        """List of Stencil-/Block-/PolarVectors of the accumulator."""
-        out = []
-        for vec, vec_temp, vec_out in zip(self._vectors, self._vectors_temp, self._vectors_out):
-            self._derham.extraction_ops[self.form].dot(vec, out=vec_temp)
-            self._derham.boundary_ops[self.form].dot(vec_temp, out=vec_out)
-            out += [vec_out]
-
-        return out
-
-    @property
-    def filter_params(self):
-        """Dict of three components for the accumulation filter parameters: use_filter(string), repeat(int) and alpha(float)."""
-        return self._filter_params
-
-    @property
-    def filter_params(self):
-        """Dict of three components for the accumulation filter parameters: use_filter(string), repeat(int) and alpha(float)."""
-        return self._filter_params
-
-    def init_control_variate(self, mass_ops):
-        """Set up the use of noise reduction by control variate."""
-
-        from struphy.feec.projectors import L2Projector
-
-        # L2 projector for dofs
-        self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
-
-    def apply_toroidal_fourier_filter(self, vec, modes):
-        """
-        Applying fourier filter to the spline coefficients of the accumulated vector (toroidal direction).
-
-        Parameters
-        ----------
-        vec : BlockVector
-
-        modes : list
-            Mode numbers which are not filtered out.
-        """
-
-        from scipy.fft import irfft, rfft
-
-        tor_Nel = self.derham.Nel[2]
-
-        # Nel along the toroidal direction must be equal or bigger than 2*maximum mode
-        assert tor_Nel >= 2 * max(modes)
-
-        pn = self.derham.p
-        ir = np.empty(3, dtype=int)
-
-        if (tor_Nel % 2) == 0:
-            vec_temp = np.zeros(int(tor_Nel / 2) + 1, dtype=complex)
-        else:
-            vec_temp = np.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
-
-        # no domain decomposition along the toroidal direction
-        assert self.derham.domain_decomposition.nprocs[2] == 1
-
-        for axis in range(3):
-            starts = self.derham.Vh[ſelf.form][axis].starts
-            ends = self.derham.Vh[self.form][axis].ends
-
-            # index range
-            for i in range(3):
-                ir[i] = ends[i] + 1 - starts[i]
-
-            # filtering
-            for i in range(ir[0]):
-                for j in range(ir[1]):
-                    vec_temp[:] = 0
-                    vec_temp[modes] = rfft(
-                        vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]],
-                    )[modes]
-                    vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
-
-            vec.update_ghost_regions()
-
-    def show_accumulated_spline_field(self, mass_ops: WeightedMassOperators, eta_direction=0, component=0):
-        r"""1D plot of the spline field corresponding to the accumulated vector.
-        The latter can be viewed as the rhs of an L2-projection:
-
-        .. math::
-
-            \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
-
-        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.SplineFunction`.
-        """
-        from matplotlib import pyplot as plt
-
-        from struphy.feec.projectors import L2Projector
-
-        # L2 projection
-        proj = L2Projector(self.space_id, mass_ops)
-        a = proj.solve(self.vectors[0])
-
-        # create field and assign coeffs
-        field = self.derham.create_spline_function("accum_field", self.space_id)
-        field.vector = a
-
-        # plot field
-        eta = np.linspace(0, 1, 100)
-        if eta_direction == 0:
-            args = (eta, 0.5, 0.5)
-        elif eta_direction == 1:
-            args = (0.5, eta, 0.5)
-        else:
-            args = (0.5, 0.5, eta)
-
-        vals = mass_ops.domain.push(field, *args, kind="1", squeeze_out=True)
-
-        plt.plot(eta, vals[component])
-        plt.title(
-            f'Spline field accumulated with the kernel "{self.kernel}"',
-        )
-        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
-        plt.ylabel("field amplitude")
-        plt.show()
-
     def __call__(self, *optional_args, **args_control):
         """
         Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
@@ -500,6 +341,165 @@ class Accumulator:
                         out=self._operators[i].matrix[2, 1],
                     )
 
+    @property
+    def particles(self):
+        """Particle object."""
+        return self._particles
+
+    @property
+    def kernel(self):
+        """The accumulation kernel."""
+        return self._kernel
+
+    @property
+    def derham(self):
+        """Discrete Derham complex on the logical unit cube."""
+        return self._derham
+
+    @property
+    def args_domain(self):
+        """Mapping info for evaluating metric coefficients."""
+        return self._args_domain
+
+    @property
+    def space_id(self):
+        """Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into."""
+        return self._space_id
+
+    @property
+    def form(self):
+        """p-form ("0", "1", "2", "3" or "v") to be accumulated into."""
+        return self._form
+
+    @property
+    def symmetry(self):
+        """Symmetry of the accumulation matrix (diagonal, symmetric, asymmetric, etc.)."""
+        return self._symmetry
+
+    @property
+    def operators(self):
+        """List of WeightedMassOperators of the accumulator. Matrices can be accessed e.g. with operators[0].matrix."""
+        return self._operators
+
+    @property
+    def vectors(self):
+        """List of Stencil-/Block-/PolarVectors of the accumulator."""
+        out = []
+        for vec, vec_temp, vec_out in zip(self._vectors, self._vectors_temp, self._vectors_out):
+            self._derham.extraction_ops[self.form].dot(vec, out=vec_temp)
+            self._derham.boundary_ops[self.form].dot(vec_temp, out=vec_out)
+            out += [vec_out]
+
+        return out
+
+    @property
+    def filter_params(self):
+        """Dict of three components for the accumulation filter parameters: use_filter(string), repeat(int) and alpha(float)."""
+        return self._filter_params
+
+    @property
+    def filter_params(self):
+        """Dict of three components for the accumulation filter parameters: use_filter(string), repeat(int) and alpha(float)."""
+        return self._filter_params
+
+    def init_control_variate(self, mass_ops):
+        """Set up the use of noise reduction by control variate."""
+
+        from struphy.feec.projectors import L2Projector
+
+        # L2 projector for dofs
+        self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
+
+    def apply_toroidal_fourier_filter(self, vec, modes):
+        """
+        Applying fourier filter to the spline coefficients of the accumulated vector (toroidal direction).
+
+        Parameters
+        ----------
+        vec : BlockVector
+
+        modes : list
+            Mode numbers which are not filtered out.
+        """
+
+        from scipy.fft import irfft, rfft
+
+        tor_Nel = self.derham.Nel[2]
+
+        # Nel along the toroidal direction must be equal or bigger than 2*maximum mode
+        assert tor_Nel >= 2 * max(modes)
+
+        pn = self.derham.p
+        ir = np.empty(3, dtype=int)
+
+        if (tor_Nel % 2) == 0:
+            vec_temp = np.zeros(int(tor_Nel / 2) + 1, dtype=complex)
+        else:
+            vec_temp = np.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
+
+        # no domain decomposition along the toroidal direction
+        assert self.derham.domain_decomposition.nprocs[2] == 1
+
+        for axis in range(3):
+            starts = self.derham.Vh[ſelf.form][axis].starts
+            ends = self.derham.Vh[self.form][axis].ends
+
+            # index range
+            for i in range(3):
+                ir[i] = ends[i] + 1 - starts[i]
+
+            # filtering
+            for i in range(ir[0]):
+                for j in range(ir[1]):
+                    vec_temp[:] = 0
+                    vec_temp[modes] = rfft(
+                        vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]],
+                    )[modes]
+                    vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
+
+            vec.update_ghost_regions()
+
+    def show_accumulated_spline_field(self, mass_ops: WeightedMassOperators, eta_direction=0, component=0):
+        r"""1D plot of the spline field corresponding to the accumulated vector.
+        The latter can be viewed as the rhs of an L2-projection:
+
+        .. math::
+
+            \mathbb M \mathbf a = \sum_p \boldsymbol \Lambda(\boldsymbol \eta_p) * B_p\,.
+
+        The FE coefficients :math:`\mathbf a` determine a FE :class:`~struphy.feec.psydac_derham.SplineFunction`.
+        """
+        from matplotlib import pyplot as plt
+
+        from struphy.feec.projectors import L2Projector
+
+        # L2 projection
+        proj = L2Projector(self.space_id, mass_ops)
+        a = proj.solve(self.vectors[0])
+
+        # create field and assign coeffs
+        field = self.derham.create_spline_function("accum_field", self.space_id)
+        field.vector = a
+
+        # plot field
+        eta = np.linspace(0, 1, 100)
+        if eta_direction == 0:
+            args = (eta, 0.5, 0.5)
+        elif eta_direction == 1:
+            args = (0.5, eta, 0.5)
+        else:
+            args = (0.5, 0.5, eta)
+
+        vals = mass_ops.domain.push(field, *args, kind="1", squeeze_out=True)
+
+        plt.plot(eta, vals[component])
+        plt.title(
+            f'Spline field accumulated with the kernel "{self.kernel}"',
+        )
+        plt.xlabel(rf"$\eta_{eta_direction + 1}$")
+        plt.ylabel("field amplitude")
+        plt.show()
+
 
 class AccumulatorVector:
     r"""
@@ -581,6 +581,70 @@ class AccumulatorVector:
             else:
                 for bl in vec.blocks:
                     self._args_data += (bl._data,)
+
+    def __call__(self, *optional_args, **args_control):
+        """
+        Performs the accumulation into the vector by calling the chosen accumulation kernel
+        and additional analytical contributions (control variate, optional).
+
+        Parameters
+        ----------
+        optional_args : any
+            Additional arguments to be passed to the accumulator kernel, besides the mandatory arguments
+            which are prepared automatically (spline bases info, mapping info, data arrays).
+            Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
+            Entries must be pyccel-conform types.
+
+        args_control : any
+            Keyword arguments for an analytical control variate correction in the accumulation step.
+            Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction.
+            Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
+        """
+
+        # flags for break
+        vec_finished = False
+
+        # reset data
+        for dat in self._args_data:
+            dat[:] = 0.0
+
+        # accumulate into matrix (and vector) with markers
+        with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+            self.kernel(
+                self.particles.args_markers,
+                self.derham._args_derham,
+                self.args_domain,
+                *self._args_data,
+                *optional_args,
+            )
+
+        if self.particles.clone_config is None:
+            num_clones = 1
+        else:
+            num_clones = self.particles.clone_config.num_clones
+
+        if num_clones > 1:
+            for data_array in self._args_data:
+                self.particles.clone_config.inter_comm.Allreduce(
+                    MPI.IN_PLACE,
+                    data_array,
+                    op=MPI.SUM,
+                )
+
+        # add analytical contribution (control variate) to vector
+        if "control_vec" in args_control and len(self._vectors) > 0:
+            self._get_L2dofs(
+                args_control["control_vec"],
+                dofs=self._vectors[0],
+                clear=False,
+            )
+            vec_finished = True
+
+        # finish vector: accumulate ghost regions and update ghost regions
+        if not vec_finished:
+            for vec in self._vectors:
+                vec.exchange_assembly_data()
+                vec.update_ghost_regions()
 
     @property
     def particles(self):
@@ -669,67 +733,3 @@ class AccumulatorVector:
         plt.xlabel(rf"$\eta_{eta_direction + 1}$")
         plt.ylabel("field amplitude")
         plt.show()
-
-    def __call__(self, *optional_args, **args_control):
-        """
-        Performs the accumulation into the vector by calling the chosen accumulation kernel
-        and additional analytical contributions (control variate, optional).
-
-        Parameters
-        ----------
-        optional_args : any
-            Additional arguments to be passed to the accumulator kernel, besides the mandatory arguments
-            which are prepared automatically (spline bases info, mapping info, data arrays).
-            Examples would be parameters for a background kinetic distribution or spline coefficients of a background magnetic field.
-            Entries must be pyccel-conform types.
-
-        args_control : any
-            Keyword arguments for an analytical control variate correction in the accumulation step.
-            Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction.
-            Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
-        """
-
-        # flags for break
-        vec_finished = False
-
-        # reset data
-        for dat in self._args_data:
-            dat[:] = 0.0
-
-        # accumulate into matrix (and vector) with markers
-        with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
-            self.kernel(
-                self.particles.args_markers,
-                self.derham._args_derham,
-                self.args_domain,
-                *self._args_data,
-                *optional_args,
-            )
-
-        if self.particles.clone_config is None:
-            num_clones = 1
-        else:
-            num_clones = self.particles.clone_config.num_clones
-
-        if num_clones > 1:
-            for data_array in self._args_data:
-                self.particles.clone_config.inter_comm.Allreduce(
-                    MPI.IN_PLACE,
-                    data_array,
-                    op=MPI.SUM,
-                )
-
-        # add analytical contribution (control variate) to vector
-        if "control_vec" in args_control and len(self._vectors) > 0:
-            self._get_L2dofs(
-                args_control["control_vec"],
-                dofs=self._vectors[0],
-                clear=False,
-            )
-            vec_finished = True
-
-        # finish vector: accumulate ghost regions and update ghost regions
-        if not vec_finished:
-            for vec in self._vectors:
-                vec.exchange_assembly_data()
-                vec.update_ghost_regions()

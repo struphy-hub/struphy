@@ -44,21 +44,13 @@ class LinearMHD(StruphyModel):
         dct["fluid"]["mhd"] = {"density": "L2", "velocity": "Hdiv", "pressure": "L2"}
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -67,7 +59,24 @@ class LinearMHD(StruphyModel):
             propagators_fields.Magnetosonic: ["mhd_density", "mhd_velocity", "mhd_pressure"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["fluid", "mhd"],
+            key="u_space",
+            option="Hdiv",
+            dct=dct,
+        )
+        return dct
 
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
@@ -119,18 +128,6 @@ class LinearMHD(StruphyModel):
         # vectors for computing scalar quantities
         self._tmp_b1 = self.derham.Vh["2"].zeros()
         self._tmp_b2 = self.derham.Vh["2"].zeros()
-
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["fluid", "mhd"],
-            key="u_space",
-            option="Hdiv",
-            dct=dct,
-        )
-        return dct
 
     def update_scalar_quantities(self):
         # perturbed fields
@@ -214,21 +211,13 @@ class LinearExtendedMHDuniform(StruphyModel):
         }
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -238,6 +227,11 @@ class LinearExtendedMHDuniform(StruphyModel):
             propagators_fields.MagnetosonicUniform: ["mhd_rho", "mhd_u", "mhd_p"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -375,21 +369,13 @@ class ColdPlasma(StruphyModel):
         dct["fluid"]["electrons"] = {"j": "Hcurl"}
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "electrons"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "light"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -399,6 +385,11 @@ class ColdPlasma(StruphyModel):
             propagators_fields.JxBCold: ["electrons_j"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -495,21 +486,13 @@ class ViscoresistiveMHD(StruphyModel):
         dct["fluid"]["mhd"] = {"rho3": "L2", "s3": "L2", "uv": "H1vec"}
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -522,6 +505,11 @@ class ViscoresistiveMHD(StruphyModel):
             propagators_fields.VariationalResistivity: ["mhd_s3", "b2"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -735,21 +723,13 @@ class ViscousFluid(StruphyModel):
         dct["fluid"]["fluid"] = {"rho3": "L2", "s3": "L2", "uv": "H1vec"}
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "fluid"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -760,6 +740,11 @@ class ViscousFluid(StruphyModel):
             propagators_fields.VariationalViscosity: ["fluid_s3", "fluid_uv"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -937,21 +922,13 @@ class ViscoresistiveMHD_with_p(StruphyModel):
         dct["fluid"]["mhd"] = {"rho3": "L2", "p3": "L2", "uv": "H1vec"}
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -963,17 +940,12 @@ class ViscoresistiveMHD_with_p(StruphyModel):
             propagators_fields.VariationalResistivity: ["mhd_p3", "b2"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-
-        dct["div_u"] = "L2"
-        dct["u2"] = "Hdiv"
-        return dct
-
-    __diagnostics__ = diagnostics_dct()
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
@@ -1099,6 +1071,16 @@ class ViscoresistiveMHD_with_p(StruphyModel):
         L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
         self.update_scalar("tot_div_B", L2_div_B)
 
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+
+        dct["div_u"] = "L2"
+        dct["u2"] = "Hdiv"
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
+
 
 class ViscoresistiveLinearMHD(StruphyModel):
     r"""Linear visco-resistive MHD equations discretized with a variational method.
@@ -1140,21 +1122,13 @@ class ViscoresistiveLinearMHD(StruphyModel):
         dct["fluid"]["mhd"] = {"rho3": "L2", "p3": "L2", "uv": "H1vec"}
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -1165,18 +1139,12 @@ class ViscoresistiveLinearMHD(StruphyModel):
             propagators_fields.VariationalResistivity: ["mhd_p3", "b2"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-        dct["bt2"] = "Hdiv"
-        dct["pt3"] = "L2"
-        dct["div_u"] = "L2"
-        dct["u2"] = "Hdiv"
-        return dct
-
-    __diagnostics__ = diagnostics_dct()
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
@@ -1317,6 +1285,17 @@ class ViscoresistiveLinearMHD(StruphyModel):
         en_tot_l1 = en_thermo_l1 + en_mag_l1
         self.update_scalar("en_tot_l1", en_tot_l1)
 
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+        dct["bt2"] = "Hdiv"
+        dct["pt3"] = "L2"
+        dct["div_u"] = "L2"
+        dct["u2"] = "Hdiv"
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
+
 
 class ViscoresistiveDeltafMHD(StruphyModel):
     r""":math:`\delta f` visco-resistive MHD equations discretized with a variational method.
@@ -1359,21 +1338,13 @@ class ViscoresistiveDeltafMHD(StruphyModel):
         dct["fluid"]["mhd"] = {"rho3": "L2", "p3": "L2", "uv": "H1vec"}
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -1385,18 +1356,12 @@ class ViscoresistiveDeltafMHD(StruphyModel):
             propagators_fields.VariationalResistivity: ["mhd_p3", "b2"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-        dct["bt2"] = "Hdiv"
-        dct["pt3"] = "L2"
-        dct["div_u"] = "L2"
-        dct["u2"] = "Hdiv"
-        return dct
-
-    __diagnostics__ = diagnostics_dct()
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
@@ -1541,6 +1506,17 @@ class ViscoresistiveDeltafMHD(StruphyModel):
         en_tot_l1 = en_thermo_l1 + en_mag_l1
         self.update_scalar("en_tot_l1", en_tot_l1)
 
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+        dct["bt2"] = "Hdiv"
+        dct["pt3"] = "L2"
+        dct["div_u"] = "L2"
+        dct["u2"] = "Hdiv"
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
+
 
 class ViscoresistiveMHD_with_q(StruphyModel):
     r"""Full (non-linear) visco-resistive MHD equations, with the q variable (square root of the pressure) discretized with a variational method.
@@ -1585,21 +1561,13 @@ class ViscoresistiveMHD_with_q(StruphyModel):
         dct["fluid"]["mhd"] = {"rho3": "L2", "q3": "L2", "uv": "H1vec"}
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -1611,17 +1579,12 @@ class ViscoresistiveMHD_with_q(StruphyModel):
             propagators_fields.VariationalResistivity: ["mhd_q3", "b2"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-
-        dct["div_u"] = "L2"
-        dct["u2"] = "Hdiv"
-        return dct
-
-    __diagnostics__ = diagnostics_dct()
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
@@ -1747,6 +1710,16 @@ class ViscoresistiveMHD_with_q(StruphyModel):
         L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
         self.update_scalar("tot_div_B", L2_div_B)
 
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+
+        dct["div_u"] = "L2"
+        dct["u2"] = "Hdiv"
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
+
 
 class ViscoresistiveLinearMHD_with_q(StruphyModel):
     r"""Linear visco-resistive MHD equations, with the q variable (square root of the pressure), discretized with a variational method.
@@ -1788,21 +1761,13 @@ class ViscoresistiveLinearMHD_with_q(StruphyModel):
         dct["fluid"]["mhd"] = {"rho3": "L2", "q3": "L2", "uv": "H1vec"}
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -1813,35 +1778,12 @@ class ViscoresistiveLinearMHD_with_q(StruphyModel):
             propagators_fields.VariationalResistivity: ["mhd_q3", "b2"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    # dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
-    # self.update_scalar("dens_tot", dens_tot)
-
-    # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-    # L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
-    # self.update_scalar("tot_div_B", L2_div_B)
-
-    # en_thermo_l1 = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
-    # self.update_scalar("en_thermo_l1", en_thermo_l1)
-
-    # wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
-    # en_mag_l1 = wb2.dot(self.projected_equil.b2)
-    # self.update_scalar("en_mag_l1", en_mag_l1)
-
-    # en_tot_l1 = en_thermo_l1 + en_mag_l1
-    # self.update_scalar("en_tot_l1", en_tot_l1)
-
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-        dct["bt2"] = "Hdiv"
-        dct["qt3"] = "L2"
-        dct["div_u"] = "L2"
-        dct["u2"] = "Hdiv"
-        return dct
-
-    __diagnostics__ = diagnostics_dct()
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
@@ -1971,6 +1913,34 @@ class ViscoresistiveLinearMHD_with_q(StruphyModel):
         en_tot = en_U + en_th_1 + en_th_2 + en_mag1 + en_mag2
         self.update_scalar("en_tot", en_tot)
 
+        # dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
+        # self.update_scalar("dens_tot", dens_tot)
+
+        # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
+        # L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
+        # self.update_scalar("tot_div_B", L2_div_B)
+
+        # en_thermo_l1 = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
+        # self.update_scalar("en_thermo_l1", en_thermo_l1)
+
+        # wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
+        # en_mag_l1 = wb2.dot(self.projected_equil.b2)
+        # self.update_scalar("en_mag_l1", en_mag_l1)
+
+        # en_tot_l1 = en_thermo_l1 + en_mag_l1
+        # self.update_scalar("en_tot_l1", en_tot_l1)
+
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+        dct["bt2"] = "Hdiv"
+        dct["qt3"] = "L2"
+        dct["div_u"] = "L2"
+        dct["u2"] = "Hdiv"
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
+
 
 class ViscoresistiveDeltafMHD_with_q(StruphyModel):
     r"""Linear visco-resistive MHD equations discretized with a variational method.
@@ -2013,21 +1983,13 @@ class ViscoresistiveDeltafMHD_with_q(StruphyModel):
         dct["fluid"]["mhd"] = {"rho3": "L2", "q3": "L2", "uv": "H1vec"}
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -2039,35 +2001,12 @@ class ViscoresistiveDeltafMHD_with_q(StruphyModel):
             propagators_fields.VariationalResistivity: ["mhd_q3", "b2"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    # dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
-    # self.update_scalar("dens_tot", dens_tot)
-
-    # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
-    # L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
-    # self.update_scalar("tot_div_B", L2_div_B)
-
-    # en_thermo_l1 = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
-    # self.update_scalar("en_thermo_l1", en_thermo_l1)
-
-    # wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
-    # en_mag_l1 = wb2.dot(self.projected_equil.b2)
-    # self.update_scalar("en_mag_l1", en_mag_l1)
-
-    # en_tot_l1 = en_thermo_l1 + en_mag_l1
-    # self.update_scalar("en_tot_l1", en_tot_l1)
-
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-        dct["bt2"] = "Hdiv"
-        dct["qt3"] = "L2"
-        dct["div_u"] = "L2"
-        dct["u2"] = "Hdiv"
-        return dct
-
-    __diagnostics__ = diagnostics_dct()
 
     def __init__(self, params, comm, clone_config=None):
         from struphy.feec.projectors import L2Projector
@@ -2205,6 +2144,34 @@ class ViscoresistiveDeltafMHD_with_q(StruphyModel):
         en_tot = en_U + en_th_1 + en_th_2 + en_mag1 + en_mag2
         self.update_scalar("en_tot", en_tot)
 
+        # dens_tot = self._ones.dot(self.pointer["mhd_rho3"])
+        # self.update_scalar("dens_tot", dens_tot)
+
+        # div_B = self.derham.div.dot(self.pointer["b2"], out=self._tmp_div_B)
+        # L2_div_B = self._mass_ops.M3.dot_inner(div_B, div_B)
+        # self.update_scalar("tot_div_B", L2_div_B)
+
+        # en_thermo_l1 = self._integrator.dot(self.mass_ops.M3.dot(self.pointer["mhd_p3"])) / (self._gamma - 1.0)
+        # self.update_scalar("en_thermo_l1", en_thermo_l1)
+
+        # wb2 = self._mass_ops.M2.dot(self.pointer["b2"], out=self._tmp_wb2)
+        # en_mag_l1 = wb2.dot(self.projected_equil.b2)
+        # self.update_scalar("en_mag_l1", en_mag_l1)
+
+        # en_tot_l1 = en_thermo_l1 + en_mag_l1
+        # self.update_scalar("en_tot_l1", en_tot_l1)
+
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+        dct["bt2"] = "Hdiv"
+        dct["qt3"] = "L2"
+        dct["div_u"] = "L2"
+        dct["u2"] = "Hdiv"
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
+
 
 class IsothermalEulerSPH(StruphyModel):
     r"""Isothermal Euler equations discretized with smoothed particle hydrodynamics (SPH).
@@ -2249,21 +2216,13 @@ class IsothermalEulerSPH(StruphyModel):
         dct["kinetic"]["euler_fluid"] = "ParticlesSPH"
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "euler_fluid"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "thermal"
-
-    __velocity_scale__ = velocity_scale()
 
     # @staticmethod
     # def diagnostics_dct():
@@ -2279,6 +2238,11 @@ class IsothermalEulerSPH(StruphyModel):
             propagators_markers.PushVinSPHpressure: ["euler_fluid"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -2372,21 +2336,13 @@ class ViscousEulerSPH(StruphyModel):
         dct["kinetic"]["euler_fluid"] = "ParticlesSPH"
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "euler_fluid"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "thermal"
-
-    __velocity_scale__ = velocity_scale()
 
     # @staticmethod
     # def diagnostics_dct():
@@ -2402,6 +2358,11 @@ class ViscousEulerSPH(StruphyModel):
             propagators_markers.PushVinViscousPotential: ["euler_fluid"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):
@@ -2491,21 +2452,13 @@ class HasegawaWakatani(StruphyModel):
         }
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "hw"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     # @staticmethod
     # def diagnostics_dct():
@@ -2520,6 +2473,11 @@ class HasegawaWakatani(StruphyModel):
             propagators_fields.HasegawaWakatani: ["hw_n0", "hw_omega0"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     def __init__(self, params, comm, clone_config=None):

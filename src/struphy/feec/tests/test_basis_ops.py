@@ -1,111 +1,6 @@
 import pytest
 
 
-def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
-    """
-    TODO
-    """
-
-    import numpy as np
-
-    if verbose:
-        if MPI_COMM is not None:
-            MPI_COMM.Barrier()
-
-        # print(f'Rank {mpi_rank} | ')
-        # print(f'Rank {mpi_rank} | res_PSY.shape   : {res_PSY.shape}')
-        # print(f'Rank {mpi_rank} | res_PSY[:].shape: {res_PSY[:].shape}')
-        # print(f'Rank {mpi_rank} | res_STR.shape   : {res_STR.shape}')
-
-        # print(f'Rank {mpi_rank} | res_PSY starts & ends:')
-        # print([
-        #     res_PSY.starts[0], res_PSY.ends[0] + 1,
-        #     res_PSY.starts[1], res_PSY.ends[1] + 1,
-        #     res_PSY.starts[2], res_PSY.ends[2] + 1,
-        # ])
-
-        # print(f'Rank {mpi_rank} | res_PSY starts & ends:')
-        # print([
-        #     res_PSY.starts[0], res_PSY.ends[0] + 1,
-        #     res_PSY.starts[1], res_PSY.ends[1] + 1,
-        #     res_PSY.starts[2], res_PSY.ends[2] + 1,
-        # ])
-
-        # if MPI_COMM is not None: MPI_COMM.Barrier()
-
-        # print(f'Rank {mpi_rank} | res_PSY (local slice at starts[0]):')
-        # print(res_PSY[
-        #     res_PSY.starts[0],
-        #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
-        #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        # ])
-
-        # print(f'Rank {mpi_rank} | res_STR (local slice at starts[0]):')
-        # print(res_STR[
-        #     res_PSY.starts[0],
-        #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
-        #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        # ])
-        # print(f'Rank {mpi_rank} | ')
-
-        # for n in range(res_PSY.ends[0] + 1):
-
-        #     print(f'Rank {mpi_rank} | dof_PSY (local slice at starts[0] + {n}):')
-        #     print(dof_PSY[
-        #         res_PSY.starts[0] + n,
-        #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
-        #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        #     ])
-
-        #     print(f'Rank {mpi_rank} | dof_STR (local slice at starts[0] + {n}):')
-        #     print(dof_STR[
-        #         res_PSY.starts[0] + n,
-        #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
-        #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        #     ])
-        #     print(f'Rank {mpi_rank} | ')
-
-        # if MPI_COMM is not None: MPI_COMM.Barrier()
-
-        print(
-            f"Rank {mpi_rank} | Maximum absolute diference (result):\n",
-            np.max(
-                np.abs(
-                    res_PSY[
-                        res_PSY.starts[0] : res_PSY.ends[0] + 1,
-                        res_PSY.starts[1] : res_PSY.ends[1] + 1,
-                        res_PSY.starts[2] : res_PSY.ends[2] + 1,
-                    ]
-                    - res_STR[
-                        res_PSY.starts[0] : res_PSY.ends[0] + 1,
-                        res_PSY.starts[1] : res_PSY.ends[1] + 1,
-                        res_PSY.starts[2] : res_PSY.ends[2] + 1,
-                    ]
-                )
-            ),
-        )
-
-    if MPI_COMM is not None:
-        MPI_COMM.Barrier()
-
-    # Compare results. (Works only for Nel=[N, N, N] so far! TODO: Find this bug!)
-    assert np.allclose(
-        res_PSY[
-            res_PSY.starts[0] : res_PSY.ends[0] + 1,
-            res_PSY.starts[1] : res_PSY.ends[1] + 1,
-            res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        ],
-        res_STR[
-            res_PSY.starts[0] : res_PSY.ends[0] + 1,
-            res_PSY.starts[1] : res_PSY.ends[1] + 1,
-            res_PSY.starts[2] : res_PSY.ends[2] + 1,
-        ],
-    )
-
-    if MPI_COMM is not None:
-        MPI_COMM.Barrier()
-
-
 @pytest.mark.parametrize("Nel", [[8, 12, 4]])
 @pytest.mark.parametrize("p", [[2, 3, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
@@ -823,6 +718,111 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     print(f"Rank {mpi_rank} | Asserting transposed MHD operator S2.T.")
     np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
     print(f"Rank {mpi_rank} | Assertion passed.")
+
+
+def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
+    """
+    TODO
+    """
+
+    import numpy as np
+
+    if verbose:
+        if MPI_COMM is not None:
+            MPI_COMM.Barrier()
+
+        # print(f'Rank {mpi_rank} | ')
+        # print(f'Rank {mpi_rank} | res_PSY.shape   : {res_PSY.shape}')
+        # print(f'Rank {mpi_rank} | res_PSY[:].shape: {res_PSY[:].shape}')
+        # print(f'Rank {mpi_rank} | res_STR.shape   : {res_STR.shape}')
+
+        # print(f'Rank {mpi_rank} | res_PSY starts & ends:')
+        # print([
+        #     res_PSY.starts[0], res_PSY.ends[0] + 1,
+        #     res_PSY.starts[1], res_PSY.ends[1] + 1,
+        #     res_PSY.starts[2], res_PSY.ends[2] + 1,
+        # ])
+
+        # print(f'Rank {mpi_rank} | res_PSY starts & ends:')
+        # print([
+        #     res_PSY.starts[0], res_PSY.ends[0] + 1,
+        #     res_PSY.starts[1], res_PSY.ends[1] + 1,
+        #     res_PSY.starts[2], res_PSY.ends[2] + 1,
+        # ])
+
+        # if MPI_COMM is not None: MPI_COMM.Barrier()
+
+        # print(f'Rank {mpi_rank} | res_PSY (local slice at starts[0]):')
+        # print(res_PSY[
+        #     res_PSY.starts[0],
+        #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
+        #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
+        # ])
+
+        # print(f'Rank {mpi_rank} | res_STR (local slice at starts[0]):')
+        # print(res_STR[
+        #     res_PSY.starts[0],
+        #     res_PSY.starts[1] : res_PSY.ends[1] + 1,
+        #     res_PSY.starts[2] : res_PSY.ends[2] + 1,
+        # ])
+        # print(f'Rank {mpi_rank} | ')
+
+        # for n in range(res_PSY.ends[0] + 1):
+
+        #     print(f'Rank {mpi_rank} | dof_PSY (local slice at starts[0] + {n}):')
+        #     print(dof_PSY[
+        #         res_PSY.starts[0] + n,
+        #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
+        #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
+        #     ])
+
+        #     print(f'Rank {mpi_rank} | dof_STR (local slice at starts[0] + {n}):')
+        #     print(dof_STR[
+        #         res_PSY.starts[0] + n,
+        #         res_PSY.starts[1] : res_PSY.ends[1] + 1,
+        #         res_PSY.starts[2] : res_PSY.ends[2] + 1,
+        #     ])
+        #     print(f'Rank {mpi_rank} | ')
+
+        # if MPI_COMM is not None: MPI_COMM.Barrier()
+
+        print(
+            f"Rank {mpi_rank} | Maximum absolute diference (result):\n",
+            np.max(
+                np.abs(
+                    res_PSY[
+                        res_PSY.starts[0] : res_PSY.ends[0] + 1,
+                        res_PSY.starts[1] : res_PSY.ends[1] + 1,
+                        res_PSY.starts[2] : res_PSY.ends[2] + 1,
+                    ]
+                    - res_STR[
+                        res_PSY.starts[0] : res_PSY.ends[0] + 1,
+                        res_PSY.starts[1] : res_PSY.ends[1] + 1,
+                        res_PSY.starts[2] : res_PSY.ends[2] + 1,
+                    ]
+                )
+            ),
+        )
+
+    if MPI_COMM is not None:
+        MPI_COMM.Barrier()
+
+    # Compare results. (Works only for Nel=[N, N, N] so far! TODO: Find this bug!)
+    assert np.allclose(
+        res_PSY[
+            res_PSY.starts[0] : res_PSY.ends[0] + 1,
+            res_PSY.starts[1] : res_PSY.ends[1] + 1,
+            res_PSY.starts[2] : res_PSY.ends[2] + 1,
+        ],
+        res_STR[
+            res_PSY.starts[0] : res_PSY.ends[0] + 1,
+            res_PSY.starts[1] : res_PSY.ends[1] + 1,
+            res_PSY.starts[2] : res_PSY.ends[2] + 1,
+        ],
+    )
+
+    if MPI_COMM is not None:
+        MPI_COMM.Barrier()
 
 
 if __name__ == "__main__":

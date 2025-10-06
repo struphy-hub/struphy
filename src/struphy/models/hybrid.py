@@ -70,21 +70,13 @@ class LinearMHDVlasovCC(StruphyModel):
         dct["kinetic"]["energetic_ions"] = "Particles6D"
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -97,7 +89,24 @@ class LinearMHDVlasovCC(StruphyModel):
             propagators_fields.Magnetosonic: ["mhd_density", "mhd_velocity", "mhd_pressure"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["fluid", "mhd"],
+            key="u_space",
+            option="Hdiv",
+            dct=dct,
+        )
+        return dct
 
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
@@ -228,18 +237,6 @@ class LinearMHDVlasovCC(StruphyModel):
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
 
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["fluid", "mhd"],
-            key="u_space",
-            option="Hdiv",
-            dct=dct,
-        )
-        return dct
-
     def update_scalar_quantities(self):
         # perturbed fields
         en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_velocity"], self.pointer["mhd_velocity"])
@@ -353,21 +350,13 @@ class LinearMHDVlasovPC(StruphyModel):
         dct["kinetic"]["energetic_ions"] = "Particles6D"
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -379,7 +368,24 @@ class LinearMHDVlasovPC(StruphyModel):
             propagators_fields.Magnetosonic: ["mhd_density", "mhd_velocity", "mhd_pressure"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["fluid", "mhd"],
+            key="u_space",
+            option="Hdiv",
+            dct=dct,
+        )
+        return dct
 
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
@@ -498,18 +504,6 @@ class LinearMHDVlasovPC(StruphyModel):
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
         self._mpi_in_place = IN_PLACE
-
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["fluid", "mhd"],
-            key="u_space",
-            option="Hdiv",
-            dct=dct,
-        )
-        return dct
 
     def update_scalar_quantities(self):
         # perturbed fields
@@ -641,21 +635,13 @@ class LinearMHDDriftkineticCC(StruphyModel):
         dct["kinetic"]["energetic_ions"] = "Particles5D"
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "mhd"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -669,16 +655,24 @@ class LinearMHDDriftkineticCC(StruphyModel):
             propagators_fields.MagnetosonicCurrentCoupling5D: ["mhd_density", "mhd_velocity", "mhd_pressure"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
-    @staticmethod
-    def diagnostics_dct():
-        dct = {}
-
-        dct["accumulated_magnetization"] = "Hdiv"
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["fluid", "mhd"],
+            key="u_space",
+            option="Hdiv",
+            dct=dct,
+        )
         return dct
-
-    __diagnostics__ = diagnostics_dct()
 
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
@@ -888,18 +882,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # self._en_fB_lost = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
 
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["fluid", "mhd"],
-            key="u_space",
-            option="Hdiv",
-            dct=dct,
-        )
-        return dct
-
     def update_scalar_quantities(self):
         en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_velocity"], self.pointer["mhd_velocity"])
         en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
@@ -960,6 +942,15 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
                 "%",
             )
+
+    @staticmethod
+    def diagnostics_dct():
+        dct = {}
+
+        dct["accumulated_magnetization"] = "Hdiv"
+        return dct
+
+    __diagnostics__ = diagnostics_dct()
 
 
 class ColdPlasmaVlasov(StruphyModel):
@@ -1026,21 +1017,13 @@ class ColdPlasmaVlasov(StruphyModel):
         dct["kinetic"]["hot_electrons"] = "Particles6D"
         return dct
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-
     @staticmethod
     def bulk_species():
         return "cold_electrons"
 
-    __bulk_species__ = bulk_species()
-
     @staticmethod
     def velocity_scale():
         return "light"
-
-    __velocity_scale__ = velocity_scale()
 
     @staticmethod
     def propagators_dct():
@@ -1053,7 +1036,23 @@ class ColdPlasmaVlasov(StruphyModel):
             propagators_coupling.VlasovAmpere: ["e_field", "hot_electrons"],
         }
 
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
     __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["em_fields"],
+            option=propagators_fields.ImplicitDiffusion,
+            dct=dct,
+        )
+        return dct
 
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
@@ -1139,17 +1138,6 @@ class ColdPlasmaVlasov(StruphyModel):
 
         # temporaries
         self._tmp = np.empty(1, dtype=float)
-
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["em_fields"],
-            option=propagators_fields.ImplicitDiffusion,
-            dct=dct,
-        )
-        return dct
 
     def initialize_from_params(self):
         """:meta private:"""

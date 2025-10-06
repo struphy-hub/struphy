@@ -60,6 +60,35 @@ class ODEsolverFEEC:
         self._yn = [v.copy() for v in self.y]
         self._ystar = [v.copy() for v in self.y]
 
+    def __call__(self, tn, h):
+        a = self.butcher.a
+        b = self.butcher.b
+        c = self.butcher.c
+
+        # keep initial condition
+        for v, vn in zip(self.y, self.yn):
+            v.copy(out=vn)
+
+        # evaluate vector field for each stage
+        for i in range(self.butcher.n_stages):
+            # new intermediate y* (stored at self.y)
+            for v, vn, vec in zip(self.y, self.yn, self.vector_field):
+                # start with yn
+                vn.copy(out=v)
+                # add already computed k's
+                for j in range(i):
+                    v += h * a[i, j] * self.k[vec][j]
+            # compute new k_i
+            for vec, f in self.vector_field.items():
+                self.k[vec][i] *= 0.0
+                self.k[vec][i] += f(tn + c[i] * h, *self.y)
+
+        # final addition, start with vn
+        for v, vn, vec in zip(self.y, self.yn, self.vector_field):
+            vn.copy(out=v)
+            for i in range(self.butcher.n_stages):
+                v += h * b[i] * self.k[vec][i]
+
     @property
     def vector_field(self):
         """The vector field of the ode as a dictionary.
@@ -93,32 +122,3 @@ class ODEsolverFEEC:
         keys are the variables and values are lists with one allocated k-vector
         for each stage."""
         return self._k
-
-    def __call__(self, tn, h):
-        a = self.butcher.a
-        b = self.butcher.b
-        c = self.butcher.c
-
-        # keep initial condition
-        for v, vn in zip(self.y, self.yn):
-            v.copy(out=vn)
-
-        # evaluate vector field for each stage
-        for i in range(self.butcher.n_stages):
-            # new intermediate y* (stored at self.y)
-            for v, vn, vec in zip(self.y, self.yn, self.vector_field):
-                # start with yn
-                vn.copy(out=v)
-                # add already computed k's
-                for j in range(i):
-                    v += h * a[i, j] * self.k[vec][j]
-            # compute new k_i
-            for vec, f in self.vector_field.items():
-                self.k[vec][i] *= 0.0
-                self.k[vec][i] += f(tn + c[i] * h, *self.y)
-
-        # final addition, start with vn
-        for v, vn, vec in zip(self.y, self.yn, self.vector_field):
-            vn.copy(out=v)
-            for i in range(self.butcher.n_stages):
-                v += h * b[i] * self.k[vec][i]

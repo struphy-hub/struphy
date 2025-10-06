@@ -2,103 +2,6 @@ import numpy as np
 import pytest
 
 
-def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
-    """Check whether the non-zero values in mat are at the indices specified by rows and cols.
-    Sets mat to zero after assertion is passed.
-
-    Parameters
-    ----------
-        mat : array[float]
-            6d array, the _data attribute of a StencilMatrix.
-
-        rows : list[dict]
-            3-list, each dict has the two keys "N" and "D", holding a set of row indices of p + 1 resp. p non-zero splines.
-
-        cols : list[dict]
-            3-list, each dict has four keys "NN", "ND", "DN" or "DD", holding the column indices of non-zero _data entries
-            depending on the combination of basis functions in each direction.
-
-        row_str : str
-            String of length 3 specifying the codomain of mat, e.g. "DNN" for the first component of V1.
-
-        col_str : str
-            String of length 3 specifying the domain of mat, e.g. "DNN" for the first component of V1.
-
-        rank : int
-            Mpi rank of process.
-
-        verbose : bool
-            Show additional screen output.
-    """
-    assert len(mat.shape) == 6
-    # assert non NaN
-    assert ~np.isnan(mat).any()
-
-    atol = 1e-14
-
-    if verbose:
-        print(f"\n({row_str}) ({col_str})")
-        print(f"rank {rank} | ind_row1: {set(np.where(mat > atol)[0])}")
-        print(f"rank {rank} | ind_row2: {set(np.where(mat > atol)[1])}")
-        print(f"rank {rank} | ind_row3: {set(np.where(mat > atol)[2])}")
-        print(f"rank {rank} | ind_col1: {set(np.where(mat > atol)[3])}")
-        print(f"rank {rank} | ind_col2: {set(np.where(mat > atol)[4])}")
-        print(f"rank {rank} | ind_col3: {set(np.where(mat > atol)[5])}")
-
-    # check if correct indices are non-zero
-    for n, (r, c) in enumerate(zip(row_str, col_str)):
-        assert set(np.where(mat > atol)[n]) == rows[n][r]
-        assert set(np.where(mat > atol)[n + 3]) == cols[n][r + c]
-
-    # Set matrix back to zero
-    mat[:, :] = 0.0
-
-    print(f"rank {rank} | Matrix index assertion passed for ({row_str}) ({col_str}).")
-
-
-def assert_vec(vec, rows, row_str, rank, verbose=False):
-    """Check whether the non-zero values in vec are at the indices specified by rows.
-    Sets vec to zero after assertion is passed.
-
-    Parameters
-    ----------
-        vec : array[float]
-            3d array, the _data attribute of a StencilVector.
-
-        rows : list[dict]
-            3-list, each dict has the two keys "N" and "D", holding a set of row indices of p + 1 resp. p non-zero splines.
-
-        row_str : str
-            String of length 3 specifying the codomain of mat, e.g. "DNN" for the first component of V1.
-
-        rank : int
-            Mpi rank of process.
-
-        verbose : bool
-            Show additional screen output.
-    """
-    assert len(vec.shape) == 3
-    # assert non Nan
-    assert ~np.isnan(vec).any()
-
-    atol = 1e-14
-
-    if verbose:
-        print(f"\n({row_str})")
-        print(f"rank {rank} | ind_row1: {set(np.where(vec > atol)[0])}")
-        print(f"rank {rank} | ind_row2: {set(np.where(vec > atol)[1])}")
-        print(f"rank {rank} | ind_row3: {set(np.where(vec > atol)[2])}")
-
-    # check if correct indices are non-zero
-    for n, r in enumerate(row_str):
-        assert set(np.where(vec > atol)[n]) == rows[n][r]
-
-    # Set vector back to zero
-    vec[:] = 0.0
-
-    print(f"rank {rank} | Vector index assertion passed for ({row_str}).")
-
-
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
@@ -403,6 +306,103 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
         if rank == 0:
             print(f"\n{count}/40 particle_to_mat_kernels routines tested.")
+
+
+def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
+    """Check whether the non-zero values in mat are at the indices specified by rows and cols.
+    Sets mat to zero after assertion is passed.
+
+    Parameters
+    ----------
+        mat : array[float]
+            6d array, the _data attribute of a StencilMatrix.
+
+        rows : list[dict]
+            3-list, each dict has the two keys "N" and "D", holding a set of row indices of p + 1 resp. p non-zero splines.
+
+        cols : list[dict]
+            3-list, each dict has four keys "NN", "ND", "DN" or "DD", holding the column indices of non-zero _data entries
+            depending on the combination of basis functions in each direction.
+
+        row_str : str
+            String of length 3 specifying the codomain of mat, e.g. "DNN" for the first component of V1.
+
+        col_str : str
+            String of length 3 specifying the domain of mat, e.g. "DNN" for the first component of V1.
+
+        rank : int
+            Mpi rank of process.
+
+        verbose : bool
+            Show additional screen output.
+    """
+    assert len(mat.shape) == 6
+    # assert non NaN
+    assert ~np.isnan(mat).any()
+
+    atol = 1e-14
+
+    if verbose:
+        print(f"\n({row_str}) ({col_str})")
+        print(f"rank {rank} | ind_row1: {set(np.where(mat > atol)[0])}")
+        print(f"rank {rank} | ind_row2: {set(np.where(mat > atol)[1])}")
+        print(f"rank {rank} | ind_row3: {set(np.where(mat > atol)[2])}")
+        print(f"rank {rank} | ind_col1: {set(np.where(mat > atol)[3])}")
+        print(f"rank {rank} | ind_col2: {set(np.where(mat > atol)[4])}")
+        print(f"rank {rank} | ind_col3: {set(np.where(mat > atol)[5])}")
+
+    # check if correct indices are non-zero
+    for n, (r, c) in enumerate(zip(row_str, col_str)):
+        assert set(np.where(mat > atol)[n]) == rows[n][r]
+        assert set(np.where(mat > atol)[n + 3]) == cols[n][r + c]
+
+    # Set matrix back to zero
+    mat[:, :] = 0.0
+
+    print(f"rank {rank} | Matrix index assertion passed for ({row_str}) ({col_str}).")
+
+
+def assert_vec(vec, rows, row_str, rank, verbose=False):
+    """Check whether the non-zero values in vec are at the indices specified by rows.
+    Sets vec to zero after assertion is passed.
+
+    Parameters
+    ----------
+        vec : array[float]
+            3d array, the _data attribute of a StencilVector.
+
+        rows : list[dict]
+            3-list, each dict has the two keys "N" and "D", holding a set of row indices of p + 1 resp. p non-zero splines.
+
+        row_str : str
+            String of length 3 specifying the codomain of mat, e.g. "DNN" for the first component of V1.
+
+        rank : int
+            Mpi rank of process.
+
+        verbose : bool
+            Show additional screen output.
+    """
+    assert len(vec.shape) == 3
+    # assert non Nan
+    assert ~np.isnan(vec).any()
+
+    atol = 1e-14
+
+    if verbose:
+        print(f"\n({row_str})")
+        print(f"rank {rank} | ind_row1: {set(np.where(vec > atol)[0])}")
+        print(f"rank {rank} | ind_row2: {set(np.where(vec > atol)[1])}")
+        print(f"rank {rank} | ind_row3: {set(np.where(vec > atol)[2])}")
+
+    # check if correct indices are non-zero
+    for n, r in enumerate(row_str):
+        assert set(np.where(vec > atol)[n]) == rows[n][r]
+
+    # Set vector back to zero
+    vec[:] = 0.0
+
+    print(f"rank {rank} | Vector index assertion passed for ({row_str}).")
 
 
 if __name__ == "__main__":

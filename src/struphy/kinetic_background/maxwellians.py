@@ -23,6 +23,19 @@ class Maxwellian3D(Maxwellian):
         One of :mod:`~struphy.fields_background.equils`.
     """
 
+    @classmethod
+    def default_maxw_params(cls):
+        """Default parameters dictionary defining constant moments of the Maxwellian."""
+        return {
+            "n": 1.0,
+            "u1": 0.0,
+            "u2": 0.0,
+            "u3": 0.0,
+            "vth1": 1.0,
+            "vth2": 1.0,
+            "vth3": 1.0,
+        }
+
     def __init__(
         self,
         maxw_params: dict = None,
@@ -40,19 +53,6 @@ class Maxwellian3D(Maxwellian):
             "n": 1.0,
             "u": [1.0, 1.0, 1.0],
             "vth": [1.0, 1.0, 1.0],
-        }
-
-    @classmethod
-    def default_maxw_params(cls):
-        """Default parameters dictionary defining constant moments of the Maxwellian."""
-        return {
-            "n": 1.0,
-            "u1": 0.0,
-            "u2": 0.0,
-            "u3": 0.0,
-            "vth1": 1.0,
-            "vth2": 1.0,
-            "vth3": 1.0,
         }
 
     @property
@@ -160,6 +160,17 @@ class GyroMaxwellian2D(Maxwellian):
         of the polar coordinate transofrmation (default = False).
     """
 
+    @classmethod
+    def default_maxw_params(cls):
+        """Default parameters dictionary defining constant moments of the Maxwellian."""
+        return {
+            "n": 1.0,
+            "u_para": 0.0,
+            "u_perp": 0.0,
+            "vth_para": 1.0,
+            "vth_perp": 1.0,
+        }
+
     def __init__(
         self,
         maxw_params: dict = None,
@@ -181,17 +192,6 @@ class GyroMaxwellian2D(Maxwellian):
             "n": 1.0,
             "u": [1.0, 1.0],
             "vth": [1.0, 1.0],
-        }
-
-    @classmethod
-    def default_maxw_params(cls):
-        """Default parameters dictionary defining constant moments of the Maxwellian."""
-        return {
-            "n": 1.0,
-            "u_para": 0.0,
-            "u_perp": 0.0,
-            "vth_para": 1.0,
-            "vth_perp": 1.0,
         }
 
     @property
@@ -315,6 +315,15 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         of the polar coordinate transofrmation (default = False).
     """
 
+    @classmethod
+    def default_maxw_params(cls):
+        """Default parameters dictionary defining constant moments of the Maxwellian."""
+        return {
+            "n": 1.0,
+            "vth": 1.0,
+            "type": "Particles5D",
+        }
+
     def __init__(
         self,
         maxw_params: dict = None,
@@ -351,15 +360,6 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         self._moment_factors = {
             "n": 1.0,
             "vth": 1.0,
-        }
-
-    @classmethod
-    def default_maxw_params(cls):
-        """Default parameters dictionary defining constant moments of the Maxwellian."""
-        return {
-            "n": 1.0,
-            "vth": 1.0,
-            "type": "Particles5D",
         }
 
     @property
@@ -521,6 +521,19 @@ class ColdPlasma(Maxwellian):
     r"""Base class for a distribution as a Dirac-delta in velocity (vth = 0).
     The __call__ method returns the density evaluation."""
 
+    @classmethod
+    def default_maxw_params(cls):
+        """Default parameters dictionary defining the constant value of the constant background."""
+        return {
+            "n": 5.0,
+            "u1": 0.0,
+            "u2": 0.0,
+            "u3": 0.0,
+            "vth1": 0.0,
+            "vth2": 0.0,
+            "vth3": 0.0,
+        }
+
     def __init__(
         self,
         maxw_params: dict = None,
@@ -537,19 +550,6 @@ class ColdPlasma(Maxwellian):
         self._maxw_params["vth1"] = 0.0
         self._maxw_params["vth2"] = 0.0
         self._maxw_params["vth3"] = 0.0
-
-    @classmethod
-    def default_maxw_params(cls):
-        """Default parameters dictionary defining the constant value of the constant background."""
-        return {
-            "n": 5.0,
-            "u1": 0.0,
-            "u2": 0.0,
-            "u3": 0.0,
-            "vth1": 0.0,
-            "vth2": 0.0,
-            "vth3": 0.0,
-        }
 
     @property
     def coords(self):

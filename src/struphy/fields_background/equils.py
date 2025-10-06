@@ -2189,51 +2189,6 @@ class GVECequilibrium(NumericalMHDequilibrium):
         """All Struphy units."""
         return self._units
 
-    def _gvec_evaluations(self, *etas):
-        """Call gvec.Evaluations with Struphy coordinates."""
-        import gvec
-
-        # flat (marker) evaluation
-        if len(etas) == 1:
-            assert etas[0].ndim == 2
-            eta1 = etas[0][:, 0]
-            eta2 = etas[0][:, 1]
-            eta3 = etas[0][:, 2]
-            flat_eval = True
-        # meshgrid evaluation
-        else:
-            assert len(etas) == 3
-            etas = list(etas)
-            for i, eta in enumerate(etas):
-                if isinstance(eta, (float, int)):
-                    etas[i] = np.array((eta,))
-            assert etas[0].ndim == etas[1].ndim == etas[2].ndim
-            if etas[0].ndim == 1:
-                eta1 = etas[0]
-                eta2 = etas[1]
-                eta3 = etas[2]
-            elif etas[0].ndim == 3:
-                # assuming ij-indexing of meshgrid
-                eta1 = etas[0][:, 0, 0]
-                eta2 = etas[1][0, :, 0]
-                eta3 = etas[2][0, 0, :]
-            flat_eval = False
-
-        rmin = self._params["rmin"]
-
-        # gvec coordinates
-        rho = rmin + eta1 * (1.0 - rmin)
-        theta = 2 * np.pi * eta2
-        zeta = 2 * np.pi * eta3
-
-        # evaluate
-        if self.params["use_boozer"]:
-            ev = gvec.EvaluationsBoozer(rho=rho, theta_B=theta, zeta_B=zeta, state=self.state)
-        else:
-            ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
-
-        return ev, flat_eval
-
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
         # evaluate
@@ -2336,6 +2291,51 @@ class GVECequilibrium(NumericalMHDequilibrium):
         raise NotImplementedError(
             "1-form gradient of magnetic field of GVECequilibrium is not implemented",
         )
+
+    def _gvec_evaluations(self, *etas):
+        """Call gvec.Evaluations with Struphy coordinates."""
+        import gvec
+
+        # flat (marker) evaluation
+        if len(etas) == 1:
+            assert etas[0].ndim == 2
+            eta1 = etas[0][:, 0]
+            eta2 = etas[0][:, 1]
+            eta3 = etas[0][:, 2]
+            flat_eval = True
+        # meshgrid evaluation
+        else:
+            assert len(etas) == 3
+            etas = list(etas)
+            for i, eta in enumerate(etas):
+                if isinstance(eta, (float, int)):
+                    etas[i] = np.array((eta,))
+            assert etas[0].ndim == etas[1].ndim == etas[2].ndim
+            if etas[0].ndim == 1:
+                eta1 = etas[0]
+                eta2 = etas[1]
+                eta3 = etas[2]
+            elif etas[0].ndim == 3:
+                # assuming ij-indexing of meshgrid
+                eta1 = etas[0][:, 0, 0]
+                eta2 = etas[1][0, :, 0]
+                eta3 = etas[2][0, 0, :]
+            flat_eval = False
+
+        rmin = self._params["rmin"]
+
+        # gvec coordinates
+        rho = rmin + eta1 * (1.0 - rmin)
+        theta = 2 * np.pi * eta2
+        zeta = 2 * np.pi * eta3
+
+        # evaluate
+        if self.params["use_boozer"]:
+            ev = gvec.EvaluationsBoozer(rho=rho, theta_B=theta, zeta_B=zeta, state=self.state)
+        else:
+            ev = gvec.Evaluations(rho=rho, theta=theta, zeta=zeta, state=self.state)
+
+        return ev, flat_eval
 
 
 class DESCequilibrium(NumericalMHDequilibrium):
@@ -2487,6 +2487,38 @@ class DESCequilibrium(NumericalMHDequilibrium):
         """All Struphy units."""
         return self._units
 
+    def bv(self, *etas, squeeze_out=False):
+        """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
+        # check if already cached
+        cached = False
+        if len(self._cache["bv"]["grids"]) > 0:
+            for i, grid in enumerate(self._cache["bv"]["grids"]):
+                if len(grid) == len(etas):
+                    li = []
+                    for gi, ei in zip(grid, etas):
+                        if gi.shape == ei.shape:
+                            li += [np.allclose(gi, ei)]
+                        else:
+                            li += [False]
+                    if all(li):
+                        cached = True
+                        break
+
+            if cached:
+                out = self._cache["bv"]["outs"][i]
+                # print(f'Used cached bv at {i = }.')
+            else:
+                out = self._eval_bv(*etas, squeeze_out=squeeze_out)
+                self._cache["bv"]["grids"] += [etas]
+                self._cache["bv"]["outs"] += [out]
+        else:
+            # print('No bv grids yet.')
+            out = self._eval_bv(*etas, squeeze_out=squeeze_out)
+            self._cache["bv"]["grids"] += [etas]
+            self._cache["bv"]["outs"] += [out]
+
+        return out
+
     def _eval_bv(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2526,12 +2558,14 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         return out
 
-    def bv(self, *etas, squeeze_out=False):
-        """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
+    def jv(self, *etas, squeeze_out=False):
+        """Contra-variant (vector field) current density (=curl B)
+        on logical cube [0, 1]^3 in Ampere / meter^3.
+        """
         # check if already cached
         cached = False
-        if len(self._cache["bv"]["grids"]) > 0:
-            for i, grid in enumerate(self._cache["bv"]["grids"]):
+        if len(self._cache["jv"]["grids"]) > 0:
+            for i, grid in enumerate(self._cache["jv"]["grids"]):
                 if len(grid) == len(etas):
                     li = []
                     for gi, ei in zip(grid, etas):
@@ -2544,17 +2578,17 @@ class DESCequilibrium(NumericalMHDequilibrium):
                         break
 
             if cached:
-                out = self._cache["bv"]["outs"][i]
-                # print(f'Used cached bv at {i = }.')
+                out = self._cache["jv"]["outs"][i]
+                # print(f'Used cached jv at {i = }.')
             else:
-                out = self._eval_bv(*etas, squeeze_out=squeeze_out)
-                self._cache["bv"]["grids"] += [etas]
-                self._cache["bv"]["outs"] += [out]
+                out = self._eval_jv(*etas, squeeze_out=squeeze_out)
+                self._cache["jv"]["grids"] += [etas]
+                self._cache["jv"]["outs"] += [out]
         else:
-            # print('No bv grids yet.')
-            out = self._eval_bv(*etas, squeeze_out=squeeze_out)
-            self._cache["bv"]["grids"] += [etas]
-            self._cache["bv"]["outs"] += [out]
+            # print('No jv grids yet.')
+            out = self._eval_jv(*etas, squeeze_out=squeeze_out)
+            self._cache["jv"]["grids"] += [etas]
+            self._cache["jv"]["outs"] += [out]
 
         return out
 
@@ -2594,40 +2628,6 @@ class DESCequilibrium(NumericalMHDequilibrium):
             # adjust for Struphy units
             tmp /= self.units["j"] / self.units["x"]
             out += [tmp]
-
-        return out
-
-    def jv(self, *etas, squeeze_out=False):
-        """Contra-variant (vector field) current density (=curl B)
-        on logical cube [0, 1]^3 in Ampere / meter^3.
-        """
-        # check if already cached
-        cached = False
-        if len(self._cache["jv"]["grids"]) > 0:
-            for i, grid in enumerate(self._cache["jv"]["grids"]):
-                if len(grid) == len(etas):
-                    li = []
-                    for gi, ei in zip(grid, etas):
-                        if gi.shape == ei.shape:
-                            li += [np.allclose(gi, ei)]
-                        else:
-                            li += [False]
-                    if all(li):
-                        cached = True
-                        break
-
-            if cached:
-                out = self._cache["jv"]["outs"][i]
-                # print(f'Used cached jv at {i = }.')
-            else:
-                out = self._eval_jv(*etas, squeeze_out=squeeze_out)
-                self._cache["jv"]["grids"] += [etas]
-                self._cache["jv"]["outs"] += [out]
-        else:
-            # print('No jv grids yet.')
-            out = self._eval_jv(*etas, squeeze_out=squeeze_out)
-            self._cache["jv"]["grids"] += [etas]
-            self._cache["jv"]["outs"] += [out]
 
         return out
 
@@ -2684,6 +2684,37 @@ class DESCequilibrium(NumericalMHDequilibrium):
         # density in default units, n=1 --> 10^20 m^(-3)
         return p0_pascal / (self._params["T_kelvin"] * k_Boltzmann) / self.units["n"]
 
+    def gradB1(self, *etas, squeeze_out=False):
+        """1-form gradient of magnetic field strength on logical cube [0, 1]^3."""
+        # check if already cached
+        cached = False
+        if len(self._cache["gradB1"]["grids"]) > 0:
+            for i, grid in enumerate(self._cache["gradB1"]["grids"]):
+                if len(grid) == len(etas):
+                    li = []
+                    for gi, ei in zip(grid, etas):
+                        if gi.shape == ei.shape:
+                            li += [np.allclose(gi, ei)]
+                        else:
+                            li += [False]
+                    if all(li):
+                        cached = True
+                        break
+
+            if cached:
+                out = self._cache["gradB1"]["outs"][i]
+            else:
+                out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
+                self._cache["gradB1"]["grids"] += [etas]
+                self._cache["gradB1"]["outs"] += [out]
+        else:
+            # print('No bv grids yet.')
+            out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
+            self._cache["gradB1"]["grids"] += [etas]
+            self._cache["gradB1"]["outs"] += [out]
+
+        return out
+
     def _eval_gradB1(self, *etas, squeeze_out=False):
         # flat (marker) evaluation
         if len(etas) == 1:
@@ -2720,37 +2751,6 @@ class DESCequilibrium(NumericalMHDequilibrium):
             # adjust for Struphy units
             tmp /= self.units["B"]
             out += [tmp]
-
-        return out
-
-    def gradB1(self, *etas, squeeze_out=False):
-        """1-form gradient of magnetic field strength on logical cube [0, 1]^3."""
-        # check if already cached
-        cached = False
-        if len(self._cache["gradB1"]["grids"]) > 0:
-            for i, grid in enumerate(self._cache["gradB1"]["grids"]):
-                if len(grid) == len(etas):
-                    li = []
-                    for gi, ei in zip(grid, etas):
-                        if gi.shape == ei.shape:
-                            li += [np.allclose(gi, ei)]
-                        else:
-                            li += [False]
-                    if all(li):
-                        cached = True
-                        break
-
-            if cached:
-                out = self._cache["gradB1"]["outs"][i]
-            else:
-                out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
-                self._cache["gradB1"]["grids"] += [etas]
-                self._cache["gradB1"]["outs"] += [out]
-        else:
-            # print('No bv grids yet.')
-            out = self._eval_gradB1(*etas, squeeze_out=squeeze_out)
-            self._cache["gradB1"]["grids"] += [etas]
-            self._cache["gradB1"]["outs"] += [out]
 
         return out
 

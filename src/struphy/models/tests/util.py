@@ -15,89 +15,79 @@ from struphy.models.base import StruphyModel
 libpath = struphy.__path__[0]
 
 
-def print_test_params(parameters):
-    print("\nOptions of this test run:")
-    for k, v in parameters.items():
-        if k == "em_fields":
-            if "options" in v:
-                print("\nem_fields:")
-                for kk, vv in v["options"].items():
-                    print(" " * 4, kk)
-                    print(" " * 8, vv)
-        elif k in ("fluid", "kinetic"):
-            print(f"\n{k}:")
-            for kk, vv in v.items():
-                if "options" in vv:
-                    for kkk, vvv in vv["options"].items():
-                        print(" " * 4, kkk)
-                        print(" " * 8, vvv)
-
-
-def find_model_options(
-    model: StruphyModel,
-    parameters: dict,
+def wrapper_for_testing(
+    mtype: str = "fluid",
+    map_and_equil: tuple | list = ("Cuboid", "HomogenSlab"),
+    fast: bool = True,
+    vrbose: bool = False,
+    verification: bool = False,
+    nclones: int = 1,
+    show_plots: bool = False,
+    model: str = None,
+    Tend: float = None,
 ):
-    """Find all options of a model and store them in d_opts.
-    The default options are also stored in test_list."""
+    """Wrapper for testing Struphy models.
 
-    d_opts = {"em_fields": [], "fluid": {}, "kinetic": {}}
-    # find out the em_fields options of the model
-    if "em_fields" in parameters:
-        if "options" in parameters["em_fields"]:
-            # create the default options parameters
-            d_default = parameters["em_fields"]["options"]
+    If model is not None, tests the specified model.
+    The argument "fast" is a pytest option that can be specified at the command line (see conftest.py).
+    """
 
-            # create a list of parameter dicts for the different options
-            descend_options_dict(
-                model.options()["em_fields"]["options"],
-                d_opts["em_fields"],
-                d_default=d_default,
-            )
+    if mtype == "fluid":
+        from struphy.models import fluid as modmod
+    elif mtype == "kinetic":
+        from struphy.models import kinetic as modmod
+    elif mtype == "hybrid":
+        from struphy.models import hybrid as modmod
+    elif mtype == "toy":
+        from struphy.models import toy as modmod
+    else:
+        raise ValueError(f'{mtype} must be either "fluid", "kinetic", "hybrid" or "toy".')
 
-    for name in model.species()["fluid"]:
-        # find out the fluid options of the model
-        if "options" in parameters["fluid"][name]:
-            # create the default options parameters
-            d_default = parameters["fluid"][name]["options"]
+    comm = MPI.COMM_WORLD
 
-            d_opts["fluid"][name] = []
+    if model is None:
+        for key, val in inspect.getmembers(modmod):
+            if inspect.isclass(val) and val.__module__ == modmod.__name__:
+                # TODO: remove if-clauses
+                if "LinearExtendedMHD" in key and "HomogenSlab" not in map_and_equil[1]:
+                    print(f"Model {key} is currently excluded from tests with mhd_equil other than HomogenSlab.")
+                    continue
 
-            # create a list of parameter dicts for the different options
-            descend_options_dict(
-                model.options()["fluid"][name]["options"],
-                d_opts["fluid"][name],
-                d_default=d_default,
-            )
+                if fast and "Cuboid" not in map_and_equil[0]:
+                    print(f"Fast is enabled, mapping {map_and_equil[0]} skipped ...")
+                    continue
 
-    for name in model.species()["kinetic"]:
-        # find out the kinetic options of the model
-        if "options" in parameters["kinetic"][name]:
-            # create the default options parameters
-            d_default = parameters["kinetic"][name]["options"]
+                call_test(
+                    key,
+                    val,
+                    map_and_equil,
+                    Tend=Tend,
+                    verbose=vrbose,
+                    comm=comm,
+                    verification=verification,
+                    nclones=nclones,
+                    show_plots=show_plots,
+                )
+    else:
+        assert model in modmod.__dir__(), f"{model} not in {modmod.__name__}, please specify correct model type."
+        val = getattr(modmod, model)
 
-            d_opts["kinetic"][name] = []
+        # TODO: remove if-clause
+        if "LinearExtendedMHD" in model and "HomogenSlab" not in map_and_equil[1]:
+            print(f"Model {model} is currently excluded from tests with mhd_equil other than HomogenSlab.")
+            sys.exit(0)
 
-            # create a list of parameter dicts for the different options
-            descend_options_dict(
-                model.options()["kinetic"][name]["options"],
-                d_opts["kinetic"][name],
-                d_default=d_default,
-            )
-
-    # store default options
-    test_list = []
-    if "options" in model.options()["em_fields"]:
-        test_list += [parameters["em_fields"]["options"]]
-    if "fluid" in parameters:
-        for species in parameters["fluid"]:
-            if "options" in model.options()["fluid"][species]:
-                test_list += [parameters["fluid"][species]["options"]]
-    if "kinetic" in parameters:
-        for species in parameters["kinetic"]:
-            if "options" in model.options()["kinetic"][species]:
-                test_list += [parameters["kinetic"][species]["options"]]
-
-    return d_opts, test_list
+        call_test(
+            model,
+            val,
+            map_and_equil,
+            Tend=Tend,
+            verbose=vrbose,
+            comm=comm,
+            verification=verification,
+            nclones=nclones,
+            show_plots=show_plots,
+        )
 
 
 def call_test(
@@ -293,79 +283,89 @@ def call_test(
                             )
 
 
-def wrapper_for_testing(
-    mtype: str = "fluid",
-    map_and_equil: tuple | list = ("Cuboid", "HomogenSlab"),
-    fast: bool = True,
-    vrbose: bool = False,
-    verification: bool = False,
-    nclones: int = 1,
-    show_plots: bool = False,
-    model: str = None,
-    Tend: float = None,
+def print_test_params(parameters):
+    print("\nOptions of this test run:")
+    for k, v in parameters.items():
+        if k == "em_fields":
+            if "options" in v:
+                print("\nem_fields:")
+                for kk, vv in v["options"].items():
+                    print(" " * 4, kk)
+                    print(" " * 8, vv)
+        elif k in ("fluid", "kinetic"):
+            print(f"\n{k}:")
+            for kk, vv in v.items():
+                if "options" in vv:
+                    for kkk, vvv in vv["options"].items():
+                        print(" " * 4, kkk)
+                        print(" " * 8, vvv)
+
+
+def find_model_options(
+    model: StruphyModel,
+    parameters: dict,
 ):
-    """Wrapper for testing Struphy models.
+    """Find all options of a model and store them in d_opts.
+    The default options are also stored in test_list."""
 
-    If model is not None, tests the specified model.
-    The argument "fast" is a pytest option that can be specified at the command line (see conftest.py).
-    """
+    d_opts = {"em_fields": [], "fluid": {}, "kinetic": {}}
+    # find out the em_fields options of the model
+    if "em_fields" in parameters:
+        if "options" in parameters["em_fields"]:
+            # create the default options parameters
+            d_default = parameters["em_fields"]["options"]
 
-    if mtype == "fluid":
-        from struphy.models import fluid as modmod
-    elif mtype == "kinetic":
-        from struphy.models import kinetic as modmod
-    elif mtype == "hybrid":
-        from struphy.models import hybrid as modmod
-    elif mtype == "toy":
-        from struphy.models import toy as modmod
-    else:
-        raise ValueError(f'{mtype} must be either "fluid", "kinetic", "hybrid" or "toy".')
+            # create a list of parameter dicts for the different options
+            descend_options_dict(
+                model.options()["em_fields"]["options"],
+                d_opts["em_fields"],
+                d_default=d_default,
+            )
 
-    comm = MPI.COMM_WORLD
+    for name in model.species()["fluid"]:
+        # find out the fluid options of the model
+        if "options" in parameters["fluid"][name]:
+            # create the default options parameters
+            d_default = parameters["fluid"][name]["options"]
 
-    if model is None:
-        for key, val in inspect.getmembers(modmod):
-            if inspect.isclass(val) and val.__module__ == modmod.__name__:
-                # TODO: remove if-clauses
-                if "LinearExtendedMHD" in key and "HomogenSlab" not in map_and_equil[1]:
-                    print(f"Model {key} is currently excluded from tests with mhd_equil other than HomogenSlab.")
-                    continue
+            d_opts["fluid"][name] = []
 
-                if fast and "Cuboid" not in map_and_equil[0]:
-                    print(f"Fast is enabled, mapping {map_and_equil[0]} skipped ...")
-                    continue
+            # create a list of parameter dicts for the different options
+            descend_options_dict(
+                model.options()["fluid"][name]["options"],
+                d_opts["fluid"][name],
+                d_default=d_default,
+            )
 
-                call_test(
-                    key,
-                    val,
-                    map_and_equil,
-                    Tend=Tend,
-                    verbose=vrbose,
-                    comm=comm,
-                    verification=verification,
-                    nclones=nclones,
-                    show_plots=show_plots,
-                )
-    else:
-        assert model in modmod.__dir__(), f"{model} not in {modmod.__name__}, please specify correct model type."
-        val = getattr(modmod, model)
+    for name in model.species()["kinetic"]:
+        # find out the kinetic options of the model
+        if "options" in parameters["kinetic"][name]:
+            # create the default options parameters
+            d_default = parameters["kinetic"][name]["options"]
 
-        # TODO: remove if-clause
-        if "LinearExtendedMHD" in model and "HomogenSlab" not in map_and_equil[1]:
-            print(f"Model {model} is currently excluded from tests with mhd_equil other than HomogenSlab.")
-            sys.exit(0)
+            d_opts["kinetic"][name] = []
 
-        call_test(
-            model,
-            val,
-            map_and_equil,
-            Tend=Tend,
-            verbose=vrbose,
-            comm=comm,
-            verification=verification,
-            nclones=nclones,
-            show_plots=show_plots,
-        )
+            # create a list of parameter dicts for the different options
+            descend_options_dict(
+                model.options()["kinetic"][name]["options"],
+                d_opts["kinetic"][name],
+                d_default=d_default,
+            )
+
+    # store default options
+    test_list = []
+    if "options" in model.options()["em_fields"]:
+        test_list += [parameters["em_fields"]["options"]]
+    if "fluid" in parameters:
+        for species in parameters["fluid"]:
+            if "options" in model.options()["fluid"][species]:
+                test_list += [parameters["fluid"][species]["options"]]
+    if "kinetic" in parameters:
+        for species in parameters["kinetic"]:
+            if "options" in model.options()["kinetic"][species]:
+                test_list += [parameters["kinetic"][species]["options"]]
+
+    return d_opts, test_list
 
 
 if __name__ == "__main__":

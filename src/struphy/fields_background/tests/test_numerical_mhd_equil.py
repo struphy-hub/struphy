@@ -4,34 +4,6 @@ import pytest
 from struphy.fields_background.base import FluidEquilibrium, LogicalMHDequilibrium
 
 
-class NumEqTest(LogicalMHDequilibrium):
-    def __init__(self, analytic_domain, analytic_mhd_equil):
-        # use domain setter
-        self.domain = analytic_domain
-
-        # expose equilibrium
-        self._equil = analytic_mhd_equil
-
-    @LogicalMHDequilibrium.domain.setter
-    def domain(self, new_domain):
-        super(NumEqTest, type(self)).domain.fset(self, new_domain)
-
-    def bv(self, *etas, squeeze_out=True):
-        return self._equil.bv(*etas, squeeze_out=squeeze_out)
-
-    def jv(self, *etas, squeeze_out=True):
-        return self._equil.jv(*etas, squeeze_out=squeeze_out)
-
-    def p0(self, *etas, squeeze_out=True):
-        return self._equil.p0(*etas, squeeze_out=squeeze_out)
-
-    def n0(self, *etas, squeeze_out=True):
-        return self._equil.n0(*etas, squeeze_out=squeeze_out)
-
-    def gradB1(self, *etas, squeeze_out=True):
-        return self._equil.gradB1(*etas, squeeze_out=squeeze_out)
-
-
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -125,6 +97,34 @@ def test_transformations(mapping, mhd_equil):
 
     assert np.allclose(ana_equil.n0(eta1, eta2, eta3), num_equil.n0(eta1, eta2, eta3))
     assert np.allclose(ana_equil.n3(eta1, eta2, eta3), num_equil.n3(eta1, eta2, eta3))
+
+
+class NumEqTest(LogicalMHDequilibrium):
+    def __init__(self, analytic_domain, analytic_mhd_equil):
+        # use domain setter
+        self.domain = analytic_domain
+
+        # expose equilibrium
+        self._equil = analytic_mhd_equil
+
+    @LogicalMHDequilibrium.domain.setter
+    def domain(self, new_domain):
+        super(NumEqTest, type(self)).domain.fset(self, new_domain)
+
+    def bv(self, *etas, squeeze_out=True):
+        return self._equil.bv(*etas, squeeze_out=squeeze_out)
+
+    def jv(self, *etas, squeeze_out=True):
+        return self._equil.jv(*etas, squeeze_out=squeeze_out)
+
+    def p0(self, *etas, squeeze_out=True):
+        return self._equil.p0(*etas, squeeze_out=squeeze_out)
+
+    def n0(self, *etas, squeeze_out=True):
+        return self._equil.n0(*etas, squeeze_out=squeeze_out)
+
+    def gradB1(self, *etas, squeeze_out=True):
+        return self._equil.gradB1(*etas, squeeze_out=squeeze_out)
 
 
 if __name__ == "__main__":

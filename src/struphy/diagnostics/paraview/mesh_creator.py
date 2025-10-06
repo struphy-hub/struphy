@@ -6,7 +6,47 @@ from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk
 from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
 from vtkmodules.vtkCommonDataModel import vtkUnstructuredGrid
 
-# vtk_render(ugrid)
+
+def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec, s_range, u_range, v_range, periodic):
+    """A helper function to orchestrate operations to run many test cases.
+
+    This is not needed in practice.
+
+    Parameters
+    ----------
+    filename : str
+        Filename to write the ParaView file.
+    writer : vtkWriter
+        A `vtkWriter` class from `writer.paraview.vtk_writer`.
+    vtk_dir : str
+        Directory to store the output ParaView files.
+    gvec : gvec_to_python.GVEC_functions.GVEC
+        A wrapper class that maps logical coordinates (s,u,v) to Cartesian (x,y,z), among other things, such as computing MHD variables.
+    s_range : numpy.ndarray
+        Range of logical radial coordinates to transform into Cartesian vertices.
+    u_range : numpy.ndarray
+        Range of logical poloidal coordinates to transform into Cartesian vertices.
+    v_range : numpy.ndarray
+        Range of logical toroidal coordinates to transform into Cartesian vertices.
+    periodic : boolean
+        Whether the mesh is a periodic structure.
+    """
+
+    # Generate one set of data, then write them in ParaView files as using different graphics primitives.
+    num_pts = s_range.shape[0] * u_range.shape[0] * v_range.shape[0]
+    print("Number of points: {}".format(num_pts), flush=True)
+    point_data = {}
+    cell_data = {}
+    vtk_points, suv_points, xyz_points, point_indices = gen_vtk_points(
+        gvec, s_range, u_range, v_range, point_data, cell_data
+    )
+    print("vtk_points.GetNumberOfPoints()", vtk_points.GetNumberOfPoints(), flush=True)
+
+    ugrid = setup_ugrid(vtk_points, num_pts)
+    connect_cell(s_range, u_range, v_range, point_indices, ugrid, point_data, cell_data, periodic)
+    set_data(ugrid, point_data, cell_data)
+    writer.write(vtk_dir, filename, ugrid)
+    # vtk_render(ugrid)
 
 
 def gen_vtk_points(gvec, s_range, u_range, v_range, point_data, cell_data):
@@ -169,6 +209,50 @@ def set_data(ugrid, point_data, cell_data):
         vtk_cell_data.AddArray(vtk_array)
 
 
+def vtk_render(ugrid):  # pragma: no cover
+    """Opens an interactive window that renders the current `vtkUnstructuredGrid`.
+
+    Parameters
+    ----------
+    ugrid : vtk.vtkUnstructuredGrid
+        An unstructured grid.
+    """
+
+    colors = vtk.vtkNamedColors()
+
+    renderer = vtk.vtkRenderer()
+
+    renWin = vtk.vtkRenderWindow()
+    renWin.AddRenderer(renderer)
+    iren = vtk.vtkRenderWindowInteractor()
+    iren.SetRenderWindow(renWin)
+
+    ugridMapper = vtk.vtkDataSetMapper()
+    ugridMapper.SetInputData(ugrid)
+
+    ugridActor = vtk.vtkActor()
+    ugridActor.SetMapper(ugridMapper)
+    ugridActor.GetProperty().SetColor(colors.GetColor3d("Peacock"))
+    ugridActor.GetProperty().EdgeVisibilityOn()
+    ugridActor.GetProperty().SetOpacity(0.8)
+
+    renderer.AddActor(ugridActor)
+    renderer.SetBackground(colors.GetColor3d("Beige"))
+
+    renderer.ResetCamera()
+    renderer.GetActiveCamera().Elevation(60.0)
+    renderer.GetActiveCamera().Azimuth(30.0)
+    renderer.GetActiveCamera().Dolly(1.0)
+
+    renWin.SetSize(640, 480)
+    renWin.SetWindowName("UGrid")
+
+    # Interact with the data.
+    renWin.Render()
+
+    iren.Start()
+
+
 # ============================================================
 # Connect vertices to form primitives
 # e.g. points, lines, quads, cells.
@@ -229,88 +313,3 @@ def connect_cell(s_range, u_range, v_range, point_indices, ugrid, point_data, ce
                     cell_idx += 1
 
     cell_data["Cell ID"] = np.array(cell_data["Cell ID"], dtype=np.int_)
-
-
-def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec, s_range, u_range, v_range, periodic):
-    """A helper function to orchestrate operations to run many test cases.
-
-    This is not needed in practice.
-
-    Parameters
-    ----------
-    filename : str
-        Filename to write the ParaView file.
-    writer : vtkWriter
-        A `vtkWriter` class from `writer.paraview.vtk_writer`.
-    vtk_dir : str
-        Directory to store the output ParaView files.
-    gvec : gvec_to_python.GVEC_functions.GVEC
-        A wrapper class that maps logical coordinates (s,u,v) to Cartesian (x,y,z), among other things, such as computing MHD variables.
-    s_range : numpy.ndarray
-        Range of logical radial coordinates to transform into Cartesian vertices.
-    u_range : numpy.ndarray
-        Range of logical poloidal coordinates to transform into Cartesian vertices.
-    v_range : numpy.ndarray
-        Range of logical toroidal coordinates to transform into Cartesian vertices.
-    periodic : boolean
-        Whether the mesh is a periodic structure.
-    """
-
-    # Generate one set of data, then write them in ParaView files as using different graphics primitives.
-    num_pts = s_range.shape[0] * u_range.shape[0] * v_range.shape[0]
-    print("Number of points: {}".format(num_pts), flush=True)
-    point_data = {}
-    cell_data = {}
-    vtk_points, suv_points, xyz_points, point_indices = gen_vtk_points(
-        gvec, s_range, u_range, v_range, point_data, cell_data
-    )
-    print("vtk_points.GetNumberOfPoints()", vtk_points.GetNumberOfPoints(), flush=True)
-
-    ugrid = setup_ugrid(vtk_points, num_pts)
-    connect_cell(s_range, u_range, v_range, point_indices, ugrid, point_data, cell_data, periodic)
-    set_data(ugrid, point_data, cell_data)
-    writer.write(vtk_dir, filename, ugrid)
-
-
-def vtk_render(ugrid):  # pragma: no cover
-    """Opens an interactive window that renders the current `vtkUnstructuredGrid`.
-
-    Parameters
-    ----------
-    ugrid : vtk.vtkUnstructuredGrid
-        An unstructured grid.
-    """
-
-    colors = vtk.vtkNamedColors()
-
-    renderer = vtk.vtkRenderer()
-
-    renWin = vtk.vtkRenderWindow()
-    renWin.AddRenderer(renderer)
-    iren = vtk.vtkRenderWindowInteractor()
-    iren.SetRenderWindow(renWin)
-
-    ugridMapper = vtk.vtkDataSetMapper()
-    ugridMapper.SetInputData(ugrid)
-
-    ugridActor = vtk.vtkActor()
-    ugridActor.SetMapper(ugridMapper)
-    ugridActor.GetProperty().SetColor(colors.GetColor3d("Peacock"))
-    ugridActor.GetProperty().EdgeVisibilityOn()
-    ugridActor.GetProperty().SetOpacity(0.8)
-
-    renderer.AddActor(ugridActor)
-    renderer.SetBackground(colors.GetColor3d("Beige"))
-
-    renderer.ResetCamera()
-    renderer.GetActiveCamera().Elevation(60.0)
-    renderer.GetActiveCamera().Azimuth(30.0)
-    renderer.GetActiveCamera().Dolly(1.0)
-
-    renWin.SetSize(640, 480)
-    renWin.SetWindowName("UGrid")
-
-    # Interact with the data.
-    renWin.Render()
-
-    iren.Start()

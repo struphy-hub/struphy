@@ -27,47 +27,202 @@ version_message += "Copyright 2019-2025 (c) Struphy dev team | Max Planck Instit
 version_message += "MIT license\n"
 
 
-def recursive_get_files(path, contains=(".yml", ".yaml"), out=None, prefix=None):
-    if out is None:
-        out = []
+def struphy():
+    """Struphy main executable. Performs argument parsing and sub-command call."""
 
-    if prefix is None:
-        prefix = []
+    # create argument parser
+    epilog_message = 'Type "struphy COMMAND --help" for more information on a command.\n\n'
+    epilog_message += "For more help on how to use Struphy, see https://struphy.pages.mpcdf.de/struphy/index.html"
 
-    # only search 1 level deep (e.g. a/test.yml will be found, but not a/b/test.yml)
-    level_depth = 1
+    parser = argparse.ArgumentParser(
+        prog="struphy",
+        formatter_class=CustomFormatter,
+        description="Struphy: STRUcture-Preserving HYbrid codes for plasma physics.",
+        epilog=epilog_message,
+    )
 
-    all_names = os.listdir(path)
-    n_folders = 0
-    # count folders in path
-    for name in all_names:
-        if os.path.isdir(os.path.join(path, name)):
-            n_folders += 1
-    # add specified files to out or descend
-    n_searched_folders = 0
-    for name in all_names:
-        if any([cont in name for cont in contains]):
-            if len(prefix) == 0:
-                out += [name]
-            else:
-                out += [os.path.join(prefix[-1], name)]
-        elif os.path.isdir(os.path.join(path, name)) and len(prefix) < level_depth:
-            n_searched_folders += 1
-            if len(prefix) == 0:
-                prefix = [name]
-            else:
-                prefix += [os.path.join(prefix[-1], name)]
-            recursive_get_files(
-                os.path.join(path, name),
-                contains=contains,
-                out=out,
-                prefix=prefix,
+    # Read struphy state file
+    state = utils.read_state()
+
+    # Update and save state file
+    utils.update_state(state=state)
+    utils.save_state(state=state)
+
+    # Get paths from state
+    i_path, o_path, b_path = utils.get_paths(state=state)
+
+    # check parameter file in current input path:
+    params_files = get_params_files(i_path)
+
+    # check output folders in current output path:
+    out_folders = get_out_folders(o_path)
+
+    # check batch scripts in current batch path:
+    batch_files = get_batch_files(b_path)
+
+    # Load the models and messages
+    list_models = []
+    model_message = fluid_message = kinetic_message = hybrid_message = toy_message = ""
+    try:
+        with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
+            list_models = pickle.load(fp)
+        with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
+            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
+                fp,
             )
+    except:
+        print("run: struphy --refresh-models")
 
-    if (n_folders == 0 or len(prefix) == level_depth or n_searched_folders == n_folders) and len(prefix) != 0:
-        prefix.pop()
+    # 0. basic options
+    add_parser_basic_options(parser, i_path, o_path, b_path)
 
-    return out
+    # create sub-commands and save name of sub-command into variable "command"
+    subparsers = parser.add_subparsers(
+        title="available commands",
+        metavar="COMMAND",
+        dest="command",
+    )
+
+    # 1. "compile" sub-command
+    add_parser_compile(subparsers)
+
+    # 2. "run" sub-command
+    add_parser_run(subparsers, list_models, model_message, params_files, batch_files)
+
+    # 3. "units" sub-command
+    add_parser_units(subparsers, list_models, model_message, params_files)
+
+    # 4. "params" sub-command
+    add_parser_params(subparsers, list_models, model_message)
+
+    # 5. "profile" sub-command
+    add_parser_profile(subparsers)
+
+    # 6. "likwid_profile" sub-command
+    add_parser_likwid_profile(subparsers)
+
+    # 7. "pproc" sub-command
+    add_parser_pproc(subparsers, out_folders)
+
+    # 8. "test" sub-command
+    add_parser_test(subparsers, list_models)
+
+    # 9 "format" and "lint" sub-commands
+    add_parser_format(subparsers)
+
+    # parse argument
+    argcomplete.autocomplete(parser)
+    args = parser.parse_args()
+
+    # Set args.config if user ran struphy format / struphy lint
+    set_args_format_config(args, parser)
+
+    # if no arguments are passed, print help and exit
+    if all(v is None or not v for v in vars(args).values()):
+        parser.print_help()
+        sys.exit(0)
+
+    # display short help and exit
+    if args.short_help:
+        print_short_help(parser)
+        sys.exit(0)
+
+    # display subset of models
+    model_flags = [
+        (args.fluid, fluid_message),
+        (args.kinetic, kinetic_message),
+        (args.hybrid, hybrid_message),
+        (args.toy, toy_message),
+    ]
+
+    for flag, message in model_flags:
+        if flag:
+            print(message)
+            print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
+            sys.exit(0)
+
+    # Set default input path
+    if args.set_i:
+        set_path(state, args.set_i, "io/inp", "i_path")
+
+    # Set default output path
+    if args.set_o:
+        set_path(state, args.set_o, "io/out", "o_path")
+
+    # Set default batch path
+    if args.set_b:
+        set_path(state, args.set_b, "io/batch", "b_path")
+
+    # set paths for inp, out and batch (with io/inp etc. prefices)
+    if args.set_iob:
+        if args.set_iob == ".":
+            path = os.getcwd()
+        elif args.set_iob == "d":
+            path = libpath
+        else:
+            path = args.set_iob
+
+        i_path = os.path.join(path, "io/inp")
+        o_path = os.path.join(path, "io/out")
+        b_path = os.path.join(path, "io/batch")
+
+        set_path(state, i_path, "", "i_path", exit_on_set=False)
+        set_path(state, o_path, "", "o_path", exit_on_set=False)
+        set_path(state, b_path, "", "b_path", exit_on_set=False)
+
+        sys.exit(0)
+
+    if args.refresh_models:
+        utils.refresh_models()
+
+    # load sub-command function
+    command_map = {
+        "compile": ("struphy.console.compile", "struphy_compile"),
+        "lint": ("struphy.console.format", "struphy_lint"),
+        "format": ("struphy.console.format", "struphy_format"),
+        "likwid_profile": ("struphy.console.likwid", "struphy_likwid_profile"),
+        "params": ("struphy.console.params", "struphy_params"),
+        "pproc": ("struphy.console.pproc", "struphy_pproc"),
+        "profile": ("struphy.console.profile", "struphy_profile"),
+        "run": ("struphy.console.run", "struphy_run"),
+        "test": ("struphy.console.test", "struphy_test"),
+        "units": ("struphy.console.units", "struphy_units"),
+    }
+
+    # import struphy.console.MODULE.FUNC_NAME as func
+    if args.command in command_map:
+        module_path, func_name = command_map[args.command]
+        func = getattr(importlib.import_module(module_path), func_name)
+    else:
+        raise ValueError(f"Unknown command: {args.command}")
+
+    # transform parser Namespace object to dictionary and remove "command" key
+    kwargs = vars(args)
+    for key in [
+        "command",
+        "short_help",
+        "fluid",
+        "kinetic",
+        "hybrid",
+        "toy",
+        "set_i",
+        "set_o",
+        "set_b",
+        "set_iob",
+        "refresh_models",
+        # These options are stored in kwargs.config
+        "input_type",
+        "path",
+        "linters",
+        "iterations",
+        "output_format",
+    ]:
+        kwargs.pop(key, None)
+
+    # start sub-command function with all parameters of that function
+    # for k, v in kwargs.items():
+    #     print(k, v)
+    func(**kwargs)
 
 
 def get_params_files(i_path):
@@ -849,45 +1004,11 @@ def add_parser_test(subparsers, list_models):
         )
 
 
-def is_installed_editable(package_name):
-    """
-    Check if a package is installed in editable mode by inspecting
-    First: `pip show {package_name}`.
-    Second: Check for `__editable__` file in site-packages
-
-    Parameters
-    ----------
-    package_name : str
-        Name of the package.
-    """
-    try:
-        pip_show_output = subprocess.check_output(["pip", "show", package_name], text=True)
-
-        if "Editable project location" in pip_show_output:
-            # print(f"{package_name} is installed in editable mode.")
-            return True
-
-    except subprocess.CalledProcessError as e:
-        print("Error while checking pip show:", e)
-        return False
-
-    for path in site.getsitepackages():
-        editable_file = os.path.join(path, f"__editable__.{package_name.replace('-', '_')}-*.pth")
-        if any(os.path.exists(f) for f in glob.glob(editable_file)):
-            # print(f"{package_name} is installed in editable mode.")
-            # print(f"{editable_file} found in site-packages")
-            return True
-
-    # print(f"{package_name} is not installed in editable mode.")
-    return False
-
-
 def add_parser_format(subparsers):
     try:
         import autopep8
         import isort
         import ruff
-        import ssort
 
         add_lintformat_parser = True
     except ModuleNotFoundError:
@@ -932,7 +1053,7 @@ def add_parser_format(subparsers):
             "--linters",
             type=str,
             nargs="+",
-            default=["ssort", "ruff"],
+            default=["ruff"],
             choices=["add-trailing-comma", "isort", "autopep8", "ruff"],
             help="list of linters to use",
         )
@@ -956,7 +1077,7 @@ def add_parser_format(subparsers):
             "--linters",
             type=str,
             nargs="+",
-            default=["ssort", "ruff", "omp_flags"],
+            default=["ruff", "omp_flags"],
             choices=["add-trailing-comma", "isort", "autopep8", "flake8", "pylint", "ruff", "omp_flags"],
             help="list of linters to use",
         )
@@ -1056,199 +1177,77 @@ class CustomFormatter(NoSubparsersMetavarFormatter, RawTextHelpFormatter):
     pass
 
 
-def struphy():
-    """Struphy main executable. Performs argument parsing and sub-command call."""
+def recursive_get_files(path, contains=(".yml", ".yaml"), out=None, prefix=None):
+    if out is None:
+        out = []
 
-    # create argument parser
-    epilog_message = 'Type "struphy COMMAND --help" for more information on a command.\n\n'
-    epilog_message += "For more help on how to use Struphy, see https://struphy.pages.mpcdf.de/struphy/index.html"
+    if prefix is None:
+        prefix = []
 
-    parser = argparse.ArgumentParser(
-        prog="struphy",
-        formatter_class=CustomFormatter,
-        description="Struphy: STRUcture-Preserving HYbrid codes for plasma physics.",
-        epilog=epilog_message,
-    )
+    # only search 1 level deep (e.g. a/test.yml will be found, but not a/b/test.yml)
+    level_depth = 1
 
-    # Read struphy state file
-    state = utils.read_state()
-
-    # Update and save state file
-    utils.update_state(state=state)
-    utils.save_state(state=state)
-
-    # Get paths from state
-    i_path, o_path, b_path = utils.get_paths(state=state)
-
-    # check parameter file in current input path:
-    params_files = get_params_files(i_path)
-
-    # check output folders in current output path:
-    out_folders = get_out_folders(o_path)
-
-    # check batch scripts in current batch path:
-    batch_files = get_batch_files(b_path)
-
-    # Load the models and messages
-    list_models = []
-    model_message = fluid_message = kinetic_message = hybrid_message = toy_message = ""
-    try:
-        with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
-            list_models = pickle.load(fp)
-        with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
-            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
-                fp,
+    all_names = os.listdir(path)
+    n_folders = 0
+    # count folders in path
+    for name in all_names:
+        if os.path.isdir(os.path.join(path, name)):
+            n_folders += 1
+    # add specified files to out or descend
+    n_searched_folders = 0
+    for name in all_names:
+        if any([cont in name for cont in contains]):
+            if len(prefix) == 0:
+                out += [name]
+            else:
+                out += [os.path.join(prefix[-1], name)]
+        elif os.path.isdir(os.path.join(path, name)) and len(prefix) < level_depth:
+            n_searched_folders += 1
+            if len(prefix) == 0:
+                prefix = [name]
+            else:
+                prefix += [os.path.join(prefix[-1], name)]
+            recursive_get_files(
+                os.path.join(path, name),
+                contains=contains,
+                out=out,
+                prefix=prefix,
             )
-    except:
-        print("run: struphy --refresh-models")
 
-    # 0. basic options
-    add_parser_basic_options(parser, i_path, o_path, b_path)
+    if (n_folders == 0 or len(prefix) == level_depth or n_searched_folders == n_folders) and len(prefix) != 0:
+        prefix.pop()
 
-    # create sub-commands and save name of sub-command into variable "command"
-    subparsers = parser.add_subparsers(
-        title="available commands",
-        metavar="COMMAND",
-        dest="command",
-    )
+    return out
 
-    # 1. "compile" sub-command
-    add_parser_compile(subparsers)
 
-    # 2. "run" sub-command
-    add_parser_run(subparsers, list_models, model_message, params_files, batch_files)
+def is_installed_editable(package_name):
+    """
+    Check if a package is installed in editable mode by inspecting
+    First: `pip show {package_name}`.
+    Second: Check for `__editable__` file in site-packages
 
-    # 3. "units" sub-command
-    add_parser_units(subparsers, list_models, model_message, params_files)
+    Parameters
+    ----------
+    package_name : str
+        Name of the package.
+    """
+    try:
+        pip_show_output = subprocess.check_output(["pip", "show", package_name], text=True)
 
-    # 4. "params" sub-command
-    add_parser_params(subparsers, list_models, model_message)
+        if "Editable project location" in pip_show_output:
+            # print(f"{package_name} is installed in editable mode.")
+            return True
 
-    # 5. "profile" sub-command
-    add_parser_profile(subparsers)
+    except subprocess.CalledProcessError as e:
+        print("Error while checking pip show:", e)
+        return False
 
-    # 6. "likwid_profile" sub-command
-    add_parser_likwid_profile(subparsers)
+    for path in site.getsitepackages():
+        editable_file = os.path.join(path, f"__editable__.{package_name.replace('-', '_')}-*.pth")
+        if any(os.path.exists(f) for f in glob.glob(editable_file)):
+            # print(f"{package_name} is installed in editable mode.")
+            # print(f"{editable_file} found in site-packages")
+            return True
 
-    # 7. "pproc" sub-command
-    add_parser_pproc(subparsers, out_folders)
-
-    # 8. "test" sub-command
-    add_parser_test(subparsers, list_models)
-
-    # 9 "format" and "lint" sub-commands
-    add_parser_format(subparsers)
-
-    # parse argument
-    argcomplete.autocomplete(parser)
-    args = parser.parse_args()
-
-    # Set args.config if user ran struphy format / struphy lint
-    set_args_format_config(args, parser)
-
-    # if no arguments are passed, print help and exit
-    if all(v is None or not v for v in vars(args).values()):
-        parser.print_help()
-        sys.exit(0)
-
-    # display short help and exit
-    if args.short_help:
-        print_short_help(parser)
-        sys.exit(0)
-
-    # display subset of models
-    model_flags = [
-        (args.fluid, fluid_message),
-        (args.kinetic, kinetic_message),
-        (args.hybrid, hybrid_message),
-        (args.toy, toy_message),
-    ]
-
-    for flag, message in model_flags:
-        if flag:
-            print(message)
-            print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
-            sys.exit(0)
-
-    # Set default input path
-    if args.set_i:
-        set_path(state, args.set_i, "io/inp", "i_path")
-
-    # Set default output path
-    if args.set_o:
-        set_path(state, args.set_o, "io/out", "o_path")
-
-    # Set default batch path
-    if args.set_b:
-        set_path(state, args.set_b, "io/batch", "b_path")
-
-    # set paths for inp, out and batch (with io/inp etc. prefices)
-    if args.set_iob:
-        if args.set_iob == ".":
-            path = os.getcwd()
-        elif args.set_iob == "d":
-            path = libpath
-        else:
-            path = args.set_iob
-
-        i_path = os.path.join(path, "io/inp")
-        o_path = os.path.join(path, "io/out")
-        b_path = os.path.join(path, "io/batch")
-
-        set_path(state, i_path, "", "i_path", exit_on_set=False)
-        set_path(state, o_path, "", "o_path", exit_on_set=False)
-        set_path(state, b_path, "", "b_path", exit_on_set=False)
-
-        sys.exit(0)
-
-    if args.refresh_models:
-        utils.refresh_models()
-
-    # load sub-command function
-    command_map = {
-        "compile": ("struphy.console.compile", "struphy_compile"),
-        "lint": ("struphy.console.format", "struphy_lint"),
-        "format": ("struphy.console.format", "struphy_format"),
-        "likwid_profile": ("struphy.console.likwid", "struphy_likwid_profile"),
-        "params": ("struphy.console.params", "struphy_params"),
-        "pproc": ("struphy.console.pproc", "struphy_pproc"),
-        "profile": ("struphy.console.profile", "struphy_profile"),
-        "run": ("struphy.console.run", "struphy_run"),
-        "test": ("struphy.console.test", "struphy_test"),
-        "units": ("struphy.console.units", "struphy_units"),
-    }
-
-    # import struphy.console.MODULE.FUNC_NAME as func
-    if args.command in command_map:
-        module_path, func_name = command_map[args.command]
-        func = getattr(importlib.import_module(module_path), func_name)
-    else:
-        raise ValueError(f"Unknown command: {args.command}")
-
-    # transform parser Namespace object to dictionary and remove "command" key
-    kwargs = vars(args)
-    for key in [
-        "command",
-        "short_help",
-        "fluid",
-        "kinetic",
-        "hybrid",
-        "toy",
-        "set_i",
-        "set_o",
-        "set_b",
-        "set_iob",
-        "refresh_models",
-        # These options are stored in kwargs.config
-        "input_type",
-        "path",
-        "linters",
-        "iterations",
-        "output_format",
-    ]:
-        kwargs.pop(key, None)
-
-    # start sub-command function with all parameters of that function
-    # for k, v in kwargs.items():
-    #     print(k, v)
-    func(**kwargs)
+    # print(f"{package_name} is not installed in editable mode.")
+    return False

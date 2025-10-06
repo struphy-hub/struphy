@@ -472,91 +472,6 @@ class PressureCoupling6D(Propagator):
         \begin{bmatrix} {\mathbb M^n}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} \,.
     """
 
-    class GT_MAT_G(LinOpWithTransp):
-        r"""
-        Class for defining LinearOperator corresponding to :math:`G^\top (\text{MAT}) G \in \mathbb{R}^{3N^0 \times 3N^0}`
-        where :math:`\text{MAT} = V^\top (\bar {\mathbf \Lambda}^1)^\top \bar{DF}^{-1} \bar{W} \bar{DF}^{-\top} \bar{\mathbf \Lambda}^1 V \in \mathbb{R}^{3N^1 \times 3N^1}`.
-
-        Parameters
-        ----------
-            derham : struphy.feec.psydac_derham.Derham
-                Discrete de Rham sequence on the logical unit cube.
-
-            MAT : List of StencilMatrices
-                List with six of accumulated pressure terms
-        """
-
-        def __init__(self, derham, MAT, transposed=False):
-            self._derham = derham
-            self._G = derham.grad
-            self._GT = derham.grad.transpose()
-
-            self._domain = derham.Vh["v"]
-            self._codomain = derham.Vh["v"]
-            self._MAT = MAT
-
-            self._vector = BlockVector(derham.Vh["v"])
-            self._temp = BlockVector(derham.Vh["1"])
-
-        @property
-        def domain(self):
-            return self._domain
-
-        @property
-        def codomain(self):
-            return self._codomain
-
-        @property
-        def dtype(self):
-            return self._derham.Vh["v"].dtype
-
-        @property
-        def tosparse(self):
-            raise NotImplementedError()
-
-        @property
-        def toarray(self):
-            raise NotImplementedError()
-
-        @property
-        def transposed(self):
-            return self._transposed
-
-        def transpose(self):
-            return self.GT_MAT_G(self._derham, self._MAT, True)
-
-        def dot(self, v, out=None):
-            """dot product between GT_MAT_G and v.
-
-            Parameters
-            ----------
-                v : StencilVector or BlockVector
-                    Input FE coefficients from V.coeff_space.
-
-            Returns
-            -------
-                A StencilVector or BlockVector from W.coeff_space."""
-
-            assert v.space == self.domain
-
-            v.update_ghost_regions()
-
-            for i in range(3):
-                for j in range(3):
-                    self._temp += self._MAT[i][j].dot(self._G.dot(v[j]))
-
-                self._vector[i] = self._GT.dot(self._temp)
-                self._temp *= 0.0
-
-            self._vector.update_ghost_regions()
-
-            if out is not None:
-                self._vector.copy(out=out)
-
-            assert self._vector.space == self.codomain
-
-            return self._vector
-
     @staticmethod
     def options(default=False):
         dct = {}
@@ -767,6 +682,91 @@ class PressureCoupling6D(Propagator):
             print("Iterations for StepPressurecoupling:", info["niter"])
             print("Maxdiff u1 for StepPressurecoupling:", max_du)
             print()
+
+    class GT_MAT_G(LinOpWithTransp):
+        r"""
+        Class for defining LinearOperator corresponding to :math:`G^\top (\text{MAT}) G \in \mathbb{R}^{3N^0 \times 3N^0}`
+        where :math:`\text{MAT} = V^\top (\bar {\mathbf \Lambda}^1)^\top \bar{DF}^{-1} \bar{W} \bar{DF}^{-\top} \bar{\mathbf \Lambda}^1 V \in \mathbb{R}^{3N^1 \times 3N^1}`.
+
+        Parameters
+        ----------
+            derham : struphy.feec.psydac_derham.Derham
+                Discrete de Rham sequence on the logical unit cube.
+
+            MAT : List of StencilMatrices
+                List with six of accumulated pressure terms
+        """
+
+        def __init__(self, derham, MAT, transposed=False):
+            self._derham = derham
+            self._G = derham.grad
+            self._GT = derham.grad.transpose()
+
+            self._domain = derham.Vh["v"]
+            self._codomain = derham.Vh["v"]
+            self._MAT = MAT
+
+            self._vector = BlockVector(derham.Vh["v"])
+            self._temp = BlockVector(derham.Vh["1"])
+
+        @property
+        def domain(self):
+            return self._domain
+
+        @property
+        def codomain(self):
+            return self._codomain
+
+        @property
+        def dtype(self):
+            return self._derham.Vh["v"].dtype
+
+        @property
+        def tosparse(self):
+            raise NotImplementedError()
+
+        @property
+        def toarray(self):
+            raise NotImplementedError()
+
+        @property
+        def transposed(self):
+            return self._transposed
+
+        def transpose(self):
+            return self.GT_MAT_G(self._derham, self._MAT, True)
+
+        def dot(self, v, out=None):
+            """dot product between GT_MAT_G and v.
+
+            Parameters
+            ----------
+                v : StencilVector or BlockVector
+                    Input FE coefficients from V.coeff_space.
+
+            Returns
+            -------
+                A StencilVector or BlockVector from W.coeff_space."""
+
+            assert v.space == self.domain
+
+            v.update_ghost_regions()
+
+            for i in range(3):
+                for j in range(3):
+                    self._temp += self._MAT[i][j].dot(self._G.dot(v[j]))
+
+                self._vector[i] = self._GT.dot(self._temp)
+                self._temp *= 0.0
+
+            self._vector.update_ghost_regions()
+
+            if out is not None:
+                self._vector.copy(out=out)
+
+            assert self._vector.space == self.codomain
+
+            return self._vector
 
 
 class CurrentCoupling6DCurrent(Propagator):

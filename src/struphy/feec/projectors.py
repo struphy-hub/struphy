@@ -40,173 +40,6 @@ from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 
 
-class ProjectorPreconditioner(LinearOperator):
-    r"""
-    Preconditioner for approximately inverting a (polar) 3d inter-/histopolation matrix via
-
-    .. math::
-
-        (B * P * I * E^T * B^T)^{-1} \approx B * P * I^{-1} * E^T * B^T.
-
-    In case that $P$ and $E$ are identity operators, the solution is exact (pure tensor product case).
-
-    Parameters
-    ----------
-    projector : CommutingProjector
-        The global commuting projector for which the inter-/histopolation matrix shall be inverted.
-
-    transposed : bool, optional
-        Whether to invert the transposed inter-/histopolation matrix.
-
-    apply_bc : bool, optional
-        Whether to include the boundary operators.
-    """
-
-    def __init__(self, projector, transposed=False, apply_bc=False):
-        # vector space in tensor product case/polar case
-        self._space = projector.I.domain
-
-        self._codomain = projector.I.codomain
-
-        self._dtype = projector.I.dtype
-
-        self._projector = projector
-
-        self._apply_bc = apply_bc
-
-        # save Kronecker solver (needed in solve method)
-        self._solver = projector.projector_tensor.solver
-        if transposed:
-            self._solver = self.solver.transpose()
-
-        self._transposed = transposed
-
-        # save inter-/histopolation matrix to be inverted
-        if transposed:
-            self._I = projector.IT
-        else:
-            self._I = projector.I
-
-        self._is_composed = isinstance(self._I, ComposedLinearOperator)
-
-        # temporary vectors for dot product
-        if self._is_composed:
-            tmp_vectors = []
-            for op in self._I.multiplicants[1:]:
-                tmp_vectors.append(op.codomain.zeros())
-
-            self._tmp_vectors = tuple(tmp_vectors)
-        else:
-            self._tmp_vector = self._I.codomain.zeros()
-
-    @property
-    def space(self):
-        """Stencil-/BlockVectorSpace or PolarDerhamSpace."""
-        return self._space
-
-    @property
-    def solver(self):
-        """KroneckerLinearSolver for exactly inverting tensor product inter-histopolation matrix."""
-        return self._solver
-
-    @property
-    def transposed(self):
-        """Whether to invert the transposed inter-/histopolation matrix."""
-        return self._transposed
-
-    @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._space
-
-    @property
-    def codomain(self):
-        """The codomain of the linear operator - an element of Vectorspace"""
-        return self._codomain
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    def tosparse(self):
-        raise NotImplementedError()
-
-    def toarray(self):
-        raise NotImplementedError()
-
-    def transpose(self, conjugate=False):
-        """
-        Returns the transposed operator.
-        """
-        return ProjectorPreconditioner(self._projector, True, self._apply_bc)
-
-    def solve(self, rhs, out=None):
-        """
-        Computes (B * P * I^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True) as an approximation for an inverse inter-/histopolation matrix.
-
-        Parameters
-        ----------
-        rhs : psydac.linalg.basic.Vector
-            The right-hand side vector.
-
-        out : psydac.linalg.basic.Vector, optional
-            If given, the output vector will be written into this vector in-place.
-
-        Returns
-        -------
-        out : psydac.linalg.basic.Vector
-            The result of (B * E * M^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True).
-        """
-
-        assert isinstance(rhs, Vector)
-        assert rhs.space == self._space
-
-        # successive dot products with all but last operator
-        if self._is_composed:
-            x = rhs
-            for i in range(len(self._tmp_vectors)):
-                y = self._tmp_vectors[-1 - i]
-                A = self._I.multiplicants[-1 - i]
-                if isinstance(A, (StencilMatrix, KroneckerStencilMatrix, BlockLinearOperator)):
-                    self.solver.dot(x, out=y)
-                else:
-                    A.dot(x, out=y)
-                x = y
-
-            # last operator
-            A = self._I.multiplicants[0]
-            if out is None:
-                out = A.dot(x)
-            else:
-                assert isinstance(out, Vector)
-                assert out.space == self._space
-                A.dot(x, out=out)
-
-        else:
-            if out is None:
-                out = self.solver.dot(rhs)
-            self.solver.dot(rhs, out=out)
-        return out
-
-    def dot(self, v, out=None):
-        """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
-
-        assert isinstance(v, Vector)
-        assert v.space == self.domain
-
-        # newly created output vector
-        if out is None:
-            out = self.solve(v)
-
-        # in-place dot-product (result is written to out)
-        else:
-            assert isinstance(out, Vector)
-            assert out.space == self.codomain
-            self.solve(v, out=out)
-
-        return out
-
-
 class CommutingProjector:
     r"""
     A commuting projector of the 3d :class:`~struphy.feec.psydac_derham.Derham` diagram (can be polar).
@@ -1758,6 +1591,78 @@ class CommutingProjectorLocal:
             else:
                 return f_eval
 
+    def __call__(
+        self,
+        fun,
+        out=None,
+        dofs=None,
+        weighted=False,
+        B_or_D=None,
+        basis_indices=None,
+        first_go=True,
+        pre_computed_dofs=None,
+    ):
+        """
+        Applies projector to given callable(s).
+
+        Parameters
+        ----------
+        fun : callable | list
+            The function to be projected. List of three callables for vector-valued functions.
+
+        out : psydac.linalg.basic.vector, optional
+            If given, the result will be written into this vector in-place.
+
+        dofs : psydac.linalg.basic.vector, optional
+            If given, the dofs will be written into this vector in-place.
+
+        weighted : bool
+            Determines whether the function to be projected should be multiplied by some B or D-splines.
+            Should only be used when assembling BasisprojectionOperators.
+
+        B_or_D : list
+            List with three strings, each one can be either "B" or "D". They determine if we have B or D-splines in
+            each spatial direction for the weighting of the function with the basis functions.
+
+        basis_indices : list
+            List with three ints. They determine the index of each basis function with which we are weighting the function.
+
+        first_go : bool
+            This parameter is only useful for assembling BasisProjectionOperatorsLocal, that is, only if weighted is set to True.
+            If this parameter is true it means we are computing the projection with this particular weights for the first time, if
+            set to false it means we computed it once already and we can reuse the dofs evaluation of the weights instead of
+            recomputing them.
+
+        pre_computed_dofs : list of np.arrays
+            If we have already computed the evaluation of the weights at the dofs we can pass the arrays with their values here, so
+            we do not have to compute them again.
+
+        Returns
+        -------
+        coeffs : psydac.linalg.basic.vector | np.array 3D
+            The FEM spline coefficients after projection.
+        """
+        if weighted == False:
+            return self.solve(self.get_dofs(fun, dofs=dofs), out=out)
+        else:
+            # We set B_or_D and basis_indices as attributes of the projectors so we can easily access them in the get_rowstarts, get_rowends and get_values functions, where they are needed.
+            self._B_or_D = B_or_D
+            self._basis_indices = basis_indices
+
+            if first_go == True:
+                # rhs contains the evaluation over the degrees of freedom of the weights multiplied by the basis function
+                # rhs_weights contains the evaluation over the degrees of freedom of only the weights
+                rhs, rhs_weights = self.get_dofs_weighted(
+                    fun,
+                    dofs=dofs,
+                    first_go=first_go,
+                )
+                return self.solve_weighted(rhs, out=out), rhs_weights
+            else:
+                return self.solve_weighted(
+                    self.get_dofs_weighted(fun, dofs=dofs, first_go=False, pre_computed_dofs=pre_computed_dofs), out=out
+                )
+
     def get_translation_b(self, i, h):
         """
         Selects the correct translation index value. The only real functionality of this function is to make the code easier to read by hiding from the user the
@@ -1890,78 +1795,6 @@ class CommutingProjectorLocal:
             return self._are_zero_block_B_or_D_splines[i][h][self._B_or_D[i]][
                 self._translation_indices_block_B_or_D_splines[i][h][self._B_or_D[i]][self._basis_indices[i]]
             ]
-
-    def __call__(
-        self,
-        fun,
-        out=None,
-        dofs=None,
-        weighted=False,
-        B_or_D=None,
-        basis_indices=None,
-        first_go=True,
-        pre_computed_dofs=None,
-    ):
-        """
-        Applies projector to given callable(s).
-
-        Parameters
-        ----------
-        fun : callable | list
-            The function to be projected. List of three callables for vector-valued functions.
-
-        out : psydac.linalg.basic.vector, optional
-            If given, the result will be written into this vector in-place.
-
-        dofs : psydac.linalg.basic.vector, optional
-            If given, the dofs will be written into this vector in-place.
-
-        weighted : bool
-            Determines whether the function to be projected should be multiplied by some B or D-splines.
-            Should only be used when assembling BasisprojectionOperators.
-
-        B_or_D : list
-            List with three strings, each one can be either "B" or "D". They determine if we have B or D-splines in
-            each spatial direction for the weighting of the function with the basis functions.
-
-        basis_indices : list
-            List with three ints. They determine the index of each basis function with which we are weighting the function.
-
-        first_go : bool
-            This parameter is only useful for assembling BasisProjectionOperatorsLocal, that is, only if weighted is set to True.
-            If this parameter is true it means we are computing the projection with this particular weights for the first time, if
-            set to false it means we computed it once already and we can reuse the dofs evaluation of the weights instead of
-            recomputing them.
-
-        pre_computed_dofs : list of np.arrays
-            If we have already computed the evaluation of the weights at the dofs we can pass the arrays with their values here, so
-            we do not have to compute them again.
-
-        Returns
-        -------
-        coeffs : psydac.linalg.basic.vector | np.array 3D
-            The FEM spline coefficients after projection.
-        """
-        if weighted == False:
-            return self.solve(self.get_dofs(fun, dofs=dofs), out=out)
-        else:
-            # We set B_or_D and basis_indices as attributes of the projectors so we can easily access them in the get_rowstarts, get_rowends and get_values functions, where they are needed.
-            self._B_or_D = B_or_D
-            self._basis_indices = basis_indices
-
-            if first_go == True:
-                # rhs contains the evaluation over the degrees of freedom of the weights multiplied by the basis function
-                # rhs_weights contains the evaluation over the degrees of freedom of only the weights
-                rhs, rhs_weights = self.get_dofs_weighted(
-                    fun,
-                    dofs=dofs,
-                    first_go=first_go,
-                )
-                return self.solve_weighted(rhs, out=out), rhs_weights
-            else:
-                return self.solve_weighted(
-                    self.get_dofs_weighted(fun, dofs=dofs, first_go=False, pre_computed_dofs=pre_computed_dofs), out=out
-                )
 
 
 class L2Projector:
@@ -2325,3 +2158,170 @@ class L2Projector:
             The FEM spline coefficients after projection.
         """
         return self.solve(self.get_dofs(fun, dofs=dofs, apply_bc=apply_bc), out=out)
+
+
+class ProjectorPreconditioner(LinearOperator):
+    r"""
+    Preconditioner for approximately inverting a (polar) 3d inter-/histopolation matrix via
+
+    .. math::
+
+        (B * P * I * E^T * B^T)^{-1} \approx B * P * I^{-1} * E^T * B^T.
+
+    In case that $P$ and $E$ are identity operators, the solution is exact (pure tensor product case).
+
+    Parameters
+    ----------
+    projector : CommutingProjector
+        The global commuting projector for which the inter-/histopolation matrix shall be inverted.
+
+    transposed : bool, optional
+        Whether to invert the transposed inter-/histopolation matrix.
+
+    apply_bc : bool, optional
+        Whether to include the boundary operators.
+    """
+
+    def __init__(self, projector, transposed=False, apply_bc=False):
+        # vector space in tensor product case/polar case
+        self._space = projector.I.domain
+
+        self._codomain = projector.I.codomain
+
+        self._dtype = projector.I.dtype
+
+        self._projector = projector
+
+        self._apply_bc = apply_bc
+
+        # save Kronecker solver (needed in solve method)
+        self._solver = projector.projector_tensor.solver
+        if transposed:
+            self._solver = self.solver.transpose()
+
+        self._transposed = transposed
+
+        # save inter-/histopolation matrix to be inverted
+        if transposed:
+            self._I = projector.IT
+        else:
+            self._I = projector.I
+
+        self._is_composed = isinstance(self._I, ComposedLinearOperator)
+
+        # temporary vectors for dot product
+        if self._is_composed:
+            tmp_vectors = []
+            for op in self._I.multiplicants[1:]:
+                tmp_vectors.append(op.codomain.zeros())
+
+            self._tmp_vectors = tuple(tmp_vectors)
+        else:
+            self._tmp_vector = self._I.codomain.zeros()
+
+    @property
+    def space(self):
+        """Stencil-/BlockVectorSpace or PolarDerhamSpace."""
+        return self._space
+
+    @property
+    def solver(self):
+        """KroneckerLinearSolver for exactly inverting tensor product inter-histopolation matrix."""
+        return self._solver
+
+    @property
+    def transposed(self):
+        """Whether to invert the transposed inter-/histopolation matrix."""
+        return self._transposed
+
+    @property
+    def domain(self):
+        """The domain of the linear operator - an element of Vectorspace"""
+        return self._space
+
+    @property
+    def codomain(self):
+        """The codomain of the linear operator - an element of Vectorspace"""
+        return self._codomain
+
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def tosparse(self):
+        raise NotImplementedError()
+
+    def toarray(self):
+        raise NotImplementedError()
+
+    def transpose(self, conjugate=False):
+        """
+        Returns the transposed operator.
+        """
+        return ProjectorPreconditioner(self._projector, True, self._apply_bc)
+
+    def solve(self, rhs, out=None):
+        """
+        Computes (B * P * I^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True) as an approximation for an inverse inter-/histopolation matrix.
+
+        Parameters
+        ----------
+        rhs : psydac.linalg.basic.Vector
+            The right-hand side vector.
+
+        out : psydac.linalg.basic.Vector, optional
+            If given, the output vector will be written into this vector in-place.
+
+        Returns
+        -------
+        out : psydac.linalg.basic.Vector
+            The result of (B * E * M^(-1) * E^T * B^T) * rhs, resp. (B * P * I^(-T) * E^T * B^T) * rhs (transposed=True).
+        """
+
+        assert isinstance(rhs, Vector)
+        assert rhs.space == self._space
+
+        # successive dot products with all but last operator
+        if self._is_composed:
+            x = rhs
+            for i in range(len(self._tmp_vectors)):
+                y = self._tmp_vectors[-1 - i]
+                A = self._I.multiplicants[-1 - i]
+                if isinstance(A, (StencilMatrix, KroneckerStencilMatrix, BlockLinearOperator)):
+                    self.solver.dot(x, out=y)
+                else:
+                    A.dot(x, out=y)
+                x = y
+
+            # last operator
+            A = self._I.multiplicants[0]
+            if out is None:
+                out = A.dot(x)
+            else:
+                assert isinstance(out, Vector)
+                assert out.space == self._space
+                A.dot(x, out=out)
+
+        else:
+            if out is None:
+                out = self.solver.dot(rhs)
+            self.solver.dot(rhs, out=out)
+        return out
+
+    def dot(self, v, out=None):
+        """Apply linear operator to Vector v. Result is written to Vector out, if provided."""
+
+        assert isinstance(v, Vector)
+        assert v.space == self.domain
+
+        # newly created output vector
+        if out is None:
+            out = self.solve(v)
+
+        # in-place dot-product (result is written to out)
+        else:
+            assert isinstance(out, Vector)
+            assert out.space == self.codomain
+            self.solve(v, out=out)
+
+        return out

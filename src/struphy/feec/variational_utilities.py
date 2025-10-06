@@ -1341,29 +1341,6 @@ class H1vecMassMatrix_density:
         """The WeightedMassOperator"""
         return self._massop
 
-    def _create_inv(
-        self, type="pcg", pc_type="MassMatrixDiagonalPreconditioner", tol=1e-16, maxiter=500, verbose=False
-    ):
-        """Inverse the  weighted mass matrix"""
-        if pc_type is None:
-            self._pc = None
-        else:
-            pc_class = getattr(
-                preconditioner,
-                pc_type,
-            )
-            self._pc = pc_class(self.massop)
-
-        self._inv = inverse(
-            self.massop,
-            type,
-            pc=self._pc,
-            tol=tol,
-            maxiter=maxiter,
-            verbose=verbose,
-            recycle=True,
-        )
-
     @property
     def inv(
         self,
@@ -1404,6 +1381,29 @@ class H1vecMassMatrix_density:
 
         if hasattr(self, "_inv") and self._pc is not None:
             self._pc.update_mass_operator(self._massop)
+
+    def _create_inv(
+        self, type="pcg", pc_type="MassMatrixDiagonalPreconditioner", tol=1e-16, maxiter=500, verbose=False
+    ):
+        """Inverse the  weighted mass matrix"""
+        if pc_type is None:
+            self._pc = None
+        else:
+            pc_class = getattr(
+                preconditioner,
+                pc_type,
+            )
+            self._pc = pc_class(self.massop)
+
+        self._inv = inverse(
+            self.massop,
+            type,
+            pc=self._pc,
+            tol=tol,
+            maxiter=maxiter,
+            verbose=verbose,
+            recycle=True,
+        )
 
 
 class KineticEnergyEvaluator:

@@ -40,6 +40,20 @@ class EMW_operators:
 
     """
 
+    # def __init__(self, space, equilibrium, domain, basis_e):
+    def __init__(self, DOMAIN, SPACES, EQUILIBRIUM=None):
+        # create objects
+        self.DOMAIN = DOMAIN
+        self.SPACES = SPACES
+        self.EQUILIBRIUM = EQUILIBRIUM
+
+        self.dim_V1 = self.SPACES.Ntot_1form_cum[-1]
+        self.dim_V2 = self.SPACES.Ntot_2form_cum[-1]
+
+        # Build the rotation operator
+        weight = [self.__weight_1, self.__weight_2, self.__weight_3]
+        self.__assemble_M1_cross(weight)
+
     # ================ Build the R1 operator =====================
     def __weight_1(self, eta1, eta2, eta3):
         det_g = 1.0 / abs(self.DOMAIN.evaluate(eta1, eta2, eta3, "det_df"))
@@ -193,20 +207,6 @@ class EMW_operators:
         )
 
         self.R1_mat = -self.SPACES.E1_0.dot(M.dot(self.SPACES.E1_0.T)).tocsr()
-
-    # def __init__(self, space, equilibrium, domain, basis_e):
-    def __init__(self, DOMAIN, SPACES, EQUILIBRIUM=None):
-        # create objects
-        self.DOMAIN = DOMAIN
-        self.SPACES = SPACES
-        self.EQUILIBRIUM = EQUILIBRIUM
-
-        self.dim_V1 = self.SPACES.Ntot_1form_cum[-1]
-        self.dim_V2 = self.SPACES.Ntot_2form_cum[-1]
-
-        # Build the rotation operator
-        weight = [self.__weight_1, self.__weight_2, self.__weight_3]
-        self.__assemble_M1_cross(weight)
 
     # ================ Set Operator ==============================
     def set_Operators(self):
