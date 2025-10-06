@@ -1021,7 +1021,7 @@ class StruphyModel(metaclass=ABCMeta):
         save_keys_end : list
             Keys of datasets which are saved at the end of a simulation to enable restarts.
         """
-        
+
         # save scalar quantities in group 'scalar/'
         for key, scalar in self.scalar_quantities.items():
             val = scalar["value"]

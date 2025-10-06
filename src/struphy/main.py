@@ -331,7 +331,7 @@ def run(
         time_state["value"][0] = round(time_state["value"][0] + dt, 10)
         time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units.t, 10)
         time_state["index"][0] += 1
-        
+
         # perform one time step dt
         t0 = time.time()
         with ProfileManager.profile_region("model.integrate"):

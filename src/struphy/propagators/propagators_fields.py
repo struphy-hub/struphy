@@ -3,7 +3,7 @@
 import copy
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Literal, get_args, Callable
+from typing import Callable, Literal, get_args
 
 import numpy as np
 import scipy as sc
@@ -2739,12 +2739,12 @@ class ImplicitDiffusion(Propagator):
             elif isinstance(rho, AccumulatorVector):
                 rhs = rho
             elif isinstance(rho, Callable):
-                rhs  = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
+                rhs = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
             else:
                 raise TypeError(f"{type(rho) = } is not accepted.")
-                
+
             return rhs
-                
+
         rho = self.options.rho
         if isinstance(rho, list):
             self._sources = []
@@ -2752,7 +2752,7 @@ class ImplicitDiffusion(Propagator):
                 self._sources += [verify_rhs(r)]
         else:
             self._sources = [verify_rhs(rho)]
-            
+
         # coeffs of rhs
         if self.options.rho_coeffs is not None:
             if isinstance(self.options.rho_coeffs, (list, tuple)):
@@ -2762,7 +2762,7 @@ class ImplicitDiffusion(Propagator):
             assert len(self._coeffs) == len(self._sources)
         else:
             self._coeffs = [1.0 for src in self.sources]
-            
+
         # initial guess and solver params
         self._x0 = self.options.x0
         self._info = self.options.solver_params.info
@@ -2815,11 +2815,11 @@ class ImplicitDiffusion(Propagator):
         Right-hand side of the equation (sources).
         """
         return self._sources
-    
+
     @property
     def coeffs(self) -> list[float]:
         """
-        Same length as self.sources. Coefficients multiplied with sources before solve (default is 1.0). 
+        Same length as self.sources. Coefficients multiplied with sources before solve (default is 1.0).
         """
         return self._coeffs
 
@@ -2868,7 +2868,7 @@ class ImplicitDiffusion(Propagator):
                 v = src.spline.vector
                 self._rhs2 += sig_3 * coeff * self.mass_ops.M0.dot(v, out=self._tmp_src)
             elif isinstance(src, AccumulatorVector):
-                src() # accumulate
+                src()  # accumulate
                 self._rhs2 += sig_3 * coeff * src.vectors[0]
 
         rhs += self._rhs2
@@ -7012,6 +7012,7 @@ class TimeDependentSource(Propagator):
     * :math:`h(\omega t) = \cos(\omega t)` (default)
     * :math:`h(\omega t) = \sin(\omega t)`
     """
+
     class Variables:
         def __init__(self):
             self._source: FEECVariable = None
@@ -7034,7 +7035,7 @@ class TimeDependentSource(Propagator):
         # specific literals
         OptsTimeSource = Literal["cos", "sin"]
         # propagator options
-        omega: float = 2.0*np.pi
+        omega: float = 2.0 * np.pi
         hfun: OptsTimeSource = "cos"
 
         def __post_init__(self):
@@ -7059,14 +7060,16 @@ class TimeDependentSource(Propagator):
     @profile
     def allocate(self):
         if self.options.hfun == "cos":
+
             def hfun(t):
                 return np.cos(self.options.omega * t)
         elif self.options.hfun == "sin":
+
             def hfun(t):
                 return np.sin(self.options.omega * t)
         else:
             raise NotImplementedError(f"{self.options.hfun = } not implemented.")
-        
+
         self._hfun = hfun
         self._c0 = self.variables.source.spline.vector.copy()
 
@@ -7078,6 +7081,7 @@ class TimeDependentSource(Propagator):
         # write new coeffs into self.feec_vars
         # max_dc = self.feec_vars_update(cn1)
         self.update_feec_variables(source=cn1)
+
 
 class AdiabaticPhi(Propagator):
     r"""

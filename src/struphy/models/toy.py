@@ -803,6 +803,7 @@ class Poisson(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+
     ## species
 
     class EMFields(FieldSpecies):
@@ -847,7 +848,7 @@ class Poisson(StruphyModel):
 
     def update_scalar_quantities(self):
         pass
-    
+
     def allocate_propagators(self):
         """Solve initial Poisson equation.
 
@@ -856,19 +857,19 @@ class Poisson(StruphyModel):
 
         # initialize fields and particles
         super().allocate_propagators()
-        
+
         # # use setter to assign source
         # self.propagators.poisson.rho = self.mass_ops.M0.dot(self.em_fields.source.spline.vector)
 
         # Solve with dt=1. and compute electric field
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nSolving initial Poisson problem...")
-            
+
         self.propagators.poisson(1.0)
-        
+
         if MPI.COMM_WORLD.Get_rank() == 0:
             print("Done.")
-            
+
     # default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):
         params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
@@ -876,7 +877,9 @@ class Poisson(StruphyModel):
         with open(params_path, "r") as f:
             for line in f:
                 if "poisson.Options" in line:
-                    new_file += ["model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)\n"]
+                    new_file += [
+                        "model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)\n"
+                    ]
                 else:
                     new_file += [line]
 
