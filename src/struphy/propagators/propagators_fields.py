@@ -2680,6 +2680,7 @@ class ImplicitDiffusion(Propagator):
         stab_mat: OptsStabMat = "M0"
         diffusion_mat: OptsDiffusionMat = "M1"
         rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
+        rho_coeffs: float | list = None
         x0: StencilVector = None
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
@@ -2728,7 +2729,7 @@ class ImplicitDiffusion(Propagator):
         phi = self.variables.phi.spline.vector
 
         # collect rhs
-        def verify_rhs(rho) -> StencilVector | FEECVariable | tuple:
+        def verify_rhs(rho) -> StencilVector | FEECVariable | AccumulatorVector:
             """Perform preliminary operations on rho to comute the rhs and return the result."""
             if rho is None:
                 rhs = phi.space.zeros()
@@ -2751,7 +2752,17 @@ class ImplicitDiffusion(Propagator):
                 self._sources += [verify_rhs(r)]
         else:
             self._sources = [verify_rhs(rho)]
-
+            
+        # coeffs of rhs
+        if self.options.rho_coeffs is not None:
+            if isinstance(self.options.rho_coeffs, (list, tuple)):
+                self._coeffs = self.options.rho_coeffs
+            else:
+                self._coeffs = [self.options.rho_coeffs]
+            assert len(self._coeffs) == len(self._sources)
+        else:
+            self._coeffs = [1.0 for src in self.sources]
+            
         # initial guess and solver params
         self._x0 = self.options.x0
         self._info = self.options.solver_params.info
@@ -2799,11 +2810,18 @@ class ImplicitDiffusion(Propagator):
         self._tmp_src = phi.space.zeros()
 
     @property
-    def sources(self) -> list[StencilVector | FEECVariable | tuple]:
+    def sources(self) -> list[StencilVector | FEECVariable | AccumulatorVector]:
         """
         Right-hand side of the equation (sources).
         """
         return self._sources
+    
+    @property
+    def coeffs(self) -> list[float]:
+        """
+        Same length as self.sources. Coefficients multiplied with sources before solve (default is 1.0). 
+        """
+        return self._coeffs
 
     @property
     def x0(self):
@@ -2843,15 +2861,15 @@ class ImplicitDiffusion(Propagator):
         rhs *= sig_2
 
         self._rhs2 *= 0.0
-        for src in self.sources:
+        for src, coeff in zip(self.sources, self.coeffs):
             if isinstance(src, StencilVector):
-                self._rhs2 += sig_3 * src
+                self._rhs2 += sig_3 * coeff * src
             elif isinstance(src, FEECVariable):
                 v = src.spline.vector
-                self._rhs2 += sig_3 * self.mass_ops.M0.dot(v, out=self._tmp_src)
+                self._rhs2 += sig_3 * coeff * self.mass_ops.M0.dot(v, out=self._tmp_src)
             elif isinstance(src, AccumulatorVector):
                 src() # accumulate
-                self._rhs2 += sig_3 * src.vectors[0]
+                self._rhs2 += sig_3 * coeff * src.vectors[0]
 
         rhs += self._rhs2
 
@@ -2921,6 +2939,7 @@ class Poisson(ImplicitDiffusion):
         stab_eps: float = 0.0
         stab_mat: OptsStabMat = "Id"
         rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
+        rho_coeffs: float | list = None
         x0: StencilVector = None
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"

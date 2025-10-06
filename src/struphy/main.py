@@ -782,12 +782,14 @@ def load_data(path: str) -> SimData:
     print("\nThe following data has been loaded:")
     print(f"\ngrids:")
     print(f"{simdata.t_grid.shape = }")
-    print(f"{simdata.grids_log[0].shape = }")
-    print(f"{simdata.grids_log[1].shape = }")
-    print(f"{simdata.grids_log[2].shape = }")
-    print(f"{simdata.grids_phy[0].shape = }")
-    print(f"{simdata.grids_phy[1].shape = }")
-    print(f"{simdata.grids_phy[2].shape = }")
+    if simdata.grids_log is not None:
+        print(f"{simdata.grids_log[0].shape = }")
+        print(f"{simdata.grids_log[1].shape = }")
+        print(f"{simdata.grids_log[2].shape = }")
+    if simdata.grids_phy is not None:
+        print(f"{simdata.grids_phy[0].shape = }")
+        print(f"{simdata.grids_phy[1].shape = }")
+        print(f"{simdata.grids_phy[2].shape = }")
     print(f"\nsimdata.spline_values:")
     for k, v in simdata.spline_values.items():
         print(f"  {k}")
