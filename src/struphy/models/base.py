@@ -179,54 +179,67 @@ class StruphyModel(metaclass=ABCMeta):
         else:
             derham_comm = self.clone_config.sub_comm
 
-        self._derham = setup_derham(
-            grid,
-            derham_opts,
-            comm=derham_comm,
-            domain=self.domain,
-            verbose=self.verbose,
-        )
+        if grid is None or derham_opts is None:
+            if MPI.COMM_WORLD.Get_rank() == 0:
+                print(f"\n{grid = }, {derham_opts = }: no Derham object set up.")
+            self._derham = None
+        else:
+            self._derham = setup_derham(
+                grid,
+                derham_opts,
+                comm=derham_comm,
+                domain=self.domain,
+                verbose=self.verbose,
+            )
 
         # create weighted mass operators
-        self._mass_ops = WeightedMassOperators(
-            self.derham,
-            self.domain,
-            verbose=self.verbose,
-            eq_mhd=self.equil,
-        )
+        if self.derham is None:
+            self._mass_ops = None
+        else:
+            self._mass_ops = WeightedMassOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
 
         # create projected equilibrium
-        if isinstance(self.equil, MHDequilibrium):
-            self._projected_equil = ProjectedMHDequilibrium(
-                self.equil,
-                self.derham,
-            )
-        elif isinstance(self.equil, FluidEquilibriumWithB):
-            self._projected_equil = ProjectedFluidEquilibriumWithB(
-                self.equil,
-                self.derham,
-            )
-        elif isinstance(self.equil, FluidEquilibrium):
-            self._projected_equil = ProjectedFluidEquilibrium(
-                self.equil,
-                self.derham,
-            )
-        else:
+        if self.derham is None:
             self._projected_equil = None
+        else:
+            if isinstance(self.equil, MHDequilibrium):
+                self._projected_equil = ProjectedMHDequilibrium(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibriumWithB):
+                self._projected_equil = ProjectedFluidEquilibriumWithB(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibrium):
+                self._projected_equil = ProjectedFluidEquilibrium(
+                    self.equil,
+                    self.derham,
+                )
+            else:
+                self._projected_equil = None
 
     def allocate_propagators(self):
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
-        if self.derham is not None:
-            Propagator.mass_ops = self.mass_ops
+        Propagator.mass_ops = self.mass_ops
+        if self.derham is None:
+            Propagator.basis_ops = None
+        else:
             Propagator.basis_ops = BasisProjectionOperators(
                 self.derham,
                 self.domain,
                 verbose=self.verbose,
                 eq_mhd=self.equil,
             )
-            Propagator.projected_equil = self.projected_equil
+        Propagator.projected_equil = self.projected_equil
 
         assert len(self.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.prop_list:
@@ -339,6 +352,8 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def scalar_quantities(self):
         """A dictionary of scalar quantities to be saved during the simulation."""
+        if not hasattr(self, "_scalar_quantities"):
+            self._scalar_quantities = {}
         return self._scalar_quantities
 
     @property
@@ -1335,7 +1350,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                         init_bckgr_pic += f"maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
                         init_pert_pic += f"maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
                         init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
-                        init_pert_pic += f"model.kinetic_ions.var.add_initial_condition(init)\n"
+                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     elif "5D" in var.space:
                         init_bckgr_pic = f"maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
                         init_bckgr_pic += f"maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
@@ -1343,7 +1358,13 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                             f"maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
                         )
                         init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
-                        init_pert_pic += f"model.kinetic_ions.var.add_initial_condition(init)\n"
+                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                    if "3D" in var.space:
+                        init_bckgr_pic = f"maxwellian_1 = maxwellians.ColdPlasma(n=(1.0, None))\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.ColdPlasma(n=(0.1, None))\n"
+                        init_pert_pic += f"maxwellian_1pt = maxwellians.ColdPlasma(n=(1.0, perturbation))\n"
+                        init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
+                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     init_bckgr_pic += f"background = maxwellian_1 + maxwellian_2\n"
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
 
@@ -1368,7 +1389,6 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write("\n# import model, set verbosity\n")
         file.write(f"from {self.__module__} import {self.__class__.__name__}\n")
-        file.write("verbose = True\n")
 
         file.write("\n# environment options\n")
         file.write("env = EnvironmentOptions()\n")
@@ -1385,12 +1405,12 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("\n# fluid equilibrium (can be used as part of initial conditions)\n")
         file.write("equil = equils.HomogenSlab()\n")
 
-        if has_feec:
-            grid = "grid = grids.TensorProductGrid()\n"
-            derham = "derham_opts = DerhamOptions()\n"
-        else:
-            grid = "grid = None\n"
-            derham = "derham_opts = None\n"
+        # if has_feec:
+        grid = "grid = grids.TensorProductGrid()\n"
+        derham = "derham_opts = DerhamOptions()\n"
+        # else:
+        #     grid = "grid = None\n"
+        #     derham = "derham_opts = None\n"
 
         file.write("\n# grid\n")
         file.write(grid)
@@ -1427,6 +1447,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write('\nif __name__ == "__main__":\n')
         file.write("    # start run\n")
+        file.write("    verbose = True\n\n")
         file.write(
             "    main.run(model,\n\
              params_path=__file__,\n\
