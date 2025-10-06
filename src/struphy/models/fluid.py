@@ -2371,10 +2371,11 @@ class ViscousEulerSPH(StruphyModel):
         # prelim
         _p = params["kinetic"]["euler_fluid"]
         algo_eta = _p["options"]["PushEta"]["algo"]
-        kernel_type = _p["options"]["PushVinSPHpressure"]["kernel_type"]
+        kernel_type_1 = _p["options"]["PushVinSPHpressure"]["kernel_type"]
         algo_sph = _p["options"]["PushVinSPHpressure"]["algo"]
         gravity = _p["options"]["PushVinSPHpressure"]["gravity"]
         thermodynamics = _p["options"]["PushVinSPHpressure"]["thermodynamics"]
+        kernel_type_2 = _p["options"]["PushVinViscousPotential"]["kernel_type"]
         kernel_width = _p["options"]["PushVinViscousPotential"]["kernel_width"]
 
         # set keyword arguments for propagators
@@ -2384,14 +2385,14 @@ class ViscousEulerSPH(StruphyModel):
         }
 
         self._kwargs[propagators_markers.PushVinSPHpressure] = {
-            "kernel_type": kernel_type,
+            "kernel_type": kernel_type_1,
             "algo": algo_sph,
             "gravity": gravity,
             "thermodynamics": thermodynamics,
         }
 
         self._kwargs[propagators_markers.PushVinViscousPotential] = {
-            "kernel_type": kernel_type,
+            "kernel_type": kernel_type_2,
             "kernel_width": kernel_width,
             "algo": algo_sph,
         }
