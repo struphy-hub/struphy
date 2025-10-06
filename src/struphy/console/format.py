@@ -407,9 +407,12 @@ def parse_path(directory):
     python_files = []
     for root, _, files in os.walk(directory):
         for filename in files:
+            if re.search(r"__\w+__", root):
+                continue
             if filename.endswith(".py") and not re.search(r"__\w+__", filename):
                 file_path = os.path.join(root, filename)
                 python_files.append(file_path)
+    # exit()
     return python_files
 
 
