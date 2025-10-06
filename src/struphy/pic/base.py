@@ -1669,7 +1669,8 @@ class Particles(metaclass=ABCMeta):
         if self._initialized_sorting and sort:
             if self.mpi_rank == 0 and verbose:
                 print("Sorting the markers after initial draw")
-            self.mpi_sort_markers()
+            if self.mpi_comm is not None:
+                self.mpi_sort_markers()
             self.do_sort()
 
     @profile

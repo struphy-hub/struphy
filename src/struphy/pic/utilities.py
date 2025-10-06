@@ -259,9 +259,9 @@ class KernelDensityPlot:
 
     def __init__(
         self,
-        pts_e1: int = 11,
-        pts_e2: int = 11,
-        pts_e3: int = 11,
+        pts_e1: int = 16,
+        pts_e2: int = 16,
+        pts_e3: int = 1,
     ):
         e1 = np.linspace(0.0, 1.0, pts_e1)
         e2 = np.linspace(0.0, 1.0, pts_e2)
