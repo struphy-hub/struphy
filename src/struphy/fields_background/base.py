@@ -22,13 +22,20 @@ class FluidEquilibrium(metaclass=ABCMeta):
     """
 
     @property
-    def params(self):
-        """Parameters dictionary."""
+    def params(self) -> dict:
+        """Parameters passed to __init__() of the class in equils.py, as dictionary."""
+        if not hasattr(self, "_params"):
+            self._params = {}
         return self._params
 
-    def set_params(self, **params):
-        """Generates self.params dictionary from keyword arguments."""
-        self._params = params
+    @params.setter
+    def params(self, new):
+        assert isinstance(new, dict)
+        if "self" in new:
+            new.pop("self")
+        if "__class__" in new:
+            new.pop("__class__")
+        self._params = new
 
     @property
     def domain(self):
@@ -946,7 +953,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
             print(key, ": ", val)
 
         print("\nMapping parameters:")
-        for key, val in self.domain.params_map.items():
+        for key, val in self.domain.params.items():
             if key not in {"cx", "cy", "cz"}:
                 print(key, ": ", val)
 
@@ -1435,5 +1442,5 @@ class NumericalMHDequilibrium(LogicalMHDequilibrium):
         pass
 
     @property
-    def domain(self):
+    def domain(self) -> Domain:
         return self.numerical_domain
