@@ -10,6 +10,7 @@ from struphy.geometry import domains
 from struphy.geometry.base import Domain
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
+from struphy.propagators import ImplicitDiffusion
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import Poisson
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
