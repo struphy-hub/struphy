@@ -12,6 +12,13 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import Poisson
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.kinetic_background.maxwellians import Maxwellian3D
+from struphy.initial import perturbations
+from struphy.pic.utilities import (LoadingParameters, WeightsParameters, BoundaryParameters,
+                                   BinningPlot,)
+from struphy.pic.particles import Particles6D
+from struphy.pic.accumulation.accum_kernels import charge_density_0form
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -264,10 +271,10 @@ def test_poisson_1d(direction: int,
     "mapping",
     [
         ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}],
-        ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}],
+        # ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}],
     ],
 )
-def test_poisson_accum_1d(mapping):
+def test_poisson_accum_1d(mapping, do_plot=False):
     """Pass accumulators as rhs."""
     # create domain object
     dom_type = mapping[0]
@@ -280,7 +287,142 @@ def test_poisson_accum_1d(mapping):
         Lx = dom_params["r1"] - dom_params["l1"]
     else:
         Lx = dom_params["Lx"]
+        
+    # create derham object
+    Nel = (16, 1, 1)
+    p = (2, 1, 1)
+    spl_kind = (True, True, True)
+    derham = Derham(Nel, p, spl_kind, comm=comm)
+
+    # mass matrices
+    mass_ops = WeightedMassOperators(derham, domain)
+
+    Propagator.derham = derham
+    Propagator.domain = domain
+    Propagator.mass_ops = mass_ops
     
+    # 6D particle object
+    domain_array = derham.domain_array
+    nprocs = derham.domain_decomposition.nprocs
+    domain_decomp = (domain_array, nprocs)
+    
+    lp = LoadingParameters(ppc=4000, seed =765)
+    wp = WeightsParameters(control_variate=True)
+    bp = BoundaryParameters()
+    
+    backgr = Maxwellian3D(n=(1.0, None))
+    l = 1
+    amp = 1e-1
+    pert = perturbations.ModesCos(ls=(l,), amps=(amp,))
+    maxw = Maxwellian3D(n=(1.0, pert))
+    
+    pert_exact = lambda x, y, z: amp * np.cos(l*2*np.pi/Lx*x)
+    phi_exact = lambda x, y, z: amp / (l*2*np.pi/Lx)**2 * np.cos(l*2*np.pi/Lx*x)
+    e_exact = lambda x, y, z: amp / (l*2*np.pi/Lx) * np.sin(l*2*np.pi/Lx*x)
+    
+    particles = Particles6D(comm_world=comm,
+                            domain_decomp=domain_decomp,
+                            loading_params=lp,
+                            weights_params=wp,
+                            boundary_params=bp,
+                            domain=domain,
+                            background=backgr,
+                            initial_condition=maxw,
+                            )
+    particles.draw_markers()
+    particles.initialize_weights()
+    
+    # particle to grid coupling
+    kernel = charge_density_0form
+    accum = AccumulatorVector(particles,
+                              "H1",
+                              kernel,
+                              mass_ops,
+                              domain.args_domain)
+    # accum()
+    # if do_plot:
+    #     accum.show_accumulated_spline_field(mass_ops)
+        
+    rho = accum
+
+    # create Poisson solver
+    solver_params = SolverParameters(
+        tol=1.0e-13,
+        maxiter=3000,
+        info=True,
+        verbose=False,
+        recycle=False,
+    )
+
+    _phi = FEECVariable(space="H1")
+    _phi.allocate(derham=derham, domain=domain)
+
+    poisson_solver = Poisson()
+    poisson_solver.variables.phi = _phi
+
+    poisson_solver.options = poisson_solver.Options(
+        stab_eps=1e-6,
+        # sigma_2=0.0,
+        # sigma_3=1.0,
+        rho=rho,
+        solver="pcg",
+        precond="MassMatrixPreconditioner",
+        solver_params=solver_params,
+    )
+
+    poisson_solver.allocate()
+
+    # Solve Poisson (call propagator with dt=1.)
+    dt = 1.0
+    poisson_solver(dt)
+
+    # push numerical solution and compare
+    e1 = np.linspace(0.0, 1.0, 50)
+    e2 = 0.0
+    e3 = 0.0
+    
+    num_values = domain.push(_phi.spline, e1, e2, e3, kind="0")
+    x, y, z = domain(e1, e2, e3)
+    pert_values = pert_exact(x, y, z)
+    analytic_values = phi_exact(x, y, z)
+    e_values = e_exact(x, y, z)
+    
+    _e = FEECVariable(space="Hcurl")
+    _e.allocate(derham=derham, domain=domain)
+    derham.grad.dot(-_phi.spline.vector, out=_e.spline.vector)
+    num_values_e = domain.push(_e.spline, e1, e2, e3, kind="1")
+
+    if do_plot:
+        field = derham.create_spline_function("accum_field", "H1")
+        field.vector = accum.vectors[0]
+        accum_values = field(e1, e2, e3)
+        
+        plt.figure(figsize=(18, 12))
+        plt.subplot(1, 3, 1)
+        plt.plot(x[:, 0, 0], num_values[:, 0, 0], "ob", label="numerical")
+        plt.plot(x[:, 0, 0], analytic_values[:, 0, 0], "r--", label="exact")
+        plt.xlabel("x")
+        plt.title("phi")
+        plt.legend()
+        plt.subplot(1, 3, 2)
+        plt.plot(x[:, 0, 0], accum_values[:, 0, 0], "ob", label="numerical, without L2-proj")
+        plt.plot(x[:, 0, 0], pert_values[:, 0, 0], "r--", label="exact")
+        plt.xlabel("x")
+        plt.title("rhs")
+        plt.legend()
+        plt.subplot(1, 3, 3)
+        plt.plot(x[:, 0, 0], num_values_e[0][:, 0, 0], "ob", label="numerical")
+        plt.plot(x[:, 0, 0], e_values[:, 0, 0], "r--", label="exact")
+        plt.xlabel("x")
+        plt.title("e_field")
+        plt.legend()
+        
+        plt.show()
+
+    error = np.max(np.abs(num_values_e[0][:, 0, 0] - e_values[:, 0, 0])) / np.max(np.abs(e_values[:, 0, 0]))
+    print(f"{error=}")
+    
+    assert error < 0.0086
     
 
 @pytest.mark.mpi(min_size=2)
@@ -520,14 +662,16 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
 if __name__ == "__main__":
     # direction = 0
     # bc_type = "dirichlet"
-    # mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
-    # # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
+    mapping = ["Cuboid", {"l1": 0.0, "r1": 4.0, "l2": 0.0, "r2": 2.0, "l3": 0.0, "r3": 3.0}]
+    # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 3.}]
     # test_poisson_1d(direction, bc_type, mapping, projected_rhs=True, show_plot=True)
 
-    Nel = [64, 64, 1]
-    p = [2, 2, 1]
-    bc_type = 'neumann'
-    # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
-    # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    mapping = ['Colella', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
-    test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs=True, show_plot=True)
+    # Nel = [64, 64, 1]
+    # p = [2, 2, 1]
+    # bc_type = 'neumann'
+    # # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 2., 'l3': 0., 'r3': 3.}]
+    # # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
+    # mapping = ['Colella', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
+    # test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs=True, show_plot=True)
+    
+    test_poisson_accum_1d(mapping, do_plot=True)

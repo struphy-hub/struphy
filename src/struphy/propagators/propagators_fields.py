@@ -2735,13 +2735,10 @@ class ImplicitDiffusion(Propagator):
             elif isinstance(rho, FEECVariable):
                 assert rho.space == "H1"
                 rhs = rho
+            elif isinstance(rho, AccumulatorVector):
+                rhs = rho
             elif isinstance(rho, Callable):
                 rhs  = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
-            elif isinstance(rho, tuple):
-                assert len(rho) == 2
-                assert isinstance(rho[0], AccumulatorVector)
-                assert isinstance(rho[1], Particles)
-                rhs = rho
             else:
                 raise TypeError(f"{type(rho) = } is not accepted.")
                 
@@ -2852,9 +2849,9 @@ class ImplicitDiffusion(Propagator):
             elif isinstance(src, FEECVariable):
                 v = src.spline.vector
                 self._rhs2 += sig_3 * self.mass_ops.M0.dot(v, out=self._tmp_src)
-            elif isinstance(src, tuple):
-                src[0]()  # accumulate
-                self._rhs2 += sig_3 * src[0].vectors[0]
+            elif isinstance(src, AccumulatorVector):
+                src() # accumulate
+                self._rhs2 += sig_3 * src.vectors[0]
 
         rhs += self._rhs2
 
