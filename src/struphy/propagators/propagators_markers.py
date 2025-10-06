@@ -1627,7 +1627,7 @@ class PushVinViscousPotential(Propagator):
     @staticmethod
     def options(default=False):
         dct = {}
-        dct["kernel_type"] = list(Particles.ker_dct())
+        dct["kernel_type"] = [ker for ker in list(Particles.ker_dct()) if "3d" in ker]
         dct["kernel_width"] = None
         dct["algo"] = [
             "forward_euler",
@@ -1640,7 +1640,7 @@ class PushVinViscousPotential(Propagator):
         self,
         particles: ParticlesSPH,
         *,
-        kernel_type: str = "gaussian_2d",
+        kernel_type: str = "gaussian_3d",
         kernel_width: tuple = None,
         algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
     ):
