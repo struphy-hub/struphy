@@ -21,9 +21,8 @@ from struphy.pic.utilities import (
     LoadingParameters,
     WeightsParameters,
 )
-from struphy.propagators.propagators_fields import ImplicitDiffusion
 from struphy.propagators.base import Propagator
-from struphy.propagators.propagators_fields import Poisson
+from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

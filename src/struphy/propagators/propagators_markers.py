@@ -24,13 +24,13 @@ from struphy.io.setup import descend_options_dict
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 
 
 class PushEta(Propagator):
@@ -1470,6 +1470,7 @@ class PushDeterministicDiffusion(Propagator):
 
     * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
+
     class Variables:
         def __init__(self):
             self._var: PICVariable = None
@@ -1492,7 +1493,7 @@ class PushDeterministicDiffusion(Propagator):
         butcher: ButcherTableau = None
         bc_type: tuple = ("periodic", "periodic", "periodic")
         diff_coeff: float = 1.0
-        
+
         def __post_init__(self):
             # defaults
             if self.butcher is None:
@@ -1602,6 +1603,7 @@ class PushRandomDiffusion(Propagator):
 
     * ``forward_euler`` (1st order)
     """
+
     class Variables:
         def __init__(self):
             self._var: PICVariable = None
@@ -1624,7 +1626,7 @@ class PushRandomDiffusion(Propagator):
         butcher: ButcherTableau = None
         bc_type: tuple = ("periodic", "periodic", "periodic")
         diff_coeff: float = 1.0
-        
+
         def __post_init__(self):
             # defaults
             if self.butcher is None:

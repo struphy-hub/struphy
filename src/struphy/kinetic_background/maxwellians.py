@@ -669,9 +669,9 @@ class ColdPlasma(Maxwellian):
         self._maxw_params["vth1"] = (0.0, None)
         self._maxw_params["vth2"] = (0.0, None)
         self._maxw_params["vth3"] = (0.0, None)
-        
+
         self.check_maxw_params()
-        
+
         self._equil = equil
 
     @property

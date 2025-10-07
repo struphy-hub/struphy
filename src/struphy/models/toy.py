@@ -913,6 +913,7 @@ class DeterministicParticleDiffusion(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+
     ## species
 
     class Hydrogen(ParticleSpecies):
@@ -985,6 +986,7 @@ class RandomParticleDiffusion(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+
     ## species
 
     class Hydrogen(ParticleSpecies):
