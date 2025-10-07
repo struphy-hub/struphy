@@ -1,10 +1,14 @@
 import numpy as np
 from copy import deepcopy
 
+from psydac.linalg.solvers import inverse
+
+from struphy.feec import preconditioner
 from struphy.feec.mass import WeightedMassOperators
 from struphy.io.setup import setup_derham
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
+from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 
@@ -1285,11 +1289,6 @@ class QuasiNeutralAdiabatic(StruphyModel):
     def options(cls):
         dct = super().options()
         cls.add_option(
-            species=["em_fields"],
-            option=propagators_fields.ImplicitDiffusion,
-            dct=dct,
-        )
-        cls.add_option(
             species=["kinetic", "species1"],
             key="override_eq_params",
             option=[False, {"epsilon": -1.0, "alpha": 1.0}],
@@ -1351,11 +1350,122 @@ class QuasiNeutralAdiabatic(StruphyModel):
             "b2": self._b_background,
         }
 
+        # Initialize Propagators
         self.init_propagators()
+
+        # Scalars to be saved: Hamiltonian and two Casimirs
+        self.add_scalar(
+            "en_kin",
+            compute="from_particles",
+            species="species1",
+        )
+        self.add_scalar("en_pot")
+        self.add_scalar("en_tot", summands=["en_kin", "en_pot"])
+        self.add_scalar("Casimir_0")
+        self.add_scalar("Casimir_1")
 
     def initialize_from_params(self):
         # initialize fields and particles
         super().initialize_from_params()
 
+        _phi_mean = self._em_fields["phi_mean"]["obj"].space.zeros()
+        _lambd = self._em_fields["lambd"]["obj"].space.zeros()
+
+        _accum_charge = AccumulatorVector(
+            self.pointer["species1"],
+            "H1",
+            accum_kernels.charge_density_0form,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
+
+        # Preconiditoner for solver for M0
+        solver = propagators_coupling.QNAdiabatic.options(default=True)["solver"]
+        if solver["type"][1] == None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, solver["type"][1])
+            self._pc = pc_class(self.mass_ops.M0)
+
+        # Mass matrix solver for M0
+        _solver_M0 = inverse(
+            A=self.mass_ops.M0,
+            solver=solver["type"][0],
+            pc=self._pc,
+            tol=solver["tol"],
+            maxiter=solver["maxiter"],
+            verbose=solver["verbose"],
+        )
+
+        # Accumulate vector for computing lambda
+        _accum_vec_lambda = AccumulatorVector(
+            self.pointer["species1"],
+            "H1",
+            accum_kernels.qn_adiabatic_lambda,
+            self.mass_ops_3D_x,
+            self.domain.args_domain,
+        )
+        _accum_vec_lambda._derham = self.derham_3D_x
+
+        # compute new p coeffs
+        _accum_charge(3)
+        _solver_M0.dot(_accum_charge.vectors[0], out=_phi_mean)
+
+        # TODO: subtract N_vec ?
+
+        # copy new variables into self.feec_vars
+        _phi_mean.copy(out=self._em_fields["phi_mean"]["obj"]._vector)
+        self._em_fields["phi_mean"]["obj"]._vector.update_ghost_regions()
+
+        # Accumulate vector for computing lambda
+        _accum_vec_lambda(
+            self._b_background.blocks[0]._data,
+            self._b_background.blocks[1]._data,
+            self._b_background.blocks[2]._data,
+            self._em_fields["phi_mean"]["obj"]._vector._data
+        )
+
+        # Accumulate matrix A
+        _accum_mat = Accumulator(
+            self.pointer["species1"],
+            "H1",
+            accum_kernels.x_stiffness_mat_v0,
+            self.mass_ops_3D_x,
+            self.domain.args_domain,
+            add_vector=False,
+        )
+        _accum_mat._derham = self.derham_3D_x
+
+        # Invert accumulated matrix
+        _solver_accum = inverse(
+            _accum_mat.operators[0],
+            "pcg",
+            tol=1e-10,
+            maxiter=3000,
+        )
+        # Invert matrix to get lambda
+        _solver_accum.dot(_accum_vec_lambda.vectors[0], out=_lambd)
+
+        _lambd.copy(out=self._em_fields["lambd"]["obj"]._vector)
+        self._em_fields["lambd"]["obj"]._vector.update_ghost_regions()
+
     def update_scalar_quantities(self):
-        pass
+        # Kinetic energy
+        en_kin = 0.5 * np.dot(
+                self.pointer["species1"].markers_wo_holes[:, 3] ** 2
+                + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
+                + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
+                self.pointer["species1"].markers_wo_holes[:, 6],
+            )
+        self.update_scalar("en_kin", en_kin)
+
+        # Potential energy
+        en_pot = 0.5 * self.mass_ops.M0.dot_inner(
+            self.pointer["phi_mean"],
+            self.pointer["phi_mean"],
+        )
+        self.update_scalar("en_pot", en_pot)
+
+        # Total energy
+        self.update_scalar("en_tot")
+
