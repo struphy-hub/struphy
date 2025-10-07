@@ -803,16 +803,10 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
-        self.add_scalar("en_w")
-        self.add_scalar("en_tot")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
-
-        # temporaries
-        self._tmp = np.empty(1, dtype=float)
-        self.en_E = 0.0
+        self.add_scalar("en_w", compute="from_particles", species="species1")
+        
+        if not self._baseclass:
+            self.add_scalar("en_tot", summands=["en_E", "en_w"])
 
     def initialize_from_params(self):
         """Solve initial Poisson equation.
@@ -856,17 +850,17 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
     def update_scalar_quantities(self):
         # 0.5 * e^T * M_1 * e
-        self.en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
-        self.update_scalar("en_E", self.en_E)
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
+        self.update_scalar("en_E", en_E)
 
         # evaluate f0
         self._f0_values[self.pointer["species1"].valid_mks] = self._f0(*self.pointer["species1"].phasespace_coords.T)
 
         # alpha^2 * v_th^2 / (2*N) * sum_p s_0 * w_p^2 / f_{0,p}
-        self._tmp[0] = (
+        en_w = (
             self.alpha**2
             * self.vth**2
-            / (2 * self.pointer["species1"].Np)
+            / 2.0
             * np.dot(
                 self.pointer["species1"].weights ** 2,  # w_p^2
                 self.pointer["species1"].sampling_density
@@ -875,17 +869,11 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             )
         )
 
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._tmp,
-            op=self._mpi_sum,
-        )
-
-        self.update_scalar("en_w", self._tmp[0])
+        self.update_scalar("en_w", en_w)
 
         # en_tot = en_w + en_e
         if not self._baseclass:
-            self.update_scalar("en_tot", self._tmp[0] + self.en_E)
+            self.update_scalar("en_tot")
 
 
 class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
@@ -1021,7 +1009,9 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
         self.init_propagators()
 
         # magnetic energy
-        self.add_scalar("en_b")
+        self.add_scalar("en_B")
+
+        self.add_scalar("en_tot", summands=["en_E", "en_B", "en_w"])
 
     def initialize_from_params(self):
         super().initialize_from_params()
@@ -1031,7 +1021,9 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
         # 0.5 * b^T * M_2 * b
         en_B = 0.5 * self._mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
-        self.update_scalar("en_tot", self._tmp[0] + self.en_E + en_B)
+        self.update_scalar("en_B", en_B)
+
+        self.update_scalar("en_tot")
 
 
 class DeltaFVlasovAmpereOneSpecies(StruphyModel):
