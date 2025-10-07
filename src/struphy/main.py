@@ -332,16 +332,16 @@ def run(
                 print(message, end="\n")
                 print()
 
+        # update time and index (round time to 10 decimals for a clean time grid!)
+        time_state["value"][0] = round(time_state["value"][0] + dt, 10)
+        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units.t, 10)
+        time_state["index"][0] += 1
+
         # perform one time step dt
         t0 = time.time()
         with ProfileManager.profile_region("model.integrate"):
             model.integrate(dt, split_algo)
         t1 = time.time()
-
-        # update time and index (round time to 10 decimals for a clean time grid!)
-        time_state["value"][0] = round(time_state["value"][0] + dt, 10)
-        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units.t, 10)
-        time_state["index"][0] += 1
 
         run_time_now = (time.time() - start_simulation) / 60
 
@@ -858,8 +858,16 @@ def load_data(path: str) -> SimData:
                     # simdata.pic_species[spec][folder] = dict(sorted(tmp.items()))
                         
     print("\nThe following data has been loaded:")
-    print(f"{simdata.time_grid_size = }")
-    print(f"{simdata.spline_grid_resolution = }")
+    print(f"\ngrids:")
+    print(f"{simdata.t_grid.shape = }")
+    if simdata.grids_log is not None:
+        print(f"{simdata.grids_log[0].shape = }")
+        print(f"{simdata.grids_log[1].shape = }")
+        print(f"{simdata.grids_log[2].shape = }")
+    if simdata.grids_phy is not None:
+        print(f"{simdata.grids_phy[0].shape = }")
+        print(f"{simdata.grids_phy[1].shape = }")
+        print(f"{simdata.grids_phy[2].shape = }")
     print(f"\nsimdata.spline_values:")
     for k, v in simdata.spline_values.items():
         print(f"  {k}")
