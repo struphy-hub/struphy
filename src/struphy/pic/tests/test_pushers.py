@@ -1,5 +1,7 @@
 import pytest
+
 from struphy.utils.pyccel import Pyccelkernel
+
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])

@@ -50,8 +50,6 @@ def test_pproc_codes(model: str = None, group: str = None):
         list_models = list_toy
     else:
         raise ValueError(f"{group = } is not a valid group specification.")
-    
-    print(f"{list_models = }")
 
     if comm.Get_rank() == 0:
         if model is None:
