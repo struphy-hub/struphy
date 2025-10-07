@@ -985,65 +985,49 @@ class RandomParticleDiffusion(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    ## species
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    class Hydrogen(ParticleSpecies):
+        def __init__(self):
+            self.var = PICVariable(space="Particles3D")
+            self.init_variables()
 
-        dct["kinetic"]["species1"] = "Particles3D"
-        return dct
+    ## propagators
 
-    @staticmethod
-    def bulk_species():
-        return "species1"
+    class Propagators:
+        def __init__(self):
+            self.rand_diff = propagators_markers.PushRandomDiffusion()
 
-    @staticmethod
-    def velocity_scale():
+    ## abstract methods
+
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.hydrogen = self.Hydrogen()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.rand_diff.variables.var = self.hydrogen.var
+
+        # define scalars for update_scalar_quantities
+        # self.add_scalar("electric energy")
+        # self.add_scalar("magnetic energy")
+        # self.add_scalar("total energy")
+
+    @property
+    def bulk_species(self):
+        return self.hydrogen
+
+    @property
+    def velocity_scale(self):
         return None
 
-    @staticmethod
-    def propagators_dct():
-        return {propagators_markers.PushRandomDiffusion: ["species1"]}
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from mpi4py.MPI import IN_PLACE, SUM
-
-        # prelim
-        species1_params = self.kinetic["species1"]["params"]
-        algo = species1_params["options"]["PushRandomDiffusion"]["algo"]
-        diffusion_coefficient = species1_params["options"]["PushRandomDiffusion"]["diffusion_coefficient"]
-
-        # # project magnetic background
-        # self._b_eq = self.derham.P['2']([self.equil.b2_1,
-        #                                  self.equil.b2_2,
-        #                                  self.equil.b2_3])
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushRandomDiffusion] = {
-            "algo": algo,
-            "bc_type": species1_params["markers"]["bc"],
-            "diffusion_coefficient": diffusion_coefficient,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
-        self.add_scalar("en_f")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
-        self._tmp = np.empty(1, dtype=float)
+    def allocate_helpers(self):
+        pass
 
     def update_scalar_quantities(self):
         pass

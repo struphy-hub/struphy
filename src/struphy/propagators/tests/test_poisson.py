@@ -21,7 +21,7 @@ from struphy.pic.utilities import (
     LoadingParameters,
     WeightsParameters,
 )
-from struphy.propagators import ImplicitDiffusion
+from struphy.propagators.propagators_fields import ImplicitDiffusion
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import Poisson
 

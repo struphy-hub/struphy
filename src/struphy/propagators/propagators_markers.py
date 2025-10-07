@@ -1602,32 +1602,59 @@ class PushRandomDiffusion(Propagator):
 
     * ``forward_euler`` (1st order)
     """
+    class Variables:
+        def __init__(self):
+            self._var: PICVariable = None
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["algo"] = ["forward_euler"]
-        dct["diffusion_coefficient"] = 1.0
-        if default:
-            dct = descend_options_dict(dct, [])
-        return dct
+        @property
+        def var(self) -> PICVariable:
+            return self._var
 
-    def __init__(
-        self,
-        particles: Particles3D,
-        algo: str = options(default=True)["algo"],
-        bc_type: list = ["periodic", "periodic", "periodic"],
-        diffusion_coefficient: float = options()["diffusion_coefficient"],
-    ):
-        super().__init__(particles)
+        @var.setter
+        def var(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles3D"
+            self._var = new
 
-        self._bc_type = bc_type
-        self._diffusion = diffusion_coefficient
+    def __init__(self):
+        self.variables = self.Variables()
 
-        self._noise = array(self.particles[0].markers[:, :3])
+    @dataclass
+    class Options:
+        butcher: ButcherTableau = None
+        bc_type: tuple = ("periodic", "periodic", "periodic")
+        diff_coeff: float = 1.0
+        
+        def __post_init__(self):
+            # defaults
+            if self.butcher is None:
+                self.butcher = ButcherTableau()
 
-        # choose algorithm
-        self._butcher = ButcherTableau("forward_euler")
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._bc_type = self.options.bc_type
+        self._diffusion = self.options.diff_coeff
+
+        particles = self.variables.var.particles
+
+        self._noise = array(particles.markers[:, :3])
+
+        self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
         import numpy as np
 
@@ -1662,18 +1689,20 @@ class PushRandomDiffusion(Propagator):
         TODO
         """
 
+        particles = self.variables.var.particles
+
         self._noise[:] = random.multivariate_normal(
             self._mean,
             self._cov,
-            len(self.particles[0].markers),
+            len(particles.markers),
         )
 
         # push markers
         self._pusher(dt)
 
         # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if particles.control_variate:
+            particles.update_weights()
 
 
 class PushVinSPHpressure(Propagator):
