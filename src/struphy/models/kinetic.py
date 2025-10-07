@@ -1262,7 +1262,9 @@ class DeltaFVlasovAmpereOneSpecies(StruphyModel):
             species="species1",
             summands=summands,
         )
-        self.add_scalar("en_tot", summands=["en_E", "en_tot_p"])
+
+        if not self._baseclass:
+            self.add_scalar("en_tot", summands=["en_E", "en_tot_p"])
 
         # MPI operations needed for scalar variables
         self._mpi_sum = SUM
@@ -1544,7 +1546,9 @@ class DeltaFVlasovMaxwellOneSpecies(DeltaFVlasovAmpereOneSpecies):
         self.init_propagators()
 
         # magnetic energy
-        self.add_scalar("en_b")
+        self.add_scalar("en_B")
+
+        self.add_scalar("en_tot", summands=["en_E", "en_B", "en_tot_p"])
 
     def initialize_from_params(self):
         super().initialize_from_params()
@@ -1554,7 +1558,9 @@ class DeltaFVlasovMaxwellOneSpecies(DeltaFVlasovAmpereOneSpecies):
 
         # 0.5 * b^T * M_2 * b
         en_B = 0.5 * self._mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
-        self.update_scalar("en_tot", self._tmp[0] + self.en_E + en_B)
+        self.update_scalar("en_B", en_B)
+
+        self.update_scalar("en_tot")
 
 
 class DriftKineticElectrostaticAdiabatic(StruphyModel):
