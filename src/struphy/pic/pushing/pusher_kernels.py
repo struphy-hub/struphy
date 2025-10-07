@@ -561,7 +561,7 @@ def push_v_x_QN_adiabatic(
             lambd,
         )
 
-        markers[ip, 3] += dt * lambd_val / n_markers
+        markers[ip, 3] -= dt * lambd_val / n_markers
 
 
 def push_v_x_correc_QN_adiabatic(

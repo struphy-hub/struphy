@@ -480,7 +480,7 @@ class QNAdiabatic(Propagator):
 
     def __init__(
         self,
-        phi_fsa: StencilVector,
+        phi_mean: StencilVector,
         lambd: StencilVector,
         particles: Particles6D,
         *,
@@ -489,12 +489,16 @@ class QNAdiabatic(Propagator):
         b2: BlockVector,
         solver=options(default=True)["solver"],
     ):
-        super().__init__(phi_fsa, lambd, particles)
+        super().__init__(phi_mean, lambd, particles)
 
         # Store B-field
         self._b2 = b2
 
-        # buffer for lambd result
+        # Allocate e-field
+        self._e_field = self.derham.Vh["1"].zeros()
+
+        # buffer for phi_mean and lambd result
+        self._phi_mean = phi_mean.space.zeros()
         self._lambd = lambd.space.zeros()
         self._v_correction_vec = lambd.space.zeros()
 
@@ -512,15 +516,32 @@ class QNAdiabatic(Propagator):
         )
         self._accum_mat._derham = derham_3D_x
 
-        # Accumulate vector for v update
-        self._accum_vec = AccumulatorVector(
+        # Velocity push in x-direction for both substeps
+        args_kernel_v_push = (
+            derham_3D_x.args_derham,
+            self._lambd._data,
+        )
+        self._push_v_x = Pusher(
+            particles,
+            pusher_kernels.push_v_x_QN_adiabatic,
+            args_kernel_v_push,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
+        # =====
+        # Kinetic substep
+        # =====
+
+        # Accumulate vector for v update in kinetic substep
+        self._accum_vec_kin = AccumulatorVector(
             particles,
             "H1",
-            accum_kernels.qn_adiabatic_v_vec,
+            accum_kernels.qn_adiabatic_v_vec_kin,
             mass_ops_3D_x,
             self.domain.args_domain,
         )
-        self._accum_vec._derham = derham_3D_x
+        self._accum_vec_kin._derham = derham_3D_x
 
         # Accumulate vector for v correction
         self._accum_vec_correc = AccumulatorVector(
@@ -567,41 +588,85 @@ class QNAdiabatic(Propagator):
         )
 
         # Invert accumulated matrix
-        self._solver = inverse(
+        self._solver_accum = inverse(
             self._accum_mat.operators[0],
             "pcg",
             tol=1e-10,
             maxiter=3000,
         )
 
-        # Velocity push in x-direction
-        args_kernel_v_push = (
-            derham_3D_x.args_derham,
-            self._lambd._data,
-        )
-        self._push_v_x = Pusher(
-            particles,
-            pusher_kernels.push_v_x_QN_adiabatic,
-            args_kernel_v_push,
-            self.domain.args_domain,
-            alpha_in_kernel=1.0,
-        )
-
         # Correction push in x-direction
         args_kernel_v_correc = (
             derham_3D_x.args_derham,
-            self._lambd._data,
+            self._v_correction_vec._data,
         )
         self._push_v_x_correc = Pusher(
             particles,
-            pusher_kernels.push_v_x_QN_adiabatic,
+            pusher_kernels.push_v_x_correc_QN_adiabatic,
             args_kernel_v_correc,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
         )
 
+        # =====
+        # Potential substep
+        # =====
+
+        # Accumulate vector for v update in potential substep
+        self._accum_vec_pot = AccumulatorVector(
+            particles,
+            "H1",
+            accum_kernels.qn_adiabatic_v_vec_pot,
+            mass_ops_3D_x,
+            self.domain.args_domain,
+        )
+        self._accum_vec_pot._derham = derham_3D_x
+
+        # =====
+        # Update phi_mean = p_coeffs
+        # =====
+
+        self._accum_charge = AccumulatorVector(
+            particles,
+            "H1",
+            accum_kernels.charge_density_0form,
+            self.mass_ops,
+            self.domain.args_domain,
+        )
+
+        # Preconiditoner for solver for M0
+        if solver["type"][1] == None:
+            self._pc = None
+        else:
+            pc_class = getattr(preconditioner, solver["type"][1])
+            self._pc = pc_class(self.mass_ops.M0)
+
+        # Mass matrix solver for M0
+        self._solver_M0 = inverse(
+            A=self.mass_ops.M0,
+            solver=solver["type"][0],
+            pc=self._pc,
+            tol=solver["tol"],
+            maxiter=solver["maxiter"],
+            verbose=solver["verbose"],
+        )
+
+        # Accumulate vector for computing lambda
+        self._accum_vec_lambda = AccumulatorVector(
+            particles,
+            "H1",
+            accum_kernels.qn_adiabatic_lambda,
+            mass_ops_3D_x,
+            self.domain.args_domain,
+        )
+        self._accum_vec_lambda._derham = derham_3D_x
+
+
     def __call__(self, dt):
         self._call_kinetic_step(dt)
+        self._update_phi_mean()
+        self._call_potential_step(dt)
+        self._update_lambda()
     
     def _call_kinetic_step(self, dt):
         """ Do kinetic step"""
@@ -623,14 +688,14 @@ class QNAdiabatic(Propagator):
         self._accum_mat()
 
         # Accumulate vector for v update
-        self._accum_vec(
+        self._accum_vec_kin(
             self._b2.blocks[0]._data,
             self._b2.blocks[1]._data,
             self._b2.blocks[2]._data,
         )
 
-        # Invert matrix to get lambda
-        self._solver.dot(self._accum_vec.vectors[0], out=self._lambd)
+        # Invert matrix to get kinetic part of lambda
+        self._solver_accum.dot(self._accum_vec_kin.vectors[0], out=self._lambd)
 
         # Push v by a full step
         self._push_v_x(dt)
@@ -649,14 +714,59 @@ class QNAdiabatic(Propagator):
         self._accum_vec_correc(self._old_markers)
 
         # Invert A
-        self._solver.dot(self._accum_vec_correc.vectors[0], out=self._v_correction_vec)
+        self._solver_accum.dot(self._accum_vec_correc.vectors[0], out=self._v_correction_vec)
 
         # Do correction step
         self._push_v_x_correc(dt)
 
     def _call_potential_step(self, dt):
+        """ Do potential step"""
         # Accumulate A
         self._accum_mat()
+
+        # Accumulate vector
+        self._accum_vec_pot(
+            self.feec_vars[0]._data
+        )
+
+        # Invert matrix to get potential part of lambda
+        self._solver_accum.dot(self._accum_vec_pot.vectors[0], out=self._lambd)
+        self._lambd *= (-1.0)
+
+        # Push v
+        self._push_v_x(dt)
+
+        # compute e-field from phi_mean
+        self.derham.grad.dot(self.feec_vars[0], out=self._e_field)
+        self._e_field *= (-1.0)
+
+    def _update_phi_mean(self):
+        # compute new p coeffs
+        self._accum_charge(3)
+        self._solver_M0.dot(self._accum_charge.vectors[0], out=self._phi_mean)
+
+        # TODO: subtract N_vec ?
+
+        # copy new variables into self.feec_vars
+        self._phi_mean.copy(out=self.feec_vars[0])
+        self.feec_vars[0].update_ghost_regions()
+
+    def _update_lambda(self):
+        """ Update flux surface averaged electric field and lambda """
+
+        # Accumulate vector for computing lambda
+        self._accum_vec_lambda(
+            self._b2.blocks[0]._data,
+            self._b2.blocks[1]._data,
+            self._b2.blocks[2]._data,
+            self.feec_vars[0]._data
+        )
+
+        # Invert matrix to get lambda
+        self._solver_accum.dot(self._accum_vec_lambda.vectors[0], out=self._lambd)
+
+        self._lambd.copy(out=self.feec_vars[1])
+        self.feec_vars[1].update_ghost_regions()
 
 
 class PressureCoupling6D(Propagator):

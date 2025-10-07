@@ -1256,7 +1256,7 @@ class QuasiNeutralAdiabatic(StruphyModel):
     def species():
         dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
 
-        dct["em_fields"]["phi_fsa"] = "Hcurl"
+        dct["em_fields"]["phi_mean"] = "H1"
         dct["kinetic"]["species1"] = "Particles6D"
         return dct
 
@@ -1271,7 +1271,7 @@ class QuasiNeutralAdiabatic(StruphyModel):
     @staticmethod
     def propagators_dct():
         return {
-            propagators_coupling.QNAdiabatic: ["phi_fsa", "lambd", "species1"]
+            propagators_coupling.QNAdiabatic: ["phi_mean", "lambd", "species1"]
         }
 
     __em_fields__ = species()["em_fields"]
