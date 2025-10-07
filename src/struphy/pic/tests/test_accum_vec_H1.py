@@ -147,7 +147,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         domain.args_domain,
     )
 
-    acc(particles.vdim)
+    acc()
 
     # sum all MC integrals
     _sum_within_clone = np.empty(1, dtype=float)

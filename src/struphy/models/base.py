@@ -343,6 +343,8 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def scalar_quantities(self):
         """A dictionary of scalar quantities to be saved during the simulation."""
+        if not hasattr(self, "_scalar_quantities"):
+            self._scalar_quantities = {}
         return self._scalar_quantities
 
     @property
@@ -1350,7 +1352,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                         init_bckgr_pic += f"maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
                         init_pert_pic += f"maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
                         init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
-                        init_pert_pic += f"model.kinetic_ions.var.add_initial_condition(init)\n"
+                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     elif "5D" in var.space:
                         init_bckgr_pic = f"maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
                         init_bckgr_pic += f"maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
@@ -1358,7 +1360,13 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                             f"maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
                         )
                         init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
-                        init_pert_pic += f"model.kinetic_ions.var.add_initial_condition(init)\n"
+                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                    if "3D" in var.space:
+                        init_bckgr_pic = f"maxwellian_1 = maxwellians.ColdPlasma(n=(1.0, None))\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.ColdPlasma(n=(0.1, None))\n"
+                        init_pert_pic += f"maxwellian_1pt = maxwellians.ColdPlasma(n=(1.0, perturbation))\n"
+                        init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
+                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     init_bckgr_pic += f"background = maxwellian_1 + maxwellian_2\n"
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
 
@@ -1390,7 +1398,6 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write("\n# import model, set verbosity\n")
         file.write(f"from {self.__module__} import {self.__class__.__name__}\n")
-        file.write("verbose = True\n")
 
         file.write("\n# environment options\n")
         file.write("env = EnvironmentOptions()\n")
@@ -1449,6 +1456,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write('\nif __name__ == "__main__":\n')
         file.write("    # start run\n")
+        file.write("    verbose = True\n\n")
         file.write(
             "    main.run(model,\n\
              params_path=__file__,\n\

@@ -199,15 +199,14 @@ class VlasovAmpereOneSpecies(StruphyModel):
             self.domain.args_domain,
         )
 
-        charge_accum(particles.vdim)
-
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(self.mass_ops)
 
         alpha = self.kinetic_ions.equation_params.alpha
         epsilon = self.kinetic_ions.equation_params.epsilon
 
-        self.initial_poisson.options.rho = alpha**2 / epsilon * charge_accum.vectors[0]
+        self.initial_poisson.options.rho = charge_accum
+        self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
         self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field

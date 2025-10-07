@@ -804,64 +804,88 @@ class Poisson(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
 
-        dct["em_fields"]["phi"] = "H1"
-        dct["em_fields"]["source"] = "H1"
-        return dct
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.phi = FEECVariable(space="H1")
+            self.source = FEECVariable(space="H1")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
+    ## propagators
+
+    class Propagators:
+        def __init__(self):
+            self.source = propagators_fields.TimeDependentSource()
+            self.poisson = propagators_fields.Poisson()
+
+    ## abstract methods
+
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.source.variables.source = self.em_fields.source
+        self.propagators.poisson.variables.phi = self.em_fields.phi
+
+    @property
+    def bulk_species(self):
         return None
 
-    @staticmethod
-    def velocity_scale():
+    @property
+    def velocity_scale(self):
         return None
 
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_fields.TimeDependentSource: ["source"],
-            propagators_fields.ImplicitDiffusion: ["phi"],
-        }
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # extract necessary parameters
-        model_params = params["em_fields"]["options"]["ImplicitDiffusion"]["model"]
-        solver_params = params["em_fields"]["options"]["ImplicitDiffusion"]["solver"]
-        omega = params["em_fields"]["options"]["TimeDependentSource"]["omega"]
-        hfun = params["em_fields"]["options"]["TimeDependentSource"]["hfun"]
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.TimeDependentSource] = {
-            "omega": omega,
-            "hfun": hfun,
-        }
-
-        self._kwargs[propagators_fields.ImplicitDiffusion] = {
-            "sigma_1": model_params["sigma_1"],
-            "stab_mat": model_params["stab_mat"],
-            "diffusion_mat": model_params["diffusion_mat"],
-            "rho": self.pointer["source"],
-            "solver": solver_params,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
+    def allocate_helpers(self):
+        pass
 
     def update_scalar_quantities(self):
         pass
+
+    def allocate_propagators(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+
+        # initialize fields and particles
+        super().allocate_propagators()
+
+        # # use setter to assign source
+        # self.propagators.poisson.rho = self.mass_ops.M0.dot(self.em_fields.source.spline.vector)
+
+        # Solve with dt=1. and compute electric field
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nSolving initial Poisson problem...")
+
+        self.propagators.poisson(1.0)
+
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("Done.")
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "poisson.Options" in line:
+                    new_file += [
+                        "model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)\n"
+                    ]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
 
 class DeterministicParticleDiffusion(StruphyModel):
@@ -890,60 +914,49 @@ class DeterministicParticleDiffusion(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
 
-        dct["kinetic"]["species1"] = "Particles3D"
-        return dct
+    class Hydrogen(ParticleSpecies):
+        def __init__(self):
+            self.var = PICVariable(space="Particles3D")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "species1"
+    ## propagators
 
-    @staticmethod
-    def velocity_scale():
+    class Propagators:
+        def __init__(self):
+            self.det_diff = propagators_markers.PushDeterministicDiffusion()
+
+    ## abstract methods
+
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.hydrogen = self.Hydrogen()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.det_diff.variables.var = self.hydrogen.var
+
+        # define scalars for update_scalar_quantities
+        # self.add_scalar("electric energy")
+        # self.add_scalar("magnetic energy")
+        # self.add_scalar("total energy")
+
+    @property
+    def bulk_species(self):
+        return self.hydrogen
+
+    @property
+    def velocity_scale(self):
         return None
 
-    @staticmethod
-    def propagators_dct():
-        return {propagators_markers.PushDeterministicDiffusion: ["species1"]}
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # prelim
-        params = self.kinetic["species1"]["params"]
-        algo = params["options"]["PushDeterministicDiffusion"]["algo"]
-        diffusion_coefficient = params["options"]["PushDeterministicDiffusion"]["diffusion_coefficient"]
-
-        # # project magnetic background
-        # self._b_eq = self.derham.P['2']([self.equil.b2_1,
-        #                                  self.equil.b2_2,
-        #                                  self.equil.b2_3])
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushDeterministicDiffusion] = {
-            "algo": algo,
-            "bc_type": params["markers"]["bc"],
-            "diffusion_coefficient": diffusion_coefficient,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
-        self.add_scalar("en_f")
-
-        # MPI operations needed for scalar variables
-        self._tmp = np.empty(1, dtype=float)
+    def allocate_helpers(self):
+        pass
 
     def update_scalar_quantities(self):
         pass
@@ -974,60 +987,49 @@ class RandomParticleDiffusion(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
 
-        dct["kinetic"]["species1"] = "Particles3D"
-        return dct
+    class Hydrogen(ParticleSpecies):
+        def __init__(self):
+            self.var = PICVariable(space="Particles3D")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "species1"
+    ## propagators
 
-    @staticmethod
-    def velocity_scale():
+    class Propagators:
+        def __init__(self):
+            self.rand_diff = propagators_markers.PushRandomDiffusion()
+
+    ## abstract methods
+
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.hydrogen = self.Hydrogen()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.rand_diff.variables.var = self.hydrogen.var
+
+        # define scalars for update_scalar_quantities
+        # self.add_scalar("electric energy")
+        # self.add_scalar("magnetic energy")
+        # self.add_scalar("total energy")
+
+    @property
+    def bulk_species(self):
+        return self.hydrogen
+
+    @property
+    def velocity_scale(self):
         return None
 
-    @staticmethod
-    def propagators_dct():
-        return {propagators_markers.PushRandomDiffusion: ["species1"]}
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # prelim
-        species1_params = self.kinetic["species1"]["params"]
-        algo = species1_params["options"]["PushRandomDiffusion"]["algo"]
-        diffusion_coefficient = species1_params["options"]["PushRandomDiffusion"]["diffusion_coefficient"]
-
-        # # project magnetic background
-        # self._b_eq = self.derham.P['2']([self.equil.b2_1,
-        #                                  self.equil.b2_2,
-        #                                  self.equil.b2_3])
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushRandomDiffusion] = {
-            "algo": algo,
-            "bc_type": species1_params["markers"]["bc"],
-            "diffusion_coefficient": diffusion_coefficient,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
-        self.add_scalar("en_f")
-
-        # MPI operations needed for scalar variables
-        self._tmp = np.empty(1, dtype=float)
+    def allocate_helpers(self):
+        pass
 
     def update_scalar_quantities(self):
         pass
@@ -1167,115 +1169,75 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
 
-        dct["em_fields"]["potential"] = "L2"
-        dct["fluid"]["ions"] = {
-            "u": "Hdiv",
-        }
-        dct["fluid"]["electrons"] = {
-            "u": "Hdiv",
-        }
-        return dct
+    class EMfields(FieldSpecies):
+        def __init__(self):
+            self.phi = FEECVariable(space="L2")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "ions"
+    class Ions(FluidSpecies):
+        def __init__(self):
+            self.u = FEECVariable(space="Hdiv")
+            self.init_variables()
 
-    @staticmethod
-    def velocity_scale():
+    class Electrons(FluidSpecies):
+        def __init__(self):
+            self.u = FEECVariable(space="Hdiv")
+            self.init_variables()
+
+    ## propagators
+
+    class Propagators:
+        def __init__(self):
+            self.qn_full = propagators_fields.TwoFluidQuasiNeutralFull()
+
+    ## abstract methods
+
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.em_fields = self.EMfields()
+        self.ions = self.Ions()
+        self.electrons = self.Electrons()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.qn_full.variables.u = self.ions.u
+        self.propagators.qn_full.variables.ue = self.electrons.u
+        self.propagators.qn_full.variables.phi = self.em_fields.phi
+
+        # define scalars for update_scalar_quantities
+
+    @property
+    def bulk_species(self):
+        return self.ions
+
+    @property
+    def velocity_scale(self):
         return "thermal"
 
-    @staticmethod
-    def propagators_dct():
-        return {propagators_fields.TwoFluidQuasiNeutralFull: ["ions_u", "electrons_u", "potential"]}
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["fluid", "electrons"],
-            option=propagators_fields.TwoFluidQuasiNeutralFull,
-            dct=dct,
-        )
-        return dct
-
-    def __init__(self, params, comm, clone_config=None):
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # get species paramaters
-        electrons_params = params["fluid"]["electrons"]
-
-        # Get coupling strength
-        if electrons_params["options"]["TwoFluidQuasiNeutralFull"]["override_eq_params"]:
-            self._epsilon = electrons_params["options"]["TwoFluidQuasiNeutralFull"]["eps_norm"]
-            print(
-                f"\n!!! Override equation parameters: {self._epsilon = }.",
-            )
-        else:
-            self._epsilon = self.equation_params["electrons"]["epsilon"]
-
-        # extract necessary parameters
-        stokes_solver = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["solver"]
-        stokes_nu = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu"]
-        stokes_nu_e = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu_e"]
-        stokes_a = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["a"]
-        stokes_R0 = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["R0"]
-        stokes_B0 = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["B0"]
-        stokes_Bp = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["Bp"]
-        stokes_alpha = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["alpha"]
-        stokes_beta = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["beta"]
-        stokes_sigma = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["stab_sigma"]
-        stokes_variant = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["variant"]
-        stokes_method_to_solve = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["method_to_solve"]
-        stokes_preconditioner = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["preconditioner"]
-        stokes_spectralanalysis = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"][
-            "spectralanalysis"
-        ]
-        stokes_lifting = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["lifting"]
-        stokes_dimension = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
-        stokes_1D_dt = params["time"]["dt"]
-
-        # Check MPI size to ensure only one MPI process
-        if comm is not None and stokes_variant == "Uzawa":
-            if comm.Get_rank() == 0:
-                print(f"Error: TwoFluidQuasiNeutralToy only runs with one MPI process.")
-            return  # Early return to stop execution for multiple MPI processes
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.TwoFluidQuasiNeutralFull] = {
-            "solver": stokes_solver,
-            "nu": stokes_nu,
-            "nu_e": stokes_nu_e,
-            "eps_norm": self._epsilon,
-            "a": stokes_a,
-            "R0": stokes_R0,
-            "B0": stokes_B0,
-            "Bp": stokes_Bp,
-            "alpha": stokes_alpha,
-            "beta": stokes_beta,
-            "stab_sigma": stokes_sigma,
-            "variant": stokes_variant,
-            "method_to_solve": stokes_method_to_solve,
-            "preconditioner": stokes_preconditioner,
-            "spectralanalysis": stokes_spectralanalysis,
-            "dimension": stokes_dimension,
-            "D1_dt": stokes_1D_dt,
-            "lifting": stokes_lifting,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
+    def allocate_helpers(self):
+        pass
 
     def update_scalar_quantities(self):
         pass
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "BaseUnits()" in line:
+                    new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)

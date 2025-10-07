@@ -1,10 +1,9 @@
 "Only FEEC variables are updated."
 
 import copy
-from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Literal, get_args
+from typing import Callable, Literal, get_args
 
 import scipy as sc
 from line_profiler import profile
@@ -40,7 +39,15 @@ from struphy.feec.variational_utilities import (
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations
-from struphy.io.options import OptsGenSolver, OptsMassPrecond, OptsSymmSolver, OptsVecSpace, check_option
+from struphy.io.options import (
+    OptsDirectSolver,
+    OptsGenSolver,
+    OptsMassPrecond,
+    OptsSaddlePointSolver,
+    OptsSymmSolver,
+    OptsVecSpace,
+    check_option,
+)
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
@@ -2648,35 +2655,6 @@ class ImplicitDiffusion(Propagator):
     * :math:`\sigma_1=\sigma_2=0` and :math:`\sigma_3 = \Delta t`: **Poisson solver** with a given charge density :math:`\sum_i\rho_i`.
     * :math:`\sigma_2=0` and :math:`\sigma_1 = \sigma_3 = \Delta t` : Poisson with **adiabatic electrons**.
     * :math:`\sigma_1=\sigma_2=1` and :math:`\sigma_3 = 0`: **Implicit heat equation**.
-
-    Parameters
-    ----------
-    phi : StencilVector
-        FE coefficients of the solution as a discrete 0-form.
-
-    sigma_1, sigma_2, sigma_3 : float | int
-        Equation parameters.
-
-    divide_by_dt : bool
-        Whether to divide the sigmas by dt during __call__.
-
-    stab_mat : str
-        Name of the matrix :math:`M^0_{n_0}`.
-
-    diffusion_mat : str
-        Name of the matrix :math:`M^1_{D_0}`.
-
-    rho : StencilVector or tuple or list
-        (List of) right-hand side FE coefficients of a 0-form (optional, can be set with a setter later).
-        Can be either a) StencilVector or b) 2-tuple, or a list of those.
-        In case b) the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
-        and the second entry must be :class:`~struphy.pic.base.Particles`.
-
-    x0 : StencilVector
-        Initial guess for the iterative solver (optional, can be set with a setter later).
-
-    solver : dict
-        Parameters for the iterative solver (see ``__init__`` for details).
     """
 
     class Variables:
@@ -2708,7 +2686,8 @@ class ImplicitDiffusion(Propagator):
         divide_by_dt: bool = False
         stab_mat: OptsStabMat = "M0"
         diffusion_mat: OptsDiffusionMat = "M1"
-        rho: StencilVector | tuple | list | Callable = None
+        rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
+        rho_coeffs: float | list = None
         x0: StencilVector = None
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
@@ -2757,30 +2736,39 @@ class ImplicitDiffusion(Propagator):
         phi = self.variables.phi.spline.vector
 
         # collect rhs
-        rho = self.options.rho
-
-        if rho is None:
-            self._rho = [phi.space.zeros()]
-        else:
-            if isinstance(rho, list):
-                for r in rho:
-                    if isinstance(r, tuple):
-                        assert isinstance(r[0], AccumulatorVector)
-                        assert isinstance(r[1], Particles)
-                        # assert r.space_id == 'H1'
-                    else:
-                        assert r.space == phi.space
-            elif isinstance(rho, tuple):
-                assert isinstance(rho[0], AccumulatorVector)
-                assert isinstance(rho[1], Particles)
-                # assert rho[0].space_id == 'H1'
-                rho = [rho]
+        def verify_rhs(rho) -> StencilVector | FEECVariable | AccumulatorVector:
+            """Perform preliminary operations on rho to comute the rhs and return the result."""
+            if rho is None:
+                rhs = phi.space.zeros()
+            elif isinstance(rho, FEECVariable):
+                assert rho.space == "H1"
+                rhs = rho
+            elif isinstance(rho, AccumulatorVector):
+                rhs = rho
             elif isinstance(rho, Callable):
-                rho = [rho()]
+                rhs = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
             else:
-                assert rho.space == phi.space
-                rho = [rho]
-            self._rho = rho
+                raise TypeError(f"{type(rho) = } is not accepted.")
+
+            return rhs
+
+        rho = self.options.rho
+        if isinstance(rho, list):
+            self._sources = []
+            for r in rho:
+                self._sources += [verify_rhs(r)]
+        else:
+            self._sources = [verify_rhs(rho)]
+
+        # coeffs of rhs
+        if self.options.rho_coeffs is not None:
+            if isinstance(self.options.rho_coeffs, (list, tuple)):
+                self._coeffs = self.options.rho_coeffs
+            else:
+                self._coeffs = [self.options.rho_coeffs]
+            assert len(self._coeffs) == len(self._sources)
+        else:
+            self._coeffs = [1.0 for src in self.sources]
 
         # initial guess and solver params
         self._x0 = self.options.x0
@@ -2826,65 +2814,41 @@ class ImplicitDiffusion(Propagator):
         self._tmp = phi.space.zeros()
         self._rhs = phi.space.zeros()
         self._rhs2 = phi.space.zeros()
+        self._tmp_src = phi.space.zeros()
 
     @property
-    def rho(self):
+    def sources(self) -> list[StencilVector | FEECVariable | AccumulatorVector]:
         """
-        (List of) right-hand side FE coefficients of a 0-form.
-        The list entries can be either a) StencilVectors or b) 2-tuples;
-        in the latter case, the first tuple entry must be :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector`,
-        and the second entry must be :class:`~struphy.pic.base.Particles`.
+        Right-hand side of the equation (sources).
         """
-        return self._rho
+        return self._sources
 
-    @rho.setter
-    def rho(self, value):
-        """In-place setter for StencilVector/PolarVector.
-        If rho is a list, len(value) msut be len(rho) and value can contain None.
+    @property
+    def coeffs(self) -> list[float]:
         """
-        if isinstance(value, list):
-            assert len(value) == len(self.rho)
-            for i, (val, r) in enumerate(zip(value, self.rho)):
-                if val is None:
-                    continue
-                elif isinstance(val, tuple):
-                    assert isinstance(val[0], AccumulatorVector)
-                    assert isinstance(val[1], Particles)
-                    assert isinstance(r, tuple)
-                    self._rho[i] = val
-                else:
-                    assert val.space == r.space
-                    r[:] = val[:]
-        elif isinstance(ValueError, tuple):
-            assert isinstance(value[0], AccumulatorVector)
-            assert isinstance(value[1], Particles)
-            assert len(self.rho) == 1
-            # assert rho[0].space_id == 'H1'
-            self._rho[0] = value
-        else:
-            assert value.space == self.derham.Vh["0"]
-            assert len(self.rho) == 1
-            self._rho[0][:] = value[:]
+        Same length as self.sources. Coefficients multiplied with sources before solve (default is 1.0).
+        """
+        return self._coeffs
 
     @property
     def x0(self):
         """
         psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
         """
-        return self._x0
+        return self.options.x0
 
     @x0.setter
-    def x0(self, value):
+    def x0(self, value: StencilVector):
         """In-place setter for StencilVector/PolarVector. First guess of the iterative solver."""
         assert value.space == self.derham.Vh["0"]
         assert value.space.symbolic_space == "H1", (
             f"Right-hand side must be in H1, but is in {value.space.symbolic_space}."
         )
 
-        if self._x0 is None:
-            self._x0 = value
+        if self.options.x0 is None:
+            self.options.x0 = value
         else:
-            self._x0[:] = value[:]
+            self.options.x0[:] = value[:]
 
     @profile
     def __call__(self, dt):
@@ -2904,12 +2868,15 @@ class ImplicitDiffusion(Propagator):
         rhs *= sig_2
 
         self._rhs2 *= 0.0
-        for rho in self._rho:
-            if isinstance(rho, tuple):
-                rho[0]()  # accumulate
-                self._rhs2 += sig_3 * rho[0].vectors[0]
-            else:
-                self._rhs2 += sig_3 * rho
+        for src, coeff in zip(self.sources, self.coeffs):
+            if isinstance(src, StencilVector):
+                self._rhs2 += sig_3 * coeff * src
+            elif isinstance(src, FEECVariable):
+                v = src.spline.vector
+                self._rhs2 += sig_3 * coeff * self.mass_ops.M0.dot(v, out=self._tmp_src)
+            elif isinstance(src, AccumulatorVector):
+                src()  # accumulate
+                self._rhs2 += sig_3 * coeff * src.vectors[0]
 
         rhs += self._rhs2
 
@@ -2978,7 +2945,8 @@ class Poisson(ImplicitDiffusion):
         # propagator options
         stab_eps: float = 0.0
         stab_mat: OptsStabMat = "Id"
-        rho: StencilVector | tuple | list | Callable = None
+        rho: FEECVariable | Callable | tuple[AccumulatorVector, Particles] | list = None
+        rho_coeffs: float | list = None
         x0: StencilVector = None
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
@@ -7052,48 +7020,74 @@ class TimeDependentSource(Propagator):
     * :math:`h(\omega t) = \sin(\omega t)`
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["omega"] = 1.0
-        dct["hfun"] = ["cos", "sin"]
-        if default:
-            dct = descend_options_dict(dct, [])
-        return dct
+    class Variables:
+        def __init__(self):
+            self._source: FEECVariable = None
 
-    def __init__(
-        self,
-        c: StencilVector,
-        *,
-        omega: float = options()["omega"],
-        hfun: str = options(default=True)["hfun"],
-    ):
-        super().__init__(c)
+        @property
+        def source(self) -> FEECVariable:
+            return self._source
 
-        if hfun == "cos":
+        @source.setter
+        def source(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "H1"
+            self._source = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # specific literals
+        OptsTimeSource = Literal["cos", "sin"]
+        # propagator options
+        omega: float = 2.0 * np.pi
+        hfun: OptsTimeSource = "cos"
+
+        def __post_init__(self):
+            # checks
+            check_option(self.hfun, self.OptsTimeSource)
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        if self.options.hfun == "cos":
 
             def hfun(t):
-                return np.cos(omega * t)
-        elif hfun == "sin":
+                return np.cos(self.options.omega * t)
+        elif self.options.hfun == "sin":
 
             def hfun(t):
-                return np.sin(omega * t)
+                return np.sin(self.options.omega * t)
         else:
-            raise NotImplementedError(f"{hfun = } not implemented.")
+            raise NotImplementedError(f"{self.options.hfun = } not implemented.")
 
         self._hfun = hfun
+        self._c0 = self.variables.source.spline.vector.copy()
 
+    @profile
     def __call__(self, dt):
-        print(f"{self.time_state[0] = }")
-        if self.time_state[0] == 0.0:
-            self._c0 = self.feec_vars[0].copy()
-            print("Initial source coeffs set.")
-
         # new coeffs
         cn1 = self._c0 * self._hfun(self.time_state[0])
 
         # write new coeffs into self.feec_vars
-        max_dc = self.feec_vars_update(cn1)
+        # max_dc = self.feec_vars_update(cn1)
+        self.update_feec_variables(source=cn1)
 
 
 class AdiabaticPhi(Propagator):
@@ -7545,97 +7539,122 @@ class TwoFluidQuasiNeutralFull(Propagator):
     :ref:`time_discret`: fully implicit.
     """
 
+    class Variables:
+        def __init__(self):
+            self._u: FEECVariable = None
+            self._ue: FEECVariable = None
+            self._phi: FEECVariable = None
+
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
+
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hdiv"
+            self._u = new
+
+        @property
+        def ue(self) -> FEECVariable:
+            return self._ue
+
+        @ue.setter
+        def ue(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hdiv"
+            self._ue = new
+
+        @property
+        def phi(self) -> FEECVariable:
+            return self._phi
+
+        @phi.setter
+        def phi(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "L2"
+            self._phi = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # specific literals
+        OptsDimension = Literal["1D", "2D", "Restelli", "Tokamak"]
+        # propagator options
+        nu: float = 1.0
+        nu_e: float = 0.01
+        eps_norm: float = 1.0
+        solver: OptsGenSolver = "GMRES"
+        solver_params: SolverParameters = None
+        a: float = 1.0
+        R0: float = 1.0
+        B0: float = 10.0
+        Bp: float = 12.0
+        alpha: float = 0.1
+        beta: float = 1.0
+        stab_sigma: float = 1e-5
+        variant: OptsSaddlePointSolver = "Uzawa"
+        method_to_solve: OptsDirectSolver = "DirectNPInverse"
+        preconditioner: bool = False
+        spectralanalysis: bool = False
+        lifting: bool = False
+        dimension: OptsDimension = "2D"
+        D1_dt: float = 1e-3
+
+        def __post_init__(self):
+            # checks
+            check_option(self.solver, OptsGenSolver)
+            check_option(self.variant, OptsSaddlePointSolver)
+            check_option(self.method_to_solve, OptsDirectSolver)
+            check_option(self.dimension, self.OptsDimension)
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
     def allocate(self):
-        pass
-
-    def set_options(self, **kwargs):
-        pass
-
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("gmres", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        dct["nu"] = 1.0
-        dct["nu_e"] = 0.01
-        dct["override_eq_params"] = [False, {"epsilon": 1.0}]
-        dct["eps_norm"] = 1.0
-        dct["a"] = 1.0
-        dct["R0"] = 1.0
-        dct["B0"] = 10.0
-        dct["Bp"] = 12.5
-        dct["alpha"] = 0.1
-        dct["beta"] = 1.0
-        dct["stab_sigma"] = 0.00001
-        dct["variant"] = "GMRES"
-        dct["method_to_solve"] = "DirectNPInverse"
-        dct["preconditioner"] = False
-        dct["spectralanalysis"] = False
-        dct["lifting"] = False
-        dct["dimension"] = "2D"
-        dct["1D_dt"] = 0.001
-        if default:
-            dct = descend_options_dict(dct, [])
-
-        return dct
-
-    def __init__(
-        self,
-        u: BlockVector,
-        ue: BlockVector,
-        phi: BlockVector,
-        *,
-        nu: float = options(default=True)["nu"],
-        nu_e: float = options(default=True)["nu_e"],
-        eps_norm: float = options(default=True)["eps_norm"],
-        solver: dict = options(default=True)["solver"],
-        a: float = options(default=True)["a"],
-        R0: float = options(default=True)["R0"],
-        B0: float = options(default=True)["B0"],
-        Bp: float = options(default=True)["Bp"],
-        alpha: float = options(default=True)["alpha"],
-        beta: float = options(default=True)["beta"],
-        stab_sigma: float = options(default=True)["stab_sigma"],
-        variant: str = options(default=True)["variant"],
-        method_to_solve: str = options(default=True)["method_to_solve"],
-        preconditioner: bool = options(default=True)["preconditioner"],
-        spectralanalysis: bool = options(default=True)["spectralanalysis"],
-        lifting: bool = options(default=False)["lifting"],
-        dimension: str = options(default=True)["dimension"],
-        D1_dt: float = options(default=True)["1D_dt"],
-    ):
-        super().__init__(u, ue, phi)
-
-        self._info = solver["info"]
+        self._info = self.options.solver_params.info
         if self.derham.comm is not None:
             self._rank = self.derham.comm.Get_rank()
         else:
             self._rank = 0
 
-        self._nu = nu
-        self._nu_e = nu_e
-        self._eps_norm = eps_norm
-        self._a = a
-        self._R0 = R0
-        self._B0 = B0
-        self._Bp = Bp
-        self._alpha = alpha
-        self._beta = beta
-        self._stab_sigma = stab_sigma
-        self._variant = variant
-        self._method_to_solve = method_to_solve
-        self._preconditioner = preconditioner
-        self._dimension = dimension
-        self._spectralanalysis = spectralanalysis
-        self._lifting = lifting
+        self._nu = self.options.nu
+        self._nu_e = self.options.nu_e
+        self._eps_norm = self.options.eps_norm
+        self._a = self.options.a
+        self._R0 = self.options.R0
+        self._B0 = self.options.B0
+        self._Bp = self.options.Bp
+        self._alpha = self.options.alpha
+        self._beta = self.options.beta
+        self._stab_sigma = self.options.stab_sigma
+        self._variant = self.options.variant
+        self._method_to_solve = self.options.method_to_solve
+        self._preconditioner = self.options.preconditioner
+        self._dimension = self.options.dimension
+        self._spectralanalysis = self.options.spectralanalysis
+        self._lifting = self.options.lifting
+
+        solver_params = self.options.solver_params
 
         # Lifting for nontrivial boundary conditions
         # derham had boundary conditions in eta1 direction, the following is in space Hdiv_0
@@ -7651,13 +7670,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
             self._mass_opsv0 = WeightedMassOperators(
                 self.derhamv0,
                 self.domain,
-                verbose=solver["verbose"],
+                verbose=solver_params.verbose,
                 eq_mhd=self.mass_ops.weights["eq_mhd"],
             )
             self._basis_opsv0 = BasisProjectionOperators(
                 self.derhamv0,
                 self.domain,
-                verbose=solver["verbose"],
+                verbose=solver_params.verbose,
                 eq_mhd=self.basis_ops.weights["eq_mhd"],
             )
         else:
@@ -7686,7 +7705,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 dimension=self._dimension,
                 stab_sigma=self._stab_sigma,
                 eps=self._eps_norm,
-                dt=D1_dt,
+                dt=self.options.D1_dt,
             )
             _funy = getattr(callables, "ManufacturedSolutionForceterm")(
                 species="Ions",
@@ -7696,7 +7715,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 dimension=self._dimension,
                 stab_sigma=self._stab_sigma,
                 eps=self._eps_norm,
-                dt=D1_dt,
+                dt=self.options.D1_dt,
             )
             _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
                 species="Electrons",
@@ -7706,7 +7725,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 dimension=self._dimension,
                 stab_sigma=self._stab_sigma,
                 eps=self._eps_norm,
-                dt=D1_dt,
+                dt=self.options.D1_dt,
             )
             _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(
                 species="Electrons",
@@ -7716,7 +7735,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 dimension=self._dimension,
                 stab_sigma=self._stab_sigma,
                 eps=self._eps_norm,
-                dt=D1_dt,
+                dt=self.options.D1_dt,
             )
 
             # get callable(s) for specified init type
@@ -7725,16 +7744,16 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # pullback callable
             funx = TransformedPformComponent(
-                forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+                forceterm_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
             )
             funy = TransformedPformComponent(
-                forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+                forceterm_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
             )
             fun_electronsx = TransformedPformComponent(
-                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
             )
             fun_electronsy = TransformedPformComponent(
-                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
             )
             l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
             self._F1 = l2_proj([funx, funy, _forceterm_logical])
@@ -7769,22 +7788,22 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # pullback callable
             fun_pb_1 = TransformedPformComponent(
-                forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+                forceterm_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
             )
             fun_pb_2 = TransformedPformComponent(
-                forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+                forceterm_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
             )
             fun_pb_3 = TransformedPformComponent(
-                forceterm_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+                forceterm_class, given_in_basis="physical", out_form="2", comp=2, domain=self.domain
             )
             fun_electrons_pb_1 = TransformedPformComponent(
-                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
             )
             fun_electrons_pb_2 = TransformedPformComponent(
-                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
             )
             fun_electrons_pb_3 = TransformedPformComponent(
-                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=2, domain=self.domain
             )
             if self._lifting:
                 l2_proj = L2Projector(space_id="Hdiv", mass_ops=self._mass_opsv0)
@@ -7807,7 +7826,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 dimension=self._dimension,
                 stab_sigma=self._stab_sigma,
                 eps=self._eps_norm,
-                dt=D1_dt,
+                dt=self.options.D1_dt,
                 a=self._a,
                 Bp=self._Bp,
                 alpha=self._alpha,
@@ -7821,7 +7840,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 dimension=self._dimension,
                 stab_sigma=self._stab_sigma,
                 eps=self._eps_norm,
-                dt=D1_dt,
+                dt=self.options.D1_dt,
                 a=self._a,
                 Bp=self._Bp,
                 alpha=self._alpha,
@@ -7835,7 +7854,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 dimension=self._dimension,
                 stab_sigma=self._stab_sigma,
                 eps=self._eps_norm,
-                dt=D1_dt,
+                dt=self.options.D1_dt,
                 a=self._a,
                 Bp=self._Bp,
                 alpha=self._alpha,
@@ -7849,7 +7868,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 dimension=self._dimension,
                 stab_sigma=self._stab_sigma,
                 eps=self._eps_norm,
-                dt=D1_dt,
+                dt=self.options.D1_dt,
                 a=self._a,
                 Bp=self._Bp,
                 alpha=self._alpha,
@@ -7863,7 +7882,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 dimension=self._dimension,
                 stab_sigma=self._stab_sigma,
                 eps=self._eps_norm,
-                dt=D1_dt,
+                dt=self.options.D1_dt,
                 a=self._a,
                 Bp=self._Bp,
                 alpha=self._alpha,
@@ -7877,7 +7896,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 dimension=self._dimension,
                 stab_sigma=self._stab_sigma,
                 eps=self._eps_norm,
-                dt=D1_dt,
+                dt=self.options.D1_dt,
                 a=self._a,
                 Bp=self._Bp,
                 alpha=self._alpha,
@@ -7890,22 +7909,22 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # pullback callable
             fun_pb_1 = TransformedPformComponent(
-                forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+                forceterm_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
             )
             fun_pb_2 = TransformedPformComponent(
-                forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+                forceterm_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
             )
             fun_pb_3 = TransformedPformComponent(
-                forceterm_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+                forceterm_class, given_in_basis="physical", out_form="2", comp=2, domain=self.domain
             )
             fun_electrons_pb_1 = TransformedPformComponent(
-                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
             )
             fun_electrons_pb_2 = TransformedPformComponent(
-                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
             )
             fun_electrons_pb_3 = TransformedPformComponent(
-                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=2, domain=self.domain
             )
             if self._lifting:
                 l2_proj = L2Projector(space_id="Hdiv", mass_ops=self._mass_opsv0)
@@ -8186,10 +8205,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 A=_A,
                 B=_B,
                 F=_F,
-                solver_name=solver["type"][0],
-                tol=solver["tol"],
-                max_iter=solver["maxiter"],
-                verbose=solver["verbose"],
+                solver_name=self.options.solver,
+                tol=self.options.solver_params.tol,
+                max_iter=self.options.solver_params.maxiter,
+                verbose=self.options.solver_params.verbose,
                 pc=None,
             )
             # Allocate memory for call
@@ -8203,17 +8222,17 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 F=_Fnp,
                 method_to_solve=self._method_to_solve,
                 preconditioner=self._preconditioner,
-                spectralanalysis=spectralanalysis,
-                tol=solver["tol"],
-                max_iter=solver["maxiter"],
-                verbose=solver["verbose"],
+                spectralanalysis=self.options.spectralanalysis,
+                tol=self.options.solver_params.tol,
+                max_iter=self.options.solver_params.maxiter,
+                verbose=self.options.solver_params.verbose,
             )
 
     def __call__(self, dt):
         # current variables
-        unfeec = self.feec_vars[0]
-        uenfeec = self.feec_vars[1]
-        phinfeec = self.feec_vars[2]
+        unfeec = self.variables.u.spline.vector
+        uenfeec = self.variables.ue.spline.vector
+        phinfeec = self.variables.phi.spline.vector
 
         if self._variant == "GMRES":
             if self._lifting:
@@ -8330,7 +8349,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 uen = _sol1[1]
                 phin = _sol2
             # write new coeffs into self.feec_vars
-            max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
+            max_du, max_due, max_dphi = self.update_feec_variables(u=un, ue=uen, phi=phin)
 
         elif self._variant == "Uzawa":
             # Numpy
@@ -8429,7 +8448,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 print(f"TwoFluidQuasiNeutralFull is only running on one MPI.")
 
             # write new coeffs into self.feec_vars
-            max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
+            max_du, max_due, max_dphi = self.update_feec_variables(u=u_temp, ue=ue_temp, phi=phi_temp)
 
         if self._info and self._rank == 0:
             print("Status     for TwoFluidQuasiNeutralFull:", info["success"])

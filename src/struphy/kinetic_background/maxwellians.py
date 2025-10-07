@@ -655,20 +655,28 @@ class ColdPlasma(Maxwellian):
 
     def __init__(
         self,
-        maxw_params: dict = None,
-        pert_params: dict = None,
+        n: tuple[float | Callable, Perturbation] = (1.0, None),
+        u1: tuple[float | Callable, Perturbation] = (0.0, None),
+        u2: tuple[float | Callable, Perturbation] = (0.0, None),
+        u3: tuple[float | Callable, Perturbation] = (0.0, None),
         equil: FluidEquilibriumWithB = None,
     ):
-        super().__init__(
-            maxw_params=maxw_params,
-            pert_params=pert_params,
-            equil=equil,
-        )
+        self._maxw_params = {}
+        self._maxw_params["n"] = n
+        self._maxw_params["u1"] = u1
+        self._maxw_params["u2"] = u2
+        self._maxw_params["u3"] = u3
+        self._maxw_params["vth1"] = (0.0, None)
+        self._maxw_params["vth2"] = (0.0, None)
+        self._maxw_params["vth3"] = (0.0, None)
 
-        # make sure temperatures are zero
-        self._maxw_params["vth1"] = 0.0
-        self._maxw_params["vth2"] = 0.0
-        self._maxw_params["vth3"] = 0.0
+        self.check_maxw_params()
+
+        self._equil = equil
+
+    @property
+    def maxw_params(self):
+        return self._maxw_params
 
     @property
     def coords(self):
@@ -691,6 +699,10 @@ class ColdPlasma(Maxwellian):
         return False
 
     @property
+    def equil(self) -> FluidEquilibriumWithB:
+        """Fluid background with B-field."""
+        return self._equil
+
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """Jacobian determinant of the velocity coordinate transformation."""
         return 1.0
@@ -718,14 +730,3 @@ class ColdPlasma(Maxwellian):
 
     def __call__(self, eta1, eta2, eta3):
         return self.n(eta1, eta2, eta3)
-
-    @property
-    def add_perturbation(self) -> bool:
-        if not hasattr(self, "_add_perturbation"):
-            self._add_perturbation = True
-        return self._add_perturbation
-
-    @add_perturbation.setter
-    def add_perturbation(self, new):
-        assert isinstance(new, bool)
-        self._add_perturbation = new

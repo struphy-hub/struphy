@@ -650,8 +650,8 @@ class Particles3D(Particles):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"ColdPlasma": {}}
+    def default_background(cls):
+        return maxwellians.ColdPlasma()
 
     def __init__(
         self,
@@ -659,8 +659,10 @@ class Particles3D(Particles):
     ):
         kwargs["type"] = "full_f"
 
-        if "bckgr_params" not in kwargs:
-            kwargs["bckgr_params"] = self.default_bckgr_params()
+        if "background" not in kwargs:
+            kwargs["background"] = self.default_background()
+        elif kwargs["background"] is None:
+            kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)

@@ -25,8 +25,10 @@ GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "
 
 # solvers
 OptsSymmSolver = Literal["pcg", "cg"]
-OptsGenSolver = Literal["pbicgstab", "bicgstab"]
+OptsGenSolver = Literal["pbicgstab", "bicgstab", "GMRES"]
 OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
+OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]
+OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
 
 # markers
 OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]

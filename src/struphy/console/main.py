@@ -953,7 +953,7 @@ def add_parser_test(subparsers, list_models):
             "--mpi",
             type=int,
             metavar="N",
-            help="set number of MPI processes used in tests (default=1))",
+            help="set number of MPI processes used in tests (default=2))",
             default=1,
         )
 

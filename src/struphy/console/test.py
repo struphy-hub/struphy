@@ -4,7 +4,7 @@ from struphy.utils.utils import subp_run
 def struphy_test(
     group: str,
     *,
-    mpi: int = 2,
+    mpi: int = 1,
     with_desc: bool = False,
     vrbose: bool = False,
     show_plots: bool = False,
