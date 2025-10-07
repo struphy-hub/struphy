@@ -18,6 +18,7 @@ toy_models = [
     "Vlasov",
     "GuidingCenter",
     "PressureLessSPH",
+    "DeterministicParticleDiffusion",
 ]
 # for name, obj in inspect.getmembers(toy):
 #     if inspect.isclass(obj) and "models.toy" in obj.__module__:
