@@ -292,12 +292,9 @@ def cc_lin_mhd_5d_D(
     "tmp_m",
     "tmp_v",
     "b",
-    "beq",
     "bfull_star",
     "b_prod",
     "b_prod_neg",
-    "beq_prod",
-    "beq_prod_neg",
     "norm_b1",
     "curl_norm_b",
 )
@@ -319,9 +316,6 @@ def cc_lin_mhd_5d_curlb(
     b1: "float[:,:,:]",
     b2: "float[:,:,:]",
     b3: "float[:,:,:]",
-    beq1: "float[:,:,:]",
-    beq2: "float[:,:,:]",
-    beq3: "float[:,:,:]",
     norm_b11: "float[:,:,:]",
     norm_b12: "float[:,:,:]",
     norm_b13: "float[:,:,:]",
@@ -348,10 +342,7 @@ def cc_lin_mhd_5d_curlb(
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
-    beq = empty(3, dtype=float)
     bfull_star = empty(3, dtype=float)
-    beq_prod = zeros((3, 3), dtype=float)
-    beq_prod_neg = zeros((3, 3), dtype=float)
     b_prod = zeros((3, 3), dtype=float)
     b_prod_neg = zeros((3, 3), dtype=float)
     norm_b1 = empty(3, dtype=float)
@@ -401,9 +392,6 @@ def cc_lin_mhd_5d_curlb(
         # b; 2form
         eval_2form_spline_mpi(span1, span2, span3, args_derham, b1, b2, b3, b)
 
-        # beq; 2form
-        eval_2form_spline_mpi(span1, span2, span3, args_derham, beq1, beq2, beq3, beq)
-
         # norm_b1; 1form
         eval_1form_spline_mpi(span1, span2, span3, args_derham, norm_b11, norm_b12, norm_b13, norm_b1)
 
@@ -411,7 +399,7 @@ def cc_lin_mhd_5d_curlb(
         eval_2form_spline_mpi(span1, span2, span3, args_derham, curl_norm_b1, curl_norm_b2, curl_norm_b3, curl_norm_b)
 
         # b_star; 2form
-        bfull_star[:] = (beq + curl_norm_b * v * epsilon)
+        bfull_star[:] = (b + curl_norm_b * v * epsilon)
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, bfull_star)
@@ -429,25 +417,8 @@ def cc_lin_mhd_5d_curlb(
 
         b_prod_neg[:] = -1.0 * b_prod
 
-        beq_prod[0, 1] = -beq[2]
-        beq_prod[0, 2] = +beq[1]
-        beq_prod[1, 0] = +beq[2]
-        beq_prod[1, 2] = -beq[0]
-        beq_prod[2, 0] = -beq[1]
-        beq_prod[2, 1] = +beq[0]
-
-        beq_prod_neg[:] = -1.0 * beq_prod
-
         if basis_u == 0:
-            # beq contribution
-            linalg_kernels.matrix_matrix(beq_prod, tmp, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, beq_prod_neg, tmp_m)
-            linalg_kernels.matrix_vector(beq_prod, curl_norm_b, tmp_v)
 
-            filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 * ep_scale
-            filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para * ep_scale
-
-            # b contribution
             linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
@@ -483,21 +454,12 @@ def cc_lin_mhd_5d_curlb(
 
         elif basis_u == 2:
 
-            # beq contribution
-            linalg_kernels.matrix_matrix(beq_prod, tmp, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, beq_prod_neg, tmp_m)
-            linalg_kernels.matrix_vector(beq_prod, curl_norm_b, tmp_v)
-
-            filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * ep_scale
-            filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para / det_df * ep_scale
-
-            # b contribution
             linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
 
-            filling_m[:, :] += weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * ep_scale
-            filling_v[:] += weight * tmp_v * v**2 / abs_b_star_para / det_df * ep_scale
+            filling_m[:, :] = weight * tmp_m * v**2 / abs_b_star_para**2 / det_df**2 * ep_scale
+            filling_v[:] = weight * tmp_v * v**2 / abs_b_star_para / det_df * ep_scale
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.m_v_fill_v2_symm(
