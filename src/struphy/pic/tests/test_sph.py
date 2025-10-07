@@ -845,6 +845,136 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
 
     if not tesselation:
         assert np.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
+        
+    
+@pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
+@pytest.mark.parametrize("kernel", ["trigonometric_1d", "gaussian_1d", "linear_1d"])
+@pytest.mark.parametrize("derivative", [0, 1])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("eval_pts", [11, 16])
+@pytest.mark.parametrize("tesselation", [False, True])
+def test_sph_velocity_evaluation_1d(
+    boxes_per_dim,
+    kernel,
+    derivative,
+    bc_x,
+    eval_pts,
+    tesselation,
+    show_plot=False,
+):
+    """
+    Test SPH reconstruction of the velocity field in 1D.
+    """
+
+    comm = MPI.COMM_WORLD
+
+    # DOMAIN object
+    dom_type = "Cuboid"
+    dom_params = {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    # Loading parameters
+    if tesselation:
+        ppb = 100
+        loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
+    else:
+        ppb = 1000 
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
+
+    # Background: step function in velocity_y
+    background = ConstantVelocity(
+        ux=1.0,
+        uy=0.0,
+        uz=0.0,
+        n=1.5,
+        density_profile="constant",
+        velocity_profile="step_function_velocity_y",
+    )
+    background.domain = domain
+
+    # Boundary parameters
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+
+    # Particles setup
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=1.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+    )
+
+    eta1 = np.linspace(0, 1.0, eval_pts)
+    eta2 = np.array([0.0])
+    eta3 = np.array([0.0])
+    ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+    particles.draw_markers(sort=False, verbose=False)
+    particles.mpi_sort_markers()
+    particles.initialize_weights()
+
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+
+    # --- Evaluate SPH velocity field ---
+    
+    velocity_eval = particles.eval_velocity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=derivative,
+    )
+
+    # vel_eval is expected to be a tuple (ux, uy, uz)
+    ux_eval, uy_eval, uz_eval = vel_eval
+
+    # --- Exact velocity field ---
+    ux_exact, uy_exact, uz_exact = background.u_xyz(ee1, ee2, ee3)
+
+    # --- MPI reduction ---
+    all_ux = np.zeros_like(ux_eval)
+    all_uy = np.zeros_like(uy_eval)
+    all_uz = np.zeros_like(uz_eval)
+    comm.Allreduce(ux_eval, all_ux, op=MPI.SUM)
+    comm.Allreduce(uy_eval, all_uy, op=MPI.SUM)
+    comm.Allreduce(uz_eval, all_uz, op=MPI.SUM)
+
+    # --- Compute relative errors ---
+    err_ux = np.max(np.abs(all_ux - ux_exact)) / max(np.max(np.abs(ux_exact)), 1e-12)
+    err_uy = np.max(np.abs(all_uy - uy_exact)) / max(np.max(np.abs(uy_exact)), 1e-12)
+    err_uz = np.max(np.abs(all_uz - uz_exact)) / max(np.max(np.abs(uz_exact)), 1e-12)
+
+    if comm.Get_rank() == 0:
+        print(f"\n{boxes_per_dim = }")
+        print(f"{kernel = }, {derivative = }")
+        print(f"{bc_x = }, {eval_pts = }, {tesselation = }")
+        print(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}, uz={err_uz:.3e}")
+
+        if show_plot:
+            plt.figure(figsize=(12, 6))
+            plt.plot(ee1.squeeze(), ux_exact.squeeze(), label="exact ux")
+            plt.plot(ee1.squeeze(), all_ux.squeeze(), "--.", label="SPH ux")
+            plt.xlabel("e1")
+            plt.ylabel("Velocity (ux)")
+            plt.legend()
+            plt.grid(True)
+            plt.show()
+
+    # --- Assertions ---
+    if tesselation:
+        assert err_ux < 0.01
+    else:
+        assert err_ux < 0.05
+
 
 
 if __name__ == "__main__":
