@@ -46,7 +46,6 @@ from struphy.propagators.propagators_markers import (
     PushVinSPHpressure,
     PushVinViscousPotential,
     PushVxB,
-    StepStaticEfield,
 )
 
 __all__ = [
@@ -89,7 +88,6 @@ __all__ = [
     "PushEtaPC",
     "PushGuidingCenterBxEstar",
     "PushGuidingCenterParallel",
-    "StepStaticEfield",
     "PushDeterministicDiffusion",
     "PushRandomDiffusion",
     "PushVinSPHpressure",
