@@ -3748,7 +3748,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
         
         first_free_idx = self.args_markers.first_free_idx
         comps = np.array((0, 1, 2))
-        eval_kernels_gc.sph_mean_velocity_coeffs(alpha = 0.0, 
+        eval_kernels_gc.sph_mean_velocity_coeffs(alpha = np.array((0.0, 0.0, 0.0)), 
                                                  column_nr= first_free_idx,
                                                  comps=comps,
                                                  args_markers=self.args_markers,
@@ -3756,10 +3756,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
                                                  boxes= self.sorting_boxes.boxes,
                                                  neighbours = self.sorting_boxes.neighbours, 
                                                  holes= self.holes, 
-                                                 periodic1 = self.boundary_params.bc_sph[0],
-                                                 periodic2 = self.boundary_params.bc_sph[1],
-                                                 periodic1 = self.boundary_params.bc_sph[2], 
-                                                 kernel_type= kernel_type, 
+                                                 periodic1 = self.boundary_params.bc_sph[0] == "periodic",
+                                                 periodic2 = self.boundary_params.bc_sph[1] == "periodic",
+                                                 periodic3 = self.boundary_params.bc_sph[2] == "periodic", 
+                                                 kernel_type= self.ker_dct()[kernel_type], 
                                                  h1 = h1, 
                                                  h2= h2, 
                                                  h3= h3, 
