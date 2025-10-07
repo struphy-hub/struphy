@@ -205,8 +205,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
             self.domain.args_domain,
         )
 
-        charge_accum(particles.vdim)
-
         # another sanity check: compute FE coeffs of density
         # charge_accum.show_accumulated_spline_field(self.mass_ops)
 

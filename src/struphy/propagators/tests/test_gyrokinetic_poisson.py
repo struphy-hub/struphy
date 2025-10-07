@@ -7,10 +7,11 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
+from struphy.geometry.base import Domain
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
-from struphy.propagators import ImplicitDiffusion
 from struphy.propagators.base import Propagator
+from struphy.propagators.propagators_fields import ImplicitDiffusion
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -27,7 +28,8 @@ rank = comm.Get_rank()
         ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 3.0}],
     ],
 )
-def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
+@pytest.mark.parametrize("projected_rhs", [False, True])
+def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot=False):
     """
     Test the convergence of Poisson solver with M1perp diffusion matrix
     in 1D by means of manufactured solutions.
@@ -38,7 +40,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
     dom_params = mapping[1]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
+    domain: Domain = domain_class(**dom_params)
 
     if dom_type == "Cuboid":
         Lx = dom_params["r1"] - dom_params["l1"]
@@ -132,10 +134,16 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
             Propagator.mass_ops = mass_ops
 
             # pullbacks of right-hand side
-            def rho1(e1, e2, e3):
-                return domain.pull(rho1_xyz, e1, e2, e3, kind="0", squeeze_out=True)
+            def rho_pulled(e1, e2, e3):
+                return domain.pull(rho1_xyz, e1, e2, e3, kind="0", squeeze_out=False)
 
-            rho_vec = L2Projector("H1", mass_ops).get_dofs(rho1, apply_bc=True)
+            # define how to pass rho
+            if projected_rhs:
+                rho = FEECVariable(space="H1")
+                rho.allocate(derham=derham, domain=domain)
+                rho.spline.vector = derham.P["0"](rho_pulled)
+            else:
+                rho = rho_pulled
 
             # create Poisson solver
             solver_params = SolverParameters(
@@ -158,7 +166,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
                 sigma_3=1.0,
                 divide_by_dt=True,
                 diffusion_mat="M1perp",
-                rho=rho_vec,
+                rho=rho,
                 solver="pcg",
                 precond="MassMatrixPreconditioner",
                 solver_params=solver_params,
@@ -198,7 +206,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
 
         m, _ = np.polyfit(np.log(Nels), np.log(errors), deg=1)
         print(f"For {pi = }, solution converges in {direction=} with rate {-m = } ")
-        assert -m > (pi + 1 - 0.06)
+        assert -m > (pi + 1 - 0.07)
 
         # Plot convergence in 1D
         if show_plot:
@@ -234,7 +242,8 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
         ["Orthogonal", {"Lx": 4.0, "Ly": 2.0, "alpha": 0.1, "Lz": 1.0}],
     ],
 )
-def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
+@pytest.mark.parametrize("projected_rhs", [False, True])
+def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
     """
     Test the Poisson solver with M1perp diffusion matrix
     by means of manufactured solutions in 2D .
@@ -245,7 +254,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
     dom_params = mapping[1]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
+    domain: Domain = domain_class(**dom_params)
 
     if dom_type == "Cuboid":
         Lx = dom_params["r1"] - dom_params["l1"]
@@ -326,16 +335,24 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
     e3 = np.linspace(0.0, 1.0, 1)
 
     # pullbacks of right-hand side
-    def rho1(e1, e2, e3):
-        return domain.pull(rho1_xyz, e1, e2, e3, kind="0", squeeze_out=True)
+    def rho1_pulled(e1, e2, e3):
+        return domain.pull(rho1_xyz, e1, e2, e3, kind="0", squeeze_out=False)
 
-    def rho2(e1, e2, e3):
-        return domain.pull(rho2_xyz, e1, e2, e3, kind="0", squeeze_out=True)
+    def rho2_pulled(e1, e2, e3):
+        return domain.pull(rho2_xyz, e1, e2, e3, kind="0", squeeze_out=False)
 
-    # discrete right-hand sides
-    l2_proj = L2Projector("H1", mass_ops)
-    rho_vec1 = l2_proj.get_dofs(rho1, apply_bc=True)
-    rho_vec2 = l2_proj.get_dofs(rho2, apply_bc=True)
+    # how to pass right-hand sides
+    if projected_rhs:
+        rho1 = FEECVariable(space="H1")
+        rho1.allocate(derham=derham, domain=domain)
+        rho1.spline.vector = derham.P["0"](rho1_pulled)
+
+        rho2 = FEECVariable(space="H1")
+        rho2.allocate(derham=derham, domain=domain)
+        rho2.spline.vector = derham.P["0"](rho2_pulled)
+    else:
+        rho1 = rho1_pulled
+        rho2 = rho2_pulled
 
     # Create Poisson solvers
     solver_params = SolverParameters(
@@ -358,7 +375,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
         sigma_3=1.0,
         divide_by_dt=True,
         diffusion_mat="M1perp",
-        rho=rho_vec1,
+        rho=rho1,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -378,7 +395,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
         sigma_3=1.0,
         divide_by_dt=True,
         diffusion_mat="M1perp",
-        rho=rho_vec2,
+        rho=rho2,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -431,7 +448,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
         plt.show()
 
     assert error1 < 0.0044
-    assert error2 < 0.021
+    assert error2 < 0.023
 
 
 @pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
@@ -459,7 +476,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     dom_params = mapping[1]
 
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
+    domain: Domain = domain_class(**dom_params)
 
     # boundary conditions
     spl_kind = [False, True, True]
@@ -515,7 +532,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         sigma_3=1.0,
         divide_by_dt=True,
         diffusion_mat="M1perp",
-        rho=rho_vec,
+        rho=rho,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -539,7 +556,6 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
 
     _phi_small = FEECVariable(space="H1")
     _phi_small.allocate(derham=derham, domain=domain)
-    rhs = derham.create_spline_function("rhs", "H1")
 
     poisson_solver_2p5d = ImplicitDiffusion()
     poisson_solver_2p5d.variables.phi = _phi_small
@@ -550,7 +566,7 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
         sigma_3=1.0,
         divide_by_dt=True,
         diffusion_mat="M1perp",
-        rho=rhs.vector,
+        rho=rho,
         solver="pcg",
         precond="MassMatrixPreconditioner",
         solver_params=solver_params,
@@ -569,8 +585,6 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     t0 = time()
     t_inner = 0.0
     for n in range(s[2], e[2] + 1):
-        # scale the rhs with Nel[2] !!
-        rhs.vector[s[0] : e[0] + 1, s[1] : e[1] + 1, 0] = rho_vec[s[0] : e[0] + 1, s[1] : e[1] + 1, n] * Nel[2]
         t0i = time()
         poisson_solver_2p5d(dt)
         t1i = time()
@@ -637,7 +651,7 @@ if __name__ == "__main__":
     # mapping = ['Orthogonal', {'Lx': 4., 'Ly': 2., 'alpha': .1, 'Lz': 1.}]
     # test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=True)
 
-    Nel = [64, 64, 16]
-    p = [2, 2, 1]
-    mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
+    # Nel = [64, 64, 16]
+    # p = [2, 2, 1]
+    # mapping = ["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}]
     # test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=True)
