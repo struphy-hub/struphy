@@ -88,6 +88,7 @@ def x_stiffness_mat_v0(
     """
     left = zeros(args_derham.pn[0], dtype=float)
     right = zeros(args_derham.pn[0], dtype=float)
+    der = zeros(args_derham.pn[0] + 1, dtype=float)
 
     markers = args_markers.markers
     Np = args_markers.Np
@@ -114,9 +115,10 @@ def x_stiffness_mat_v0(
             int(span1),
             left,
             right,
-            args_derham.bn1,
+            der,
         )
 
+        args_derham.bn1[:] = der[:]
         args_derham.bn2[:] = 1.0
         args_derham.bn3[:] = 1.0
 
@@ -126,7 +128,7 @@ def x_stiffness_mat_v0(
             span2,
             span3,
             mat,
-            markers[ip, 6]
+            markers[ip, 6],
         )
 
 

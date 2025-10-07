@@ -634,7 +634,7 @@ class QNAdiabatic(Propagator):
             self.domain.args_domain,
         )
 
-        # Preconiditoner for solver for M0
+        # Preconditioner for solver for M0
         if solver["type"][1] == None:
             self._pc = None
         else:
@@ -661,9 +661,8 @@ class QNAdiabatic(Propagator):
         )
         self._accum_vec_lambda._derham = derham_3D_x
 
-
     def __call__(self, dt):
-        self._call_kinetic_step(dt)
+        # self._call_kinetic_step(dt)
         self._update_phi_mean()
         self._call_potential_step(dt)
         self._update_lambda()

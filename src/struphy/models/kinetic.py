@@ -1379,7 +1379,7 @@ class QuasiNeutralAdiabatic(StruphyModel):
             self.domain.args_domain,
         )
 
-        # Preconiditoner for solver for M0
+        # Preconditioner for solver for M0
         solver = propagators_coupling.QNAdiabatic.options(default=True)["solver"]
         if solver["type"][1] == None:
             self._pc = None
@@ -1407,11 +1407,12 @@ class QuasiNeutralAdiabatic(StruphyModel):
         )
         _accum_vec_lambda._derham = self.derham_3D_x
 
+        # subtract N_vec
+        self.pointer["species1"]._markers[:, 6] -= 1.0 / self.pointer["species1"].Np
         # compute new p coeffs
         _accum_charge(3)
         _solver_M0.dot(_accum_charge.vectors[0], out=_phi_mean)
-
-        # TODO: subtract N_vec ?
+        self.pointer["species1"]._markers[:, 6] += 1.0 / self.pointer["species1"].Np
 
         # copy new variables into self.feec_vars
         _phi_mean.copy(out=self._em_fields["phi_mean"]["obj"]._vector)
@@ -1435,6 +1436,8 @@ class QuasiNeutralAdiabatic(StruphyModel):
             add_vector=False,
         )
         _accum_mat._derham = self.derham_3D_x
+
+        _accum_mat()
 
         # Invert accumulated matrix
         _solver_accum = inverse(
