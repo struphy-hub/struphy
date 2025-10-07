@@ -171,21 +171,29 @@ class StruphyModel(metaclass=ABCMeta):
         else:
             derham_comm = self.clone_config.sub_comm
 
-        self._derham = setup_derham(
-            grid,
-            derham_opts,
-            comm=derham_comm,
-            domain=self.domain,
-            verbose=self.verbose,
-        )
+        if grid is None or derham_opts is None:
+            if MPI.COMM_WORLD.Get_rank() == 0:
+                print(f"\n{grid = }, {derham_opts = }: no Derham object set up.")
+            self._derham = None
+        else:
+            self._derham = setup_derham(
+                grid,
+                derham_opts,
+                comm=derham_comm,
+                domain=self.domain,
+                verbose=self.verbose,
+            )
 
         # create weighted mass operators
-        self._mass_ops = WeightedMassOperators(
-            self.derham,
-            self.domain,
-            verbose=self.verbose,
-            eq_mhd=self.equil,
-        )
+        if self.derham is None:
+            self._mass_ops = None
+        else:
+            self._mass_ops = WeightedMassOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
 
         # create basis operators
         self._basis_ops = BasisProjectionOperators(
@@ -196,23 +204,26 @@ class StruphyModel(metaclass=ABCMeta):
             )
 
         # create projected equilibrium
-        if isinstance(self.equil, MHDequilibrium):
-            self._projected_equil = ProjectedMHDequilibrium(
-                self.equil,
-                self.derham,
-            )
-        elif isinstance(self.equil, FluidEquilibriumWithB):
-            self._projected_equil = ProjectedFluidEquilibriumWithB(
-                self.equil,
-                self.derham,
-            )
-        elif isinstance(self.equil, FluidEquilibrium):
-            self._projected_equil = ProjectedFluidEquilibrium(
-                self.equil,
-                self.derham,
-            )
-        else:
+        if self.derham is None:
             self._projected_equil = None
+        else:
+            if isinstance(self.equil, MHDequilibrium):
+                self._projected_equil = ProjectedMHDequilibrium(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibriumWithB):
+                self._projected_equil = ProjectedFluidEquilibriumWithB(
+                    self.equil,
+                    self.derham,
+                )
+            elif isinstance(self.equil, FluidEquilibrium):
+                self._projected_equil = ProjectedFluidEquilibrium(
+                    self.equil,
+                    self.derham,
+                )
+            else:
+                self._projected_equil = None
 
     def allocate_propagators(self):
         # set propagators base class attributes (then available to all propagators)
@@ -1402,12 +1413,12 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("\n# fluid equilibrium (can be used as part of initial conditions)\n")
         file.write("equil = equils.HomogenSlab()\n")
 
-        if has_feec:
-            grid = "grid = grids.TensorProductGrid()\n"
-            derham = "derham_opts = DerhamOptions()\n"
-        else:
-            grid = "grid = None\n"
-            derham = "derham_opts = None\n"
+        # if has_feec:
+        grid = "grid = grids.TensorProductGrid()\n"
+        derham = "derham_opts = DerhamOptions()\n"
+        # else:
+        #     grid = "grid = None\n"
+        #     derham = "derham_opts = None\n"
 
         file.write("\n# grid\n")
         file.write(grid)
