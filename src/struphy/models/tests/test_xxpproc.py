@@ -16,25 +16,25 @@ def test_pproc_codes(model: str = None, group: str = None):
 
     list_fluid = []
     for name, obj in inspect.getmembers(fluid):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == fluid.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_fluid += [name]
 
     list_kinetic = []
     for name, obj in inspect.getmembers(kinetic):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == kinetic.__name__:
             if name not in {"StruphyModel", "KineticBackground", "Propagator"}:
                 list_kinetic += [name]
 
     list_hybrid = []
     for name, obj in inspect.getmembers(hybrid):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == hybrid.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_hybrid += [name]
 
     list_toy = []
     for name, obj in inspect.getmembers(toy):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == toy.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_toy += [name]
 
@@ -50,6 +50,8 @@ def test_pproc_codes(model: str = None, group: str = None):
         list_models = list_toy
     else:
         raise ValueError(f"{group = } is not a valid group specification.")
+    
+    print(f"{list_models = }")
 
     if comm.Get_rank() == 0:
         if model is None:
