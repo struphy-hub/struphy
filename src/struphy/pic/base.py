@@ -46,6 +46,8 @@ from struphy.pic.utilities import (
 from struphy.utils import utils
 from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
+from struphy.pic.pushing import eval_kernels_gc
+
 
 
 class Particles(metaclass=ABCMeta):
@@ -3702,6 +3704,111 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             h3=h3,
             fast=fast,
         )
+        
+    def eval_velocity(
+        self,
+        eta1,
+        eta2,
+        eta3,
+        h1,
+        h2,
+        h3,
+        kernel_type="gaussian_1d",
+        derivative=0,
+        fast=True,
+    ):
+        """Density function as 0-form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points (flat or meshgrid evaluation).
+
+        h1, h2, h3 : float
+            Support radius of the smoothing kernel in each dimension.
+
+        kernel_type : str
+            Name of the smoothing kernel to be used.
+
+        derivative: int
+            0: no kernel derivative
+            1: first component of grad
+            2: second component of grad
+            3: third component of grad
+
+        fast : bool
+            True: box-based evaluation, False: naive evaluation.
+
+        Returns
+        -------
+        out : array-like
+            Same size as eta1.
+        -------
+        """
+        
+        first_free_idx = self.args_markers.first_free_idx
+        comps = np.array((0, 1, 2))
+        eval_kernels_gc.sph_mean_velocity_coeffs(alpha = 0.0, 
+                                                 column_nr= first_free_idx,
+                                                 comps=comps,
+                                                 args_markers=self.args_markers,
+                                                 args_domain = self.domain.args_domain,
+                                                 boxes= self.sorting_boxes.boxes,
+                                                 neighbours = self.sorting_boxes.neighbours, 
+                                                 holes= self.holes, 
+                                                 periodic1 = self.boundary_params.bc_sph[0],
+                                                 periodic2 = self.boundary_params.bc_sph[1],
+                                                 periodic1 = self.boundary_params.bc_sph[2], 
+                                                 kernel_type= kernel_type, 
+                                                 h1 = h1, 
+                                                 h2= h2, 
+                                                 h3= h3, 
+                                                 )
+        
+        v1 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+        
+        v2 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx +1,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+        
+        
+        v3 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx + 2,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+        
+        return v1, v2, v3
+    
+    
+
 
     def eval_sph(
         self,
