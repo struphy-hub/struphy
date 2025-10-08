@@ -1,6 +1,6 @@
+import inspect
 import os
 from types import ModuleType
-import inspect
 
 import pytest
 from mpi4py import MPI
