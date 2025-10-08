@@ -329,9 +329,8 @@ class ShearAlfven(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
-    
-    def allocate_helpers(self):
 
+    def allocate_helpers(self):
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P["2"](
             [
@@ -388,7 +387,9 @@ class ShearAlfven(StruphyModel):
     def update_scalar_quantities(self):
         # perturbed fields
         en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.mhd.velocity.spline.vector, self.mhd.velocity.spline.vector)
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.em_fields.b_field.spline.vector, self.em_fields.b_field.spline.vector)
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+            self.em_fields.b_field.spline.vector, self.em_fields.b_field.spline.vector
+        )
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
