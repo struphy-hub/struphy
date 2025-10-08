@@ -511,6 +511,9 @@ test_cupy:
     - module load nvhpcsdk/24 openmpi/5.0 python-waterboa/2024.06 gcc/13
   script:
     - ls
+    - python3 -m pip install --user cupy-cuda12x
+    - nvidia-smi
+    - python3 -c "import cupy as cp"
 
 #####################
 ### PUSH PIPELINE ###
