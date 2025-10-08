@@ -322,26 +322,13 @@ class ShearAlfven(StruphyModel):
         def __init__(self) -> None:
             self.shear_alf = propagators_fields.ShearAlfven()
 
-    @staticmethod
-    def bulk_species():
-        return "mhd"
+    @property
+    def bulk_species(self):
+        return self.MHD()
 
     @staticmethod
     def velocity_scale():
         return "alfvén"
-
-    # @staticmethod
-    # def propagators_dct():
-    #     return {propagators_fields.ShearAlfven: ["mhd_u2", "b2"]}
-
-
-
-    # __em_fields__ = species()["em_fields"]
-    # __fluid_species__ = species()["fluid"]
-    # __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    # __propagators__ = [prop.__name__ for prop in propagators_dct()]
 
     ## abstract methods
 
