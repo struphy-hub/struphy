@@ -3329,7 +3329,6 @@ class VariationalDensityEvolve(Propagator):
         solver_params: SolverParameters = None
         nonlin_solver: NonlinearSolverParameters = None
         s: FEECVariable = None
-        energy_evaluator: InternalEnergyEvaluator = None,
 
         def __post_init__(self):
             # checks
@@ -3384,7 +3383,7 @@ class VariationalDensityEvolve(Propagator):
         u = self.variables.u.spline.vector
 
         # Projector
-        self._energy_evaluator = self.options.energy_evaluator
+        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
         self._kinetic_evaluator = KineticEnergyEvaluator(self.derham, self.domain, self.mass_ops)
         self._initialize_projectors_and_mass()
         if self._model in ["linear", "linear_q"]:
@@ -3453,7 +3452,7 @@ class VariationalDensityEvolve(Propagator):
 
         # Initialize variable for Newton iteration
         if self._model == "full":
-            s = self._s
+            s = self._s.spline.vector
         else:
             s = None
 
@@ -3818,68 +3817,100 @@ class VariationalEntropyEvolve(Propagator):
 
         \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{s}_h^{k} = (s^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \.
     """
+    class Variables:
+        def __init__(self):
+            self._s: FEECVariable = None
+            self._u: FEECVariable = None
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["lin_solver"] = {
-            "tol": 1e-12,
-            "maxiter": 500,
-            "type": [
-                ("pcg", "MassMatrixDiagonalPreconditioner"),
-                ("cg", None),
-            ],
-            "verbose": False,
-        }
-        dct["nonlin_solver"] = {
-            "tol": 1e-8,
-            "maxiter": 100,
-            "info": False,
-            "linearize": "False",
-        }
-        dct["physics"] = {"gamma": 5 / 3}
+        @property
+        def s(self) -> FEECVariable:
+            return self._s
 
-        if default:
-            dct = descend_options_dict(dct, [])
+        @s.setter
+        def s(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "L2"
+            self._s = new
 
-        return dct
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
 
-    def __init__(
-        self,
-        s: StencilVector,
-        u: BlockVector,
-        *,
-        model: str = "full",
-        gamma: float = options()["physics"]["gamma"],
-        rho: StencilVector,
-        mass_ops,#H1vecMassMatrix_density,
-        lin_solver: dict = options(default=True)["lin_solver"],
-        nonlin_solver: dict = options(default=True)["nonlin_solver"],
-        energy_evaluator: InternalEnergyEvaluator = None,
-    ):
-        super().__init__(s, u)
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "H1vec"
+            self._u = new
 
-        assert model in ["full"]
-        if model == "full":
-            assert rho is not None
-        assert mass_ops is not None
+    def __init__(self):
+        self.variables = self.Variables()
 
-        self._model = model
-        self._gamma = gamma
-        self._rho = rho
-        self._lin_solver = lin_solver
-        self._nonlin_solver = nonlin_solver
-        self._linearize = self._nonlin_solver["linearize"]
+    @dataclass
+    class Options:
+        # specific literals
+        OptsModel = Literal["full"]
+        # propagator options
+        model: OptsModel = "full"
+        gamma: float = 5.0/3.0
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        nonlin_solver: NonlinearSolverParameters = None
+        rho: FEECVariable = None
 
-        self._info = self._nonlin_solver["info"] and (MPI.COMM_WORLD.Get_rank() == 0)
+        def __post_init__(self):
+            # checks
+            check_option(self.model, self.OptsModel)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
 
-        self._Mrho = mass_ops
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+                
+            if self.nonlin_solver is None:
+                self.nonlin_solver = NonlinearSolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        if self.options.model == "full":
+            assert self.options.rho is not None
+
+        self._model = self.options.model
+        self._gamma = self.options.gamma
+        self._rho = self.options.rho
+        self._lin_solver = self.options.solver_params
+        self._nonlin_solver = self.options.nonlin_solver
+        self._linearize = self.options.nonlin_solver.linearize
+
+        self._info = self._nonlin_solver.info and (MPI.COMM_WORLD.Get_rank() == 0)
+
+        self._Mrho = self.mass_ops.WMM
+        self._Mrho.inv._options["pc"] = MassMatrixDiagonalPreconditioner(self._Mrho.massop)
 
         # Projector
-        self._energy_evaluator = energy_evaluator
+        self._energy_evaluator = InternalEnergyEvaluator(self.derham, self._gamma)
         self._initialize_projectors_and_mass()
 
         # bunch of temporaries to avoid allocating in the loop
+        s = self.variables.s.spline.vector
+        u = self.variables.u.spline.vector
+        
         self._tmp_un1 = u.space.zeros()
         self._tmp_un2 = u.space.zeros()
         self._tmp_un12 = u.space.zeros()
@@ -3907,12 +3938,12 @@ class VariationalEntropyEvolve(Propagator):
         if self._info:
             print()
             print("Newton iteration in VariationalEntropyEvolve")
-        sn = self.feec_vars[0]
-        un = self.feec_vars[1]
+        sn = self.variables.s.spline.vector
+        un = self.variables.u.spline.vector
 
         sn1 = sn.copy(out=self._tmp_sn1)
         # Initialize variable for Newton iteration
-        rho = self._rho
+        rho = self._rho.spline.vector
         self._update_Pis(sn)
 
         mn = self._Mrho.massop.dot(un, out=self._tmp_mn)
@@ -3921,10 +3952,10 @@ class VariationalEntropyEvolve(Propagator):
         un1 = un.copy(out=self._tmp_un1)
         un1 += self._tmp_un_diff
         mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
-        tol = self._nonlin_solver["tol"]
+        tol = self._nonlin_solver.tol
         err = tol + 1
 
-        for it in range(self._nonlin_solver["maxiter"]):
+        for it in range(self._nonlin_solver.maxiter):
             # Newton iteration
 
             un12 = un.copy(out=self._tmp_un12)
@@ -3984,13 +4015,13 @@ class VariationalEntropyEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
+        if it == self._nonlin_solver.maxiter - 1 or np.isnan(err):
             print(
                 f"!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }",
             )
         self._tmp_sn_diff = sn1 - sn
         self._tmp_un_diff = un1 - un
-        self.feec_vars_update(sn1, un1)
+        self.update_feec_variables(s=sn1, u=un1)
 
     def _initialize_projectors_and_mass(self):
         """Initialization of all the `BasisProjectionOperator` and `CoordinateProjector` needed to compute the bracket term"""
@@ -4043,19 +4074,19 @@ class VariationalEntropyEvolve(Propagator):
 
         self._inv_Jacobian = SchurSolverFull(
             self._Jacobian,
-            self._lin_solver["type"][0],
+            self.options.solver,
             pc=self._Mrho.inv,
-            tol=self._lin_solver["tol"],
-            maxiter=self._lin_solver["maxiter"],
-            verbose=self._lin_solver["verbose"],
+            tol=self._lin_solver.tol,
+            maxiter=self._lin_solver.maxiter,
+            verbose=self._lin_solver.verbose,
             recycle=True,
         )
 
         # self._inv_Jacobian = inverse(self._Jacobian,
         #                          'gmres',
-        #                          tol=self._lin_solver['tol'],
-        #                          maxiter=self._lin_solver['maxiter'],
-        #                          verbose=self._lin_solver['verbose'],
+        #                          tol=self._lin_solver.tol,
+        #                          maxiter=self._lin_solver.maxiter,
+        #                          verbose=self._lin_solver.verbose,
         #                          recycle=True)
 
         # prepare for integration of linear form
