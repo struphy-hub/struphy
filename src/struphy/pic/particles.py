@@ -18,6 +18,7 @@ from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
 
 
+
 class Particles6D(Particles):
     """
     A class for initializing particles in models that use the full 6D phase space.
