@@ -9,3 +9,8 @@ from struphy.fields_background.base import FluidEquilibriumWithB
 
 
 
+
+
+
+
+
