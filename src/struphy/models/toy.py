@@ -307,43 +307,30 @@ class ShearAlfven(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.b_field = FEECVariable(space="Hdiv")
+            self.init_variables()
 
-        dct["em_fields"]["b2"] = "Hdiv"
-        dct["fluid"]["mhd"] = {"u2": "Hdiv"}
-        return dct
+    class MHD(FluidSpecies):
+        def __init__(self):
+            self.velocity = FEECVariable(space="Hdiv")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "mhd"
+    class Propagators:
+        def __init__(self) -> None:
+            self.shear_alf = propagators_fields.ShearAlfven()
 
-    @staticmethod
-    def velocity_scale():
+    @property
+    def bulk_species(self):
+        return self.mhd
+
+    @property
+    def velocity_scale(self):
         return "alfvén"
 
-    @staticmethod
-    def propagators_dct():
-        return {propagators_fields.ShearAlfven: ["mhd_u2", "b2"]}
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from struphy.polar.basic import PolarVector
-
-        # extract necessary parameters
-        alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
-        alfven_algo = params["fluid"]["mhd"]["options"]["ShearAlfven"]["algo"]
-
+    def allocate_helpers(self):
         # project background magnetic field (2-form) and pressure (3-form)
         self._b_eq = self.derham.P["2"](
             [
@@ -353,21 +340,26 @@ class ShearAlfven(StruphyModel):
             ]
         )
 
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ShearAlfven] = {
-            "u_space": "Hdiv",
-            "solver": alfven_solver,
-            "algo": alfven_algo,
-        }
+        # temporary vectors for scalar quantities
+        self._tmp_b1 = self.derham.Vh["2"].zeros()
+        self._tmp_b2 = self.derham.Vh["2"].zeros()
 
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+        self.mhd = self.MHD()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.shear_alf.variables.u = self.mhd.velocity
+        self.propagators.shear_alf.variables.b = self.em_fields.b_field
 
         # Scalar variables to be saved during simulation
-        # self.add_scalar('en_U')
-        # self.add_scalar('en_B')
-        # self.add_scalar('en_B_eq')
-        # self.add_scalar('en_B_tot')
         self.add_scalar("en_tot")
 
         self.add_scalar("en_U", compute="from_field")
@@ -376,14 +368,12 @@ class ShearAlfven(StruphyModel):
         self.add_scalar("en_B_tot", compute="from_field")
         self.add_scalar("en_tot2", summands=["en_U", "en_B", "en_B_eq"])
 
-        # temporary vectors for scalar quantities
-        self._tmp_b1 = self.derham.Vh["2"].zeros()
-        self._tmp_b2 = self.derham.Vh["2"].zeros()
-
     def update_scalar_quantities(self):
         # perturbed fields
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_u2"], self.pointer["mhd_u2"])
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.mhd.velocity.spline.vector, self.mhd.velocity.spline.vector)
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+            self.em_fields.b_field.spline.vector, self.em_fields.b_field.spline.vector
+        )
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
@@ -396,7 +386,7 @@ class ShearAlfven(StruphyModel):
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.pointer["b2"]
+        self._tmp_b1 += self.em_fields.b_field.spline.vector
 
         self.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
         en_Btot = self._tmp_b1.inner(self._tmp_b2) / 2
