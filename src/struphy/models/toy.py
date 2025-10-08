@@ -3,13 +3,13 @@ from dataclasses import dataclass
 import numpy as np
 from mpi4py import MPI
 
+from struphy.feec.projectors import L2Projector
+from struphy.feec.variational_utilities import InternalEnergyEvaluator
 from struphy.models.base import StruphyModel
 from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 from struphy.propagators.base import Propagator
-from struphy.feec.projectors import L2Projector
-from struphy.feec.variational_utilities import InternalEnergyEvaluator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -430,6 +430,7 @@ class VariationalPressurelessFluid(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+
     ## species
 
     class Fluid(FluidSpecies):
@@ -488,7 +489,9 @@ class VariationalPressurelessFluid(StruphyModel):
         with open(params_path, "r") as f:
             for line in f:
                 if "variat_dens.Options" in line:
-                    new_file += ["model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='pressureless')\n"]
+                    new_file += [
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='pressureless')\n"
+                    ]
                 else:
                     new_file += [line]
 
@@ -523,6 +526,7 @@ class VariationalBarotropicFluid(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+
     ## species
 
     class Fluid(FluidSpecies):
@@ -574,10 +578,10 @@ class VariationalBarotropicFluid(StruphyModel):
     def update_scalar_quantities(self):
         rho = self.fluid.density.spline.vector
         u = self.fluid.velocity.spline.vector
-        
+
         en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
-        
+
         en_thermo = 0.5 * self.mass_ops.M3.dot_inner(rho, rho)
         self.update_scalar("en_thermo", en_thermo)
 
@@ -591,7 +595,9 @@ class VariationalBarotropicFluid(StruphyModel):
         with open(params_path, "r") as f:
             for line in f:
                 if "variat_dens.Options" in line:
-                    new_file += ["model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='barotropic')\n"]
+                    new_file += [
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='barotropic')\n"
+                    ]
                 else:
                     new_file += [line]
 
@@ -629,6 +635,7 @@ class VariationalCompressibleFluid(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+
     ## species
 
     class Fluid(FluidSpecies):
@@ -686,16 +693,16 @@ class VariationalCompressibleFluid(StruphyModel):
 
         f = np.vectorize(f)
         self._integrator = projV3(f)
-        
+
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self.propagators.variat_ent.options.gamma)
 
     def update_scalar_quantities(self):
         rho = self.fluid.density.spline.vector
         u = self.fluid.velocity.spline.vector
-        
+
         en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
-        
+
         en_thermo = self.update_thermo_energy()
 
         en_tot = en_U + en_thermo
@@ -708,11 +715,19 @@ class VariationalCompressibleFluid(StruphyModel):
         with open(params_path, "r") as f:
             for line in f:
                 if "variat_dens.Options" in line:
-                    new_file += ["model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full',\n"]
-                    new_file += ["                                                                              s=model.fluid.entropy)\n"]
+                    new_file += [
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full',\n"
+                    ]
+                    new_file += [
+                        "                                                                              s=model.fluid.entropy)\n"
+                    ]
                 elif "variat_ent.Options" in line:
-                    new_file += ["model.propagators.variat_ent.options = model.propagators.variat_ent.Options(model='full',\n"]
-                    new_file += ["                                                                            rho=model.fluid.density)\n"]
+                    new_file += [
+                        "model.propagators.variat_ent.options = model.propagators.variat_ent.Options(model='full',\n"
+                    ]
+                    new_file += [
+                        "                                                                            rho=model.fluid.density)\n"
+                    ]
                 elif "entropy.add_background" in line:
                     new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
                     new_file += [line]

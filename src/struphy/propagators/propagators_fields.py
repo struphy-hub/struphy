@@ -28,7 +28,7 @@ from struphy.feec.basis_projection_ops import (
 )
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
-from struphy.feec.preconditioner import MassMatrixPreconditioner, MassMatrixDiagonalPreconditioner
+from struphy.feec.preconditioner import MassMatrixDiagonalPreconditioner, MassMatrixPreconditioner
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.variational_utilities import (
@@ -43,9 +43,9 @@ from struphy.io.options import (
     OptsDirectSolver,
     OptsGenSolver,
     OptsMassPrecond,
+    OptsNonlinearSolver,
     OptsSaddlePointSolver,
     OptsSymmSolver,
-    OptsNonlinearSolver,
     OptsVecSpace,
     check_option,
 )
@@ -54,7 +54,7 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
 from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.linear_algebra.schur_solver import SchurSolver
-from struphy.linear_algebra.solver import SolverParameters, NonlinearSolverParameters
+from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau, OptsButcher
@@ -3016,6 +3016,7 @@ class VariationalMomentumAdvection(Propagator):
 
         \hat{\mathbf{u}}_h^{n+1/2} = (\mathbf{u}^{n+1/2})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \,, \qquad \hat{\mathbf A}^1_{\mu,h} = \nabla P_\mu((\mathbf u^{n+1/2})^\top \vec{\boldsymbol \Lambda}^v)] \in V_h^1\,, \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \,.
     """
+
     class Variables:
         def __init__(self):
             self._u: FEECVariable = None
@@ -3049,7 +3050,7 @@ class VariationalMomentumAdvection(Propagator):
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-                
+
             if self.nonlin_solver is None:
                 self.nonlin_solver = NonlinearSolverParameters()
 
@@ -3082,7 +3083,7 @@ class VariationalMomentumAdvection(Propagator):
 
         # bunch of temporaries to avoid allocating in the loop
         u = self.variables.u.spline.vector
-        
+
         self._tmp_un1 = u.space.zeros()
         self._tmp_un12 = u.space.zeros()
         self._tmp_diff = u.space.zeros()
@@ -3281,6 +3282,7 @@ class VariationalDensityEvolve(Propagator):
 
         \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{\rho}_h^{k} = (\rho^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} .
     """
+
     class Variables:
         def __init__(self):
             self._rho: FEECVariable = None
@@ -3312,7 +3314,8 @@ class VariationalDensityEvolve(Propagator):
     @dataclass
     class Options:
         # specific literals
-        OptsModel = Literal["pressureless",
+        OptsModel = Literal[
+            "pressureless",
             "barotropic",
             "full",
             "full_p",
@@ -3320,10 +3323,11 @@ class VariationalDensityEvolve(Propagator):
             "linear",
             "deltaf",
             "linear_q",
-            "deltaf_q",]
+            "deltaf_q",
+        ]
         # propagator options
         model: OptsModel = "barotropic"
-        gamma: float = 5.0/3.0
+        gamma: float = 5.0 / 3.0
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
@@ -3339,7 +3343,7 @@ class VariationalDensityEvolve(Propagator):
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-                
+
             if self.nonlin_solver is None:
                 self.nonlin_solver = NonlinearSolverParameters()
 
@@ -3378,7 +3382,7 @@ class VariationalDensityEvolve(Propagator):
         # Femfields for the projector
         self.rhof = self.derham.create_spline_function("rhof", "L2")
         self.rhof1 = self.derham.create_spline_function("rhof1", "L2")
-        
+
         rho = self.variables.rho.spline.vector
         u = self.variables.u.spline.vector
 
@@ -3817,6 +3821,7 @@ class VariationalEntropyEvolve(Propagator):
 
         \hat{\mathbf{u}}_h^{k} = (\mathbf{u}^{k})^\top \vec{\boldsymbol \Lambda}^v \in (V_h^0)^3 \, \text{for k in} \{n, n+1/2, n+1\}, \qquad \hat{s}_h^{k} = (s^{k})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \, \text{for k in} \{n, n+1/2, n+1\} \qquad \hat{\rho}_h^{n} = (\rho^{n})^\top \vec{\boldsymbol \Lambda}^3 \in V_h^3 \.
     """
+
     class Variables:
         def __init__(self):
             self._s: FEECVariable = None
@@ -3851,7 +3856,7 @@ class VariationalEntropyEvolve(Propagator):
         OptsModel = Literal["full"]
         # propagator options
         model: OptsModel = "full"
-        gamma: float = 5.0/3.0
+        gamma: float = 5.0 / 3.0
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
@@ -3867,7 +3872,7 @@ class VariationalEntropyEvolve(Propagator):
             # defaults
             if self.solver_params is None:
                 self.solver_params = SolverParameters()
-                
+
             if self.nonlin_solver is None:
                 self.nonlin_solver = NonlinearSolverParameters()
 
@@ -3910,7 +3915,7 @@ class VariationalEntropyEvolve(Propagator):
         # bunch of temporaries to avoid allocating in the loop
         s = self.variables.s.spline.vector
         u = self.variables.u.spline.vector
-        
+
         self._tmp_un1 = u.space.zeros()
         self._tmp_un2 = u.space.zeros()
         self._tmp_un12 = u.space.zeros()
@@ -4251,7 +4256,7 @@ class VariationalMagFieldEvolve(Propagator):
         u: BlockVector,
         *,
         model: str = "full",
-        mass_ops,# H1vecMassMatrix_density,
+        mass_ops,  # H1vecMassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
     ):
@@ -4612,7 +4617,7 @@ class VariationalPBEvolve(Propagator):
         *,
         model: str = "full",
         gamma: float = options()["physics"]["gamma"],
-        mass_ops,# H1vecMassMatrix_density,
+        mass_ops,  # H1vecMassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         div_u: StencilVector | None = None,
@@ -5158,7 +5163,7 @@ class VariationalQBEvolve(Propagator):
         *,
         model: str = "full",
         gamma: float = options()["physics"]["gamma"],
-        mass_ops,# H1vecMassMatrix_density,
+        mass_ops,  # H1vecMassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         div_u: StencilVector | None = None,
@@ -5719,7 +5724,7 @@ class VariationalViscosity(Propagator):
         mu: float = options()["physics"]["mu"],
         mu_a: float = options()["physics"]["mu_a"],
         alpha: float = options()["physics"]["alpha"],
-        mass_ops,# H1vecMassMatrix_density,
+        mass_ops,  # H1vecMassMatrix_density,
         lin_solver: dict = options(default=True)["lin_solver"],
         nonlin_solver: dict = options(default=True)["nonlin_solver"],
         energy_evaluator: InternalEnergyEvaluator = None,

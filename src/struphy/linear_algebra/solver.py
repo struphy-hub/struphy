@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 from struphy.io.options import OptsNonlinearSolver
 
 
@@ -11,8 +12,8 @@ class SolverParameters:
     info: bool = False
     verbose: bool = False
     recycle: bool = True
-    
-    
+
+
 @dataclass
 class NonlinearSolverParameters:
     """Parameters for psydac solvers."""

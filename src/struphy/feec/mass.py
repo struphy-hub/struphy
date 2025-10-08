@@ -1,15 +1,15 @@
 import inspect
-import numpy as np
-from mpi4py import MPI
 from copy import deepcopy
 
+import numpy as np
+from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector
-from psydac.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 from psydac.linalg.solvers import inverse
+from psydac.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
@@ -733,9 +733,9 @@ class WeightedMassOperators:
     @property
     def WMM(self):
         if not hasattr(self, "_WMM"):
-            self._WMM = self.H1vecMassMatrix_density(self.derham, self, self.domain) 
+            self._WMM = self.H1vecMassMatrix_density(self.derham, self, self.domain)
         return self._WMM
-    
+
     #######################################
     # Wrapper around WeightedMassOperator #
     #######################################
@@ -1036,16 +1036,18 @@ class WeightedMassOperators:
     # Aux classes (to be removed in TODO) #
     #######################################
     class H1vecMassMatrix_density:
-        """Wrapper around a Weighted mass operator from H1vec to H1vec whose weights are given by a 3 form
-        """
+        """Wrapper around a Weighted mass operator from H1vec to H1vec whose weights are given by a 3 form"""
+
         def __init__(self, derham, mass_ops, domain):
             self._massop = mass_ops.create_weighted_mass("H1vec", "H1vec")
             self.field = derham.create_spline_function("field", "L2")
 
             integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
 
-            self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
-                integration_grid,
+            self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
+                derham.prepare_eval_tp_fixed(
+                    integration_grid,
+                )
             )
 
             grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
@@ -1115,6 +1117,7 @@ class WeightedMassOperators:
                 verbose=verbose,
                 recycle=True,
             )
+
 
 class WeightedMassOperatorsOldForTesting:
     r"""
