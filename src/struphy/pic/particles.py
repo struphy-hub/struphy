@@ -9,6 +9,11 @@ from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWit
 =======
 from struphy.fields_background.base import FluidEquilibriumWithB
 >>>>>>> devel
+
+>>>>>>> devel
+>>>>>>> devel
+>>>>>>> devel
+>>>>>>> devel
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
