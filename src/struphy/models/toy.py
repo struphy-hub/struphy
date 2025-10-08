@@ -324,7 +324,7 @@ class ShearAlfven(StruphyModel):
 
     @property
     def bulk_species(self):
-        return self.MHD()
+        return self.mhd
 
     @property
     def velocity_scale(self):
@@ -390,8 +390,8 @@ class ShearAlfven(StruphyModel):
         self.add_scalar("en_tot2", summands=["en_U", "en_B", "en_B_eq"])
 
         # temporary vectors for scalar quantities
-        self._tmp_b1 = self.derham.Vh["2"].zeros()
-        self._tmp_b2 = self.derham.Vh["2"].zeros()
+        # self._tmp_b1 = self.derham.Vh["2"].zeros()
+        # self._tmp_b2 = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
         # perturbed fields
