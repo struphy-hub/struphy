@@ -2,7 +2,6 @@ import os
 
 
 class ArrayBackend:
-
     def __init__(self, backend: str = "numpy") -> None:
         self._backend = backend
 
