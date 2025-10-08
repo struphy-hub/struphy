@@ -29,3 +29,5 @@ if _backend == "cupy":
     xp = _import_cupy()
 else:
     xp = _import_numpy()
+
+print(f"Using {xp.__name__} backend.")
