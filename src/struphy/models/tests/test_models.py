@@ -1,3 +1,4 @@
+import inspect
 import os
 from types import ModuleType
 
@@ -13,19 +14,10 @@ from struphy.models.base import StruphyModel
 rank = MPI.COMM_WORLD.Get_rank()
 
 # available models
-toy_models = [
-    "Maxwell",
-    "Vlasov",
-    "GuidingCenter",
-    "PressureLessSPH",
-    "Poisson",
-    "DeterministicParticleDiffusion",
-    "RandomParticleDiffusion",
-    "TwoFluidQuasiNeutralToy",
-]
-# for name, obj in inspect.getmembers(toy):
-#     if inspect.isclass(obj) and "models.toy" in obj.__module__:
-#         toy_models += [name]
+toy_models = []
+for name, obj in inspect.getmembers(toy):
+    if inspect.isclass(obj) and "models.toy" in obj.__module__:
+        toy_models += [name]
 if rank == 0:
     print(f"\n{toy_models = }")
 
