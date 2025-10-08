@@ -513,10 +513,10 @@ test_cupy:
     - nvidia-smi
     - python3 -m pip install --user cupy-cuda12x
     - python3 -c "import cupy as cp"
-    - python3 src/struphy/xp.py
+    - python3 src/struphy/arrays.py
     - python3 src/struphy/test_xp.py
     - export ARRAY_BACKEND=cupy
-    - python3 src/struphy/xp.py
+    - python3 src/struphy/arrays.py
     - python3 src/struphy/test_xp.py
 
 # #####################
