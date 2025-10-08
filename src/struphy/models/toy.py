@@ -318,16 +318,6 @@ class ShearAlfven(StruphyModel):
             self.velocity = FEECVariable(space="Hdiv")
             self.init_variables()
 
-    # @staticmethod
-    # def species():
-    #     dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
-
-    #     dct["em_fields"]["b2"] = "Hdiv"
-    #     dct["fluid"]["mhd"] = {"u2": "Hdiv"}
-    #     return dct
-
-    ## propagators
-
     class Propagators:
         def __init__(self) -> None:
             self.shear_alf = propagators_fields.ShearAlfven()
