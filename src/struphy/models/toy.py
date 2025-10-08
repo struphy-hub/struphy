@@ -329,8 +329,9 @@ class ShearAlfven(StruphyModel):
     @property
     def velocity_scale(self):
         return "alfvén"
-
-    ## abstract methods
+    
+    def allocate_helpers(self):
+        pass
 
     def __init__(self):
         if rank == 0:
