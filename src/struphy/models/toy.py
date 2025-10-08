@@ -326,8 +326,8 @@ class ShearAlfven(StruphyModel):
     def bulk_species(self):
         return self.MHD()
 
-    @staticmethod
-    def velocity_scale():
+    @property
+    def velocity_scale(self):
         return "alfvén"
 
     ## abstract methods
