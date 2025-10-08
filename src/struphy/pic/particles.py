@@ -14,8 +14,6 @@ from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
 from struphy.utils.arrays import xp as np
 
-<<<<<<< HEAD
->>>>>>> devel
 
 class Particles6D(Particles):
     """
