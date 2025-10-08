@@ -35,7 +35,7 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plo
     dom_types = []
     dom_classes = []
     for key, val in inspect.getmembers(domains):
-        if inspect.isclass(val) and key != "Domain" and "AxisymmMHDequilibrium" not in key:
+        if inspect.isclass(val) and val.__module__ == domains.__name__ and "AxisymmMHDequilibrium" not in key:
             dom_types += [key]
             dom_classes += [val]
 
