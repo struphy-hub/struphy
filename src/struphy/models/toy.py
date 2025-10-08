@@ -332,6 +332,15 @@ class ShearAlfven(StruphyModel):
     
     def allocate_helpers(self):
 
+        # project background magnetic field (2-form) and pressure (3-form)
+        self._b_eq = self.derham.P["2"](
+            [
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
+            ]
+        )
+
         # temporary vectors for scalar quantities
         self._tmp_b1 = self.derham.Vh["2"].zeros()
         self._tmp_b2 = self.derham.Vh["2"].zeros()
@@ -378,8 +387,8 @@ class ShearAlfven(StruphyModel):
 
     def update_scalar_quantities(self):
         # perturbed fields
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_u2"], self.pointer["mhd_u2"])
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b2"], self.pointer["b2"])
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.mhd.velocity.spline.vector, self.mhd.velocity.spline.vector)
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.em_fields.b_field.spline.vector, self.em_fields.b_field.spline.vector)
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
@@ -392,7 +401,7 @@ class ShearAlfven(StruphyModel):
 
         # total magnetic field
         self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.pointer["b2"]
+        self._tmp_b1 += self.em_fields.b_field.spline.vector
 
         self.mass_ops.M2.dot(self._tmp_b1, apply_bc=False, out=self._tmp_b2)
         en_Btot = self._tmp_b1.inner(self._tmp_b2) / 2
