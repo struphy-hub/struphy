@@ -17,7 +17,8 @@ from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
 
-
+<<<<<<< HEAD
+>>>>>>> devel
 
 class Particles6D(Particles):
     """
