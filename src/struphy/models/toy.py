@@ -315,9 +315,7 @@ class ShearAlfven(StruphyModel):
 
     class MHD(FluidSpecies):
         def __init__(self):
-            self.density = FEECVariable(space="L2")
             self.velocity = FEECVariable(space="Hdiv")
-            self.pressure = FEECVariable(space="L2")
             self.init_variables()
 
     # @staticmethod
