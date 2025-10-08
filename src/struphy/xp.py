@@ -10,7 +10,7 @@ class ArrayBackend:
             try:
                 import cupy as cp
 
-                return cp
+                self._xp =  cp
             except ImportError:
                 print("CuPy not available, falling back to NumPy.")
                 self._backend = "numpy"
