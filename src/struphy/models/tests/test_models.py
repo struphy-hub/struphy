@@ -19,6 +19,7 @@ toy_models = [
     "GuidingCenter",
     "PressureLessSPH",
     "Poisson",
+    "ShearAlfven",
     "DeterministicParticleDiffusion",
     "RandomParticleDiffusion",
     "TwoFluidQuasiNeutralToy",
