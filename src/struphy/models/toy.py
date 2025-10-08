@@ -359,23 +359,7 @@ class ShearAlfven(StruphyModel):
         self.propagators.shear_alf.variables.u = self.mhd.velocity
         self.propagators.shear_alf.variables.b = self.em_fields.b_field
 
-        # initialize base class
-        # super().__init__(params, comm=comm, clone_config=clone_config)
-
-        # from struphy.polar.basic import PolarVector
-
-        # extract necessary parameters
-        # alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
-        # alfven_algo = params["fluid"]["mhd"]["options"]["ShearAlfven"]["algo"]
-
-        # Initialize propagators used in splitting substeps
-        # self.init_propagators()
-
         # Scalar variables to be saved during simulation
-        # self.add_scalar('en_U')
-        # self.add_scalar('en_B')
-        # self.add_scalar('en_B_eq')
-        # self.add_scalar('en_B_tot')
         self.add_scalar("en_tot")
 
         self.add_scalar("en_U", compute="from_field")
