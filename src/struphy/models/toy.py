@@ -331,7 +331,10 @@ class ShearAlfven(StruphyModel):
         return "alfvén"
     
     def allocate_helpers(self):
-        pass
+
+        # temporary vectors for scalar quantities
+        self._tmp_b1 = self.derham.Vh["2"].zeros()
+        self._tmp_b2 = self.derham.Vh["2"].zeros()
 
     def __init__(self):
         if rank == 0:
@@ -357,22 +360,6 @@ class ShearAlfven(StruphyModel):
         # alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfven"]["solver"]
         # alfven_algo = params["fluid"]["mhd"]["options"]["ShearAlfven"]["algo"]
 
-        # project background magnetic field (2-form) and pressure (3-form)
-        # self._b_eq = self.derham.P["2"](
-        #     [
-        #         self.equil.b2_1,
-        #         self.equil.b2_2,
-        #         self.equil.b2_3,
-        #     ]
-        # )
-
-        # set keyword arguments for propagators
-        # self._kwargs[propagators_fields.ShearAlfven] = {
-        #     "u_space": "Hdiv",
-        #     "solver": alfven_solver,
-        #     "algo": alfven_algo,
-        # }
-
         # Initialize propagators used in splitting substeps
         # self.init_propagators()
 
@@ -388,10 +375,6 @@ class ShearAlfven(StruphyModel):
         self.add_scalar("en_B_eq", compute="from_field")
         self.add_scalar("en_B_tot", compute="from_field")
         self.add_scalar("en_tot2", summands=["en_U", "en_B", "en_B_eq"])
-
-        # temporary vectors for scalar quantities
-        # self._tmp_b1 = self.derham.Vh["2"].zeros()
-        # self._tmp_b2 = self.derham.Vh["2"].zeros()
 
     def update_scalar_quantities(self):
         # perturbed fields
