@@ -1,6 +1,6 @@
 import time
 
-from xp import xp
+from arrays import xp
 
 
 def main(N=8192):
