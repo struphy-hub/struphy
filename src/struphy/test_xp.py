@@ -1,7 +1,9 @@
-from xp import xp
 import time
 
-def main(N = 8192):
+from xp import xp
+
+
+def main(N=8192):
     print(f"Creating {N}x{N} random matrices...")
 
     A = xp.random.rand(N, N)
@@ -19,6 +21,7 @@ def main(N = 8192):
 
     t1 = time.perf_counter()
     print(f"Transformation took {t1 - t0:.3f} seconds")
+
 
 if __name__ == "__main__":
     main()
