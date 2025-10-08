@@ -1,3 +1,4 @@
+import array
 import os
 
 # TODO: Make this configurable via environment variable or config file.
@@ -5,29 +6,41 @@ import os
 _backend = os.getenv("ARRAY_BACKEND", "numpy").lower()
 
 
-# TODO: Write an ArrayBackend class 
+class ArrayBackend:
+    def __init__(self, backend: str = "numpy") -> None:
+        self._backend = backend
+        pass
 
-def _import_numpy():
-    # print("importing numpy...")
-    import numpy as np
+    def _import_numpy(self):
+        import numpy as np
 
-    return np
+        return np
+
+    def _import_cupy(self):
+        # print("importing cupy...")
+        try:
+            import cupy as cp
+
+            return cp
+        except ImportError:
+            print("CuPy not available, falling back to NumPy.")
+            return self._import_numpy()
+
+    @property
+    def backend(self):
+        return self._backend
+
+    @property
+    def xp(self):
+        # Import numpy/cupy
+        if _backend == "cupy":
+            return self._import_cupy()
+        else:
+            return self._import_numpy()
 
 
-def _import_cupy():
-    # print("importing cupy...")
-    try:
-        import cupy as cp
+array_backend = ArrayBackend(_backend)
 
-        return cp
-    except ImportError:
-        print("CuPy not available, falling back to NumPy.")
-        return _import_numpy()
+xp = array_backend.xp
 
-# Import numpy/cupy
-if _backend == "cupy":
-    xp = _import_cupy()
-else:
-    xp = _import_numpy()
-
-print(f"Using {xp.__name__} backend.")
+print(f"Using {xp} backend.")
