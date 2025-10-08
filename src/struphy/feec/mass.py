@@ -1,13 +1,15 @@
 import inspect
-
 import numpy as np
 from mpi4py import MPI
+from copy import deepcopy
+
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
+from psydac.linalg.solvers import inverse
 
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
@@ -1098,26 +1100,16 @@ class WeightedMassOperators:
                 verbose=False,
             )
 
-            if hasattr(self, "_inv") and self._pc is not None:
-                self._pc.update_mass_operator(self._massop)
+            if hasattr(self, "_inv") and self.inv._options["pc"] is not None:
+                self.inv._options["pc"].update_mass_operator(self.massop)
 
-        def _create_inv(
-            self, type="pcg", pc_type="MassMatrixDiagonalPreconditioner", tol=1e-16, maxiter=500, verbose=False
-        ):
-            """Inverse the  weighted mass matrix"""
-            if pc_type is None:
-                self._pc = None
-            else:
-                pc_class = getattr(
-                    preconditioner,
-                    pc_type,
-                )
-                self._pc = pc_class(self.massop)
-
+        def _create_inv(self, type="pcg", tol=1e-16, maxiter=500, verbose=False):
+            """Inverse the  weighted mass matrix, preconditioner must be set outside
+            via self._inv._options['pc'] = ..."""
             self._inv = inverse(
                 self.massop,
                 type,
-                pc=self._pc,
+                pc=None,
                 tol=tol,
                 maxiter=maxiter,
                 verbose=verbose,

@@ -428,77 +428,72 @@ class VariationalPressurelessFluid(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+    ## species
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
-        dct["fluid"]["fluid"] = {"rho3": "L2", "uv": "H1vec"}
-        return dct
+    class Fluid(FluidSpecies):
+        def __init__(self):
+            self.density = FEECVariable(space="L2")
+            self.velocity = FEECVariable(space="H1vec")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "fluid"
+    ## propagators
 
-    @staticmethod
-    def velocity_scale():
-        return "alfvén"
+    class Propagators:
+        def __init__(self):
+            self.variat_dens = propagators_fields.VariationalDensityEvolve()
+            self.variat_mom = propagators_fields.VariationalMomentumAdvection()
 
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_fields.VariationalDensityEvolve: ["fluid_rho3", "fluid_uv"],
-            propagators_fields.VariationalMomentumAdvection: ["fluid_uv"],
-        }
+    ## abstract methods
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
-    def __init__(self, params, comm, clone_config=None):
-        from struphy.feec.mass import WeightedMassOperator
-        from struphy.feec.variational_utilities import H1vecMassMatrix_density
+        # 1. instantiate all species
+        self.fluid = self.Fluid()
 
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
 
-        # Initialize mass matrix
-        self.WMM = H1vecMassMatrix_density(self.derham, self.mass_ops, self.domain)
+        # 3. assign variables to propagators
+        self.propagators.variat_dens.variables.rho = self.fluid.density
+        self.propagators.variat_dens.variables.u = self.fluid.velocity
+        self.propagators.variat_mom.variables.u = self.fluid.velocity
 
-        # Initialize propagators/integrators used in splitting substeps
-        lin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["lin_solver"]
-        nonlin_solver_momentum = params["fluid"]["fluid"]["options"]["VariationalMomentumAdvection"]["nonlin_solver"]
-        lin_solver_density = params["fluid"]["fluid"]["options"]["VariationalDensityEvolve"]["lin_solver"]
-        nonlin_solver_density = params["fluid"]["fluid"]["options"]["VariationalDensityEvolve"]["nonlin_solver"]
-
-        gamma = params["fluid"]["fluid"]["options"]["VariationalDensityEvolve"]["physics"]["gamma"]
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.VariationalDensityEvolve] = {
-            "model": "pressureless",
-            "gamma": gamma,
-            "mass_ops": self.WMM,
-            "lin_solver": lin_solver_density,
-            "nonlin_solver": nonlin_solver_density,
-        }
-
-        self._kwargs[propagators_fields.VariationalMomentumAdvection] = {
-            "mass_ops": self.WMM,
-            "lin_solver": lin_solver_momentum,
-            "nonlin_solver": nonlin_solver_momentum,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
+        # define scalars for update_scalar_quantities
         self.add_scalar("en_U")
 
+    @property
+    def bulk_species(self):
+        return self.fluid
+
+    @property
+    def velocity_scale(self):
+        return "alfvén"
+
+    def allocate_helpers(self):
+        pass
+
     def update_scalar_quantities(self):
-        en_U = 0.5 * self.WMM.massop.dot_inner(self.pointer["fluid_uv"], self.pointer["fluid_uv"])
+        u = self.fluid.velocity.spline.vector
+        en_U = 0.5 * self.mass_ops.WMM.massop.dot_inner(u, u)
         self.update_scalar("en_U", en_U)
+
+    ## default parameters
+    # def generate_default_parameter_file(self, path=None, prompt=True):
+    #     params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+    #     new_file = []
+    #     with open(params_path, "r") as f:
+    #         for line in f:
+    #             if "push_v.Options" in line:
+    #                 new_file += ["phi = equil.p0\n"]
+    #                 new_file += ["model.propagators.push_v.options = model.propagators.push_v.Options(phi=phi)\n"]
+    #             else:
+    #                 new_file += [line]
+
+    #     with open(params_path, "w") as f:
+    #         for line in new_file:
+    #             f.write(line)
 
 
 class VariationalBarotropicFluid(StruphyModel):
