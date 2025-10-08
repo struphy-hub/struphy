@@ -23,6 +23,7 @@ toy_models = [
     "RandomParticleDiffusion",
     "TwoFluidQuasiNeutralToy",
     "VariationalPressurelessFluid",
+    "VariationalBarotropicFluid",
 ]
 # for name, obj in inspect.getmembers(toy):
 #     if inspect.isclass(obj) and "models.toy" in obj.__module__:
