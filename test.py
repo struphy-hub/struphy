@@ -6,3 +6,6 @@ from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWit
 from struphy.fields_background.base import FluidEquilibriumWithB
 >>>>>>> devel
 
+
+
+
