@@ -3811,7 +3811,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             elif len(_shp) == 3:
                 func = naive_evaluation_meshgrid
             func(
-                args_markers,
+                self.args_markers,
                 eta1,
                 eta2,
                 eta3,

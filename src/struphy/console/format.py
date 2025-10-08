@@ -125,6 +125,34 @@ def check_omp_flags(file_path, verbose=False):
         raise ValueError(f"Error reading file: {e}")
 
 
+def check_ssort(file_path, verbose=False):
+    """Check if a file is sorted according to ssort.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the Python file.
+
+    verbose : bool, optional
+        If True, enables detailed output (default=False).
+
+    Returns
+    -------
+    bool
+        True if ssort check passes, False otherwise.
+    """
+    result = subprocess.run(
+        ["ssort", "--check", file_path],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if verbose:
+        print("stdout:", result.stdout.decode("utf-8"))
+        print("stderr:", result.stderr.decode("utf-8"))
+    return result.returncode == 0
+
+
 def check_ruff(file_path, verbose=False):
     """Check if a file passes Ruff linting.
 
@@ -379,9 +407,12 @@ def parse_path(directory):
     python_files = []
     for root, _, files in os.walk(directory):
         for filename in files:
+            if re.search(r"__\w+__", root):
+                continue
             if filename.endswith(".py") and not re.search(r"__\w+__", filename):
                 file_path = os.path.join(root, filename)
                 python_files.append(file_path)
+    # exit()
     return python_files
 
 
@@ -825,121 +856,7 @@ def print_stats_table(stats_list, linters, print_header=True, pathlen=0, ci_lint
         "Classes",
         "Vars",
     ]
-
-    table = []
-    for stats in stats_list:
-        path = os.path.relpath(stats["path"])
-        row = [
-            path,
-            stats["num_lines"],
-            stats["num_functions"],
-            stats["num_classes"],
-            stats["num_variables"],
-        ]
-
-        if "pylint" in linters:
-            headers.append("Pylint #")
-            row.append(f"{stats['pylint_score']}/10")
-        for linter in linters:
-            headers.append(linter)
-        headers.append("Passes CI")
-
-        for linter in linters:
-            row.append(PASS_GREEN if stats[f"passes_{linter}"] else FAIL_RED)
-        if all(linter in linters for linter in ci_linters):
-            passes_ci = all(stats[f"passes_{linter}"] for linter in ci_linters)
-            row.append(PASS_GREEN if passes_ci else FAIL_RED)
-        table.append(row)
-    if print_header:
-        print(tabulate(table, headers=headers, tablefmt="grid"))
-    else:
-        lines = tabulate(table, headers=headers, tablefmt="grid").split("\n")
-        print("\n".join(lines[-2:]))
-
-
-def analyze_file(file_path, linters=None, verbose=False):
-    """Analyze a Python file with list of linters.
-
-    Parameters
-    ----------
-    file_path : str
-        Path to the Python file.
-
-    linters : list
-        Linters to apply for analysis (default=["isort", "autopep8"]).
-
-    verbose : bool, optional
-        If True, enables detailed output (default=False).
-
-    Returns
-    -------
-    dict
-        Analysis results including line count, function count, and linter pass status.
-    """
-
-    # We set the default linters here rather than in the function signature to avoid
-    # using a mutable list as a default argument, which can lead to unexpected behavior
-    # due to shared state across function calls.
-    if linters is None:
-        linters = ["isort", "autopep8"]
-
-    stats = {
-        "path": file_path,
-        "num_lines": 0,
-        "num_functions": 0,
-        "num_classes": 0,
-        "num_variables": 0,
-        "pylint_score": None,
-        "passes_isort": False,
-        "passes_autopep8": False,
-        "passes_flake8": False,
-        "passes_pylint": False,
-        "passes_add-trailing-comma": False,
-        "passes_ruff": False,
-        "passes_omp_flags": False,
-    }
-
-    # Read the file content
-    with open(file_path, "r", encoding="utf-8") as file:
-        source_code = file.read()
-        stats["num_lines"] = len(source_code.splitlines())
-
-    # Parse the AST
-    tree = ast.parse(source_code)
-    stats["num_functions"] = sum(isinstance(node, ast.FunctionDef) for node in ast.walk(tree))
-    stats["num_classes"] = sum(isinstance(node, ast.ClassDef) for node in ast.walk(tree))
-    stats["num_variables"] = sum(isinstance(node, (ast.Assign, ast.AnnAssign)) for node in ast.walk(tree))
-
-    # Run code analysis tools
-    # TODO: This should be a loop
-    if "isort" in linters:
-        stats["passes_isort"] = check_isort(file_path, verbose=verbose)
-    if "autopep8" in linters:
-        stats["passes_autopep8"] = check_autopep8(file_path, verbose=verbose)
-    if "flake8" in linters:
-        stats["passes_flake8"] = check_flake8(file_path, verbose=verbose)
-    if "pylint" in linters:
-        stats["pylint_score"], stats["passes_pylint"] = get_pylint_score(
-            file_path,
-            verbose=verbose,
-        )
-    if "add-trailing-comma" in linters:
-        stats["passes_add-trailing-comma"] = check_trailing_commas(
-            file_path,
-            verbose=verbose,
-        )
-    if "ruff" in linters:
-        stats["passes_ruff"] = check_ruff(
-            file_path,
-            verbose=verbose,
-        )
-    if "omp_flags" in linters:
-        stats["passes_omp_flags"] = check_omp_flags(
-            file_path,
-            verbose=verbose,
-        )
-
-    return stats
+    return python_files
 
 
 def replace_backticks_with_code_tags(text):

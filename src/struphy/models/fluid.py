@@ -1,6 +1,7 @@
 import numpy as np
 from mpi4py import MPI
 from psydac.linalg.block import BlockVector
+from psydac.linalg.stencil import StencilVector
 
 from struphy.models.base import StruphyModel
 from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
@@ -201,87 +202,52 @@ class LinearExtendedMHDuniform(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
 
-        dct["em_fields"]["b_field"] = "Hcurl"
-        dct["fluid"]["mhd"] = {
-            "rho": "L2",
-            "u": "Hdiv",
-            "p": "L2",
-        }
-        return dct
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.b_field = FEECVariable(space="Hcurl")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "mhd"
+    class MHD(FluidSpecies):
+        def __init__(self):
+            self.density = FEECVariable(space="L2")
+            self.velocity = FEECVariable(space="Hdiv")
+            self.pressure = FEECVariable(space="L2")
+            self.init_variables()
 
-    @staticmethod
-    def velocity_scale():
-        return "alfvén"
+    ## propagators
 
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_fields.ShearAlfvenB1: ["mhd_u", "b_field"],
-            propagators_fields.Hall: ["b_field"],
-            propagators_fields.MagnetosonicUniform: ["mhd_rho", "mhd_u", "mhd_p"],
-        }
+    class Propagators:
+        def __init__(self):
+            self.shear_alf = propagators_fields.ShearAlfvenB1()
+            self.hall = propagators_fields.Hall()
+            self.mag_sonic = propagators_fields.MagnetosonicUniform()
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+    ## abstract methods
 
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
-        from struphy.polar.basic import PolarVector
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+        self.mhd = self.MHD()
 
-        # extract necessary parameters
-        alfven_solver = params["fluid"]["mhd"]["options"]["ShearAlfvenB1"]["solver"]
-        M1_inv = params["fluid"]["mhd"]["options"]["ShearAlfvenB1"]["solver_M1"]
-        hall_solver = params["em_fields"]["options"]["Hall"]["solver"]
-        sonic_solver = params["fluid"]["mhd"]["options"]["MagnetosonicUniform"]["solver"]
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
 
-        # project background magnetic field (1-form) and pressure (3-form)
-        self._b_eq = self.projected_equil.b1
-        self._a_eq = self.projected_equil.a1
-        self._p_eq = self.projected_equil.p3
-        self._ones = self.pointer["mhd_p"].space.zeros()
+        # 3. assign variables to propagators
+        self.propagators.shear_alf.variables.u = self.mhd.velocity
+        self.propagators.shear_alf.variables.b = self.em_fields.b_field
 
-        if isinstance(self._ones, PolarVector):
-            self._ones.tp[:] = 1.0
-        else:
-            self._ones[:] = 1.0
+        self.propagators.hall.variables.b = self.em_fields.b_field
 
-        # compute coupling parameters
-        epsilon = self.equation_params["mhd"]["epsilon"]
+        self.propagators.mag_sonic.variables.n = self.mhd.density
+        self.propagators.mag_sonic.variables.u = self.mhd.velocity
+        self.propagators.mag_sonic.variables.p = self.mhd.pressure
 
-        if abs(epsilon - 1) < 1e-6:
-            epsilon = 1.0
-
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.ShearAlfvenB1] = {
-            "solver": alfven_solver,
-            "solver_M1": M1_inv,
-        }
-
-        self._kwargs[propagators_fields.Hall] = {
-            "solver": hall_solver,
-            "epsilon": epsilon,
-        }
-
-        self._kwargs[propagators_fields.MagnetosonicUniform] = {"solver": sonic_solver}
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
+        # define scalars for update_scalar_quantities
         self.add_scalar("en_U")
         self.add_scalar("en_p")
         self.add_scalar("en_B")
@@ -291,17 +257,45 @@ class LinearExtendedMHDuniform(StruphyModel):
         self.add_scalar("en_tot")
         self.add_scalar("helicity")
 
-        # temporary vectors for scalar quantities
-        self._tmp_b1 = self.derham.Vh["1"].zeros()
-        self._tmp_b2 = self.derham.Vh["1"].zeros()
+    @property
+    def bulk_species(self):
+        return self.mhd
+
+    @property
+    def velocity_scale(self):
+        return "alfvén"
+
+    def allocate_helpers(self):
+        self._b_eq = self.projected_equil.b1
+        self._a_eq = self.projected_equil.a1
+        self._p_eq = self.projected_equil.p3
+
+        self._ones = self.projected_equil.p3.space.zeros()
+        if isinstance(self._ones, PolarVector):
+            self._ones.tp[:] = 1.0
+        else:
+            self._ones[:] = 1.0
+
+        self._tmp_b1: BlockVector = self.derham.Vh["1"].zeros()  # TODO: replace derham.Vh dict by class
+        self._tmp_b2: BlockVector = self.derham.Vh["1"].zeros()
+
+        # adjust coupling parameters
+        epsilon = self.mhd.equation_params.epsilon
+
+        if abs(epsilon - 1) < 1e-6:
+            self.mhd.equation_params.epsilon = 1.0
 
     def update_scalar_quantities(self):
         # perturbed fields
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_u"], self.pointer["mhd_u"])
-        b1 = self.mass_ops.M1.dot(self.pointer["b_field"], out=self._tmp_b1)
-        en_B = 0.5 * self.pointer["b_field"].inner(b1)
+        u = self.mhd.velocity.spline.vector
+        p = self.mhd.pressure.spline.vector
+        b = self.em_fields.b_field.spline.vector
+
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(u, u)
+        b1 = self.mass_ops.M1.dot(b, out=self._tmp_b1)
+        en_B = 0.5 * b.inner(b1)
         helicity = 2.0 * self._a_eq.inner(b1)
-        en_p_i = self.pointer["mhd_p"].inner(self._ones) / (5.0 / 3.0 - 1.0)
+        en_p_i = p.inner(self._ones) / (5.0 / 3.0 - 1.0)
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
@@ -319,12 +313,29 @@ class LinearExtendedMHDuniform(StruphyModel):
 
         # total magnetic field
         b1 = self._b_eq.copy(out=self._tmp_b1)
-        self._tmp_b1 += self.pointer["b_field"]
+        self._tmp_b1 += b
 
         b2 = self.mass_ops.M1.dot(b1, apply_bc=False, out=self._tmp_b2)
         en_Btot = b1.inner(b2) / 2.0
 
         self.update_scalar("en_B_tot", en_Btot)
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "hall.Options" in line:
+                    new_file += [
+                        "model.propagators.hall.options = model.propagators.hall.Options(epsilon_from=model.mhd)\n"
+                    ]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
 
 class ColdPlasma(StruphyModel):
@@ -362,82 +373,74 @@ class ColdPlasma(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
 
-        dct["em_fields"]["e_field"] = "Hcurl"
-        dct["em_fields"]["b_field"] = "Hdiv"
-        dct["fluid"]["electrons"] = {"j": "Hcurl"}
-        return dct
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.e_field = FEECVariable(space="Hcurl")
+            self.b_field = FEECVariable(space="Hdiv")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "electrons"
+    class Electrons(FluidSpecies):
+        def __init__(self):
+            self.current = FEECVariable(space="Hcurl")
+            self.init_variables()
 
-    @staticmethod
-    def velocity_scale():
-        return "light"
+    ## propagators
 
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_fields.Maxwell: ["e_field", "b_field"],
-            propagators_fields.OhmCold: ["electrons_j", "e_field"],
-            propagators_fields.JxBCold: ["electrons_j"],
-        }
+    class Propagators:
+        def __init__(self):
+            self.maxwell = propagators_fields.Maxwell()
+            self.ohm = propagators_fields.OhmCold()
+            self.jxb = propagators_fields.JxBCold()
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+    ## abstract methods
 
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
-        # model parameters
-        self._alpha = self.equation_params["electrons"]["alpha"]
-        self._epsilon = self.equation_params["electrons"]["epsilon"]
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+        self.electrons = self.Electrons()
 
-        # solver parameters
-        params_maxwell = params["em_fields"]["options"]["Maxwell"]["solver"]
-        params_ohmcold = params["fluid"]["electrons"]["options"]["OhmCold"]["solver"]
-        params_jxbcold = params["fluid"]["electrons"]["options"]["JxBCold"]["solver"]
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
 
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Maxwell] = {"solver": params_maxwell}
+        # 3. assign variables to propagators
+        self.propagators.maxwell.variables.e = self.em_fields.e_field
+        self.propagators.maxwell.variables.b = self.em_fields.b_field
 
-        self._kwargs[propagators_fields.OhmCold] = {
-            "alpha": self._alpha,
-            "epsilon": self._epsilon,
-            "solver": params_ohmcold,
-        }
+        self.propagators.ohm.variables.j = self.electrons.current
+        self.propagators.ohm.variables.e = self.em_fields.e_field
 
-        self._kwargs[propagators_fields.JxBCold] = {
-            "epsilon": self._epsilon,
-            "solver": params_jxbcold,
-        }
+        self.propagators.jxb.variables.j = self.electrons.current
 
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
+        # define scalars for update_scalar_quantities
         self.add_scalar("electric energy")
         self.add_scalar("magnetic energy")
         self.add_scalar("kinetic energy")
         self.add_scalar("total energy")
 
+    @property
+    def bulk_species(self):
+        return self.electrons
+
+    @property
+    def velocity_scale(self):
+        return "light"
+
+    def allocate_helpers(self):
+        self._alpha = self.electrons.equation_params.alpha
+
     def update_scalar_quantities(self):
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
-        en_J = (
-            0.5
-            * self._alpha**2
-            * self.mass_ops.M1ninv.dot_inner(self.pointer["electrons_j"], self.pointer["electrons_j"])
-        )
+        e = self.em_fields.e_field.spline.vector
+        b = self.em_fields.b_field.spline.vector
+        j = self.electrons.current.spline.vector
+
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(e, e)
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(b, b)
+        en_J = 0.5 * self._alpha**2 * self.mass_ops.M1ninv.dot_inner(j, j)
 
         self.update_scalar("electric energy", en_E)
         self.update_scalar("magnetic energy", en_B)
@@ -2328,119 +2331,102 @@ class HasegawaWakatani(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
 
-        dct["em_fields"] = {"phi0": "H1"}
-        dct["fluid"]["hw"] = {
-            "n0": "H1",
-            "omega0": "H1",
-        }
-        return dct
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.phi = FEECVariable(space="H1")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "hw"
+    class Plasma(FluidSpecies):
+        def __init__(self):
+            self.density = FEECVariable(space="H1")
+            self.vorticity = FEECVariable(space="H1")
+            self.init_variables()
 
-    @staticmethod
-    def velocity_scale():
+    ## propagators
+
+    class Propagators:
+        def __init__(self):
+            self.poisson = propagators_fields.Poisson()
+            self.hw = propagators_fields.HasegawaWakatani()
+
+    ## abstract methods
+
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+        self.plasma = self.Plasma()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.poisson.variables.phi = self.em_fields.phi
+        self.propagators.hw.variables.n = self.plasma.density
+        self.propagators.hw.variables.omega = self.plasma.vorticity
+
+        # define scalars for update_scalar_quantities
+
+    @property
+    def bulk_species(self):
+        return self.plasma
+
+    @property
+    def velocity_scale(self):
         return "alfvén"
 
-    # @staticmethod
-    # def diagnostics_dct():
-    #     dct = {}
-    #     dct["projected_density"] = "L2"
-    #     return dct
-
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_fields.Poisson: ["phi0"],
-            propagators_fields.HasegawaWakatani: ["hw_n0", "hw_omega0"],
-        }
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from struphy.polar.basic import PolarVector
-
-        # extract necessary parameters
-        self._stab_eps = params["em_fields"]["options"]["Poisson"]["stabilization"]["stab_eps"]
-        self._stab_mat = params["em_fields"]["options"]["Poisson"]["stabilization"]["stab_mat"]
-        self._solver = params["em_fields"]["options"]["Poisson"]["solver"]
-        c_fun = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["c_fun"]
-        kappa = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["kappa"]
-        nu = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["nu"]
-        algo = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["algo"]
-        M0_solver = params["fluid"]["hw"]["options"]["HasegawaWakatani"]["M0_solver"]
-
-        # rhs of Poisson
-        self._rho = self.derham.Vh["0"].zeros()
+    def allocate_helpers(self):
+        self._rho: StencilVector = self.derham.Vh["0"].zeros()
         self.update_rho()
 
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Poisson] = {
-            "stab_eps": self._stab_eps,
-            "stab_mat": self._stab_mat,
-            "rho": self.update_rho,
-            "solver": self._solver,
-        }
-
-        self._kwargs[propagators_fields.HasegawaWakatani] = {
-            "phi": self.em_fields["phi0"]["obj"],
-            "c_fun": c_fun,
-            "kappa": kappa,
-            "nu": nu,
-            "algo": algo,
-            "M0_solver": M0_solver,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
+    def update_scalar_quantities(self):
+        pass
 
     def update_rho(self):
-        self._rho = self.mass_ops.M0.dot(self.pointer["hw_omega0"], out=self._rho)
+        omega = self.plasma.vorticity.spline.vector
+        self._rho = self.mass_ops.M0.dot(omega, out=self._rho)
         self._rho.update_ghost_regions()
         return self._rho
 
-    def initialize_from_params(self):
+    def allocate_propagators(self):
         """Solve initial Poisson equation.
 
         :meta private:
         """
         # initialize fields and particles
-        super().initialize_from_params()
+        super().allocate_propagators()
 
-        if self.rank_world == 0:
+        if MPI.COMM_WORLD.Get_rank() == 0:
             print("\nINITIAL POISSON SOLVE:")
 
-        # Instantiate Poisson solver
-        poisson_solver = propagators_fields.Poisson(
-            self.pointer["phi0"],
-            stab_eps=self._stab_eps,
-            stab_mat=self._stab_mat,
-            rho=self._rho,
-            solver=self._solver,
-        )
-
-        # Solve with dt=1. and compute electric field
-        if self.rank_world == 0:
-            print("\nSolving initial Poisson problem...")
-
         self.update_rho()
-        poisson_solver(1.0)
+        self.propagators.poisson(1.0)
 
-        if self.rank_world == 0:
+        if MPI.COMM_WORLD.Get_rank() == 0:
             print("Done.")
 
     def update_scalar_quantities(self):
         pass
+
+    # default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "hw.Options" in line:
+                    new_file += [
+                        "model.propagators.hw.options = model.propagators.hw.Options(phi=model.em_fields.phi)\n"
+                    ]
+                elif "vorticity.add_background" in line:
+                    new_file += ["model.plasma.density.add_background(FieldsBackground())\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
