@@ -496,6 +496,22 @@ inspect_repo:
     - ./cloc --version
     - ./cloc $(git ls-files)
 
+test_cupy:
+  tags: [nvidia-cc80]
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/nvhpcsdk_24-openmpi_5_0:2025
+  stage: startup
+  timeout: 5m
+  extends:
+    - .rules_startup
+  before_script:
+    - module avail
+    - module list
+    - module purge
+    #- module load cuda/12.6 gcc/13 openmpi/5.0
+    - module load nvhpcsdk/24 openmpi/5.0 python-waterboa/2024.06 gcc/13
+  script:
+    - ls
+
 #####################
 ### PUSH PIPELINE ###
 #####################
