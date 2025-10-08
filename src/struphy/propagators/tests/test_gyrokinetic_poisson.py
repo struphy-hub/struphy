@@ -11,7 +11,6 @@ from struphy.geometry.base import Domain
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
-from struphy.propagators.propagators_fields import ImplicitDiffusion
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
