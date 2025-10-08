@@ -29,6 +29,7 @@ OptsGenSolver = Literal["pbicgstab", "bicgstab", "GMRES"]
 OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
 OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]
 OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
+OptsNonlinearSolver = Literal["Picard", "Newton"]
 
 # markers
 OptsPICSpace = Literal["Particles6D", "DeltaFParticles6D", "Particles5D", "Particles3D"]
