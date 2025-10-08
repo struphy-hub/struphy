@@ -2,8 +2,12 @@ import copy
 
 import numpy as np
 
+<<<<<<< HEAD
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
+=======
+from struphy.fields_background.base import FluidEquilibriumWithB
+>>>>>>> devel
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
