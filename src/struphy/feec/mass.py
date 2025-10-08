@@ -728,6 +728,12 @@ class WeightedMassOperators:
 
         return self._M1gyro
 
+    @property
+    def WMM(self):
+        if not hasattr(self, "_WMM"):
+            self._WMM = self.H1vecMassMatrix_density(self.derham, self, self.domain) 
+        return self._WMM
+    
     #######################################
     # Wrapper around WeightedMassOperator #
     #######################################
@@ -1024,6 +1030,99 @@ class WeightedMassOperators:
 
         return out
 
+    #######################################
+    # Aux classes (to be removed in TODO) #
+    #######################################
+    class H1vecMassMatrix_density:
+        """Wrapper around a Weighted mass operator from H1vec to H1vec whose weights are given by a 3 form
+        """
+        def __init__(self, derham, mass_ops, domain):
+            self._massop = mass_ops.create_weighted_mass("H1vec", "H1vec")
+            self.field = derham.create_spline_function("field", "L2")
+
+            integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
+
+            self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = derham.prepare_eval_tp_fixed(
+                integration_grid,
+            )
+
+            grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
+            self._f_values = np.zeros(grid_shape, dtype=float)
+
+            metric = domain.metric(*integration_grid)
+            self._mass_metric_term = deepcopy(metric)
+            self._full_term_mass = deepcopy(metric)
+
+        @property
+        def massop(
+            self,
+        ):
+            """The WeightedMassOperator"""
+            return self._massop
+
+        @property
+        def inv(
+            self,
+        ):
+            """The inverse WeightedMassOperator"""
+            if not hasattr(self, "_inv"):
+                self._create_inv()
+            return self._inv
+
+        def update_weight(self, coeffs):
+            """Update the weighted mass matrix operator"""
+
+            self.field.vector = coeffs
+            f_values = self.field.eval_tp_fixed_loc(
+                self.integration_grid_spans,
+                self.integration_grid_bd,
+                out=self._f_values,
+            )
+            for i in range(3):
+                for j in range(3):
+                    self._full_term_mass[i, j] = f_values * self._mass_metric_term[i, j]
+
+            self._massop.assemble(
+                [
+                    [self._full_term_mass[0, 0], self._full_term_mass[0, 1], self._full_term_mass[0, 2]],
+                    [
+                        self._full_term_mass[1, 0],
+                        self._full_term_mass[
+                            1,
+                            1,
+                        ],
+                        self._full_term_mass[1, 2],
+                    ],
+                    [self._full_term_mass[2, 0], self._full_term_mass[2, 1], self._full_term_mass[2, 2]],
+                ],
+                verbose=False,
+            )
+
+            if hasattr(self, "_inv") and self._pc is not None:
+                self._pc.update_mass_operator(self._massop)
+
+        def _create_inv(
+            self, type="pcg", pc_type="MassMatrixDiagonalPreconditioner", tol=1e-16, maxiter=500, verbose=False
+        ):
+            """Inverse the  weighted mass matrix"""
+            if pc_type is None:
+                self._pc = None
+            else:
+                pc_class = getattr(
+                    preconditioner,
+                    pc_type,
+                )
+                self._pc = pc_class(self.massop)
+
+            self._inv = inverse(
+                self.massop,
+                type,
+                pc=self._pc,
+                tol=tol,
+                maxiter=maxiter,
+                verbose=verbose,
+                recycle=True,
+            )
 
 class WeightedMassOperatorsOldForTesting:
     r"""
