@@ -57,10 +57,12 @@ from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3
 from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
+from struphy.models.species import Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau, OptsButcher
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
@@ -280,39 +282,71 @@ class OhmCold(Propagator):
         \end{bmatrix} \,.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
+    class Variables:
+        def __init__(self):
+            self._j: FEECVariable = None
+            self._e: FEECVariable = None
 
-        return dct
+        @property
+        def j(self) -> FEECVariable:
+            return self._j
 
-    def __init__(
-        self,
-        j: BlockVector,
-        e: BlockVector,
-        *,
-        alpha: float = 1.0,
-        epsilon: float = 1.0,
-        solver: dict = options(default=True)["solver"],
-    ):
-        super().__init__(e, j)
+        @j.setter
+        def j(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hcurl"
+            self._j = new
 
-        self._info = solver["info"]
-        self._alpha = alpha
-        self._epsilon = epsilon
+        @property
+        def e(self) -> FEECVariable:
+            return self._e
+
+        @e.setter
+        def e(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hcurl"
+            self._e = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # propagator options
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+
+        def __post_init__(self):
+            # checks
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._info = self.options.solver_params.info
+
+        self._alpha = self.variables.j.species.equation_params.alpha
+        self._epsilon = self.variables.j.species.equation_params.epsilon
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
         _A = self.mass_ops.M1ninv
@@ -320,10 +354,10 @@ class OhmCold(Propagator):
         self._B = -1 / 2 * 1 / self._epsilon * self.mass_ops.M1  # no dt
 
         # Preconditioner
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(self.mass_ops.M1ninv)
 
         # Instantiate Schur solver (constant in this case)
@@ -332,12 +366,13 @@ class OhmCold(Propagator):
         self._schur_solver = SchurSolver(
             _A,
             _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
+            self.options.solver,
+            precond=pc,
+            solver_params=self.options.solver_params,
         )
+
+        j = self.variables.j.spline.vector
+        e = self.variables.e.spline.vector
 
         self._tmp_j1 = j.space.zeros()
         self._tmp_j2 = j.space.zeros()
@@ -346,8 +381,8 @@ class OhmCold(Propagator):
 
     def __call__(self, dt):
         # current variables
-        en = self.feec_vars[0]
-        jn = self.feec_vars[1]
+        jn = self.variables.j.spline.vector
+        en = self.variables.e.spline.vector
 
         # in-place solution (no tmps created here)
         Ben = self._B.dot(en, out=self._tmp_e1)
@@ -361,13 +396,13 @@ class OhmCold(Propagator):
         en1 += en
 
         # write new coeffs into Propagator.variables
-        max_de, max_dj = self.feec_vars_update(en1, jn1)
+        diffs = self.update_feec_variables(e=en1, j=jn1)
 
         if self._info:
             print("Status     for OhmCold:", info["success"])
             print("Iterations for OhmCold:", info["niter"])
-            print("Maxdiff e1 for OhmCold:", max_de)
-            print("Maxdiff j1 for OhmCold:", max_dj)
+            print("Maxdiff e1 for OhmCold:", diffs["e"])
+            print("Maxdiff j1 for OhmCold:", diffs["j"])
             print()
 
 
@@ -387,65 +422,90 @@ class JxBCold(Propagator):
         \mathbb M_{1/n_0} \left( \mathbf j^{n+1} - \mathbf j^n \right) = \frac{\Delta t}{2} \frac{1}{\varepsilon} \mathbb M_{B_0/n_0} \left( \mathbf j^{n+1} - \mathbf j^n \right)\,.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
+    class Variables:
+        def __init__(self):
+            self._j: FEECVariable = None
 
-        return dct
+        @property
+        def j(self) -> FEECVariable:
+            return self._j
 
-    def __init__(
-        self,
-        j: BlockVector,
-        *,
-        epsilon: float = 1.0,
-        solver: dict = options(default=True)["solver"],
-    ):
-        super().__init__(j)
+        @j.setter
+        def j(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hcurl"
+            self._j = new
 
-        self._info = solver["info"]
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # propagator options
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+
+        def __post_init__(self):
+            # checks
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._info = self.options.solver_params.info
+
+        epsilon = self.variables.j.species.equation_params.epsilon
 
         # mass matrix in system (M - dt/2 * A)*j^(n + 1) = (M + dt/2 * A)*j^n
         self._M = self.mass_ops.M1ninv
         self._A = -1 / epsilon * self.mass_ops.M1Bninv  # no dt
 
         # Preconditioner
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(self.mass_ops.M1ninv)
 
         # Instantiate linear solver
         self._solver = inverse(
             self._M,
-            solver["type"][0],
+            self.options.solver,
             pc=pc,
-            x0=self.feec_vars[0],
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
+            x0=self.variables.j.spline.vector,
+            tol=self.options.solver_params.tol,
+            maxiter=self.options.solver_params.maxiter,
+            verbose=self.options.solver_params.verbose,
         )
 
         # allocate dummy vectors to avoid temporary array allocations
         self._rhs_j = self._M.codomain.zeros()
-        self._j_new = j.space.zeros()
+        self._j_new = self.variables.j.spline.vector.space.zeros()
 
+    @profile
     def __call__(self, dt):
         # current variables
-        jn = self.feec_vars[0]
+        jn = self.variables.j.spline.vector
 
         # define system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
         lhs = self._M - dt / 2.0 * self._A
@@ -460,7 +520,7 @@ class JxBCold(Propagator):
         info = self._solver._info
 
         # write new coeffs into Propagator.variables
-        max_dj = self.feec_vars_update(jn1)[0]
+        max_dj = self.update_feec_variables(j=jn1)
 
         if self._info:
             print("Status     for FluidCold:", info["success"])
@@ -695,62 +755,91 @@ class ShearAlfvenB1(Propagator):
     the MHD equilibirum density.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        dct["solver_M1"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
+    class Variables:
+        def __init__(self):
+            self._u: FEECVariable = None
+            self._b: FEECVariable = None
 
-        return dct
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
 
-    def __init__(
-        self,
-        u: BlockVector,
-        b: BlockVector,
-        *,
-        solver: dict = options(default=True)["solver"],
-        solver_M1: dict = options(default=True)["solver_M1"],
-    ):
-        super().__init__(u, b)
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hdiv")
+            self._u = new
 
-        self._info = solver["info"]
+        @property
+        def b(self) -> FEECVariable:
+            return self._b
+
+        @b.setter
+        def b(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hcurl"
+            self._b = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # propagator options
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        solver_M1: OptsSymmSolver = "pcg"
+        precond_M1: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params_M1: SolverParameters = None
+
+        def __post_init__(self):
+            # checks
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+            check_option(self.solver_M1, OptsSymmSolver)
+            check_option(self.precond_M1, OptsMassPrecond)
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+            if self.solver_params_M1 is None:
+                self.solver_params_M1 = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._info = self.options.solver_params.info
 
         # define inverse of M1
-        if solver_M1["type"][1] is None:
+        if self.options.precond_M1 is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver_M1["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond_M1)
             pc = pc_class(self.mass_ops.M1)
 
         M1_inv = inverse(
             self.mass_ops.M1,
-            solver_M1["type"][0],
+            self.options.solver_M1,
             pc=pc,
-            tol=solver_M1["tol"],
-            maxiter=solver_M1["maxiter"],
-            verbose=solver_M1["verbose"],
+            tol=self.options.solver_params_M1.tol,
+            maxiter=self.options.solver_params_M1.maxiter,
+            verbose=self.options.solver_params_M1.verbose,
         )
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -760,10 +849,10 @@ class ShearAlfvenB1(Propagator):
         self._C = 1 / 2 * M1_inv @ self.derham.curl.T @ self.mass_ops.M2B
 
         # Preconditioner
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(getattr(self.mass_ops, "M2n"))
 
         # instantiate Schur solver (constant in this case)
@@ -772,24 +861,26 @@ class ShearAlfvenB1(Propagator):
         self._schur_solver = SchurSolver(
             _A,
             _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
+            self.options.solver,
+            precond=pc,
+            solver_params=self.options.solver_params,
         )
 
         # allocate dummy vectors to avoid temporary array allocations
+        u = self.variables.u.spline.vector
+        b = self.variables.b.spline.vector
+
         self._u_tmp1 = u.space.zeros()
         self._u_tmp2 = u.space.zeros()
         self._b_tmp1 = b.space.zeros()
 
         self._byn = self._B.codomain.zeros()
 
+    @profile
     def __call__(self, dt):
         # current variables
-        un = self.feec_vars[0]
-        bn = self.feec_vars[1]
+        un = self.variables.u.spline.vector
+        bn = self.variables.b.spline.vector
 
         # solve for new u coeffs
         byn = self._B.dot(bn, out=self._byn)
@@ -804,13 +895,13 @@ class ShearAlfvenB1(Propagator):
         bn1 += bn
 
         # write new coeffs into self.feec_vars
-        max_du, max_db = self.feec_vars_update(un1, bn1)
+        max_diffs = self.update_feec_variables(u=un1, b=bn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for ShearAlfvenB1:", info["success"])
             print("Iterations for ShearAlfvenB1:", info["niter"])
-            print("Maxdiff up for ShearAlfvenB1:", max_du)
-            print("Maxdiff b2 for ShearAlfvenB1:", max_db)
+            print("Maxdiff up for ShearAlfvenB1:", max_diffs["u"])
+            print("Maxdiff b2 for ShearAlfvenB1:", max_diffs["b"])
             print()
 
 
@@ -834,38 +925,66 @@ class Hall(Propagator):
     The solution of the above system is based on the Pre-conditioned Biconjugate Gradient Stabilized algortihm (PBiConjugateGradientStab).
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pbicgstab", "MassMatrixPreconditioner"),
-                ("bicgstab", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
+    class Variables:
+        def __init__(self):
+            self._b: FEECVariable = None
 
-        return dct
+        @property
+        def b(self) -> FEECVariable:
+            return self._b
 
-    def __init__(
-        self,
-        b: BlockVector,
-        *,
-        epsilon: float = 1.0,
-        solver: dict = options(default=True)["solver"],
-    ):
-        super().__init__(b)
+        @b.setter
+        def b(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hcurl"
+            self._b = new
 
-        self._info = solver["info"]
-        self._tol = solver["tol"]
-        self._maxiter = solver["maxiter"]
-        self._verbose = solver["verbose"]
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # propagator options
+        solver: OptsGenSolver = "pbicgstab"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        epsilon_from: Species = None
+
+        def __post_init__(self):
+            # checks
+            check_option(self.solver, OptsGenSolver)
+            check_option(self.precond, OptsMassPrecond)
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        if self.options.epsilon_from is None:
+            epsilon = 1.0
+        else:
+            epsilon = self.options.epsilon_from.equation_params.epsilon
+
+        self._info = self.options.solver_params.info
+        self._tol = self.options.solver_params.tol
+        self._maxiter = self.options.solver_params.maxiter
+        self._verbose = self.options.solver_params.verbose
 
         # mass matrix in system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
         id_M = "M1"
@@ -875,18 +994,18 @@ class Hall(Propagator):
         self._A = 1.0 / epsilon * self.derham.curl.T @ self._M2Bn @ self.derham.curl
 
         # Preconditioner
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(getattr(self.mass_ops, id_M))
 
         # Instantiate linear solver
         self._solver = inverse(
             self._M,
-            solver["type"][0],
+            self.options.solver,
             pc=pc,
-            x0=self.feec_vars[0],
+            x0=self.variables.b.spline.vector,
             tol=self._tol,
             maxiter=self._maxiter,
             verbose=self._verbose,
@@ -894,11 +1013,11 @@ class Hall(Propagator):
 
         # allocate dummy vectors to avoid temporary array allocations
         self._rhs_b = self._M.codomain.zeros()
-        self._b_new = b.space.zeros()
+        self._b_new = self.variables.b.spline.vector.space.zeros()
 
     def __call__(self, dt):
         # current variables
-        bn = self.feec_vars[0]
+        bn = self.variables.b.spline.vector
 
         # define system (M - dt/2 * A)*b^(n + 1) = (M + dt/2 * A)*b^n
         lhs = self._M - dt / 2.0 * self._A
@@ -912,12 +1031,12 @@ class Hall(Propagator):
         info = self._solver._info
 
         # write new coeffs into self.feec_vars
-        max_db = self.feec_vars_update(bn1)
+        max_db = self.update_feec_variables(b=bn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for Hall:", info["success"])
             print("Iterations for Hall:", info["niter"])
-            print("Maxdiff b1 for Hall:", max_db)
+            print("Maxdiff b1 for Hall:", max_db["b"])
             print()
 
 
@@ -1182,36 +1301,78 @@ class MagnetosonicUniform(Propagator):
             Solver- and/or other parameters for this splitting step.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pbicgstab", "MassMatrixPreconditioner"),
-                ("bicgstab", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
+    class Variables:
+        def __init__(self):
+            self._n: FEECVariable = None
+            self._u: FEECVariable = None
+            self._p: FEECVariable = None
 
-        return dct
+        @property
+        def n(self) -> FEECVariable:
+            return self._n
 
-    def __init__(
-        self,
-        n: StencilVector,
-        u: BlockVector,
-        p: StencilVector,
-        *,
-        solver: dict = options(default=True)["solver"],
-    ):
-        super().__init__(n, u, p)
+        @n.setter
+        def n(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "L2"
+            self._n = new
 
-        self._info = solver["info"]
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
+
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hcurl", "Hdiv", "H1vec")
+            self._u = new
+
+        @property
+        def p(self) -> FEECVariable:
+            return self._p
+
+        @p.setter
+        def p(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "L2"
+            self._p = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        solver: OptsGenSolver = "pbicgstab"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+
+        def __post_init__(self):
+            # checks
+            check_option(self.solver, OptsGenSolver)
+            check_option(self.precond, OptsMassPrecond)
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._info = self.options.solver_params.info
         self._bc = self.derham.dirichlet_bc
 
         # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -1227,10 +1388,10 @@ class MagnetosonicUniform(Propagator):
         self._QD = getattr(self.basis_ops, id_Q) @ self.derham.div
 
         # preconditioner
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(getattr(self.mass_ops, id_Mn))
 
         # instantiate Schur solver (constant in this case)
@@ -1239,14 +1400,16 @@ class MagnetosonicUniform(Propagator):
         self._schur_solver = SchurSolver(
             _A,
             _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
+            self.options.solver,
+            precond=pc,
+            solver_params=self.options.solver_params,
         )
 
         # allocate dummy vectors to avoid temporary array allocations
+        n = self.variables.n.spline.vector
+        u = self.variables.u.spline.vector
+        p = self.variables.p.spline.vector
+
         self._u_tmp1 = u.space.zeros()
         self._u_tmp2 = u.space.zeros()
         self._p_tmp1 = p.space.zeros()
@@ -1254,11 +1417,12 @@ class MagnetosonicUniform(Propagator):
 
         self._byn1 = self._B.codomain.zeros()
 
+    @profile
     def __call__(self, dt):
         # current variables
-        nn = self.feec_vars[0]
-        un = self.feec_vars[1]
-        pn = self.feec_vars[2]
+        nn = self.variables.n.spline.vector
+        un = self.variables.u.spline.vector
+        pn = self.variables.p.spline.vector
 
         # solve for new u coeffs
         byn1 = self._B.dot(pn, out=self._byn1)
@@ -1277,18 +1441,14 @@ class MagnetosonicUniform(Propagator):
         nn1 += nn
 
         # write new coeffs into self.feec_vars
-        max_dn, max_du, max_dp = self.feec_vars_update(
-            nn1,
-            un1,
-            pn1,
-        )
+        diffs = self.update_feec_variables(n=nn1, u=un1, p=pn1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for Magnetosonic:", info["success"])
             print("Iterations for Magnetosonic:", info["niter"])
-            print("Maxdiff n3 for Magnetosonic:", max_dn)
-            print("Maxdiff up for Magnetosonic:", max_du)
-            print("Maxdiff p3 for Magnetosonic:", max_dp)
+            print("Maxdiff n3 for Magnetosonic:", diffs["n"])
+            print("Maxdiff up for Magnetosonic:", diffs["u"])
+            print("Maxdiff p3 for Magnetosonic:", diffs["p"])
             print()
 
 
@@ -1747,9 +1907,9 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         \left\{ 
             \begin{aligned} 
-                \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V \, \textnormal{d} \mathbf{x} = \int \left(\tilde{\mathbf B} - \frac{A_\textnormal{h}}{A_b} \iint f^\text{vol} \mu \mathbf{b}_0\textnormal{d} \mu \textnormal{d} v_\parallel \right) \cdot \nabla \times (\mathbf B_0 \times \mathbf V) \, \textnormal{d} \mathbf{x} \quad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,, \,,
+                \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V \, \textnormal{d} \mathbf{x} = \int \left(\tilde{\mathbf B} - \frac{A_\textnormal{h}}{A_b} \iint f^\text{vol} \mu \mathbf{b}_0\textnormal{d} \mu \textnormal{d} v_\parallel \right) \cdot \nabla \times (\tilde{\mathbf B} \times \mathbf V) \, \textnormal{d} \mathbf{x} \quad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,, \,,
                 \\
-                &\frac{\partial \tilde{\mathbf B}}{\partial t} = - \nabla \times (\mathbf B_0 \times \tilde{\mathbf U}) \,.
+                &\frac{\partial \tilde{\mathbf B}}{\partial t} = - \nabla \times (\tilde{\mathbf B} \times \tilde{\mathbf U}) \,.
             \end{aligned}
         \right.
 
@@ -1762,499 +1922,242 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         \end{bmatrix} 
         = \frac{\Delta t}{2} \,.
         \begin{bmatrix} 
-            0 & (\mathbb M^{\alpha,n})^{-1} \mathcal {T^\alpha}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^\alpha} (\mathbb M^{\alpha,n})^{-1} & 0 
+            0 & (\mathbb M^{2,n})^{-1} \mathcal {T^2}^\top \mathbb C^\top \\ - \mathbb C \mathcal {T^2} (\mathbb M^{2,n})^{-1} & 0 
         \end{bmatrix} 
         \begin{bmatrix}
-            {\mathbb M^{\alpha,n}}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k) \right)
+            {\mathbb M^{2,n}}(\mathbf u^{n+1} + \mathbf u^n) \\ \mathbb M_2(\mathbf b^{n+1} + \mathbf b^n) + \sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k) \right)
         \end{bmatrix} \,,
 
     where 
-    :math:`\mathcal{T}^\alpha` is a :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators` and
-    :math:`\mathbb M^{\alpha,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density. 
-    :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
-    Moreover, :math:`\sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k)\right)` is accumulated by the kernel :class:`~struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_M`.
+    :math:`\mathcal{T}^2 = \hat \Pi \left[\frac{\tilde{\mathbf B}^2}{\sqrt{g} \times \vec \Lambda^2\right]`  and
+    :math:`\mathbb M^{2,n}` is a :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_\text{eq}`, the MHD equilibirum density. 
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixDiagonalPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        dct["filter"] = {
-            "use_filter": None,
-            "modes": (1),
-            "repeat": 1,
-            "alpha": 0.5,
-        }
-        dct["boundary_cut"] = {
-            "e1": 0.0,
-            "e2": 0.0,
-            "e3": 0.0,
-        }
-        dct["turn_off"] = False
+    class Variables:
+        def __init__(self):
+            self._u: FEECVariable = None
+            self._b: FEECVariable = None
 
-        if default:
-            dct = descend_options_dict(dct, [])
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
 
-        return dct
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hcurl", "Hdiv", "H1vec")
+            self._u = new
 
-    def __init__(
-        self,
-        u: BlockVector,
-        b: BlockVector,
-        *,
-        particles: Particles5D,
-        absB0: StencilVector,
-        unit_b1: BlockVector,
-        u_space: str,
-        solver: dict = options(default=True)["solver"],
-        filter: dict = options(default=True)["filter"],
-        coupling_params: dict,
-        accumulated_magnetization: BlockVector,
-        boundary_cut: dict = options(default=True)["boundary_cut"],
-    ):
-        super().__init__(u, b)
+        @property
+        def b(self) -> FEECVariable:
+            return self._b
 
-        self._particles = particles
-        self._unit_b1 = unit_b1
-        self._absB0 = absB0
+        @b.setter
+        def b(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hdiv"
+            self._b = new
 
-        self._info = solver["info"]
+    def __init__(self):
+        self.variables = self.Variables()
 
-        self._scale_vec = coupling_params["Ah"] / coupling_params["Ab"]
+    @dataclass
+    class Options:
+        # specific literals
+        OptsAlgo = Literal["implicit", "explicit"]
+        # propagator options
+        energetic_ions: PICVariable = None
+        ep_scale: float = 1.0
+        u_space: OptsVecSpace = "Hdiv"
+        algo: OptsAlgo = "implicit"
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixDiagonalPreconditioner"
+        solver_params: SolverParameters = None
+        filter_params: FilterParameters = None
+        butcher: ButcherTableau = None
+        nonlinear: bool = True
 
-        self._E1T = self.derham.extraction_ops["1"].transpose()
-        self._unit_b1 = self._E1T.dot(self._unit_b1)
+        def __post_init__(self):
+            # checks
+            check_option(self.u_space, OptsVecSpace)
+            check_option(self.algo, self.OptsAlgo)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+            assert isinstance(self.energetic_ions, PICVariable)
+            assert self.energetic_ions.space == "Particles5D"
+            assert isinstance(self.ep_scale, float)
+            assert isinstance(self.nonlinear, bool)
 
-        self._accumulated_magnetization = accumulated_magnetization
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
 
-        self._boundary_cut_e1 = boundary_cut["e1"]
+            if self.filter_params is None:
+                self.filter_params = FilterParameters()
 
-        self._ACC = Accumulator(
-            particles,
-            u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_M,
-            self.mass_ops,
-            self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-            filter_params=filter,
-        )
+            if self.algo == "explicit" and self.butcher is None:
+                self.butcher = ButcherTableau()
 
-        # if self._particles.control_variate:
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
 
-        #     # control variate method is only valid with Maxwellian distributions with "zero perp mean velocity".
-        #     assert isinstance(self._particles.f0, Maxwellian)
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
 
-        #     self._ACC.init_control_variate(self.mass_ops)
+    @profile
+    def allocate(self):
+        self._u_form = self.derham.space_to_form[self.options.u_space]
 
-        #     # evaluate and save f0.n at quadrature points
-        #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.get_quad_grids(self.derham.Vh_fem['0']), self.derham.nquads)]
-
-        #     n0_at_quad = self.domain.push(
-        #         self._particles.f0.n, *quad_pts, kind='0', squeeze_out=False)
-
-        #     # evaluate M0 = unit_b1 (1form) / absB0 (0form) * 2 * vth_perp² at quadrature points
-        #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
-
-        #     vth_perp = self.particles.f0.vth(*quad_pts_array)[1]
-
-        #     absB0_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['0'], self._absB0)
-
-        #     unit_b1_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._unit_b1)
-
-        #     self._M0_at_quad = unit_b1_at_quad / absB0_at_quad * vth_perp**2 * n0_at_quad * self._scale_vec
-
-        # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_M = "M" + self.derham.space_to_form[u_space] + "n"
-        id_T = "T" + self.derham.space_to_form[u_space]
+        # call operatros
+        id_M = "M" + self._u_form + "n"
+        id_T = "T" + self._u_form
 
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
+        M2 = self.mass_ops.M2
+        curl = self.derham.curl
+        PB = getattr(self.basis_ops, "PB")
 
-        self._B = -1 / 2 * _T.T @ self.derham.curl.T @ self.mass_ops.M2
-        self._C = 1 / 2 * self.derham.curl @ _T
-        self._B2 = -1 / 2 * _T.T @ self.derham.curl.T
-
-        # Preconditioner
-        if solver["type"][1] is None:
-            pc = None
-        else:
-            pc_class = getattr(preconditioner, solver["type"][1])
-            pc = pc_class(getattr(self.mass_ops, id_M))
-
-        # Instantiate Schur solver (constant in this case)
-        _BC = self._B @ self._C
-
-        self._schur_solver = SchurSolver(
-            _A,
-            _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-            recycle=solver["recycle"],
-        )
-
-        # allocate dummy vectors to avoid temporary array allocations
-        self._u_tmp1 = u.space.zeros()
-        self._u_tmp2 = u.space.zeros()
-        self._b_tmp1 = b.space.zeros()
-
-        self._byn = self._B.codomain.zeros()
-        self._tmp_acc = self._B2.codomain.zeros()
-
-    def __call__(self, dt):
-        # current variables
-        un = self.feec_vars[0]
-        bn = self.feec_vars[1]
-
-        # perform accumulation (either with or without control variate)
-        # if self._particles.control_variate:
-
-        #     self._ACC.accumulate(self._particles,
-        #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-        #                          self._scale_vec, 0.,
-        #                          control_vec=[self._M0_at_quad[0], self._M0_at_quad[1], self._M0_at_quad[2]])
-        # else:
-        #     self._ACC.accumulate(self._particles,
-        #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-        #                          self._scale_vec, 0.)
-
-        self._ACC(
-            self._unit_b1[0]._data,
-            self._unit_b1[1]._data,
-            self._unit_b1[2]._data,
-            self._scale_vec,
-            self._boundary_cut_e1,
-        )
-
-        self._ACC.vectors[0].copy(out=self._accumulated_magnetization)
-
-        # solve for new u coeffs (no tmps created here)
-        byn = self._B.dot(bn, out=self._byn)
-        b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
-        byn += b2acc
-
-        # b2acc.copy(out=self._accumulated_magnetization)
-
-        un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
-
-        # new b coeffs (no tmps created here)
-        _u = un.copy(out=self._u_tmp2)
-        _u += un1
-        bn1 = self._C.dot(_u, out=self._b_tmp1)
-        bn1 *= -dt
-        bn1 += bn
-
-        # write new coeffs into self.feec_vars
-        max_du, max_db = self.feec_vars_update(un1, bn1)
-
-        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            print("Status     for ShearAlfven:", info["success"])
-            print("Iterations for ShearAlfven:", info["niter"])
-            print("Maxdiff up for ShearAlfven:", max_du)
-            print("Maxdiff b2 for ShearAlfven:", max_db)
-            print()
-
-
-class MagnetosonicCurrentCoupling5D(Propagator):
-    r"""
-    :ref:`FEEC <gempic>` discretization of the following equations: 
-    find :math:`\tilde \rho \in L^2, \tilde{\mathbf U} \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}, \tilde p \in L^2` such that
-
-    .. math::
-
-        \left\{
-            \begin{aligned}
-                &\frac{\partial \tilde{\rho}}{\partial t} = - \nabla \cdot (\rho_0 \tilde{\mathbf U}) \,,
-                \\
-                \int \rho_0 &\frac{\partial \tilde{\mathbf U}}{\partial t} \cdot \mathbf V \, \textnormal{d} \mathbf{x} = \int (\nabla \times \mathbf B_0) \times \tilde{\mathbf B} \cdot \mathbf V \, \textnormal{d} \mathbf x + \frac{A_\textnormal{h}}{A_b}\iint f^\text{vol} \mu \mathbf b_0 \cdot \nabla \times (\tilde{\mathbf B} \times \mathbf V) \, \textnormal{d} \mathbf x \textnormal{d} v_\parallel \textnormal{d} \mu + \int \tilde p \nabla \cdot \mathbf V \, \textnormal{d} \mathbf x \qquad \forall \, \mathbf V \in \{H(\textnormal{curl}), H(\textnormal{div}), (H^1)^3\}\,,
-                \\
-                &\frac{\partial \tilde p}{\partial t} = - \nabla \cdot (p_0 \tilde{\mathbf U}) - (\gamma - 1) p_0 \nabla \cdot \tilde{\mathbf U} \,.
-            \end{aligned} 
-        \right.
-
-    :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`:
-
-    .. math::
-
-        \boldsymbol{\rho}^{n+1} - \boldsymbol{\rho}^n = - \frac{\Delta t}{2} \mathbb D \mathcal Q^\alpha (\mathbf u^{n+1} + \mathbf u^n) \,,
-
-    .. math::
-
-        \begin{bmatrix} 
-            \mathbf u^{n+1} - \mathbf u^n \\ \mathbf p^{n+1} - \mathbf p^n 
-        \end{bmatrix} 
-        = \frac{\Delta t}{2} 
-        \begin{bmatrix} 
-            0 & (\mathbb M^{\alpha,n})^{-1} {\mathcal U^\alpha}^\top \mathbb D^\top \mathbb M_3 \\ - \mathbb D \mathcal S^\alpha - (\gamma - 1) \mathcal K^\alpha \mathbb D \mathcal U^\alpha & 0 
-        \end{bmatrix} 
-        \begin{bmatrix} 
-            (\mathbf u^{n+1} + \mathbf u^n) \\ (\mathbf p^{n+1} + \mathbf p^n) 
-        \end{bmatrix} + 
-        \begin{bmatrix} 
-            \Delta t (\mathbb M^{\alpha,n})^{-1}\left[\mathbb M^{\alpha,J} \mathbf b^n + \frac{A_\textnormal{h}}{A_b}{\mathcal{T}^B}^\top \mathbb{C}^\top \sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k) \right)\right] \\ 0 
-        \end{bmatrix} \,,
-
-    where 
-    :math:`\mathcal U^\alpha`, :math:`\mathcal S^\alpha`, :math:`\mathcal K^\alpha` and :math:`\mathcal Q^\alpha` are :class:`~struphy.feec.basis_projection_ops.BasisProjectionOperators` and
-    :math:`\mathbb M^{\alpha,n}` and :math:`\mathbb M^{\alpha,J}` are :class:`~struphy.feec.mass.WeightedMassOperators` being weighted with :math:`\rho_0` the MHD equilibrium density. 
-    :math:`\alpha \in \{1, 2, v\}` denotes the :math:`\alpha`-form space where the operators correspond to.
-    Moreover, :math:`\sum_k^{N_p} \omega_k \mu_k \hat{\mathbf b}¹_0 (\boldsymbol \eta_k) \cdot \left(\frac{1}{\sqrt{g(\boldsymbol \eta_k)}} \vec \Lambda² (\boldsymbol \eta_k)\right)` is accumulated by the kernel :class:`~struphy.pic.accumulation.accum_kernels_gc.cc_lin_mhd_5d_M` and
-    the time-varying projection operator :math:`\mathcal{T}^B` is defined as
-
-    .. math::
-
-        \mathcal{T}^B_{(\mu,ijk),(\nu,mno)} := \hat \Pi¹_{(\mu,ijk)} \left[ \epsilon_{\mu \alpha \nu} \frac{\tilde{B}^2_\alpha}{\sqrt{g}} \Lambda²_{\nu,mno} \right] \,.
-    """
-
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pbicgstab", "MassMatrixPreconditioner"),
-                ("bicgstab", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        dct["filter"] = {
-            "use_filter": None,
-            "modes": (0, 1),
-            "repeat": 3,
-            "alpha": 0.5,
-        }
-        dct["boundary_cut"] = {
-            "e1": 0.0,
-            "e2": 0.0,
-            "e3": 0.0,
-        }
-        dct["turn_off"] = False
-
-        if default:
-            dct = descend_options_dict(dct, [])
-
-        return dct
-
-    def __init__(
-        self,
-        n: StencilVector,
-        u: BlockVector,
-        p: StencilVector,
-        *,
-        particles: Particles5D,
-        b: BlockVector,
-        absB0: StencilVector,
-        unit_b1: BlockVector,
-        u_space: str,
-        solver: dict = options(default=True)["solver"],
-        filter: dict = options(default=True)["filter"],
-        coupling_params: dict,
-        boundary_cut: dict = options(default=True)["boundary_cut"],
-    ):
-        super().__init__(n, u, p)
-
-        self._particles = particles
-        self._b = b
-        self._unit_b1 = unit_b1
-        self._absB0 = absB0
-
-        self._info = solver["info"]
-
-        self._scale_vec = coupling_params["Ah"] / coupling_params["Ab"]
-
-        self._E1T = self.derham.extraction_ops["1"].transpose()
-        self._unit_b1 = self._E1T.dot(self._unit_b1)
-
-        self._u_id = self.derham.space_to_form[u_space]
-        if self._u_id == "v":
-            self._space_key_int = 0
-        else:
-            self._space_key_int = int(self._u_id)
-
-        self._boundary_cut_e1 = boundary_cut["e1"]
-
-        self._ACC = Accumulator(
-            particles,
-            u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_M,
+        # define Accumulator and arguments
+        self._ACC = AccumulatorVector(
+            self.options.energetic_ions.particles,
+            "H1",
+            accum_kernels_gc.gc_mag_density_0form,
             self.mass_ops,
             self.domain.args_domain,
-            add_vector=True,
-            symmetry="symm",
-            filter_params=filter,
+            filter_params=self.options.filter_params,
         )
 
-        # if self._particles.control_variate:
-
-        #     # control variate method is only valid with Maxwellian distributions with "zero perp mean velocity".
-        #     assert isinstance(self._particles.f0, Maxwellian)
-
-        #     self._ACC.init_control_variate(self.mass_ops)
-
-        #     # evaluate and save f0.n at quadrature points
-        #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.get_quad_grids(self.derham.Vh_fem['0']), self.derham.nquads)]
-
-        #     n0_at_quad = self.domain.push(
-        #         self._particles.f0.n, *quad_pts, kind='0', squeeze_out=False)
-
-        #     # evaluate M0 = unit_b1 (1form) / absB0 (0form) * 2 * vth_perp² at quadrature points
-        #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
-
-        #     vth_perp = self.particles.f0.vth(*quad_pts_array)[1]
-
-        #     absB0_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['0'], self._absB0)
-
-        #     unit_b1_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._unit_b1)
-
-        #     self._M0_at_quad = unit_b1_at_quad / absB0_at_quad * vth_perp**2 * n0_at_quad * self._scale_vec
-
-        # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
-        id_Mn = "M" + self._u_id + "n"
-        id_MJ = "M" + self._u_id + "J"
-
-        if self._u_id == "1":
-            id_S, id_U, id_K, id_Q = "S1", "U1", "K3", "Q1"
-        elif self._u_id == "2":
-            id_S, id_U, id_K, id_Q = "S2", None, "K3", "Q2"
-        elif self._u_id == "v":
-            id_S, id_U, id_K, id_Q = "Sv", "Uv", "K3", "Qv"
-
-        self._E2T = self.derham.extraction_ops["2"].transpose()
-
-        _A = getattr(self.mass_ops, id_Mn)
-        _S = getattr(self.basis_ops, id_S)
-        _K = getattr(self.basis_ops, id_K)
-
-        # initialize projection operator TB
-        self._initialize_projection_operator_TB()
-
-        if id_U is None:
-            _U, _UT = IdentityOperator(u.space), IdentityOperator(u.space)
-        else:
-            _U = getattr(self.basis_ops, id_U)
-            _UT = _U.T
-
-        self._B = -1 / 2.0 * _UT @ self.derham.div.T @ self.mass_ops.M3
-        self._C = 1 / 2.0 * (self.derham.div @ _S + 2 / 3.0 * _K @ self.derham.div @ _U)
-
-        self._MJ = getattr(self.mass_ops, id_MJ)
-        self._DQ = self.derham.div @ getattr(self.basis_ops, id_Q)
-
-        self._TC = self._TB.T @ self.derham.curl.T
-
-        # preconditioner
-        if solver["type"][1] is None:
+        # Preconditioner
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
-            pc = pc_class(getattr(self.mass_ops, id_Mn))
+            pc_class = getattr(preconditioner, self.options.precond)
+            pc = pc_class(getattr(self.mass_ops, id_M))
 
-        # instantiate Schur solver (constant in this case)
-        _BC = self._B @ self._C
+        if self.options.nonlinear:
+            # initialize operator TB
+            self._initialize_projection_operator_TB()
 
-        self._schur_solver = SchurSolver(
-            _A,
-            _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-            recycle=solver["recycle"],
-        )
+            _T = _T + self._TB
+            _TT = _T.T + self._TBT
 
-        # allocate dummy vectors to avoid temporary array allocations
-        self._u_tmp1 = u.space.zeros()
-        self._u_tmp2 = u.space.zeros()
-        self._p_tmp1 = p.space.zeros()
-        self._n_tmp1 = n.space.zeros()
-        self._byn1 = self._B.codomain.zeros()
-        self._byn2 = self._B.codomain.zeros()
-        self._tmp_acc = self._TC.codomain.zeros()
+        else:
+            _TT = _T.T
+
+        if self.options.algo == "implicit":
+            self._info = self.options.solver_params.info
+
+            # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
+            self._B = -1 / 2 * _TT @ curl.T @ M2
+            self._B2 = -1 / 2 * _TT @ curl.T @ PB.T
+
+            self._C = 1 / 2 * curl @ _T
+
+            # Instantiate Schur solver (constant in this case)
+            _BC = self._B @ self._C
+
+            self._schur_solver = SchurSolver(
+                _A,
+                _BC,
+                self.options.solver,
+                precond=pc,
+                solver_params=self.options.solver_params,
+            )
+
+            # allocate dummy vectors to avoid temporary array allocations
+            self._u_tmp1 = self.variables.u.spline.vector.space.zeros()
+            self._u_tmp2 = self.variables.u.spline.vector.space.zeros()
+            self._b_tmp1 = self.variables.b.spline.vector.space.zeros()
+
+            self._byn = self._B.codomain.zeros()
+            self._tmp_acc = self._B2.codomain.zeros()
+
+        else:
+            self._info = False
+
+            # define vector field
+            A_inv = inverse(
+                _A,
+                self.options.solver,
+                pc=pc,
+                tol=self.options.solver_params.tol,
+                maxiter=self.options.solver_params.maxiter,
+                verbose=self.options.solver_params.verbose,
+            )
+            _f1 = A_inv @ _TT @ curl.T @ M2
+            _f1_acc = A_inv @ _TT @ curl.T @ PB.T
+            _f2 = curl @ _T
+
+            # allocate output of vector field
+            out_acc = self.variables.u.spline.vector.space.zeros()
+            out1 = self.variables.u.spline.vector.space.zeros()
+            out2 = self.variables.b.spline.vector.space.zeros()
+
+            def f1(t, y1, y2, out: BlockVector = out1):
+                _f1.dot(y2, out=out)
+                _f1_acc.dot(self._ACC.vectors[0], out=out_acc)
+                out += out_acc
+                out.update_ghost_regions()
+                return out
+
+            def f2(t, y1, y2, out: BlockVector = out2):
+                _f2.dot(y1, out=out)
+                out *= -1.0
+                out.update_ghost_regions()
+                return out
+
+            vector_field = {self.variables.u.spline.vector: f1, self.variables.b.spline.vector: f2}
+            self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
 
     def __call__(self, dt):
-        # current variables
-        nn = self.feec_vars[0]
-        un = self.feec_vars[1]
-        pn = self.feec_vars[2]
+        # update time-dependent operator TB
+        if self.options.nonlinear:
+            self._update_weights_TB()
 
-        # perform accumulation (either with or without control variate)
-        # if self._particles.control_variate:
+        # current FE coeffs
+        un = self.variables.u.spline.vector
+        bn = self.variables.b.spline.vector
 
-        #     self._ACC.accumulate(self._particles,
-        #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-        #                          self._scale_vec, 0.,
-        #                          control_vec=[self._M0_at_quad[0], self._M0_at_quad[1], self._M0_at_quad[2]])
-        # else:
-        #     self._ACC.accumulate(self._particles,
-        #                          self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-        #                          self._scale_vec, 0.)
+        # accumulate
+        self._ACC(self.options.ep_scale)
 
-        self._ACC(
-            self._unit_b1[0]._data,
-            self._unit_b1[1]._data,
-            self._unit_b1[2]._data,
-            self._scale_vec,
-            self._boundary_cut_e1,
-        )
+        if self.options.algo == "implicit":
+            # solve for new u coeffs (no tmps created here)
+            byn = self._B.dot(bn, out=self._byn)
+            b2acc = self._B2.dot(self._ACC.vectors[0], out=self._tmp_acc)
+            byn += b2acc
 
-        # update time-dependent operator
-        self._b.update_ghost_regions()
-        self._update_weights_TB()
+            un1, info = self._schur_solver(un, byn, dt, out=self._u_tmp1)
 
-        # solve for new u coeffs (no tmps created here)
-        byn1 = self._B.dot(pn, out=self._byn1)
-        byn2 = self._MJ.dot(self._b, out=self._byn2)
-        b2acc = self._TC.dot(self._ACC.vectors[0], out=self._tmp_acc)
-        byn2 += b2acc
-        byn2 *= 1 / 2
-        byn1 -= byn2
+            # new b coeffs (no tmps created here)
+            _u = un.copy(out=self._u_tmp2)
+            _u += un1
+            bn1 = self._C.dot(_u, out=self._b_tmp1)
+            bn1 *= -dt
+            bn1 += bn
 
-        un1, info = self._schur_solver(un, byn1, dt, out=self._u_tmp1)
+            diffs = self.update_feec_variables(u=un1, b=bn1)
 
-        # new p, n, b coeffs (no tmps created here)
-        _u = un.copy(out=self._u_tmp2)
-        _u += un1
-        pn1 = self._C.dot(_u, out=self._p_tmp1)
-        pn1 *= -dt
-        pn1 += pn
-
-        nn1 = self._DQ.dot(_u, out=self._n_tmp1)
-        nn1 *= -dt / 2
-        nn1 += nn
-
-        # write new coeffs into self.feec_vars
-        max_dn, max_du, max_dp = self.feec_vars_update(
-            nn1,
-            un1,
-            pn1,
-        )
+        else:
+            self._ode_solver(0.0, dt)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
-            print("Status     for Magnetosonic:", info["success"])
-            print("Iterations for Magnetosonic:", info["niter"])
-            print("Maxdiff n3 for Magnetosonic:", max_dn)
-            print("Maxdiff up for Magnetosonic:", max_du)
-            print("Maxdiff p3 for Magnetosonic:", max_dp)
-            print()
+            if self.options.algo == "implicit":
+                print("Status     for ShearAlfvenCurrentCoupling5D:", info["success"])
+                print("Iterations for ShearAlfvenCurrentCoupling5D:", info["niter"])
+                print("Maxdiff up for ShearAlfvenCurrentCoupling5D:", diffs["u"])
+                print("Maxdiff b2 for ShearAlfvenCurrentCoupling5D:", diffs["b"])
+                print()
 
     def _initialize_projection_operator_TB(self):
         r"""Initialize BasisProjectionOperator TB with the time-varying weight.
@@ -2267,27 +2170,80 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         # Call the projector and the space
         P1 = self.derham.P["1"]
-        Vh = self.derham.Vh_fem[self._u_id]
+        Vh = self.derham.Vh_fem[self._u_form]
 
         # Femfield for the field evaluation
         self._bf = self.derham.create_spline_function("bf", "Hdiv")
 
-        # define temp callable
-        def tmp(x, y, z):
-            return 0 * x
-
         # Initialize BasisProjectionOperator
-        if self.derham._with_local_projectors:
-            self._TB = BasisProjectionOperatorLocal(P1, Vh, [[tmp, tmp, tmp]])
+        if self.derham._with_local_projectors == True:
+            self._TB = BasisProjectionOperatorLocal(
+                P1,
+                Vh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                use_cache=True,
+                polar_shift=True,
+                V_extraction_op=self.derham.extraction_ops[self._u_form],
+                V_boundary_op=self.derham.boundary_ops[self._u_form],
+                P_boundary_op=self.derham.boundary_ops["1"],
+            )
+            self._TBT = BasisProjectionOperatorLocal(
+                P1,
+                Vh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=True,
+                use_cache=True,
+                polar_shift=True,
+                V_extraction_op=self.derham.extraction_ops[self._u_form],
+                V_boundary_op=self.derham.boundary_ops[self._u_form],
+                P_boundary_op=self.derham.boundary_ops["1"],
+            )
         else:
-            self._TB = BasisProjectionOperator(P1, Vh, [[tmp, tmp, tmp]])
+            self._TB = BasisProjectionOperator(
+                P1,
+                Vh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                use_cache=True,
+                polar_shift=True,
+                V_extraction_op=self.derham.extraction_ops[self._u_form],
+                V_boundary_op=self.derham.boundary_ops[self._u_form],
+                P_boundary_op=self.derham.boundary_ops["1"],
+            )
+            self._TBT = BasisProjectionOperator(
+                P1,
+                Vh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=True,
+                use_cache=True,
+                polar_shift=True,
+                V_extraction_op=self.derham.extraction_ops[self._u_form],
+                V_boundary_op=self.derham.boundary_ops[self._u_form],
+                P_boundary_op=self.derham.boundary_ops["1"],
+            )
 
     def _update_weights_TB(self):
         """Updats time-dependent weights of the BasisProjectionOperator TB"""
 
         # Update Femfield
-        self._bf.vector = self._b
-        self._bf.vector.update_ghost_regions()
+        self.variables.b.spline.vector.copy(out=self._bf.vector)
 
         # define callable weights
         def bf1(x, y, z):
@@ -2305,7 +2261,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
 
         fun = []
 
-        if self._u_id == "v":
+        if self._u_form == "v":
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
@@ -2313,7 +2269,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                         lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n],
                     ]
 
-        elif self._u_id == "1":
+        elif self._u_form == "1":
             for m in range(3):
                 fun += [[]]
                 for n in range(3):
@@ -2339,8 +2295,9 @@ class MagnetosonicCurrentCoupling5D(Propagator):
                         / abs(self.domain.jacobian_det(e1, e2, e3, squeeze_out=False)),
                     ]
 
-        # Initialize BasisProjectionOperator
+        # update BasisProjectionOperator
         self._TB.update_weights(fun)
+        self._TBT.update_weights(fun)
 
 
 class CurrentCoupling5DDensity(Propagator):
@@ -2360,268 +2317,166 @@ class CurrentCoupling5DDensity(Propagator):
     For the detail explanation of the notations, see `2022_DriftKineticCurrentCoupling <https://gitlab.mpcdf.mpg.de/struphy/struphy-projects/-/blob/main/running-projects/2022_DriftKineticCurrentCoupling.md?ref_type=heads>`_.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pbicgstab", "MassMatrixPreconditioner"),
-                ("bicgstab", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        dct["filter"] = {
-            "use_filter": None,
-            "modes": (1),
-            "repeat": 1,
-            "alpha": 0.5,
-        }
-        dct["boundary_cut"] = {
-            "e1": 0.0,
-            "e2": 0.0,
-            "e3": 0.0,
-        }
-        dct["turn_off"] = False
+    class Variables:
+        def __init__(self):
+            self._u: FEECVariable = None
 
-        if default:
-            dct = descend_options_dict(dct, [])
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
 
-        return dct
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hcurl", "Hdiv", "H1vec")
+            self._u = new
 
-    def __init__(
-        self,
-        u: BlockVector,
-        *,
-        particles: Particles5D,
-        b: BlockVector,
-        b_eq: BlockVector,
-        unit_b1: BlockVector,
-        curl_unit_b2: BlockVector,
-        u_space: str,
-        solver: dict = options(default=True)["solver"],
-        coupling_params: dict,
-        epsilon: float = 1.0,
-        filter: dict = options(default=True)["filter"],
-        boundary_cut: dict = options(default=True)["boundary_cut"],
-    ):
-        super().__init__(u)
+    def __init__(self):
+        self.variables = self.Variables()
 
-        # assert parameters and expose some quantities to self
-        assert isinstance(particles, (Particles5D))
+    @dataclass
+    class Options:
+        # propagator options
+        energetic_ions: PICVariable = None
+        b_tilde: FEECVariable = None
+        ep_scale: float = 1.0
+        u_space: OptsVecSpace = "Hdiv"
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        filter_params: FilterParameters = None
 
-        assert u_space in {"Hcurl", "Hdiv", "H1vec"}
+        def __post_init__(self):
+            # checks
+            check_option(self.u_space, OptsVecSpace)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+            assert isinstance(self.energetic_ions, PICVariable)
+            assert self.energetic_ions.space == "Particles5D"
+            assert isinstance(self.b_tilde, FEECVariable)
+            assert isinstance(self.ep_scale, float)
 
-        if u_space == "H1vec":
-            self._space_key_int = 0
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+            if self.filter_params is None:
+                self.filter_params = FilterParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        if self.options.u_space == "H1vec":
+            self._u_form_int = 0
         else:
-            self._space_key_int = int(
-                self.derham.space_to_form[u_space],
-            )
+            self._u_form_int = int(self.derham.space_to_form[self.options.u_space])
 
-        self._epsilon = epsilon
-        self._particles = particles
-        self._b = b
-        self._b_eq = b_eq
-        self._unit_b1 = unit_b1
-        self._curl_norm_b = curl_unit_b2
+        # call operatros
+        id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
+        self._A = getattr(self.mass_ops, id_M)
 
-        self._info = solver["info"]
+        # magnetic equilibrium field
+        unit_b1 = self.projected_equil.unit_b1
+        curl_unit_b1 = self.projected_equil.curl_unit_b1
+        self._b2 = self.projected_equil.b2
 
-        self._scale_mat = coupling_params["Ah"] / coupling_params["Ab"] / self._epsilon
+        # scaling factor
+        epsilon = self.options.energetic_ions.species.equation_params.epsilon
 
-        self._boundary_cut_e1 = boundary_cut["e1"]
+        # temporary vectors to avoid memory allocation
+        self._b_full = self._b2.space.zeros()
+        self._rhs_v = self.variables.u.spline.vector.space.zeros()
+        self._u_new = self.variables.u.spline.vector.space.zeros()
 
-        self._accumulator = Accumulator(
-            particles,
-            u_space,
+        # define Accumulator and arguments
+        self._ACC = Accumulator(
+            self.options.energetic_ions.particles,
+            self.options.u_space,
             accum_kernels_gc.cc_lin_mhd_5d_D,
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,
             symmetry="asym",
-            filter_params=filter,
+            filter_params=self.options.filter_params,
         )
 
-        # if self._particles.control_variate:
+        self._args_accum_kernel = (
+            epsilon,
+            self.options.ep_scale,
+            self._b_full[0]._data,
+            self._b_full[1]._data,
+            self._b_full[2]._data,
+            unit_b1[0]._data,
+            unit_b1[1]._data,
+            unit_b1[2]._data,
+            curl_unit_b1[0]._data,
+            curl_unit_b1[1]._data,
+            curl_unit_b1[2]._data,
+            self._u_form_int,
+        )
 
-        #     # control variate method is only valid with Maxwellian distributions
-        #     assert isinstance(self._particles.f0, Maxwellian)
-        #     assert params['u_space'] == 'Hdiv'
-
-        #     # evaluate and save f0.n / |det(DF)| at quadrature points
-        #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.get_quad_grids(self.derham.Vh_fem['0']), self.derham.nquads)]
-
-        #     self._n0_at_quad = self.domain.push(
-        #         self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
-
-        #     # prepare field evaluation
-        #     quad_pts_array = self.domain.prepare_eval_pts(*quad_pts)[:3]
-
-        #     u0_parallel = self._particles.f0.u(*quad_pts_array)[0]
-
-        #     det_df_at_quad = self.domain.jacobian_det(*quad_pts, squeeze_out=False)
-
-        #     # evaluate unit_b1 / |det(DF)| at quadrature points
-        #     self._unit_b1_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['1'], self._unit_b1)
-        #     self._unit_b1_at_quad /= det_df_at_quad
-
-        #     # evaluate unit_b1 (1form) dot epsilon * f0.u * curl_norm_b (2form) / |det(DF)| at quadrature points
-        #     curl_norm_b_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._curl_norm_b)
-
-        #     self._unit_b1_dot_curl_norm_b_at_quad = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, curl_norm_b_at_quad))
-
-        #     self._unit_b1_dot_curl_norm_b_at_quad /= det_df_at_quad
-        #     self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
-        #     self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel
-
-        #     # memory allocation for magnetic field at quadrature points
-        #     self._b_quad1 = np.zeros_like(self._n0_at_quad)
-        #     self._b_quad2 = np.zeros_like(self._n0_at_quad)
-        #     self._b_quad3 = np.zeros_like(self._n0_at_quad)
-
-        #     # memory allocation for parallel magnetic field at quadrature points
-        #     self._B_para = np.zeros_like(self._n0_at_quad)
-
-        #     # memory allocation for control_const at quadrature points
-        #     self._control_const = np.zeros_like(self._n0_at_quad)
-
-        #     # memory allocation for self._b_quad x self._nh0_at_quad * self._coupling_const
-        #     self._mat12 = np.zeros_like(self._n0_at_quad)
-        #     self._mat13 = np.zeros_like(self._n0_at_quad)
-        #     self._mat23 = np.zeros_like(self._n0_at_quad)
-
-        #     self._mat21 = np.zeros_like(self._n0_at_quad)
-        #     self._mat31 = np.zeros_like(self._n0_at_quad)
-        #     self._mat32 = np.zeros_like(self._n0_at_quad)
-
-        u_id = self.derham.space_to_form[u_space]
-        self._M = getattr(self.mass_ops, "M" + u_id + "n")
-
-        self._E0T = self.derham.extraction_ops["0"].transpose()
-        self._EuT = self.derham.extraction_ops[u_id].transpose()
-        self._E1T = self.derham.extraction_ops["1"].transpose()
-        self._E2T = self.derham.extraction_ops["2"].transpose()
-
-        self._PB = getattr(self.basis_ops, "PB")
-        self._unit_b1 = self._E1T.dot(self._unit_b1)
-
-        # preconditioner
-        if solver["type"][1] is None:
-            self._pc = None
+        # Preconditioner
+        if self.options.precond is None:
+            pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
-            self._pc = pc_class(self._M)
+            pc_class = getattr(preconditioner, self.options.precond)
+            pc = pc_class(getattr(self.mass_ops, id_M))
 
         # linear solver
-        self._solver = inverse(
-            self._M,
-            solver["type"][0],
-            pc=self._pc,
-            x0=self.feec_vars[0],
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-            recycle=solver["recycle"],
+        self._A_inv = inverse(
+            self._A,
+            self.options.solver,
+            pc=pc,
+            tol=self.options.solver_params.tol,
+            maxiter=self.options.solver_params.maxiter,
+            verbose=self.options.solver_params.verbose,
         )
 
-        # temporary vectors to avoid memory allocation
-        self._b_full1 = self._b_eq.space.zeros()
-        self._b_full2 = self._E2T.codomain.zeros()
-        self._rhs_v = u.space.zeros()
-        self._u_new = u.space.zeros()
-
     def __call__(self, dt):
-        # pointer to old coefficients
-        un = self.feec_vars[0]
+        # current FE coeffs
+        un = self.variables.u.spline.vector
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
-        b_full = self._b_eq.copy(out=self._b_full1)
+        b_full = self._b2.copy(out=self._b_full)
 
-        if self._b is not None:
-            b_full += self._b
+        b_full += self.options.b_tilde.spline.vector
+        b_full.update_ghost_regions()
 
-        Eb_full = self._E2T.dot(b_full, out=self._b_full2)
-        Eb_full.update_ghost_regions()
-
-        # perform accumulation (either with or without control variate)
-        # if self._particles.control_variate:
-
-        #     # evaluate magnetic field at quadrature points (in-place)
-        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
-        #                                    out=[self._b_quad1, self._b_quad2, self._b_quad3])
-
-        #     # evaluate B_parallel
-        #     self._B_para = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, [self._b_quad1, self._b_quad2, self._b_quad3]))
-
-        #     # evaluate coupling_const 1 - B_parallel / B^star_parallel
-        #     self._control_const = 1 - (self._B_para / (self._B_para + self._unit_b1_dot_curl_norm_b_at_quad))
-
-        #     # assemble (B x)
-        #     self._mat12[:, :, :] = self._scale_mat * \
-        #         self._b_quad3 * self._n0_at_quad * self._control_const
-        #     self._mat13[:, :, :] = -self._scale_mat * \
-        #         self._b_quad2 * self._n0_at_quad * self._control_const
-        #     self._mat23[:, :, :] = self._scale_mat * \
-        #         self._b_quad1 * self._n0_at_quad * self._control_const
-
-        #     self._mat21[:, :, :] = -self._mat12
-        #     self._mat31[:, :, :] = -self._mat13
-        #     self._mat32[:, :, :] = -self._mat23
-
-        #     self._accumulator.accumulate(self._particles, self._epsilon,
-        #                                  Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-        #                                  self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-        #                                  self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-        #                                  self._space_key_int, self._scale_mat, 0.1,
-        #                                  control_mat=[[None, self._mat12, self._mat13],
-        #                                               [self._mat21, None, self._mat23],
-        #                                               [self._mat31, self._mat32, None]])
-        # else:
-        #     self._accumulator.accumulate(self._particles, self._epsilon,
-        #                                  Eb_full[0]._data, Eb_full[1]._data, Eb_full[2]._data,
-        #                                  self._unit_b1[0]._data, self._unit_b1[1]._data, self._unit_b1[2]._data,
-        #                                  self._curl_norm_b[0]._data, self._curl_norm_b[1]._data, self._curl_norm_b[2]._data,
-        #                                  self._space_key_int, self._scale_mat, 0.)
-
-        self._accumulator(
-            self._epsilon,
-            Eb_full[0]._data,
-            Eb_full[1]._data,
-            Eb_full[2]._data,
-            self._unit_b1[0]._data,
-            self._unit_b1[1]._data,
-            self._unit_b1[2]._data,
-            self._curl_norm_b[0]._data,
-            self._curl_norm_b[1]._data,
-            self._curl_norm_b[2]._data,
-            self._space_key_int,
-            self._scale_mat,
-            self._boundary_cut_e1,
+        self._ACC(
+            *self._args_accum_kernel,
         )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
-        lhs = self._M - dt / 2 * self._accumulator.operators[0]
-        rhs = self._M + dt / 2 * self._accumulator.operators[0]
+        lhs = self._A - dt / 2 * self._ACC.operators[0]
+        rhs = self._A + dt / 2 * self._ACC.operators[0]
 
         # solve linear system for updated u coefficients (in-place)
         rhs = rhs.dot(un, out=self._rhs_v)
-        self._solver.linop = lhs
+        self._A_inv.linop = lhs
 
-        un1 = self._solver.solve(rhs, out=self._u_new)
-        info = self._solver._info
+        _u = self._A_inv.solve(rhs, out=self._u_new)
+        info = self._A_inv._info
 
-        # write new coeffs into Propagator.variables
-        max_du = self.feec_vars_update(un1)
+        diffs = self.update_feec_variables(u=_u)
 
-        if self._info and MPI.COMM_WORLD.Get_rank() == 0:
+        if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for CurrentCoupling5DDensity:", info["success"])
             print("Iterations for CurrentCoupling5DDensity:", info["niter"])
-            print("Maxdiff up for CurrentCoupling5DDensity:", max_du)
+            print("Maxdiff up for CurrentCoupling5DDensity:", diffs["u"])
             print()
 
 
@@ -7421,59 +7276,96 @@ class HasegawaWakatani(Propagator):
         Solver parameters for M0 inversion.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["c_fun"] = ["const"]
-        dct["kappa"] = 1.0
-        dct["nu"] = 0.01
-        dct["algo"] = get_args(OptsButcher)
-        dct["M0_solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
-        return dct
+    class Variables:
+        def __init__(self):
+            self._n: FEECVariable = None
+            self._omega: FEECVariable = None
 
-    def __init__(
-        self,
-        n0: StencilVector,
-        omega0: StencilVector,
-        *,
-        phi: SplineFunction = None,
-        c_fun: str = options(default=True)["c_fun"],
-        kappa: float = options(default=True)["kappa"],
-        nu: float = options(default=True)["nu"],
-        algo: str = options(default=True)["algo"],
-        M0_solver: dict = options(default=True)["M0_solver"],
-    ):
-        super().__init__(n0, omega0)
+        @property
+        def n(self) -> FEECVariable:
+            return self._n
 
+        @n.setter
+        def n(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "H1"
+            self._n = new
+
+        @property
+        def omega(self) -> FEECVariable:
+            return self._omega
+
+        @omega.setter
+        def omega(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "H1"
+            self._omega = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # specific literals
+        OptsCfun = Literal["const"]
+        # propagator options
+        phi: FEECVariable = None
+        c_fun: OptsCfun = "const"
+        kappa: float = 1.0
+        nu: float = 0.01
+        butcher: ButcherTableau = None
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+
+        def __post_init__(self):
+            # checks
+            check_option(self.c_fun, self.OptsCfun)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+            if self.butcher is None:
+                self.butcher = ButcherTableau()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
         # default phi
-        if phi is None:
-            self._phi = self.derham.create_spline_function("phi", "H1")
-            self._phi.vector[:] = 1.0
-            self._phi.vector.update_ghost_regions()
-        else:
-            self._phi = phi
+        if self.options.phi is None:
+            self.options.phi = FEECVariable(space="H1")
+            self.options.phi.allocate(derham=self.derham, domain=self.domain)
+
+        self._phi = self.options.phi.spline
+        self._phi.vector[:] = 1.0
+        self._phi.vector.update_ghost_regions()
 
         # default c-function
-        if c_fun == "const":
+        if self.options.c_fun == "const":
             c_fun = lambda e1, e2, e3: 0.0 + 0.0 * e1
         else:
-            raise NotImplementedError(f"{c_fun = } is not available.")
+            raise NotImplementedError(f"{self.options.c_fun = } is not available.")
 
         # expose equation parameters
-        self._kappa = kappa
-        self._nu = nu
+        self._kappa = self.options.kappa
+        self._nu = self.options.nu
 
         # get quadrature grid of V0
         pts = [grid.flatten() for grid in self.derham.quad_grid_pts["0"]]
@@ -7531,16 +7423,24 @@ class HasegawaWakatani(Propagator):
         )
 
         # inverse M0 mass matrix
-        solver = M0_solver["type"][0]
-        if M0_solver["type"][1] is None:
+        solver = self.options.solver
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, M0_solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(self.mass_ops.M0)
-        solver_params = deepcopy(M0_solver)  # need a copy to pop, otherwise testing fails
-        solver_params.pop("type")
-        self._info = solver_params.pop("info")
-        M0_inv = inverse(M0, solver, pc=pc, **solver_params)
+        # solver_params = deepcopy(M0_solver)  # need a copy to pop, otherwise testing fails
+        # solver_params.pop("type")
+        self._info = self.options.solver_params.info
+        M0_inv = inverse(
+            M0,
+            solver,
+            pc=pc,
+            tol=self.options.solver_params.tol,
+            maxiter=self.options.solver_params.maxiter,
+            verbose=self.options.solver_params.verbose,
+            recycle=self.options.solver_params.recycle,
+        )
 
         # basis projection operator
         df_12 = lambda e1, e2, e3: self.domain.jacobian_inv(e1, e2, e3)[0, 1, :, :, :]
@@ -7558,6 +7458,9 @@ class HasegawaWakatani(Propagator):
         # print(f"{self._BPO._dof_mat.blocks = }")
 
         # pre-allocated helper arrays
+        n0 = self.variables.n.spline.vector
+        omega0 = self.variables.omega.spline.vector
+
         self._tmp1 = n0.space.zeros()
         tmp2 = n0.space.zeros()
         self._tmp3 = n0.space.zeros()
@@ -7565,11 +7468,11 @@ class HasegawaWakatani(Propagator):
         tmp5 = n0.space.zeros()
 
         # rhs-callables for explicit ode solve
-        terms1_n = -M0c + grad.T @ self._M1hw @ grad - nu * grad.T @ M1 @ grad
+        terms1_n = -M0c + grad.T @ self._M1hw @ grad - self.options.nu * grad.T @ M1 @ grad
         terms1_phi = M0c
-        terms1_phi_strong = -kappa * self._BPO @ grad
+        terms1_phi_strong = -self.options.kappa * self._BPO @ grad
 
-        terms2_omega = grad.T @ self._M1hw @ grad - nu * grad.T @ M1 @ grad
+        terms2_omega = grad.T @ self._M1hw @ grad - self.options.nu * grad.T @ M1 @ grad
         terms2_n = -M0c
         terms2_phi = M0c
 
@@ -7597,7 +7500,7 @@ class HasegawaWakatani(Propagator):
             return out
 
         vector_field = {n0: f1, omega0: f2}
-        self._ode_solver = ODEsolverFEEC(vector_field, algo=algo)
+        self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
 
     def __call__(self, dt):
         # update time-dependent mass operator

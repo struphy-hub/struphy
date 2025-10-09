@@ -12,8 +12,10 @@
 #
 import os
 import shutil
+
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
+
 
 def copy_tutorials(app):
     src = os.path.abspath("../tutorials")
@@ -25,8 +27,10 @@ def copy_tutorials(app):
 
     shutil.copytree(src, dst)
 
+
 def setup(app):
     app.connect("builder-inited", copy_tutorials)
+
 
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())
@@ -60,7 +64,7 @@ extensions = [
     "sphinx_design",
 ]
 
-nbsphinx_execute = 'auto'
+nbsphinx_execute = "auto"
 
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True

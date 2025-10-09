@@ -26,7 +26,7 @@ GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "
 # solvers
 OptsSymmSolver = Literal["pcg", "cg"]
 OptsGenSolver = Literal["pbicgstab", "bicgstab", "GMRES"]
-OptsMassPrecond = Literal["MassMatrixPreconditioner", None]
+OptsMassPrecond = Literal["MassMatrixPreconditioner", "MassMatrixDiagonalPreconditioner", None]
 OptsSaddlePointSolver = Literal["Uzawa", "GMRES"]
 OptsDirectSolver = Literal["SparseSolver", "ScipySparse", "InexactNPInverse", "DirectNPInverse"]
 OptsNonlinearSolver = Literal["Picard", "Newton"]
@@ -45,6 +45,9 @@ OptsLoading = Literal[
 ]
 OptsSpatialLoading = Literal["uniform", "disc"]
 OptsMPIsort = Literal["each", "last", None]
+
+# filters
+OptsFilter = Literal["fourier_in_tor", "hybrid", "three_point", None]
 
 # sph
 OptsKernel = Literal[

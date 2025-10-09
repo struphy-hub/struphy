@@ -67,7 +67,6 @@
 #     "FaradayExtended",
 #     "CurrentCoupling6DDensity",
 #     "ShearAlfvenCurrentCoupling5D",
-#     "MagnetosonicCurrentCoupling5D",
 #     "CurrentCoupling5DDensity",
 #     "ImplicitDiffusion",
 #     "Poisson",

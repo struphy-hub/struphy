@@ -45,5 +45,6 @@ def struphy_params(model_name: str, params_path: str, yes: bool = False, check_f
 
     else:
         prompt = not yes
-        print(f"Generating default parameter file for {model_class}.")
-        model_class().generate_default_parameter_file(path=params_path, prompt=prompt)
+        model.generate_default_parameter_file(path=params_path, prompt=prompt)
+        # print(f"Generating default parameter file for {model_class}.")
+        # model_class().generate_default_parameter_file(path=params_path, prompt=prompt)
