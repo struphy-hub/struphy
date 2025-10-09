@@ -36,7 +36,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
 
     from struphy.geometry import domains
@@ -295,7 +295,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
 
     from struphy.geometry import domains
@@ -519,7 +519,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
 
     from struphy.geometry import domains
@@ -801,7 +801,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
 
     from struphy.geometry import domains

@@ -3,7 +3,7 @@
 import copy
 from abc import ABCMeta, abstractmethod
 
-import numpy as np
+from struphy.arrays import xp as np
 
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import set_defaults

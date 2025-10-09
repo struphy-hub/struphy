@@ -3,7 +3,7 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.legacy.mass_matrices_3d_pre as mass_3d_pre

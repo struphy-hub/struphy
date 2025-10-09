@@ -13,7 +13,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     import time
 
-    import numpy as np
+    from struphy.arrays import xp as np
     import scipy as sc
     from mpi4py import MPI
     from psydac.linalg.basic import IdentityOperator
@@ -374,7 +374,7 @@ def _plot_residual_norms(residual_norms):
 def _plot_velocity(data_reshaped):
     import matplotlib
     import matplotlib.pyplot as plt
-    import numpy as np
+    from struphy.arrays import xp as np
 
     matplotlib.use("Agg")
 

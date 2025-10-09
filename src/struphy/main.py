@@ -54,7 +54,7 @@ def main(
     import os
     import time
 
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
     from pyevtk.hl import gridToVTK
 

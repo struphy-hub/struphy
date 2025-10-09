@@ -6,7 +6,7 @@
 Modules to assemble discrete derivatives.
 """
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 
 

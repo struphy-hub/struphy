@@ -314,7 +314,7 @@ def kernel_3d_mat(
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
 
-    import numpy as np
+    from struphy.arrays import xp as np
 
     ne1 = spans1.size
     ne2 = spans2.size
@@ -575,7 +575,7 @@ def kernel_3d_matrixfree(
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
 
-    import numpy as np
+    from struphy.arrays import xp as np
 
     ne1 = spansi1.size
     ne2 = spansi2.size
@@ -692,7 +692,7 @@ def kernel_3d_diag(
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
 
-    import numpy as np
+    from struphy.arrays import xp as np
 
     ne1 = spans1.size
     ne2 = spans2.size

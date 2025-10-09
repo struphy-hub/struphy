@@ -16,7 +16,7 @@ References
 
 """
 
-import numpy as np
+from struphy.arrays import xp as np
 
 __all__ = [
     "find_span",
@@ -533,7 +533,7 @@ def elements_spans(knots, degree):
 
     Examples
     --------
-    >>> import numpy as np
+    >>> from struphy.arrays import xp as np
     >>> from psydac.core.bsplines import make_knots, elements_spans
 
     >>> p = 3 ; n = 8

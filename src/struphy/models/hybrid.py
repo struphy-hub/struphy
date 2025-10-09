@@ -1,4 +1,4 @@
-import numpy as np
+from struphy.arrays import xp as np
 
 from struphy.models.base import StruphyModel
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc

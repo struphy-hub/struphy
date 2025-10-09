@@ -1,4 +1,4 @@
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 
 from struphy.eigenvalue_solvers.projectors_global import Projectors_tensor_3d

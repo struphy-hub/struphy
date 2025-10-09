@@ -1,6 +1,6 @@
 import copy
 
-import numpy as np
+from struphy.arrays import xp as np
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB

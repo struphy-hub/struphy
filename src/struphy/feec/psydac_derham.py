@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import importlib.metadata
 
-import numpy as np
+from struphy.arrays import xp as np
 import psydac.core.bsplines as bsp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm

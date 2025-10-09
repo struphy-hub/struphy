@@ -1,7 +1,7 @@
 import pickle
 import sys
 
-import numpy as np
+from struphy.arrays import xp as np
 import yaml
 from matplotlib import pyplot as plt
 

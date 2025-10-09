@@ -1,4 +1,4 @@
-import numpy as np
+from struphy.arrays import xp as np
 
 import struphy.pic.utilities_kernels as utils
 

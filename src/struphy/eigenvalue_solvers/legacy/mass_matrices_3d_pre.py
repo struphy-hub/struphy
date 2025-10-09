@@ -6,7 +6,7 @@
 Modules to obtain preconditioners for mass matrices in 3D.
 """
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.spline_space as spl

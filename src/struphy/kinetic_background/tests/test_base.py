@@ -2,7 +2,7 @@ def test_kinetic_background_magics(show_plot=False):
     """Test the magic commands __sum__, __mul__ and __sub__
     of the Maxwellian base class."""
     import matplotlib.pyplot as plt
-    import numpy as np
+    from struphy.arrays import xp as np
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 

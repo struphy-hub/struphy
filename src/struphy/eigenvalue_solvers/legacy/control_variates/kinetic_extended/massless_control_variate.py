@@ -1,6 +1,6 @@
 import hylife.utilitis_FEEC.basics.kernels_3d as ker
 import hylife.utilitis_FEEC.control_variates.massless_kernels_control_variate as ker_cv
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 
 

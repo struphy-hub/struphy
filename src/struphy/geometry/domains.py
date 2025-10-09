@@ -2,7 +2,7 @@
 
 import copy
 
-import numpy as np
+from struphy.arrays import xp as np
 
 from struphy.fields_background.base import AxisymmMHDequilibrium
 from struphy.fields_background.equils import EQDSKequilibrium

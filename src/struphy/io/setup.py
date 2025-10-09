@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import numpy as np
+from struphy.arrays import xp as np
 from mpi4py import MPI
 
 from struphy.utils.utils import dict_to_yaml

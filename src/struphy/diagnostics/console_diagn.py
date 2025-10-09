@@ -6,7 +6,7 @@ import os
 import subprocess
 
 import h5py
-import numpy as np
+from struphy.arrays import xp as np
 import yaml
 
 import struphy

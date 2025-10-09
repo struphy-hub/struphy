@@ -2,7 +2,7 @@ import os
 import shutil
 
 import h5py
-import numpy as np
+from struphy.arrays import xp as np
 import yaml
 from tqdm import tqdm
 

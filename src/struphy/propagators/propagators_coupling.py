@@ -1,6 +1,6 @@
 "Particle and FEEC variables are updated."
 
-import numpy as np
+from struphy.arrays import xp as np
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 

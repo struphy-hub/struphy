@@ -1,6 +1,6 @@
 "Accelerated particle pushing."
 
-import numpy as np
+from struphy.arrays import xp as np
 from mpi4py.MPI import IN_PLACE, SUM
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments

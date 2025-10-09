@@ -8,7 +8,7 @@ Class for local projections for linear ideal mhd in 3d based on quasi-interpolat
 
 import sys
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 import source_run.kernels_projectors_evaluation as ker_eva
 

@@ -8,7 +8,7 @@ import pytest
 def test_psydac_derham(Nel, p, spl_kind):
     """Remark: p=even projectors yield slightly different results, pass with atol=1e-3."""
 
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector

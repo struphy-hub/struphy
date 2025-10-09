@@ -14,7 +14,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     """
     from time import time
 
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
@@ -465,7 +465,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
@@ -725,7 +725,7 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
     TODO
     """
 
-    import numpy as np
+    from struphy.arrays import xp as np
 
     if verbose:
         if MPI_COMM is not None:

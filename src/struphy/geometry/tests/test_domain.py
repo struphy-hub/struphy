@@ -4,7 +4,7 @@ import pytest
 def test_prepare_arg():
     """Tests prepare_arg static method in domain base class."""
 
-    import numpy as np
+    from struphy.arrays import xp as np
 
     from struphy.geometry.base import Domain
 
@@ -158,7 +158,7 @@ def test_prepare_arg():
 def test_evaluation_mappings(mapping):
     """Tests domain object creation with default parameters and evaluation of metric coefficients."""
 
-    import numpy as np
+    from struphy.arrays import xp as np
 
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
@@ -318,7 +318,7 @@ def test_evaluation_mappings(mapping):
 def test_pullback():
     """Tests pullbacks to p-forms."""
 
-    import numpy as np
+    from struphy.arrays import xp as np
 
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
@@ -478,7 +478,7 @@ def test_pullback():
 def test_pushforward():
     """Tests pushforward of p-forms."""
 
-    import numpy as np
+    from struphy.arrays import xp as np
 
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
@@ -638,7 +638,7 @@ def test_pushforward():
 def test_transform():
     """Tests transformation of p-forms."""
 
-    import numpy as np
+    from struphy.arrays import xp as np
 
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
@@ -821,7 +821,7 @@ def test_transform():
 #    """
 #
 #    from struphy.geometry import domains
-#    import numpy as np
+#    from struphy.arrays import xp as np
 #
 #    # arrays:
 #    arr1 = np.linspace(0., 1., 4)

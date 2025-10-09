@@ -1,6 +1,6 @@
 import os
 
-import numpy as np
+from struphy.arrays import xp as np
 import yaml
 from psydac.api.discretization import discretize
 from sympde.topology import Derham, Line

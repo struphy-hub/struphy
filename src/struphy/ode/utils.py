@@ -1,4 +1,4 @@
-import numpy as np
+from struphy.arrays import xp as np
 
 
 class ButcherTableau:

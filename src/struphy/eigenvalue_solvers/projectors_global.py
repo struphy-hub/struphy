@@ -6,7 +6,7 @@
 Classes for commuting projectors in 1D, 2D and 3D based on global spline interpolation and histopolation.
 """
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 
 import struphy.bsplines.bsplines as bsp

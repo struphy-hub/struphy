@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from copy import deepcopy
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy as sc
 from matplotlib import pyplot as plt
 from mpi4py import MPI

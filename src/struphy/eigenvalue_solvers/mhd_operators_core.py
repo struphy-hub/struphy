@@ -3,7 +3,7 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_projectors_global_mhd as ker

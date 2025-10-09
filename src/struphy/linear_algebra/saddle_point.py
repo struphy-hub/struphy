@@ -1,6 +1,6 @@
 from typing import Union
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy as sc
 from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace

@@ -1,7 +1,7 @@
 import glob
 import pickle
 
-import numpy as np
+from struphy.arrays import xp as np
 import pandas as pd
 import yaml
 

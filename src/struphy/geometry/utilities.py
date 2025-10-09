@@ -1,6 +1,6 @@
 "Domain-related utility functions."
 
-import numpy as np
+from struphy.arrays import xp as np
 from scipy.optimize import newton, root, root_scalar
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu

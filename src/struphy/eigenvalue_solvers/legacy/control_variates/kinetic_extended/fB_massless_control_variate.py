@@ -1,4 +1,4 @@
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 
 import struphy.feec.basics.kernels_3d as ker

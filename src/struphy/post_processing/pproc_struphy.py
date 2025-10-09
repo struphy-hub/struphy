@@ -42,7 +42,7 @@ def main(
     import shutil
 
     import h5py
-    import numpy as np
+    from struphy.arrays import xp as np
     import yaml
 
     import struphy.post_processing.orbits.orbits_tools as orbits_pproc

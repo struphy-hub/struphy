@@ -13,7 +13,7 @@ import pytest
 def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
 
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
@@ -377,7 +377,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices."""
 
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
@@ -575,7 +575,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
 
     import time
 
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
     from psydac.linalg.solvers import inverse
 
@@ -881,7 +881,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
 
     import time
 
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
     from psydac.linalg.solvers import inverse
 

@@ -8,7 +8,7 @@ import re
 import sys
 
 import matplotlib.pyplot as plt
-import numpy as np
+from struphy.arrays import xp as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go

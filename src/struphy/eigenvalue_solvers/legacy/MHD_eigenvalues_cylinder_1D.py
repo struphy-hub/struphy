@@ -1,4 +1,4 @@
-import numpy as np
+from struphy.arrays import xp as np
 import scipy as sc
 import scipy.sparse as spa
 import scipy.special as sp

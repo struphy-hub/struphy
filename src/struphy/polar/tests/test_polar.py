@@ -168,7 +168,7 @@ def test_spaces(Nel, p, spl_kind):
 @pytest.mark.parametrize("p", [[3, 2, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -303,7 +303,7 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 @pytest.mark.parametrize("p", [[4, 3, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 def test_projectors(Nel, p, spl_kind):
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space

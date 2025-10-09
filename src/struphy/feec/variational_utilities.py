@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-import numpy as np
+from struphy.arrays import xp as np
 from psydac.linalg.basic import IdentityOperator, Vector
 from psydac.linalg.block import BlockVector
 from psydac.linalg.solvers import inverse

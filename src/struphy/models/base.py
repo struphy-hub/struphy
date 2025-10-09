@@ -3,7 +3,7 @@ import operator
 from abc import ABCMeta, abstractmethod
 from functools import reduce
 
-import numpy as np
+from struphy.arrays import xp as np
 import yaml
 from mpi4py import MPI
 from psydac.linalg.stencil import StencilVector

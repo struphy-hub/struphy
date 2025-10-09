@@ -7,7 +7,7 @@ import sys
 import warnings
 from time import time
 
-import numpy as np
+from struphy.arrays import xp as np
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize

@@ -5,7 +5,7 @@
 Classes for local projectors in 1D and 3D based on quasi-spline interpolation and histopolation.
 """
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 from mpi4py import MPI
 

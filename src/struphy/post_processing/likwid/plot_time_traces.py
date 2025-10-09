@@ -3,7 +3,7 @@ import pickle
 import re
 
 import matplotlib.pyplot as plt
-import numpy as np
+from struphy.arrays import xp as np
 import plotly.io as pio
 
 # pio.kaleido.scope.mathjax = None

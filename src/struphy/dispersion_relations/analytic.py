@@ -1,6 +1,6 @@
 "Analytic dispersion relations."
 
-import numpy as np
+from struphy.arrays import xp as np
 from numpy.polynomial import Polynomial
 from scipy.optimize import fsolve
 

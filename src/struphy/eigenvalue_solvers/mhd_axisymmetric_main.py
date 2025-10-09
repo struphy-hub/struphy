@@ -32,7 +32,7 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
     import os
     import time
 
-    import numpy as np
+    from struphy.arrays import xp as np
     import scipy.sparse as spa
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators

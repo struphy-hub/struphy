@@ -8,7 +8,7 @@ import pytest
 def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     """Test Nel=1 in various directions."""
 
-    import numpy as np
+    from struphy.arrays import xp as np
     from matplotlib import pyplot as plt
     from mpi4py import MPI
     from psydac.linalg.block import BlockVector

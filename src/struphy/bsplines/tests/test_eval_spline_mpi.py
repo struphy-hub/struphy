@@ -1,7 +1,7 @@
 from sys import int_info
 from time import sleep
 
-import numpy as np
+from struphy.arrays import xp as np
 import pytest
 from mpi4py import MPI
 

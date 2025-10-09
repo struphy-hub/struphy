@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-import numpy as np
+from struphy.arrays import xp as np
 import pytest
 from mpi4py import MPI
 

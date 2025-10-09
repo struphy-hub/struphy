@@ -1,4 +1,4 @@
-import numpy as np
+from struphy.arrays import xp as np
 from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.ddm.cart import CartDecomposition, DomainDecomposition
 from psydac.fem.tensor import TensorFemSpace

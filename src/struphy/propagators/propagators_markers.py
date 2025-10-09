@@ -1,6 +1,6 @@
 "Only particle variables are updated."
 
-import numpy as np
+from struphy.arrays import xp as np
 from numpy import array, polynomial, random
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -72,7 +72,7 @@ class PushEta(Propagator):
         # define algorithm
         butcher = ButcherTableau(algo)
         # temp fix due to refactoring of ButcherTableau:
-        import numpy as np
+        from struphy.arrays import xp as np
 
         butcher._a = np.diag(butcher.a, k=-1)
         butcher._a = np.array(list(butcher.a) + [0.0])
@@ -713,7 +713,7 @@ class PushGuidingCenterBxEstar(Propagator):
         else:
             butcher = ButcherTableau(algo["method"])
             # temp fix due to refactoring of ButcherTableau:
-            import numpy as np
+            from struphy.arrays import xp as np
 
             butcher._a = np.diag(butcher.a, k=-1)
             butcher._a = np.array(list(butcher.a) + [0.0])
@@ -1132,7 +1132,7 @@ class PushGuidingCenterParallel(Propagator):
         else:
             butcher = ButcherTableau(algo["method"])
             # temp fix due to refactoring of ButcherTableau:
-            import numpy as np
+            from struphy.arrays import xp as np
 
             butcher._a = np.diag(butcher.a, k=-1)
             butcher._a = np.array(list(butcher.a) + [0.0])
@@ -1342,7 +1342,7 @@ class PushDeterministicDiffusion(Propagator):
         # choose algorithm
         self._butcher = ButcherTableau(algo)
         # temp fix due to refactoring of ButcherTableau:
-        import numpy as np
+        from struphy.arrays import xp as np
 
         self._butcher._a = np.diag(self._butcher.a, k=-1)
         self._butcher._a = np.array(list(self._butcher.a) + [0.0])
@@ -1445,7 +1445,7 @@ class PushRandomDiffusion(Propagator):
         # choose algorithm
         self._butcher = ButcherTableau("forward_euler")
         # temp fix due to refactoring of ButcherTableau:
-        import numpy as np
+        from struphy.arrays import xp as np
 
         self._butcher._a = np.diag(self._butcher.a, k=-1)
         self._butcher._a = np.array(list(self._butcher.a) + [0.0])

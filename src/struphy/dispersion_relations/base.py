@@ -2,7 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 
-import numpy as np
+from struphy.arrays import xp as np
 from matplotlib import pyplot as plt
 
 

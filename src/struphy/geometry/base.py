@@ -4,7 +4,7 @@
 from abc import ABCMeta, abstractmethod
 
 import h5py
-import numpy as np
+from struphy.arrays import xp as np
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 

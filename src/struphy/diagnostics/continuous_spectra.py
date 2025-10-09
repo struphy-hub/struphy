@@ -37,7 +37,7 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
         the radial location s_spec[m][0], squared eigenfrequencis s_spec[m][1] and global mode index s_spec[m][2] corresponding to slow sound modes for each poloidal mode number m in m_range.
     """
 
-    import numpy as np
+    from struphy.arrays import xp as np
 
     import struphy.bsplines.bsplines as bsp
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     import os
     import shutil
 
-    import numpy as np
+    from struphy.arrays import xp as np
     import yaml
 
     # parse arguments

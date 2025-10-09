@@ -1,6 +1,6 @@
 from time import time
 
-import numpy as np
+from struphy.arrays import xp as np
 import pytest
 from matplotlib import pyplot as plt
 from mpi4py import MPI

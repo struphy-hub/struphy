@@ -3,7 +3,7 @@ import pickle
 from pathlib import Path
 
 import h5py
-import numpy as np
+from struphy.arrays import xp as np
 import yaml
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter

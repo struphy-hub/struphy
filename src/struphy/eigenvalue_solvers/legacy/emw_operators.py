@@ -6,7 +6,7 @@
 Class for 2D/3D linear MHD projection operators.
 """
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_3d as ker

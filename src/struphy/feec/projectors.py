@@ -1,4 +1,4 @@
-import numpy as np
+from struphy.arrays import xp as np
 from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.global_projectors import GlobalProjector

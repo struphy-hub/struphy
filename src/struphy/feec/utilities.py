@@ -1,4 +1,4 @@
-import numpy as np
+from struphy.arrays import xp as np
 from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace

@@ -3,7 +3,7 @@ def main():
     import argparse
     import os
 
-    import numpy as np
+    from struphy.arrays import xp as np
     import yaml
 
     # parse arguments

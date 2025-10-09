@@ -14,7 +14,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_dot_kernels.matvec_1d_kernel
     b) the result from Stencil .dot with precompiled=True"""
 
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix, StencilVector
@@ -137,7 +137,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_dot_kernels.matvec_1d_kernel
     b) the result from Stencil .dot with precompiled=True"""
 
-    import numpy as np
+    from struphy.arrays import xp as np
     from mpi4py import MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix, StencilVector

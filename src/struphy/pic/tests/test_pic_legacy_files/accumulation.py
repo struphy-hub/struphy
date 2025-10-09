@@ -8,7 +8,7 @@ Modules to create sparse matrices from 6D sub-matrices in particle accumulation 
 
 import time
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy.sparse as spa
 from mpi4py import MPI
 

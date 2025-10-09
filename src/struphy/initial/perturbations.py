@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 "Analytical perturbations (modes)."
 
-import numpy as np
+from struphy.arrays import xp as np
 import scipy
 import scipy.special
 

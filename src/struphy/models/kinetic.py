@@ -1,4 +1,4 @@
-import numpy as np
+from struphy.arrays import xp as np
 
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
