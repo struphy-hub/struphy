@@ -1283,7 +1283,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 file = open(path, "w")
             else:
                 print("exiting ...")
-                return
+                exit()
         except FileNotFoundError:
             folder = os.path.join("/", *path.split("/")[:-1])
             if not prompt:
@@ -1295,7 +1295,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 file = open(path, "x")
             else:
                 print("exiting ...")
-                return
+                exit()
 
         file.write("from struphy.io.options import EnvironmentOptions, BaseUnits, Time\n")
         file.write("from struphy.geometry import domains\n")
