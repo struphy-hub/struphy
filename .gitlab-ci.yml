@@ -53,8 +53,11 @@ test_toki01:
     - module purge
     - module list
     - module avail
-    - module load gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake
+    - module load gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake netcdf-serial mkl hdf5-serial
     - module list
+    - export FC=`which gfortran`
+    - export CC=`which gcc`
+    - export CXX=`which g++`
     - !reference [.scripts, install_struphy_clusters]
 
 
@@ -70,8 +73,11 @@ test_viper01:
     - module purge
     - module list
     - module avail
-    - module load gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake
+    - module load gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake netcdf-serial mkl hdf5-serial
     - module list
+    - export FC=`which gfortran`
+    - export CC=`which gcc`
+    - export CXX=`which g++`
     - !reference [.scripts, install_struphy_clusters]
 
 test_raven01:
@@ -86,8 +92,11 @@ test_raven01:
     - module purge
     - module list
     - module avail
-    - module load gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake
+    - module load gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake netcdf-serial mkl hdf5-serial
     - module list
+    - export FC=`which gfortran`
+    - export CC=`which gcc`
+    - export CXX=`which g++`
     - !reference [.scripts, install_struphy_clusters]
 
 test_pitagora05:
@@ -102,8 +111,11 @@ test_pitagora05:
     - module purge
     - module list
     - module avail
-    - module load gcc/12.3.0 openmpi/4.1.6--gcc--12.3.0 python/3.11.7 cmake
+    - module load gcc/12.3.0 openmpi/4.1.6--gcc--12.3.0 python/3.11.7 cmake netcdf-serial mkl hdf5-serial
     - module list
+    - export FC=`which gfortran`
+    - export CC=`which gcc`
+    - export CXX=`which g++`
     - !reference [.scripts, install_struphy_clusters]
     
 
@@ -116,7 +128,7 @@ test_pitagora05:
     - python -m pip install --upgrade pip
     - pip install --no-binary=mpi4py mpi4py
     - pip install gvec
-    - pip install ".[dev]"
+    - pip install ".[phys]"
     - python -c "from mpi4py import MPI; print(MPI)"
     - struphy -h
     - struphy --refresh-models
