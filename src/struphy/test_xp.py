@@ -1,6 +1,6 @@
 import time
 
-from arrays import xp
+from struphy.arrays import xp
 
 
 def main(N=8192):
