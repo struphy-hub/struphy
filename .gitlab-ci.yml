@@ -514,10 +514,10 @@ test_cupy:
     - python3 -m pip install --user cupy-cuda12x
     - python3 -c "import cupy as cp"
     - python3 src/struphy/arrays.py
-    - python3 src/struphy/test_xp.py
+    - python3 src/struphy/cupy_vs_numpy.py
     - export ARRAY_BACKEND=cupy
     - python3 src/struphy/arrays.py
-    - python3 src/struphy/test_xp.py
+    - python3 src/struphy/cupy_vs_numpy.py
 
 # #####################
 # ### PUSH PIPELINE ###
