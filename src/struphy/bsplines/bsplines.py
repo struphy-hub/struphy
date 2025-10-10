@@ -533,7 +533,7 @@ def elements_spans(knots, degree):
 
     Examples
     --------
-    >>> from struphy.arrays import xp as np
+    >>> import numpy as np
     >>> from psydac.core.bsplines import make_knots, elements_spans
 
     >>> p = 3 ; n = 8
