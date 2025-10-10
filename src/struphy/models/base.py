@@ -184,9 +184,10 @@ class StruphyModel(metaclass=ABCMeta):
                 verbose=self.verbose,
             )
 
-        # create weighted mass operators
+        # create weighted mass and basis operators
         if self.derham is None:
             self._mass_ops = None
+            self._basis_ops = None
         else:
             self._mass_ops = WeightedMassOperators(
                 self.derham,
@@ -195,13 +196,12 @@ class StruphyModel(metaclass=ABCMeta):
                 eq_mhd=self.equil,
             )
 
-        # create basis operators
-        self._basis_ops = BasisProjectionOperators(
-                self.derham,
-                self.domain,
-                verbose=self.verbose,
-                eq_mhd=self.equil,
-            )
+            self._basis_ops = BasisProjectionOperators(
+                    self.derham,
+                    self.domain,
+                    verbose=self.verbose,
+                    eq_mhd=self.equil,
+                )
 
         # create projected equilibrium
         if self.derham is None:
