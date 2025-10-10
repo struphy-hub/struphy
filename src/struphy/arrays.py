@@ -30,8 +30,11 @@ class ArrayBackend:
             import numpy as np
 
             self._xp = np
+
+        assert isinstance(self.xp, ModuleType)
+
         if verbose:
-            print(f"Using {xp.__name__} backend.")
+            print(f"Using {self.xp.__name__} backend.")
 
     @property
     def backend(self) -> BackendType:
@@ -39,7 +42,6 @@ class ArrayBackend:
 
     @property
     def xp(self) -> ModuleType:
-        assert isinstance(self._xp, ModuleType)
         return self._xp
 
 
