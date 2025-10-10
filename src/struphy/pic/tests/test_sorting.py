@@ -1,9 +1,9 @@
 from time import time
 
-from struphy.arrays import xp as np
 import pytest
 from mpi4py import MPI
 
+from struphy.arrays import xp as np
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 from struphy.pic.particles import Particles6D

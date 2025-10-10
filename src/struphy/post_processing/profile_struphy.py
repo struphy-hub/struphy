@@ -1,10 +1,10 @@
 import pickle
 import sys
 
-from struphy.arrays import xp as np
 import yaml
 from matplotlib import pyplot as plt
 
+from struphy.arrays import xp as np
 from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
 
 

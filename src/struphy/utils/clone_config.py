@@ -1,5 +1,6 @@
-from struphy.arrays import xp as np
 from mpi4py import MPI
+
+from struphy.arrays import xp as np
 
 
 class CloneConfig:

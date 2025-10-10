@@ -54,10 +54,10 @@ def main(
     import os
     import time
 
-    from struphy.arrays import xp as np
     from mpi4py import MPI
     from pyevtk.hl import gridToVTK
 
+    from struphy.arrays import xp as np
     from struphy.feec.psydac_derham import SplineFunction
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.io.output_handling import DataContainer

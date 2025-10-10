@@ -1,10 +1,10 @@
 from copy import deepcopy
 
-from struphy.arrays import xp as np
 from psydac.linalg.basic import IdentityOperator, Vector
 from psydac.linalg.block import BlockVector
 from psydac.linalg.solvers import inverse
 
+from struphy.arrays import xp as np
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,

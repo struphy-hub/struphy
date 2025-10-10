@@ -3,7 +3,6 @@
 from collections.abc import Callable
 from copy import deepcopy
 
-from struphy.arrays import xp as np
 import scipy as sc
 from matplotlib import pyplot as plt
 from mpi4py import MPI
@@ -15,6 +14,7 @@ from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
 
 import struphy.feec.utilities as util
+from struphy.arrays import xp as np
 from struphy.examples.restelli2018 import callables
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (

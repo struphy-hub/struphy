@@ -3,7 +3,6 @@ import pickle
 from pathlib import Path
 
 import h5py
-from struphy.arrays import xp as np
 import yaml
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
@@ -11,6 +10,7 @@ from mpi4py import MPI
 from scipy.special import jv, yn
 
 import struphy
+from struphy.arrays import xp as np
 from struphy.post_processing import pproc_struphy
 
 

@@ -17,8 +17,9 @@ import pickle
 # Import the profiling configuration class and context manager
 from functools import lru_cache
 
-from struphy.arrays import xp as np
 from mpi4py import MPI
+
+from struphy.arrays import xp as np
 
 
 @lru_cache(maxsize=None)  # Cache the import result to avoid repeated imports

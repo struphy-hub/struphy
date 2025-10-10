@@ -3,11 +3,11 @@ import operator
 from abc import ABCMeta, abstractmethod
 from functools import reduce
 
-from struphy.arrays import xp as np
 import yaml
 from mpi4py import MPI
 from psydac.linalg.stencil import StencilVector
 
+from struphy.arrays import xp as np
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import SplineFunction

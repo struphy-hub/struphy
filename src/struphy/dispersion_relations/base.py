@@ -2,8 +2,9 @@
 
 from abc import ABCMeta, abstractmethod
 
-from struphy.arrays import xp as np
 from matplotlib import pyplot as plt
+
+from struphy.arrays import xp as np
 
 
 class DispersionRelations1D(metaclass=ABCMeta):

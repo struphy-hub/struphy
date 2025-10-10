@@ -4,7 +4,6 @@ import copy
 from abc import ABCMeta, abstractmethod
 
 from struphy.arrays import xp as np
-
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.initial import perturbations

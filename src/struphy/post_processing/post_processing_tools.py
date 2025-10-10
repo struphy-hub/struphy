@@ -3,10 +3,10 @@ import shutil
 
 import h5py
 import matplotlib.pyplot as plt
-from struphy.arrays import xp as np
 import yaml
 from tqdm import tqdm
 
+from struphy.arrays import xp as np
 from struphy.feec.psydac_derham import Derham
 from struphy.io.setup import setup_domain_and_equil
 from struphy.kinetic_background import maxwellians

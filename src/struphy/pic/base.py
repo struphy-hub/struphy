@@ -4,12 +4,12 @@ import warnings
 from abc import ABCMeta, abstractmethod
 
 import h5py
-from struphy.arrays import xp as np
 import scipy.special as sp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
 
+from struphy.arrays import xp as np
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, NumericalFluidEquilibrium

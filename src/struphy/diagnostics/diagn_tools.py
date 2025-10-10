@@ -5,11 +5,11 @@ import subprocess
 
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
-from struphy.arrays import xp as np
 from scipy.fft import fftfreq, fftn
 from scipy.signal import argrelextrema
 from tqdm import tqdm
 
+from struphy.arrays import xp as np
 from struphy.dispersion_relations import analytic
 
 

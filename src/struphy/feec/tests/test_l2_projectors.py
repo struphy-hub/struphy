@@ -1,10 +1,10 @@
 import inspect
 
 import matplotlib.pyplot as plt
-from struphy.arrays import xp as np
 import pytest
 from mpi4py import MPI
 
+from struphy.arrays import xp as np
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham

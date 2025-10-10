@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import importlib.metadata
 
-from struphy.arrays import xp as np
 import psydac.core.bsplines as bsp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
@@ -17,6 +16,7 @@ from psydac.linalg.basic import IdentityOperator
 from psydac.linalg.block import BlockVector, BlockVectorSpace
 from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 
+from struphy.arrays import xp as np
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator

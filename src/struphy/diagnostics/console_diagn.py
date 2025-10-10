@@ -6,11 +6,11 @@ import os
 import subprocess
 
 import h5py
-from struphy.arrays import xp as np
 import yaml
 
 import struphy
 import struphy.utils.utils as utils
+from struphy.arrays import xp as np
 from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_videos_2d
 
 

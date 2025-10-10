@@ -1,12 +1,12 @@
 from typing import Union
 
-from struphy.arrays import xp as np
 import scipy as sc
 from psydac.linalg.basic import LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.solvers import inverse
 
+from struphy.arrays import xp as np
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
 
 

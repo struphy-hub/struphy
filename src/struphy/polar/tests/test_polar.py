@@ -168,9 +168,9 @@ def test_spaces(Nel, p, spl_kind):
 @pytest.mark.parametrize("p", [[3, 2, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
-    from struphy.arrays import xp as np
     from mpi4py import MPI
 
+    from struphy.arrays import xp as np
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
@@ -303,9 +303,9 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 @pytest.mark.parametrize("p", [[4, 3, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 def test_projectors(Nel, p, spl_kind):
-    from struphy.arrays import xp as np
     from mpi4py import MPI
 
+    from struphy.arrays import xp as np
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.domains import IGAPolarCylinder

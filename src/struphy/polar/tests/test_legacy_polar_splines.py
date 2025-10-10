@@ -8,9 +8,9 @@ def test_polar_splines_2D(plot=False):
     sys.path.append("..")
 
     import matplotlib.pyplot as plt
-    from struphy.arrays import xp as np
     from mpl_toolkits.mplot3d import Axes3D
 
+    from struphy.arrays import xp as np
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.geometry import domains
 

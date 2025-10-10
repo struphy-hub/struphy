@@ -47,9 +47,9 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
 def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from time import time
 
-    from struphy.arrays import xp as np
     from mpi4py import MPI
 
+    from struphy.arrays import xp as np
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham

@@ -1,10 +1,10 @@
 "Domain-related utility functions."
 
-from struphy.arrays import xp as np
 from scipy.optimize import newton, root, root_scalar
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu
 
+from struphy.arrays import xp as np
 from struphy.bsplines import bsplines as bsp
 from struphy.geometry.base import PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface

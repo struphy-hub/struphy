@@ -1,4 +1,3 @@
-from struphy.arrays import xp as np
 from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.global_projectors import GlobalProjector
@@ -11,6 +10,7 @@ from psydac.linalg.kron import KroneckerStencilMatrix
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilMatrix, StencilVector
 
+from struphy.arrays import xp as np
 from struphy.feec import mass_kernels
 from struphy.feec.local_projectors_kernels import (
     compute_shifts,

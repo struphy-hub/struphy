@@ -1,8 +1,8 @@
-from struphy.arrays import xp as np
 import pytest
 from matplotlib import pyplot as plt
 from mpi4py import MPI
 
+from struphy.arrays import xp as np
 from struphy.geometry import domains
 from struphy.pic.particles import ParticlesSPH
 

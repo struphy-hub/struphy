@@ -1,6 +1,5 @@
 import inspect
 
-from struphy.arrays import xp as np
 from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.tensor import TensorFemSpace
@@ -9,6 +8,7 @@ from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
+from struphy.arrays import xp as np
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.psydac_derham import Derham

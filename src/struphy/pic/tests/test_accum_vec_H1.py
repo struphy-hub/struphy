@@ -46,9 +46,9 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
 
     import copy
 
-    from struphy.arrays import xp as np
     from mpi4py import MPI
 
+    from struphy.arrays import xp as np
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains

@@ -2,10 +2,10 @@ import inspect
 import time
 
 import matplotlib.pyplot as plt
-from struphy.arrays import xp as np
 import pytest
 from mpi4py import MPI
 
+from struphy.arrays import xp as np
 from struphy.bsplines.bsplines import basis_funs, find_span
 from struphy.bsplines.evaluation_kernels_1d import evaluation_kernel_1d
 from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal

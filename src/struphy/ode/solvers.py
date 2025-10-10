@@ -1,9 +1,9 @@
 from inspect import signature
 
-from struphy.arrays import xp as np
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
+from struphy.arrays import xp as np
 from struphy.ode.utils import ButcherTableau
 
 

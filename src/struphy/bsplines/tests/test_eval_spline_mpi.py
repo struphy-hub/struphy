@@ -1,9 +1,10 @@
 from sys import int_info
 from time import sleep
 
-from struphy.arrays import xp as np
 import pytest
 from mpi4py import MPI
+
+from struphy.arrays import xp as np
 
 
 @pytest.mark.mpi(min_size=2)

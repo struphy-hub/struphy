@@ -14,11 +14,11 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_transpose_kernels.transpose_1d_kernel
     b) the result from Stencil .transpose with precompiled=True"""
 
-    from struphy.arrays import xp as np
     from mpi4py import MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix
 
+    from struphy.arrays import xp as np
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_1d_kernel
 
@@ -131,11 +131,11 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_transpose_kernels.transpose_3d_kernel
     b) the result from Stencil .transpose with precompiled=True"""
 
-    from struphy.arrays import xp as np
     from mpi4py import MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix
 
+    from struphy.arrays import xp as np
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_3d_kernel
 

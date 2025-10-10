@@ -3,7 +3,6 @@
 from abc import ABCMeta, abstractmethod
 
 from struphy.arrays import xp as np
-
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham

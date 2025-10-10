@@ -1,6 +1,5 @@
 "Base classes for particle deposition (accumulation) on the grid."
 
-from struphy.arrays import xp as np
 from mpi4py import MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilMatrix, StencilVector
@@ -8,6 +7,7 @@ from psydac.linalg.stencil import StencilMatrix, StencilVector
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 import struphy.pic.accumulation.filter_kernels as filters
+from struphy.arrays import xp as np
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments

@@ -13,12 +13,12 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
 
     import time
 
-    from struphy.arrays import xp as np
     import scipy as sc
     from mpi4py import MPI
     from psydac.linalg.basic import IdentityOperator
     from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 
+    from struphy.arrays import xp as np
     from struphy.examples.restelli2018 import callables
     from struphy.feec.basis_projection_ops import BasisProjectionOperatorLocal, BasisProjectionOperators
     from struphy.feec.mass import WeightedMassOperators
@@ -374,6 +374,7 @@ def _plot_residual_norms(residual_norms):
 def _plot_velocity(data_reshaped):
     import matplotlib
     import matplotlib.pyplot as plt
+
     from struphy.arrays import xp as np
 
     matplotlib.use("Agg")

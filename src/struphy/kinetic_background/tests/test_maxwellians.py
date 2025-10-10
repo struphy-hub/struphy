@@ -9,8 +9,8 @@ def test_maxwellian_3d_uniform(Nel, show_plot=False):
     analytical computation.
     """
     import matplotlib.pyplot as plt
-    from struphy.arrays import xp as np
 
+    from struphy.arrays import xp as np
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
@@ -89,8 +89,8 @@ def test_maxwellian_3d_perturbed(Nel, show_plot=False):
     """Tests the Maxwellian3D class for perturbations."""
 
     import matplotlib.pyplot as plt
-    from struphy.arrays import xp as np
 
+    from struphy.arrays import xp as np
     from struphy.kinetic_background.maxwellians import Maxwellian3D
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
@@ -285,8 +285,8 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
     import inspect
 
     import matplotlib.pyplot as plt
-    from struphy.arrays import xp as np
 
+    from struphy.arrays import xp as np
     from struphy.fields_background import equils
     from struphy.geometry import domains
     from struphy.initial import perturbations
@@ -692,8 +692,8 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
     analytical computation.
     """
     import matplotlib.pyplot as plt
-    from struphy.arrays import xp as np
 
+    from struphy.arrays import xp as np
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
@@ -781,8 +781,8 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
     """Tests the GyroMaxwellian2D class for perturbations."""
 
     import matplotlib.pyplot as plt
-    from struphy.arrays import xp as np
 
+    from struphy.arrays import xp as np
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
@@ -1035,8 +1035,8 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
     import inspect
 
     import matplotlib.pyplot as plt
-    from struphy.arrays import xp as np
 
+    from struphy.arrays import xp as np
     from struphy.fields_background import equils
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.geometry import domains
@@ -1436,8 +1436,8 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     analytical computation.
     """
     import matplotlib.pyplot as plt
-    from struphy.arrays import xp as np
 
+    from struphy.arrays import xp as np
     from struphy.fields_background import equils
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import CanonicalMaxwellian

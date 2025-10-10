@@ -1,9 +1,9 @@
 "Analytic dispersion relations."
 
-from struphy.arrays import xp as np
 from numpy.polynomial import Polynomial
 from scipy.optimize import fsolve
 
+from struphy.arrays import xp as np
 from struphy.dispersion_relations.base import ContinuousSpectra1D, DispersionRelations1D
 from struphy.dispersion_relations.utilities import Zplasma
 from struphy.fields_background.equils import set_defaults

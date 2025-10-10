@@ -6,11 +6,11 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     import os
     import pickle
 
-    from struphy.arrays import xp as np
     import yaml
     from matplotlib import pyplot as plt
 
     import struphy.utils.utils as utils
+    from struphy.arrays import xp as np
     from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
 
     # Read struphy state file

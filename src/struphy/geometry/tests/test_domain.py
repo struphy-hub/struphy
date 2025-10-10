@@ -5,7 +5,6 @@ def test_prepare_arg():
     """Tests prepare_arg static method in domain base class."""
 
     from struphy.arrays import xp as np
-
     from struphy.geometry.base import Domain
 
     def a1(e1, e2, e3):
@@ -159,7 +158,6 @@ def test_evaluation_mappings(mapping):
     """Tests domain object creation with default parameters and evaluation of metric coefficients."""
 
     from struphy.arrays import xp as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
 
@@ -319,7 +317,6 @@ def test_pullback():
     """Tests pullbacks to p-forms."""
 
     from struphy.arrays import xp as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
 
@@ -479,7 +476,6 @@ def test_pushforward():
     """Tests pushforward of p-forms."""
 
     from struphy.arrays import xp as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
 
@@ -639,7 +635,6 @@ def test_transform():
     """Tests transformation of p-forms."""
 
     from struphy.arrays import xp as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
 

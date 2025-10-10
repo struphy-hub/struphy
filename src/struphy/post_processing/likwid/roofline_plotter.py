@@ -1,9 +1,10 @@
 import glob
 import pickle
 
-from struphy.arrays import xp as np
 import pandas as pd
 import yaml
+
+from struphy.arrays import xp as np
 
 
 def sort_by_num_threads(bm):

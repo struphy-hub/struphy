@@ -14,11 +14,11 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     """
     from time import time
 
-    from struphy.arrays import xp as np
     from mpi4py import MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
+    from struphy.arrays import xp as np
     from struphy.eigenvalue_solvers.legacy.mhd_operators_MF import projectors_dot_x
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -465,9 +465,9 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
-    from struphy.arrays import xp as np
     from mpi4py import MPI
 
+    from struphy.arrays import xp as np
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.basis_projection_ops import BasisProjectionOperators

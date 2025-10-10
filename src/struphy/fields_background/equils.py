@@ -7,12 +7,12 @@ import sys
 import warnings
 from time import time
 
-from struphy.arrays import xp as np
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
 
 import struphy
+from struphy.arrays import xp as np
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,

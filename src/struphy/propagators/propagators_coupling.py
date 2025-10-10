@@ -1,9 +1,9 @@
 "Particle and FEEC variables are updated."
 
-from struphy.arrays import xp as np
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
+from struphy.arrays import xp as np
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.io.setup import descend_options_dict

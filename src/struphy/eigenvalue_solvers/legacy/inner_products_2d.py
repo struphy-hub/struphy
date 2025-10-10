@@ -6,10 +6,10 @@
 Modules to compute inner products with given functions in 2D.
 """
 
-from struphy.arrays import xp as np
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_2d as ker
+from struphy.arrays import xp as np
 
 
 # ================ inner product in V0 ===========================

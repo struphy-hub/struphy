@@ -1,10 +1,10 @@
 "Only particle variables are updated."
 
-from struphy.arrays import xp as np
 from numpy import array, polynomial, random
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
+from struphy.arrays import xp as np
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults

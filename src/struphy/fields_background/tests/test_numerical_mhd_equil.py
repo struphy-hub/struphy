@@ -1,6 +1,6 @@
-from struphy.arrays import xp as np
 import pytest
 
+from struphy.arrays import xp as np
 from struphy.fields_background.base import FluidEquilibrium, LogicalMHDequilibrium
 
 

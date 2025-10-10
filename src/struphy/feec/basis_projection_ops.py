@@ -1,4 +1,3 @@
-from struphy.arrays import xp as np
 from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.basic import FemSpace
@@ -7,6 +6,7 @@ from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.stencil import StencilMatrix, StencilVector, StencilVectorSpace
 
+from struphy.arrays import xp as np
 from struphy.feec import basis_projection_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
 from struphy.feec.local_projectors_kernels import assemble_basis_projection_operator_local

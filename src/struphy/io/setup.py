@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from struphy.arrays import xp as np
 from mpi4py import MPI
 
+from struphy.arrays import xp as np
 from struphy.utils.utils import dict_to_yaml
 
 

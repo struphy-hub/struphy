@@ -4,11 +4,11 @@
 from abc import ABCMeta, abstractmethod
 
 import h5py
-from struphy.arrays import xp as np
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
 import struphy.bsplines.bsplines as bsp
+from struphy.arrays import xp as np
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron

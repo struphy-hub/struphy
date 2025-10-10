@@ -1,7 +1,7 @@
-from struphy.arrays import xp as np
 import pytest
 from matplotlib import pyplot as plt
 
+from struphy.arrays import xp as np
 from struphy.fields_background.generic import (
     GenericCartesianFluidEquilibrium,
     GenericCartesianFluidEquilibriumWithB,
