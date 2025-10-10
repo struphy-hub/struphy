@@ -2,8 +2,6 @@ import os
 from types import ModuleType
 from typing import TYPE_CHECKING, Literal
 
-from numpy import isin
-
 BackendType = Literal["numpy", "cupy"]
 
 
