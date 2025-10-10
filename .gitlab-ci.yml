@@ -496,17 +496,37 @@ inspect_repo:
     - ./cloc --version
     - ./cloc $(git ls-files)
 
+#####################
+### PUSH PIPELINE ###
+#####################
+
+# check_struphy_simulation_params:
+#   stage: test
+#   extends:
+#     - .rules_mr_to_devel
+#     - .image_gitlab_mpcdf_struphy
+#     - .before_script_load_modules
+#     - .variables_push
+#   script:
+#     - !reference [.scripts, install_on_push]
+#     - git clone https://gitlab.mpcdf.mpg.de/struphy/struphy-simulations.git
+#     - |
+#       for file in struphy-simulations/**/*.yml; do
+#         echo "Checking $file"
+#         # TODO: How to deduce the model?
+#         struphy params LinearVlasovAmpereOneSpecies --check-file $file
+#       done
+
 test_cupy:
   tags: [nvidia-cc80]
   image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/nvhpcsdk_24-openmpi_5_0:2025
-  stage: startup
+  stage: test
   extends:
     - .rules_startup
   before_script:
     - module avail
     - module list
     - module purge
-    #- module load cuda/12.6 gcc/13 openmpi/5.0
     - module load nvhpcsdk/24 openmpi/5.0 python-waterboa/2024.06 gcc/13
   script:
     - ls
@@ -519,579 +539,558 @@ test_cupy:
     - python3 src/struphy/arrays.py
     - python3 src/struphy/cupy_vs_numpy.py
 
-# #####################
-# ### PUSH PIPELINE ###
-# #####################
+install_tests:
+  stage: test
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .parallel_matrix_install
+  script:
+    - !reference [.scripts, install_on_push]
 
-# # check_struphy_simulation_params:
-# #   stage: test
-# #   extends:
-# #     - .rules_mr_to_devel
-# #     - .image_gitlab_mpcdf_struphy
-# #     - .before_script_load_modules
-# #     - .variables_push
-# #   script:
-# #     - !reference [.scripts, install_on_push]
-# #     - git clone https://gitlab.mpcdf.mpg.de/struphy/struphy-simulations.git
-# #     - |
-# #       for file in struphy-simulations/**/*.yml; do
-# #         echo "Checking $file"
-# #         # TODO: How to deduce the model?
-# #         struphy params LinearVlasovAmpereOneSpecies --check-file $file
-# #       done
+unit_tests:
+  stage: test
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, unit_tests]
 
-# install_tests:
-#   stage: test
-#   extends:
-#     - .rules_mr_to_devel
-#     - .image_gitlab_mpcdf_struphy
-#     - .before_script_load_modules
-#     - .parallel_matrix_install
-#   script:
-#     - !reference [.scripts, install_on_push]
+tests_pyccel_devel:
+  stage: test
+  extends:
+    - .rules_scheduled
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_pyccel_devel]
+    - !reference [.scripts, unit_tests]
+    - !reference [.scripts, model_tests]
 
-# unit_tests:
-#   stage: test
-#   extends:
-#     - .rules_mr_to_devel
-#     - .image_gitlab_mpcdf_struphy
-#     - .before_script_load_modules
-#     - .variables_push
-#   script:
-#     - !reference [.scripts, install_on_push]
-#     - !reference [.scripts, unit_tests]
+model_tests:
+  stage: test
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, model_tests]
 
-# tests_pyccel_devel:
-#   stage: test
-#   extends:
-#     - .rules_scheduled
-#     - .image_gitlab_mpcdf_struphy
-#     - .before_script_load_modules
-#     - .variables_push
-#   script:
-#     - !reference [.scripts, install_pyccel_devel]
-#     - !reference [.scripts, unit_tests]
-#     - !reference [.scripts, model_tests]
+quickstart_tests:
+  stage: test
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, quickstart_tests]
 
-# model_tests:
-#   stage: test
-#   extends:
-#     - .rules_mr_to_devel
-#     - .image_gitlab_mpcdf_struphy
-#     - .before_script_load_modules
-#     - .variables_push
-#   script:
-#     - !reference [.scripts, install_on_push]
-#     - !reference [.scripts, model_tests]
+pages_tests:
+  stage: test
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, inspect_struphy]
+    - module load pandoc
+    - module list
+    - pip install .[doc]
+    - |
+      struphy compile -y || (
+        echo "Initial compile failed. Removing compiled kernels and trying again..." &&
+        struphy compile -d -y &&
+        struphy compile -y
+      )
+    - cd doc ; make html
+    - mv _build/html/ $CI_PROJECT_DIR/documentation/
+  artifacts:
+    expose_as: 'Documentation'
+    paths:
+      - documentation/
 
-# quickstart_tests:
-#   stage: test
-#   extends:
-#     - .rules_mr_to_devel
-#     - .image_gitlab_mpcdf_struphy
-#     - .before_script_load_modules
-#     - .variables_push
-#   script:
-#     - !reference [.scripts, install_on_push]
-#     - !reference [.scripts, quickstart_tests]
+ubuntu_latest:
+  stage: test
+  extends:
+    - .rules_mr_to_devel
+    - .image_ubuntu_struphy
+    - .variables_push
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, quickstart_tests]
+    - !reference [.scripts, model_tests]
 
-# pages_tests:
-#   stage: test
-#   extends:
-#     - .rules_mr_to_devel
-#     - .image_gitlab_mpcdf_struphy
-#     - .before_script_load_modules
-#     - .variables_push
-#   script:
-#     - !reference [.scripts, install_on_push]
-#     - !reference [.scripts, inspect_struphy]
-#     - module load pandoc
-#     - module list
-#     - pip install .[doc]
-#     - |
-#       struphy compile -y || (
-#         echo "Initial compile failed. Removing compiled kernels and trying again..." &&
-#         struphy compile -d -y &&
-#         struphy compile -y
-#       )
-#     - cd doc ; make html
-#     - mv _build/html/ $CI_PROJECT_DIR/documentation/
-#   artifacts:
-#     expose_as: 'Documentation'
-#     paths:
-#       - documentation/
+macos_nmpp:
+  stage: test
+  tags: [macos, nmpp, private]
+  needs: []
+  variables:
+    # Job ID changes for each job, so reusing the directory becomes impossible,
+    # therefore, the fetch strategy also becomes unusable
+    GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID/$CI_CONCURRENT_PROJECT_ID
+    _JOB_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID
+  extends:
+    - .rules_mr_to_devel
+    - .variables_push
+  before_script:
+    # - brew install cmake
+    - brew link --overwrite cmake
+    - cmake --version 
+    - make -v
+    - printenv
+    - system_profiler SPHardwareDataType
+    - export FC=`which gfortran` # for gvec
+    - export CC=`which gcc` # for gvec
+    - export CXX=`which g++` # for gvec
+  script:
+    - !reference [.scripts, create_venv]
+    - !reference [.scripts, install]
+    - !reference [.scripts, compile]
+    - !reference [.scripts, quickstart_tests]
+    - !reference [.scripts, model_tests]
+  after_script:
+    - pwd
+    - ls -a
+    - echo $_JOB_PATH
+    - ls -a $_JOB_PATH 
+    - rm -rf $_JOB_PATH
 
-# ubuntu_latest:
-#   stage: test
-#   extends:
-#     - .rules_mr_to_devel
-#     - .image_ubuntu_struphy
-#     - .variables_push
-#   script:
-#     - !reference [.scripts, inspect_directory]
-#     - !reference [.scripts, install_on_push]
-#     - !reference [.scripts, quickstart_tests]
-#     - !reference [.scripts, model_tests]
+cleanup_macos:
+  stage: test
+  tags: [macos, nmpp, private]
+  needs: []
+  extends:
+    - .rules_cleanup_macos
+  before_script:
+    - make -v
+    - printenv
+    - system_profiler SPHardwareDataType
+  script:
+    - _STRUPHY_PATH=$CI_BUILDS_DIR/$CI_PROJECT_NAME
+    - pwd
+    - ls -a
+    - echo $_STRUPHY_PATH
+    - ls -a $_STRUPHY_PATH
+    - rm -rf $_STRUPHY_PATH/*
+    - ls -a $_STRUPHY_PATH
 
-# macos_nmpp:
-#   stage: test
-#   tags: [macos, nmpp, private]
-#   needs: []
-#   variables:
-#     # Job ID changes for each job, so reusing the directory becomes impossible,
-#     # therefore, the fetch strategy also becomes unusable
-#     GIT_CLONE_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID/$CI_CONCURRENT_PROJECT_ID
-#     _JOB_PATH: $CI_BUILDS_DIR/$CI_PROJECT_NAME/$CI_JOB_ID
-#   extends:
-#     - .rules_mr_to_devel
-#     - .variables_push
-#   before_script:
-#     # - brew install cmake
-#     - brew link --overwrite cmake
-#     - cmake --version 
-#     - make -v
-#     - printenv
-#     - system_profiler SPHardwareDataType
-#     - export FC=`which gfortran` # for gvec
-#     - export CC=`which gcc` # for gvec
-#     - export CXX=`which g++` # for gvec
-#   script:
-#     - !reference [.scripts, create_venv]
-#     - !reference [.scripts, install]
-#     - !reference [.scripts, compile]
-#     - !reference [.scripts, quickstart_tests]
-#     - !reference [.scripts, model_tests]
-#   after_script:
-#     - pwd
-#     - ls -a
-#     - echo $_JOB_PATH
-#     - ls -a $_JOB_PATH 
-#     - rm -rf $_JOB_PATH
-
-# cleanup_macos:
-#   stage: test
-#   tags: [macos, nmpp, private]
-#   needs: []
-#   extends:
-#     - .rules_cleanup_macos
-#   before_script:
-#     - make -v
-#     - printenv
-#     - system_profiler SPHardwareDataType
-#   script:
-#     - _STRUPHY_PATH=$CI_BUILDS_DIR/$CI_PROJECT_NAME
-#     - pwd
-#     - ls -a
-#     - echo $_STRUPHY_PATH
-#     - ls -a $_STRUPHY_PATH
-#     - rm -rf $_STRUPHY_PATH/*
-#     - ls -a $_STRUPHY_PATH
-
-# ##########################
-# ### SCHEDULED PIPELINE ###
-# ##########################
+##########################
+### SCHEDULED PIPELINE ###
+##########################
 
 
-# install_scheduled:
-#   stage: install
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .image_gitlab_mpcdf_gcc_openmp
-#     - .before_script_load_modules
-#     - .parallel_matrix_scheduled
-#     - .artifacts_scheduled
-#   script:
-#     - !reference [.scripts, create_venv_matrix]
-#     - !reference [.scripts, install_no_binary]
-#     - !reference [.scripts, compile_matrix]
+install_scheduled:
+  stage: install
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_load_modules
+    - .parallel_matrix_scheduled
+    - .artifacts_scheduled
+  script:
+    - !reference [.scripts, create_venv_matrix]
+    - !reference [.scripts, install_no_binary]
+    - !reference [.scripts, compile_matrix]
 
-# compile_timing:
-#   stage: install
-#   needs: []
-#   extends:
-#     - .image_gitlab_mpcdf_gcc_openmp
-#     - .before_script_load_modules
-#     - .rules_scheduled
-#   script:
-#     - !reference [.scripts, create_venv]
-#     - !reference [.scripts, install_no_binary]
-#     - pyccel --version
-#     - struphy compile --status
-#     - struphy compile --delete
-#     - struphy compile --time-execution -y --language c > timings_c.txt
-#     - struphy compile --delete
-#     - struphy compile --time-execution -y --language fortran > timings_fortran.txt
-#     - |
-#       cat << 'EOF' > check_pyccel.sh
-#       #!/bin/bash
-#       grep 'pyccel --libdir' timings_c.txt | sed -E 's|.*/site-packages/||' | while read filepath; do
-#         echo "========================================"
-#         echo "Kernel: $filepath"
-#         echo "-------------------- Timers -------------------------"
-#         echo "# Language: C"
-#         grep -A 11 "pyccel.*${filepath}" timings_c.txt | tail -n +3
-#         echo "# Language: Fortran"
-#         grep -A 13 "pyccel.*${filepath}" timings_fortran.txt | tail -n +3
-#       done
-#       EOF
-#     - cat check_pyccel.sh
-#     - chmod +x check_pyccel.sh
-#     - ./check_pyccel.sh
+compile_timing:
+  stage: install
+  needs: []
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_load_modules
+    - .rules_scheduled
+  script:
+    - !reference [.scripts, create_venv]
+    - !reference [.scripts, install_no_binary]
+    - pyccel --version
+    - struphy compile --status
+    - struphy compile --delete
+    - struphy compile --time-execution -y --language c > timings_c.txt
+    - struphy compile --delete
+    - struphy compile --time-execution -y --language fortran > timings_fortran.txt
+    - |
+      cat << 'EOF' > check_pyccel.sh
+      #!/bin/bash
+      grep 'pyccel --libdir' timings_c.txt | sed -E 's|.*/site-packages/||' | while read filepath; do
+        echo "========================================"
+        echo "Kernel: $filepath"
+        echo "-------------------- Timers -------------------------"
+        echo "# Language: C"
+        grep -A 11 "pyccel.*${filepath}" timings_c.txt | tail -n +3
+        echo "# Language: Fortran"
+        grep -A 13 "pyccel.*${filepath}" timings_fortran.txt | tail -n +3
+      done
+      EOF
+    - cat check_pyccel.sh
+    - chmod +x check_pyccel.sh
+    - ./check_pyccel.sh
 
-# test_build:
-#   stage: test
-#   extends:
-#     - .image_gitlab_mpcdf_gcc_openmp
-#     - .rules_scheduled
-#     - .before_script_load_modules
-#   needs: []
-#   script:
-#     - !reference [.scripts, create_venv]
-#     - !reference [.scripts, build]
-#     - pip install $(echo dist/struphy*.whl) --no-cache-dir --no-binary mpi4py
+test_build:
+  stage: test
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .rules_scheduled
+    - .before_script_load_modules
+  needs: []
+  script:
+    - !reference [.scripts, create_venv]
+    - !reference [.scripts, build]
+    - pip install $(echo dist/struphy*.whl) --no-cache-dir --no-binary mpi4py
 
-# unit_tests_scheduled:
-#   stage: test
-#   extends:
-#     - .image_gitlab_mpcdf_gcc_openmp
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#     - .before_script_load_modules
-#   script:
-#     - !reference [.scripts, source_env_matrix]
-#     - !reference [.scripts, unit_tests]
+unit_tests_scheduled:
+  stage: test
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+    - .before_script_load_modules
+  script:
+    - !reference [.scripts, source_env_matrix]
+    - !reference [.scripts, unit_tests]
 
-# model_tests_scheduled:
-#   stage: test
-#   extends:
-#     - .image_gitlab_mpcdf_gcc_openmp
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#     - .before_script_load_modules
-#   script:
-#     - !reference [.scripts, source_env_matrix]
-#     - !reference [.scripts, model_tests]
+model_tests_scheduled:
+  stage: test
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+    - .before_script_load_modules
+  script:
+    - !reference [.scripts, source_env_matrix]
+    - !reference [.scripts, model_tests]
 
-# check_release_dependencies:
-#   stage: test
-#   extends:
-#     - .image_gitlab_mpcdf_gcc_openmp
-#     - .before_script_load_modules
-#     - .rules_mr_to_master
-#   script:
-#     - !reference [.scripts, inspect_directory]
-#     - !reference [.scripts, create_venv]
-#     - !reference [.scripts, install_all]
-#     - python src/struphy/utils/set_release_dependencies.py
-#     - |
-#       if git diff --exit-code pyproject.toml; then
-#         echo "pyproject.toml has not changed, dependencies are set correctly!"
-#       else
-#         echo "pyproject.toml has changed, dependencies are set incorrectly!"
-#         echo "Run python src/struphy/utils/set_release_dependencies.py to update pyproject.toml"
-#         exit 1
-#       fi
+check_release_dependencies:
+  stage: test
+  extends:
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_load_modules
+    - .rules_mr_to_master
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - !reference [.scripts, install_all]
+    - python src/struphy/utils/set_release_dependencies.py
+    - |
+      if git diff --exit-code pyproject.toml; then
+        echo "pyproject.toml has not changed, dependencies are set correctly!"
+      else
+        echo "pyproject.toml has changed, dependencies are set incorrectly!"
+        echo "Run python src/struphy/utils/set_release_dependencies.py to update pyproject.toml"
+        exit 1
+      fi
 
-# Ubuntu-latest-from-registry:
-#   stage: test
-#   needs: []
-#   extends:
-#     - .image_ubuntu_latest
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#   before_script:
-#     - !reference [.scripts, inspect_directory]
-#     - !reference [.scripts, create_venv]
-#   script:
-#     - !reference [.scripts, install]
-#     - !reference [.scripts, compile_matrix]
-#     - !reference [.scripts, model_tests]
+Ubuntu-latest-from-registry:
+  stage: test
+  needs: []
+  extends:
+    - .image_ubuntu_latest
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+  before_script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+  script:
+    - !reference [.scripts, install]
+    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
-# Fedora-latest:
-#   stage: test
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#     - .requirements_fedora
-#   image: fedora:latest
-#   script:
-#     - !reference [.scripts, install]
-#     - !reference [.scripts, compile_matrix]
-#     - !reference [.scripts, model_tests]
+Fedora-latest:
+  stage: test
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+    - .requirements_fedora
+  image: fedora:latest
+  script:
+    - !reference [.scripts, install]
+    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
-# Fedora-latest-from-registry:
-#   stage: test
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest
-#   before_script:
-#     - !reference [.scripts, inspect_directory]
-#     - !reference [.scripts, create_venv]
-#     - . /etc/profile.d/modules.sh
-#     - module load mpi/openmpi-$(arch)
-#     - module list
-#   script:
-#     - !reference [.scripts, install]
-#     - !reference [.scripts, compile_matrix]
-#     - !reference [.scripts, model_tests]
+Fedora-latest-from-registry:
+  stage: test
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest
+  before_script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - . /etc/profile.d/modules.sh
+    - module load mpi/openmpi-$(arch)
+    - module list
+  script:
+    - !reference [.scripts, install]
+    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
-# Fedora-latest-from-registry-base:
-#   stage: test
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest
-#   before_script:
-#     - !reference [.scripts, inspect_directory]
-#     - !reference [.scripts, create_venv]
-#     - . /etc/profile.d/modules.sh
-#     - module load mpi/openmpi-$(arch)
-#     - module list
-#   script:
-#     - !reference [.scripts, install_base]
-#     - !reference [.scripts, compile_matrix]
-#     - !reference [.scripts, model_tests]
+Fedora-latest-from-registry-base:
+  stage: test
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/fedora-latest
+  before_script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - . /etc/profile.d/modules.sh
+    - module load mpi/openmpi-$(arch)
+    - module list
+  script:
+    - !reference [.scripts, install_base]
+    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
-# OpenSuse-latest:
-#   stage: test
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#     - .requirements_opensuse
-#   image: opensuse/tumbleweed:latest
-#   script:
-#     - !reference [.scripts, install]
-#     - !reference [.scripts, compile_matrix]
-#     - !reference [.scripts, model_tests]
+OpenSuse-latest:
+  stage: test
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+    - .requirements_opensuse
+  image: opensuse/tumbleweed:latest
+  script:
+    - !reference [.scripts, install]
+    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
-# Opensuse-latest-from-registry:
-#   stage: test
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest
-#   before_script:
-#     - !reference [.scripts, inspect_directory]
-#     - set -x
-#     - !reference [.scripts, create_venv]
-#   script:
-#     - !reference [.scripts, install]
-#     - !reference [.scripts, compile_matrix]
-#     - !reference [.scripts, model_tests]
+Opensuse-latest-from-registry:
+  stage: test
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest
+  before_script:
+    - !reference [.scripts, inspect_directory]
+    - set -x
+    - !reference [.scripts, create_venv]
+  script:
+    - !reference [.scripts, install]
+    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
-# Opensuse-latest-from-registry-base:
-#   stage: test
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest
-#   before_script:
-#     - !reference [.scripts, inspect_directory]
-#     - set -x
-#     - !reference [.scripts, create_venv]
-#   script:
-#     - !reference [.scripts, install_base]
-#     - !reference [.scripts, compile_matrix]
-#     - !reference [.scripts, model_tests]
+Opensuse-latest-from-registry-base:
+  stage: test
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest
+  before_script:
+    - !reference [.scripts, inspect_directory]
+    - set -x
+    - !reference [.scripts, create_venv]
+  script:
+    - !reference [.scripts, install_base]
+    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
-# AlmaLinux-latest:
-#   stage: test
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#     - .requirements_almalinux
-#   image: almalinux:latest
-#   script:
-#     - !reference [.scripts, install_no_binary]
-#     - !reference [.scripts, compile_matrix]
-#     - !reference [.scripts, model_tests]
+AlmaLinux-latest:
+  stage: test
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+    - .requirements_almalinux
+  image: almalinux:latest
+  script:
+    - !reference [.scripts, install_no_binary]
+    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
-# Almalinux-latest-from-registry:
-#   stage: test
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest
-#   before_script:
-#     - !reference [.scripts, inspect_directory]
-#     - python3 -m ensurepip --upgrade
-#     - python3 -m pip install --upgrade pip
-#     - !reference [.scripts, create_venv]
-#   script:
-#     - !reference [.scripts, install_no_binary]
-#     - !reference [.scripts, compile_matrix]
-#     - !reference [.scripts, model_tests]
+Almalinux-latest-from-registry:
+  stage: test
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest
+  before_script:
+    - !reference [.scripts, inspect_directory]
+    - python3 -m ensurepip --upgrade
+    - python3 -m pip install --upgrade pip
+    - !reference [.scripts, create_venv]
+  script:
+    - !reference [.scripts, install_no_binary]
+    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
-# Almalinux-latest-from-registry-base:
-#   stage: test
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .parallel_matrix_scheduled
-#   image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest
-#   before_script:
-#     - !reference [.scripts, inspect_directory]
-#     - python3 -m ensurepip --upgrade
-#     - python3 -m pip install --upgrade pip
-#     - !reference [.scripts, create_venv]
-#   script:
-#     - !reference [.scripts, install_base_no_binary]
-#     - !reference [.scripts, compile_matrix]
-#     - !reference [.scripts, model_tests]
+Almalinux-latest-from-registry-base:
+  stage: test
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .parallel_matrix_scheduled
+  image: gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest
+  before_script:
+    - !reference [.scripts, inspect_directory]
+    - python3 -m ensurepip --upgrade
+    - python3 -m pip install --upgrade pip
+    - !reference [.scripts, create_venv]
+  script:
+    - !reference [.scripts, install_base_no_binary]
+    - !reference [.scripts, compile_matrix]
+    - !reference [.scripts, model_tests]
 
-# ##################
-# ### LINT STAGE ###
-# ##################
+##################
+### LINT STAGE ###
+##################
 
-# # Run in weekly CI pipeline only
-# lint_full_repo_report:
-#   stage: lint
-#   needs: []
-#   extends:
-#     - .rules_scheduled
-#     - .image_ubuntu_latest
-#   script:
-#     - !reference [.scripts, inspect_directory]
-#     - !reference [.scripts, create_venv]
-#     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
-#     - !reference [.scripts, inspect_struphy]
-#     - struphy lint all --output-format report
-#   allow_failure: true
-#   artifacts:
-#     expose_as: 'Branch lint report'
-#     paths:
-#       - code_analysis_report.html
-#     expire_in: 1 month
+# Run in weekly CI pipeline only
+lint_full_repo_report:
+  stage: lint
+  needs: []
+  extends:
+    - .rules_scheduled
+    - .image_ubuntu_latest
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
+    - !reference [.scripts, inspect_struphy]
+    - struphy lint all --output-format report
+  allow_failure: true
+  artifacts:
+    expose_as: 'Branch lint report'
+    paths:
+      - code_analysis_report.html
+    expire_in: 1 month
 
-# # Lint struphy with `struphy lint`
-# lint_repo:
-#   stage: lint
-#   needs: []
-#   extends:
-#     - .rules_mr_to_devel
-#     - .image_ubuntu_latest
-#   script:
-#     - !reference [.scripts, inspect_directory]
-#     - !reference [.scripts, create_venv]
-#     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
-#     - !reference [.scripts, inspect_struphy]
-#     # Lint all files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
-#     - struphy lint all --output-format plain --verbose
+# Lint struphy with `struphy lint`
+lint_repo:
+  stage: lint
+  needs: []
+  extends:
+    - .rules_mr_to_devel
+    - .image_ubuntu_latest
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
+    - !reference [.scripts, inspect_struphy]
+    # Lint all files in current branch, FAIL the CI pipeline if any files are incorrectly formatted
+    - struphy lint all --output-format plain --verbose
 
-# # Lint struphy with `struphy lint`
-# lint_branch_report:
-#   stage: lint
-#   needs: []
-#   extends:
-#     - .rules_mr_to_devel
-#     - .image_ubuntu_latest
-#   script:
-#     - !reference [.scripts, inspect_directory]
-#     - !reference [.scripts, create_venv]
-#     - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
-#     - !reference [.scripts, inspect_struphy]
-#     - struphy lint branch --output-format report
-#   allow_failure: true
-#   artifacts:
-#     expose_as: 'Branch lint report'
-#     paths:
-#       - code_analysis_report.html
-#     expire_in: 1 month
+# Lint struphy with `struphy lint`
+lint_branch_report:
+  stage: lint
+  needs: []
+  extends:
+    - .rules_mr_to_devel
+    - .image_ubuntu_latest
+  script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - pip install -e .[dev] # We have to install struphy in editable mode for struphy lint to work
+    - !reference [.scripts, inspect_struphy]
+    - struphy lint branch --output-format report
+  allow_failure: true
+  artifacts:
+    expose_as: 'Branch lint report'
+    paths:
+      - code_analysis_report.html
+    expire_in: 1 month
 
-# ###################
-# ### PAGES STAGE ###
-# ###################
-# pages:
-#   stage: pages
-#   extends:
-#     - .image_ubuntu_latest
-#     - .rules_pages_release
-#   before_script:
-#     - !reference [.scripts, inspect_directory]
-#     - !reference [.scripts, create_venv]
-#     - apt show pandoc
-#     - apt show graphviz
-#     - echo $CI_COMMIT_MESSAGE
-#     - pip install .[doc]
-#   script:
-#     - !reference [.scripts, inspect_struphy]
-#     - !reference [.scripts, compile]
-#     - cd doc ; make html
-#     - mv _build/html/ $CI_PROJECT_DIR/public/
-#   artifacts:
-#     name: 'pages'
-#     paths:
-#       - public/
+###################
+### PAGES STAGE ###
+###################
+pages:
+  stage: pages
+  extends:
+    - .image_ubuntu_latest
+    - .rules_pages_release
+  before_script:
+    - !reference [.scripts, inspect_directory]
+    - !reference [.scripts, create_venv]
+    - apt show pandoc
+    - apt show graphviz
+    - echo $CI_COMMIT_MESSAGE
+    - pip install .[doc]
+  script:
+    - !reference [.scripts, inspect_struphy]
+    - !reference [.scripts, compile]
+    - cd doc ; make html
+    - mv _build/html/ $CI_PROJECT_DIR/public/
+  artifacts:
+    name: 'pages'
+    paths:
+      - public/
 
-# #####################
-# ### RELEASE STAGE ###
-# #####################
+#####################
+### RELEASE STAGE ###
+#####################
 
-# deploy:
-#   stage: release
-#   extends:
-#     - .rules_pypi_release
-#     - .image_gitlab_mpcdf_gcc_openmp
-#     - .before_script_load_modules
-#   script:
-#     - !reference [.scripts, create_venv]
-#     - !reference [.scripts, build]
-#     - pip install -U twine
-#     - twine upload dist/*
+deploy:
+  stage: release
+  extends:
+    - .rules_pypi_release
+    - .image_gitlab_mpcdf_gcc_openmp
+    - .before_script_load_modules
+  script:
+    - !reference [.scripts, create_venv]
+    - !reference [.scripts, build]
+    - pip install -U twine
+    - twine upload dist/*
 
-# vars:
-#   stage: release
-#   extends:
-#     - .rules_gitlab_release
-#   before_script:
-#     - !reference [.scripts, inspect_directory]
-#   script:
-#     - var=$(<pyproject.toml)
-#     - echo $var
-#     - set -- $var
-#     - echo ${16}
-#     - for (( i=1; i <= "$#"; i++ )); do if (( ${i} < 30 )); then echo ${i}; echo ${!i}; fi done
-#     - for (( i=1; i <= "$#"; i++ )); do if [[ ${!i} == "version" ]]; then echo ${i}; echo ${!i}; index=$((${i} + 2)); fi done    
-#     - echo $index 
-#     - VERSION_STR=${!index}
-#     - echo $VERSION_STR
-#     - echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')"
-#     - echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')" >> vars.env
-#   artifacts:
-#     name: 'vars'
-#     reports:
-#       dotenv: vars.env
-#     expire_in: 1 day
+vars:
+  stage: release
+  extends:
+    - .rules_gitlab_release
+  before_script:
+    - !reference [.scripts, inspect_directory]
+  script:
+    - var=$(<pyproject.toml)
+    - echo $var
+    - set -- $var
+    - echo ${16}
+    - for (( i=1; i <= "$#"; i++ )); do if (( ${i} < 30 )); then echo ${i}; echo ${!i}; fi done
+    - for (( i=1; i <= "$#"; i++ )); do if [[ ${!i} == "version" ]]; then echo ${i}; echo ${!i}; index=$((${i} + 2)); fi done    
+    - echo $index 
+    - VERSION_STR=${!index}
+    - echo $VERSION_STR
+    - echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')"
+    - echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')" >> vars.env
+  artifacts:
+    name: 'vars'
+    reports:
+      dotenv: vars.env
+    expire_in: 1 day
 
-# release_job:
-#   stage: release
-#   image: registry.gitlab.com/gitlab-org/release-cli:latest
-#   extends:
-#     - .rules_gitlab_release
-#   needs: ['vars']
-#   before_script:
-#     - !reference [.scripts, inspect_directory]
-#   script:
-#     - cat /etc/*-release
-#     - echo $VERSION
-#   release:                                         # See https://docs.gitlab.com/ee/ci/yaml/#release for available properties
-#     tag_name: 'v$VERSION'                          # The version is incremented per pipeline.
-#     name: 'v$VERSION'
-#     ref: '$CI_COMMIT_SHA'                          # The tag is created from the pipeline SHA.
-#     description: 'CHANGELOG.md'
-#     assets:
-#       links:
-#         - name: 'Documentation'
-#           url: 'https://struphy.pages.mpcdf.de/struphy/index.html'
-#         - name: 'PyPI'
-#           url: 'https://pypi.org/project/struphy/'
+release_job:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  extends:
+    - .rules_gitlab_release
+  needs: ['vars']
+  before_script:
+    - !reference [.scripts, inspect_directory]
+  script:
+    - cat /etc/*-release
+    - echo $VERSION
+  release:                                         # See https://docs.gitlab.com/ee/ci/yaml/#release for available properties
+    tag_name: 'v$VERSION'                          # The version is incremented per pipeline.
+    name: 'v$VERSION'
+    ref: '$CI_COMMIT_SHA'                          # The tag is created from the pipeline SHA.
+    description: 'CHANGELOG.md'
+    assets:
+      links:
+        - name: 'Documentation'
+          url: 'https://struphy.pages.mpcdf.de/struphy/index.html'
+        - name: 'PyPI'
+          url: 'https://pypi.org/project/struphy/'
