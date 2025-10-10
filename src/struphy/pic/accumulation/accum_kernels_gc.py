@@ -8,7 +8,7 @@ Function naming conventions:
 These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.Accumulator`.
 """
 
-from numpy import empty, shape, zeros
+from numpy import empty, shape, zeros, mod
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -220,11 +220,9 @@ def cc_lin_mhd_5d_D(
 
         # calculate Bstar and transform to H1vec
         b_star[:] = b + epsilon * v * curl_norm_b
-        b_star /= det_df
 
         # calculate b_para and b_star_para
         b_para = linalg_kernels.scalar_dot(norm_b1, b)
-        b_para /= det_df
 
         b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
@@ -599,19 +597,17 @@ def cc_lin_mhd_5d_M(
     "df_inv",
     "g_inv",
     "filling_v",
-    "tmp1",
-    "tmp2",
+    "tmp",
     "tmp_v",
     "b",
     "b_prod",
-    "norm_b2_prod",
+    "norm_b_prod",
     "b_star",
     "curl_norm_b",
     "norm_b1",
-    "norm_b2",
     "grad_PB",
 )
-def cc_lin_mhd_5d_J2(
+def cc_lin_mhd_5d_gradB(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
@@ -624,27 +620,22 @@ def cc_lin_mhd_5d_J2(
     vec1: "float[:,:,:]",
     vec2: "float[:,:,:]",
     vec3: "float[:,:,:]",
-    epsilon: float,  # model specific argument
-    b1: "float[:,:,:]",  # model specific argument
-    b2: "float[:,:,:]",  # model specific argument
-    b3: "float[:,:,:]",  # model specific argument
-    norm_b11: "float[:,:,:]",  # model specific argument
-    norm_b12: "float[:,:,:]",  # model specific argument
-    norm_b13: "float[:,:,:]",  # model specific argument
-    norm_b21: "float[:,:,:]",  # model specific argument
-    norm_b22: "float[:,:,:]",  # model specific argument
-    norm_b23: "float[:,:,:]",  # model specific argument
-    curl_norm_b1: "float[:,:,:]",  # model specific argument
-    curl_norm_b2: "float[:,:,:]",  # model specific argument
-    curl_norm_b3: "float[:,:,:]",  # model specific argument
-    grad_PB1: "float[:,:,:]",  # model specific argument
-    grad_PB2: "float[:,:,:]",  # model specific argument
-    grad_PB3: "float[:,:,:]",  # model specific argument
+    epsilon: float,
+    ep_scale: float,
+    b1: "float[:,:,:]",
+    b2: "float[:,:,:]",
+    b3: "float[:,:,:]",
+    norm_b11: "float[:,:,:]",
+    norm_b12: "float[:,:,:]",
+    norm_b13: "float[:,:,:]",
+    curl_norm_b1: "float[:,:,:]",
+    curl_norm_b2: "float[:,:,:]",
+    curl_norm_b3: "float[:,:,:]",
+    grad_PB1: "float[:,:,:]",
+    grad_PB2: "float[:,:,:]",
+    grad_PB3: "float[:,:,:]",
     basis_u: "int",
-    scale_mat: "float",
-    scale_vec: "float",
-    boundary_cut: float,
-):  # model specific argument
+):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`.
 
     Accumulates math:`\alpha` -form vector with the filling functions
@@ -662,9 +653,6 @@ def cc_lin_mhd_5d_J2(
 
         norm_b11, norm_b12, norm_b13 : array[float]
             FE coefficients c_ijk of the normalized magnetic field as a 1-form.
-
-        norm_b21, norm_b22, norm_b23 : array[float]
-            FE coefficients c_ijk of the normalized magnetic field as a 2-form.
 
         curl_norm_b1, curl_norm_b2, curl_norm_b3 : array[float]
             FE coefficients c_ijk of the curl of normalized magnetic field as a 2-form.
@@ -684,10 +672,9 @@ def cc_lin_mhd_5d_J2(
     b = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     b_prod = zeros((3, 3), dtype=float)
-    norm_b2_prod = zeros((3, 3), dtype=float)
+    norm_b_prod = zeros((3, 3), dtype=float)
     curl_norm_b = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
-    norm_b2 = empty(3, dtype=float)
     grad_PB = empty(3, dtype=float)
 
     # allocate for metric coeffs
@@ -698,17 +685,13 @@ def cc_lin_mhd_5d_J2(
 
     # allocate for filling
     filling_v = empty(3, dtype=float)
-
-    tmp1 = empty((3, 3), dtype=float)
-    tmp2 = empty((3, 3), dtype=float)
+    tmp = empty((3, 3), dtype=float)
 
     tmp_v = empty(3, dtype=float)
 
     # get number of markers
     n_markers_loc = shape(markers)[0]
 
-    # -- removed omp: #$ omp parallel firstprivate(b_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, mu, weight, span1, span2, span3, b1, b2, b3, b, b_star, norm_b1, norm_b2, norm_b2_prod, curl_norm_b, grad_PB, abs_b_star_para, dfm, df_inv, df_inv_t, g_inv, det_df, tmp1, tmp2, tmp_v, filling_v)
-    # -- removed omp: #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
     for ip in range(n_markers_loc):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -719,8 +702,6 @@ def cc_lin_mhd_5d_J2(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-        if eta1 < boundary_cut or eta1 > 1.0 - boundary_cut:
-            continue
 
         # marker weight and velocity
         weight = markers[ip, 5]
@@ -746,9 +727,6 @@ def cc_lin_mhd_5d_J2(
         # norm_b1; 1form
         eval_1form_spline_mpi(span1, span2, span3, args_derham, norm_b11, norm_b12, norm_b13, norm_b1)
 
-        # norm_b2; 2form
-        eval_2form_spline_mpi(span1, span2, span3, args_derham, norm_b21, norm_b22, norm_b23, norm_b2)
-
         # curl_norm_b; 2form
         eval_2form_spline_mpi(span1, span2, span3, args_derham, curl_norm_b1, curl_norm_b2, curl_norm_b3, curl_norm_b)
 
@@ -756,7 +734,7 @@ def cc_lin_mhd_5d_J2(
         eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PB1, grad_PB2, grad_PB3, grad_PB)
 
         # b_star; 2form transformed into H1vec
-        b_star[:] = (b + curl_norm_b * v * epsilon) / det_df
+        b_star[:] = (b + curl_norm_b * v * epsilon)
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
@@ -769,50 +747,244 @@ def cc_lin_mhd_5d_J2(
         b_prod[2, 0] = -b[1]
         b_prod[2, 1] = +b[0]
 
-        norm_b2_prod[0, 1] = -norm_b2[2]
-        norm_b2_prod[0, 2] = +norm_b2[1]
-        norm_b2_prod[1, 0] = +norm_b2[2]
-        norm_b2_prod[1, 2] = -norm_b2[0]
-        norm_b2_prod[2, 0] = -norm_b2[1]
-        norm_b2_prod[2, 1] = +norm_b2[0]
+        norm_b_prod[0, 1] = -norm_b1[2]
+        norm_b_prod[0, 2] = +norm_b1[1]
+        norm_b_prod[1, 0] = +norm_b1[2]
+        norm_b_prod[1, 2] = -norm_b1[0]
+        norm_b_prod[2, 0] = -norm_b1[1]
+        norm_b_prod[2, 1] = +norm_b1[0]
 
         if basis_u == 0:
-            linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
-            linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
 
-            linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v)
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
-            filling_v[:] = weight * tmp_v * mu / abs_b_star_para * scale_vec
+            filling_v[:] = weight * tmp_v * mu / abs_b_star_para * ep_scale
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v0vec(
                 args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
             )
 
-        elif basis_u == 1:
-            linalg_kernels.matrix_matrix(g_inv, b_prod, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
-            linalg_kernels.matrix_matrix(tmp2, norm_b2_prod, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+        elif basis_u == 2:
 
-            linalg_kernels.matrix_vector(tmp2, grad_PB, tmp_v)
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
-            filling_v[:] = weight * tmp_v * mu / abs_b_star_para * scale_vec
+            filling_v[:] = weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
 
             # call the appropriate matvec filler
-            particle_to_mat_kernels.vec_fill_v1(
+            particle_to_mat_kernels.vec_fill_v2(
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+            )
+    vec1 /= Np
+    vec2 /= Np
+    vec3 /= Np
+
+
+@stack_array(
+    "dfm",
+    "df_inv_t",
+    "df_inv",
+    "g_inv",
+    "filling_v",
+    "tmp",
+    "tmp_v",
+    "b",
+    "b_prod",
+    "beq",
+    "beq_prod",
+    "norm_b_prod",
+    "bfull_star",
+    "curl_norm_b",
+    "norm_b1",
+    "grad_PB",
+    "grad_PBeq",
+)
+def cc_lin_mhd_5d_gradB_dg_init(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+    epsilon: float,
+    ep_scale: float,
+    b1: "float[:,:,:]",
+    b2: "float[:,:,:]",
+    b3: "float[:,:,:]",
+    beq1: "float[:,:,:]",
+    beq2: "float[:,:,:]",
+    beq3: "float[:,:,:]",
+    norm_b11: "float[:,:,:]",
+    norm_b12: "float[:,:,:]",
+    norm_b13: "float[:,:,:]",
+    curl_norm_b1: "float[:,:,:]",
+    curl_norm_b2: "float[:,:,:]",
+    curl_norm_b3: "float[:,:,:]",
+    grad_PB1: "float[:,:,:]",
+    grad_PB2: "float[:,:,:]",
+    grad_PB3: "float[:,:,:]",
+    grad_PBeq1: "float[:,:,:]",
+    grad_PBeq2: "float[:,:,:]",
+    grad_PBeq3: "float[:,:,:]",
+    basis_u: "int",
+):
+    r"""TODO"""
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # allocate for magnetic field evaluation
+    b = empty(3, dtype=float)
+    beq = empty(3, dtype=float)
+    bfull_star = empty(3, dtype=float)
+    b_prod = zeros((3, 3), dtype=float)
+    beq_prod = zeros((3, 3), dtype=float)
+    norm_b_prod = zeros((3, 3), dtype=float)
+    curl_norm_b = empty(3, dtype=float)
+    norm_b1 = empty(3, dtype=float)
+    grad_PB = empty(3, dtype=float)
+    grad_PBeq = empty(3, dtype=float)
+
+    # allocate for metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    g_inv = empty((3, 3), dtype=float)
+
+    # allocate for filling
+    filling_v = empty(3, dtype=float)
+    tmp = empty((3, 3), dtype=float)
+
+    tmp_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers_loc = shape(markers)[0]
+
+    for ip in range(n_markers_loc):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # marker weight and velocity
+        weight = markers[ip, 5]
+        v = markers[ip, 3]
+        mu = markers[ip, 9]
+
+        # b-field evaluation
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(eta1, eta2, eta3, args_domain, dfm)
+
+        det_df = linalg_kernels.det(dfm)
+
+        # needed metric coefficients
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+
+        # b; 2form
+        eval_2form_spline_mpi(span1, span2, span3, args_derham, b1, b2, b3, b)
+
+        # beq; 2form
+        eval_2form_spline_mpi(span1, span2, span3, args_derham, beq1, beq2, beq3, beq)
+
+        # norm_b1; 1form
+        eval_1form_spline_mpi(span1, span2, span3, args_derham, norm_b11, norm_b12, norm_b13, norm_b1)
+
+        # curl_norm_b; 2form
+        eval_2form_spline_mpi(span1, span2, span3, args_derham, curl_norm_b1, curl_norm_b2, curl_norm_b3, curl_norm_b)
+
+        # grad_PB; 1form
+        eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PB1, grad_PB2, grad_PB3, grad_PB)
+
+        # grad_PBeq; 1form
+        eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PBeq1, grad_PBeq2, grad_PBeq3, grad_PBeq)
+
+        # b_star; 2form transformed into H1vec
+        bfull_star[:] = (b + beq + curl_norm_b * v * epsilon)
+
+        # calculate abs_b_star_para
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, bfull_star)
+
+        # operator bx() as matrix
+        b_prod[0, 1] = -b[2]
+        b_prod[0, 2] = +b[1]
+        b_prod[1, 0] = +b[2]
+        b_prod[1, 2] = -b[0]
+        b_prod[2, 0] = -b[1]
+        b_prod[2, 1] = +b[0]
+
+        beq_prod[0, 1] = -beq[2]
+        beq_prod[0, 2] = +beq[1]
+        beq_prod[1, 0] = +beq[2]
+        beq_prod[1, 2] = -beq[0]
+        beq_prod[2, 0] = -beq[1]
+        beq_prod[2, 1] = +beq[0]
+
+        norm_b_prod[0, 1] = -norm_b1[2]
+        norm_b_prod[0, 2] = +norm_b1[1]
+        norm_b_prod[1, 0] = +norm_b1[2]
+        norm_b_prod[1, 2] = -norm_b1[0]
+        norm_b_prod[2, 0] = -norm_b1[1]
+        norm_b_prod[2, 1] = +norm_b1[0]
+
+        if basis_u == 0:
+
+            # beq contribution
+            linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+
+            filling_v[:] = weight * tmp_v * mu / abs_b_star_para * ep_scale
+
+            # b contribution
+            linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * ep_scale
+
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * ep_scale
+
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * ep_scale
+
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.vec_fill_v0vec(
                 args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
             )
 
         elif basis_u == 2:
-            linalg_kernels.matrix_matrix(b_prod, g_inv, tmp1)
-            linalg_kernels.matrix_matrix(tmp1, norm_b2_prod, tmp2)
-            linalg_kernels.matrix_matrix(tmp2, g_inv, tmp1)
 
-            linalg_kernels.matrix_vector(tmp1, grad_PB, tmp_v)
+            # beq contribution
+            linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
 
-            filling_v[:] = weight * tmp_v * mu / abs_b_star_para / det_df * scale_vec
+            filling_v[:] = weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
+
+            # b contribution
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
+
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
+
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v2(
@@ -823,4 +995,241 @@ def cc_lin_mhd_5d_J2(
     vec2 /= Np
     vec3 /= Np
 
-    # -- removed omp: #$ omp end parallel
+
+@stack_array(
+    "dfm",
+    "df_inv_t",
+    "df_inv",
+    "g_inv",
+    "filling_v",
+    "tmp",
+    "tmp_v",
+    "b",
+    "b_prod",
+    "eta_diff",
+    "beq",
+    "beq_prod",
+    "norm_b_prod",
+    "bfull_star",
+    "curl_norm_b",
+    "norm_b1",
+    "grad_PB",
+    "grad_PBeq",
+    "eta_mid",
+    "eta_diff",
+)
+def cc_lin_mhd_5d_gradB_dg(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec1: "float[:,:,:]",
+    vec2: "float[:,:,:]",
+    vec3: "float[:,:,:]",
+    epsilon: float,
+    ep_scale: float,
+    b1: "float[:,:,:]",
+    b2: "float[:,:,:]",
+    b3: "float[:,:,:]",
+    beq1: "float[:,:,:]",
+    beq2: "float[:,:,:]",
+    beq3: "float[:,:,:]",
+    norm_b11: "float[:,:,:]",
+    norm_b12: "float[:,:,:]",
+    norm_b13: "float[:,:,:]",
+    curl_norm_b1: "float[:,:,:]",
+    curl_norm_b2: "float[:,:,:]",
+    curl_norm_b3: "float[:,:,:]",
+    grad_PB1: "float[:,:,:]",
+    grad_PB2: "float[:,:,:]",
+    grad_PB3: "float[:,:,:]",
+    grad_PBeq1: "float[:,:,:]",
+    grad_PBeq2: "float[:,:,:]",
+    grad_PBeq3: "float[:,:,:]",
+    basis_u: "int",
+    const: "float",
+):
+    r"""TODO"""
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # allocate for magnetic field evaluation
+    eta_diff = empty(3, dtype=float)
+    eta_mid = empty(3, dtype=float)
+    b = empty(3, dtype=float)
+    beq = empty(3, dtype=float)
+    bfull_star = empty(3, dtype=float)
+    b_prod = zeros((3, 3), dtype=float)
+    beq_prod = zeros((3, 3), dtype=float)
+    norm_b_prod = zeros((3, 3), dtype=float)
+    curl_norm_b = empty(3, dtype=float)
+    norm_b1 = empty(3, dtype=float)
+    grad_PB = empty(3, dtype=float)
+    grad_PBeq = empty(3, dtype=float)
+
+    # allocate for metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_inv = empty((3, 3), dtype=float)
+    df_inv_t = empty((3, 3), dtype=float)
+    g_inv = empty((3, 3), dtype=float)
+
+    # allocate for filling
+    filling_v = empty(3, dtype=float)
+    tmp = empty((3, 3), dtype=float)
+
+    tmp_v = empty(3, dtype=float)
+
+    # get number of markers
+    n_markers_loc = shape(markers)[0]
+
+    for ip in range(n_markers_loc):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # marker positions, mid point
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
+        eta_mid[:] = mod(eta_mid[:], 1.)
+
+        eta_diff[:] = markers[ip, 0:3] - markers[ip, 11:14]
+
+        # marker weight and velocity
+        weight = markers[ip, 5]
+        v = markers[ip, 3]
+        mu = markers[ip, 9]
+
+        # b-field evaluation
+        span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(eta_mid[0], eta_mid[1], eta_mid[2], args_domain, dfm)
+
+        det_df = linalg_kernels.det(dfm)
+
+        # needed metric coefficients
+        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
+        linalg_kernels.transpose(df_inv, df_inv_t)
+        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
+
+        # b; 2form
+        eval_2form_spline_mpi(span1, span2, span3, args_derham, b1, b2, b3, b)
+
+        # beq; 2form
+        eval_2form_spline_mpi(span1, span2, span3, args_derham, beq1, beq2, beq3, beq)
+
+        # norm_b1; 1form
+        eval_1form_spline_mpi(span1, span2, span3, args_derham, norm_b11, norm_b12, norm_b13, norm_b1)
+
+        # curl_norm_b; 2form
+        eval_2form_spline_mpi(span1, span2, span3, args_derham, curl_norm_b1, curl_norm_b2, curl_norm_b3, curl_norm_b)
+
+        # grad_PB; 1form
+        eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PB1, grad_PB2, grad_PB3, grad_PB)
+
+        # grad_PBeq; 1form
+        eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PBeq1, grad_PBeq2, grad_PBeq3, grad_PBeq)
+
+        # b_star; 2form transformed into H1vec
+        bfull_star[:] = (b + beq + curl_norm_b * v * epsilon)
+
+        # calculate abs_b_star_para
+        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, bfull_star)
+
+        # operator bx() as matrix
+        b_prod[0, 1] = -b[2]
+        b_prod[0, 2] = +b[1]
+        b_prod[1, 0] = +b[2]
+        b_prod[1, 2] = -b[0]
+        b_prod[2, 0] = -b[1]
+        b_prod[2, 1] = +b[0]
+
+        beq_prod[0, 1] = -beq[2]
+        beq_prod[0, 2] = +beq[1]
+        beq_prod[1, 0] = +beq[2]
+        beq_prod[1, 2] = -beq[0]
+        beq_prod[2, 0] = -beq[1]
+        beq_prod[2, 1] = +beq[0]
+
+        norm_b_prod[0, 1] = -norm_b1[2]
+        norm_b_prod[0, 2] = +norm_b1[1]
+        norm_b_prod[1, 0] = +norm_b1[2]
+        norm_b_prod[1, 2] = -norm_b1[0]
+        norm_b_prod[2, 0] = -norm_b1[1]
+        norm_b_prod[2, 1] = +norm_b1[0]
+
+        if basis_u == 0:
+
+            # beq * gradPBeq contribution
+            linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+
+            filling_v[:] = weight * tmp_v * mu / abs_b_star_para * ep_scale
+
+            # beq * gradPB contribution
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * ep_scale
+
+            # beq * dg term contribution
+            linalg_kernels.matrix_vector(tmp, eta_diff, tmp_v)
+            filling_v[:] += tmp_v / abs_b_star_para * const
+
+            # b * gradPBeq contribution
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * ep_scale
+
+            # b * gradPB contribution
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para * ep_scale
+
+            # b * dg term contribution
+            linalg_kernels.matrix_vector(tmp, eta_diff, tmp_v)
+            filling_v[:] += tmp_v / abs_b_star_para * const
+
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.vec_fill_v0vec(
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+            )
+
+        elif basis_u == 2:
+
+            # beq * gradPBeq contribution
+            linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+
+            filling_v[:] = weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
+
+            # beq * gradPB contribution
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
+
+            # beq * dg term contribution
+            linalg_kernels.matrix_vector(tmp, eta_diff, tmp_v)
+
+            filling_v[:] += tmp_v / abs_b_star_para / det_df * const
+
+            # b * gradPBeq contribtuion
+            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
+            linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
+
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
+
+            # b * gradPB contribution
+            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
+            
+            filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
+
+            # b * dg term contribution
+            linalg_kernels.matrix_vector(tmp, eta_diff, tmp_v)
+
+            filling_v[:] += tmp_v / abs_b_star_para / det_df * const
+
+            # call the appropriate matvec filler
+            particle_to_mat_kernels.vec_fill_v2(
+                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+            )
+
+    vec1 /= Np
+    vec2 /= Np
+    vec3 /= Np

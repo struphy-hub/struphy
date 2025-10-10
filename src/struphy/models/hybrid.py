@@ -827,6 +827,24 @@ class LinearMHDDriftkineticCC(StruphyModel):
                         b_tilde = model.em_fields.b_field,)\n"""
                     ]
 
+                elif "cc5d_gradb.Options" in line:
+                    new_file += [
+                        """model.propagators.cc5d_gradb.options = model.propagators.cc5d_gradb.Options(
+                        b_tilde = model.em_fields.b_field,)\n"""
+                    ]
+
+                elif "push_bxe.Options" in line:
+                    new_file += [
+                        """model.propagators.push_bxe.options = model.propagators.push_bxe.Options(
+                        b_tilde = model.em_fields.b_field,)\n"""
+                    ]
+
+                elif "push_parallel.Options" in line:
+                    new_file += [
+                        """model.propagators.push_parallel.options = model.propagators.push_parallel.Options(
+                        b_tilde = model.em_fields.b_field,)\n"""
+                    ]
+
                 else:
                     new_file += [line]
 
