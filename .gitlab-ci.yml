@@ -78,8 +78,6 @@ test_viper01:
     - export FC=`which gfortran`
     - export CC=`which gcc`
     - export CXX=`which g++`
-    - unset I_MPI_HYDRA_BOOTSTRAP
-    - unset I_MPI_PMI_LIBRARY
     - !reference [.scripts, install_struphy_clusters]
 
 test_raven01:
@@ -99,8 +97,7 @@ test_raven01:
     - export FC=`which gfortran`
     - export CC=`which gcc`
     - export CXX=`which g++`
-    - unset I_MPI_HYDRA_BOOTSTRAP
-    - unset I_MPI_PMI_LIBRARY
+    - export JAX_DISABLE_JIT=1
     - !reference [.scripts, install_struphy_clusters]
 
 test_pitagora05:
@@ -121,8 +118,7 @@ test_pitagora05:
     - export FC=`which gfortran`
     - export CC=`which gcc`
     - export CXX=`which g++`
-    - unset I_MPI_HYDRA_BOOTSTRAP
-    - unset I_MPI_PMI_LIBRARY
+    - export JAX_DISABLE_JIT=1
     - !reference [.scripts, install_struphy_clusters]
     
 
