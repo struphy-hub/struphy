@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from struphy.io.options import OptsNonlinearSolver
+
 
 @dataclass
 class SolverParameters:
@@ -20,3 +22,14 @@ class DiscreteGradientSolverParameters:
     maxiter: int = 20
     verbose: bool = False
     info: bool = False
+
+@dataclass
+class NonlinearSolverParameters:
+    """Parameters for psydac solvers."""
+
+    tol: float = 1e-8
+    maxiter: int = 100
+    info: bool = False
+    verbose: bool = False
+    type: OptsNonlinearSolver = "Picard"
+    linearize: bool = False

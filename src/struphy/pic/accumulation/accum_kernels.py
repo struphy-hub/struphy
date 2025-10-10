@@ -33,7 +33,6 @@ def charge_density_0form(
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
-    vdim: "int",
 ):
     r"""
     Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with the filling
@@ -45,6 +44,7 @@ def charge_density_0form(
 
     markers = args_markers.markers
     Np = args_markers.Np
+    weight_idx = args_markers.weight_idx
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -59,7 +59,7 @@ def charge_density_0form(
         eta3 = markers[ip, 2]
 
         # filling = w_p/N
-        filling = markers[ip, 3 + vdim] / Np
+        filling = markers[ip, weight_idx] / Np
 
         particle_to_mat_kernels.vec_fill_b_v0(
             args_derham,

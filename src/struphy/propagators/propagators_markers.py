@@ -24,6 +24,7 @@ from struphy.io.setup import descend_options_dict
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.ode.utils import ButcherTableau
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles3D, Particles5D, Particles6D, ParticlesSPH
 from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_gc
@@ -1470,39 +1471,65 @@ class PushDeterministicDiffusion(Propagator):
     * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["algo"] = ["rk4", "forward_euler", "heun2", "rk2", "heun3"]
-        dct["diffusion_coefficient"] = 1.0
-        if default:
-            dct = descend_options_dict(dct, [])
-        return dct
+    class Variables:
+        def __init__(self):
+            self._var: PICVariable = None
 
-    def __init__(
-        self,
-        particles: Particles3D,
-        *,
-        algo: str = options(default=True)["algo"],
-        bc_type: list = ["periodic", "periodic", "periodic"],
-        diffusion_coefficient: float = options()["diffusion_coefficient"],
-    ):
-        from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+        @property
+        def var(self) -> PICVariable:
+            return self._var
 
-        super().__init__(particles)
+        @var.setter
+        def var(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles3D"
+            self._var = new
 
-        self._bc_type = bc_type
-        self._diffusion = diffusion_coefficient
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        butcher: ButcherTableau = None
+        bc_type: tuple = ("periodic", "periodic", "periodic")
+        diff_coeff: float = 1.0
+
+        def __post_init__(self):
+            # defaults
+            if self.butcher is None:
+                self.butcher = ButcherTableau()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._bc_type = self.options.bc_type
+        self._diffusion = self.options.diff_coeff
 
         self._tmp = self.derham.Vh["1"].zeros()
 
         # choose algorithm
-        self._butcher = ButcherTableau(algo)
+        self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
         import numpy as np
 
         self._butcher._a = np.diag(self._butcher.a, k=-1)
         self._butcher._a = np.array(list(self._butcher.a) + [0.0])
+
+        particles = self.variables.var.particles
 
         self._u_on_grid = AccumulatorVector(
             particles,
@@ -1539,9 +1566,10 @@ class PushDeterministicDiffusion(Propagator):
         """
         TODO
         """
+        particles = self.variables.var.particles
 
         # accumulate
-        self._u_on_grid(self.particles[0].vdim)
+        self._u_on_grid()
 
         # take gradient
         pi_u = self._u_on_grid.vectors[0]
@@ -1552,8 +1580,8 @@ class PushDeterministicDiffusion(Propagator):
         self._pusher(dt)
 
         # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if particles.control_variate:
+            particles.update_weights()
 
 
 class PushRandomDiffusion(Propagator):
@@ -1576,31 +1604,59 @@ class PushRandomDiffusion(Propagator):
     * ``forward_euler`` (1st order)
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["algo"] = ["forward_euler"]
-        dct["diffusion_coefficient"] = 1.0
-        if default:
-            dct = descend_options_dict(dct, [])
-        return dct
+    class Variables:
+        def __init__(self):
+            self._var: PICVariable = None
 
-    def __init__(
-        self,
-        particles: Particles3D,
-        algo: str = options(default=True)["algo"],
-        bc_type: list = ["periodic", "periodic", "periodic"],
-        diffusion_coefficient: float = options()["diffusion_coefficient"],
-    ):
-        super().__init__(particles)
+        @property
+        def var(self) -> PICVariable:
+            return self._var
 
-        self._bc_type = bc_type
-        self._diffusion = diffusion_coefficient
+        @var.setter
+        def var(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles3D"
+            self._var = new
 
-        self._noise = array(self.particles[0].markers[:, :3])
+    def __init__(self):
+        self.variables = self.Variables()
 
-        # choose algorithm
-        self._butcher = ButcherTableau("forward_euler")
+    @dataclass
+    class Options:
+        butcher: ButcherTableau = None
+        bc_type: tuple = ("periodic", "periodic", "periodic")
+        diff_coeff: float = 1.0
+
+        def __post_init__(self):
+            # defaults
+            if self.butcher is None:
+                self.butcher = ButcherTableau()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._bc_type = self.options.bc_type
+        self._diffusion = self.options.diff_coeff
+
+        particles = self.variables.var.particles
+
+        self._noise = array(particles.markers[:, :3])
+
+        self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
         import numpy as np
 
@@ -1635,18 +1691,20 @@ class PushRandomDiffusion(Propagator):
         TODO
         """
 
+        particles = self.variables.var.particles
+
         self._noise[:] = random.multivariate_normal(
             self._mean,
             self._cov,
-            len(self.particles[0].markers),
+            len(particles.markers),
         )
 
         # push markers
         self._pusher(dt)
 
         # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if particles.control_variate:
+            particles.update_weights()
 
 
 class PushVinSPHpressure(Propagator):
@@ -1826,6 +1884,137 @@ class PushVinViscousPotential(Propagator):
         particles: ParticlesSPH,
         *,
         kernel_type: str = "gaussian_2d",
+        kernel_width: tuple = None,
+        algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
+    ):
+        # base class constructor call
+        super().__init__(particles)
+
+        # init kernel for evaluating density etc. before each time step.
+        init_kernel_1 = eval_kernels_gc.sph_mean_velocity_coeffs
+        first_free_idx = particles.args_markers.first_free_idx
+        comps = (0, 1, 2)
+
+        init_kernel_2 = eval_kernels_gc.sph_mean_velocity
+        # first_free_idx = particles.args_markers.first_free_idx
+        # comps = (0, 1, 2)
+
+        init_kernel_3 = eval_kernels_gc.sph_grad_mean_velocity
+        comps_tensor = (0, 1, 2, 3, 4, 5, 6, 7, 8)
+
+        init_kernel_4 = eval_kernels_gc.sph_viscosity_tensor
+
+        boxes = particles.sorting_boxes.boxes
+        neighbours = particles.sorting_boxes.neighbours
+        holes = particles.holes
+        periodic = [bci == "periodic" for bci in particles.bc]
+        kernel_nr = particles.ker_dct()[kernel_type]
+
+        if kernel_width is None:
+            kernel_width = tuple([1 / ni for ni in self.particles[0].boxes_per_dim])
+        else:
+            assert all([hi <= 1 / ni for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)])
+
+        # init kernel
+        args_init = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *kernel_width,
+        )
+
+        self.add_init_kernel(
+            init_kernel_1,
+            first_free_idx,
+            comps,
+            args_init,
+        )
+
+        self.add_init_kernel(
+            init_kernel_2,
+            first_free_idx + 3,  # +3 so that the previous one is not overwritten
+            comps,
+            args_init,
+        )
+
+        self.add_init_kernel(
+            init_kernel_3,
+            first_free_idx + 6,  # +3 so that the previous one is not overwritten
+            comps_tensor,
+            args_init,
+        )
+
+        self.add_init_kernel(
+            init_kernel_4,
+            first_free_idx + 15,
+            comps_tensor,
+            args_init,
+        )
+
+        kernel = pusher_kernels.push_v_viscosity
+
+        args_kernel = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *kernel_width,
+        )
+
+        # the Pusher class wraps around all kernels
+        self._pusher = Pusher(
+            particles,
+            kernel,
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=0.0,
+            init_kernels=self.init_kernels,
+        )
+
+    def __call__(self, dt):
+        self.particles[0].put_particles_in_boxes()
+        self._pusher(dt)
+
+
+class PushVinViscousPotential(Propagator):
+    r"""For each marker :math:`p`, solves
+
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \kappa_p \sum_{i=1}^N w_i \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_i)} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+
+    where :math:`DF^{-\top}` denotes the inverse transpose Jacobian, and with the smoothed density
+
+    .. math::
+
+        \rho^{N,h}(\boldsymbol \eta) = \frac 1N \sum_{j=1}^N w_j \, W_h(\boldsymbol \eta - \boldsymbol \eta_j)\,,
+
+    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    Time stepping:
+
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["kernel_type"] = [ker for ker in list(Particles.ker_dct()) if "3d" in ker]
+        dct["kernel_width"] = None
+        dct["algo"] = [
+            "forward_euler",
+        ]  # "heun2", "rk2", "heun3", "rk4"]
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
+    def __init__(
+        self,
+        particles: ParticlesSPH,
+        *,
+        kernel_type: str = "gaussian_3d",
         kernel_width: tuple = None,
         algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
     ):

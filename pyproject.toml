@@ -52,6 +52,7 @@ dev = [
     "isort",
     "flake8",
     "pylint",
+    "ssort",
     "add-trailing-comma",
     "ruff>=0.9.1",
     "pre-commit",

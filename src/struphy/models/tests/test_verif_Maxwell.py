@@ -13,6 +13,7 @@ from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
 from struphy.kinetic_background import maxwellians
+from struphy.models.toy import Maxwell
 from struphy.topology import grids
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
@@ -21,11 +22,6 @@ test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 @pytest.mark.mpi(min_size=3)
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 def test_light_wave_1d(algo: str, do_plot: bool = False):
-    # import model, set verbosity
-    from struphy.models.toy import Maxwell
-
-    verbose = True
-
     # environment options
     out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
@@ -58,7 +54,9 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=0, seed=123))
     model.em_fields.e_field.add_perturbation(perturbations.Noise(amp=0.1, comp=1, seed=123))
 
-    # # start run
+    # start run
+    verbose = True
+
     main.run(
         model,
         params_path=None,

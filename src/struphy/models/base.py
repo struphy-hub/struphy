@@ -350,6 +350,8 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def scalar_quantities(self):
         """A dictionary of scalar quantities to be saved during the simulation."""
+        if not hasattr(self, "_scalar_quantities"):
+            self._scalar_quantities = {}
         return self._scalar_quantities
 
     @property
@@ -1289,7 +1291,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 file = open(path, "w")
             else:
                 print("exiting ...")
-                return
+                exit()
         except FileNotFoundError:
             folder = os.path.join("/", *path.split("/")[:-1])
             if not prompt:
@@ -1301,7 +1303,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 file = open(path, "x")
             else:
                 print("exiting ...")
-                return
+                exit()
 
         file.write("from struphy.io.options import EnvironmentOptions, BaseUnits, Time\n")
         file.write("from struphy.geometry import domains\n")
@@ -1365,6 +1367,12 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                         )
                         init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                    if "3D" in var.space:
+                        init_bckgr_pic = f"maxwellian_1 = maxwellians.ColdPlasma(n=(1.0, None))\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.ColdPlasma(n=(0.1, None))\n"
+                        init_pert_pic += f"maxwellian_1pt = maxwellians.ColdPlasma(n=(1.0, perturbation))\n"
+                        init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
+                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     init_bckgr_pic += f"background = maxwellian_1 + maxwellian_2\n"
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
 
@@ -1396,7 +1404,6 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write("\n# import model, set verbosity\n")
         file.write(f"from {self.__module__} import {self.__class__.__name__}\n")
-        file.write("verbose = True\n")
 
         file.write("\n# environment options\n")
         file.write("env = EnvironmentOptions()\n")
@@ -1455,6 +1462,7 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write('\nif __name__ == "__main__":\n')
         file.write("    # start run\n")
+        file.write("    verbose = True\n\n")
         file.write(
             "    main.run(model,\n\
              params_path=__file__,\n\

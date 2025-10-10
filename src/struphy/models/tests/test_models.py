@@ -1,3 +1,4 @@
+import inspect
 import os
 from types import ModuleType
 
@@ -13,21 +14,19 @@ from struphy.models.base import StruphyModel
 rank = MPI.COMM_WORLD.Get_rank()
 
 # available models
-toy_models = [
-    "Maxwell",
-    "Vlasov",
-    "GuidingCenter",
-    "PressureLessSPH",
-]
-# for name, obj in inspect.getmembers(toy):
-#     if inspect.isclass(obj) and "models.toy" in obj.__module__:
-#         toy_models += [name]
+toy_models = []
+for name, obj in inspect.getmembers(toy):
+    if inspect.isclass(obj) and "models.toy" in obj.__module__:
+        toy_models += [name]
 if rank == 0:
     print(f"\n{toy_models = }")
 
 fluid_models = [
     "LinearMHD",
     "EulerSPH",
+    "LinearExtendedMHDuniform",
+    "ColdPlasma",
+    "HasegawaWakatani",
 ]
 # for name, obj in inspect.getmembers(fluid):
 #     if inspect.isclass(obj) and "models.fluid" in obj.__module__:
@@ -61,12 +60,17 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
     if rank == 0:
         print(f"\n*** Testing '{model_name}':")
 
+    # exceptions
+    if model_name == "TwoFluidQuasiNeutralToy" and MPI.COMM_WORLD.Get_size() > 1:
+        print(f"WARNING: Model {model_name} cannot be tested for {MPI.COMM_WORLD.Get_size() = }")
+        return
+
     if module is None:
         submods = [toy, fluid, kinetic, hybrid]
         for submod in submods:
             try:
                 model = getattr(submod, model_name)()
-            except:
+            except AttributeError:
                 continue
 
     else:
