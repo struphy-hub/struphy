@@ -57,7 +57,6 @@ def main(
     from mpi4py import MPI
     from pyevtk.hl import gridToVTK
 
-    from struphy.arrays import xp as np
     from struphy.feec.psydac_derham import SplineFunction
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.io.output_handling import DataContainer
@@ -65,6 +64,7 @@ def main(
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.models.base import StruphyModel
     from struphy.profiling.profiling import ProfileManager
+    from struphy.utils.arrays import xp as np
     from struphy.utils.clone_config import CloneConfig
 
     if sort_step:

@@ -1,4 +1,4 @@
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 # ============================= 2D polar splines (C1) ===================================

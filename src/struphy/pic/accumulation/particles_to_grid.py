@@ -7,12 +7,12 @@ from psydac.linalg.stencil import StencilMatrix, StencilVector
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 import struphy.pic.accumulation.filter_kernels as filters
-from struphy.arrays import xp as np
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
+from struphy.utils.arrays import xp as np
 
 
 class Accumulator:

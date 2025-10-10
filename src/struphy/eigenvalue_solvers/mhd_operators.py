@@ -6,8 +6,8 @@
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.legacy.mass_matrices_3d_pre as mass_3d_pre
-from struphy.arrays import xp as np
 from struphy.eigenvalue_solvers.mhd_operators_core import MHDOperatorsCore
+from struphy.utils.arrays import xp as np
 
 
 class MHDOperators:

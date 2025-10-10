@@ -1,10 +1,10 @@
 "Maxwellian (Gaussian) distributions in velocity space."
 
-from struphy.arrays import xp as np
 from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.kinetic_background import moment_functions
 from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
+from struphy.utils.arrays import xp as np
 
 
 class Maxwellian3D(Maxwellian):

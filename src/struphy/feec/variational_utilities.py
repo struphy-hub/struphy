@@ -4,7 +4,6 @@ from psydac.linalg.basic import IdentityOperator, Vector
 from psydac.linalg.block import BlockVector
 from psydac.linalg.solvers import inverse
 
-from struphy.arrays import xp as np
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
     BasisProjectionOperator,
@@ -13,6 +12,7 @@ from struphy.feec.basis_projection_ops import (
 )
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
+from struphy.utils.arrays import xp as np
 
 
 class BracketOperator(LinOpWithTransp):

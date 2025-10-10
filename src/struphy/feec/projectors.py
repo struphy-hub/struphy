@@ -10,7 +10,6 @@ from psydac.linalg.kron import KroneckerStencilMatrix
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilMatrix, StencilVector
 
-from struphy.arrays import xp as np
 from struphy.feec import mass_kernels
 from struphy.feec.local_projectors_kernels import (
     compute_shifts,
@@ -38,6 +37,7 @@ from struphy.fields_background.equils import set_defaults
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.utils.arrays import xp as np
 
 
 class CommutingProjector:

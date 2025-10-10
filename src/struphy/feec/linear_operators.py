@@ -7,9 +7,9 @@ from psydac.linalg.block import BlockVectorSpace
 from psydac.linalg.stencil import StencilVectorSpace
 from scipy import sparse
 
-from struphy.arrays import xp as np
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
+from struphy.utils.arrays import xp as np
 
 
 class LinOpWithTransp(LinearOperator):

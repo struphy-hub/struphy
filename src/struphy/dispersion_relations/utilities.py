@@ -1,6 +1,6 @@
 from scipy.special import erfi
 
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 def Zplasma(xi, der=0):

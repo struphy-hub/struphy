@@ -18,9 +18,9 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix
 
-    from struphy.arrays import xp as np
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_1d_kernel
+    from struphy.utils.arrays import xp as np
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -135,9 +135,9 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix
 
-    from struphy.arrays import xp as np
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_3d_kernel
+    from struphy.utils.arrays import xp as np
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"

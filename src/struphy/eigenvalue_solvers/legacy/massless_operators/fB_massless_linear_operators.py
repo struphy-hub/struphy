@@ -5,7 +5,7 @@ import scipy.sparse as spa
 import struphy.feec.massless_operators.fB_bb_kernel as bb_kernel
 import struphy.feec.massless_operators.fB_bv_kernel as bv_kernel
 import struphy.feec.massless_operators.fB_vv_kernel as vv_kernel
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 class Massless_linear_operators:

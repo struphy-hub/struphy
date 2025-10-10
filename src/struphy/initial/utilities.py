@@ -2,9 +2,9 @@ import os
 
 import h5py
 
-from struphy.arrays import xp as np
 from struphy.fields_background.equils import set_defaults
 from struphy.io.output_handling import DataContainer
+from struphy.utils.arrays import xp as np
 
 
 class InitFromOutput:

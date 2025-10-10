@@ -2,13 +2,13 @@ import matplotlib.pyplot as plt
 import pytest
 from mpi4py import MPI
 
-from struphy.arrays import xp as np
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 from struphy.propagators import ImplicitDiffusion
 from struphy.propagators.base import Propagator
+from struphy.utils.arrays import xp as np
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

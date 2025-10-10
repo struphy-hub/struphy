@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 import yaml
 from tqdm import tqdm
 
-from struphy.arrays import xp as np
 from struphy.feec.psydac_derham import Derham
 from struphy.io.setup import setup_domain_and_equil
 from struphy.kinetic_background import maxwellians
 from struphy.models import fluid, hybrid, kinetic, toy
+from struphy.utils.arrays import xp as np
 
 
 def create_femfields(

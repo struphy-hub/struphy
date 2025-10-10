@@ -16,7 +16,6 @@ from psydac.linalg.basic import IdentityOperator
 from psydac.linalg.block import BlockVector, BlockVectorSpace
 from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 
-from struphy.arrays import xp as np
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
 from struphy.feec.linear_operators import BoundaryOperator
@@ -31,6 +30,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+from struphy.utils.arrays import xp as np
 
 
 class Derham:

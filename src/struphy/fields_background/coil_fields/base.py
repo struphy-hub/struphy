@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
 
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 class CoilMagneticField(metaclass=ABCMeta):

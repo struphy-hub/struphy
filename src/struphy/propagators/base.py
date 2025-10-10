@@ -2,11 +2,11 @@
 
 from abc import ABCMeta, abstractmethod
 
-from struphy.arrays import xp as np
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry.base import Domain
+from struphy.utils.arrays import xp as np
 
 
 class Propagator(metaclass=ABCMeta):

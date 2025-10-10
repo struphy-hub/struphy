@@ -61,7 +61,7 @@ def save_state(state, libpath=STRUPHY_LIBPATH):
 
 def print_all_attr(obj):
     """Print all object's attributes that do not start with "_" to screen."""
-    from struphy.arrays import xp as np
+    from struphy.utils.arrays import xp as np
 
     for k in dir(obj):
         if k[0] != "_":

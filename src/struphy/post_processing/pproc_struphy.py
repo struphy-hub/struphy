@@ -46,8 +46,8 @@ def main(
 
     import struphy.post_processing.orbits.orbits_tools as orbits_pproc
     import struphy.post_processing.post_processing_tools as pproc
-    from struphy.arrays import xp as np
     from struphy.models import fluid, hybrid, kinetic, toy
+    from struphy.utils.arrays import xp as np
 
     print("")
 

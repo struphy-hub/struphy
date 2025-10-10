@@ -10,7 +10,7 @@ import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_3d as ker
 import struphy.eigenvalue_solvers.legacy.mass_matrices_3d_pre as mass_3d_pre
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 class EMW_operators:

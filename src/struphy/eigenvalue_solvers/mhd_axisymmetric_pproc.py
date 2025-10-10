@@ -5,7 +5,7 @@ def main():
 
     import yaml
 
-    from struphy.arrays import xp as np
+    from struphy.utils.arrays import xp as np
 
     # parse arguments
     parser = argparse.ArgumentParser(description="Restrict a full .npy eigenspectrum to a range of eigenfrequencies.")

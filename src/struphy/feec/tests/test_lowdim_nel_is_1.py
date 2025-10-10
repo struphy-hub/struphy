@@ -13,8 +13,8 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
-    from struphy.arrays import xp as np
     from struphy.feec.psydac_derham import Derham
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2

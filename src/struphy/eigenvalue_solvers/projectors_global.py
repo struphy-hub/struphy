@@ -9,8 +9,8 @@ Classes for commuting projectors in 1D, 2D and 3D based on global spline interpo
 import scipy.sparse as spa
 
 import struphy.bsplines.bsplines as bsp
-from struphy.arrays import xp as np
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d, kron_lusolve_3d, kron_matvec_2d, kron_matvec_3d
+from struphy.utils.arrays import xp as np
 
 
 # ======================= 1d ====================================

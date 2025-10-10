@@ -3,8 +3,8 @@ from inspect import signature
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
-from struphy.arrays import xp as np
 from struphy.ode.utils import ButcherTableau
+from struphy.utils.arrays import xp as np
 
 
 class ODEsolverFEEC:

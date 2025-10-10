@@ -9,9 +9,9 @@ from psydac.linalg.stencil import StencilMatrix, StencilVectorSpace
 from scipy import sparse
 from scipy.linalg import solve_circulant
 
-from struphy.arrays import xp as np
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
+from struphy.utils.arrays import xp as np
 
 
 class MassMatrixPreconditioner(LinearOperator):

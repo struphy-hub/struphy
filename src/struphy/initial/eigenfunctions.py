@@ -4,8 +4,8 @@ import yaml
 from psydac.api.discretization import discretize
 from sympde.topology import Derham, Line
 
-from struphy.arrays import xp as np
 from struphy.fields_background.equils import set_defaults
+from struphy.utils.arrays import xp as np
 
 
 class InitialMHDAxisymHdivEigFun:

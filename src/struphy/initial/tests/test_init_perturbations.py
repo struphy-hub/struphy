@@ -23,11 +23,11 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     from matplotlib import pyplot as plt
     from mpi4py import MPI
 
-    from struphy.arrays import xp as np
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
     from struphy.initial import perturbations
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

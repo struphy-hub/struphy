@@ -10,8 +10,8 @@ from mpi4py import MPI
 from scipy.special import jv, yn
 
 import struphy
-from struphy.arrays import xp as np
 from struphy.post_processing import pproc_struphy
+from struphy.utils.arrays import xp as np
 
 
 def VlasovAmpereOneSpecies_weakLandau(

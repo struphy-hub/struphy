@@ -3,7 +3,7 @@ from psydac.linalg.basic import Vector, VectorSpace
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 class PolarDerhamSpace(VectorSpace):

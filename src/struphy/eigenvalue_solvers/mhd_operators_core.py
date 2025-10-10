@@ -8,7 +8,7 @@ import scipy.sparse as spa
 import struphy.eigenvalue_solvers.kernels_projectors_global_mhd as ker
 import struphy.eigenvalue_solvers.mass_matrices_2d as mass_2d
 import struphy.eigenvalue_solvers.mass_matrices_3d as mass_3d
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 class MHDOperatorsCore:

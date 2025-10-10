@@ -17,11 +17,11 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
 
     from mpi4py import MPI
 
-    from struphy.arrays import xp as np
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

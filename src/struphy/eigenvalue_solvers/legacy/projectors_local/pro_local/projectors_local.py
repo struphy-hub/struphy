@@ -10,7 +10,7 @@ import scipy.sparse as spa
 
 import struphy.feec.bsplines as bsp
 import struphy.feec.projectors.pro_local.kernels_projectors_local as ker_loc
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 # ======================= 1d ====================================

@@ -16,7 +16,7 @@ import struphy.post_processing.likwid.hardware_dicts as hwd
 import struphy.post_processing.likwid.likwid_parser as lp
 import struphy.post_processing.likwid.maxplotlylib as mply
 import struphy.post_processing.likwid.roofline_plotter as rp
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 def clean_string(string_in):

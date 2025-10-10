@@ -5,9 +5,9 @@ from psydac.linalg.block import BlockLinearOperator, BlockVector
 from psydac.linalg.stencil import StencilMatrix, StencilVector
 
 import struphy.feec.utilities_kernels as kernels
-from struphy.arrays import xp as np
 from struphy.feec import banded_to_stencil_kernels as bts
 from struphy.polar.basic import PolarVector
+from struphy.utils.arrays import xp as np
 
 
 class RotationMatrix:

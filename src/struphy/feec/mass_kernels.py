@@ -2,8 +2,8 @@
 Integral kernels for mass matrices and L2-projections.
 """
 
-from numpy import shape
 import numpy as np
+from numpy import shape
 
 # ================= 1d =================================
 

@@ -18,7 +18,6 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from psydac.linalg.basic import IdentityOperator
     from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 
-    from struphy.arrays import xp as np
     from struphy.examples.restelli2018 import callables
     from struphy.feec.basis_projection_ops import BasisProjectionOperatorLocal, BasisProjectionOperators
     from struphy.feec.mass import WeightedMassOperators
@@ -30,6 +29,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.geometry import domains
     from struphy.initial import perturbations
     from struphy.linear_algebra.saddle_point import SaddlePointSolver
+    from struphy.utils.arrays import xp as np
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -375,7 +375,7 @@ def _plot_velocity(data_reshaped):
     import matplotlib
     import matplotlib.pyplot as plt
 
-    from struphy.arrays import xp as np
+    from struphy.utils.arrays import xp as np
 
     matplotlib.use("Agg")
 

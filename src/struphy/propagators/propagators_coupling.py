@@ -3,7 +3,6 @@
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
-from struphy.arrays import xp as np
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.io.setup import descend_options_dict
@@ -17,6 +16,7 @@ from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.utils.arrays import xp as np
 
 
 class VlasovAmpere(Propagator):

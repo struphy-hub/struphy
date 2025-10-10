@@ -12,7 +12,6 @@ from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
 
 import struphy
-from struphy.arrays import xp as np
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -29,6 +28,7 @@ from struphy.fields_background.base import (
     NumericalMHDequilibrium,
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
+from struphy.utils.arrays import xp as np
 from struphy.utils.utils import read_state, subp_run
 
 

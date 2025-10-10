@@ -5,7 +5,7 @@
 import scipy.sparse as spa
 
 import struphy.bsplines.bsplines as bsp
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 # ======= mass matrices in 1D ====================

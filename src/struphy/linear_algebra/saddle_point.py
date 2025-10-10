@@ -6,8 +6,8 @@ from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpa
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.solvers import inverse
 
-from struphy.arrays import xp as np
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
+from struphy.utils.arrays import xp as np
 
 
 class SaddlePointSolver:

@@ -9,7 +9,7 @@ Modules to compute inner products with given functions in 3D.
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_3d as ker
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 # ================ inner product in V0 ===========================

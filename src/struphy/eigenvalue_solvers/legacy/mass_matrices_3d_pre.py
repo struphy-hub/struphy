@@ -10,7 +10,7 @@ import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.spline_space as spl
 import struphy.linear_algebra.linalg_kron as linkron
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 
 
 # ================ inverse mass matrix in V0 ===========================

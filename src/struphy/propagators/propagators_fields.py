@@ -14,7 +14,6 @@ from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
 
 import struphy.feec.utilities as util
-from struphy.arrays import xp as np
 from struphy.examples.restelli2018 import callables
 from struphy.feec import preconditioner
 from struphy.feec.basis_projection_ops import (
@@ -50,6 +49,7 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.utils.arrays import xp as np
 
 
 class Maxwell(Propagator):

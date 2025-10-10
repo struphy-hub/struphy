@@ -9,7 +9,6 @@ from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
 
-from struphy.arrays import xp as np
 from struphy.bsplines.bsplines import quadrature_grid
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, NumericalFluidEquilibrium
@@ -38,6 +37,7 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_meshgrid,
 )
 from struphy.utils import utils
+from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 
 

@@ -10,8 +10,8 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     from matplotlib import pyplot as plt
 
     import struphy.utils.utils as utils
-    from struphy.arrays import xp as np
     from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
+    from struphy.utils.arrays import xp as np
 
     # Read struphy state file
     state = utils.read_state()

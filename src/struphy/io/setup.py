@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from mpi4py import MPI
 
-from struphy.arrays import xp as np
+from struphy.utils.arrays import xp as np
 from struphy.utils.utils import dict_to_yaml
 
 
