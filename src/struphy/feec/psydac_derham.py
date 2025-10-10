@@ -1124,7 +1124,8 @@ class Derham:
 
         # distribute
         if self.comm is not None:
-            self.comm.Allgather(dom_arr_loc, dom_arr)
+            # self.comm.Allgather(dom_arr_loc, dom_arr)
+            dom_arr[:] = dom_arr_loc # TODO: Fix MPI communication with cupy arrays
         else:
             dom_arr[:] = dom_arr_loc
 
@@ -1170,7 +1171,8 @@ class Derham:
 
         # distribute
         if self.comm is not None:
-            self.comm.Allgather(ind_arr_loc, ind_arr)
+            # self.comm.Allgather(ind_arr_loc, ind_arr)
+            ind_arr[:] = ind_arr_loc # TODO: Fix MPI communication with cupy arrays
         else:
             ind_arr[:] = ind_arr_loc
 
@@ -2731,12 +2733,17 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             union_breaks = space_1d.breaks[:-1]
 
         # Make union of Greville and break points
-        tmp = set(np.round(space_1d.histopolation_grid, decimals=14)).union(
-            np.round(union_breaks, decimals=14),
-        )
+        # tmp = set(np.round(space_1d.histopolation_grid, decimals=14)).union(
+        #     np.round(union_breaks, decimals=14),
+        # )
+        # tmp = list(tmp)
+        # tmp.sort()
+        # tmp_a = np.array(tmp)
 
-        tmp = list(tmp)
-        tmp.sort()
+        tmp = set(np.round(space_1d.histopolation_grid, decimals=14).tolist()).union(
+            np.round(union_breaks, decimals=14).tolist()
+        )
+        tmp = sorted(tmp)
         tmp_a = np.array(tmp)
 
         x_grid = tmp_a[
@@ -2764,7 +2771,13 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             # products of basis functions are integrated exactly
             n_quad = space_1d.degree + 1
 
-        pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
+        import numpy as _np
+        pts_loc, wts_loc = _np.polynomial.legendre.leggauss(n_quad)
+
+        if "cupy" in np.__name__:
+            import cupy as cp
+            pts_loc = cp.array(pts_loc)
+            wts_loc = cp.array(wts_loc)
 
         x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
 

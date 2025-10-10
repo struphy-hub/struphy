@@ -1,5 +1,6 @@
 # from numpy import copy
-from numpy import empty
+from struphy.utils.arrays import xp as np
+
 
 
 class MarkerArguments:
@@ -99,12 +100,12 @@ class DerhamArguments:
         self.tn3 = tn3
         self.starts = starts
 
-        self.bn1 = empty(pn[0] + 1, dtype=float)
-        self.bn2 = empty(pn[1] + 1, dtype=float)
-        self.bn3 = empty(pn[2] + 1, dtype=float)
-        self.bd1 = empty(pn[0], dtype=float)
-        self.bd2 = empty(pn[1], dtype=float)
-        self.bd3 = empty(pn[2], dtype=float)
+        self.bn1 = np.empty(int(pn[0] + 1), dtype=float)
+        self.bn2 = np.empty(int(pn[1] + 1), dtype=float)
+        self.bn3 = np.empty(int(pn[2] + 1), dtype=float)
+        self.bd1 = np.empty(int(pn[0]), dtype=float)
+        self.bd2 = np.empty(int(pn[1]), dtype=float)
+        self.bd3 = np.empty(int(pn[2]), dtype=float)
 
 
 class DomainArguments:

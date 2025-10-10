@@ -937,7 +937,7 @@ def is_circulant(mat):
         Whether the matrix is circulant (=True) or not (=False).
     """
 
-    assert isinstance(mat, np.ndarray)
+    # assert isinstance(mat, np.ndarray) # could be a cupy array
     assert len(mat.shape) == 2
     assert mat.shape[0] == mat.shape[1]
 
