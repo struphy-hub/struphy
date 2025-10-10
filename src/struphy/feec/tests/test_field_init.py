@@ -10,10 +10,10 @@ import pytest
 def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     """Test field background initialization of "LogicalConst" with multiple fields in params."""
 
-    import numpy as np
     from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -65,7 +65,6 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
 
     import inspect
 
-    import numpy as np
     from matplotlib import pyplot as plt
     from mpi4py import MPI
 
@@ -73,6 +72,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
     from struphy.fields_background import equils
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.geometry import domains
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1087,12 +1087,12 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
 def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     """Test field perturbation with ModesSin + ModesCos on top of of "LogicalConst" with multiple fields in params."""
 
-    import numpy as np
     from matplotlib import pyplot as plt
     from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.initial.perturbations import ModesCos, ModesSin
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1321,11 +1321,11 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
 def test_noise_init(Nel, p, spl_kind, space, direction):
     """Only tests 1d noise ('e1', 'e2', 'e3') !!"""
 
-    import numpy as np
     from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

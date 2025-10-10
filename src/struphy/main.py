@@ -54,7 +54,6 @@ def main(
     import os
     import time
 
-    import numpy as np
     from mpi4py import MPI
     from pyevtk.hl import gridToVTK
 
@@ -65,6 +64,7 @@ def main(
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.models.base import StruphyModel
     from struphy.profiling.profiling import ProfileManager
+    from struphy.utils.arrays import xp as np
     from struphy.utils.clone_config import CloneConfig
 
     if sort_step:

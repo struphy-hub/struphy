@@ -49,7 +49,6 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
 def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from time import time
 
-    import numpy as np
     from mpi4py import MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -61,6 +60,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.pic.accumulation.particles_to_grid import Accumulator
     from struphy.pic.particles import Particles6D
     from struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
+    from struphy.utils.arrays import xp as np
 
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2

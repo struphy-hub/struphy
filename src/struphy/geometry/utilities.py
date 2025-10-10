@@ -1,6 +1,5 @@
 "Domain-related utility functions."
 
-import numpy as np
 from scipy.optimize import newton, root, root_scalar
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu
@@ -9,6 +8,7 @@ from struphy.bsplines import bsplines as bsp
 from struphy.geometry.base import PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
+from struphy.utils.arrays import xp as np
 
 
 def field_line_tracing(

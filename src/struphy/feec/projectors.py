@@ -1,4 +1,3 @@
-import numpy as np
 from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.global_projectors import GlobalProjector
@@ -38,6 +37,7 @@ from struphy.fields_background.equils import set_defaults
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.utils.arrays import xp as np
 
 
 class CommutingProjector:

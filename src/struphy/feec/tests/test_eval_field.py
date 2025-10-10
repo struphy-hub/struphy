@@ -1,6 +1,7 @@
-import numpy as np
 import pytest
 from mpi4py import MPI
+
+from struphy.utils.arrays import xp as np
 
 
 @pytest.mark.mpi(min_size=2)

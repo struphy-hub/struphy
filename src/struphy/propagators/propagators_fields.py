@@ -3,7 +3,6 @@
 from collections.abc import Callable
 from copy import deepcopy
 
-import numpy as np
 import scipy as sc
 from matplotlib import pyplot as plt
 from mpi4py import MPI
@@ -51,6 +50,7 @@ from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.utils.arrays import xp as np
 
 
 class Maxwell(Propagator):
