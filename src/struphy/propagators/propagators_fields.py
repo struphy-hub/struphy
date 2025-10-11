@@ -54,13 +54,13 @@ from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
 from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.linear_algebra.schur_solver import SchurSolver
-from struphy.pic.accumulation.filter import FilterParameters
 from struphy.linear_algebra.solver import NonlinearSolverParameters, SolverParameters
 from struphy.models.species import Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau, OptsButcher
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.accumulation.filter import FilterParameters
 from struphy.pic.accumulation.particles_to_grid import Accumulator, AccumulatorVector
 from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
@@ -1968,7 +1968,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         OptsAlgo = Literal["implicit", "explicit"]
         # propagator options
         energetic_ions: PICVariable = None
-        ep_scale: float= 1.
+        ep_scale: float = 1.0
         u_space: OptsVecSpace = "Hdiv"
         algo: OptsAlgo = "implicit"
         solver: OptsSymmSolver = "pcg"
@@ -2024,14 +2024,14 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         _A = getattr(self.mass_ops, id_M)
         _T = getattr(self.basis_ops, id_T)
-        M2  = self.mass_ops.M2
+        M2 = self.mass_ops.M2
         curl = self.derham.curl
         PB = getattr(self.basis_ops, "PB")
 
         # define Accumulator and arguments
         self._ACC = AccumulatorVector(
             self.options.energetic_ions.particles,
-            'H1',
+            "H1",
             accum_kernels_gc.gc_mag_density_0form,
             self.mass_ops,
             self.domain.args_domain,
@@ -2060,7 +2060,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
             # define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
             self._B = -1 / 2 * _TT @ curl.T @ M2
-            self._B2 = -1 / 2 * _TT  @ curl.T @ PB.T
+            self._B2 = -1 / 2 * _TT @ curl.T @ PB.T
 
             self._C = 1 / 2 * curl @ _T
 
@@ -2106,7 +2106,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
             def f1(t, y1, y2, out: BlockVector = out1):
                 _f1.dot(y2, out=out)
-                _f1_acc.dot(self._ACC.vectors[0], out= out_acc)
+                _f1_acc.dot(self._ACC.vectors[0], out=out_acc)
                 out += out_acc
                 out.update_ghost_regions()
                 return out
@@ -2119,7 +2119,6 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
             vector_field = {self.variables.u.spline.vector: f1, self.variables.b.spline.vector: f2}
             self._ode_solver = ODEsolverFEEC(vector_field, butcher=self.options.butcher)
-
 
     def __call__(self, dt):
         # update time-dependent operator TB
@@ -2149,7 +2148,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
             bn1 += bn
 
             diffs = self.update_feec_variables(u=un1, b=bn1)
-        
+
         else:
             self._ode_solver(0.0, dt)
 
@@ -2179,51 +2178,67 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         # Initialize BasisProjectionOperator
         if self.derham._with_local_projectors == True:
-            self._TB = BasisProjectionOperatorLocal(P1, 
-                                                     Vh, 
-                                                     [[None, None, None],
-                                                      [None, None, None],
-                                                      [None, None, None],], 
-                                                     transposed=False,
-                                                     use_cache=True,
-                                                     polar_shift=True,
-                                                     V_extraction_op=self.derham.extraction_ops[self._u_form],
-                                                     V_boundary_op=self.derham.boundary_ops[self._u_form],
-                                                     P_boundary_op=self.derham.boundary_ops["1"],)
-            self._TBT = BasisProjectionOperatorLocal(P1, 
-                                                     Vh, 
-                                                     [[None, None, None],
-                                                      [None, None, None],
-                                                      [None, None, None],], 
-                                                     transposed=True,
-                                                     use_cache=True,
-                                                     polar_shift=True,
-                                                     V_extraction_op=self.derham.extraction_ops[self._u_form],
-                                                     V_boundary_op=self.derham.boundary_ops[self._u_form],
-                                                     P_boundary_op=self.derham.boundary_ops["1"],)
+            self._TB = BasisProjectionOperatorLocal(
+                P1,
+                Vh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                use_cache=True,
+                polar_shift=True,
+                V_extraction_op=self.derham.extraction_ops[self._u_form],
+                V_boundary_op=self.derham.boundary_ops[self._u_form],
+                P_boundary_op=self.derham.boundary_ops["1"],
+            )
+            self._TBT = BasisProjectionOperatorLocal(
+                P1,
+                Vh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=True,
+                use_cache=True,
+                polar_shift=True,
+                V_extraction_op=self.derham.extraction_ops[self._u_form],
+                V_boundary_op=self.derham.boundary_ops[self._u_form],
+                P_boundary_op=self.derham.boundary_ops["1"],
+            )
         else:
-            self._TB = BasisProjectionOperator(P1, 
-                                                Vh, 
-                                                [[None, None, None],
-                                                 [None, None, None],
-                                                 [None, None, None],], 
-                                                transposed=False,
-                                                use_cache=True,
-                                                polar_shift=True,
-                                                V_extraction_op=self.derham.extraction_ops[self._u_form],
-                                                V_boundary_op=self.derham.boundary_ops[self._u_form],
-                                                P_boundary_op=self.derham.boundary_ops["1"],)
-            self._TBT = BasisProjectionOperator(P1, 
-                                                Vh, 
-                                                [[None, None, None],
-                                                 [None, None, None],
-                                                 [None, None, None],], 
-                                                transposed=True,
-                                                use_cache=True,
-                                                polar_shift=True,
-                                                V_extraction_op=self.derham.extraction_ops[self._u_form],
-                                                V_boundary_op=self.derham.boundary_ops[self._u_form],
-                                                P_boundary_op=self.derham.boundary_ops["1"],)
+            self._TB = BasisProjectionOperator(
+                P1,
+                Vh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=False,
+                use_cache=True,
+                polar_shift=True,
+                V_extraction_op=self.derham.extraction_ops[self._u_form],
+                V_boundary_op=self.derham.boundary_ops[self._u_form],
+                P_boundary_op=self.derham.boundary_ops["1"],
+            )
+            self._TBT = BasisProjectionOperator(
+                P1,
+                Vh,
+                [
+                    [None, None, None],
+                    [None, None, None],
+                    [None, None, None],
+                ],
+                transposed=True,
+                use_cache=True,
+                polar_shift=True,
+                V_extraction_op=self.derham.extraction_ops[self._u_form],
+                V_boundary_op=self.derham.boundary_ops[self._u_form],
+                P_boundary_op=self.derham.boundary_ops["1"],
+            )
 
     def _update_weights_TB(self):
         """Updats time-dependent weights of the BasisProjectionOperator TB"""
@@ -2243,7 +2258,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
 
         from struphy.feec.utilities import RotationMatrix
 
-        rot_B =RotationMatrix(bf1, bf2, bf3)
+        rot_B = RotationMatrix(bf1, bf2, bf3)
 
         fun = []
 
@@ -2325,7 +2340,7 @@ class CurrentCoupling5DDensity(Propagator):
         # propagator options
         energetic_ions: PICVariable = None
         b_tilde: FEECVariable = None
-        ep_scale: float= 1.
+        ep_scale: float = 1.0
         u_space: OptsVecSpace = "Hdiv"
         solver: OptsSymmSolver = "pcg"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
@@ -2442,7 +2457,9 @@ class CurrentCoupling5DDensity(Propagator):
         b_full += self.options.b_tilde.spline.vector
         b_full.update_ghost_regions()
 
-        self._ACC(*self._args_accum_kernel,)
+        self._ACC(
+            *self._args_accum_kernel,
+        )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = self._A - dt / 2 * self._ACC.operators[0]

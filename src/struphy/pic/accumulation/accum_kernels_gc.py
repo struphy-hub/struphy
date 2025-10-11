@@ -8,7 +8,7 @@ Function naming conventions:
 These kernels are passed to :class:`struphy.pic.accumulation.particles_to_grid.Accumulator`.
 """
 
-from numpy import empty, shape, zeros, mod
+from numpy import empty, mod, shape, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -98,11 +98,11 @@ def gc_mag_density_0form(
         eta3 = markers[ip, 2]
 
         # marker weight and magnetic moment
-        weight = markers[ip,5]
+        weight = markers[ip, 5]
         mu = markers[ip, 9]
 
         # filling =mu*w_p/N
-        filling = mu*weight/Np*scale
+        filling = mu * weight / Np * scale
 
         particle_to_mat_kernels.vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling)
 
@@ -397,7 +397,7 @@ def cc_lin_mhd_5d_curlb(
         eval_2form_spline_mpi(span1, span2, span3, args_derham, curl_norm_b1, curl_norm_b2, curl_norm_b3, curl_norm_b)
 
         # b_star; 2form
-        bfull_star[:] = (b + curl_norm_b * v * epsilon)
+        bfull_star[:] = b + curl_norm_b * v * epsilon
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, bfull_star)
@@ -416,7 +416,6 @@ def cc_lin_mhd_5d_curlb(
         b_prod_neg[:] = -1.0 * b_prod
 
         if basis_u == 0:
-
             linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
@@ -451,7 +450,6 @@ def cc_lin_mhd_5d_curlb(
             )
 
         elif basis_u == 2:
-
             linalg_kernels.matrix_matrix(b_prod, tmp, tmp1)
             linalg_kernels.matrix_matrix(tmp1, b_prod_neg, tmp_m)
             linalg_kernels.matrix_vector(b_prod, curl_norm_b, tmp_v)
@@ -702,7 +700,6 @@ def cc_lin_mhd_5d_gradB(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
 
-
         # marker weight and velocity
         weight = markers[ip, 5]
         v = markers[ip, 3]
@@ -734,7 +731,7 @@ def cc_lin_mhd_5d_gradB(
         eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PB1, grad_PB2, grad_PB3, grad_PB)
 
         # b_star; 2form transformed into H1vec
-        b_star[:] = (b + curl_norm_b * v * epsilon)
+        b_star[:] = b + curl_norm_b * v * epsilon
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
@@ -755,7 +752,6 @@ def cc_lin_mhd_5d_gradB(
         norm_b_prod[2, 1] = +norm_b1[0]
 
         if basis_u == 0:
-
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
@@ -767,7 +763,6 @@ def cc_lin_mhd_5d_gradB(
             )
 
         elif basis_u == 2:
-
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
@@ -909,7 +904,7 @@ def cc_lin_mhd_5d_gradB_dg_init(
         eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PBeq1, grad_PBeq2, grad_PBeq3, grad_PBeq)
 
         # b_star; 2form transformed into H1vec
-        bfull_star[:] = (b + beq + curl_norm_b * v * epsilon)
+        bfull_star[:] = b + beq + curl_norm_b * v * epsilon
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, bfull_star)
@@ -937,7 +932,6 @@ def cc_lin_mhd_5d_gradB_dg_init(
         norm_b_prod[2, 1] = +norm_b1[0]
 
         if basis_u == 0:
-
             # beq contribution
             linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
@@ -965,7 +959,6 @@ def cc_lin_mhd_5d_gradB_dg_init(
             )
 
         elif basis_u == 2:
-
             # beq contribution
             linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
@@ -1088,8 +1081,8 @@ def cc_lin_mhd_5d_gradB_dg(
             continue
 
         # marker positions, mid point
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, 11:14])/2.
-        eta_mid[:] = mod(eta_mid[:], 1.)
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, 11:14]) / 2.0
+        eta_mid[:] = mod(eta_mid[:], 1.0)
 
         eta_diff[:] = markers[ip, 0:3] - markers[ip, 11:14]
 
@@ -1130,7 +1123,7 @@ def cc_lin_mhd_5d_gradB_dg(
         eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PBeq1, grad_PBeq2, grad_PBeq3, grad_PBeq)
 
         # b_star; 2form transformed into H1vec
-        bfull_star[:] = (b + beq + curl_norm_b * v * epsilon)
+        bfull_star[:] = b + beq + curl_norm_b * v * epsilon
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, bfull_star)
@@ -1158,7 +1151,6 @@ def cc_lin_mhd_5d_gradB_dg(
         norm_b_prod[2, 1] = +norm_b1[0]
 
         if basis_u == 0:
-
             # beq * gradPBeq contribution
             linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
@@ -1192,7 +1184,6 @@ def cc_lin_mhd_5d_gradB_dg(
             )
 
         elif basis_u == 2:
-
             # beq * gradPBeq contribution
             linalg_kernels.matrix_matrix(beq_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PBeq, tmp_v)
@@ -1217,7 +1208,7 @@ def cc_lin_mhd_5d_gradB_dg(
 
             # b * gradPB contribution
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
-            
+
             filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
 
             # b * dg term contribution

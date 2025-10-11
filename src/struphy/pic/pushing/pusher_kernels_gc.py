@@ -1896,7 +1896,7 @@ def push_gc_cc_J1_H1vec(
         )
 
         # b_star; in H1vec
-        b_star[:] = (b + curl_norm_b * v * epsilon)
+        b_star[:] = b + curl_norm_b * v * epsilon
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
@@ -2178,13 +2178,13 @@ def push_gc_cc_J1_Hdiv(
         )
 
         # b_star; 2form
-        b_star[:] = (b + curl_norm_b * v * epsilon)
+        b_star[:] = b + curl_norm_b * v * epsilon
 
         # calculate 3form abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # transform u into H1vec
-        u = u/det_df
+        u = u / det_df
 
         # electric field E(1) = B(2) X U(0)
         linalg_kernels.cross(b, u, e)
@@ -2367,7 +2367,7 @@ def push_gc_cc_J2_stage_H1vec(
         norm_b_prod[2, 1] = +norm_b1[0]
 
         # b_star; 2form in H1vec
-        b_star[:] = (bb + curl_norm_b * v * epsilon)
+        b_star[:] = bb + curl_norm_b * v * epsilon
 
         # calculate 3form abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
@@ -2378,11 +2378,14 @@ def push_gc_cc_J2_stage_H1vec(
         e /= abs_b_star_para
 
         # accumulation for last stage
-        markers[ip, first_free_idx:first_free_idx + 3] -= dt*b[stage]*e
+        markers[ip, first_free_idx : first_free_idx + 3] -= dt * b[stage] * e
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] - \
-            dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
+        markers[ip, 0:3] = (
+            markers[ip, first_init_idx : first_init_idx + 3]
+            - dt * a[stage] * e
+            + last * markers[ip, first_free_idx : first_free_idx + 3]
+        )
 
 
 @stack_array(
@@ -2558,7 +2561,7 @@ def push_gc_cc_J2_stage_Hdiv(
         norm_b_prod[2, 1] = +norm_b1[0]
 
         # b_star; 2form
-        b_star[:] = (bb + curl_norm_b * v * epsilon)
+        b_star[:] = bb + curl_norm_b * v * epsilon
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
@@ -2570,26 +2573,51 @@ def push_gc_cc_J2_stage_Hdiv(
         e /= det_df
 
         # accumulation for last stage
-        markers[ip, first_free_idx:first_free_idx + 3] -= dt*b[stage]*e
+        markers[ip, first_free_idx : first_free_idx + 3] -= dt * b[stage] * e
 
         # update positions for intermediate stages or last stage
-        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx + 3] - \
-            dt*a[stage]*e + last*markers[ip, first_free_idx:first_free_idx + 3]
+        markers[ip, 0:3] = (
+            markers[ip, first_init_idx : first_init_idx + 3]
+            - dt * a[stage] * e
+            + last * markers[ip, first_free_idx : first_free_idx + 3]
+        )
 
 
-@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'b_prod', 'norm_b_prod')
+@stack_array(
+    "dfm",
+    "df_inv",
+    "df_inv_t",
+    "g_inv",
+    "e",
+    "u",
+    "bb",
+    "b_star",
+    "norm_b1",
+    "curl_norm_b",
+    "tmp1",
+    "b_prod",
+    "norm_b_prod",
+)
 def push_gc_cc_J2_dg_init_Hdiv(
     dt: float,
-    args_markers: 'MarkerArguments',
-    args_domain: 'DomainArguments',
-    args_derham: 'DerhamArguments',
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
     epsilon: float,
-    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-    curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-    u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
+    b1: "float[:,:,:]",
+    b2: "float[:,:,:]",
+    b3: "float[:,:,:]",
+    norm_b11: "float[:,:,:]",
+    norm_b12: "float[:,:,:]",
+    norm_b13: "float[:,:,:]",
+    curl_norm_b1: "float[:,:,:]",
+    curl_norm_b2: "float[:,:,:]",
+    curl_norm_b3: "float[:,:,:]",
+    u1: "float[:,:,:]",
+    u2: "float[:,:,:]",
+    u3: "float[:,:,:]",
 ):
-    r'''TODO'''
+    r"""TODO"""
 
     # allocate metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -2616,11 +2644,10 @@ def push_gc_cc_J2_dg_init_Hdiv(
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
-
         # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.:
+        if markers[ip, first_init_idx] == -1.0:
             continue
-        
+
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
@@ -2628,7 +2655,9 @@ def push_gc_cc_J2_dg_init_Hdiv(
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
-            eta1, eta2, eta3,
+            eta1,
+            eta2,
+            eta3,
             args_domain,
             dfm,
         )
@@ -2644,7 +2673,9 @@ def push_gc_cc_J2_dg_init_Hdiv(
 
         # b; 2form
         eval_2form_spline_mpi(
-            span1, span2, span3,
+            span1,
+            span2,
+            span3,
             args_derham,
             b1,
             b2,
@@ -2654,7 +2685,9 @@ def push_gc_cc_J2_dg_init_Hdiv(
 
         # u; 2form
         eval_2form_spline_mpi(
-            span1, span2, span3,
+            span1,
+            span2,
+            span3,
             args_derham,
             u1,
             u2,
@@ -2664,7 +2697,9 @@ def push_gc_cc_J2_dg_init_Hdiv(
 
         # norm_b1; 1form
         eval_1form_spline_mpi(
-            span1, span2, span3,
+            span1,
+            span2,
+            span3,
             args_derham,
             norm_b11,
             norm_b12,
@@ -2674,7 +2709,9 @@ def push_gc_cc_J2_dg_init_Hdiv(
 
         # curl_norm_b; 2form
         eval_2form_spline_mpi(
-            span1, span2, span3,
+            span1,
+            span2,
+            span3,
             args_derham,
             curl_norm_b1,
             curl_norm_b2,
@@ -2698,7 +2735,7 @@ def push_gc_cc_J2_dg_init_Hdiv(
         norm_b_prod[2, 1] = +norm_b1[0]
 
         # b_star; 2form
-        b_star[:] = (bb + curl_norm_b*v*epsilon)
+        b_star[:] = bb + curl_norm_b * v * epsilon
 
         # calculate 3form abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
@@ -2709,25 +2746,53 @@ def push_gc_cc_J2_dg_init_Hdiv(
         e /= abs_b_star_para
         e /= det_df
 
-        markers[ip, 0:3] -= dt*e
+        markers[ip, 0:3] -= dt * e
 
 
-@stack_array('dfm', 'df_inv', 'df_inv_t', 'g_inv', 'e', 'u', 'ud', 'bb', 'b_star', 'norm_b1', 'curl_norm_b', 'tmp1', 'tmp2', 'b_prod', 'norm_b_prod', 'eta_old', 'eta_mid')
+@stack_array(
+    "dfm",
+    "df_inv",
+    "df_inv_t",
+    "g_inv",
+    "e",
+    "u",
+    "ud",
+    "bb",
+    "b_star",
+    "norm_b1",
+    "curl_norm_b",
+    "tmp1",
+    "tmp2",
+    "b_prod",
+    "norm_b_prod",
+    "eta_old",
+    "eta_mid",
+)
 def push_gc_cc_J2_dg_Hdiv(
     dt: float,
-    args_markers: 'MarkerArguments',
-    args_domain: 'DomainArguments',
-    args_derham: 'DerhamArguments',
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
+    args_derham: "DerhamArguments",
     epsilon: float,
-    b1: 'float[:,:,:]', b2: 'float[:,:,:]', b3: 'float[:,:,:]',
-    norm_b11: 'float[:,:,:]', norm_b12: 'float[:,:,:]', norm_b13: 'float[:,:,:]',
-    curl_norm_b1: 'float[:,:,:]', curl_norm_b2: 'float[:,:,:]', curl_norm_b3: 'float[:,:,:]',
-    u1: 'float[:,:,:]', u2: 'float[:,:,:]', u3: 'float[:,:,:]',
-    ud1: 'float[:,:,:]', ud2: 'float[:,:,:]', ud3: 'float[:,:,:]',
+    b1: "float[:,:,:]",
+    b2: "float[:,:,:]",
+    b3: "float[:,:,:]",
+    norm_b11: "float[:,:,:]",
+    norm_b12: "float[:,:,:]",
+    norm_b13: "float[:,:,:]",
+    curl_norm_b1: "float[:,:,:]",
+    curl_norm_b2: "float[:,:,:]",
+    curl_norm_b3: "float[:,:,:]",
+    u1: "float[:,:,:]",
+    u2: "float[:,:,:]",
+    u3: "float[:,:,:]",
+    ud1: "float[:,:,:]",
+    ud2: "float[:,:,:]",
+    ud3: "float[:,:,:]",
     const: float,
     alpha: float,
 ):
-    r'''TODO'''
+    r"""TODO"""
 
     # allocate metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -2758,21 +2823,22 @@ def push_gc_cc_J2_dg_Hdiv(
     first_free_idx = args_markers.first_free_idx
 
     for ip in range(n_markers):
-
         # check if marker is a hole
-        if markers[ip, 0] == -1.:
+        if markers[ip, 0] == -1.0:
             continue
 
         # marker positions, mid point
         eta_old[:] = markers[ip, 0:3]
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx:first_init_idx+3])/2.
-        eta_mid[:] = mod(eta_mid[:], 1.)
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
+        eta_mid[:] = mod(eta_mid[:], 1.0)
 
         v = markers[ip, 3]
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
-            eta_mid[0], eta_mid[1], eta_mid[2],
+            eta_mid[0],
+            eta_mid[1],
+            eta_mid[2],
             args_domain,
             dfm,
         )
@@ -2788,7 +2854,9 @@ def push_gc_cc_J2_dg_Hdiv(
 
         # b; 2form
         eval_2form_spline_mpi(
-            span1, span2, span3,
+            span1,
+            span2,
+            span3,
             args_derham,
             b1,
             b2,
@@ -2798,7 +2866,9 @@ def push_gc_cc_J2_dg_Hdiv(
 
         # u; 2form
         eval_2form_spline_mpi(
-            span1, span2, span3,
+            span1,
+            span2,
+            span3,
             args_derham,
             u1,
             u2,
@@ -2808,7 +2878,9 @@ def push_gc_cc_J2_dg_Hdiv(
 
         # ud; 2form
         eval_2form_spline_mpi(
-            span1, span2, span3,
+            span1,
+            span2,
+            span3,
             args_derham,
             ud1,
             ud2,
@@ -2818,7 +2890,9 @@ def push_gc_cc_J2_dg_Hdiv(
 
         # norm_b1; 1form
         eval_1form_spline_mpi(
-            span1, span2, span3,
+            span1,
+            span2,
+            span3,
             args_derham,
             norm_b11,
             norm_b12,
@@ -2828,7 +2902,9 @@ def push_gc_cc_J2_dg_Hdiv(
 
         # curl_norm_b; 2form
         eval_2form_spline_mpi(
-            span1, span2, span3,
+            span1,
+            span2,
+            span3,
             args_derham,
             curl_norm_b1,
             curl_norm_b2,
@@ -2852,7 +2928,7 @@ def push_gc_cc_J2_dg_Hdiv(
         norm_b_prod[2, 1] = +norm_b1[0]
 
         # b_star; 2form
-        b_star[:] = (bb + curl_norm_b*v*epsilon)
+        b_star[:] = bb + curl_norm_b * v * epsilon
 
         # calculate 3form abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
@@ -2867,6 +2943,6 @@ def push_gc_cc_J2_dg_Hdiv(
         e /= abs_b_star_para
         e /= det_df
 
-        markers[ip, 0:3] = markers[ip, first_init_idx:first_init_idx+3] - dt*e
+        markers[ip, 0:3] = markers[ip, first_init_idx : first_init_idx + 3] - dt * e
         markers[ip, 0:3] *= alpha
-        markers[ip, 0:3] += eta_old * (1. - alpha)
+        markers[ip, 0:3] += eta_old * (1.0 - alpha)

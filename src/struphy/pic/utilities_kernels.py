@@ -1,4 +1,4 @@
-from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros, mod
+from numpy import abs, empty, log, mod, pi, shape, sign, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -356,7 +356,7 @@ def eval_magnetic_energy_PBb(
         if markers[ip, 0] == -1.0:
             continue
 
-        eta[:] = mod(markers[ip, 0:3], 1.)
+        eta[:] = mod(markers[ip, 0:3], 1.0)
 
         weight = markers[ip, 7]
         dweight = markers[ip, 5]
@@ -506,9 +506,9 @@ def eval_guiding_center_from_6d(
         markers[ip, first_diagnostics_idx + 2] = z - Larmor_r[2]
 
 
-@stack_array("dfm", "df_t", "g", "g_inv", "gradB, ""grad_PB_b", "tmp", "eta_mid", "eta_diff")
+@stack_array("dfm", "df_t", "g", "g_inv", "gradB, grad_PB_b", "tmp", "eta_mid", "eta_diff")
 def eval_gradB_ediff(
-    args_markers: 'MarkerArguments',
+    args_markers: "MarkerArguments",
     args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
     gradB1: "float[:,:,:]",
@@ -547,10 +547,10 @@ def eval_gradB_ediff(
             continue
 
         # marker positions, mid point
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx:first_init_idx+3])/2.
-        eta_mid[:] = mod(eta_mid[:], 1.)
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
+        eta_mid[:] = mod(eta_mid[:], 1.0)
 
-        eta_diff = markers[ip, 0:3] - markers[ip, first_init_idx:first_init_idx+3]
+        eta_diff = markers[ip, 0:3] - markers[ip, first_init_idx : first_init_idx + 3]
 
         # marker weight and velocity
         weight = markers[ip, 5]
@@ -558,7 +558,7 @@ def eval_gradB_ediff(
 
         # b-field evaluation
         span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
-        #print(span1, span2, span3)
+        # print(span1, span2, span3)
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(

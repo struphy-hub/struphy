@@ -13,15 +13,17 @@ class SolverParameters:
     verbose: bool = False
     recycle: bool = True
 
+
 @dataclass
 class DiscreteGradientSolverParameters:
     """Parameters for discrete gradient solvers."""
 
-    relaxation_factor : float = 0.5
+    relaxation_factor: float = 0.5
     tol: float = 1e-12
     maxiter: int = 20
     verbose: bool = False
     info: bool = False
+
 
 @dataclass
 class NonlinearSolverParameters:

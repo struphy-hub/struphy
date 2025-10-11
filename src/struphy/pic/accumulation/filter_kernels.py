@@ -3,6 +3,7 @@
 from numpy import empty, ones, shape, zeros
 from pyccel.decorators import stack_array
 
+
 @stack_array("vec_copy", "mask1d", "mask", "top", "i_bottom", "i_top", "fi", "ir")
 def apply_three_point_filter_3d(
     vec: "float[:,:,:]",

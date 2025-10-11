@@ -237,9 +237,11 @@ class ShearedSlab(CartesianMHDequilibrium):
 
             else:
                 if der == 0:
-                    qout = self.params["q0"] + self.params["q1"] * np.sin(2. * np.pi * x / self.params["a"])
+                    qout = self.params["q0"] + self.params["q1"] * np.sin(2.0 * np.pi * x / self.params["a"])
                 else:
-                    qout = 2. * np.pi / self.params["a"] * self.params["q1"] * np.cos(2. * np.pi * x / self.params["a"])
+                    qout = (
+                        2.0 * np.pi / self.params["a"] * self.params["q1"] * np.cos(2.0 * np.pi * x / self.params["a"])
+                    )
 
         return qout
 

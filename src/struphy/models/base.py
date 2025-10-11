@@ -197,11 +197,11 @@ class StruphyModel(metaclass=ABCMeta):
             )
 
             self._basis_ops = BasisProjectionOperators(
-                    self.derham,
-                    self.domain,
-                    verbose=self.verbose,
-                    eq_mhd=self.equil,
-                )
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
 
         # create projected equilibrium
         if self.derham is None:

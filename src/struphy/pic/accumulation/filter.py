@@ -1,9 +1,12 @@
 from dataclasses import dataclass
+
 import numpy as np
-from struphy.io.options import OptsFilter
+from scipy.fft import irfft, rfft
+
 from struphy.feec.psydac_derham import Derham
+from struphy.io.options import OptsFilter
 from struphy.pic.accumulation.filter_kernels import apply_three_point_filter_3d
-from scipy.fft import rfft, irfft
+
 
 @dataclass
 class FilterParameters:
@@ -23,28 +26,23 @@ class AccumFilter:
       - 'hybrid' (three_point, then fourier_in_tor)
     """
 
-    def __init__(self, 
-                 params: FilterParameters,
-                 derham: Derham,
-                 space_id: str):
-
+    def __init__(self, params: FilterParameters, derham: Derham, space_id: str):
         self._params = params if params is not None else FilterParameters()
         self._derham = derham
         self._space_id = space_id
-        
-        self._form = derham.space_to_form[space_id]
-        self._form_int = 0 if self._form == 'v' else int(self._form)
 
+        self._form = derham.space_to_form[space_id]
+        self._form_int = 0 if self._form == "v" else int(self._form)
 
     @property
     def params(self) -> FilterParameters:
         return self._params
-    
+
     @property
     def derham(self):
         """Discrete Derham complex on the logical unit cube."""
         return self._derham
-    
+
     @property
     def space_id(self):
         """Space identifier for the matrix/vector (H1, Hcurl, Hdiv, L2 or H1vec) to be accumulated into."""
@@ -59,7 +57,7 @@ class AccumFilter:
     def form_int(self):
         """Integer notation of p-form("0", "1", "2", "3") to be accumulated into."""
         return self._form_int
-    
+
     def __call__(self, vec):
         """
         Apply the chosen filter to `vec` in-place and return it.
@@ -84,9 +82,7 @@ class AccumFilter:
             self._apply_toroidal_fourier_filter(vec, self._params.modes)
 
         else:
-            raise NotImplementedError(
-                "The type of filter must be 'fourier_in_tor', 'three_point', or 'hybrid'."
-            )
+            raise NotImplementedError("The type of filter must be 'fourier_in_tor', 'three_point', or 'hybrid'.")
 
         return vec
 
@@ -98,21 +94,21 @@ class AccumFilter:
         """
         if self.space_id in ("H1", "L2"):
             starts = self.derham.Vh[self.form].starts
-            ends   = self.derham.Vh[self.form].ends
+            ends = self.derham.Vh[self.form].ends
 
             yield 0, vec, starts, ends
 
         else:
             for axis in range(3):
                 starts = self.derham.Vh[self.form][axis].starts
-                ends   = self.derham.Vh[self.form][axis].ends
+                ends = self.derham.Vh[self.form][axis].ends
 
                 yield axis, vec[axis], starts, ends
 
     def _apply_three_point(self, vec, repeat: int, alpha: float):
         """
         Applying three point smoothing filter to the spline coefficients of the accumulated vector (``._data`` of the StencilVector):
-        
+
         Parameters
         ----------
         vec : BlockVector
@@ -169,7 +165,6 @@ class AccumFilter:
             vec_temp = np.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
 
         for axis, comp, starts, ends in self._yield_dir_components(vec):
-
             for i in range(3):
                 ir[i] = int(ends[i] + 1 - starts[i])
 
@@ -180,11 +175,11 @@ class AccumFilter:
                     jj = pn[1] + j
 
                     # forward FFT along toroidal line
-                    line = rfft(comp._data[ii, jj, pn[2]: pn[2] + ir[2]])
+                    line = rfft(comp._data[ii, jj, pn[2] : pn[2] + ir[2]])
                     vec_temp[:] = 0
                     vec_temp[modes] = line[modes]  # keep selected modes only
 
                     # inverse FFT back to real space, write in-place
-                    comp._data[ii, jj, pn[2]: pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
+                    comp._data[ii, jj, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
 
         vec.update_ghost_regions()

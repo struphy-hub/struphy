@@ -10,8 +10,8 @@ import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
-from struphy.pic.base import Particles
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
+from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
 
 
@@ -170,9 +170,7 @@ class Accumulator:
                         self._args_data += (bl._data,)
 
         # initialize filter
-        self._accfilter = AccumFilter(filter_params,
-                                      self._derham,
-                                      self._space_id)
+        self._accfilter = AccumFilter(filter_params, self._derham, self._space_id)
 
     def __call__(self, *optional_args, **args_control):
         """
@@ -213,7 +211,6 @@ class Accumulator:
 
         # apply filter
         if self.accfilter.params.use_filter is not None:
-
             for vec in self._vectors:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
@@ -490,9 +487,7 @@ class AccumulatorVector:
                     self._args_data += (bl._data,)
 
         # initialize filter
-        self._accfilter = AccumFilter(filter_params,
-                                      self._derham,
-                                      self._space_id)
+        self._accfilter = AccumFilter(filter_params, self._derham, self._space_id)
 
     def __call__(self, *optional_args, **args_control):
         """
@@ -532,7 +527,6 @@ class AccumulatorVector:
 
         # apply filter
         if self.accfilter.params.use_filter is not None:
-
             for vec in self._vectors:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
