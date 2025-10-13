@@ -1029,8 +1029,8 @@ pages:
 
 test_toki01:
   stage: clusters
-  extends:
-    - .rules_mr_to_devel
+  # extends:
+  #   - .rules_mr_to_devel
   tags:
     - maxlin
     - private
@@ -1051,8 +1051,8 @@ test_toki01:
 
 test_viper01:
   stage: clusters
-  extends:
-    - .rules_mr_to_devel
+  # extends:
+  #   - .rules_mr_to_devel
   tags:
     - maxlin
     - private
@@ -1072,8 +1072,8 @@ test_viper01:
 
 test_raven01:
   stage: clusters
-  extends:
-    - .rules_mr_to_devel
+  # extends:
+  #   - .rules_mr_to_devel
   tags:
     - maxlin
     - private
@@ -1094,8 +1094,8 @@ test_raven01:
 
 test_pitagora05:
   stage: clusters
-  extends:
-    - .rules_mr_to_devel
+  # extends:
+  #   - .rules_mr_to_devel
   tags:
     - maxlin
     - private
