@@ -6,10 +6,10 @@ from psydac.linalg.stencil import StencilMatrix, StencilVector
 
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
-import struphy.pic.accumulation.filter_kernels as filters
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
 
@@ -83,12 +83,7 @@ class Accumulator:
         *,
         add_vector: bool = False,
         symmetry: str = None,
-        filter_params: dict = {
-            "use_filter": None,
-            "modes": None,
-            "repeat": None,
-            "alpha": None,
-        },
+        filter_params: FilterParameters = None,
     ):
         self._particles = particles
         self._space_id = space_id
@@ -98,8 +93,6 @@ class Accumulator:
         self._args_domain = args_domain
 
         self._symmetry = symmetry
-
-        self._filter_params = filter_params
 
         self._form = self.derham.space_to_form[space_id]
 
@@ -177,6 +170,9 @@ class Accumulator:
                     for bl in vec.blocks:
                         self._args_data += (bl._data,)
 
+        # initialize filter
+        self._accfilter = AccumFilter(filter_params, self._derham, self._space_id)
+
     def __call__(self, *optional_args, **args_control):
         """
         Performs the accumulation into the matrix/vector by calling the chosen accumulation kernel and additional analytical contributions (control variate, optional).
@@ -215,52 +211,13 @@ class Accumulator:
             )
 
         # apply filter
-        if self.filter_params["use_filter"] is not None:
+        if self.accfilter.params.use_filter is not None:
             for vec in self._vectors:
                 vec.exchange_assembly_data()
                 vec.update_ghost_regions()
 
-                if self.filter_params["use_filter"] == "fourier_in_tor":
-                    self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
-
-                elif self.filter_params["use_filter"] == "three_point":
-                    for _ in range(self.filter_params["repeat"]):
-                        for i in range(3):
-                            filters.apply_three_point_filter(
-                                vec[i]._data,
-                                np.array(self.derham.Nel),
-                                np.array(self.derham.spl_kind),
-                                np.array(self.derham.p),
-                                np.array(self.derham.Vh[self.form][i].starts),
-                                np.array(self.derham.Vh[self.form][i].ends),
-                                alpha=self.filter_params["alpha"],
-                            )
-
-                        vec.update_ghost_regions()
-
-                elif self.filter_params["use_filter"] == "hybrid":
-                    self.apply_toroidal_fourier_filter(vec, self.filter_params["modes"])
-
-                    for _ in range(self.filter_params["repeat"]):
-                        for i in range(2):
-                            filters.apply_three_point_filter(
-                                vec[i]._data,
-                                np.array(self.derham.Nel),
-                                np.array(self.derham.spl_kind),
-                                np.array(self.derham.p),
-                                np.array(self.derham.Vh[self.form][i].starts),
-                                np.array(self.derham.Vh[self.form][i].ends),
-                                alpha=self.filter_params["alpha"],
-                            )
-
-                        vec.update_ghost_regions()
-
-                else:
-                    raise NotImplemented(
-                        "The type of filter must be fourier or three_point.",
-                    )
-
-            vec_finished = True
+                self.accfilter(vec)
+                vec_finished = True
 
         if self.particles.clone_config is None:
             num_clones = 1
@@ -394,14 +351,9 @@ class Accumulator:
         return out
 
     @property
-    def filter_params(self):
-        """Dict of three components for the accumulation filter parameters: use_filter(string), repeat(int) and alpha(float)."""
-        return self._filter_params
-
-    @property
-    def filter_params(self):
-        """Dict of three components for the accumulation filter parameters: use_filter(string), repeat(int) and alpha(float)."""
-        return self._filter_params
+    def accfilter(self):
+        """Callable filters"""
+        return self._accfilter
 
     def init_control_variate(self, mass_ops):
         """Set up the use of noise reduction by control variate."""
@@ -410,55 +362,6 @@ class Accumulator:
 
         # L2 projector for dofs
         self._get_L2dofs = L2Projector(self.space_id, mass_ops).get_dofs
-
-    def apply_toroidal_fourier_filter(self, vec, modes):
-        """
-        Applying fourier filter to the spline coefficients of the accumulated vector (toroidal direction).
-
-        Parameters
-        ----------
-        vec : BlockVector
-
-        modes : list
-            Mode numbers which are not filtered out.
-        """
-
-        from scipy.fft import irfft, rfft
-
-        tor_Nel = self.derham.Nel[2]
-
-        # Nel along the toroidal direction must be equal or bigger than 2*maximum mode
-        assert tor_Nel >= 2 * max(modes)
-
-        pn = self.derham.p
-        ir = np.empty(3, dtype=int)
-
-        if (tor_Nel % 2) == 0:
-            vec_temp = np.zeros(int(tor_Nel / 2) + 1, dtype=complex)
-        else:
-            vec_temp = np.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
-
-        # no domain decomposition along the toroidal direction
-        assert self.derham.domain_decomposition.nprocs[2] == 1
-
-        for axis in range(3):
-            starts = self.derham.Vh[ſelf.form][axis].starts
-            ends = self.derham.Vh[self.form][axis].ends
-
-            # index range
-            for i in range(3):
-                ir[i] = ends[i] + 1 - starts[i]
-
-            # filtering
-            for i in range(ir[0]):
-                for j in range(ir[1]):
-                    vec_temp[:] = 0
-                    vec_temp[modes] = rfft(
-                        vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]],
-                    )[modes]
-                    vec[axis]._data[pn[0] + i, pn[1] + j, pn[2] : pn[2] + ir[2]] = irfft(vec_temp, n=tor_Nel)
-
-            vec.update_ghost_regions()
 
     def show_accumulated_spline_field(self, mass_ops: WeightedMassOperators, eta_direction=0, component=0):
         r"""1D plot of the spline field corresponding to the accumulated vector.
@@ -532,6 +435,7 @@ class AccumulatorVector:
         kernel: Pyccelkernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
+        filter_params: FilterParameters = None,
     ):
         self._particles = particles
         self._space_id = space_id
@@ -585,6 +489,9 @@ class AccumulatorVector:
                 for bl in vec.blocks:
                     self._args_data += (bl._data,)
 
+        # initialize filter
+        self._accfilter = AccumFilter(filter_params, self._derham, self._space_id)
+
     def __call__(self, *optional_args, **args_control):
         """
         Performs the accumulation into the vector by calling the chosen accumulation kernel
@@ -620,6 +527,15 @@ class AccumulatorVector:
                 *self._args_data,
                 *optional_args,
             )
+
+        # apply filter
+        if self.accfilter.params.use_filter is not None:
+            for vec in self._vectors:
+                vec.exchange_assembly_data()
+                vec.update_ghost_regions()
+
+                self.accfilter(vec)
+                vec_finished = True
 
         if self.particles.clone_config is None:
             num_clones = 1
@@ -689,6 +605,11 @@ class AccumulatorVector:
             out += [vec_out]
 
         return out
+
+    @property
+    def accfilter(self):
+        """Callable filters"""
+        return self._accfilter
 
     def init_control_variate(self, mass_ops):
         """Set up the use of noise reduction by control variate."""

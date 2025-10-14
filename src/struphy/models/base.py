@@ -183,11 +183,19 @@ class StruphyModel(metaclass=ABCMeta):
                 verbose=self.verbose,
             )
 
-        # create weighted mass operators
+        # create weighted mass and basis operators
         if self.derham is None:
             self._mass_ops = None
+            self._basis_ops = None
         else:
             self._mass_ops = WeightedMassOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
+
+            self._basis_ops = BasisProjectionOperators(
                 self.derham,
                 self.domain,
                 verbose=self.verbose,
@@ -220,17 +228,10 @@ class StruphyModel(metaclass=ABCMeta):
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
-        Propagator.mass_ops = self.mass_ops
-        if self.derham is None:
-            Propagator.basis_ops = None
-        else:
-            Propagator.basis_ops = BasisProjectionOperators(
-                self.derham,
-                self.domain,
-                verbose=self.verbose,
-                eq_mhd=self.equil,
-            )
-        Propagator.projected_equil = self.projected_equil
+        if self.derham is not None:
+            Propagator.mass_ops = self.mass_ops
+            Propagator.basis_ops = self.basis_ops
+            Propagator.projected_equil = self.projected_equil
 
         assert len(self.prop_list) > 0, "No propagators in this model, check the model class."
         for prop in self.prop_list:
@@ -311,6 +312,11 @@ class StruphyModel(metaclass=ABCMeta):
     def mass_ops(self):
         """WeighteMassOperators object, see :ref:`mass_ops`."""
         return self._mass_ops
+
+    @property
+    def basis_ops(self):
+        """Basis projection operators."""
+        return self._basis_ops
 
     @property
     def prop_list(self):
