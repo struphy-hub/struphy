@@ -52,6 +52,17 @@ def struphy_test(
                 "not _models and not _tutorial and not pproc",
             ]
 
+        # now run parallel unit tests
+        cmd = [
+            "mpirun",
+            "--oversubscribe",
+            "-n",
+            str(mpi),
+            "pytest",
+            "-k",
+            "not _models and not _tutorial and not pproc",
+            "--with-mpi",
+        ]
         if with_desc:
             cmd += ["--with-desc"]
         if vrbose:
@@ -64,6 +75,7 @@ def struphy_test(
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
         cmd = [
             "mpirun",
+            "--oversubscribe",
             "-n",
             str(mpi),
             "pytest",
@@ -85,6 +97,7 @@ def struphy_test(
     elif "verification" in group:
         cmd = [
             "mpirun",
+            "--oversubscribe",
             "-n",
             str(mpi),
             "pytest",
@@ -104,6 +117,7 @@ def struphy_test(
     else:
         cmd = [
             "mpirun",
+            "--oversubscribe",
             "-n",
             str(mpi),
             "pytest",
