@@ -178,7 +178,8 @@ class ShearedSlab(CartesianMHDequilibrium):
         Ion number density at x=a (default: 1.).
     beta : float
         Plasma beta (ratio of kinematic pressure to B^2/2, default: 0.1).
-
+    q_kind : int
+        Kind of safety factor profile, (0 or 1, default: 0).
     Note
     ----
     In the parameter .yml, use the following in the section ``fluid_background``::
@@ -193,6 +194,7 @@ class ShearedSlab(CartesianMHDequilibrium):
             n2   : 0.   # 2nd shape factor for ion number density profile
             na   : 1.   # number density at r=a
             beta : .1   # plasma beta = p*2/B^2
+            q_kind : 0. # kind of safety factor profile
     """
 
     def __init__(
@@ -206,6 +208,7 @@ class ShearedSlab(CartesianMHDequilibrium):
         n2: float = 0.0,
         na: float = 1.0,
         beta: float = 0.1,
+        q_kind: int = 0,
     ):
         # use params setter
         self.params = copy.deepcopy(locals())
@@ -226,10 +229,19 @@ class ShearedSlab(CartesianMHDequilibrium):
                 qout = 0 * x
 
         else:
-            if der == 0:
-                qout = self.params["q0"] + (self.params["q1"] - self.params["q0"]) * (x / self.params["a"]) ** 2
+            if self.params["q_kind"] == 0:
+                if der == 0:
+                    qout = self.params["q0"] + (self.params["q1"] - self.params["q0"]) * (x / self.params["a"]) ** 2
+                else:
+                    qout = 2 * (self.params["q1"] - self.params["q0"]) * x / self.params["a"] ** 2
+
             else:
-                qout = 2 * (self.params["q1"] - self.params["q0"]) * x / self.params["a"] ** 2
+                if der == 0:
+                    qout = self.params["q0"] + self.params["q1"] * np.sin(2.0 * np.pi * x / self.params["a"])
+                else:
+                    qout = (
+                        2.0 * np.pi / self.params["a"] * self.params["q1"] * np.cos(2.0 * np.pi * x / self.params["a"])
+                    )
 
         return qout
 
