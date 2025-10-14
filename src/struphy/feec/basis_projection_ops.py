@@ -15,6 +15,7 @@ from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class BasisProjectionOperators:
@@ -2038,9 +2039,11 @@ class BasisProjectionOperator(LinOpWithTransp):
                         )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = getattr(
-                        basis_projection_kernels,
-                        "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
+                    kernel = Pyccelkernel(
+                        getattr(
+                            basis_projection_kernels,
+                            "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
+                        )
                     )
 
                     if rank == 0 and verbose:

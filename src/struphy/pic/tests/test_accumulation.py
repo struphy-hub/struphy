@@ -1,5 +1,7 @@
 import pytest
 
+from struphy.utils.pyccel import Pyccelkernel
+
 
 @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
@@ -230,7 +232,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     ACC = Accumulator(
         particles,
         "Hcurl",
-        accum_kernels.pc_lin_mhd_6d_full,
+        Pyccelkernel(accum_kernels.pc_lin_mhd_6d_full),
         mass_ops,
         domain.args_domain,
         add_vector=True,
