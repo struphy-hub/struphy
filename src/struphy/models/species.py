@@ -139,8 +139,6 @@ class FieldSpecies(Species):
 class FluidSpecies(Species):
     """Single fluid species in 3d configuration space."""
 
-    pass
-
 
 class ParticleSpecies(Species):
     """Single kinetic species in 3d + vdim phase space."""
@@ -209,5 +207,3 @@ class ParticleSpecies(Species):
 
 class DiagnosticSpecies(Species):
     """Diagnostic species (fields) without mass and charge."""
-
-    pass

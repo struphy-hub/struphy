@@ -21,16 +21,10 @@ for name, obj in inspect.getmembers(toy):
 if rank == 0:
     print(f"\n{toy_models = }")
 
-fluid_models = [
-    "LinearMHD",
-    "EulerSPH",
-    "LinearExtendedMHDuniform",
-    "ColdPlasma",
-    "HasegawaWakatani",
-]
-# for name, obj in inspect.getmembers(fluid):
-#     if inspect.isclass(obj) and "models.fluid" in obj.__module__:
-#         fluid_models += [name]
+fluid_models = []
+for name, obj in inspect.getmembers(fluid):
+    if inspect.isclass(obj) and "models.fluid" in obj.__module__:
+        fluid_models += [name]
 if rank == 0:
     print(f"\n{fluid_models = }")
 
