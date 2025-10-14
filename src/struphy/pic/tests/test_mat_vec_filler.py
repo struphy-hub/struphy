@@ -1,5 +1,6 @@
-import numpy as np
 import pytest
+
+from struphy.utils.arrays import xp as np
 
 
 @pytest.mark.mpi(min_size=2)

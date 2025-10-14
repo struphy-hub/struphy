@@ -1,8 +1,5 @@
 "Base classes for particle deposition (accumulation) on the grid."
 
-from typing import Any, Callable
-
-import numpy as np
 from mpi4py import MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilMatrix, StencilVector
@@ -15,6 +12,7 @@ from struphy.feec.psydac_derham import Derham
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
+from struphy.utils.arrays import xp as np
 from struphy.utils.pyccel import Pyccelkernel
 
 

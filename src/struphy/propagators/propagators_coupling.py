@@ -1,6 +1,5 @@
 "Particle and FEEC variables are updated."
 
-import numpy as np
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
@@ -17,6 +16,7 @@ from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.utils.arrays import xp as np
 from struphy.utils.pyccel import Pyccelkernel
 
 

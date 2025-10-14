@@ -1,13 +1,12 @@
 import copy
 
-import numpy as np
-
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
+from struphy.utils.arrays import xp as np
 
 
 class Particles6D(Particles):

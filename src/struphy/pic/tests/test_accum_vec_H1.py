@@ -48,7 +48,6 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
 
     import copy
 
-    import numpy as np
     from mpi4py import MPI
 
     from struphy.feec.mass import WeightedMassOperators
@@ -57,6 +56,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     from struphy.pic.accumulation import accum_kernels
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import Particles6D
+    from struphy.utils.arrays import xp as np
     from struphy.utils.clone_config import CloneConfig
 
     mpi_comm = MPI.COMM_WORLD
