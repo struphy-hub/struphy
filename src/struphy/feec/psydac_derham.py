@@ -1125,7 +1125,7 @@ class Derham:
         # distribute
         if self.comm is not None:
             # self.comm.Allgather(dom_arr_loc, dom_arr)
-            dom_arr[:] = dom_arr_loc # TODO: Fix MPI communication with cupy arrays
+            dom_arr[:] = dom_arr_loc  # TODO: Fix MPI communication with cupy arrays
         else:
             dom_arr[:] = dom_arr_loc
 
@@ -1172,7 +1172,7 @@ class Derham:
         # distribute
         if self.comm is not None:
             # self.comm.Allgather(ind_arr_loc, ind_arr)
-            ind_arr[:] = ind_arr_loc # TODO: Fix MPI communication with cupy arrays
+            ind_arr[:] = ind_arr_loc  # TODO: Fix MPI communication with cupy arrays
         else:
             ind_arr[:] = ind_arr_loc
 
@@ -2772,10 +2772,12 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             n_quad = space_1d.degree + 1
 
         import numpy as _np
+
         pts_loc, wts_loc = _np.polynomial.legendre.leggauss(n_quad)
 
         if "cupy" in np.__name__:
             import cupy as cp
+
             pts_loc = cp.array(pts_loc)
             wts_loc = cp.array(wts_loc)
 

@@ -2,7 +2,6 @@
 from struphy.utils.arrays import xp as np
 
 
-
 class MarkerArguments:
     """Holds arguments pertaining to :class:`~struphy.pic.base.Particles`
     passed to particle kernels.

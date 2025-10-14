@@ -5,8 +5,8 @@ from mpi4py.MPI import IN_PLACE, SUM
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
-from struphy.utils.pyccel import Pyccelkernel
 from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Pusher:

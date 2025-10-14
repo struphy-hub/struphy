@@ -1,5 +1,7 @@
 from typing import Any, Callable
+
 from struphy.utils.arrays import xp as np
+
 
 class Pyccelkernel:
     def __init__(self, kernel: Callable[..., Any], use_cupy: bool = False) -> None:
