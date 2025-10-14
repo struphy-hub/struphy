@@ -150,6 +150,7 @@ def test_prepare_arg():
         "ShafranovSqrtCylinder",
         "ShafranovDshapedCylinder",
         "GVECunit",
+        "DESCunit",
         "IGAPolarCylinder",
         "IGAPolarTorus",
         "Tokamak",
@@ -920,8 +921,8 @@ def test_transform():
 
 
 if __name__ == "__main__":
-    test_prepare_arg()
-    test_evaluation_mappings("GVECunit")
-    test_pullback()
-    test_pushforward()
-    test_transform()
+    # test_prepare_arg()
+    test_evaluation_mappings("DESCunit")
+    # test_pullback()
+    # test_pushforward()
+    # test_transform()

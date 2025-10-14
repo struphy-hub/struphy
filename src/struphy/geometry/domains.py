@@ -210,9 +210,6 @@ class DESCunit(Spline):
         else:
             assert isinstance(desc_equil, DESCequilibrium)
 
-        # use params setter
-        self.params = copy.deepcopy(locals())
-
         Nel = desc_equil.params["Nel"]
         p = desc_equil.params["p"]
 
