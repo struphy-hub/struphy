@@ -2,7 +2,6 @@ import inspect
 import time
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pytest
 from mpi4py import MPI
 
@@ -12,6 +11,7 @@ from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProj
 from struphy.feec.local_projectors_kernels import fill_matrix_column
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
+from struphy.utils.arrays import xp as np
 
 
 def get_span_and_basis(pts, space):

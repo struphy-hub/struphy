@@ -4,7 +4,6 @@ import warnings
 from abc import ABCMeta, abstractmethod
 
 import h5py
-import numpy as np
 import scipy.special as sp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
@@ -38,6 +37,7 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_meshgrid,
 )
 from struphy.utils import utils
+from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.pyccel import Pyccelkernel
 
