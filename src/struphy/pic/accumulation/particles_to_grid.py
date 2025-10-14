@@ -1,5 +1,7 @@
 "Base classes for particle deposition (accumulation) on the grid."
 
+from typing import Any, Callable
+
 import numpy as np
 from mpi4py import MPI
 from psydac.linalg.block import BlockVector
@@ -13,6 +15,7 @@ from struphy.feec.psydac_derham import Derham
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Accumulator:
@@ -66,6 +69,7 @@ class Accumulator:
 
     filter_params : dict
         Params for the accumulation filter: use_filter(string, either `three_point or `fourier), repeat(int), alpha(float) and modes(list with int).
+
     Note
     ----
         Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accumulation/accum_kernels.py``
@@ -77,7 +81,7 @@ class Accumulator:
         self,
         particles: Particles,
         space_id: str,
-        kernel,
+        kernel: Pyccelkernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         *,
@@ -92,6 +96,7 @@ class Accumulator:
     ):
         self._particles = particles
         self._space_id = space_id
+        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
         self._kernel = kernel
         self._derham = mass_ops.derham
         self._args_domain = args_domain
@@ -204,7 +209,7 @@ class Accumulator:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+        with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
                 self.particles.args_markers,
                 self.derham.args_derham,
@@ -347,7 +352,7 @@ class Accumulator:
         return self._particles
 
     @property
-    def kernel(self):
+    def kernel(self) -> Pyccelkernel:
         """The accumulation kernel."""
         return self._kernel
 
@@ -521,18 +526,20 @@ class AccumulatorVector:
 
     args_domain : DomainArguments
         Mapping infos.
+
     """
 
     def __init__(
         self,
         particles: Particles,
         space_id: str,
-        kernel,
+        kernel: Pyccelkernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
     ):
         self._particles = particles
         self._space_id = space_id
+        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
         self._kernel = kernel
         self._derham = mass_ops.derham
         self._args_domain = args_domain
@@ -609,10 +616,10 @@ class AccumulatorVector:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+        with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
                 self.particles.args_markers,
-                self.derham._args_derham,
+                self.derham.args_derham,
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
@@ -652,7 +659,7 @@ class AccumulatorVector:
         return self._particles
 
     @property
-    def kernel(self):
+    def kernel(self) -> Pyccelkernel:
         """The accumulation kernel."""
         return self._kernel
 

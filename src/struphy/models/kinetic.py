@@ -4,6 +4,7 @@ from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class VlasovAmpereOneSpecies(StruphyModel):
@@ -224,7 +225,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         charge_accum = AccumulatorVector(
             self.pointer["species1"],
             "H1",
-            accum_kernels.charge_density_0form,
+            Pyccelkernel(accum_kernels.charge_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -505,7 +506,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         charge_accum = AccumulatorVector(
             self.pointer["species1"],
             "H1",
-            accum_kernels.charge_density_0form,
+            Pyccelkernel(accum_kernels.charge_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -826,7 +827,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         charge_accum = AccumulatorVector(
             self.pointer["species1"],
             "H1",
-            accum_kernels.charge_density_0form,
+            Pyccelkernel(accum_kernels.charge_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -1143,7 +1144,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         charge_accum = AccumulatorVector(
             self.pointer["ions"],
             "H1",
-            accum_kernels_gc.gc_density_0form,
+            Pyccelkernel(accum_kernels_gc.gc_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )

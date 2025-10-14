@@ -3,6 +3,7 @@ import numpy as np
 from struphy.models.base import StruphyModel
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class LinearMHDVlasovCC(StruphyModel):
@@ -1152,7 +1153,7 @@ class ColdPlasmaVlasov(StruphyModel):
         charge_accum = AccumulatorVector(
             self.pointer["hot_electrons"],
             "H1",
-            accum_kernels.vlasov_maxwell_poisson,
+            Pyccelkernel(accum_kernels.vlasov_maxwell_poisson),
             self.mass_ops,
             self.domain.args_domain,
         )

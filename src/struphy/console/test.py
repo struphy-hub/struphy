@@ -183,4 +183,4 @@ def struphy_test(
         if not verification:
             from struphy.models.tests.test_xxpproc import test_pproc_codes
 
-            test_pproc_codes(group)
+            test_pproc_codes(group=mtype)
