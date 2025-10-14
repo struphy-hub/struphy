@@ -16,7 +16,7 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
     from time import sleep
 
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 

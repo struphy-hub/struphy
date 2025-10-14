@@ -2,7 +2,7 @@ import os
 
 import pytest
 import yaml
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 
 import struphy
 from struphy.main import main

@@ -37,7 +37,7 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
     The times for both legacy and the new way are printed if verbose == True. This comparison only makes sense if the
     ..test_pic_legacy_files/ are also all compiled.
     """
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
 
     rank = MPI.COMM_WORLD.Get_rank()
 
@@ -49,7 +49,7 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
 def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from time import time
 
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.mass import WeightedMassOperators

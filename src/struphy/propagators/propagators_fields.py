@@ -5,7 +5,7 @@ from copy import deepcopy
 
 import scipy as sc
 from matplotlib import pyplot as plt
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 from numpy import zeros
 from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator

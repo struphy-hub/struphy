@@ -5,7 +5,7 @@ from abc import ABCMeta, abstractmethod
 
 import h5py
 import scipy.special as sp
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 from mpi4py.MPI import Intracomm
 from sympy.ntheory import factorint
 

@@ -1,6 +1,6 @@
 import inspect
 
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace

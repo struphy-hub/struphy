@@ -17,8 +17,7 @@ import pickle
 # Import the profiling configuration class and context manager
 from functools import lru_cache
 
-from mpi4py import MPI
-
+from struphy.utils.mpi import mpi as MPI
 from struphy.utils.arrays import xp as np
 
 

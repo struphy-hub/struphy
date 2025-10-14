@@ -1,7 +1,7 @@
 import sys
 
 import yaml
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 
 
 def struphy_params(model, file, yes=False, options=False, check_file=None):

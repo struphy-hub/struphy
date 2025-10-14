@@ -14,7 +14,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     import time
 
     import scipy as sc
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
     from psydac.linalg.basic import IdentityOperator
     from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 

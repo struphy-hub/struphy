@@ -15,7 +15,7 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     TODO
     """
 
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham

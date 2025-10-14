@@ -1,4 +1,4 @@
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.feec.global_projectors import GlobalProjector
 from psydac.fem.basic import FemSpace

@@ -2,7 +2,7 @@
 import importlib.metadata
 
 import psydac.core.bsplines as bsp
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 from mpi4py.MPI import Intracomm
 from psydac.ddm.cart import DomainDecomposition
 from psydac.feec.derivatives import Curl_3D, Divergence_3D, Gradient_3D

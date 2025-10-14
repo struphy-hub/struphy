@@ -4,7 +4,7 @@ def test_pproc_codes(model: str = None, group: str = None):
     import inspect
     import os
 
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
 
     import struphy
     from struphy.models import fluid, hybrid, kinetic, toy

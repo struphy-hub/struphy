@@ -2,7 +2,7 @@ import inspect
 
 import matplotlib.pyplot as plt
 import pytest
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector

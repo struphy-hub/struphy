@@ -14,7 +14,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_transpose_kernels.transpose_1d_kernel
     b) the result from Stencil .transpose with precompiled=True"""
 
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix
 
@@ -131,7 +131,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_transpose_kernels.transpose_3d_kernel
     b) the result from Stencil .transpose with precompiled=True"""
 
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix
 

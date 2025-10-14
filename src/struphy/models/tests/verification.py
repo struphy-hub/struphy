@@ -6,7 +6,7 @@ import h5py
 import yaml
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 from scipy.special import jv, yn
 
 import struphy

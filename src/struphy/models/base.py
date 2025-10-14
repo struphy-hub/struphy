@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from functools import reduce
 
 import yaml
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators

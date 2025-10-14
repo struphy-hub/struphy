@@ -12,7 +12,7 @@ import pytest
     ],
 )
 def test_mass_preconditioner(Nel, p, spl_kind, mapping):
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 

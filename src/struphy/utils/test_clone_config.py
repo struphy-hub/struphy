@@ -1,5 +1,5 @@
 import pytest
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 
 
 @pytest.mark.mpi(min_size=2)

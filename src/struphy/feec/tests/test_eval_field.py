@@ -1,5 +1,5 @@
 import pytest
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 
 from struphy.utils.arrays import xp as np
 

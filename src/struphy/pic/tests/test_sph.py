@@ -1,6 +1,6 @@
 import pytest
 from matplotlib import pyplot as plt
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 
 from struphy.geometry import domains
 from struphy.pic.particles import ParticlesSPH

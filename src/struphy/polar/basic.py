@@ -1,4 +1,4 @@
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 from psydac.linalg.basic import Vector, VectorSpace
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector

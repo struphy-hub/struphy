@@ -36,7 +36,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
@@ -295,7 +295,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
@@ -519,7 +519,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
@@ -801,7 +801,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
@@ -1012,7 +1012,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
 
 if __name__ == "__main__":
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
     size = comm.Get_size()

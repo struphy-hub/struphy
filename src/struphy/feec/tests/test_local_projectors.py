@@ -3,7 +3,7 @@ import time
 
 import matplotlib.pyplot as plt
 import pytest
-from mpi4py import MPI
+from struphy.utils.mpi import mpi as MPI
 
 from struphy.bsplines.bsplines import basis_funs, find_span
 from struphy.bsplines.evaluation_kernels_1d import evaluation_kernel_1d

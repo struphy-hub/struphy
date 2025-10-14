@@ -54,7 +54,7 @@ def main(
     import os
     import time
 
-    from mpi4py import MPI
+    from struphy.utils.mpi import mpi as MPI
     from pyevtk.hl import gridToVTK
 
     from struphy.feec.psydac_derham import SplineFunction
