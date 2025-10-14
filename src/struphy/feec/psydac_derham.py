@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import importlib.metadata
 
-import numpy as np
 import psydac.core.bsplines as bsp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
@@ -31,6 +30,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+from struphy.utils.arrays import xp as np
 
 
 class Derham:

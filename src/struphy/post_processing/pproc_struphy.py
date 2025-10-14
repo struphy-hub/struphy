@@ -42,12 +42,12 @@ def main(
     import shutil
 
     import h5py
-    import numpy as np
     import yaml
 
     import struphy.post_processing.orbits.orbits_tools as orbits_pproc
     import struphy.post_processing.post_processing_tools as pproc
     from struphy.models import fluid, hybrid, kinetic, toy
+    from struphy.utils.arrays import xp as np
 
     print("")
 

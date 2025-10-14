@@ -3,7 +3,6 @@ import operator
 from abc import ABCMeta, abstractmethod
 from functools import reduce
 
-import numpy as np
 import yaml
 from mpi4py import MPI
 from psydac.linalg.stencil import StencilVector
@@ -20,6 +19,7 @@ from struphy.fields_background.projected_equils import (
 from struphy.io.setup import setup_derham, setup_domain_and_equil
 from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
+from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 
@@ -1850,7 +1850,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     domain_decomp = (domain_array, nprocs)
 
                 kinetic_class = getattr(particles, val["space"])
-
+                # print(f"{kinetic_class = }")
                 val["obj"] = kinetic_class(
                     comm_world=self.comm_world,
                     clone_config=self.clone_config,

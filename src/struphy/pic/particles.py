@@ -1,13 +1,12 @@
 import copy
 
-import numpy as np
-
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
+from struphy.utils.arrays import xp as np
 
 
 class Particles6D(Particles):
@@ -39,7 +38,7 @@ class Particles6D(Particles):
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
         self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
-
+        print(kwargs.keys())
         super().__init__(**kwargs)
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian

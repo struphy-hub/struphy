@@ -8,13 +8,13 @@ import pytest
 def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     """Test Nel=1 in various directions."""
 
-    import numpy as np
     from matplotlib import pyplot as plt
     from mpi4py import MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2

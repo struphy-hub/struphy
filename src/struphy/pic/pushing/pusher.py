@@ -1,11 +1,12 @@
 "Accelerated particle pushing."
 
-import numpy as np
 from mpi4py.MPI import IN_PLACE, SUM
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Pusher:
@@ -97,7 +98,7 @@ class Pusher:
     def __init__(
         self,
         particles: Particles,
-        kernel,
+        kernel: Pyccelkernel,
         args_kernel: tuple,
         args_domain: DomainArguments,
         *,
@@ -111,8 +112,9 @@ class Pusher:
         verbose: bool = False,
     ):
         self._particles = particles
+        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
         self._kernel = kernel
-        self._newton = "newton" in kernel.__name__
+        self._newton = "newton" in kernel.name
         self._args_kernel = args_kernel
         self._args_domain = args_domain
 
@@ -278,7 +280,7 @@ class Pusher:
                     )
 
                 # push markers
-                with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+                with ProfileManager.profile_region("kernel: " + self.kernel.name):
                     self.kernel(
                         dt,
                         stage,

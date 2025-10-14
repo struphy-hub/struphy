@@ -1,6 +1,6 @@
 "Analytical callables needed for the simulation of the Two-Fluid Quasi-Neutral Model by Restelli."
 
-import numpy as np
+from struphy.utils.arrays import xp as np
 
 
 class RestelliForcingTerm:
