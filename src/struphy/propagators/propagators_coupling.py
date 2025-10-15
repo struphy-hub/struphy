@@ -487,6 +487,7 @@ class QNAdiabatic(Propagator):
         derham_3D_x: Derham,
         mass_ops_3D_x: WeightedMassOperators,
         b2: BlockVector,
+        n_vec: StencilVector,
         solver=options(default=True)["solver"],
     ):
         super().__init__(phi_mean, lambd, particles)
@@ -494,11 +495,15 @@ class QNAdiabatic(Propagator):
         # Store B-field
         self._b2 = b2
 
+        # Store vector for N
+        self._n_vec = n_vec
+
         # Allocate e-field
         self._e_field = self.derham.Vh["1"].zeros()
 
         # buffer for phi_mean and lambd result
         self._phi_mean = phi_mean.space.zeros()
+        self._phi_temp = phi_mean.space.zeros()
         self._lambd = lambd.space.zeros()
         self._v_correction_vec = lambd.space.zeros()
 
@@ -622,6 +627,22 @@ class QNAdiabatic(Propagator):
         )
         self._accum_vec_pot._derham = derham_3D_x
 
+        # Pusher for v in efield
+        args_kernel_v_in_efield = (
+            self.derham.args_derham,
+            self._e_field[0]._data,
+            self._e_field[1]._data,
+            self._e_field[2]._data,
+            1.0,
+        )
+        self._push_v_in_efield = Pusher(
+            particles,
+            pusher_kernels.push_v_with_efield,
+            args_kernel_v_in_efield,
+            self.domain.args_domain,
+            alpha_in_kernel=1.0,
+        )
+
         # =====
         # Update phi_mean = p_coeffs
         # =====
@@ -663,7 +684,7 @@ class QNAdiabatic(Propagator):
 
     def __call__(self, dt):
         # self._call_kinetic_step(dt)
-        self._update_phi_mean()
+        # self._update_phi_mean()
         self._call_potential_step(dt)
         self._update_lambda()
     
@@ -730,7 +751,6 @@ class QNAdiabatic(Propagator):
 
         # Invert matrix to get potential part of lambda
         self._solver_accum.dot(self._accum_vec_pot.vectors[0], out=self._lambd)
-        self._lambd *= (-1.0)
 
         # Push v
         self._push_v_x(dt)
@@ -739,12 +759,19 @@ class QNAdiabatic(Propagator):
         self.derham.grad.dot(self.feec_vars[0], out=self._e_field)
         self._e_field *= (-1.0)
 
-    def _update_phi_mean(self):
-        # compute new p coeffs
-        self._accum_charge(3)
-        self._solver_M0.dot(self._accum_charge.vectors[0], out=self._phi_mean)
+        # Push v in grad phi
+        self._push_v_in_efield(dt)
 
-        # TODO: subtract N_vec ?
+    def _update_phi_mean(self):
+        """compute new p coeffs"""
+        # Accumulate charge density
+        self._accum_charge(3)
+        
+        # subtract N_vec
+        self._accum_charge.vectors[0].copy(self._phi_temp)
+        self._phi_temp -= self._n_vec
+        self._phi_temp.update_ghost_regions()
+        self._solver_M0.dot(self._accum_charge.vectors[0], out=self._phi_mean)
 
         # copy new variables into self.feec_vars
         self._phi_mean.copy(out=self.feec_vars[0])

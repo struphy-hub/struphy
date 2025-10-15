@@ -4,6 +4,8 @@ from copy import deepcopy
 from psydac.linalg.solvers import inverse
 
 from struphy.feec import preconditioner
+from struphy.feec.projectors import L2Projector
+from struphy.feec.psydac_derham import SplineFunction
 from struphy.feec.mass import WeightedMassOperators
 from struphy.io.setup import setup_derham
 from struphy.kinetic_background.base import KineticBackground
@@ -1260,6 +1262,7 @@ class QuasiNeutralAdiabatic(StruphyModel):
     def species():
         dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
 
+        dct["em_fields"]["phi"] = "H1"
         dct["em_fields"]["phi_mean"] = "H1"
         dct["kinetic"]["species1"] = "Particles6D"
         return dct
@@ -1344,10 +1347,18 @@ class QuasiNeutralAdiabatic(StruphyModel):
         )
         self._pointer["lambd"] = self.em_fields["lambd"]["obj"].vector
 
+        # Create spline function for N
+        projector = L2Projector(
+            "H1",
+            self.mass_ops,
+        )
+        self._n_vec = projector.get_dofs(fun = lambda x,y,z: 1. + 0.*x)
+
         self._kwargs[propagators_coupling.QNAdiabatic] = {
             "derham_3D_x": self.derham_3D_x,
             "mass_ops_3D_x": self.mass_ops_3D_x,
             "b2": self._b_background,
+            "n_vec": self._n_vec,
         }
 
         # Initialize Propagators
@@ -1367,6 +1378,9 @@ class QuasiNeutralAdiabatic(StruphyModel):
     def initialize_from_params(self):
         # initialize fields and particles
         super().initialize_from_params()
+
+        import matplotlib.pyplot as plt
+        x = np.linspace(0, 1, 200)
 
         _phi_mean = self._em_fields["phi_mean"]["obj"].space.zeros()
         _lambd = self._em_fields["lambd"]["obj"].space.zeros()
@@ -1407,16 +1421,26 @@ class QuasiNeutralAdiabatic(StruphyModel):
         )
         _accum_vec_lambda._derham = self.derham_3D_x
 
-        # subtract N_vec
-        self.pointer["species1"]._markers[:, 6] -= 1.0 / self.pointer["species1"].Np
         # compute new p coeffs
         _accum_charge(3)
+
+        # test = SplineFunction("test", "H1", self.derham, _accum_charge.vectors[0])
+        # res = test(x, x, x)
+        # plt.plot(x, res[:, 0, 0])
+        # plt.title("Accumulated spline function")
+        # plt.show()
         _solver_M0.dot(_accum_charge.vectors[0], out=_phi_mean)
-        self.pointer["species1"]._markers[:, 6] += 1.0 / self.pointer["species1"].Np
+        
+        # subtract N_vec
+        _phi_mean -= self._n_vec
 
         # copy new variables into self.feec_vars
         _phi_mean.copy(out=self._em_fields["phi_mean"]["obj"]._vector)
         self._em_fields["phi_mean"]["obj"]._vector.update_ghost_regions()
+        # res = self._em_fields["phi_mean"]["obj"](x, x, x)
+        # plt.plot(x, res[:, 0, 0])
+        # plt.title("Phi mean")
+        # plt.show()
 
         # Accumulate vector for computing lambda
         _accum_vec_lambda(
@@ -1451,6 +1475,10 @@ class QuasiNeutralAdiabatic(StruphyModel):
 
         _lambd.copy(out=self._em_fields["lambd"]["obj"]._vector)
         self._em_fields["lambd"]["obj"]._vector.update_ghost_regions()
+
+        self._em_fields["phi"]["obj"]._vector *= 0.0
+        self._em_fields["phi"]["obj"]._vector._data += self._em_fields["phi_mean"]["obj"]._vector._data
+        self._em_fields["phi"]["obj"]._vector._data += self._em_fields["lambd"]["obj"]._vector._data
 
     def update_scalar_quantities(self):
         # Kinetic energy

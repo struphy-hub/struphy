@@ -361,8 +361,6 @@ def qn_adiabatic_v_vec_pot(
         )
 
         args_derham.bn1[:] = ders[:]
-        args_derham.bn2[:] = 1.0
-        args_derham.bn3[:] = 1.0
 
         # Evaluate flux-surface average electric field
         phi_mean = eval_0form_spline_mpi(
@@ -372,6 +370,10 @@ def qn_adiabatic_v_vec_pot(
             args_derham,
             p_coeffs,
         )
+
+        # Only set basis functions equal to one after computing the value of phi
+        args_derham.bn2[:] = 1.0
+        args_derham.bn3[:] = 1.0
 
         # weights * phi_mean
         filling = markers[ip, 6] * phi_mean
