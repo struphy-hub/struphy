@@ -226,7 +226,7 @@ class Particles(metaclass=ABCMeta):
             assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"Number of boxes {self.boxes_per_dim = } must be divisible by number of processes {self.nprocs = } in each direction."
             )
-            n_boxes = np.prod(self.boxes_per_dim, dtype=int) * self.num_clones
+            n_boxes = np.prod(np.array(self.boxes_per_dim), dtype=int) * self.num_clones
 
         if verbose:
             print(f"{self.mpi_rank = }, {n_boxes = }")
@@ -3983,6 +3983,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
         _tmp[self.mpi_rank] = scalar
 
         if self.mpi_comm is not None:
+            print(f"{self.mpi_comm = }")
             self.mpi_comm.Allgather(
                 _tmp[self.mpi_rank],
                 _tmp,
