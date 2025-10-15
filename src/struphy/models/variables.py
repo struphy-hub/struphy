@@ -225,6 +225,8 @@ class PICVariable(Variable):
             weights_params=self.species.weights_params,
             boundary_params=self.species.boundary_params,
             bufsize=self.species.bufsize,
+            n_cols_diag=self.species.n_cols_diag,
+            n_cols_aux=self.species.n_cols_aux,
             domain=domain,
             equil=equil,
             projected_equil=projected_equil,

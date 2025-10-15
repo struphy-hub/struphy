@@ -43,20 +43,13 @@ class Particles6D(Particles):
             kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
-        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diag")
+        self._n_cols_aux = kwargs.pop("n_cols_aux")
+
+        # equation_params
+        self._equation_params = kwargs.pop("equation_params")
 
         super().__init__(**kwargs)
-
-        # call projected mhd equilibrium in case of CanonicalMaxwellian
-        if isinstance(kwargs["background"], maxwellians.CanonicalMaxwellian):
-            assert isinstance(self.equil, FluidEquilibriumWithB), (
-                "CanonicalMaxwellian needs background with magnetic field."
-            )
-            self._absB0_h = self.projected_equil.absB0
-            self._b2_h = self.projected_equil.b2
-            self._derham = self.projected_equil.derham
-            self._epsilon = self.equation_params["epsilon"]
 
     @property
     def vdim(self):
@@ -77,6 +70,11 @@ class Particles6D(Particles):
     def coords(self):
         """Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`."""
         return "cartesian"
+    
+    @property
+    def equation_params(self):
+        """Parameters appearing in model equation due to Struphy normalization."""
+        return self._equation_params
 
     def svol(self, eta1, eta2, eta3, *v):
         """Sampling density function as volume form.
@@ -156,7 +154,7 @@ class Particles6D(Particles):
 
     def save_constants_of_motion(self):
         """
-        Calculate each markers' guiding center constants of motions
+        Calculate each markers' guiding center constants of motion
         and assign them into diagnostics columns of marker array:
 
         ================= ============== ======= ============ ============= ==============
@@ -188,7 +186,7 @@ class Particles6D(Particles):
             self._derham.args_derham,
             self.domain.args_domain,
             self.first_diagnostics_idx,
-            self._epsilon,
+            self.equation_params.epsilon,
             self._b2_h[0]._data,
             self._b2_h[1]._data,
             self._b2_h[2]._data,
@@ -227,7 +225,7 @@ class Particles6D(Particles):
             self.markers,
             self._derham.args_derham,
             self.first_diagnostics_idx,
-            self._epsilon,
+            self.equation_params.epsilon,
             B0,
             R0,
             self._absB0_h._data,
@@ -296,24 +294,6 @@ class Particles5D(Particles):
     ===== ============== ========== ====== ======= ====== ====== ==========
     value position (eta) v_parallel v_perp  weight   s0     w0   buffer
     ===== ============== ========== ====== ======= ====== ====== ==========
-
-    Parameters
-    ----------
-    name : str
-        Name of particle species.
-
-    Np : int
-        Number of particles.
-
-    bc : list
-        Either 'remove', 'reflect', 'periodic' or 'refill' in each direction.
-
-    loading : str
-        Drawing of markers; either 'pseudo_random', 'sobol_standard',
-        'sobol_antithetic', 'external' or 'restart'.
-
-    **kwargs : dict
-        Parameters for markers, see :class:`~struphy.pic.base.Particles`.
     """
 
     @classmethod
@@ -333,8 +313,11 @@ class Particles5D(Particles):
         #     kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 3)
-        self._n_cols_aux = kwargs.pop("n_cols_aux", 12)
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diag")
+        self._n_cols_aux = kwargs.pop("n_cols_aux")
+
+        # equation_params
+        self._equation_params = kwargs.pop("equation_params")
 
         super().__init__(
             projected_equil=projected_equil,
@@ -344,7 +327,6 @@ class Particles5D(Particles):
         # magnetic background
         if self.equil is not None:
             assert isinstance(self.equil, FluidEquilibriumWithB), "Particles5D needs background with magnetic field."
-        self._magn_bckgr = self.equil
 
         self._absB0_h = self.projected_equil.absB0
         self._unit_b1_h = self.projected_equil.unit_b1
@@ -369,11 +351,6 @@ class Particles5D(Particles):
         return self._n_cols_aux
 
     @property
-    def magn_bckgr(self):
-        """Fluid equilibrium with B."""
-        return self._magn_bckgr
-
-    @property
     def absB0_h(self):
         """Discrete 0-form coefficients of |B_0|."""
         return self._absB0_h
@@ -384,9 +361,9 @@ class Particles5D(Particles):
         return self._unit_b1_h
 
     @property
-    def epsilon(self):
-        """One of equation params, epsilon"""
-        return self._epsilon
+    def equation_params(self):
+        """Parameters appearing in model equation due to Struphy normalization."""
+        return self._equation_params
 
     @property
     def coords(self):
@@ -418,22 +395,17 @@ class Particles5D(Particles):
         """
         # load sampling density svol (normalized to 1 in logical space)
         maxw_params = {
-            "n": 1.0,
-            "u_para": self.loading_params.moments[0],
-            "u_perp": self.loading_params.moments[1],
-            "vth_para": self.loading_params.moments[2],
-            "vth_perp": self.loading_params.moments[3],
+            "n": (1.0, None),
+            "u_para": (self.loading_params.moments[0], None),
+            "u_perp": (self.loading_params.moments[1], None),
+            "vth_para": (self.loading_params.moments[2], None),
+            "vth_perp": (self.loading_params.moments[3], None),
         }
 
         self._svol = maxwellians.GyroMaxwellian2D(
-            n=(1.0, None),
-            u_para=(self.loading_params.moments[0], None),
-            u_perp=(self.loading_params.moments[1], None),
-            vth_para=(self.loading_params.moments[2], None),
-            vth_perp=(self.loading_params.moments[3], None),
-            volume_form=True,
-            equil=self._magn_bckgr,
-        )
+            **maxw_params,
+            equil=self.equil
+            )
 
         if self.spatial == "uniform":
             out = self._svol(eta1, eta2, eta3, *v)
@@ -548,13 +520,11 @@ class Particles5D(Particles):
         r = self.markers[~self.holes, 0] * (1 - a1) + a1
         self.markers[~self.holes, idx_can_momentum] = self.equil.psi_r(r)
 
-        self._epsilon = self.equation_params["epsilon"]
-
         utilities_kernels.eval_canonical_toroidal_moment_5d(
             self.markers,
             self.derham.args_derham,
             self.first_diagnostics_idx,
-            self.epsilon,
+            self.equation_params.epsilon,
             B0,
             R0,
             self.absB0_h._data,
@@ -658,8 +628,8 @@ class Particles3D(Particles):
             kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
-        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diag")
+        self._n_cols_aux = kwargs.pop("n_cols_aux")
 
         super().__init__(**kwargs)
 
@@ -799,8 +769,8 @@ class ParticlesSPH(Particles):
         #         kwargs["sorting_params"]["communicate"] = True
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
-        self._n_cols_aux = kwargs.pop("n_cols_aux", 24)
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diag")
+        self._n_cols_aux = kwargs.pop("n_cols_aux")
 
         clone_config = kwargs.get("clone_config", None)
         assert clone_config is None, "SPH can only be launched with --nclones 1"

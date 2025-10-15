@@ -582,3 +582,233 @@ class Maxwellian(KineticBackground):
     def add_perturbation(self, new):
         assert isinstance(new, bool)
         self._add_perturbation = new
+
+
+class CanonicalMaxwellian(KineticBackground):
+    r"""canonical Maxwellian distribution function.
+    It is defined by three constants of motion in the axissymmetric toroidal system:
+
+    - Shifted canonical toroidal momentum
+    .. math::
+
+        \psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B),
+
+    - Energy
+    .. math::
+
+        \epsilon = \frac{1}{2}m_sv_\parallel² + \mu B,
+
+    - Magnetic moment
+    .. math::
+
+        \mu = \frac{m_s v_\perp²}{2B},
+
+    where :math:`\psi` is the poloidal magnetic flux function, :math:`F=F(\psi)` is the poloidal current function and :math:`\mathcal{H}` is the Heaviside function.
+    With the three constants of motion, a canonical Maxwellian distribution function is defined as
+
+    .. math::
+
+        F(\psi_c, \epsilon, \mu) = \frac{n(\psi_c)}{(2\pi)^{3/2}v_\text{th}³(\psi_c)} \text{exp}\left[ - \frac{\epsilon}{v_\text{th}²(\psi_c)}\right].
+    
+    """
+
+    @abstractmethod
+    def vth(self, psic):
+        """Thermal velocities (0-forms).
+
+        Parameters
+        ----------
+        psic : numpy.arrays
+            Shifted canonical toroidal momentum.
+
+        Returns
+        -------
+        A list[float] (background values) or a list[numpy.array] of the evaluated thermal velocities.
+        """
+        pass
+
+    @abstractmethod
+    def psic_to_eta(self, psci):
+        """Callable function return evaluation points (etas) from canonical toroidal momentum (psic).
+
+        Parameters
+        ----------
+        psic : numpy.arrays
+            Shifted canonical toroidal momentum.
+
+        Returns
+        -------
+        A list[float] (background values) or a list[numpy.array] of the evaluation points (etas).
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def maxw_params(self) -> dict:
+        """Parameters dictionary defining moments of the Maxwellian."""
+
+    def check_maxw_params(self):
+        for k, v in self.maxw_params.items():
+            assert isinstance(k, str)
+            assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
+            assert len(v) == 2
+
+            assert isinstance(v[0], (float, int, Callable))
+            assert isinstance(v[1], Perturbation) or v[1] is None
+
+    @classmethod
+    def gaussian(self, e, vth=1.0):
+        """3-dim. normal distribution, to which array-valued thermal velocities can be passed.
+
+        Parameters
+        ----------
+        v : float | array-like
+            Velocity coordinate(s).
+
+        vth : float | array-like
+            Thermal velocity evaluated at position array.
+
+        Returns
+        -------
+        An array of size(e).
+        """
+
+        if isinstance(vth, np.ndarray):
+            assert e.shape == vth.shape, f"{e.shape = } but {vth.shape = }"
+
+        out = 2.0 * np.sqrt(e / np.pi) / vth**3 * np.exp(-e / vth**2)
+
+        return out
+
+    def __call__(self, *args):
+        """Evaluates the canonical Maxwellian distribution function.
+
+        There are two use-cases for this function in the code:
+
+        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
+        2. Evaluating the function on a meshgrid (constants of motion).
+
+        Hence all arguments must always have
+
+        1. the same shape
+        2. either ndim = 1 or ndim = 3 (energy, mu, canonical toroidal momentum).
+
+        Parameters
+        ----------
+        *args : array_like
+            Constants of motion arguments in the order eta1, eta2, eta3, v1, ..., vn.
+
+        Returns
+        -------
+        f : np.ndarray
+            The evaluated Maxwellian.
+        """
+
+        # Check that all args have the same shape
+        shape0 = np.shape(args[0])
+        for i, arg in enumerate(args):
+            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
+            assert np.ndim(arg) == 1 or np.ndim(arg) == 3, (
+                f"{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation."
+            )  # flat or meshgrid evaluation
+
+        # Get result evaluated at eta's
+        psic = args[2]
+        res = self.n(psic)
+        vths = self.vth(psic)
+
+        # take care of correct broadcasting, assuming args come from constants of motion meshgrid
+        if np.ndim(args[0]) == 3:
+            # move eta axes to the back
+            arg_t = np.moveaxis(args[0], 0, -1)
+            arg_t = np.moveaxis(arg_t, 0, -1)
+            arg_t = np.moveaxis(arg_t, 0, -1)
+
+            # broadcast
+            res_broad = res + 0.0 * arg_t
+
+            # move eta axes to the front
+            res = np.moveaxis(res_broad, -1, 0)
+            res = np.moveaxis(res, -1, 0)
+            res = np.moveaxis(res, -1, 0)
+
+        # Multiply result with gaussian in energy
+        # correct broadcasting
+        if np.ndim(args[0]) == 3:
+            vth_broad = vths[i] + 0.0 * arg_t
+            vth = np.moveaxis(vth_broad, -1, 0)
+            vth = np.moveaxis(vth, -1, 0)
+            vth = np.moveaxis(vth, -1, 0)
+        else:
+            vth = vths[i]
+
+        e = args[0]
+        res *= self.gaussian(e, vth=vth)
+
+        return res
+
+    def _evaluate_moment(self, psic, *, name: str = "n", add_perturbation: bool = None):
+        """Scalar moment evaluation as background + perturbation.
+
+        Parameters
+        ----------
+        psic : numpy.arrays
+            Shifted canonical toroidal momentum.
+
+        name : str
+            Which moment to evaluate (see varaible "dct" below).
+
+        add_perturbation : bool | None
+            Whether to add the perturbation defined in maxw_params. If None, is taken from self.add_perturbation.
+
+        Returns
+        -------
+        A float (background value) or a numpy.array of the evaluated scalar moment.
+        """
+
+        # collect arguments
+        assert isinstance(psic, np.ndarray)
+
+        params = self.maxw_params[name]
+        assert isinstance(params, tuple)
+        assert len(params) == 2
+
+        # assuming that input comes from meshgrid.
+        if psic.ndim == 3:
+            psic = psic[0, 0, :]
+
+        # initialize output
+        out = 0.0 * psic
+
+        # evaluate background
+        background = params[0]
+        if isinstance(background, (float, int)):
+            out += background
+        else:
+            assert callable(background)
+            # if eta1.ndim == 1:
+            #     out += background(eta1, eta2, eta3)
+            # else:
+            out += background(self.psic_to_eta(psic))
+
+        # add perturbation
+        if add_perturbation is None:
+            add_perturbation = self.add_perturbation
+
+        perturbation = params[1]
+        if perturbation is not None and add_perturbation:
+            assert isinstance(perturbation, Perturbation)
+            out += perturbation(self.psic_to_eta(psic))
+
+        return out
+
+    @property
+    def add_perturbation(self) -> bool:
+        if not hasattr(self, "_add_perturbation"):
+            self._add_perturbation = True
+        return self._add_perturbation
+
+    @add_perturbation.setter
+    def add_perturbation(self, new):
+        assert isinstance(new, bool)
+        self._add_perturbation = new

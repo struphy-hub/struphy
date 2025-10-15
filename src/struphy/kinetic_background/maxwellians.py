@@ -7,7 +7,7 @@ import numpy as np
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
 from struphy.initial.base import Perturbation
-from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background.base import Maxwellian, CanonicalMaxwellian
 
 
 class Maxwellian3D(Maxwellian):
@@ -301,38 +301,16 @@ class GyroMaxwellian2D(Maxwellian):
         return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["vth"])]
 
 
-class CanonicalMaxwellian:
-    r"""canonical Maxwellian distribution function.
-    It is defined by three constants of motion in the axissymmetric toroidal system:
-
-    - Shifted canonical toroidal momentum
-
-    .. math::
-
-        \psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B),
-
-    - Energy
-
-    .. math::
-
-        \epsilon = \frac{1}{2}m_sv_\parallel² + \mu B,
-
-    - Magnetic moment
-
-    .. math::
-
-        \mu = \frac{m_s v_\perp²}{2B},
-
-    where :math:`\psi` is the poloidal magnetic flux function, :math:`F=F(\psi)` is the poloidal current function and :math:`\mathcal{H}` is the Heaviside function.
-
-    With the three constants of motion, a canonical Maxwellian distribution function is defined as
-
-    .. math::
-
-        F(\psi_c, \epsilon, \mu) = \frac{n(\psi_c)}{(2\pi)^{3/2}v_\text{th}³(\psi_c)} \text{exp}\left[ - \frac{\epsilon}{v_\text{th}²(\psi_c)}\right].
+class CanonicalMaxwellian2D(CanonicalMaxwellian):
+    r"""Guiding-center :class:`~struphy.kinetic_background.base.CanonicalMaxwellian` depending on
+    three constants of motion :math:`\epsilon, \mu, \psi_c`, in a axissymmetric toroidal system:
 
     Parameters
     ----------
+    n, vth : tuple
+        Moments of the canonical Maxwellian as tuples. The first entry defines the background
+        (float for constant background or callable), the second entry defines a Perturbation (can be None).
+
     maxw_params : dict
         Parameters for the kinetic background.
 
@@ -364,6 +342,7 @@ class CanonicalMaxwellian:
         # volume form represenation
         self._volume_form = volume_form
         self._equil = equil
+        print(equil, "!!!!!!!!!!")
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
@@ -377,6 +356,16 @@ class CanonicalMaxwellian:
         return "constants_of_motion"
 
     @property
+    def vdim(self):
+        """Dimension of the velocity space."""
+        return 2
+
+    @property
+    def is_polar(self):
+        """List of booleans of length vdim. True for a velocity coordinate that is a radial polar coordinate (v_perp)."""
+        return [False, True]
+
+    @property
     def maxw_params(self):
         """Parameters dictionary defining constant moments of the Maxwellian."""
         return self._maxw_params
@@ -388,125 +377,28 @@ class CanonicalMaxwellian:
         """
         return self._equil
 
-    def check_maxw_params(self):
-        for k, v in self.maxw_params.items():
-            assert isinstance(k, str)
-            assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
-            assert len(v) == 2
-
-            assert isinstance(v[0], (float, int, Callable))
-            assert isinstance(v[1], Perturbation) or v[1] is None
-
     def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
         r"""TODO"""
 
         assert eta1.ndim == 1
         assert eta2.ndim == 1
         assert eta3.ndim == 1
+        assert energy.ndim == 1
 
-        if self.maxw_params["type"] == "Particles6D":
-            return np.sqrt(2.0 * energy) * 4.0 * np.pi
+        # call equilibrium
+        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+        absB0 = self.equil.absB0(etas)
 
-        else:
-            # call equilibrium
-            etas = (np.vstack((eta1, eta2, eta3)).T).copy()
-            absB0 = self.equil.absB0(etas)
-
-            return np.sqrt(energy) * 2.0 * np.sqrt(2.0) / absB0
-
-    def gaussian(self, e, vth=1.0):
-        """3-dim. normal distribution, to which array-valued thermal velocities can be passed.
-
-        Parameters
-        ----------
-        e : float | array-like
-            Energy.
-
-        vth : float | array-like
-            Thermal velocity evaluated at psic.
-
-        Returns
-        -------
-        An array of size(e).
-        """
-
-        if isinstance(vth, np.ndarray):
-            assert e.shape == vth.shape, f"{e.shape = } but {vth.shape = }"
-
-        return 2.0 * np.sqrt(e / np.pi) / vth**3 * np.exp(-e / vth**2)
-
-    def __call__(self, *args):
-        """Evaluates the canonical Maxwellian distribution function.
-
-        There are two use-cases for this function in the code:
-
-        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
-        2. Evaluating the function on a meshgrid (in phase space).
-
-        Hence all arguments must always have
-
-        1. the same shape
-        2. either ndim = 1 or ndim = 3.
-
-        Parameters
-        ----------
-        *args : array_like
-            Position-velocity arguments in the order energy, magnetic moment, canonical toroidal momentum.
-
-        Returns
-        -------
-        f : np.ndarray
-            The evaluated Maxwellian.
-        """
-
-        # Check that all args have the same shape
-        shape0 = np.shape(args[0])
-        for i, arg in enumerate(args):
-            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
-            assert np.ndim(arg) == 1 or np.ndim(arg) == 3, (
-                f"{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation."
-            )  # flat or meshgrid evaluation
-
-        # Get result evaluated with each particles' psic
-        res = self.n(args[2])
-        vths = self.vth(args[2])
-
-        # take care of correct broadcasting, assuming args come from phase space meshgrid
-        if np.ndim(args[0]) == 3:
-            # move eta axes to the back
-            arg_t = np.moveaxis(args[0], 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
-
-            # broadcast
-            res_broad = res + 0.0 * arg_t
-
-            # move eta axes to the front
-            res = np.moveaxis(res_broad, -1, 0)
-            res = np.moveaxis(res, -1, 0)
-            res = np.moveaxis(res, -1, 0)
-
-        # Multiply result with gaussian in energy
-        if np.ndim(args[0]) == 3:
-            vth_broad = vths + 0.0 * arg_t
-            vth = np.moveaxis(vth_broad, -1, 0)
-            vth = np.moveaxis(vth, -1, 0)
-            vth = np.moveaxis(vth, -1, 0)
-        else:
-            vth = vths
-
-        res *= self.gaussian(args[0], vth=vth)
-
-        return res
+        return np.sqrt(energy) * 2.0 * np.sqrt(2.0) / absB0
 
     @property
-    def volume_form(self):
+    def volume_form(self) -> bool:
         """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|)."""
         return self._volume_form
 
     @property
     def moment_factors(self):
-        """Collection of factors multiplied onto the defined moments n, u, and vth."""
+        """Collection of factors multiplied onto the defined moments n and vth."""
         return self._moment_factors
 
     @moment_factors.setter
@@ -514,7 +406,7 @@ class CanonicalMaxwellian:
         for kw, arg in kwargs:
             self._moment_factors[kw] = arg
 
-    def rc(self, psic):
+    def psic_to_eta(self, psic):
         r""" Square root of radially normalized canonical toroidal momentum.
 
         .. math::
@@ -539,7 +431,6 @@ class CanonicalMaxwellian:
         A numpy.array of the evaluated :math:`r_c`.
 
         """
-
         # calculate rc²
         rc_squared = (psic - self.equil.psi_range[0]) / (self.equil.psi_range[1] - self.equil.psi_range[0])
 
@@ -555,74 +446,19 @@ class CanonicalMaxwellian:
 
         return rc
 
-    def n(self, psic, add_perturbation: bool = None):
-        """Density as background + perturbation.
+    def n(self, psic):
+        """Zero-th moment (density)."""
+        out = self._evaluate_moment(psic, name="n")
+        return out * self.moment_factors["n"]
 
-        Parameters
-        ----------
-        psic : numpy.array
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A float (background value) or a numpy.array of the evaluated density.
-        """
-        # collect arguments
-        assert isinstance(psic, np.ndarray)
-
-        # assuming that input comes from meshgrid.
-        if psic.ndim == 3:
-            psic = psic[0, 0, :]
-
-        # set background density
-        if isinstance(self.maxw_params["n"][0], (float, int)):
-            res = self.maxw_params["n"][0] + 0.0 * psic
-        else:
-            nfun = self.maxw_params["n"][1]
-            # for typ, params in mom_funcs.items():
-            #     nfun = getattr(moment_functions, typ)(**params)
-            res = nfun(eta1=self.rc(psic))
-
-        # add perturbation
-        if add_perturbation is None:
-            add_perturbation = self.add_perturbation
-
-        perturbation = self.maxw_params["n"][1]
-        if perturbation is not None and add_perturbation:
-            assert isinstance(perturbation, Perturbation)
-            res = perturbation(eta1=self.rc(psic))
-            # if eta1.ndim == 1:
-            #     out += perturbation(eta1, eta2, eta3)
-            # else:
-            #     out += perturbation(*etas)
-
-        return res * self.moment_factors["n"]
+    def u(self, psic):
+        """Mean velocities."""
+        pass
 
     def vth(self, psic):
-        """Thermal velocities as background + perturbation.
-
-        Parameters
-        ----------
-        psic : numpy.arrays
-            Evaluation points. All arrays must be of same shape (can be 1d for flat evaluation).
-
-        Returns
-        -------
-        A list[float] (background value) or a list[numpy.array] of the evaluated thermal velocities.
-        """
-
-        # collect arguments
-        assert isinstance(psic, np.ndarray)
-
-        # assuming that input comes from meshgrid.
-        if psic.ndim == 3:
-            psic = psic[0, 0, :]
-
-        res = self.maxw_params["vth"][0] + 0.0 * psic
-
-        # TODO: add perturbation
-
-        return res * self.moment_factors["vth"]
+        """Thermal velocities."""
+        out = self._evaluate_moment(psic, name="vth")
+        return out * self.moment_factors["vth"]
 
     @property
     def add_perturbation(self) -> bool:

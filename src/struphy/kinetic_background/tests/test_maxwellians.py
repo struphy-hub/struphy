@@ -1436,7 +1436,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
 
     epsilon = 1.0
 
-    # evaluate three constants of motions at AdhocTorus equilibrium
+    # evaluate three constants of motion at AdhocTorus equilibrium
     AdhocTorus_params = {
         "a": 1.0,
         "R0": 10.0,

@@ -129,9 +129,6 @@ class Particles(metaclass=ABCMeta):
     perturbations : Perturbation | list
         Kinetic perturbation parameters.
 
-    equation_params : dict
-        Normalization parameters (epsilon, alpha, ...)
-
     verbose : bool
         Show some more Particle info.
     """
@@ -157,7 +154,6 @@ class Particles(metaclass=ABCMeta):
         initial_condition: KineticBackground = None,
         perturbations: dict[str, Perturbation] = None,
         n_as_volume_form: bool = False,
-        equation_params: dict = None,
         verbose: bool = False,
     ):
         self._clone_config = clone_config
@@ -188,7 +184,6 @@ class Particles(metaclass=ABCMeta):
         self._domain = domain
         self._equil = equil
         self._projected_equil = projected_equil
-        self._equation_params = equation_params
 
         # check for mpi communicator (i.e. sub_comm of clone)
         if self.mpi_comm is None:
@@ -556,11 +551,6 @@ class Particles(metaclass=ABCMeta):
     def verbose(self):
         """Show some more particles info."""
         return self._verbose
-
-    @property
-    def equation_params(self):
-        """Parameters appearing in model equation due to Struphy normalization."""
-        return self._equation_params
 
     @property
     def initial_condition(self) -> KineticBackground:
@@ -1012,31 +1002,22 @@ class Particles(metaclass=ABCMeta):
 
     def _set_background_coordinates(self):
         if self.type != "sph" and self.f0.coords == "constants_of_motion":
-            # Particles6D
             if self.vdim == 3:
                 assert self.n_cols_diagnostics >= 7, (
                     f"In case of the distribution '{self.f0}' with Particles6D, minimum number of n_cols_diagnostics is 7!"
                 )
-
                 self._f_coords_index = self.index["com"]["6D"]
                 self._f_jacobian_coords_index = self.index["pos+energy"]["6D"]
-
-            # Particles5D
             elif self.vdim == 2:
                 assert self.n_cols_diagnostics >= 3, (
                     f"In case of the distribution '{self.f0}' with Particles5D, minimum number of n_cols_diagnostics is 3!"
                 )
-
                 self._f_coords_index = self.index["com"]["5D"]
                 self._f_jacobian_coords_index = self.index["pos+energy"]["5D"]
-
-        if self.type == "sph":
-            self._f_coords_index = self.index["coords"]
-            self._f_jacobian_coords_index = self.index["coords"]
         else:
-            if self.f0.coords == "constants_of_motion":
-                self._f_coords_index = self.index["com"]
-                self._f_jacobian_coords_index = self.index["pos+energy"]
+            if self.type == "sph":
+                self._f_coords_index = self.index["coords"]
+                self._f_jacobian_coords_index = self.index["coords"]
 
             else:
                 self._f_coords_index = self.index["coords"]
@@ -1804,6 +1785,9 @@ class Particles(metaclass=ABCMeta):
 
             if self.type != "sph":
                 self._set_initial_condition()
+
+            if self.f_init.coords == "constants_of_motion":
+                self.save_constants_of_motion()
 
             # evaluate initial distribution function
             if self.type == "sph":

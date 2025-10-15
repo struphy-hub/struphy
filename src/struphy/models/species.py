@@ -157,6 +157,8 @@ class ParticleSpecies(Species):
         weights_params: WeightsParameters = None,
         boundary_params: BoundaryParameters = None,
         bufsize: float = 1.0,
+        n_cols_diag: int = 0.,
+        n_cols_aux: int = 5.,
     ):
         """Set marker parameters for loading, weight calculation, kernel density reconstruction
         and boundary conditions.
@@ -186,6 +188,8 @@ class ParticleSpecies(Species):
         self.weights_params = weights_params
         self.boundary_params = boundary_params
         self.bufsize = bufsize
+        self.n_cols_diag = n_cols_diag
+        self.n_cols_aux = n_cols_aux
 
     def set_sorting_boxes(
         self,
