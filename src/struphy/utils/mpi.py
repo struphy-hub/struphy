@@ -1,7 +1,7 @@
 
 from dataclasses import dataclass
 from time import time
-
+from typing import TYPE_CHECKING
 
 class MockComm:
     
@@ -41,8 +41,16 @@ class MPIwrapper:
 
 # TODO: add environment variable for mpi use
 mpi_wrapper = MPIwrapper()
-mpi = mpi_wrapper.MPI       
+    
 
     
     
-    
+from typing import TYPE_CHECKING
+
+# TYPE_CHECKING is True when type checking (e.g., mypy), but False at runtime.
+# This allows us to use autocompletion for xp (i.e., numpy/cupy) as if numpy was imported.
+if TYPE_CHECKING:
+    from mpi4py import MPI
+    mpi = MPI
+else:
+    mpi = mpi_wrapper.MPI
