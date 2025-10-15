@@ -32,25 +32,6 @@ class MockComm:
         return 1
 
 
-# class MockComm:
-    
-#     @classmethod
-#     def Get_rank():
-#         return 0
-    
-#     @classmethod
-#     def Get_size():
-#         return 1
-
-
-# @dataclass
-# class MockMPI:
-#     COMM_WORLD = MockComm
-    
-#     def Wtime(self):
-#         return time()
-
-
 class MPIwrapper:
     def __init__(self, use_mpi: bool = False):
         self.use_mpi = use_mpi
@@ -76,13 +57,21 @@ class MockMPI:
     def COMM_WORLD(self):
         return MockComm()
 
-# TODO: add environment variable for mpi use
-mpi_wrapper = MPIwrapper()
-    
+try:
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    mpi_enabled = True
+except ImportError:
+    # mpi4py not installed
+    mpi_enabled = False
+except Exception:
+    # mpi4py installed but not running under mpirun
+    mpi_enabled = False
 
-    
-    
-from typing import TYPE_CHECKING
+# TODO: add environment variable for mpi use
+mpi_wrapper = MPIwrapper(use_mpi=mpi_enabled)
 
 # TYPE_CHECKING is True when type checking (e.g., mypy), but False at runtime.
 if TYPE_CHECKING:
