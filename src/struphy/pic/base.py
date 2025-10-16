@@ -40,7 +40,7 @@ from struphy.utils import utils
 from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.pyccel import Pyccelkernel
-
+from struphy.utils.mpi import MockComm
 
 class Particles(metaclass=ABCMeta):
     r"""
@@ -3982,7 +3982,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
         _tmp[self.mpi_rank] = scalar
 
-        if self.mpi_comm is not None:
+        if not isinstance(self.mpi_comm, MockComm):
             self.mpi_comm.Allgather(
                 _tmp[self.mpi_rank],
                 _tmp,

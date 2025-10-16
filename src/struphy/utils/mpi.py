@@ -23,7 +23,6 @@ class MockComm:
         # Return a function that does nothing and returns None
         def dummy(*args, **kwargs):
             return None
-
         return dummy
 
     # Override some functions
@@ -43,7 +42,7 @@ class MPIwrapper:
         if use_mpi:
             from mpi4py import MPI
 
-            self._MPI = MPI.COMM_WORLD
+            self._MPI = MPI
         else:
             self._MPI = MockMPI()
 
@@ -96,3 +95,5 @@ if TYPE_CHECKING:
     mpi = MPI
 else:
     mpi = mpi_wrapper.MPI
+
+print(f"{mpi = }")

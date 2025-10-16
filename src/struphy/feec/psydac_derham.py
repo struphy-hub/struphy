@@ -32,6 +32,7 @@ from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearO
 from struphy.utils.arrays import xp as np
 from struphy.utils.mpi import MockComm
 from struphy.utils.mpi import mpi as MPI
+from struphy.utils.mpi import MockComm
 
 
 class Derham:
@@ -1127,7 +1128,7 @@ class Derham:
             dom_arr_loc[3 * n + 2] = el_end - el_sta + 1
 
         # distribute
-        if self.comm is not None:
+        if not isinstance(self.comm, MockComm):
             self.comm.Allgather(dom_arr_loc, dom_arr)
         else:
             dom_arr[:] = dom_arr_loc
@@ -1152,7 +1153,7 @@ class Derham:
         """
 
         # MPI info
-        if self.comm is not None:
+        if not isinstance(self.comm, MockComm):
             nproc = self.comm.Get_size()
         else:
             nproc = 1
@@ -1173,7 +1174,7 @@ class Derham:
             ind_arr_loc[2 * n + 1] = end
 
         # distribute
-        if self.comm is not None:
+        if not isinstance(self.comm, MockComm):
             self.comm.Allgather(ind_arr_loc, ind_arr)
         else:
             ind_arr[:] = ind_arr_loc
