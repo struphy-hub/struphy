@@ -397,6 +397,7 @@ def qn_adiabatic_lambda(
     b2_2: "float[:,:,:]",
     b2_3: "float[:,:,:]",
     p_coeffs: "float[:,:,:]",
+    args_derham_3D_full: "DerhamArguments",
 ):
     """ TODO """
     ders = zeros((3, args_derham.pn[0] + 1), dtype=float)
@@ -422,6 +423,41 @@ def qn_adiabatic_lambda(
         eta3 = markers[ip, 2]
 
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1_full, span2_full, span3_full = get_spans(eta1, eta2, eta3, args_derham_3D_full)
+
+        bsplines_kernels.basis_funs_all_ders(
+            args_derham_3D_full.tn1,
+            args_derham_3D_full.pn[0],
+            eta1,
+            span1_full,
+            left,
+            right,
+            2,
+            ders,
+        )
+
+        # Evaluate magnetic field
+        eval_2form_spline_mpi(
+            span1_full,
+            span2_full,
+            span3_full,
+            args_derham_3D_full,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_vec,
+        )
+
+        args_derham_3D_full.bn1[:] = ders[1, :]
+
+        # Evaluate flux-surface average electric potential
+        phi_mean = eval_0form_spline_mpi(
+            span1_full,
+            span2_full,
+            span3_full,
+            args_derham_3D_full,
+            p_coeffs,
+        )
 
         bsplines_kernels.basis_funs_all_ders(
             args_derham.tn1,
@@ -434,32 +470,11 @@ def qn_adiabatic_lambda(
             ders,
         )
 
-        # Evaluate magnetic field
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            b2_1,
-            b2_2,
-            b2_3,
-            b_vec,
-        )
-
         args_derham.bn1[:] = ders[1, :]
         args_derham.bn2[:] = 1.0
         args_derham.bn3[:] = 1.0
 
-        # Evaluate flux-surface average electric field
-        phi_mean = eval_0form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            p_coeffs,
-        )
-
-        # x-component of V x B
+        # x-component of V x B minus phi_mean
         filling = markers[ip, 4] * b_vec[2] - markers[ip, 5] * b_vec[1]
         filling -= phi_mean
         filling *= markers[ip, 6]

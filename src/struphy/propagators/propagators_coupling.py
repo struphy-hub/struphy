@@ -502,10 +502,10 @@ class QNAdiabatic(Propagator):
         self._e_field = self.derham.Vh["1"].zeros()
 
         # buffer for phi_mean and lambd result
-        self._phi_mean = phi_mean.space.zeros()
-        self._phi_temp = phi_mean.space.zeros()
-        self._lambd = lambd.space.zeros()
-        self._v_correction_vec = lambd.space.zeros()
+        self._phi_mean = phi_mean.copy()
+        self._phi_temp = phi_mean.copy()
+        self._lambd = lambd.copy()
+        self._v_correction_vec = lambd.copy()
 
         # store old markers
         self._old_markers = np.empty((particles.markers.shape[0], 6), dtype=float)
@@ -546,7 +546,6 @@ class QNAdiabatic(Propagator):
             mass_ops_3D_x,
             self.domain.args_domain,
         )
-        self._accum_vec_kin._derham = derham_3D_x
 
         # Accumulate vector for v correction
         self._accum_vec_correc = AccumulatorVector(
@@ -556,7 +555,6 @@ class QNAdiabatic(Propagator):
             mass_ops_3D_x,
             self.domain.args_domain,
         )
-        self._accum_vec_correc._derham = derham_3D_x
 
         # Make push in eta
         butcher = ButcherTableau("forward_euler")
@@ -625,7 +623,6 @@ class QNAdiabatic(Propagator):
             mass_ops_3D_x,
             self.domain.args_domain,
         )
-        self._accum_vec_pot._derham = derham_3D_x
 
         # Pusher for v in efield
         args_kernel_v_in_efield = (
@@ -680,12 +677,11 @@ class QNAdiabatic(Propagator):
             mass_ops_3D_x,
             self.domain.args_domain,
         )
-        self._accum_vec_lambda._derham = derham_3D_x
 
     def __call__(self, dt):
         # self._call_kinetic_step(dt)
-        # self._update_phi_mean()
-        self._call_potential_step(dt)
+        self._update_phi_mean()
+        # self._call_potential_step(dt)
         self._update_lambda()
     
     def _call_kinetic_step(self, dt):
@@ -777,6 +773,16 @@ class QNAdiabatic(Propagator):
         self._phi_mean.copy(out=self.feec_vars[0])
         self.feec_vars[0].update_ghost_regions()
 
+        # from struphy.feec.psydac_derham import SplineFunction
+        # import matplotlib.pyplot as plt
+        # x = np.linspace(0, 1, 200)
+        # test = SplineFunction("test", "H1", self.derham, self._phi_mean)
+        # res = test(x, x, x)
+        # plt.plot(x, res[:, 0, 0])
+        # plt.title("Accumulated spline function in Propagator")
+        # plt.show()
+
+
     def _update_lambda(self):
         """ Update flux surface averaged electric field and lambda """
 
@@ -785,14 +791,33 @@ class QNAdiabatic(Propagator):
             self._b2.blocks[0]._data,
             self._b2.blocks[1]._data,
             self._b2.blocks[2]._data,
-            self.feec_vars[0]._data
+            self.feec_vars[0]._data,
+            self.derham.args_derham,
         )
+        # from struphy.feec.psydac_derham import SplineFunction
+        # import matplotlib.pyplot as plt
+        # x = np.linspace(0, 1, 200)
+        # test = SplineFunction("test", "H1", self._accum_mat._derham, self._accum_vec_lambda.vectors[0])
+        # res = test(x, x, x)
+        # plt.plot(x, res[:, 0, 0])
+        # plt.title("Accum Lambda spline function in Propagator")
+        # plt.show()
+
+        # Accumulate A
+        self._accum_mat()
 
         # Invert matrix to get lambda
         self._solver_accum.dot(self._accum_vec_lambda.vectors[0], out=self._lambd)
 
+        # test = SplineFunction("test", "H1", self._accum_mat._derham, self._lambd)
+        # res = test(x, x, x)
+        # plt.plot(x, res[:, 0, 0])
+        # plt.title("Lambda spline function in Propagator")
+        # plt.show()
+
         self._lambd.copy(out=self.feec_vars[1])
         self.feec_vars[1].update_ghost_regions()
+        exit()
 
 
 class PressureCoupling6D(Propagator):

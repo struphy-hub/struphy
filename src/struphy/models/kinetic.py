@@ -1379,9 +1379,6 @@ class QuasiNeutralAdiabatic(StruphyModel):
         # initialize fields and particles
         super().initialize_from_params()
 
-        import matplotlib.pyplot as plt
-        x = np.linspace(0, 1, 200)
-
         _phi_mean = self._em_fields["phi_mean"]["obj"].space.zeros()
         _lambd = self._em_fields["lambd"]["obj"].space.zeros()
 
@@ -1419,24 +1416,24 @@ class QuasiNeutralAdiabatic(StruphyModel):
             self.mass_ops_3D_x,
             self.domain.args_domain,
         )
-        _accum_vec_lambda._derham = self.derham_3D_x
 
         # compute new p coeffs
         _accum_charge(3)
 
-        # test = SplineFunction("test", "H1", self.derham, _accum_charge.vectors[0])
-        # res = test(x, x, x)
-        # plt.plot(x, res[:, 0, 0])
-        # plt.title("Accumulated spline function")
-        # plt.show()
-        _solver_M0.dot(_accum_charge.vectors[0], out=_phi_mean)
-        
         # subtract N_vec
-        _phi_mean -= self._n_vec
+        _phi_temp = _accum_charge.vectors[0].copy()
+        _phi_temp -= self._n_vec
+
+        # Invert M0
+        _solver_M0.dot(_phi_temp, out=_phi_mean)
 
         # copy new variables into self.feec_vars
         _phi_mean.copy(out=self._em_fields["phi_mean"]["obj"]._vector)
         self._em_fields["phi_mean"]["obj"]._vector.update_ghost_regions()
+
+        # # Sanity check to plot phi_mean
+        # import matplotlib.pyplot as plt
+        # x = np.linspace(0, 1, 200)
         # res = self._em_fields["phi_mean"]["obj"](x, x, x)
         # plt.plot(x, res[:, 0, 0])
         # plt.title("Phi mean")
@@ -1447,8 +1444,15 @@ class QuasiNeutralAdiabatic(StruphyModel):
             self._b_background.blocks[0]._data,
             self._b_background.blocks[1]._data,
             self._b_background.blocks[2]._data,
-            self._em_fields["phi_mean"]["obj"]._vector._data
+            self._em_fields["phi_mean"]["obj"]._vector._data,
+            self.derham.args_derham,
         )
+
+        # test = SplineFunction("test", "H1", self.derham_3D_x, _accum_vec_lambda.vectors[0])
+        # res = test(x, x, x)
+        # plt.plot(x, res[:, 0, 0])
+        # plt.title("Accumulated spline function for Lambda")
+        # plt.show()
 
         # Accumulate matrix A
         _accum_mat = Accumulator(
@@ -1459,8 +1463,6 @@ class QuasiNeutralAdiabatic(StruphyModel):
             self.domain.args_domain,
             add_vector=False,
         )
-        _accum_mat._derham = self.derham_3D_x
-
         _accum_mat()
 
         # Invert accumulated matrix
@@ -1472,6 +1474,11 @@ class QuasiNeutralAdiabatic(StruphyModel):
         )
         # Invert matrix to get lambda
         _solver_accum.dot(_accum_vec_lambda.vectors[0], out=_lambd)
+        # test = SplineFunction("test", "H1", self.derham_3D_x, _lambd)
+        # res = test(x, x, x)
+        # plt.plot(x, res[:, 0, 0])
+        # plt.title("Lambda")
+        # plt.show()
 
         _lambd.copy(out=self._em_fields["lambd"]["obj"]._vector)
         self._em_fields["lambd"]["obj"]._vector.update_ghost_regions()
@@ -1479,6 +1486,11 @@ class QuasiNeutralAdiabatic(StruphyModel):
         self._em_fields["phi"]["obj"]._vector *= 0.0
         self._em_fields["phi"]["obj"]._vector._data += self._em_fields["phi_mean"]["obj"]._vector._data
         self._em_fields["phi"]["obj"]._vector._data += self._em_fields["lambd"]["obj"]._vector._data
+
+        # res = self._em_fields["phi"]["obj"](x, x, x)
+        # plt.plot(x, res[:, 0, 0])
+        # plt.title("Phi")
+        # plt.show()
 
     def update_scalar_quantities(self):
         # Kinetic energy
@@ -1492,8 +1504,8 @@ class QuasiNeutralAdiabatic(StruphyModel):
 
         # Potential energy
         en_pot = 0.5 * self.mass_ops.M0.dot_inner(
-            self.pointer["phi_mean"],
-            self.pointer["phi_mean"],
+            self.pointer["phi"],
+            self.pointer["phi"],
         )
         self.update_scalar("en_pot", en_pot)
 
