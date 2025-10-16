@@ -129,8 +129,6 @@ class VlasovAmpereOneSpecies(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # get species paramaters
         species1_params = params["kinetic"]["species1"]
 
@@ -189,12 +187,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
-        self.add_scalar("en_f")
+        self.add_scalar("en_f", compute="from_particles", species="species1")
         self.add_scalar("en_tot")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
         # temporaries
         self._tmp = np.empty(1, dtype=float)
@@ -270,12 +264,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
                 self.pointer["species1"].markers_wo_holes[:, 6],
             )
         )
-        if self.comm_world is not None:
-            self.comm_world.Allreduce(
-                self._mpi_in_place,
-                self._tmp,
-                op=self._mpi_sum,
-            )
+
         self.update_scalar("en_f", self._tmp[0])
 
         # en_tot = en_w + en_e
@@ -473,12 +462,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
         self.add_scalar("en_B")
-        self.add_scalar("en_f")
+        self.add_scalar("en_f", compute="from_particles", species="species1")
         self.add_scalar("en_tot")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
         # temporaries
         self._tmp = np.empty(1, dtype=float)
@@ -553,12 +538,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 self.pointer["species1"].markers_wo_holes[:, 6],
             )
         )
-        if self.comm_world is not None:
-            self.comm_world.Allreduce(
-                self._mpi_in_place,
-                self._tmp,
-                op=self._mpi_sum,
-            )
+
         self.update_scalar("en_f", self._tmp[0])
 
         # en_tot = en_w + en_e + en_b
@@ -801,12 +781,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
-        self.add_scalar("en_w")
+        self.add_scalar("en_w", compute="from_particles", species="species1")
         self.add_scalar("en_tot")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
         # temporaries
         self._tmp = np.empty(1, dtype=float)
@@ -870,12 +846,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                 self.pointer["species1"].sampling_density
                 / self._f0_values[self.pointer["species1"].valid_mks],  # s_{0,p} / f_{0,p}
             )
-        )
-
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._tmp,
-            op=self._mpi_sum,
         )
 
         self.update_scalar("en_w", self._tmp[0])
@@ -1198,12 +1168,10 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         # scalar quantities
         self.add_scalar("en_phi")
-        self.add_scalar("en_particles")
+        self.add_scalar("en_particles", compute="from_particles", species="ions")
         self.add_scalar("en_tot")
 
         # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
         self._tmp3 = np.empty(1, dtype=float)
         self._e_field = self.derham.Vh["1"].zeros()
 
@@ -1230,13 +1198,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                 + self.pointer["ions"].markers_wo_holes_and_ghost[:, 8],
             )
         )
-
-        if self.comm_world is not None:
-            self.comm_world.Allreduce(
-                self._mpi_in_place,
-                self._tmp3,
-                op=self._mpi_sum,
-            )
 
         self.update_scalar("en_phi", en_phi + en_phi1)
         self.update_scalar("en_particles", self._tmp3[0])

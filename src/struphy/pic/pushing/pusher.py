@@ -1,6 +1,11 @@
 "Accelerated particle pushing."
 
-from mpi4py.MPI import IN_PLACE, SUM
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mpi4py import MPI
+else:
+    from psydac.ddm.mpi import mpi as MPI
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
@@ -152,9 +157,6 @@ class Pusher:
 
         self._init_kernels = init_kernels
         self._eval_kernels = eval_kernels
-
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
         self._residuals = np.zeros(self.particles.markers.shape[0])
         self._converged_loc = self._residuals == 1.0
@@ -317,9 +319,9 @@ class Pusher:
 
                     if self.particles.mpi_comm is not None:
                         self.particles.mpi_comm.Allreduce(
-                            self._mpi_in_place,
+                            MPI.IN_PLACE,
                             n_not_converged,
-                            op=self._mpi_sum,
+                            op=MPI.SUM,
                         )
 
                     # take converged markers out of the loop

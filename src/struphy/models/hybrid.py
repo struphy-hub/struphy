@@ -112,8 +112,6 @@ class LinearMHDVlasovCC(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         from struphy.polar.basic import PolarVector
 
         # prelim
@@ -228,14 +226,11 @@ class LinearMHDVlasovCC(StruphyModel):
         self.add_scalar("en_B", compute="from_field")
         self.add_scalar("en_f", compute="from_particles", species="energetic_ions")
         self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f"])
+        self.add_scalar("n_lost_particles", compute="from_particles", species="energetic_ions")
 
         # temporary vectors for scalar quantities:
         self._tmp = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
     def update_scalar_quantities(self):
         # perturbed fields
@@ -266,8 +261,9 @@ class LinearMHDVlasovCC(StruphyModel):
 
         # Print number of lost ions
         self._n_lost_particles[0] = self.pointer["energetic_ions"].n_lost_markers
-        self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
-        if self.derham.comm.Get_rank() == 0:
+        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
+        
+        if self.rank_world == 0:
             print(
                 "ratio of lost particles: ",
                 self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
@@ -494,16 +490,13 @@ class LinearMHDVlasovPC(StruphyModel):
         self.add_scalar("en_B", compute="from_field")
         self.add_scalar("en_f", compute="from_particles", species="energetic_ions")
         self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f"])
+        self.add_scalar("n_lost_particles", compute="from_particles", species="energetic_ions")
 
         # temporary vectors for scalar quantities
         self._tmp_u = self.derham.Vh["2"].zeros()
         self._tmp_b1 = self.derham.Vh["2"].zeros()
         self._tmp = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
     def update_scalar_quantities(self):
         # perturbed fields
@@ -537,8 +530,8 @@ class LinearMHDVlasovPC(StruphyModel):
 
         # Print number of lost ions
         self._n_lost_particles[0] = self.pointer["energetic_ions"].n_lost_markers
-        self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
-        if self.derham.comm.Get_rank() == 0:
+        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
+        if self.rank_world == 0:
             print(
                 "ratio of lost particles: ",
                 self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
@@ -867,10 +860,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # self.add_scalar('en_fB_lost', compute = 'from_particles', species='energetic_ions')
         # self.add_scalar('en_tot',summands = ['en_U','en_p','en_B','en_fv','en_fB','en_fv_lost','en_fB_lost'])
         self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_fv", "en_fB"])
-
-        # things needed in update_scalar_quantities
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
+        self.add_scalar("n_lost_particles", compute="from_particles", species="energetic_ions")
 
         # temporaries
         self._b_full1 = self._b_eq.space.zeros()
@@ -935,8 +925,8 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
         # Print number of lost ions
         self._n_lost_particles[0] = self.pointer["energetic_ions"].n_lost_markers
-        self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
-        if self.derham.comm.Get_rank() == 0:
+        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
+        if self.rank_world == 0:
             print(
                 "ratio of lost particles: ",
                 self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
@@ -1061,7 +1051,7 @@ class ColdPlasmaVlasov(StruphyModel):
         from mpi4py.MPI import IN_PLACE, SUM
 
         # Get rank and size
-        self._rank = comm.Get_rank()
+        self._rank = self.rank_world
 
         # prelim
         hot_params = params["kinetic"]["hot_electrons"]
@@ -1129,12 +1119,8 @@ class ColdPlasmaVlasov(StruphyModel):
         self.add_scalar("en_E")
         self.add_scalar("en_B")
         self.add_scalar("en_J")
-        self.add_scalar("en_f")
+        self.add_scalar("en_f", compute="from_particles", species="hot_electrons")
         self.add_scalar("en_tot")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
         # temporaries
         self._tmp = np.empty(1, dtype=float)
@@ -1204,11 +1190,7 @@ class ColdPlasmaVlasov(StruphyModel):
                 self.pointer["hot_electrons"].markers_wo_holes[:, 6],
             )
         )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._tmp,
-            op=self._mpi_sum,
-        )
+
         self.update_scalar("en_f", self._tmp[0])
 
         # en_tot = en_E + en_B + en_J + en_w

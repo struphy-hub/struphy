@@ -5,7 +5,13 @@ from abc import ABCMeta, abstractmethod
 
 import h5py
 import scipy.special as sp
-from mpi4py.MPI import Intracomm
+
+try:
+    from mpi4py.MPI import Intracomm
+except ModuleNotFoundError:
+    class Intracomm:
+        x = None
+    
 from sympy.ntheory import factorint
 
 from struphy.bsplines.bsplines import quadrature_grid
