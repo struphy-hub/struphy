@@ -2,7 +2,6 @@
 import importlib.metadata
 
 import psydac.core.bsplines as bsp
-from struphy.utils.mpi import mpi as MPI
 from mpi4py.MPI import Intracomm
 from psydac.ddm.cart import DomainDecomposition
 from psydac.feec.derivatives import Curl_3D, Divergence_3D, Gradient_3D
@@ -31,6 +30,8 @@ from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
 from struphy.utils.arrays import xp as np
+from struphy.utils.mpi import MockComm
+from struphy.utils.mpi import mpi as MPI
 
 
 class Derham:
@@ -825,7 +826,10 @@ class Derham:
 
         if "dev" in psydac_ver:
             # use tiny-psydac version
-            ddm = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
+            if isinstance(comm, MockComm):
+                ddm = DomainDecomposition(Nel, spl_kind, comm=None, mpi_dims_mask=mpi_dims_mask)
+            else:
+                ddm = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
             _derham = self._discretize_derham(
                 Nel=Nel,
                 p=p,
