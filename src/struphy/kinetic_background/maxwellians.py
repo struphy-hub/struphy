@@ -342,7 +342,6 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         # volume form represenation
         self._volume_form = volume_form
         self._equil = equil
-        print(equil, "!!!!!!!!!!")
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {

@@ -157,8 +157,8 @@ class ParticleSpecies(Species):
         weights_params: WeightsParameters = None,
         boundary_params: BoundaryParameters = None,
         bufsize: float = 1.0,
-        n_cols_diag: int = 0.,
-        n_cols_aux: int = 5.,
+        n_cols_diag: int = 0,
+        n_cols_aux: int = 5,
     ):
         """Set marker parameters for loading, weight calculation, kernel density reconstruction
         and boundary conditions.
