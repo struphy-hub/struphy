@@ -14,7 +14,6 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     import time
 
     import scipy as sc
-    from struphy.utils.mpi import mpi as MPI
     from psydac.linalg.basic import IdentityOperator
     from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 
@@ -30,6 +29,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.initial import perturbations
     from struphy.linear_algebra.saddle_point import SaddlePointSolver
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()

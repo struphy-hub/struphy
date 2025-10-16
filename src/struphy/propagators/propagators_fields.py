@@ -5,7 +5,6 @@ from copy import deepcopy
 
 import scipy as sc
 from matplotlib import pyplot as plt
-from struphy.utils.mpi import mpi as MPI
 from numpy import zeros
 from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
@@ -50,6 +49,7 @@ from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.arrays import xp as np
+from struphy.utils.mpi import mpi as MPI
 from struphy.utils.pyccel import Pyccelkernel
 
 

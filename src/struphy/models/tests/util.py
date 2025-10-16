@@ -4,13 +4,13 @@ import os
 import sys
 
 import yaml
-from struphy.utils.mpi import mpi as MPI
 
 import struphy
 from struphy.console.main import recursive_get_files
 from struphy.io.setup import descend_options_dict
 from struphy.main import main
 from struphy.models.base import StruphyModel
+from struphy.utils.mpi import mpi as MPI
 
 libpath = struphy.__path__[0]
 

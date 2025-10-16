@@ -2,12 +2,12 @@ from time import time
 
 import pytest
 from matplotlib import pyplot as plt
-from struphy.utils.mpi import mpi as MPI
 
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 from struphy.pic.particles import ParticlesSPH
 from struphy.utils.arrays import xp as np
+from struphy.utils.mpi import mpi as MPI
 
 
 @pytest.mark.mpi(min_size=2)

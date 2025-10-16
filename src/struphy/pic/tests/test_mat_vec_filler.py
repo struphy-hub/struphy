@@ -16,13 +16,13 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
     from time import sleep
 
-    from struphy.utils.mpi import mpi as MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.bsplines import bsplines_kernels as bsp
     from struphy.feec.psydac_derham import Derham
     from struphy.pic.accumulation import particle_to_mat_kernels as ptomat
+    from struphy.utils.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2

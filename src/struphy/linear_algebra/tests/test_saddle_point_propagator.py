@@ -12,8 +12,6 @@ import pytest
 def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and p-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver."""
 
-    from struphy.utils.mpi import mpi as MPI
-
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
@@ -21,6 +19,7 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
     from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
+    from struphy.utils.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -205,8 +204,6 @@ import pytest
 def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     """Test saddle-point-solver by propagator TwoFluidQuasiNeutralFull. Use manufactured solutions from perturbations to verify h- and p-convergence when model TwoFluidQuasiNeutralToy calculates solution with SaddlePointSolver. Allow a certain error after one time step, save this solution and compare the follwing timesteps with this solution but with less tolerance. Shows that the solver can stay in a steady state solution."""
 
-    from struphy.utils.mpi import mpi as MPI
-
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
@@ -214,6 +211,7 @@ def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
     from struphy.propagators import TwoFluidQuasiNeutralFull
+    from struphy.utils.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()

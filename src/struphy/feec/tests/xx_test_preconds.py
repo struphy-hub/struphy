@@ -12,7 +12,6 @@ import pytest
     ],
 )
 def test_mass_preconditioner(Nel, p, spl_kind, mapping):
-    from struphy.utils.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
@@ -22,6 +21,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     MPI_COMM = MPI.COMM_WORLD
 

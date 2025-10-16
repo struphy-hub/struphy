@@ -1,4 +1,5 @@
 import pytest
+
 from struphy.utils.mpi import mpi as MPI
 
 

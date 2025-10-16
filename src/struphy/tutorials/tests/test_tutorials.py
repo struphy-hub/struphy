@@ -2,11 +2,11 @@ import os
 
 import pytest
 import yaml
-from struphy.utils.mpi import mpi as MPI
 
 import struphy
 from struphy.main import main
 from struphy.post_processing import pproc_struphy
+from struphy.utils.mpi import mpi as MPI
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

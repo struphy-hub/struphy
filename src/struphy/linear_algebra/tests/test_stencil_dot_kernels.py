@@ -14,13 +14,13 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_dot_kernels.matvec_1d_kernel
     b) the result from Stencil .dot with precompiled=True"""
 
-    from struphy.utils.mpi import mpi as MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_dot_kernels import matvec_1d_kernel
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -137,13 +137,13 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_dot_kernels.matvec_1d_kernel
     b) the result from Stencil .dot with precompiled=True"""
 
-    from struphy.utils.mpi import mpi as MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_dot_kernels import matvec_3d_kernel
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"

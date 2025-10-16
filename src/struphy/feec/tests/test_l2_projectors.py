@@ -2,13 +2,13 @@ import inspect
 
 import matplotlib.pyplot as plt
 import pytest
-from struphy.utils.mpi import mpi as MPI
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 from struphy.utils.arrays import xp as np
+from struphy.utils.mpi import mpi as MPI
 
 
 @pytest.mark.mpi(min_size=2)

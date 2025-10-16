@@ -36,12 +36,12 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    from struphy.utils.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     # Set seed
     seed = 1234
@@ -295,12 +295,12 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    from struphy.utils.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     # Set seed
     seed = 1234
@@ -519,12 +519,12 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    from struphy.utils.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     # Set seed
     seed = 1234
@@ -801,12 +801,12 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    from struphy.utils.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     # Set seed
     seed = 1234

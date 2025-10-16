@@ -1,4 +1,3 @@
-from struphy.utils.mpi import mpi as MPI
 from psydac.linalg.block import BlockVector, BlockVectorSpace
 from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 from scipy.sparse import csr_matrix, identity
@@ -7,6 +6,7 @@ from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.linear_algebra.linalg_kron import kron_matvec_2d
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.utils.arrays import xp as np
+from struphy.utils.mpi import mpi as MPI
 
 
 class PolarExtractionOperator(LinOpWithTransp):

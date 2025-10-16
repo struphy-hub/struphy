@@ -13,8 +13,6 @@ import pytest
 def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
 
-    from struphy.utils.mpi import mpi as MPI
-
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
@@ -23,6 +21,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
     from struphy.geometry import domains
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -377,8 +376,6 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices."""
 
-    from struphy.utils.mpi import mpi as MPI
-
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.mass import WeightedMassOperators
@@ -388,6 +385,7 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     from struphy.geometry import domains
     from struphy.polar.basic import PolarVector
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -575,7 +573,6 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
 
     import time
 
-    from struphy.utils.mpi import mpi as MPI
     from psydac.linalg.solvers import inverse
 
     from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
@@ -585,6 +582,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
     from struphy.geometry import domains
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -881,7 +879,6 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
 
     import time
 
-    from struphy.utils.mpi import mpi as MPI
     from psydac.linalg.solvers import inverse
 
     from struphy.feec.mass import WeightedMassOperators
@@ -892,6 +889,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     from struphy.geometry import domains
     from struphy.polar.basic import PolarVector
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()

@@ -20,13 +20,13 @@ def test_exp_growth(spaces, algo, show_plots=False):
     from the ButcherTableau."""
 
     from matplotlib import pyplot as plt
-    from struphy.utils.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
     from struphy.feec.psydac_derham import Derham
     from struphy.ode.solvers import ODEsolverFEEC
     from struphy.utils.arrays import xp as np
+    from struphy.utils.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

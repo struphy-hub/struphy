@@ -23,6 +23,7 @@ class MockComm:
         # Return a function that does nothing and returns None
         def dummy(*args, **kwargs):
             return None
+
         return dummy
 
     # Override some functions

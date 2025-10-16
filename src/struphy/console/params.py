@@ -1,6 +1,7 @@
 import sys
 
 import yaml
+
 from struphy.utils.mpi import mpi as MPI
 
 

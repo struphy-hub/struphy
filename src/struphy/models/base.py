@@ -4,7 +4,6 @@ from abc import ABCMeta, abstractmethod
 from functools import reduce
 
 import yaml
-from struphy.utils.mpi import mpi as MPI
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -21,6 +20,7 @@ from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.mpi import mpi as MPI
 from struphy.utils.utils import dict_to_yaml
 
 
