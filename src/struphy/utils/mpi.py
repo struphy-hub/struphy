@@ -44,8 +44,10 @@ class MPIwrapper:
             from mpi4py import MPI
 
             self._MPI = MPI
+            print("MPI is enabled")
         else:
             self._MPI = MockMPI()
+            print("MPI is NOT enabled")
 
     @property
     def MPI(self):

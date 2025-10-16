@@ -1127,7 +1127,7 @@ class Derham:
             dom_arr_loc[3 * n + 2] = el_end - el_sta + 1
 
         # distribute
-        if not isinstance(self.comm, MockComm):
+        if not isinstance(self.comm, (MockComm, type(None))):
             self.comm.Allgather(dom_arr_loc, dom_arr)
         else:
             dom_arr[:] = dom_arr_loc
@@ -1152,7 +1152,7 @@ class Derham:
         """
 
         # MPI info
-        if not isinstance(self.comm, MockComm):
+        if not isinstance(self.comm, (MockComm, type(None))):
             nproc = self.comm.Get_size()
         else:
             nproc = 1
@@ -1173,7 +1173,7 @@ class Derham:
             ind_arr_loc[2 * n + 1] = end
 
         # distribute
-        if not isinstance(self.comm, MockComm):
+        if not isinstance(self.comm, (MockComm, type(None))):
             self.comm.Allgather(ind_arr_loc, ind_arr)
         else:
             ind_arr[:] = ind_arr_loc
