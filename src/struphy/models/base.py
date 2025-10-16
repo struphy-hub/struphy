@@ -567,7 +567,7 @@ class StruphyModel(metaclass=ABCMeta):
                     op=MPI.SUM,
                 )
 
-            if "sum_within_clone" in compute_operations and self.derhm.comm is not None:
+            if "sum_within_clone" in compute_operations and self.derham.comm is not None:
                 self.derham.comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
@@ -962,7 +962,8 @@ class StruphyModel(metaclass=ABCMeta):
                             print("No perturbation.")
 
                     obj.draw_markers(sort=True, verbose=self.verbose)
-                    obj.mpi_sort_markers(do_test=True)
+                    if self.comm_world is not None:
+                        obj.mpi_sort_markers(do_test=True)
 
                     if not val["params"]["markers"]["loading"] == "restart":
                         if obj.coords == "vpara_mu":
@@ -1022,7 +1023,8 @@ class StruphyModel(metaclass=ABCMeta):
                 obj._markers[:, :] = data.file["restart/" + key][-1, :, :]
 
                 # important: sets holes attribute of markers!
-                obj.mpi_sort_markers(do_test=True)
+                if self.comm_world is not None:
+                    obj.mpi_sort_markers(do_test=True)
 
     def initialize_data_output(self, data, size):
         """
