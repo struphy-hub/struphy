@@ -2,7 +2,8 @@ import ctypes
 import os
 
 import h5py
-import numpy as np
+
+from struphy.utils.arrays import xp as np
 
 
 class DataContainer:

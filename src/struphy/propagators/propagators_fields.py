@@ -3,7 +3,6 @@
 from collections.abc import Callable
 from copy import deepcopy
 
-import numpy as np
 import scipy as sc
 from matplotlib import pyplot as plt
 from mpi4py import MPI
@@ -50,6 +49,8 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Maxwell(Propagator):
@@ -1506,7 +1507,7 @@ class CurrentCoupling6DDensity(Propagator):
         self._accumulator = Accumulator(
             particles,
             u_space,
-            accum_kernels.cc_lin_mhd_6d_1,
+            Pyccelkernel(accum_kernels.cc_lin_mhd_6d_1),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,
@@ -1724,7 +1725,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC = Accumulator(
             particles,
             u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_M,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_M),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -1975,7 +1976,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._ACC = Accumulator(
             particles,
             u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_M,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_M),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -2320,7 +2321,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._accumulator = Accumulator(
             particles,
             u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_D,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_D),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,

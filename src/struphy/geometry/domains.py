@@ -2,8 +2,6 @@
 
 import copy
 
-import numpy as np
-
 from struphy.fields_background.base import AxisymmMHDequilibrium
 from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.geometry.base import (
@@ -14,6 +12,7 @@ from struphy.geometry.base import (
     interp_mapping,
 )
 from struphy.geometry.utilities import field_line_tracing
+from struphy.utils.arrays import xp as np
 
 
 class Tokamak(PoloidalSplineTorus):
@@ -209,9 +208,6 @@ class DESCunit(Spline):
             desc_equil = DESCequilibrium()
         else:
             assert isinstance(desc_equil, DESCequilibrium)
-
-        # use params setter
-        self.params = copy.deepcopy(locals())
 
         Nel = desc_equil.params["Nel"]
         p = desc_equil.params["p"]

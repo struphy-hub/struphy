@@ -1,4 +1,3 @@
-import numpy as np
 import scipy as sc
 import scipy.sparse as spa
 import scipy.special as sp
@@ -10,6 +9,7 @@ import struphy.eigenvalue_solvers.legacy.inner_products_1d as inner
 import struphy.eigenvalue_solvers.mass_matrices_1d as mass
 import struphy.eigenvalue_solvers.projectors_global as pro
 import struphy.eigenvalue_solvers.spline_space as spl
+from struphy.utils.arrays import xp as np
 
 
 # numerical solution of the general ideal MHD eigenvalue problem in a cylinder using 1d B-splines in radial direction

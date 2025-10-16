@@ -1,8 +1,9 @@
 import importlib.util
 
-import numpy as np
 import pytest
 from matplotlib import pyplot as plt
+
+from struphy.utils.arrays import xp as np
 
 desc_spec = importlib.util.find_spec("desc")
 

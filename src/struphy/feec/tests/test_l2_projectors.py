@@ -1,7 +1,6 @@
 import inspect
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pytest
 from mpi4py import MPI
 
@@ -9,6 +8,7 @@ from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
+from struphy.utils.arrays import xp as np
 
 
 @pytest.mark.mpi(min_size=2)

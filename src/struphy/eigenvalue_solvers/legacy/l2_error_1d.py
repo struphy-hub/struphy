@@ -6,8 +6,9 @@
 Modules to compute L2-errors in 1d.
 """
 
-import numpy as np
 import scipy.sparse as spa
+
+from struphy.utils.arrays import xp as np
 
 
 # ======= error in V0 ====================

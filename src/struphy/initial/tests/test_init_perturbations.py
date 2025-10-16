@@ -20,7 +20,6 @@ import pytest
 def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False):
     """Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py."""
 
-    import numpy as np
     from matplotlib import pyplot as plt
     from mpi4py import MPI
 
@@ -28,6 +27,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
     from struphy.initial import perturbations
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

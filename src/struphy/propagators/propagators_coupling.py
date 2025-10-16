@@ -1,6 +1,5 @@
 "Particle and FEEC variables are updated."
 
-import numpy as np
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
@@ -17,6 +16,8 @@ from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class VlasovAmpere(Propagator):
@@ -104,7 +105,7 @@ class VlasovAmpere(Propagator):
         self._info = solver["info"]
 
         # get accumulation kernel
-        accum_kernel = accum_kernels.vlasov_maxwell
+        accum_kernel = Pyccelkernel(accum_kernels.vlasov_maxwell)
 
         # Initialize Accumulator object
         self._accum = Accumulator(
@@ -159,7 +160,7 @@ class VlasovAmpere(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_v_with_efield,
+            Pyccelkernel(pusher_kernels.push_v_with_efield),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -329,7 +330,7 @@ class EfieldWeights(Propagator):
         self._accum = Accumulator(
             particles,
             "Hcurl",
-            accum_kernels.linear_vlasov_ampere,
+            Pyccelkernel(accum_kernels.linear_vlasov_ampere),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -384,7 +385,7 @@ class EfieldWeights(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_weights_with_efield_lin_va,
+            Pyccelkernel(pusher_kernels.push_weights_with_efield_lin_va),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -553,11 +554,11 @@ class PressureCoupling6D(Propagator):
 
         # Call the accumulation and Pusher class
         if use_perp_model:
-            accum_ker = accum_kernels.pc_lin_mhd_6d
-            pusher_ker = pusher_kernels.push_pc_GXu
+            accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d)
+            pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu)
         else:
-            accum_ker = accum_kernels.pc_lin_mhd_6d_full
-            pusher_ker = pusher_kernels.push_pc_GXu_full
+            accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d_full)
+            pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu_full)
 
         self._coupling_mat = coupling_params["Ah"] / coupling_params["Ab"]
         self._coupling_vec = coupling_params["Ah"] / coupling_params["Ab"]
@@ -858,7 +859,7 @@ class CurrentCoupling6DCurrent(Propagator):
         self._accumulator = Accumulator(
             particles,
             u_space,
-            accum_kernels.cc_lin_mhd_6d_2,
+            Pyccelkernel(accum_kernels.cc_lin_mhd_6d_2),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -917,11 +918,11 @@ class CurrentCoupling6DCurrent(Propagator):
 
         # load particle pusher kernel
         if u_space == "Hcurl":
-            kernel = pusher_kernels.push_bxu_Hcurl
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_Hcurl)
         elif u_space == "Hdiv":
-            kernel = pusher_kernels.push_bxu_Hdiv
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_Hdiv)
         elif u_space == "H1vec":
-            kernel = pusher_kernels.push_bxu_H1vec
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_H1vec)
         else:
             raise ValueError(
                 f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
@@ -1201,7 +1202,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._ACC = Accumulator(
             particles,
             u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_J1,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_J1),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -1210,11 +1211,11 @@ class CurrentCoupling5DCurlb(Propagator):
         )
 
         if u_space == "Hcurl":
-            kernel = pusher_kernels_gc.push_gc_cc_J1_Hcurl
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_Hcurl)
         elif u_space == "Hdiv":
-            kernel = pusher_kernels_gc.push_gc_cc_J1_Hdiv
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_Hdiv)
         elif u_space == "H1vec":
-            kernel = pusher_kernels_gc.push_gc_cc_J1_H1vec
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_H1vec)
         else:
             raise ValueError(
                 f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
@@ -1563,7 +1564,7 @@ class CurrentCoupling5DGradB(Propagator):
         self._ACC = Accumulator(
             particles,
             u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_J2,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_J2),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -1666,9 +1667,9 @@ class CurrentCoupling5DGradB(Propagator):
 
         # instantiate Pusher
         if u_space == "Hdiv":
-            kernel = pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J2_stage_Hdiv)
         elif u_space == "H1vec":
-            kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
+            kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J2_stage_H1vec)
         else:
             raise ValueError(
                 f'{u_space = } not valid, choose from "Hdiv" or "H1vec.',

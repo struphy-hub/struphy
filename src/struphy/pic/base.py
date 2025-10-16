@@ -4,7 +4,6 @@ import warnings
 from abc import ABCMeta, abstractmethod
 
 import h5py
-import numpy as np
 import scipy.special as sp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
@@ -38,7 +37,9 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_meshgrid,
 )
 from struphy.utils import utils
+from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Particles(metaclass=ABCMeta):
@@ -3736,7 +3737,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             self.put_particles_in_boxes()
 
             if len(_shp) == 1:
-                func = box_based_evaluation_flat
+                func = Pyccelkernel(box_based_evaluation_flat)
             elif len(_shp) == 3:
                 if _shp[0] > 1:
                     assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
@@ -3744,7 +3745,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
                     assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
                 if _shp[2] > 1:
                     assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
-                func = box_based_evaluation_meshgrid
+                func = Pyccelkernel(box_based_evaluation_meshgrid)
 
             func(
                 self.args_markers,
@@ -3770,9 +3771,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             )
         else:
             if len(_shp) == 1:
-                func = naive_evaluation_flat
+                func = Pyccelkernel(naive_evaluation_flat)
             elif len(_shp) == 3:
-                func = naive_evaluation_meshgrid
+                func = Pyccelkernel(naive_evaluation_meshgrid)
             func(
                 self.args_markers,
                 eta1,

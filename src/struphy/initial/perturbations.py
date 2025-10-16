@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 "Analytical perturbations (modes)."
 
-import numpy as np
 import scipy
 import scipy.special
+
+from struphy.utils.arrays import xp as np
 
 
 class ModesSin:
