@@ -2,6 +2,12 @@ import inspect
 import operator
 from abc import ABCMeta, abstractmethod
 from functools import reduce
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from mpi4py import MPI
+else:
+    from psydac.ddm.mpi import mpi as MPI
 
 import yaml
 from psydac.linalg.stencil import StencilVector
@@ -20,7 +26,6 @@ from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.mpi import mpi as MPI
 from struphy.utils.utils import dict_to_yaml
 
 
@@ -92,7 +97,7 @@ class StruphyModel(metaclass=ABCMeta):
             units=self.units,
         )
 
-        if comm.Get_rank() == 0 and self.verbose:
+        if self.rank_world == 0 and self.verbose:
             print("\nTIME:")
             print(
                 f"time step:".ljust(25),
@@ -555,14 +560,14 @@ class StruphyModel(metaclass=ABCMeta):
             value_array = np.array([value], dtype=np.float64)
 
             # Perform MPI operations based on the compute flags
-            if "sum_world" in compute_operations:
+            if "sum_world" in compute_operations and self.comm_world is not None:
                 self.comm_world.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
 
-            if "sum_within_clone" in compute_operations:
+            if "sum_within_clone" in compute_operations and self.derhm.comm is not None:
                 self.derham.comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
@@ -1325,7 +1330,7 @@ class StruphyModel(metaclass=ABCMeta):
         )
 
         # print to screen
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+        if verbose and rank == 0:
             print("\nUNITS:")
             print(
                 f"Unit of length:".ljust(25),
@@ -1381,7 +1386,7 @@ class StruphyModel(metaclass=ABCMeta):
                 equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
                 equation_params[species]["kappa"] = om_p * units["t"]
 
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                if verbose and rank == 0:
                     print("\nNORMALIZATION PARAMETERS:")
                     print("- " + species + ":")
                     for key, val in equation_params[species].items():
@@ -1400,7 +1405,7 @@ class StruphyModel(metaclass=ABCMeta):
                 equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
                 equation_params[species]["kappa"] = om_p * units["t"]
 
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                if verbose and rank == 0:
                     if "fluid" not in params:
                         print("\nNORMALIZATION PARAMETERS:")
                     print("- " + species + ":")

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from struphy.utils.arrays import xp as np
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 from struphy.utils.utils import dict_to_yaml
 
 
@@ -284,6 +284,7 @@ def pre_processing(
     save_step: int,
     mpi_rank: int,
     mpi_size: int,
+    use_mpi: bool,
     num_clones: int,
     verbose: bool = False,
 ):
@@ -315,6 +316,9 @@ def pre_processing(
 
     mpi_size : int
         Total number of MPI processes of the run.
+        
+    use_mpi: bool
+        True if MPI.COMM_WORLD is not None.
 
     num_clones: int
         Number of domain clones.
@@ -430,6 +434,7 @@ def pre_processing(
         print("python version:".ljust(25), sysconfig.get_python_version())
         print("model:".ljust(25), model_name)
         print("MPI processes:".ljust(25), mpi_size)
+        print("use MPI.COMM_WORLD:".ljust(25), use_mpi)
         print("number of domain clones:".ljust(25), num_clones)
         print("parameter file:".ljust(25), parameters_path)
         print("output folder:".ljust(25), path_out)
@@ -456,6 +461,7 @@ def pre_processing(
             )
             f.write("model_name: ".ljust(30) + model_name + "\n")
             f.write("processes: ".ljust(30) + str(mpi_size) + "\n")
+            f.write("use MPI.COMM_WORLD: ".ljust(30) + str(use_mpi) + "\n")
             f.write("output folder:".ljust(30) + path_out + "\n")
             f.write("restart:".ljust(30) + str(restart) + "\n")
             f.write(
