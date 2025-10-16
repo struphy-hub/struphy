@@ -12,7 +12,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
 from struphy.utils.arrays import xp as np
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 from struphy.utils.pyccel import Pyccelkernel
 
 

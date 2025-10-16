@@ -3,7 +3,7 @@ from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.utils.arrays import xp as np
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 
 
 class PolarDerhamSpace(VectorSpace):

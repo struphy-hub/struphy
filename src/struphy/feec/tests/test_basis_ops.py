@@ -24,7 +24,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
     from struphy.utils.arrays import xp as np
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     # mpi communicator
     MPI_COMM = MPI.COMM_WORLD
@@ -474,7 +474,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     from struphy.geometry import domains
     from struphy.polar.basic import PolarVector
     from struphy.utils.arrays import xp as np
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()

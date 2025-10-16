@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from struphy.geometry import domains
 from struphy.pic.particles import ParticlesSPH
 from struphy.utils.arrays import xp as np
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])

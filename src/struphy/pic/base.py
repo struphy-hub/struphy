@@ -38,8 +38,8 @@ from struphy.pic.sph_eval_kernels import (
 from struphy.utils import utils
 from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.mpi import MockComm
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
 from struphy.utils.pyccel import Pyccelkernel
 
 

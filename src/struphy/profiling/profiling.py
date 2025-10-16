@@ -18,7 +18,7 @@ import pickle
 from functools import lru_cache
 
 from struphy.utils.arrays import xp as np
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 
 
 @lru_cache(maxsize=None)  # Cache the import result to avoid repeated imports

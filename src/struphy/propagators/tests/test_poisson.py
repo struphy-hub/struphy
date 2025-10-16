@@ -8,7 +8,7 @@ from struphy.geometry import domains
 from struphy.propagators import ImplicitDiffusion
 from struphy.propagators.base import Propagator
 from struphy.utils.arrays import xp as np
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

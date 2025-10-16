@@ -18,7 +18,7 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.geometry import domains
     from struphy.utils.arrays import xp as np
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

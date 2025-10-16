@@ -41,7 +41,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
     from struphy.utils.arrays import xp as np
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     # Set seed
     seed = 1234
@@ -300,7 +300,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
     from struphy.utils.arrays import xp as np
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     # Set seed
     seed = 1234
@@ -524,7 +524,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
     from struphy.utils.arrays import xp as np
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     # Set seed
     seed = 1234
@@ -806,7 +806,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
     from struphy.utils.arrays import xp as np
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     # Set seed
     seed = 1234
@@ -1012,7 +1012,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
 
 if __name__ == "__main__":
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
     size = comm.Get_size()

@@ -7,7 +7,7 @@ import struphy.geometry.mappings_3d as mapping3d
 import struphy.geometry.mappings_3d_fast as mapping_fast
 import struphy.linear_algebra.linalg_kernels as linalg
 from struphy.utils.arrays import xp as np
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 
 
 class Temp_arrays:

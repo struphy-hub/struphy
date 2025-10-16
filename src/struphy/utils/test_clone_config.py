@@ -1,6 +1,6 @@
 import pytest
 
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 
 
 @pytest.mark.mpi(min_size=2)

@@ -14,7 +14,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.utils.arrays import xp as np
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2

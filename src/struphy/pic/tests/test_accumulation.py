@@ -37,7 +37,7 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
     The times for both legacy and the new way are printed if verbose == True. This comparison only makes sense if the
     ..test_pic_legacy_files/ are also all compiled.
     """
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     rank = MPI.COMM_WORLD.Get_rank()
 
@@ -59,7 +59,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
     from struphy.utils.arrays import xp as np
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2

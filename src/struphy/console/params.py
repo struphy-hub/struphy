@@ -2,7 +2,7 @@ import sys
 
 import yaml
 
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 
 
 def struphy_params(model, file, yes=False, options=False, check_file=None):

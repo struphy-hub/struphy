@@ -12,7 +12,7 @@ import scipy.sparse as spa
 
 import struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d as pic_ker_3d
 from struphy.utils.arrays import xp as np
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 
 # import struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_2d as pic_ker_2d
 

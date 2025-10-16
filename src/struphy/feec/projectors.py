@@ -37,7 +37,7 @@ from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjecto
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.arrays import xp as np
-from struphy.utils.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 
 
 class CommutingProjector:

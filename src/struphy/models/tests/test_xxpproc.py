@@ -7,7 +7,7 @@ def test_pproc_codes(model: str = None, group: str = None):
     import struphy
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.post_processing import pproc_struphy
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
 

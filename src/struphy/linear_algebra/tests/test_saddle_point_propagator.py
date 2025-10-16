@@ -19,7 +19,7 @@ def test_propagator1D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
     from struphy.propagators.propagators_fields import TwoFluidQuasiNeutralFull
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -211,7 +211,7 @@ def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
     from struphy.propagators import TwoFluidQuasiNeutralFull
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()

@@ -40,7 +40,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
     from struphy.utils.arrays import xp as np
-    from struphy.utils.mpi import mpi as MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
     assert comm.size >= 2
