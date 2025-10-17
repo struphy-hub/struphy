@@ -567,7 +567,7 @@ unit_tests:
     - !reference [.scripts, install_on_push]
     - pip show mpi4py
     - pip uninstall -y mpi4py
-    - pip show mpi4py
+    - pip list
     - !reference [.scripts, unit_tests]
 
 unit_tests_mpi:
