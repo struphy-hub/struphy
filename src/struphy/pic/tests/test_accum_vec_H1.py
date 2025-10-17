@@ -48,6 +48,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     import copy
 
     from psydac.ddm.mpi import mpi as MPI
+    from psydac.ddm.mpi import MockComm
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
@@ -58,8 +59,12 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     from struphy.utils.arrays import xp as np
     from struphy.utils.clone_config import CloneConfig
 
-    mpi_comm = MPI.COMM_WORLD
-    mpi_rank = mpi_comm.Get_rank()
+    if isinstance (MPI.COMM_WORLD, MockComm):
+        mpi_comm = None
+        mpi_rank = 0
+    else:
+        mpi_comm = MPI.COMM_WORLD
+        mpi_rank = mpi_comm.Get_rank()
 
     # domain object
     dom_type = mapping[0]
@@ -72,15 +77,24 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         "grid": {"Nel": Nel},
         "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / np.prod(Nel)}}},
     }
-    clone_config = CloneConfig(comm=mpi_comm, params=params, num_clones=num_clones)
+    if mpi_comm is None:
+        clone_config = None
+        
+        derham = Derham(
+            Nel,
+            p,
+            spl_kind,
+            comm=None,
+        )
+    else:
+        clone_config = CloneConfig(comm=mpi_comm, params=params, num_clones=num_clones)
 
-    # DeRham object
-    derham = Derham(
-        Nel,
-        p,
-        spl_kind,
-        comm=clone_config.sub_comm,
-    )
+        derham = Derham(
+            Nel,
+            p,
+            spl_kind,
+            comm=clone_config.sub_comm,
+        )
 
     domain_array = derham.domain_array
     nprocs = derham.domain_decomposition.nprocs
@@ -107,7 +121,8 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     )
 
     particles.draw_markers()
-    particles.mpi_sort_markers()
+    if mpi_comm is not None:
+        particles.mpi_sort_markers()
     particles.initialize_weights()
 
     _vdim = particles.vdim
@@ -138,7 +153,8 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     # sum all MC integrals
     _sum_within_clone = np.empty(1, dtype=float)
     _sum_within_clone[0] = np.sum(acc.vectors[0].toarray())
-    clone_config.sub_comm.Allreduce(MPI.IN_PLACE, _sum_within_clone, op=MPI.SUM)
+    if clone_config is not None:
+        clone_config.sub_comm.Allreduce(MPI.IN_PLACE, _sum_within_clone, op=MPI.SUM)
 
     print(f"rank {mpi_rank}: {_sum_within_clone = }, {_sqrtg = }")
 
@@ -148,8 +164,10 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     # Check for all clones
     _sum_between_clones = np.empty(1, dtype=float)
     _sum_between_clones[0] = np.sum(acc.vectors[0].toarray())
-    mpi_comm.Allreduce(MPI.IN_PLACE, _sum_between_clones, op=MPI.SUM)
-    clone_config.inter_comm.Allreduce(MPI.IN_PLACE, _sqrtg, op=MPI.SUM)
+    
+    if mpi_comm is not None:
+        mpi_comm.Allreduce(MPI.IN_PLACE, _sum_between_clones, op=MPI.SUM)
+        clone_config.inter_comm.Allreduce(MPI.IN_PLACE, _sqrtg, op=MPI.SUM)
 
     print(f"rank {mpi_rank}: {_sum_between_clones = }, {_sqrtg = }")
 

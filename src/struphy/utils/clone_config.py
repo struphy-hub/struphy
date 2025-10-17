@@ -40,6 +40,9 @@ class CloneConfig:
         self._inter_comm = None
 
         self._species_list = None
+        
+        self._clone_rank = 0
+        self._clone_id = 0
 
         if comm is not None:
             assert isinstance(comm, MPI.Intracomm)
@@ -60,10 +63,11 @@ class CloneConfig:
 
             # Create a sub-communicator for each clone
             self._sub_comm = comm.Split(clone_color, rank)
-            local_rank = self.sub_comm.Get_rank()
+            self._clone_rank = self.sub_comm.Get_rank()
 
             # Create an inter-clone communicator for cross-clone communication
-            self._inter_comm = comm.Split(local_rank, rank)
+            self._inter_comm = comm.Split(self.clone_rank, rank)
+            self._clone_id = self.inter_comm.Get_rank()
 
     def get_Np_clone(self, Np, clone_id=None):
         """
@@ -254,9 +258,9 @@ class CloneConfig:
     @property
     def clone_rank(self):
         """Get the rank of the process within its clone's sub_comm."""
-        return self.sub_comm.Get_rank()
+        return self._clone_rank
 
     @property
     def clone_id(self):
         """Get the clone identifier."""
-        return self.inter_comm.Get_rank()
+        return self._clone_id
