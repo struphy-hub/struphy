@@ -246,9 +246,9 @@ class LinOpWithTransp(LinearOperator):
             return out
         else:
             if comm is None or isinstance(comm, MockComm):
-                gathered_rows = row
-                gathered_cols = colarr
-                gathered_data = data
+                gathered_rows = [row]
+                gathered_cols = [colarr]
+                gathered_data = [data]
             else:
                 gathered_rows = comm.gather(row, root=0)
                 gathered_cols = comm.gather(colarr, root=0)
@@ -262,12 +262,13 @@ class LinOpWithTransp(LinearOperator):
                 # Rank 0 collects all data from other ranks
                 all_data = [item for sublist in gathered_data for item in sublist]
 
-                # Broadcast 'all_rows' to all other ranks
-                comm.bcast(all_rows, root=0)
-                # Broadcast 'all_cols' to all other ranks
-                comm.bcast(all_cols, root=0)
-                # Broadcast 'all_data' to all other ranks
-                comm.bcast(all_data, root=0)
+                if comm is not None:
+                    # Broadcast 'all_rows' to all other ranks
+                    comm.bcast(all_rows, root=0)
+                    # Broadcast 'all_cols' to all other ranks
+                    comm.bcast(all_cols, root=0)
+                    # Broadcast 'all_data' to all other ranks
+                    comm.bcast(all_data, root=0)
             else:
                 # Other ranks receive the 'all_rows' list through broadcast
                 all_rows = comm.bcast(None, root=0)

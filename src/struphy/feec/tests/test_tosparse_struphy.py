@@ -15,6 +15,7 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     """
 
     from psydac.ddm.mpi import mpi as MPI
+    from psydac.ddm.mpi import MockComm
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
@@ -73,17 +74,32 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     M2arrad = M2.toarray_struphy(is_sparse=True, format="dia")
 
     v0_local = M0.dot(v0).toarray()
-    v0_global = M0.domain.zeros().toarray()
-    comm.Allreduce(v0_local, v0_global, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        v0_global = v0_local
+    else:
+        v0_global = M0.domain.zeros().toarray()
+        comm.Allreduce(v0_local, v0_global, op=MPI.SUM)
+        
     v1_local = M1.dot(v1).toarray()
-    v1_global = M1.domain.zeros().toarray()
-    comm.Allreduce(v1_local, v1_global, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        v1_global = v1_local
+    else:
+        v1_global = M1.domain.zeros().toarray()
+        comm.Allreduce(v1_local, v1_global, op=MPI.SUM)
+        
     v2_local = M2.dot(v2).toarray()
-    v2_global = M2.domain.zeros().toarray()
-    comm.Allreduce(v2_local, v2_global, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        v2_global = v2_local
+    else:
+        v2_global = M2.domain.zeros().toarray()
+        comm.Allreduce(v2_local, v2_global, op=MPI.SUM)
+        
     v3_local = M3.dot(v3).toarray()
-    v3_global = M3.domain.zeros().toarray()
-    comm.Allreduce(v3_local, v3_global, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        v3_global = v3_local
+    else:
+        v3_global = M3.domain.zeros().toarray()
+        comm.Allreduce(v3_local, v3_global, op=MPI.SUM)
 
     # not in-place
     assert np.allclose(v0_global, M0arr.dot(v0arr))
