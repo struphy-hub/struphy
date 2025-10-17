@@ -4,10 +4,11 @@ def test_pproc_codes(model: str = None, group: str = None):
     import inspect
     import os
 
+    from psydac.ddm.mpi import mpi as MPI
+
     import struphy
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.post_processing import pproc_struphy
-    from psydac.ddm.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
 

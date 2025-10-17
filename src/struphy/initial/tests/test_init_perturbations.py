@@ -20,13 +20,13 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     """Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py."""
 
     from matplotlib import pyplot as plt
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
     from struphy.initial import perturbations
     from struphy.utils.arrays import xp as np
-    from psydac.ddm.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

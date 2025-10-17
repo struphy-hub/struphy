@@ -1,6 +1,7 @@
 import itertools
 from abc import abstractmethod
 
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic import LinearOperator, Vector, VectorSpace
 from psydac.linalg.block import BlockVectorSpace
 from psydac.linalg.stencil import StencilVectorSpace
@@ -9,7 +10,6 @@ from scipy import sparse
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
 from struphy.utils.arrays import xp as np
-from psydac.ddm.mpi import mpi as MPI
 
 
 class LinOpWithTransp(LinearOperator):

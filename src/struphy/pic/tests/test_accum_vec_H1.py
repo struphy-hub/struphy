@@ -47,6 +47,8 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
 
     import copy
 
+    from psydac.ddm.mpi import mpi as MPI
+
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
@@ -55,7 +57,6 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     from struphy.pic.particles import Particles6D
     from struphy.utils.arrays import xp as np
     from struphy.utils.clone_config import CloneConfig
-    from psydac.ddm.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()

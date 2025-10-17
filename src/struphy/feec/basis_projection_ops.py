@@ -1,4 +1,5 @@
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.ddm.mpi import mpi as MPI
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
@@ -14,7 +15,6 @@ from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
 from struphy.utils.arrays import xp as np
-from psydac.ddm.mpi import mpi as MPI
 from struphy.utils.pyccel import Pyccelkernel
 
 

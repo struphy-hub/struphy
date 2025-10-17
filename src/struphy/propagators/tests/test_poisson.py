@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import pytest
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
@@ -8,7 +9,6 @@ from struphy.geometry import domains
 from struphy.propagators import ImplicitDiffusion
 from struphy.propagators.base import Propagator
 from struphy.utils.arrays import xp as np
-from psydac.ddm.mpi import mpi as MPI
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

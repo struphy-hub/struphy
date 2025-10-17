@@ -850,7 +850,7 @@ class CurrentCoupling6DCurrent(Propagator):
         self._b_tilde = b_tilde
 
         self._info = solver["info"]
-        
+
         if self.derham.comm is None:
             self._rank = 0
         else:
@@ -1169,7 +1169,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._curl_norm_b = curl_unit_b2
 
         self._info = solver["info"]
-        
+
         if self.derham.comm is None:
             self._rank = 0
         else:
@@ -1531,7 +1531,7 @@ class CurrentCoupling5DGradB(Propagator):
         self._curl_norm_b = curl_unit_b2
 
         self._info = solver["info"]
-        
+
         if self.derham.comm is None:
             self._rank = 0
         else:

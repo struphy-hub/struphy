@@ -2,10 +2,9 @@
 import importlib.metadata
 
 import psydac.core.bsplines as bsp
-from psydac.ddm.mpi import mpi as MPI
-from psydac.ddm.mpi import MockMPI, MockComm
-
 from psydac.ddm.cart import DomainDecomposition
+from psydac.ddm.mpi import MockComm, MockMPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.feec.derivatives import Curl_3D, Divergence_3D, Gradient_3D
 from psydac.feec.global_projectors import Projector_H1, Projector_H1vec, Projector_Hcurl, Projector_Hdiv, Projector_L2
 from psydac.fem.grid import FemAssemblyGrid
@@ -825,7 +824,7 @@ class Derham:
         if "dev" in psydac_ver:
             # use tiny-psydac version
             self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
-            
+
             _derham = self._discretize_derham(
                 Nel=Nel,
                 p=p,

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
-from struphy.utils.arrays import xp as np
 from psydac.ddm.mpi import mpi as MPI
+
+from struphy.utils.arrays import xp as np
 from struphy.utils.utils import dict_to_yaml
 
 
@@ -316,7 +317,7 @@ def pre_processing(
 
     mpi_size : int
         Total number of MPI processes of the run.
-        
+
     use_mpi: bool
         True if MPI.COMM_WORLD is not None.
 

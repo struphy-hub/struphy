@@ -7,6 +7,7 @@ import scipy as sc
 from matplotlib import pyplot as plt
 from numpy import zeros
 from psydac.api.essential_bc import apply_essential_bc_stencil
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.solvers import inverse
@@ -49,7 +50,6 @@ from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
 from struphy.utils.arrays import xp as np
-from psydac.ddm.mpi import mpi as MPI
 from struphy.utils.pyccel import Pyccelkernel
 
 

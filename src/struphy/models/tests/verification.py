@@ -6,12 +6,12 @@ import h5py
 import yaml
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
+from psydac.ddm.mpi import mpi as MPI
 from scipy.special import jv, yn
 
 import struphy
 from struphy.post_processing import pproc_struphy
 from struphy.utils.arrays import xp as np
-from psydac.ddm.mpi import mpi as MPI
 
 
 def VlasovAmpereOneSpecies_weakLandau(

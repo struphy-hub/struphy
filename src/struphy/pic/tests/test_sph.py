@@ -1,10 +1,10 @@
 import pytest
 from matplotlib import pyplot as plt
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.geometry import domains
 from struphy.pic.particles import ParticlesSPH
 from struphy.utils.arrays import xp as np
-from psydac.ddm.mpi import mpi as MPI
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])

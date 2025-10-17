@@ -1,5 +1,4 @@
 import pytest
-
 from psydac.ddm.mpi import mpi as MPI
 
 

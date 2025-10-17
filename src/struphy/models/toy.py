@@ -298,15 +298,13 @@ class GuidingCenter(StruphyModel):
         )
 
         self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
-        
+
         self._n_lost_particles[0] = self.pointer["ions"].n_lost_markers
 
         self.update_scalar("en_fv", self._en_fv[0])
         self.update_scalar("en_fB", self._en_fB[0])
         self.update_scalar("en_tot", self._en_tot[0])
         self.update_scalar("n_lost_particles", self._n_lost_particles[0])
-
-
 
 
 class ShearAlfven(StruphyModel):

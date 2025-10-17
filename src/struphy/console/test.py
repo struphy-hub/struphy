@@ -60,15 +60,15 @@ def struphy_test(
                 "-k",
                 "not _models and not _tutorial and not pproc",
             ]
-            
+
         if with_desc:
             cmd += ["--with-desc"]
         if vrbose:
             cmd += ["--vrbose"]
         if show_plots:
             cmd += ["--show-plots"]
-                
-        subp_run(cmd)       
+
+        subp_run(cmd)
 
     elif "models" in group:
         cmd = [

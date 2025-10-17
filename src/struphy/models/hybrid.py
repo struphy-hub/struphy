@@ -262,7 +262,7 @@ class LinearMHDVlasovCC(StruphyModel):
         # Print number of lost ions
         self._n_lost_particles[0] = self.pointer["energetic_ions"].n_lost_markers
         self.update_scalar("n_lost_particles", self._n_lost_particles[0])
-        
+
         if self.rank_world == 0:
             print(
                 "ratio of lost particles: ",

@@ -48,6 +48,8 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
 def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from time import time
 
+    from psydac.ddm.mpi import mpi as MPI
+
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
@@ -58,7 +60,6 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
     from struphy.utils.arrays import xp as np
-    from psydac.ddm.mpi import mpi as MPI
 
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2

@@ -54,6 +54,8 @@ def main(
     import os
     import time
 
+    from psydac.ddm.mpi import MockMPI
+    from psydac.ddm.mpi import mpi as MPI
     from pyevtk.hl import gridToVTK
 
     from struphy.feec.psydac_derham import SplineFunction
@@ -65,8 +67,6 @@ def main(
     from struphy.profiling.profiling import ProfileManager
     from struphy.utils.arrays import xp as np
     from struphy.utils.clone_config import CloneConfig
-    from psydac.ddm.mpi import mpi as MPI
-    from psydac.ddm.mpi import MockMPI
 
     if sort_step:
         from struphy.pic.base import Particles

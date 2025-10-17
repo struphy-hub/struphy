@@ -1,7 +1,7 @@
 import pytest
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.utils.arrays import xp as np
-from psydac.ddm.mpi import mpi as MPI
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])

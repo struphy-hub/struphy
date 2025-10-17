@@ -1,7 +1,6 @@
 import sys
 
 import yaml
-
 from psydac.ddm.mpi import mpi as MPI
 
 
