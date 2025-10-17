@@ -1256,8 +1256,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         stokes_1D_dt = params["time"]["dt"]
 
         # Check MPI size to ensure only one MPI process
-        size = comm.Get_size()
-        if size != 1 and stokes_variant == "Uzawa":
+        if comm is not None and stokes_variant == "Uzawa":
             if comm.Get_rank() == 0:
                 print(f"Error: TwoFluidQuasiNeutralToy only runs with one MPI process.")
             return  # Early return to stop execution for multiple MPI processes

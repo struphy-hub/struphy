@@ -387,8 +387,6 @@ class LinearMHDVlasovPC(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
@@ -670,8 +668,6 @@ class LinearMHDDriftkineticCC(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from mpi4py.MPI import IN_PLACE, SUM
 
         from struphy.polar.basic import PolarVector
 
@@ -1047,8 +1043,6 @@ class ColdPlasmaVlasov(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from mpi4py.MPI import IN_PLACE, SUM
 
         # Get rank and size
         self._rank = self.rank_world

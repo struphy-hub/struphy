@@ -7434,7 +7434,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         dct["alpha"] = 0.1
         dct["beta"] = 1.0
         dct["stab_sigma"] = 0.00001
-        dct["variant"] = "Uzawa"
+        dct["variant"] = "GMRES"
         dct["method_to_solve"] = "DirectNPInverse"
         dct["preconditioner"] = False
         dct["spectralanalysis"] = False

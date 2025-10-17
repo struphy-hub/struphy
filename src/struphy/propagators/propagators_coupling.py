@@ -1849,7 +1849,8 @@ class CurrentCoupling5DGradB(Propagator):
                 self._boundary_cut_e1,
             )
 
-            self.particles[0].mpi_sort_markers()
+            if self.particles[0].mpi_comm is not None:
+                self.particles[0].mpi_sort_markers()
 
             # solve linear system for updated u coefficients
             _ku = self._solver.dot(self._ACC.vectors[0], out=self._u_temp2)
