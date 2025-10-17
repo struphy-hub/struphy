@@ -4,6 +4,7 @@ import time
 import matplotlib.pyplot as plt
 import pytest
 from psydac.ddm.mpi import mpi as MPI
+from psydac.ddm.mpi import MockComm 
 
 from struphy.bsplines.bsplines import basis_funs, find_span
 from struphy.bsplines.evaluation_kernels_1d import evaluation_kernel_1d
@@ -1338,15 +1339,31 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
     meanglobal = np.mean(errorglo)
     maxglobal = np.max(errorglo)
 
-    reducemeanlocal = comm.reduce(meanlocal, op=MPI.SUM, root=0)
+    if isinstance(comm, MockComm):
+        reducemeanlocal = meanlocal
+    else:
+        reducemeanlocal = comm.reduce(meanlocal, op=MPI.SUM, root=0)
+        
     if rank == 0:
         reducemeanlocal = reducemeanlocal / world_size
-    reducemaxlocal = comm.reduce(maxlocal, op=MPI.MAX, root=0)
+    
+    if isinstance(comm, MockComm):
+        reducemaxlocal = maxlocal
+    else:
+        reducemaxlocal = comm.reduce(maxlocal, op=MPI.MAX, root=0)
 
-    reducemeanglobal = comm.reduce(meanglobal, op=MPI.SUM, root=0)
+    if isinstance(comm, MockComm):
+        reducemeanglobal = meanglobal
+    else:
+        reducemeanglobal = comm.reduce(meanglobal, op=MPI.SUM, root=0)
+        
     if rank == 0:
         reducemeanglobal = reducemeanglobal / world_size
-    reducemaxglobal = comm.reduce(maxglobal, op=MPI.MAX, root=0)
+        
+    if isinstance(comm, MockComm):
+        reducemaxglobal = maxglobal
+    else:
+        reducemaxglobal = comm.reduce(maxglobal, op=MPI.MAX, root=0)
 
     if rank == 0:
         assert reducemeanlocal < 10.0 * reducemeanglobal or reducemeanlocal < 10.0**-5
