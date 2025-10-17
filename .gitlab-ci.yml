@@ -403,6 +403,9 @@ stages:
     - struphy compile --status
     - struphy --refresh-models
     - struphy test unit
+  unit_tests_mpi:
+    - struphy compile --status
+    - struphy --refresh-models
     - struphy test unit --mpi 2
   model_tests:
     - struphy compile --status
@@ -562,7 +565,21 @@ unit_tests:
     - .variables_push
   script:
     - !reference [.scripts, install_on_push]
+    - pip show mpi4py
+    - pip uninstall -y mpi4py
+    - pip show mpi4py
     - !reference [.scripts, unit_tests]
+
+unit_tests_mpi:
+  stage: test
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, unit_tests_mpi]
 
 tests_pyccel_devel:
   stage: test
