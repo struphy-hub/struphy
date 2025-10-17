@@ -42,7 +42,6 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     from psydac.ddm.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     seed = 1234

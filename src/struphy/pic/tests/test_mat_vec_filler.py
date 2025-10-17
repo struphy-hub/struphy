@@ -24,7 +24,6 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     from psydac.ddm.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence

@@ -20,7 +20,6 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
@@ -215,7 +214,6 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
     from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
@@ -532,7 +530,6 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
@@ -689,7 +686,6 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence

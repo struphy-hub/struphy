@@ -17,7 +17,6 @@ def test_psydac_derham(Nel, p, spl_kind):
     from psydac.ddm.mpi import mpi as MPI
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     print("Nel=", Nel)

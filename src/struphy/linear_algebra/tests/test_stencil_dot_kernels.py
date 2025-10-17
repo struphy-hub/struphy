@@ -25,7 +25,6 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     if rank == 0:
@@ -147,7 +146,6 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     if rank == 0:
