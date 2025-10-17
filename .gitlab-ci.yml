@@ -339,29 +339,29 @@ stages:
     - git checkout $CI_COMMIT_REF_NAME
     - git pull
     - echo $STRUPHY_SOURCE
-    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys,mpi]
     - !reference [.scripts, compile_matrix]
   install:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE)[phys]
+    - pip install $(echo $STRUPHY_SOURCE)[phys,mpi]
     - pip show struphy
     - pip list
     - struphy -h
   install_base:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE)
+    - pip install $(echo $STRUPHY_SOURCE)[mpi]
     - pip show struphy
     - pip list
     - struphy -h
   install_no_binary:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE)[phys] --no-binary mpi4py
+    - pip install $(echo $STRUPHY_SOURCE)[phys,mpi] --no-binary mpi4py
     - pip show struphy
     - pip list
     - struphy -h
   install_base_no_binary:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE) --no-binary mpi4py
+    - pip install $(echo $STRUPHY_SOURCE)[mpi] --no-binary mpi4py
     - pip show struphy
     - pip list
     - struphy -h

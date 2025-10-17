@@ -24,7 +24,6 @@ classifiers = [
 dependencies = [
     'numpy',
     'pyccel>=2.0',
-    'mpi4py',
     'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@no-mpi',
     'scipy',
     'h5py',
@@ -62,6 +61,9 @@ dev = [
     "pandas",
     "plotly",
 ]
+mpi = [
+    'mpi4py',
+]
 doc = [
     "struphy[phys]",
     "sphinx",
@@ -83,6 +85,7 @@ likwid = [
 all = [
     "struphy[phys]",
     "struphy[dev]",
+    "struphy[mpi]",
     "struphy[doc]",
     "struphy[likwid]",
 ]
