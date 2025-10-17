@@ -150,7 +150,6 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
             assert np.max(errg) < 0.1
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("pi", [3, 4])
 @pytest.mark.parametrize("spl_kindi", [True, False])

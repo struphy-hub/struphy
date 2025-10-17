@@ -730,7 +730,6 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
             assert err_min < 0.021
 
 
-# @pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("boxes_per_dim", [(24, 24, 1)])
 @pytest.mark.parametrize("bc_x", ["periodic", "fixed", "mirror"])
 @pytest.mark.parametrize("bc_y", ["periodic", "fixed", "mirror"])

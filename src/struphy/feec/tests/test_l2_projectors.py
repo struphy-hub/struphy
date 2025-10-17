@@ -11,7 +11,6 @@ from struphy.utils.arrays import xp as np
 from psydac.ddm.mpi import mpi as MPI
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[16, 32, 1]])
 @pytest.mark.parametrize("p", [[2, 1, 1], [3, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True]])
@@ -116,7 +115,6 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plo
                 plt.show()
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("pi", [1, 2])
 @pytest.mark.parametrize("spl_kindi", [True, False])

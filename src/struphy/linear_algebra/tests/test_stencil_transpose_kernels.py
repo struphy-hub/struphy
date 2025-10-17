@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [12])
 @pytest.mark.parametrize("p", [1, 2, 3])
 @pytest.mark.parametrize("spl_kind", [False, True])
@@ -118,7 +117,6 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     assert np.allclose(matT_pre[s_in : e_in + 1, :], matT[s_in : e_in + 1, :])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[12, 16, 20]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[True, False, False]])

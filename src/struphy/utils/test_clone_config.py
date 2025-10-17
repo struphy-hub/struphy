@@ -3,7 +3,6 @@ import pytest
 from psydac.ddm.mpi import mpi as MPI
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("Np", [1000, 999])
 @pytest.mark.parametrize("num_clones", [1, 2])

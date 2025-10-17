@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 10, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [True, True, False]])
@@ -55,7 +54,6 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
                     assert np.allclose(field(*meshgrids)[j], val)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[18, 24, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True]])
@@ -1079,7 +1077,6 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 plt.show()
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[1, 32, 32]])
 @pytest.mark.parametrize("p", [[1, 3, 3]])
 @pytest.mark.parametrize("spl_kind", [[True, True, True]])
@@ -1311,7 +1308,6 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
         plt.show()
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 10, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])

@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[5, 6, 7]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
@@ -364,7 +363,6 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     print(f"Rank {mpi_rank} | All tests passed!")
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 12, 6]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
@@ -558,7 +556,6 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     print(f"Rank {mpi_rank} | All tests passed!")
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 12, 6]])
 @pytest.mark.parametrize("p", [[2, 3, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
@@ -864,7 +861,6 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     print(f"Rank {mpi_rank} | All tests passed!")
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 6]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])

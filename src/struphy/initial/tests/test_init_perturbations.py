@@ -3,7 +3,6 @@ import inspect
 import pytest
 
 
-# @pytest.mark.mpi(min_size=2)
 # @pytest.mark.parametrize('combine_comps', [('f0', 'f1'), ('f0', 'f3'), ('f1', 'f2'), ('fvec', 'f3'), ('f1', 'fvec', 'f0')])
 @pytest.mark.parametrize("Nel", [[16, 16, 16]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])

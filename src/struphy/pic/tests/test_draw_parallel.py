@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])

@@ -3,7 +3,6 @@ import pytest
 from struphy.utils.pyccel import Pyccelkernel
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -139,7 +138,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -286,7 +284,6 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -433,7 +430,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -580,7 +576,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -729,7 +724,6 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(

@@ -10,7 +10,6 @@ from struphy.utils.arrays import xp as np
 from psydac.ddm.mpi import mpi as MPI
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("ppb", [8, 12])
 @pytest.mark.parametrize("nx", [16, 10, 24])
 @pytest.mark.parametrize("ny", [1, 16, 10])
@@ -73,7 +72,6 @@ def test_draw(ppb, nx, ny, nz):
     assert np.allclose(particles.positions[:, 2], e3)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("ppb", [8, 12])
 @pytest.mark.parametrize("nx", [10, 8, 6])
 @pytest.mark.parametrize("ny", [1, 16, 10])

@@ -490,7 +490,6 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 # ==========================================
 # ========== multi-threaded tests ==========
 # ==========================================
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -772,7 +771,6 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize(
     "mapping",
     [

@@ -7,7 +7,6 @@ from struphy.utils.arrays import xp as np
 from psydac.ddm.mpi import mpi as MPI
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -204,7 +203,6 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
         assert np.allclose(val, val_mpi)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -510,7 +508,6 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
         assert np.allclose(val, val_mpi)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -672,7 +669,6 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     assert np.allclose(vals, vals_mpi_fast)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])

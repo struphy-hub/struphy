@@ -3,7 +3,6 @@ import pytest
 from struphy.ode.utils import ButcherTableau
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize(
     "spaces",
     [

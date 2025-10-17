@@ -455,7 +455,6 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     print(f"Rank {mpi_rank} | Assertion passed.")
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[6, 9, 7]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
