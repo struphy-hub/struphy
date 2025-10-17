@@ -403,6 +403,7 @@ stages:
     - struphy compile --status
     - struphy --refresh-models
     - struphy test unit
+    - struphy test unit --mpi 2
   model_tests:
     - struphy compile --status
     - struphy test models --fast

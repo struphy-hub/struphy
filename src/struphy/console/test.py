@@ -4,7 +4,7 @@ from struphy.utils.utils import subp_run
 def struphy_test(
     group: str,
     *,
-    mpi: int = 2,
+    mpi: int = 1,
     fast: bool = False,
     with_desc: bool = False,
     Tend: float = None,
@@ -44,37 +44,31 @@ def struphy_test(
     """
 
     if "unit" in group:
-        # first run only tests that require single process
-        cmd = [
-            "pytest",
-            "-k",
-            "not _models and not _tutorial and not pproc",
-        ]
+        if mpi > 1:
+            cmd = [
+                "mpirun",
+                "-n",
+                str(mpi),
+                "pytest",
+                "-k",
+                "not _models and not _tutorial and not pproc",
+                "--with-mpi",
+            ]
+        else:
+            cmd = [
+                "pytest",
+                "-k",
+                "not _models and not _tutorial and not pproc",
+            ]
+            
         if with_desc:
             cmd += ["--with-desc"]
         if vrbose:
             cmd += ["--vrbose"]
         if show_plots:
             cmd += ["--show-plots"]
-        subp_run(cmd)
-
-        # now run parallel unit tests
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
-            "-k",
-            "not _models and not _tutorial and not pproc",
-            "--with-mpi",
-        ]
-        if with_desc:
-            cmd += ["--with-desc"]
-        if vrbose:
-            cmd += ["--vrbose"]
-        if show_plots:
-            cmd += ["--show-plots"]
-        subp_run(cmd)
+                
+        subp_run(cmd)       
 
     elif "models" in group:
         cmd = [
