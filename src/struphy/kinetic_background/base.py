@@ -735,12 +735,12 @@ class CanonicalMaxwellian(KineticBackground):
         # Multiply result with gaussian in energy
         # correct broadcasting
         if np.ndim(args[0]) == 3:
-            vth_broad = vths[i] + 0.0 * arg_t
+            vth_broad = vths + 0.0 * arg_t
             vth = np.moveaxis(vth_broad, -1, 0)
             vth = np.moveaxis(vth, -1, 0)
             vth = np.moveaxis(vth, -1, 0)
         else:
-            vth = vths[i]
+            vth = vths
 
         e = args[0]
         res *= self.gaussian(e, vth=vth)
