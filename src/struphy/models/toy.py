@@ -141,8 +141,6 @@ class Vlasov(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # prelim
         ions_params = self.kinetic["ions"]["params"]
 
@@ -172,8 +170,6 @@ class Vlasov(StruphyModel):
         self.add_scalar("en_f", compute="from_particles", species="ions")
 
         # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
         self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
@@ -182,9 +178,6 @@ class Vlasov(StruphyModel):
             + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
             + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
         ) / (2 * self.pointer["ions"].Np)
-
-        # self.derham.comm.Allreduce(
-        #     self._mpi_in_place, self._tmp, op=self._mpi_sum)
 
         self.update_scalar("en_f", self._tmp[0])
 
@@ -257,8 +250,6 @@ class GuidingCenter(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # prelim
         ions_params = self.kinetic["ions"]["params"]
         epsilon = self.equation_params["ions"]["epsilon"]
@@ -278,13 +269,12 @@ class GuidingCenter(StruphyModel):
         self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        self.add_scalar("en_fv")
-        self.add_scalar("en_fB")
-        self.add_scalar("en_tot")
+        self.add_scalar("en_fv", compute="from_particles", species="ions")
+        self.add_scalar("en_fB", compute="from_particles", species="ions")
+        self.add_scalar("en_tot", compute="from_particles", species="ions")
+        self.add_scalar("n_lost_particles", compute="from_particles", species="ions")
 
         # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
         self._en_tot = np.empty(1, dtype=float)
@@ -309,32 +299,12 @@ class GuidingCenter(StruphyModel):
 
         self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
 
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_fv,
-            op=self._mpi_sum,
-        )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_tot,
-            op=self._mpi_sum,
-        )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_fB,
-            op=self._mpi_sum,
-        )
+        self._n_lost_particles[0] = self.pointer["ions"].n_lost_markers
 
         self.update_scalar("en_fv", self._en_fv[0])
         self.update_scalar("en_fB", self._en_fB[0])
         self.update_scalar("en_tot", self._en_tot[0])
-
-        self._n_lost_particles[0] = self.pointer["ions"].n_lost_markers
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._n_lost_particles,
-            op=self._mpi_sum,
-        )
+        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
 
 
 class ShearAlfven(StruphyModel):
@@ -975,8 +945,6 @@ class DeterministicParticleDiffusion(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # prelim
         params = self.kinetic["species1"]["params"]
         algo = params["options"]["PushDeterministicDiffusion"]["algo"]
@@ -1001,8 +969,6 @@ class DeterministicParticleDiffusion(StruphyModel):
         self.add_scalar("en_f")
 
         # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
         self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
@@ -1063,8 +1029,6 @@ class RandomParticleDiffusion(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # prelim
         species1_params = self.kinetic["species1"]["params"]
         algo = species1_params["options"]["PushRandomDiffusion"]["algo"]
@@ -1089,8 +1053,6 @@ class RandomParticleDiffusion(StruphyModel):
         self.add_scalar("en_f")
 
         # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
         self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
@@ -1149,8 +1111,6 @@ class PressureLessSPH(StruphyModel):
 
     def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from mpi4py.MPI import IN_PLACE, SUM
 
         # prelim
         p_fluid_params = self.kinetic["p_fluid"]["params"]
@@ -1296,8 +1256,7 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
         stokes_1D_dt = params["time"]["dt"]
 
         # Check MPI size to ensure only one MPI process
-        size = comm.Get_size()
-        if size != 1 and stokes_variant == "Uzawa":
+        if comm is not None and stokes_variant == "Uzawa":
             if comm.Get_rank() == 0:
                 print(f"Error: TwoFluidQuasiNeutralToy only runs with one MPI process.")
             return  # Early return to stop execution for multiple MPI processes

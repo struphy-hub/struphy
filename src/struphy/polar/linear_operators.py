@@ -1,4 +1,4 @@
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.block import BlockVector, BlockVectorSpace
 from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 from scipy.sparse import csr_matrix, identity

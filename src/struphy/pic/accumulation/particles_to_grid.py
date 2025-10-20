@@ -1,6 +1,6 @@
 "Base classes for particle deposition (accumulation) on the grid."
 
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilMatrix, StencilVector
 

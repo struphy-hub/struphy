@@ -1,4 +1,4 @@
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic import Vector, VectorSpace
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector

@@ -339,29 +339,29 @@ stages:
     - git checkout $CI_COMMIT_REF_NAME
     - git pull
     - echo $STRUPHY_SOURCE
-    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys,mpi]
     - !reference [.scripts, compile_matrix]
   install:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE)[phys]
+    - pip install $(echo $STRUPHY_SOURCE)[phys,mpi]
     - pip show struphy
     - pip list
     - struphy -h
   install_base:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE)
+    - pip install $(echo $STRUPHY_SOURCE)[mpi]
     - pip show struphy
     - pip list
     - struphy -h
   install_no_binary:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE)[phys] --no-binary mpi4py
+    - pip install $(echo $STRUPHY_SOURCE)[phys,mpi] --no-binary mpi4py
     - pip show struphy
     - pip list
     - struphy -h
   install_base_no_binary:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE) --no-binary mpi4py
+    - pip install $(echo $STRUPHY_SOURCE)[mpi] --no-binary mpi4py
     - pip show struphy
     - pip list
     - struphy -h
@@ -403,9 +403,18 @@ stages:
     - struphy compile --status
     - struphy --refresh-models
     - struphy test unit
+  unit_tests_mpi:
+    - struphy compile --status
+    - struphy --refresh-models
+    - struphy test unit --mpi 2
   model_tests:
     - struphy compile --status
     - struphy test models --fast
+    - struphy test models --fast --verification 
+  model_tests_mpi:
+    - struphy compile --status
+    - struphy test models --fast
+    - struphy test models --fast --mpi 2
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
     - struphy test models --fast --verification --mpi 4 --nclones 2
@@ -561,7 +570,21 @@ unit_tests:
     - .variables_push
   script:
     - !reference [.scripts, install_on_push]
+    - pip show mpi4py
+    - pip uninstall -y mpi4py
+    - pip list
     - !reference [.scripts, unit_tests]
+
+unit_tests_mpi:
+  stage: test
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, unit_tests_mpi]
 
 tests_pyccel_devel:
   stage: test
@@ -573,7 +596,7 @@ tests_pyccel_devel:
   script:
     - !reference [.scripts, install_pyccel_devel]
     - !reference [.scripts, unit_tests]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 model_tests:
   stage: test
@@ -584,7 +607,21 @@ model_tests:
     - .variables_push
   script:
     - !reference [.scripts, install_on_push]
+    - pip show mpi4py
+    - pip uninstall -y mpi4py
+    - pip list
     - !reference [.scripts, model_tests]
+
+model_tests_mpi:
+  stage: test
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, model_tests_mpi]
 
 quickstart_tests:
   stage: test
@@ -633,7 +670,7 @@ ubuntu_latest:
     - !reference [.scripts, inspect_directory]
     - !reference [.scripts, install_on_push]
     - !reference [.scripts, quickstart_tests]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 macos_nmpp:
   stage: test
@@ -662,7 +699,7 @@ macos_nmpp:
     - !reference [.scripts, install]
     - !reference [.scripts, compile]
     - !reference [.scripts, quickstart_tests]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
   after_script:
     - pwd
     - ls -a
@@ -773,7 +810,7 @@ model_tests_scheduled:
     - .before_script_load_modules
   script:
     - !reference [.scripts, source_env_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 check_release_dependencies:
   stage: test
@@ -808,7 +845,7 @@ Ubuntu-latest-from-registry:
   script:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 Fedora-latest:
   stage: test
@@ -821,7 +858,7 @@ Fedora-latest:
   script:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 Fedora-latest-from-registry:
   stage: test
@@ -839,7 +876,7 @@ Fedora-latest-from-registry:
   script:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 Fedora-latest-from-registry-base:
   stage: test
@@ -857,7 +894,7 @@ Fedora-latest-from-registry-base:
   script:
     - !reference [.scripts, install_base]
     - !reference [.scripts, compile_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 OpenSuse-latest:
   stage: test
@@ -870,7 +907,7 @@ OpenSuse-latest:
   script:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 Opensuse-latest-from-registry:
   stage: test
@@ -886,7 +923,7 @@ Opensuse-latest-from-registry:
   script:
     - !reference [.scripts, install]
     - !reference [.scripts, compile_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 Opensuse-latest-from-registry-base:
   stage: test
@@ -902,7 +939,7 @@ Opensuse-latest-from-registry-base:
   script:
     - !reference [.scripts, install_base]
     - !reference [.scripts, compile_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 AlmaLinux-latest:
   stage: test
@@ -915,7 +952,7 @@ AlmaLinux-latest:
   script:
     - !reference [.scripts, install_no_binary]
     - !reference [.scripts, compile_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 Almalinux-latest-from-registry:
   stage: test
@@ -932,7 +969,7 @@ Almalinux-latest-from-registry:
   script:
     - !reference [.scripts, install_no_binary]
     - !reference [.scripts, compile_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 Almalinux-latest-from-registry-base:
   stage: test
@@ -949,7 +986,7 @@ Almalinux-latest-from-registry-base:
   script:
     - !reference [.scripts, install_base_no_binary]
     - !reference [.scripts, compile_matrix]
-    - !reference [.scripts, model_tests]
+    - !reference [.scripts, model_tests_mpi]
 
 ##################
 ### LINT STAGE ###
