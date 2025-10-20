@@ -1099,7 +1099,7 @@ class Particles(metaclass=ABCMeta):
         bufsize = self.bufsize + 1.0 / np.sqrt(n_mks_load_loc)
 
         # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
-        self._n_rows = round(n_mks_load_loc * (1 + bufsize))
+        self._n_rows = round(float(n_mks_load_loc * (1 + bufsize)))
         self._markers = np.zeros((self.n_rows, self.n_cols), dtype=float)
 
         # allocate auxiliary arrays
@@ -2383,7 +2383,7 @@ class Particles(metaclass=ABCMeta):
             n_particles = self._markers_shape[0]
             n_mkr = int(n_particles / n_box_in) + 1
             n_cols = round(
-                n_mkr * (1 + 1 / np.sqrt(n_mkr) + self._box_bufsize),
+                float(n_mkr) * (1 + 1 / float(np.sqrt(n_mkr)) + self._box_bufsize),
             )
 
             # cartesian boxes
