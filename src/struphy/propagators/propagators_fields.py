@@ -5,9 +5,9 @@ from copy import deepcopy
 
 import scipy as sc
 from matplotlib import pyplot as plt
-from mpi4py import MPI
 from numpy import zeros
 from psydac.api.essential_bc import apply_essential_bc_stencil
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.solvers import inverse
@@ -7434,7 +7434,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
         dct["alpha"] = 0.1
         dct["beta"] = 1.0
         dct["stab_sigma"] = 0.00001
-        dct["variant"] = "Uzawa"
+        dct["variant"] = "GMRES"
         dct["method_to_solve"] = "DirectNPInverse"
         dct["preconditioner"] = False
         dct["spectralanalysis"] = False

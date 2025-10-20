@@ -524,7 +524,10 @@ class PressureCoupling6D(Propagator):
         self._GT = self.derham.grad.transpose()
 
         self._info = solver["info"]
-        self._rank = self.derham.comm.Get_rank()
+        if self.derham.comm is None:
+            self._rank = 0
+        else:
+            self._rank = self.derham.comm.Get_rank()
 
         assert u_space in {"Hcurl", "Hdiv", "H1vec"}
 
@@ -847,7 +850,11 @@ class CurrentCoupling6DCurrent(Propagator):
         self._b_tilde = b_tilde
 
         self._info = solver["info"]
-        self._rank = self.derham.comm.Get_rank()
+
+        if self.derham.comm is None:
+            self._rank = 0
+        else:
+            self._rank = self.derham.comm.Get_rank()
 
         self._coupling_mat = Ah / Ab / epsilon**2
         self._coupling_vec = Ah / Ab / epsilon
@@ -1162,7 +1169,11 @@ class CurrentCoupling5DCurlb(Propagator):
         self._curl_norm_b = curl_unit_b2
 
         self._info = solver["info"]
-        self._rank = self.derham.comm.Get_rank()
+
+        if self.derham.comm is None:
+            self._rank = 0
+        else:
+            self._rank = self.derham.comm.Get_rank()
 
         self._coupling_mat = coupling_params["Ah"] / coupling_params["Ab"]
         self._coupling_vec = coupling_params["Ah"] / coupling_params["Ab"]
@@ -1520,7 +1531,11 @@ class CurrentCoupling5DGradB(Propagator):
         self._curl_norm_b = curl_unit_b2
 
         self._info = solver["info"]
-        self._rank = self.derham.comm.Get_rank()
+
+        if self.derham.comm is None:
+            self._rank = 0
+        else:
+            self._rank = self.derham.comm.Get_rank()
 
         self._coupling_mat = coupling_params["Ah"] / coupling_params["Ab"]
         self._coupling_vec = coupling_params["Ah"] / coupling_params["Ab"]
@@ -1834,7 +1849,8 @@ class CurrentCoupling5DGradB(Propagator):
                 self._boundary_cut_e1,
             )
 
-            self.particles[0].mpi_sort_markers()
+            if self.particles[0].mpi_comm is not None:
+                self.particles[0].mpi_sort_markers()
 
             # solve linear system for updated u coefficients
             _ku = self._solver.dot(self._ACC.vectors[0], out=self._u_temp2)
