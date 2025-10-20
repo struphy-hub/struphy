@@ -76,7 +76,8 @@ class PushEta(Propagator):
         from struphy.utils.arrays import xp as np
 
         butcher._a = np.diag(butcher.a, k=-1)
-        butcher._a = np.array(list(butcher.a) + [0.0])
+        butcher._a = np.concatenate([np.asarray(butcher.a), np.array([0.0])])
+        
 
         args_kernel = (
             butcher.a,
@@ -717,7 +718,7 @@ class PushGuidingCenterBxEstar(Propagator):
             from struphy.utils.arrays import xp as np
 
             butcher._a = np.diag(butcher.a, k=-1)
-            butcher._a = np.array(list(butcher.a) + [0.0])
+            butcher._a = np.concatenate([np.asarray(butcher.a), np.array([0.0])])
 
             kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_explicit_multistage)
 
@@ -1136,7 +1137,7 @@ class PushGuidingCenterParallel(Propagator):
             from struphy.utils.arrays import xp as np
 
             butcher._a = np.diag(butcher.a, k=-1)
-            butcher._a = np.array(list(butcher.a) + [0.0])
+            butcher._a = np.concatenate([np.asarray(butcher.a), np.array([0.0])])
 
             kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_explicit_multistage)
 
