@@ -139,6 +139,8 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
             cumulative_lengths += marker_shapes[i]
     else:
         mpi_comm.Send(particles.markers, dest=0)
+        
+    if mpi_comm is not None:
         mpi_comm.Bcast(particles_leg, root=0)
 
     # sort new particles
