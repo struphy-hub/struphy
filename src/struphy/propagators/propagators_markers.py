@@ -77,7 +77,6 @@ class PushEta(Propagator):
 
         butcher._a = np.diag(butcher.a, k=-1)
         butcher._a = np.concatenate([np.asarray(butcher.a), np.array([0.0])])
-        
 
         args_kernel = (
             butcher.a,
