@@ -2602,7 +2602,15 @@ class Particles(metaclass=ABCMeta):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
         and then assigne the particles to boxes."""
 
-        bcount = np.bincount(np.int64(self.markers_wo_holes[:, -2]))
+        from struphy.utils.arrays import array_backend
+        if array_backend.backend == "numpy":
+            bcount = np.bincount(np.int64(self.markers_wo_holes[:, -2]))
+        else:
+            import cupy as cp
+            indices = self.markers_wo_holes[:, -2]
+            indices = indices.astype(cp.int64)
+            bcount = cp.bincount(indices)
+
         max_in_box = np.max(bcount)
         if max_in_box > self._sorting_boxes.boxes.shape[1]:
             warnings.warn(
