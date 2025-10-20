@@ -49,6 +49,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from time import time
 
     from psydac.ddm.mpi import mpi as MPI
+    from psydac.ddm.mpi import MockComm
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.mass import WeightedMassOperators
@@ -61,10 +62,15 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
     from struphy.utils.arrays import xp as np
 
-    mpi_comm = MPI.COMM_WORLD
-    # assert mpi_comm.size >= 2
-    rank = mpi_comm.Get_rank()
-    mpi_size = mpi_comm.Get_size()
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        mpi_comm = None
+        rank = 0
+        mpi_size = 1
+    else:
+        mpi_comm = MPI.COMM_WORLD
+        # assert mpi_comm.size >= 2
+        rank = mpi_comm.Get_rank()
+        mpi_size = mpi_comm.Get_size()
 
     # DOMAIN object
     dom_type = mapping[0]
@@ -105,9 +111,11 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     ] = np.random.rand(particles.n_mks_loc)
 
     # gather all particles for legacy kernel
-    marker_shapes = np.zeros(mpi_size, dtype=int)
-
-    mpi_comm.Allgather(np.array([particles.markers.shape[0]]), marker_shapes)
+    if mpi_comm is None:
+        marker_shapes = np.array([particles.markers.shape[0]])
+    else:
+        marker_shapes = np.zeros(mpi_size, dtype=int)
+        mpi_comm.Allgather(np.array([particles.markers.shape[0]]), marker_shapes)
     print(rank, marker_shapes)
 
     particles_leg = np.zeros(
@@ -131,8 +139,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
             cumulative_lengths += marker_shapes[i]
     else:
         mpi_comm.Send(particles.markers, dest=0)
-
-    mpi_comm.Bcast(particles_leg, root=0)
+        mpi_comm.Bcast(particles_leg, root=0)
 
     # sort new particles
     if particles.mpi_comm:
