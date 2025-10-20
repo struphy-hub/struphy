@@ -89,7 +89,7 @@ def struphy_test(
                 "_models",
                 "-s",
             ]
-            
+
         if fast:
             cmd += ["--fast"]
         if vrbose:

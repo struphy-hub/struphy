@@ -14,8 +14,8 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     TODO
     """
 
-    from psydac.ddm.mpi import mpi as MPI
     from psydac.ddm.mpi import MockComm
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
@@ -79,21 +79,21 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     else:
         v0_global = M0.domain.zeros().toarray()
         comm.Allreduce(v0_local, v0_global, op=MPI.SUM)
-        
+
     v1_local = M1.dot(v1).toarray()
     if isinstance(comm, MockComm):
         v1_global = v1_local
     else:
         v1_global = M1.domain.zeros().toarray()
         comm.Allreduce(v1_local, v1_global, op=MPI.SUM)
-        
+
     v2_local = M2.dot(v2).toarray()
     if isinstance(comm, MockComm):
         v2_global = v2_local
     else:
         v2_global = M2.domain.zeros().toarray()
         comm.Allreduce(v2_local, v2_global, op=MPI.SUM)
-        
+
     v3_local = M3.dot(v3).toarray()
     if isinstance(comm, MockComm):
         v3_global = v3_local

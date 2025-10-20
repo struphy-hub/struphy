@@ -48,8 +48,8 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
 def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from time import time
 
-    from psydac.ddm.mpi import mpi as MPI
     from psydac.ddm.mpi import MockComm
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.mass import WeightedMassOperators

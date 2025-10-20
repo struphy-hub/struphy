@@ -47,8 +47,8 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
 
     import copy
 
-    from psydac.ddm.mpi import mpi as MPI
     from psydac.ddm.mpi import MockComm
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
@@ -59,7 +59,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     from struphy.utils.arrays import xp as np
     from struphy.utils.clone_config import CloneConfig
 
-    if isinstance (MPI.COMM_WORLD, MockComm):
+    if isinstance(MPI.COMM_WORLD, MockComm):
         mpi_comm = None
         mpi_rank = 0
     else:
@@ -79,7 +79,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     }
     if mpi_comm is None:
         clone_config = None
-        
+
         derham = Derham(
             Nel,
             p,
@@ -164,7 +164,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     # Check for all clones
     _sum_between_clones = np.empty(1, dtype=float)
     _sum_between_clones[0] = np.sum(acc.vectors[0].toarray())
-    
+
     if mpi_comm is not None:
         mpi_comm.Allreduce(MPI.IN_PLACE, _sum_between_clones, op=MPI.SUM)
         clone_config.inter_comm.Allreduce(MPI.IN_PLACE, _sqrtg, op=MPI.SUM)

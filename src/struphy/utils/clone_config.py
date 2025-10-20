@@ -1,5 +1,5 @@
-from psydac.ddm.mpi import mpi as MPI
 from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.utils.arrays import xp as np
 
@@ -41,7 +41,7 @@ class CloneConfig:
         self._inter_comm = None
 
         self._species_list = None
-        
+
         self._clone_rank = 0
         self._clone_id = 0
 

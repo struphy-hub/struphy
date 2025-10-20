@@ -1,7 +1,7 @@
 import pytest
 from matplotlib import pyplot as plt
-from psydac.ddm.mpi import mpi as MPI
 from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.geometry import domains
 from struphy.pic.particles import ParticlesSPH
@@ -232,7 +232,7 @@ def test_sph_evaluation_2d(
         kernel_type=kernel,
         derivative=derivative,
     )
-    
+
     if comm is None:
         all_eval = test_eval
     else:
@@ -353,7 +353,7 @@ def test_sph_evaluation_3d(
         kernel_type=kernel,
         derivative=derivative,
     )
-    
+
     if comm is None:
         all_eval = test_eval
     else:
@@ -478,7 +478,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         h3 = 1 / boxes_per_dim[2]
 
         test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
-        
+
         if comm is None:
             all_eval = test_eval
         else:
@@ -596,7 +596,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         h3 = 1 / boxes_per_dim[2]
 
         test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
-        
+
         if comm is None:
             all_eval = test_eval
         else:
@@ -720,7 +720,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
             h3 = 1 / boxes_per_dim[2]
 
             test_eval = particles.eval_density(ee1, ee2, ee3, h1=h, h2=h2, h3=h3)
-            
+
             if comm is None:
                 all_eval = test_eval
             else:
@@ -880,7 +880,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         h3 = 1 / boxes_per_dim[2]
 
         test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3, kernel_type="gaussian_2d")
-        
+
         if comm is None:
             all_eval = test_eval
         else:

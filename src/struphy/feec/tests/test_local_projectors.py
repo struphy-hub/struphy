@@ -3,8 +3,8 @@ import time
 
 import matplotlib.pyplot as plt
 import pytest
+from psydac.ddm.mpi import MockComm
 from psydac.ddm.mpi import mpi as MPI
-from psydac.ddm.mpi import MockComm 
 
 from struphy.bsplines.bsplines import basis_funs, find_span
 from struphy.bsplines.evaluation_kernels_1d import evaluation_kernel_1d
@@ -1343,10 +1343,10 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
         reducemeanlocal = meanlocal
     else:
         reducemeanlocal = comm.reduce(meanlocal, op=MPI.SUM, root=0)
-        
+
     if rank == 0:
         reducemeanlocal = reducemeanlocal / world_size
-    
+
     if isinstance(comm, MockComm):
         reducemaxlocal = maxlocal
     else:
@@ -1356,10 +1356,10 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
         reducemeanglobal = meanglobal
     else:
         reducemeanglobal = comm.reduce(meanglobal, op=MPI.SUM, root=0)
-        
+
     if rank == 0:
         reducemeanglobal = reducemeanglobal / world_size
-        
+
     if isinstance(comm, MockComm):
         reducemaxglobal = maxglobal
     else:

@@ -3,9 +3,8 @@ import operator
 from abc import ABCMeta, abstractmethod
 from functools import reduce
 
-from psydac.ddm.mpi import mpi as MPI
-
 import yaml
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators

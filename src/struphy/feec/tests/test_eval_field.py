@@ -1,6 +1,6 @@
 import pytest
-from psydac.ddm.mpi import mpi as MPI
 from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.utils.arrays import xp as np
 

@@ -1,6 +1,6 @@
 import pytest
-from psydac.ddm.mpi import mpi as MPI
 from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -14,7 +14,7 @@ def test_clone_config(Nel, Np, num_clones):
         num_clones = 1
     else:
         comm = MPI.COMM_WORLD
-        
+
     species = "ions"
     params = {
         "grid": {
