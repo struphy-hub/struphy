@@ -48,7 +48,7 @@ from struphy.utils.arrays import array_backend
 if array_backend.backend == "cupy":
     from cupy import empty, shape, sqrt, zeros
 else:
-    from cupy import empty, shape, sqrt, zeros
+    from numpy import empty, shape, sqrt, zeros
 
 from pyccel.decorators import stack_array
 
@@ -338,7 +338,7 @@ def kernel_pullpush(
                 e1 = eta1[i1, i2 * sparse_factor, i3 * sparse_factor]
                 e2 = eta2[i1 * sparse_factor, i2, i3 * sparse_factor]
                 e3 = eta3[i1 * sparse_factor, i2 * sparse_factor, i3]
-                print(f"{type(a) = }")
+
                 tmp1[:] = a[i1, i2, i3, :]
                 tmp2[:] = out[i1, i2, i3, :]
 
