@@ -404,8 +404,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # get species paramaters
         species1_params = params["kinetic"]["species1"]
 
@@ -672,8 +670,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from mpi4py.MPI import IN_PLACE, SUM
 
         from struphy.kinetic_background import maxwellians
 
@@ -1096,8 +1092,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from mpi4py.MPI import IN_PLACE, SUM
 
         from struphy.feec.projectors import L2Projector
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
