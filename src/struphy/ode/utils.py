@@ -74,7 +74,9 @@ class ButcherTableau:
         self._a = np.tri(self.n_stages, k=-1)
         for l, st in enumerate(a):
             assert len(st) == l + 1
-            self._a[l + 1, : l + 1] = st
+            st_array = np.array(st) if isinstance(st, tuple) else st
+
+            self._a[l + 1, : l + 1] = st_array
 
         self._conv_rate = conv_rate
 
