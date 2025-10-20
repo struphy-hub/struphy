@@ -3,7 +3,6 @@ import pytest
 from struphy.ode.utils import ButcherTableau
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize(
     "spaces",
     [
@@ -20,7 +19,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
     from the ButcherTableau."""
 
     from matplotlib import pyplot as plt
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 

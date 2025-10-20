@@ -25,7 +25,7 @@ class DataContainer:
         # set name of hdf5 file
         if comm is None:
             self._rank = None
-            _affix = ""
+            _affix = "_proc0"
         else:
             self._rank = comm.Get_rank()
             _affix = "_proc" + str(self._rank)

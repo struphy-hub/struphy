@@ -5,8 +5,17 @@ from abc import ABCMeta, abstractmethod
 
 import h5py
 import scipy.special as sp
-from mpi4py import MPI
-from mpi4py.MPI import Intracomm
+
+try:
+    from mpi4py.MPI import Intracomm
+except ModuleNotFoundError:
+
+    class Intracomm:
+        x = None
+
+
+from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
 from sympy.ntheory import factorint
 
 from struphy.bsplines.bsplines import quadrature_grid
@@ -197,9 +206,11 @@ class Particles(metaclass=ABCMeta):
         if self.mpi_comm is None:
             self._mpi_size = 1
             self._mpi_rank = 0
+            self._Barrier = lambda: None
         else:
             self._mpi_size = self.mpi_comm.Get_size()
             self._mpi_rank = self.mpi_comm.Get_rank()
+            self._Barrier = self.mpi_comm.Barrier
 
         # domain decomposition (MPI) and cell information
         self._boxes_per_dim = boxes_per_dim
@@ -348,14 +359,13 @@ class Particles(metaclass=ABCMeta):
             self._auto_sampling_params()
 
         # create buffers for mpi_sort_markers
-        if self.mpi_comm is not None:
-            self._sorting_etas = np.zeros(self.markers.shape, dtype=float)
-            self._is_on_proc_domain = np.zeros((self.markers.shape[0], 3), dtype=bool)
-            self._can_stay = np.zeros(self.markers.shape[0], dtype=bool)
-            self._reqs = [None] * self.mpi_size
-            self._recvbufs = [None] * self.mpi_size
-            self._send_to_i = [None] * self.mpi_size
-            self._send_list = [None] * self.mpi_size
+        self._sorting_etas = np.zeros(self.markers.shape, dtype=float)
+        self._is_on_proc_domain = np.zeros((self.markers.shape[0], 3), dtype=bool)
+        self._can_stay = np.zeros(self.markers.shape[0], dtype=bool)
+        self._reqs = [None] * self.mpi_size
+        self._recvbufs = [None] * self.mpi_size
+        self._send_to_i = [None] * self.mpi_size
+        self._send_list = [None] * self.mpi_size
 
     @classmethod
     @abstractmethod
@@ -1639,7 +1649,8 @@ class Particles(metaclass=ABCMeta):
         if self._initialized_sorting and sort:
             if self.mpi_rank == 0 and verbose:
                 print("Sorting the markers after initial draw")
-            self.mpi_sort_markers()
+            if self.mpi_comm is not None:
+                self.mpi_sort_markers()
             self.do_sort()
 
     def mpi_sort_markers(
@@ -1676,7 +1687,7 @@ class Particles(metaclass=ABCMeta):
         if remove_ghost:
             self.remove_ghost_particles()
 
-        self.mpi_comm.Barrier()
+        self._Barrier()
 
         # before sorting, apply kinetic bc
         if apply_bc:
@@ -1715,7 +1726,7 @@ class Particles(metaclass=ABCMeta):
             assert all_on_right_proc
             # assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
 
-        self.mpi_comm.Barrier()
+        self._Barrier()
 
     def initialize_weights(
         self,
@@ -3129,7 +3140,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
         self.self_communication_boxes()
         self.update_holes()
         if self.mpi_comm is not None:
-            self.mpi_comm.Barrier()
+            self._Barrier()
             self.sendrecv_all_to_all_boxes()
             self.sendrecv_markers_boxes()
             self.update_holes()
@@ -3198,7 +3209,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
                         test_reqs.pop()
                         reqs[i] = None
 
-        self.mpi_comm.Barrier()
+        self._Barrier()
 
     def _get_neighbouring_proc(self):
         """Find the neighbouring processes for the sending of boxes.
