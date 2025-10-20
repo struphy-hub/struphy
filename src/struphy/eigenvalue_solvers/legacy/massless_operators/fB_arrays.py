@@ -2,7 +2,7 @@ import time
 import timeit
 
 import scipy.sparse as spa
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 import struphy.geometry.mappings_3d as mapping3d
 import struphy.geometry.mappings_3d_fast as mapping_fast

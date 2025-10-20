@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from functools import reduce
 
 import yaml
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -92,7 +92,7 @@ class StruphyModel(metaclass=ABCMeta):
             units=self.units,
         )
 
-        if comm.Get_rank() == 0 and self.verbose:
+        if self.rank_world == 0 and self.verbose:
             print("\nTIME:")
             print(
                 f"time step:".ljust(25),
@@ -555,14 +555,14 @@ class StruphyModel(metaclass=ABCMeta):
             value_array = np.array([value], dtype=np.float64)
 
             # Perform MPI operations based on the compute flags
-            if "sum_world" in compute_operations:
+            if "sum_world" in compute_operations and self.comm_world is not None:
                 self.comm_world.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
 
-            if "sum_within_clone" in compute_operations:
+            if "sum_within_clone" in compute_operations and self.derham.comm is not None:
                 self.derham.comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
@@ -957,7 +957,8 @@ class StruphyModel(metaclass=ABCMeta):
                             print("No perturbation.")
 
                     obj.draw_markers(sort=True, verbose=self.verbose)
-                    obj.mpi_sort_markers(do_test=True)
+                    if self.comm_world is not None:
+                        obj.mpi_sort_markers(do_test=True)
 
                     if not val["params"]["markers"]["loading"] == "restart":
                         if obj.coords == "vpara_mu":
@@ -1017,7 +1018,8 @@ class StruphyModel(metaclass=ABCMeta):
                 obj._markers[:, :] = data.file["restart/" + key][-1, :, :]
 
                 # important: sets holes attribute of markers!
-                obj.mpi_sort_markers(do_test=True)
+                if self.comm_world is not None:
+                    obj.mpi_sort_markers(do_test=True)
 
     def initialize_data_output(self, data, size):
         """
@@ -1325,7 +1327,7 @@ class StruphyModel(metaclass=ABCMeta):
         )
 
         # print to screen
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+        if verbose and rank == 0:
             print("\nUNITS:")
             print(
                 f"Unit of length:".ljust(25),
@@ -1381,7 +1383,7 @@ class StruphyModel(metaclass=ABCMeta):
                 equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
                 equation_params[species]["kappa"] = om_p * units["t"]
 
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                if verbose and rank == 0:
                     print("\nNORMALIZATION PARAMETERS:")
                     print("- " + species + ":")
                     for key, val in equation_params[species].items():
@@ -1400,7 +1402,7 @@ class StruphyModel(metaclass=ABCMeta):
                 equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
                 equation_params[species]["kappa"] = om_p * units["t"]
 
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                if verbose and rank == 0:
                     if "fluid" not in params:
                         print("\nNORMALIZATION PARAMETERS:")
                     print("- " + species + ":")

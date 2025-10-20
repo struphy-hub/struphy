@@ -2,7 +2,7 @@ import os
 
 import pytest
 import yaml
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 import struphy
 from struphy.main import main
@@ -16,7 +16,6 @@ i_path = os.path.join(libpath, "io", "inp")
 o_path = os.path.join(libpath, "io", "out")
 
 
-@pytest.mark.mpi(min_size=2)
 def test_tutorial_02():
     main(
         "LinearMHDVlasovCC",
@@ -26,7 +25,6 @@ def test_tutorial_02():
     )
 
 
-@pytest.mark.mpi(min_size=2)
 def test_tutorial_03():
     main(
         "LinearMHD",
@@ -40,7 +38,6 @@ def test_tutorial_03():
         pproc_struphy.main(os.path.join(o_path, "tutorial_03"), physical=True)
 
 
-@pytest.mark.mpi(min_size=2)
 def test_tutorial_04(fast):
     main(
         "Maxwell",

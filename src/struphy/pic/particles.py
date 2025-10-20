@@ -214,7 +214,8 @@ class Particles6D(Particles):
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = self.markers[
             ~self.holes, slice_gc
         ]
-        self.mpi_sort_markers(alpha=1)
+        if self.mpi_comm is not None:
+            self.mpi_sort_markers(alpha=1)
 
         utilities_kernels.eval_canonical_toroidal_moment_6d(
             self.markers,
@@ -227,7 +228,8 @@ class Particles6D(Particles):
         )
 
         # send back and clear buffer
-        self.mpi_sort_markers()
+        if self.mpi_comm is not None:
+            self.mpi_sort_markers()
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = 0
 
 

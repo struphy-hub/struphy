@@ -352,29 +352,29 @@ stages:
     - git checkout $CI_COMMIT_REF_NAME
     - git pull
     - echo $STRUPHY_SOURCE
-    - pip install -e $(echo $STRUPHY_SOURCE)[phys]
+    - pip install -e $(echo $STRUPHY_SOURCE)[phys,mpi]
     - !reference [.scripts, compile_matrix]
   install:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE)[phys]
+    - pip install $(echo $STRUPHY_SOURCE)[phys,mpi]
     - pip show struphy
     - pip list
     - struphy -h
   install_base:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE)
+    - pip install $(echo $STRUPHY_SOURCE)[mpi]
     - pip show struphy
     - pip list
     - struphy -h
   install_no_binary:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE)[phys] --no-binary mpi4py
+    - pip install $(echo $STRUPHY_SOURCE)[phys,mpi] --no-binary mpi4py
     - pip show struphy
     - pip list
     - struphy -h
   install_base_no_binary:
     - echo $STRUPHY_SOURCE
-    - pip install $(echo $STRUPHY_SOURCE) --no-binary mpi4py
+    - pip install $(echo $STRUPHY_SOURCE)[mpi] --no-binary mpi4py
     - pip show struphy
     - pip list
     - struphy -h
@@ -416,9 +416,18 @@ stages:
     - struphy compile --status
     - struphy --refresh-models
     - struphy test unit
+  unit_tests_mpi:
+    - struphy compile --status
+    - struphy --refresh-models
+    - struphy test unit --mpi 2
   model_tests:
     - struphy compile --status
     - struphy test models --fast
+    - struphy test models --fast --verification 
+  model_tests_mpi:
+    - struphy compile --status
+    - struphy test models --fast
+    - struphy test models --fast --mpi 2
     - struphy test models --fast --verification --mpi 1
     - struphy test models --fast --verification --mpi 4
     - struphy test models --fast --verification --mpi 4 --nclones 2

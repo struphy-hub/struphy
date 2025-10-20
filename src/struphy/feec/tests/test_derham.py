@@ -1,14 +1,13 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 8, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True]])
 def test_psydac_derham(Nel, p, spl_kind):
     """Remark: p=even projectors yield slightly different results, pass with atol=1e-3."""
 
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
@@ -18,7 +17,6 @@ def test_psydac_derham(Nel, p, spl_kind):
     from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     print("Nel=", Nel)
