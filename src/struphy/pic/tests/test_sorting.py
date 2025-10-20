@@ -1,7 +1,7 @@
 from time import time
 
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
@@ -29,7 +29,6 @@ def test_flattening(nx, ny, nz, algo):
                 assert n3n == n3
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(

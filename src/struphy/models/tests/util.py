@@ -4,7 +4,7 @@ import os
 import sys
 
 import yaml
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 import struphy
 from struphy.console.main import recursive_get_files

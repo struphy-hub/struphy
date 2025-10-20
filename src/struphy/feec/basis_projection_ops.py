@@ -1,5 +1,5 @@
-from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.ddm.mpi import mpi as MPI
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
