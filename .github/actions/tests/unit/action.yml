@@ -1,0 +1,9 @@
+name: "Run unit tests"
+
+runs:
+  using: composite
+  steps:
+    - name: Run unit tests
+      shell: bash
+      run: |
+        struphy test unit
