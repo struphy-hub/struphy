@@ -140,7 +140,7 @@ class Vlasov(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
-
+        print('after super')
         # prelim
         ions_params = self.kinetic["ions"]["params"]
 

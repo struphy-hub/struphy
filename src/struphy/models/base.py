@@ -186,7 +186,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         # if self.rank_world == 0:
         #     self._show_chosen_options()
-
+        
         # set propagators base class attributes (then available to all propagators)
         Propagator.derham = self.derham
         Propagator.domain = self.domain
@@ -549,10 +549,11 @@ class StruphyModel(metaclass=ABCMeta):
 
         if summands is None:
             # Ensure the value is a float if there are no summands
-            assert isinstance(value, float)
-
-            # Create a numpy array to hold the scalar value
-            value_array = np.array([value], dtype=np.float64)
+            if isinstance(value, float):
+                # Create a numpy array to hold the scalar value
+                value_array = np.array([value])
+            else:
+                value_array = np.asarray(value)
 
             # Perform MPI operations based on the compute flags
             if "sum_world" in compute_operations and self.comm_world is not None:
@@ -590,10 +591,12 @@ class StruphyModel(metaclass=ABCMeta):
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
-                n_mks_tot = np.array([self.pointer[species].Np])
-                value_array /= n_mks_tot
+                value_array /= self.pointer[species].Np
 
             # Update the scalar value
+            print(f"{type(self._scalar_quantities[name]['value'][0]) = }")
+            print(f"{value_array = }")
+            print(f"{type(value_array) = }")
             self._scalar_quantities[name]["value"][0] = value_array[0]
 
         else:
