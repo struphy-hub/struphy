@@ -2,12 +2,8 @@ import inspect
 import operator
 from abc import ABCMeta, abstractmethod
 from functools import reduce
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from mpi4py import MPI
-else:
-    from psydac.ddm.mpi import mpi as MPI
+from psydac.ddm.mpi import mpi as MPI
 
 import yaml
 from psydac.linalg.stencil import StencilVector

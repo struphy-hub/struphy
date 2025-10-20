@@ -71,16 +71,25 @@ def struphy_test(
         subp_run(cmd)
 
     elif "models" in group:
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
-            "-k",
-            "_models",
-            "-s",
-            "--with-mpi",
-        ]
+        if mpi > 1:
+            cmd = [
+                "mpirun",
+                "-n",
+                str(mpi),
+                "pytest",
+                "-k",
+                "_models",
+                "-s",
+                "--with-mpi",
+            ]
+        else:
+            cmd = [
+                "pytest",
+                "-k",
+                "_models",
+                "-s",
+            ]
+            
         if fast:
             cmd += ["--fast"]
         if vrbose:
