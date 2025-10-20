@@ -128,7 +128,7 @@ def main(
             clone_config.print_clone_config()
             if "kinetic" in params:
                 clone_config.print_particle_config()
-
+    print('aaa')
     # instantiate Struphy model (will allocate model objects and associated memory)
     StruphyModel.verbose = verbose
 
@@ -138,10 +138,10 @@ def main(
             model_class = getattr(obj, model_name)
         except AttributeError:
             pass
-
+    print('a2')
     with ProfileManager.profile_region("model_class_setup"):
         model = model_class(params=params, comm=comm, clone_config=clone_config)
-
+    print('bbb')
     assert isinstance(model, StruphyModel)
 
     # store geometry vtk
@@ -166,12 +166,23 @@ def main(
                 absB0 = model.equil.absB0(*grids_log)
                 pointData["absB0"] = absB0
 
-        gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
+        from struphy.utils.arrays import array_backend
+        if array_backend.backend == "numpy":
+            gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
+        else:
+            # cupy
+            grids_phy_cpu = [g.get() if isinstance(g, np.ndarray) else g for g in grids_phy]
+
+            # Convert pointData values to NumPy
+            pointData_cpu = {k: (v.get() if isinstance(v, np.ndarray) else v) for k, v in pointData.items()}
+
+            # Now call gridToVTK safely
+            gridToVTK(os.path.join(path_out, "geometry"), *grids_phy_cpu, pointData=pointData_cpu)
 
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     # use MPI.COMM_WORLD as communicator when storing the outputs
     data = DataContainer(path_out, comm=comm)
-
+    print('ccc')
     # time quantities (current time value, value in seconds and index)
     time_state = {}
     time_state["value"] = np.zeros(1, dtype=float)
@@ -182,8 +193,17 @@ def main(
     for key, val in time_state.items():
         key_time = "time/" + key
         key_time_restart = "restart/time/" + key
-        data.add_data({key_time: val})
-        data.add_data({key_time_restart: val})
+        if array_backend.backend == "numpy":
+            data.add_data({key_time: val})
+            data.add_data({key_time_restart: val})
+        else:
+            val_cpu = val.get() if isinstance(val, np.ndarray) else val
+
+            # Then assign
+            data.add_data({key_time: val_cpu})
+            # self._file[key][0] = val_cpu[0]
+            data.add_data({key_time_restart: val_cpu})
+        
 
     time_params = params["time"]
 
