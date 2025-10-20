@@ -198,9 +198,10 @@ def main(
             data.add_data({key_time: val})
             data.add_data({key_time_restart: val})
         else:
-            val_cpu = val.get() if isinstance(val, np.ndarray) else val
+            val_cpu = val.get()#  if isinstance(val, np.ndarray) else val
 
             # Then assign
+            print(f"{val_cpu = } {type(val_cpu) = }")
             data.add_data({key_time: val_cpu})
             # self._file[key][0] = val_cpu[0]
             data.add_data({key_time_restart: val_cpu})
