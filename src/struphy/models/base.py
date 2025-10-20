@@ -554,7 +554,7 @@ class StruphyModel(metaclass=ABCMeta):
                 value_array = np.array([value])
             else:
                 value_array = np.asarray(value)
-
+            value_array = np.array(value_array)
             # Perform MPI operations based on the compute flags
             if "sum_world" in compute_operations and self.comm_world is not None:
                 self.comm_world.Allreduce(
