@@ -422,7 +422,7 @@ stages:
     - struphy test verification --mpi 1
     - struphy test verification --mpi 4
     - struphy test verification --mpi 4 --nclones 2
-    - struphy test DriftKineticElectrostaticAdiabatic --mpi 2 --nclones 2
+    - struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2
   quickstart_tests:
     - struphy -p
     - struphy -h
