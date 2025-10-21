@@ -1,7 +1,3 @@
-import numpy as np
-from mpi4py import MPI
-
-from struphy.feec.projectors import L2Projector
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
@@ -9,8 +5,8 @@ from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Var
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class VlasovAmpereOneSpecies(StruphyModel):
@@ -194,7 +190,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         charge_accum = AccumulatorVector(
             particles,
             "H1",
-            accum_kernels.charge_density_0form,
+            Pyccelkernel(accum_kernels.charge_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -375,8 +371,6 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # get species paramaters
         species1_params = params["kinetic"]["species1"]
 
@@ -433,12 +427,8 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
         self.add_scalar("en_B")
-        self.add_scalar("en_f")
+        self.add_scalar("en_f", compute="from_particles", species="species1")
         self.add_scalar("en_tot")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
         # temporaries
         self._tmp = np.empty(1, dtype=float)
@@ -465,7 +455,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         charge_accum = AccumulatorVector(
             self.pointer["species1"],
             "H1",
-            accum_kernels.charge_density_0form,
+            Pyccelkernel(accum_kernels.charge_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -513,12 +503,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                 self.pointer["species1"].markers_wo_holes[:, 6],
             )
         )
-        if self.comm_world is not None:
-            self.comm_world.Allreduce(
-                self._mpi_in_place,
-                self._tmp,
-                op=self._mpi_sum,
-            )
+
         self.update_scalar("en_f", self._tmp[0])
 
         # en_tot = en_w + en_e + en_b
@@ -653,8 +638,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         from struphy.kinetic_background import maxwellians
 
         # if model is used as a baseclass
@@ -761,12 +744,8 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
 
         # Scalar variables to be saved during the simulation
         self.add_scalar("en_E")
-        self.add_scalar("en_w")
+        self.add_scalar("en_w", compute="from_particles", species="species1")
         self.add_scalar("en_tot")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
         # temporaries
         self._tmp = np.empty(1, dtype=float)
@@ -786,7 +765,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         charge_accum = AccumulatorVector(
             self.pointer["species1"],
             "H1",
-            accum_kernels.charge_density_0form,
+            Pyccelkernel(accum_kernels.charge_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -830,12 +809,6 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
                 self.pointer["species1"].sampling_density
                 / self._f0_values[self.pointer["species1"].valid_mks],  # s_{0,p} / f_{0,p}
             )
-        )
-
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._tmp,
-            op=self._mpi_sum,
         )
 
         self.update_scalar("en_w", self._tmp[0])
@@ -1087,8 +1060,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         from struphy.feec.projectors import L2Projector
         from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 
@@ -1103,7 +1074,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         charge_accum = AccumulatorVector(
             self.pointer["ions"],
             "H1",
-            accum_kernels_gc.gc_density_0form,
+            Pyccelkernel(accum_kernels_gc.gc_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -1158,12 +1129,10 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
         # scalar quantities
         self.add_scalar("en_phi")
-        self.add_scalar("en_particles")
+        self.add_scalar("en_particles", compute="from_particles", species="ions")
         self.add_scalar("en_tot")
 
         # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
         self._tmp3 = np.empty(1, dtype=float)
         self._e_field = self.derham.Vh["1"].zeros()
 
@@ -1190,13 +1159,6 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                 + self.pointer["ions"].markers_wo_holes_and_ghost[:, 8],
             )
         )
-
-        if self.comm_world is not None:
-            self.comm_world.Allreduce(
-                self._mpi_in_place,
-                self._tmp3,
-                op=self._mpi_sum,
-            )
 
         self.update_scalar("en_phi", en_phi + en_phi1)
         self.update_scalar("en_particles", self._tmp3[0])

@@ -1,9 +1,10 @@
-import numpy as np
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
+
+from struphy.utils.arrays import xp as np
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[3, 2, 4]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -76,8 +77,11 @@ def test_eval_field(Nel, p, spl_kind):
     ######
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(p0.vector.toarray(), p0.nbasis)
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(p0.vector, coeffs, rank)
 
     # legacy evaluation
@@ -125,8 +129,11 @@ def test_eval_field(Nel, p, spl_kind):
     ######
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(E1.vector[0].toarray(), E1.nbasis[0])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(E1.vector[0], coeffs, rank)
 
     # legacy evaluation
@@ -152,8 +159,11 @@ def test_eval_field(Nel, p, spl_kind):
 
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(E1.vector[1].toarray(), E1.nbasis[1])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(E1.vector[1], coeffs, rank)
 
     # legacy evaluation
@@ -179,8 +189,11 @@ def test_eval_field(Nel, p, spl_kind):
 
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(E1.vector[2].toarray(), E1.nbasis[2])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(E1.vector[2], coeffs, rank)
 
     # legacy evaluation
@@ -236,8 +249,11 @@ def test_eval_field(Nel, p, spl_kind):
     ######
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(B2.vector[0].toarray(), B2.nbasis[0])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(B2.vector[0], coeffs, rank)
 
     # legacy evaluation
@@ -263,8 +279,11 @@ def test_eval_field(Nel, p, spl_kind):
 
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(B2.vector[1].toarray(), B2.nbasis[1])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(B2.vector[1], coeffs, rank)
 
     # legacy evaluation
@@ -290,8 +309,11 @@ def test_eval_field(Nel, p, spl_kind):
 
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(B2.vector[2].toarray(), B2.nbasis[2])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(B2.vector[2], coeffs, rank)
 
     # legacy evaluation
@@ -347,8 +369,11 @@ def test_eval_field(Nel, p, spl_kind):
     ######
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(n3.vector.toarray(), n3.nbasis)
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(n3.vector, coeffs, rank)
 
     # legacy evaluation
@@ -396,8 +421,11 @@ def test_eval_field(Nel, p, spl_kind):
     #########
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(uv.vector[0].toarray(), uv.nbasis[0])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(uv.vector[0], coeffs, rank)
 
     # legacy evaluation
@@ -423,8 +451,11 @@ def test_eval_field(Nel, p, spl_kind):
 
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(uv.vector[1].toarray(), uv.nbasis[1])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(uv.vector[1], coeffs, rank)
 
     # legacy evaluation
@@ -450,8 +481,11 @@ def test_eval_field(Nel, p, spl_kind):
 
     # create legacy arrays with same coeffs
     coeffs_loc = np.reshape(uv.vector[2].toarray(), uv.nbasis[2])
-    coeffs = np.zeros_like(coeffs_loc)
-    comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        coeffs = coeffs_loc
+    else:
+        coeffs = np.zeros_like(coeffs_loc)
+        comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(uv.vector[2], coeffs, rank)
 
     # legacy evaluation

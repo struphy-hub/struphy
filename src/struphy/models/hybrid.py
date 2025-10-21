@@ -1,15 +1,11 @@
-import numpy as np
-from mpi4py import MPI
-from psydac.linalg.block import BlockVector
-
 from struphy.models.base import StruphyModel
 from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.polar.basic import PolarVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class LinearMHDVlasovCC(StruphyModel):
@@ -118,8 +114,6 @@ class LinearMHDVlasovCC(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from mpi4py.MPI import IN_PLACE, SUM
 
         from struphy.polar.basic import PolarVector
 
@@ -235,14 +229,11 @@ class LinearMHDVlasovCC(StruphyModel):
         self.add_scalar("en_B", compute="from_field")
         self.add_scalar("en_f", compute="from_particles", species="energetic_ions")
         self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f"])
+        self.add_scalar("n_lost_particles", compute="from_particles", species="energetic_ions")
 
         # temporary vectors for scalar quantities:
         self._tmp = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
     def update_scalar_quantities(self):
         # perturbed fields
@@ -273,8 +264,9 @@ class LinearMHDVlasovCC(StruphyModel):
 
         # Print number of lost ions
         self._n_lost_particles[0] = self.pointer["energetic_ions"].n_lost_markers
-        self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
-        if self.derham.comm.Get_rank() == 0:
+        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
+
+        if self.rank_world == 0:
             print(
                 "ratio of lost particles: ",
                 self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
@@ -398,8 +390,6 @@ class LinearMHDVlasovPC(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         from struphy.polar.basic import PolarVector
 
         # extract necessary parameters
@@ -501,16 +491,13 @@ class LinearMHDVlasovPC(StruphyModel):
         self.add_scalar("en_B", compute="from_field")
         self.add_scalar("en_f", compute="from_particles", species="energetic_ions")
         self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f"])
+        self.add_scalar("n_lost_particles", compute="from_particles", species="energetic_ions")
 
         # temporary vectors for scalar quantities
         self._tmp_u = self.derham.Vh["2"].zeros()
         self._tmp_b1 = self.derham.Vh["2"].zeros()
         self._tmp = np.empty(1, dtype=float)
         self._n_lost_particles = np.empty(1, dtype=float)
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
     def update_scalar_quantities(self):
         # perturbed fields
@@ -544,8 +531,8 @@ class LinearMHDVlasovPC(StruphyModel):
 
         # Print number of lost ions
         self._n_lost_particles[0] = self.pointer["energetic_ions"].n_lost_markers
-        self.derham.comm.Allreduce(self._mpi_in_place, self._n_lost_particles, op=self._mpi_sum)
-        if self.derham.comm.Get_rank() == 0:
+        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
+        if self.rank_world == 0:
             print(
                 "ratio of lost particles: ",
                 self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
@@ -782,11 +769,12 @@ class LinearMHDDriftkineticCC(StruphyModel):
         # print number of lost particles
         n_lost_markers = np.array(particles.n_lost_markers)
 
-        self.derham.comm.Allreduce(
-            MPI.IN_PLACE,
-            n_lost_markers,
-            op=MPI.SUM,
-        )
+        if self.derham.comm is not None:
+            self.derham.comm.Allreduce(
+                MPI.IN_PLACE,
+                n_lost_markers,
+                op=MPI.SUM,
+            )
 
         if self.clone_config is not None:
             self.clone_config.inter_comm.Allreduce(
@@ -957,10 +945,8 @@ class ColdPlasmaVlasov(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # Get rank and size
-        self._rank = comm.Get_rank()
+        self._rank = self.rank_world
 
         # prelim
         hot_params = params["kinetic"]["hot_electrons"]
@@ -1028,12 +1014,8 @@ class ColdPlasmaVlasov(StruphyModel):
         self.add_scalar("en_E")
         self.add_scalar("en_B")
         self.add_scalar("en_J")
-        self.add_scalar("en_f")
+        self.add_scalar("en_f", compute="from_particles", species="hot_electrons")
         self.add_scalar("en_tot")
-
-        # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
         # temporaries
         self._tmp = np.empty(1, dtype=float)
@@ -1051,7 +1033,7 @@ class ColdPlasmaVlasov(StruphyModel):
         charge_accum = AccumulatorVector(
             self.pointer["hot_electrons"],
             "H1",
-            accum_kernels.vlasov_maxwell_poisson,
+            Pyccelkernel(accum_kernels.vlasov_maxwell_poisson),
             self.mass_ops,
             self.domain.args_domain,
         )
@@ -1103,11 +1085,7 @@ class ColdPlasmaVlasov(StruphyModel):
                 self.pointer["hot_electrons"].markers_wo_holes[:, 6],
             )
         )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._tmp,
-            op=self._mpi_sum,
-        )
+
         self.update_scalar("en_f", self._tmp[0])
 
         # en_tot = en_E + en_B + en_J + en_w

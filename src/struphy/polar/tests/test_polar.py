@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 6]])
 @pytest.mark.parametrize("p", [[3, 2, 4]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
@@ -168,8 +167,7 @@ def test_spaces(Nel, p, spl_kind):
 @pytest.mark.parametrize("p", [[3, 2, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
@@ -178,6 +176,7 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
     from struphy.polar.extraction_operators import PolarExtractionBlocksC1
     from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -303,12 +302,12 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 @pytest.mark.parametrize("p", [[4, 3, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 def test_projectors(Nel, p, spl_kind):
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.domains import IGAPolarCylinder
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

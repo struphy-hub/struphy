@@ -5,13 +5,12 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
 
-import numpy as np
 import scipy as sc
 from line_profiler import profile
 from matplotlib import pyplot as plt
-from mpi4py import MPI
 from numpy import zeros
 from psydac.api.essential_bc import apply_essential_bc_stencil
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.solvers import inverse
@@ -68,6 +67,8 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Maxwell(Propagator):
@@ -1787,7 +1788,7 @@ class CurrentCoupling6DDensity(Propagator):
         self._accumulator = Accumulator(
             particles,
             u_space,
-            accum_kernels.cc_lin_mhd_6d_1,
+            Pyccelkernel(accum_kernels.cc_lin_mhd_6d_1),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,
@@ -2034,7 +2035,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC = AccumulatorVector(
             self.options.energetic_ions.particles,
             "H1",
-            accum_kernels_gc.gc_mag_density_0form,
+            Pyccelkernel(accum_kernels_gc.gc_mag_density_0form),
             self.mass_ops,
             self.domain.args_domain,
             filter_params=self.options.filter_params,
@@ -2409,7 +2410,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._ACC = Accumulator(
             self.options.energetic_ions.particles,
             self.options.u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_D,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_D),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,

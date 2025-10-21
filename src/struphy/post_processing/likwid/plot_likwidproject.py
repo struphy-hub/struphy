@@ -8,7 +8,6 @@ import re
 import sys
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -17,6 +16,7 @@ import struphy.post_processing.likwid.hardware_dicts as hwd
 import struphy.post_processing.likwid.likwid_parser as lp
 import struphy.post_processing.likwid.maxplotlylib as mply
 import struphy.post_processing.likwid.roofline_plotter as rp
+from struphy.utils.arrays import xp as np
 
 
 def clean_string(string_in):

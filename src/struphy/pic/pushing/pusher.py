@@ -1,12 +1,13 @@
 "Accelerated particle pushing."
 
-import numpy as np
 from line_profiler import profile
-from mpi4py.MPI import IN_PLACE, SUM
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Pusher:
@@ -98,7 +99,7 @@ class Pusher:
     def __init__(
         self,
         particles: Particles,
-        kernel,
+        kernel: Pyccelkernel,
         args_kernel: tuple,
         args_domain: DomainArguments,
         *,
@@ -112,8 +113,9 @@ class Pusher:
         verbose: bool = False,
     ):
         self._particles = particles
+        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
         self._kernel = kernel
-        self._newton = "newton" in kernel.__name__
+        self._newton = "newton" in kernel.name
         self._args_kernel = args_kernel
         self._args_domain = args_domain
 
@@ -151,9 +153,6 @@ class Pusher:
 
         self._init_kernels = init_kernels
         self._eval_kernels = eval_kernels
-
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
 
         self._residuals = np.zeros(self.particles.markers.shape[0])
         self._converged_loc = self._residuals == 1.0
@@ -280,7 +279,7 @@ class Pusher:
                     )
 
                 # push markers
-                with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+                with ProfileManager.profile_region("kernel: " + self.kernel.name):
                     self.kernel(
                         dt,
                         stage,
@@ -317,9 +316,9 @@ class Pusher:
 
                     if self.particles.mpi_comm is not None:
                         self.particles.mpi_comm.Allreduce(
-                            self._mpi_in_place,
+                            MPI.IN_PLACE,
                             n_not_converged,
-                            op=self._mpi_sum,
+                            op=MPI.SUM,
                         )
 
                     # take converged markers out of the loop

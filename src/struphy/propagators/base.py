@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
 
-import numpy as np
+from struphy.utils.arrays import xp as np
 from mpi4py import MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector

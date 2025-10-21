@@ -8,11 +8,11 @@ Modules to create sparse matrices from 6D sub-matrices in particle accumulation 
 
 import time
 
-import numpy as np
 import scipy.sparse as spa
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 import struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d as pic_ker_3d
+from struphy.utils.arrays import xp as np
 
 # import struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_2d as pic_ker_2d
 

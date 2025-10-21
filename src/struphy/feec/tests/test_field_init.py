@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 10, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [True, True, False]])
@@ -10,11 +9,11 @@ import pytest
 def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     """Test field background initialization of "LogicalConst" with multiple fields in params."""
 
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import FieldsBackground
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -57,7 +56,6 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
                     assert np.allclose(field(*meshgrids)[j], val)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[18, 24, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True]])
@@ -66,15 +64,15 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
 
     import inspect
 
-    import numpy as np
     from matplotlib import pyplot as plt
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background import equils
     from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
     from struphy.geometry import domains
     from struphy.io.options import FieldsBackground
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1079,20 +1077,19 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 plt.show()
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[1, 32, 32]])
 @pytest.mark.parametrize("p", [[1, 3, 3]])
 @pytest.mark.parametrize("spl_kind", [[True, True, True]])
 def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     """Test field perturbation with ModesSin + ModesCos on top of of "LogicalConst" with multiple fields in params."""
 
-    import numpy as np
     from matplotlib import pyplot as plt
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.initial.perturbations import ModesCos, ModesSin
     from struphy.io.options import FieldsBackground
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1307,7 +1304,6 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
         plt.show()
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 10, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
@@ -1316,12 +1312,12 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
 def test_noise_init(Nel, p, spl_kind, space, direction):
     """Only tests 1d noise ('e1', 'e2', 'e3') !!"""
 
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.initial.perturbations import Noise
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

@@ -1,13 +1,13 @@
 from time import time
 
-import numpy as np
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 from struphy.pic.particles import Particles6D
 from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+from struphy.utils.arrays import xp as np
 
 
 @pytest.mark.parametrize("nx", [8, 70])
@@ -70,7 +70,6 @@ def test_flattening(nx, ny, nz, algo):
                 assert n3n == n3
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(
