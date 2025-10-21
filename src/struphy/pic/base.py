@@ -53,7 +53,7 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.utils import utils
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.pyccel import Pyccelkernel
 

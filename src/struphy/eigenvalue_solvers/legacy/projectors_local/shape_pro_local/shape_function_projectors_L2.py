@@ -10,7 +10,7 @@ from psydac.ddm.mpi import mpi as MPI
 
 import struphy.feec.bsplines as bsp
 import struphy.feec.projectors.shape_pro_local.shape_L2_projector_kernel as ker_loc
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 # ======================= 3d ====================================

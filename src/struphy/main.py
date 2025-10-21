@@ -38,7 +38,7 @@ from struphy.post_processing.post_processing_tools import (
 from struphy.profiling.profiling import ProfileManager
 from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 

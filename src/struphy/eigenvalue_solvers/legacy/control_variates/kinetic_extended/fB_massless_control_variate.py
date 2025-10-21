@@ -3,7 +3,7 @@ import scipy.sparse as spa
 import struphy.feec.basics.kernels_3d as ker
 import struphy.feec.control_variates.kinetic_extended.fB_massless_kernels_control_variate as ker_cv
 import struphy.feec.control_variates.kinetic_extended.fnB_massless_cv_kernel_2 as ker_cv2
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 def bv_right(

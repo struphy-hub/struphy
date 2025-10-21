@@ -14,7 +14,7 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.io.options import check_option
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class Propagator(metaclass=ABCMeta):

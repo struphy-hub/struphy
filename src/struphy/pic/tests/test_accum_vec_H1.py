@@ -57,7 +57,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import Particles6D
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
     from struphy.utils.clone_config import CloneConfig
 
     if isinstance(MPI.COMM_WORLD, MockComm):
