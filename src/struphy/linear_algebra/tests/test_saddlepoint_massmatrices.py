@@ -129,33 +129,33 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             x1np = x1.toarray()
             x2np = x2.toarray()
 
-        A11np = M2np / dt + nu * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np) - M2Bnp
+        A11np = M2np / dt + nu * (Dxp.T @ M3np @ Dnp + S21xp.T @ Cxp.T @ M2np @ Cnp @ S21np) - M2Bnp
         if method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
             A22np = (
-                stab_sigma * np.identity(A11np.shape[0])
-                + nue * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np)
+                stab_sigma * xp.identity(A11xp.shape[0])
+                + nue * (Dxp.T @ M3np @ Dnp + S21xp.T @ Cxp.T @ M2np @ Cnp @ S21np)
                 + M2Bnp
             )
             # Preconditioner
-            _A22np_pre = stab_sigma * np.identity(A22np.shape[0])  # + nue*(Dnp.T @ M3np @ Dnp)
-            _A11np_pre = M2np / dt  # + nu * (Dnp.T @ M3np @ Dnp)
+            _A22np_pre = stab_sigma * xp.identity(A22xp.shape[0])  # + nue*(Dxp.T @ M3np @ Dnp)
+            _A11np_pre = M2np / dt  # + nu * (Dxp.T @ M3np @ Dnp)
         elif method_to_solve in ("SparseSolver", "ScipySparse"):
             A22np = (
-                stab_sigma * sc.sparse.identity(A11np.shape[0], format="csr")
-                + nue * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np)
+                stab_sigma * sc.sparse.identity(A11xp.shape[0], format="csr")
+                + nue * (Dxp.T @ M3np @ Dnp + S21xp.T @ Cxp.T @ M2np @ Cnp @ S21np)
                 + M2Bnp
             )
-            +nue * (Dnp.T @ M3np @ Dnp) + stab_sigma * sc.sparse.identity(A22np.shape[0], format="csr")  #
+            +nue * (Dxp.T @ M3np @ Dnp) + stab_sigma * sc.sparse.identity(A22xp.shape[0], format="csr")  #
             # Preconditioner
-            _A22np_pre = stab_sigma * sc.sparse.identity(A22np.shape[0], format="csr")  # + nue*(Dnp.T @ M3np @ Dnp)
+            _A22np_pre = stab_sigma * sc.sparse.identity(A22xp.shape[0], format="csr")  # + nue*(Dxp.T @ M3np @ Dnp)
             _A22np_pre = _A22np_pre.tocsr()
-            _A11np_pre = M2np / dt  # + nu * (Dnp.T @ M3np @ Dnp)
+            _A11np_pre = M2np / dt  # + nu * (Dxp.T @ M3np @ Dnp)
             _A11np_pre = _A11np_pre.tocsr()
         B1np = -M3np @ Dnp
         B2np = M3np @ Dnp
         ynp = y1_rdm.toarray()
-        F1np = A11np.dot(x1np) + (B1np.T).dot(ynp)
-        F2np = A22np.dot(x2np) + (B2np.T).dot(ynp)
+        F1np = A11xp.dot(x1np) + (B1xp.T).dot(ynp)
+        F2np = A22xp.dot(x2np) + (B2xp.T).dot(ynp)
 
         Anp = [A11np, A22np]
         Bnp = [B1np, B2np]
@@ -201,43 +201,43 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             - (B[0, 1].T).dot(y1_rdm)
         )
         TestDiv = -B1.dot(x1) + B2.dot(x2)
-        RestDiv = np.linalg.norm(TestDiv.toarray())
-        RestA = np.linalg.norm(TestA.toarray())
-        RestAe = np.linalg.norm(TestAe.toarray())
+        RestDiv = xp.linalg.norm(TestDiv.toarray())
+        RestA = xp.linalg.norm(TestA.toarray())
+        RestAe = xp.linalg.norm(TestAe.toarray())
         print(f"{RestA =}")
         print(f"{RestAe =}")
         print(f"{RestDiv =}")
     elif method_for_solving in ("SaddlePointSolverUzawaNumpy"):
         TestAnp = (
             F1np
-            - (M2np / dt + nu * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np) - M2Bnp).dot(x1np)
-            - B1np.T.dot(ynp)
+            - (M2np / dt + nu * (Dxp.T @ M3np @ Dnp + S21xp.T @ Cxp.T @ M2np @ Cnp @ S21np) - M2Bnp).dot(x1np)
+            - B1xp.T.dot(ynp)
         )
         TestAenp = (
             F2np
-            - (nue * (Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np) + M2Bnp).dot(x2np)
-            - B2np.T.dot(ynp)
+            - (nue * (Dxp.T @ M3np @ Dnp + S21xp.T @ Cxp.T @ M2np @ Cnp @ S21np) + M2Bnp).dot(x2np)
+            - B2xp.T.dot(ynp)
         )
-        RestAnp = np.linalg.norm(TestAnp)
-        RestAenp = np.linalg.norm(TestAenp)
-        TestDivnp = -B1np.dot(x1np) + B2np.dot(x2np)
-        RestDivnp = np.linalg.norm(TestDivnp)
+        RestAnp = xp.linalg.norm(TestAnp)
+        RestAenp = xp.linalg.norm(TestAenp)
+        TestDivnp = -B1xp.dot(x1np) + B2xp.dot(x2np)
+        RestDivnp = xp.linalg.norm(TestDivnp)
         print(f"{RestAnp =}")
         print(f"{RestAenp =}")
         print(f"{RestDivnp =}")
 
         # Compare numpy to psydac
         c1 = C.dot(x1_rdm)
-        c2 = Cnp.dot(x1_rdm.toarray())
+        c2 = Cxp.dot(x1_rdm.toarray())
         compare_arrays(c1, c2, mpi_rank, atol=1e-5)
         xblock, xdiv_rdm = create_equal_random_arrays(fem_spaces[2], seed=1568, flattened=False)
         d1 = D.dot(xdiv_rdm)
-        d2 = Dnp.dot(xdiv_rdm.toarray())
+        d2 = Dxp.dot(xdiv_rdm.toarray())
         compare_arrays(d1, d2, mpi_rank, atol=1e-5)
-        TestA11composed = M2np / dt + Dnp.T @ M3np @ Dnp + S21np.T @ Cnp.T @ M2np @ Cnp @ S21np
+        TestA11composed = M2np / dt + Dxp.T @ M3np @ Dnp + S21xp.T @ Cxp.T @ M2np @ Cnp @ S21np
         TestA11 = M2 / dt + nu * D.T @ M3 @ D + S21.T @ C.T @ M2 @ C @ S21
         # TestA11np = (M2 / dt + nu * D.T @ M3 @ D+S21.T @ C.T @ M2 @ C @ S21).toarray_struphy()
-        # TestA11npdot = TestA11np.dot(x1.toarray())
+        # TestA11npdot = TestA11xp.dot(x1.toarray())
         TestA11composeddot = TestA11composed.dot(x1.toarray())
         TestA11dot = TestA11.dot(x1)
         compare_arrays(TestA11dot, TestA11composeddot, mpi_rank, atol=1e-5)
@@ -296,22 +296,22 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     elapsed_time = end_time - start_time
     print(f"Method execution time: {elapsed_time:.6f} seconds")
 
-    if isinstance(x_uzawa[0], np.ndarray):
-        # Output as np.ndarray
+    if isinstance(x_uzawa[0], xp.ndarray):
+        # Output as xp.ndarray
         Rx1 = x1np - x_uzawa[0]
         Rx2 = x2np - x_uzawa[1]
         Ry = ynp - y_uzawa
-        residualx_normx1 = np.linalg.norm(Rx1)
-        residualx_normx2 = np.linalg.norm(Rx2)
-        residualy_norm = np.linalg.norm(Ry)
-        TestRest1 = F1np - A11np.dot(x_uzawa[0]) - B1np.T.dot(y_uzawa)
-        TestRest1val = np.max(abs(TestRest1))
-        Testoldy1 = F1np - A11np.dot(x_uzawa[0]) - B1np.T.dot(ynp)
-        Testoldy1val = np.max(abs(Testoldy1))
-        TestRest2 = F2np - A22np.dot(x_uzawa[1]) - B2np.T.dot(y_uzawa)
-        TestRest2val = np.max(abs(TestRest2))
-        Testoldy2 = F2np - A22np.dot(x_uzawa[1]) - B2np.T.dot(ynp)
-        Testoldy2val = np.max(abs(Testoldy2))
+        residualx_normx1 = xp.linalg.norm(Rx1)
+        residualx_normx2 = xp.linalg.norm(Rx2)
+        residualy_norm = xp.linalg.norm(Ry)
+        TestRest1 = F1np - A11xp.dot(x_uzawa[0]) - B1xp.T.dot(y_uzawa)
+        TestRest1val = xp.max(abs(TestRest1))
+        Testoldy1 = F1np - A11xp.dot(x_uzawa[0]) - B1xp.T.dot(ynp)
+        Testoldy1val = xp.max(abs(Testoldy1))
+        TestRest2 = F2np - A22xp.dot(x_uzawa[1]) - B2xp.T.dot(y_uzawa)
+        TestRest2val = xp.max(abs(TestRest2))
+        Testoldy2 = F2np - A22xp.dot(x_uzawa[1]) - B2xp.T.dot(ynp)
+        Testoldy2val = xp.max(abs(Testoldy2))
         print(f"{TestRest1val =}")
         print(f"{TestRest2val =}")
         print(f"{Testoldy1val =}")
@@ -329,18 +329,18 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         Rx1 = x1 - x_uzawa[0]
         Rx2 = x2 - x_uzawa[1]
         Ry = y1_rdm - y_uzawa
-        residualx_normx1 = np.linalg.norm(Rx1.toarray())
-        residualx_normx2 = np.linalg.norm(Rx2.toarray())
-        residualy_norm = np.linalg.norm(Ry.toarray())
+        residualx_normx1 = xp.linalg.norm(Rx1.toarray())
+        residualx_normx2 = xp.linalg.norm(Rx2.toarray())
+        residualy_norm = xp.linalg.norm(Ry.toarray())
 
         TestRest1 = F1 - A11.dot(x_uzawa[0]) - B1T.dot(y_uzawa)
-        TestRest1val = np.max(abs(TestRest1.toarray()))
+        TestRest1val = xp.max(abs(TestRest1.toarray()))
         Testoldy1 = F1 - A11.dot(x_uzawa[0]) - B1T.dot(y1_rdm)
-        Testoldy1val = np.max(abs(Testoldy1.toarray()))
+        Testoldy1val = xp.max(abs(Testoldy1.toarray()))
         TestRest2 = F2 - A22.dot(x_uzawa[1]) - B2T.dot(y_uzawa)
-        TestRest2val = np.max(abs(TestRest2.toarray()))
+        TestRest2val = xp.max(abs(TestRest2.toarray()))
         Testoldy2 = F2 - A22.dot(x_uzawa[1]) - B2T.dot(y1_rdm)
-        Testoldy2val = np.max(abs(Testoldy2.toarray()))
+        Testoldy2val = xp.max(abs(Testoldy2.toarray()))
         # print(f"{TestRest1val =}")
         # print(f"{TestRest2val =}")
         # print(f"{Testoldy1val =}")
@@ -379,9 +379,9 @@ def _plot_velocity(data_reshaped):
 
     matplotlib.use("Agg")
 
-    x = np.linspace(0, 1, 30)
-    y = np.linspace(0, 1, 30)
-    X, Y = np.meshgrid(x, y)
+    x = xp.linspace(0, 1, 30)
+    y = xp.linspace(0, 1, 30)
+    X, Y = xp.meshgrid(x, y)
 
     plt.figure(figsize=(6, 5))
     plt.imshow(data_reshaped.T, cmap="viridis", origin="lower", extent=[0, 1, 0, 1])

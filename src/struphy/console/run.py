@@ -47,7 +47,7 @@ def struphy_run(
         The name of the Struphy model.
 
     inp : str
-        The .yml input parameter file relative to <struphy_path>/io/inp.
+        The .yml input parameter file relative to <struphy_path>/io/ixp.
 
     input_abs : str
         The absolute path to the .yml input parameter file.

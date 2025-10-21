@@ -102,13 +102,13 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
         comm.Allreduce(v3_local, v3_global, op=MPI.SUM)
 
     # not in-place
-    assert np.allclose(v0_global, M0arr.dot(v0arr))
-    assert np.allclose(v1_global, M1arr.dot(v1arr))
-    assert np.allclose(v2_global, M2arr.dot(v2arr))
-    assert np.allclose(v3_global, M3arr.dot(v3arr))
-    assert np.allclose(v0_global, M0arrad.dot(v0arr))
-    assert np.allclose(v1_global, M1arrad.dot(v1arr))
-    assert np.allclose(v2_global, M2arrad.dot(v2arr))
+    assert xp.allclose(v0_global, M0arr.dot(v0arr))
+    assert xp.allclose(v1_global, M1arr.dot(v1arr))
+    assert xp.allclose(v2_global, M2arr.dot(v2arr))
+    assert xp.allclose(v3_global, M3arr.dot(v3arr))
+    assert xp.allclose(v0_global, M0arrad.dot(v0arr))
+    assert xp.allclose(v1_global, M1arrad.dot(v1arr))
+    assert xp.allclose(v2_global, M2arrad.dot(v2arr))
 
     print("test_tosparse_struphy passed!")
 

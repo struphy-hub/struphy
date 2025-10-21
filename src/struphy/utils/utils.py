@@ -66,7 +66,7 @@ def print_all_attr(obj):
     for k in dir(obj):
         if k[0] != "_":
             v = getattr(obj, k)
-            if isinstance(v, np.ndarray):
+            if isinstance(v, xp.ndarray):
                 v = f"{type(getattr(obj, k))} of shape {v.shape}"
             if "proj_" in k or "quad_grid_" in k:
                 v = "(arrays not displayed)"

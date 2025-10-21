@@ -155,7 +155,7 @@ class Vlasov(StruphyModel):
         return "cyclotron"
 
     def allocate_helpers(self):
-        self._tmp = np.empty(1, dtype=float)
+        self._tmp = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         particles = self.kinetic_ions.var.particles
@@ -245,10 +245,10 @@ class GuidingCenter(StruphyModel):
         return "alfvén"
 
     def allocate_helpers(self):
-        self._en_fv = np.empty(1, dtype=float)
-        self._en_fB = np.empty(1, dtype=float)
-        self._en_tot = np.empty(1, dtype=float)
-        self._n_lost_particles = np.empty(1, dtype=float)
+        self._en_fv = xp.empty(1, dtype=float)
+        self._en_fB = xp.empty(1, dtype=float)
+        self._en_tot = xp.empty(1, dtype=float)
+        self._n_lost_particles = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         particles = self.kinetic_ions.var.particles
@@ -678,7 +678,7 @@ class VariationalCompressibleFluid(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f)
 
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self.propagators.variat_ent.options.gamma)
@@ -754,7 +754,7 @@ class VariationalCompressibleFluid(StruphyModel):
     def __ener(self, rho, s):
         """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
         E(rho, s) = rho^gamma*exp(s/rho)"""
-        return np.power(rho, self.propagators.variat_ent.options.gamma) * np.exp(s / rho)
+        return xp.power(rho, self.propagators.variat_ent.options.gamma) * xp.exp(s / rho)
 
 
 class Poisson(StruphyModel):
