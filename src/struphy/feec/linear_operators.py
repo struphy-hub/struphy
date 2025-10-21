@@ -1,8 +1,8 @@
 import itertools
 from abc import abstractmethod
 
-import numpy as np
-from mpi4py import MPI
+from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic import LinearOperator, Vector, VectorSpace
 from psydac.linalg.block import BlockVectorSpace
 from psydac.linalg.stencil import StencilVectorSpace
@@ -10,6 +10,7 @@ from scipy import sparse
 
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
+from struphy.utils.arrays import xp as np
 
 
 class LinOpWithTransp(LinearOperator):
@@ -52,14 +53,15 @@ class LinOpWithTransp(LinearOperator):
 
         if isinstance(self.domain, BlockVectorSpace):
             comm = self.domain.spaces[0].cart.comm
-            if comm is None:
-                comm = MPI.COMM_SELF
         elif isinstance(self.domain, StencilVectorSpace):
             comm = self.domain.cart.comm
-            if comm is None:
-                comm = MPI.COMM_SELF
-        rank = comm.Get_rank()
-        size = comm.Get_size()
+
+        if comm is None:
+            rank = 0
+            size = 1
+        else:
+            rank = comm.Get_rank()
+            size = comm.Get_size()
 
         if is_sparse == False:
             if out is None:
@@ -101,7 +103,10 @@ class LinOpWithTransp(LinearOperator):
             allstarts = np.empty(size * len(startsarr), dtype=int)
 
             # Use Allgather to gather 'starts' from all ranks into 'allstarts'
-            comm.Allgather(startsarr, allstarts)
+            if comm is None or isinstance(comm, MockComm):
+                allstarts = startsarr
+            else:
+                comm.Allgather(startsarr, allstarts)
 
             # Reshape 'allstarts' to have 9 columns and 'size' rows
             allstarts = allstarts.reshape((size, len(startsarr)))
@@ -111,7 +116,10 @@ class LinOpWithTransp(LinearOperator):
             allends = np.empty(size * len(endsarr), dtype=int)
 
             # Use Allgather to gather 'ends' from all ranks into 'allends'
-            comm.Allgather(endsarr, allends)
+            if comm is None or isinstance(comm, MockComm):
+                allends = endsarr
+            else:
+                comm.Allgather(endsarr, allends)
 
             # Reshape 'allends' to have 9 columns and 'size' rows
             allends = allends.reshape((size, len(endsarr)))
@@ -176,7 +184,10 @@ class LinOpWithTransp(LinearOperator):
             allstarts = np.empty(size * len(startsarr), dtype=int)
 
             # Use Allgather to gather 'starts' from all ranks into 'allstarts'
-            comm.Allgather(startsarr, allstarts)
+            if comm is None or isinstance(comm, MockComm):
+                allstarts = startsarr
+            else:
+                comm.Allgather(startsarr, allstarts)
 
             # Reshape 'allstarts' to have 3 columns and 'size' rows
             allstarts = allstarts.reshape((size, len(startsarr)))
@@ -186,7 +197,10 @@ class LinOpWithTransp(LinearOperator):
             allends = np.empty(size * len(endsarr), dtype=int)
 
             # Use Allgather to gather 'ends' from all ranks into 'allends'
-            comm.Allgather(endsarr, allends)
+            if comm is None or isinstance(comm, MockComm):
+                allends = endsarr
+            else:
+                comm.Allgather(endsarr, allends)
 
             # Reshape 'allends' to have 3 columns and 'size' rows
             allends = allends.reshape((size, len(endsarr)))
@@ -225,15 +239,20 @@ class LinOpWithTransp(LinearOperator):
 
         if is_sparse == False:
             # Use Allreduce to perform addition reduction and give one copy of the result to all ranks.
-            comm.Allreduce(result, out, op=MPI.SUM)
+            if comm is None or isinstance(comm, MockComm):
+                out[:] = result
+            else:
+                comm.Allreduce(result, out, op=MPI.SUM)
             return out
         else:
-            # Gather all rows on rank 0
-            gathered_rows = comm.gather(row, root=0)
-            # Gather all colarr on rank 0
-            gathered_cols = comm.gather(colarr, root=0)
-            # Gather all data on rank 0
-            gathered_data = comm.gather(data, root=0)
+            if comm is None or isinstance(comm, MockComm):
+                gathered_rows = [row]
+                gathered_cols = [colarr]
+                gathered_data = [data]
+            else:
+                gathered_rows = comm.gather(row, root=0)
+                gathered_cols = comm.gather(colarr, root=0)
+                gathered_data = comm.gather(data, root=0)
 
             if rank == 0:
                 # Rank 0 collects all rows from other ranks
@@ -243,12 +262,13 @@ class LinOpWithTransp(LinearOperator):
                 # Rank 0 collects all data from other ranks
                 all_data = [item for sublist in gathered_data for item in sublist]
 
-                # Broadcast 'all_rows' to all other ranks
-                comm.bcast(all_rows, root=0)
-                # Broadcast 'all_cols' to all other ranks
-                comm.bcast(all_cols, root=0)
-                # Broadcast 'all_data' to all other ranks
-                comm.bcast(all_data, root=0)
+                if comm is not None:
+                    # Broadcast 'all_rows' to all other ranks
+                    comm.bcast(all_rows, root=0)
+                    # Broadcast 'all_cols' to all other ranks
+                    comm.bcast(all_cols, root=0)
+                    # Broadcast 'all_data' to all other ranks
+                    comm.bcast(all_data, root=0)
             else:
                 # Other ranks receive the 'all_rows' list through broadcast
                 all_rows = comm.bcast(None, root=0)

@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
-import numpy as np
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
@@ -11,13 +10,14 @@ from struphy.geometry.base import Domain
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
+from struphy.propagators.propagators_fields import ImplicitDiffusion
+from struphy.utils.arrays import xp as np
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 # plt.rcParams.update({'font.size': 22})
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("direction", [0, 1])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 @pytest.mark.parametrize(
@@ -230,7 +230,6 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
         plt.show()
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[64, 64, 1]])
 @pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
@@ -451,7 +450,6 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
 
 
 @pytest.mark.skip(reason="Not clear if the 2.5d strategy is sound.")
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[32, 32, 16]])
 @pytest.mark.parametrize("p", [[1, 1, 1], [2, 2, 1]])
 @pytest.mark.parametrize(

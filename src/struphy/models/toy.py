@@ -13,6 +13,8 @@ from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
 
+rank = MPI.COMM_WORLD.Get_rank()
+
 
 class Maxwell(StruphyModel):
     r"""Maxwell's equations in vacuum.

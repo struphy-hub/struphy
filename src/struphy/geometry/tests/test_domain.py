@@ -4,9 +4,8 @@ import pytest
 def test_prepare_arg():
     """Tests prepare_arg static method in domain base class."""
 
-    import numpy as np
-
     from struphy.geometry.base import Domain
+    from struphy.utils.arrays import xp as np
 
     def a1(e1, e2, e3):
         return e1 * e2
@@ -150,6 +149,7 @@ def test_prepare_arg():
         "ShafranovSqrtCylinder",
         "ShafranovDshapedCylinder",
         "GVECunit",
+        "DESCunit",
         "IGAPolarCylinder",
         "IGAPolarTorus",
         "Tokamak",
@@ -158,10 +158,9 @@ def test_prepare_arg():
 def test_evaluation_mappings(mapping):
     """Tests domain object creation with default parameters and evaluation of metric coefficients."""
 
-    import numpy as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
+    from struphy.utils.arrays import xp as np
 
     # arrays:
     arr1 = np.linspace(0.0, 1.0, 4)
@@ -318,10 +317,9 @@ def test_evaluation_mappings(mapping):
 def test_pullback():
     """Tests pullbacks to p-forms."""
 
-    import numpy as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
+    from struphy.utils.arrays import xp as np
 
     # arrays:
     arr1 = np.linspace(0.0, 1.0, 4)
@@ -478,10 +476,9 @@ def test_pullback():
 def test_pushforward():
     """Tests pushforward of p-forms."""
 
-    import numpy as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
+    from struphy.utils.arrays import xp as np
 
     # arrays:
     arr1 = np.linspace(0.0, 1.0, 4)
@@ -638,10 +635,9 @@ def test_pushforward():
 def test_transform():
     """Tests transformation of p-forms."""
 
-    import numpy as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
+    from struphy.utils.arrays import xp as np
 
     # arrays:
     arr1 = np.linspace(0.0, 1.0, 4)
@@ -821,7 +817,7 @@ def test_transform():
 #    """
 #
 #    from struphy.geometry import domains
-#    import numpy as np
+#    from struphy.utils.arrays import xp as np
 #
 #    # arrays:
 #    arr1 = np.linspace(0., 1., 4)
@@ -920,8 +916,8 @@ def test_transform():
 
 
 if __name__ == "__main__":
-    test_prepare_arg()
-    test_evaluation_mappings("GVECunit")
-    test_pullback()
-    test_pushforward()
-    test_transform()
+    # test_prepare_arg()
+    test_evaluation_mappings("DESCunit")
+    # test_pullback()
+    # test_pushforward()
+    # test_transform()

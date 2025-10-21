@@ -1,7 +1,7 @@
-import numpy as np
 import pytest
 from matplotlib import pyplot as plt
-from mpi4py import MPI
+from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry import domains
@@ -25,7 +25,12 @@ def test_sph_evaluation_1d(
     tesselation,
     show_plot=False,
 ):
-    comm = MPI.COMM_WORLD
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
 
     # DOMAIN object
     dom_type = "Cuboid"
@@ -77,7 +82,8 @@ def test_sph_evaluation_1d(
     eta3 = np.array([0.0])
 
     particles.draw_markers(sort=False, verbose=False)
-    particles.mpi_sort_markers()
+    if comm is not None:
+        particles.mpi_sort_markers()
     particles.initialize_weights()
     h1 = 1 / boxes_per_dim[0]
     h2 = 1 / boxes_per_dim[1]
@@ -93,14 +99,17 @@ def test_sph_evaluation_1d(
         kernel_type=kernel,
         derivative=derivative,
     )
-    all_eval = np.zeros_like(test_eval)
 
-    comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+    if comm is None:
+        all_eval = test_eval
+    else:
+        all_eval = np.zeros_like(test_eval)
+        comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
 
     exact_eval = fun_exact(ee1, ee2, ee3)
     err_max_norm = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
 
-    if comm.Get_rank() == 0:
+    if rank == 0:
         print(f"\n{boxes_per_dim = }")
         print(f"{kernel = }, {derivative =}")
         print(f"{bc_x = }, {eval_pts = }, {tesselation = }, {err_max_norm = }")
@@ -139,7 +148,12 @@ def test_sph_evaluation_2d(
     eval_pts,
     show_plot=False,
 ):
-    comm = MPI.COMM_WORLD
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
 
     tesselation = True
 
@@ -192,7 +206,8 @@ def test_sph_evaluation_2d(
     )
 
     particles.draw_markers(sort=False, verbose=False)
-    particles.mpi_sort_markers()
+    if comm is not None:
+        particles.mpi_sort_markers()
     particles.initialize_weights()
     h1 = 1 / boxes_per_dim[0]
     h2 = 1 / boxes_per_dim[1]
@@ -208,14 +223,17 @@ def test_sph_evaluation_2d(
         kernel_type=kernel,
         derivative=derivative,
     )
-    all_eval = np.zeros_like(test_eval)
 
-    comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+    if comm is None:
+        all_eval = test_eval
+    else:
+        all_eval = np.zeros_like(test_eval)
+        comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
 
     exact_eval = fun_exact(ee1, ee2, ee3)
     err_max_norm = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
 
-    if comm.Get_rank() == 0:
+    if rank == 0:
         print(f"\n{boxes_per_dim = }")
         print(f"{kernel = }, {derivative =}")
         print(f"{bc_x = }, {bc_y = }, {eval_pts = }, {tesselation = }, {err_max_norm = }")
@@ -254,7 +272,12 @@ def test_sph_evaluation_3d(
     eval_pts,
     show_plot=False,
 ):
-    comm = MPI.COMM_WORLD
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
 
     tesselation = True
 
@@ -302,7 +325,8 @@ def test_sph_evaluation_3d(
     )
 
     particles.draw_markers(sort=False, verbose=False)
-    particles.mpi_sort_markers()
+    if comm is not None:
+        particles.mpi_sort_markers()
     particles.initialize_weights()
     h1 = 1 / boxes_per_dim[0]
     h2 = 1 / boxes_per_dim[1]
@@ -318,14 +342,17 @@ def test_sph_evaluation_3d(
         kernel_type=kernel,
         derivative=derivative,
     )
-    all_eval = np.zeros_like(test_eval)
 
-    comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+    if comm is None:
+        all_eval = test_eval
+    else:
+        all_eval = np.zeros_like(test_eval)
+        comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
 
     exact_eval = fun_exact(ee1, ee2, ee3)
     err_max_norm = np.max(np.abs(all_eval - exact_eval))
 
-    if comm.Get_rank() == 0:
+    if rank == 0:
         print(f"\n{boxes_per_dim = }")
         print(f"{kernel = }, {derivative =}")
         print(f"{bc_x = }, {bc_y = }, {bc_z = }, {eval_pts = }, {tesselation = }, {err_max_norm = }")
@@ -367,7 +394,12 @@ def test_sph_evaluation_3d(
 @pytest.mark.parametrize("eval_pts", [11, 16])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselation, show_plot=False):
-    comm = MPI.COMM_WORLD
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
 
     # DOMAIN object
     dom_type = "Cuboid"
@@ -426,18 +458,22 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         )
 
         particles.draw_markers(sort=False, verbose=False)
-        particles.mpi_sort_markers()
+        if comm is not None:
+            particles.mpi_sort_markers()
         particles.initialize_weights()
         h1 = 1 / boxes_per_dim[0]
         h2 = 1 / boxes_per_dim[1]
         h3 = 1 / boxes_per_dim[2]
 
         test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
-        all_eval = np.zeros_like(test_eval)
 
-        comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+        if comm is None:
+            all_eval = test_eval
+        else:
+            all_eval = np.zeros_like(test_eval)
+            comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
 
-        if show_plot and comm.Get_rank() == 0:
+        if show_plot and rank == 0:
             plt.figure()
             plt.plot(ee1.squeeze(), exact_eval.squeeze(), label="exact")
             plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
@@ -455,7 +491,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         fit = np.polyfit(np.log(Nps), np.log(err_vec), 1)
         xvec = Nps
 
-    if show_plot and comm.Get_rank() == 0:
+    if show_plot and rank == 0:
         plt.figure(figsize=(12, 8))
         plt.loglog(xvec, err_vec, label="Convergence")
         plt.loglog(xvec, np.exp(fit[1]) * np.array(xvec) ** (fit[0]), "--", label=f"fit with slope {fit[0]}")
@@ -463,7 +499,7 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         plt.show()
         # plt.savefig(f"Convergence_SPH_{tesselation=}")
 
-    if comm.Get_rank() == 0:
+    if rank == 0:
         print(f"\n{bc_x = }, {eval_pts = }, {tesselation = }, {fit[0] = }")
 
     if tesselation:
@@ -477,7 +513,12 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
 @pytest.mark.parametrize("eval_pts", [11, 16])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselation, show_plot=False):
-    comm = MPI.COMM_WORLD
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
 
     # DOMAIN object
     dom_type = "Cuboid"
@@ -534,17 +575,21 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         )
 
         particles.draw_markers(sort=False, verbose=False)
-        particles.mpi_sort_markers()
+        if comm is not None:
+            particles.mpi_sort_markers()
         particles.initialize_weights()
         h2 = 1 / boxes_per_dim[1]
         h3 = 1 / boxes_per_dim[2]
 
         test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3)
-        all_eval = np.zeros_like(test_eval)
 
-        comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+        if comm is None:
+            all_eval = test_eval
+        else:
+            all_eval = np.zeros_like(test_eval)
+            comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
 
-        if show_plot and comm.Get_rank() == 0:
+        if show_plot and rank == 0:
             plt.figure()
             plt.plot(ee1.squeeze(), exact_eval.squeeze(), label="exact")
             plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
@@ -566,7 +611,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
     else:
         fit = np.polyfit(np.log(h_vec[:-2]), np.log(err_vec[:-2]), 1)
 
-    if show_plot and comm.Get_rank() == 0:
+    if show_plot and rank == 0:
         plt.figure(figsize=(12, 8))
         plt.loglog(h_vec, err_vec, label="Convergence")
         plt.loglog(h_vec, np.exp(fit[1]) * np.array(h_vec) ** (fit[0]), "--", label=f"fit with slope {fit[0]}")
@@ -574,7 +619,7 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         plt.show()
         # plt.savefig("Convergence_SPH")
 
-    if comm.Get_rank() == 0:
+    if rank == 0:
         print(f"\n{bc_x = }, {eval_pts = }, {tesselation = }, {fit[0] = }")
 
     if not tesselation:
@@ -586,7 +631,12 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
 @pytest.mark.parametrize("eval_pts", [11, 16])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselation, show_plot=False):
-    comm = MPI.COMM_WORLD
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
 
     # DOMAIN object
     dom_type = "Cuboid"
@@ -647,21 +697,26 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
             )
 
             particles.draw_markers(sort=False, verbose=False)
-            particles.mpi_sort_markers()
+            if comm is not None:
+                particles.mpi_sort_markers()
             particles.initialize_weights()
 
             h2 = 1 / boxes_per_dim[1]
             h3 = 1 / boxes_per_dim[2]
 
             test_eval = particles.eval_density(ee1, ee2, ee3, h1=h, h2=h2, h3=h3)
-            all_eval = np.zeros_like(test_eval)
-            comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+
+            if comm is None:
+                all_eval = test_eval
+            else:
+                all_eval = np.zeros_like(test_eval)
+                comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
 
             # error in max-norm
             diff = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
             err_vec[-1] += [diff]
 
-            if comm.Get_rank() == 0:
+            if rank == 0:
                 print(f"{Np = }, {ppb = }, {diff = }")
                 # if show_plot:
                 #     plt.figure()
@@ -673,7 +728,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
     err_vec = np.array(err_vec)
     err_min = np.min(err_vec)
 
-    if show_plot and comm.Get_rank() == 0:
+    if show_plot and rank == 0:
         if tesselation:
             h_mesh, n_mesh = np.meshgrid(np.log10(h_arr), np.log10(ppbs), indexing="ij")
         if not tesselation:
@@ -699,7 +754,7 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
 
         plt.show()
 
-    if comm.Get_rank() == 0:
+    if rank == 0:
         print(f"\n{tesselation = }, {bc_x = }, {err_min = }")
 
     if tesselation:
@@ -721,7 +776,12 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
 @pytest.mark.parametrize("bc_y", ["periodic", "fixed", "mirror"])
 @pytest.mark.parametrize("tesselation", [False, True])
 def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation, show_plot=False):
-    comm = MPI.COMM_WORLD
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
 
     # DOMAIN object
     dom_type = "Cuboid"
@@ -796,16 +856,20 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
             print(f"{particles.domain_array}")
 
         particles.draw_markers(sort=False, verbose=False)
-        particles.mpi_sort_markers()
+        if comm is not None:
+            particles.mpi_sort_markers()
         particles.initialize_weights()
         h1 = 1 / boxes_per_dim[0]
         h2 = 1 / boxes_per_dim[1]
         h3 = 1 / boxes_per_dim[2]
 
         test_eval = particles.eval_density(ee1, ee2, ee3, h1=h1, h2=h2, h3=h3, kernel_type="gaussian_2d")
-        all_eval = np.zeros_like(test_eval)
 
-        comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
+        if comm is None:
+            all_eval = test_eval
+        else:
+            all_eval = np.zeros_like(test_eval)
+            comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
 
         # error in max-norm
         diff = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
@@ -814,7 +878,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         if tesselation:
             assert diff < 0.06
 
-        if comm.Get_rank() == 0:
+        if rank == 0:
             print(f"{Np = }, {ppb = }, {diff = }")
             if show_plot:
                 fig, ax = plt.subplots()
@@ -832,7 +896,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         fit = np.polyfit(np.log(Nps), np.log(err_vec), 1)
         xvec = Nps
 
-    if show_plot and comm.Get_rank() == 0:
+    if show_plot and rank == 0:
         plt.figure(figsize=(12, 8))
         plt.loglog(xvec, err_vec, label="Convergence")
         plt.loglog(xvec, np.exp(fit[1]) * np.array(xvec) ** (fit[0]), "--", label=f"fit with slope {fit[0]}")
@@ -840,7 +904,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         plt.show()
         # plt.savefig(f"Convergence_SPH_{tesselation=}")
 
-    if comm.Get_rank() == 0:
+    if rank == 0:
         print(f"\n{bc_x = }, {tesselation = }, {fit[0] = }")
 
     if not tesselation:

@@ -36,8 +36,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.initial import perturbations
@@ -269,8 +268,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.initial import perturbations
@@ -437,7 +435,6 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 # ==========================================
 # ========== multi-threaded tests ==========
 # ==========================================
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -466,8 +463,8 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import MockComm
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.initial import perturbations
@@ -490,10 +487,14 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
-    comm = MPI.COMM_WORLD
-    size = comm.Get_size()
-    rank = comm.Get_rank()
-    assert size > 1
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        size = 1
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        size = comm.Get_size()
+        rank = comm.Get_rank()
 
     # create particles
     bc_params = ("periodic", "periodic", "periodic")
@@ -524,9 +525,12 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     )
 
     # Reduce all threads to get complete result
-    mpi_res = np.zeros_like(binned_res)
-    comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
-    comm.Barrier()
+    if comm is None:
+        mpi_res = binned_res
+    else:
+        mpi_res = np.zeros_like(binned_res)
+        comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
+        comm.Barrier()
 
     v1_plot = v1_bins[:-1] + dv / 2
 
@@ -573,9 +577,12 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     )
 
     # Reduce all threads to get complete result
-    mpi_res = np.zeros_like(binned_res)
-    comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
-    comm.Barrier()
+    if comm is None:
+        mpi_res = binned_res
+    else:
+        mpi_res = np.zeros_like(binned_res)
+        comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
+        comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
@@ -667,9 +674,12 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     )
 
     # Reduce all threads to get complete result
-    mpi_res = np.zeros_like(binned_res)
-    comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
-    comm.Barrier()
+    if comm is None:
+        mpi_res = binned_res
+    else:
+        mpi_res = np.zeros_like(binned_res)
+        comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
+        comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
@@ -721,7 +731,6 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize(
     "mapping",
     [
@@ -750,8 +759,8 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     """
 
     import matplotlib.pyplot as plt
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import MockComm
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.geometry import domains
     from struphy.initial import perturbations
@@ -774,10 +783,14 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     domain = domain_class(**mapping[1])
 
     # Psydac discrete Derham sequence
-    comm = MPI.COMM_WORLD
-    size = comm.Get_size()
-    rank = comm.Get_rank()
-    assert size > 1
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        size = 1
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        size = comm.Get_size()
+        rank = comm.Get_rank()
 
     # create particles
     bc_params = ("periodic", "periodic", "periodic")
@@ -822,9 +835,12 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     )
 
     # Reduce all threads to get complete result
-    mpi_res = np.zeros_like(binned_res)
-    comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
-    comm.Barrier()
+    if comm is None:
+        mpi_res = binned_res
+    else:
+        mpi_res = np.zeros_like(binned_res)
+        comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
+        comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
@@ -918,9 +934,12 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     )
 
     # Reduce all threads to get complete result
-    mpi_res = np.zeros_like(binned_res)
-    comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
-    comm.Barrier()
+    if comm is None:
+        mpi_res = binned_res
+    else:
+        mpi_res = np.zeros_like(binned_res)
+        comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
+        comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
@@ -973,10 +992,17 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
 
 
 if __name__ == "__main__":
-    from mpi4py import MPI
+    from psydac.ddm.mpi import MockComm
+    from psydac.ddm.mpi import mpi as MPI
 
-    comm = MPI.COMM_WORLD
-    size = comm.Get_size()
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        size = 1
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        size = comm.Get_size()
+        rank = comm.Get_rank()
 
     if comm is None or size == 1:
         test_binning_6D_full_f(

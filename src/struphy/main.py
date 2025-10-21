@@ -46,6 +46,7 @@ from struphy.post_processing.post_processing_tools import (
 from struphy.profiling.profiling import ProfileManager
 from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 
@@ -176,7 +177,7 @@ def run(
                 clone_config.print_particle_config()
 
     model.clone_config = clone_config
-    comm.Barrier()
+    Barrier()
 
     ## configure model instance
 
@@ -215,7 +216,7 @@ def run(
     if rank < 32:
         if rank == 0:
             print("")
-        comm.Barrier()
+        Barrier()
         print(f"Rank {rank}: executing main.run() for model {model_name} ...")
 
     if size > 32 and rank == 32:
@@ -299,7 +300,7 @@ def run(
     # time loop
     run_time_now = 0.0
     while True:
-        comm.Barrier()
+        Barrier()
 
         # stop time loop?
         break_cond_1 = time_state["value"][0] >= Tend

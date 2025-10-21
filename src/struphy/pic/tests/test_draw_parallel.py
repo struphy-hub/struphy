@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -36,8 +35,7 @@ import pytest
 def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     """Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`."""
 
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
@@ -45,7 +43,6 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     seed = 1234

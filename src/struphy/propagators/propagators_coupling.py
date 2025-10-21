@@ -151,7 +151,7 @@ class VlasovAmpere(Propagator):
         self._info = self.options.solver_params.info
 
         # get accumulation kernel
-        accum_kernel = accum_kernels.vlasov_maxwell
+        accum_kernel = Pyccelkernel(accum_kernels.vlasov_maxwell)
 
         # Initialize Accumulator object
         particles = self.variables.ions.particles
@@ -206,7 +206,7 @@ class VlasovAmpere(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_v_with_efield,
+            Pyccelkernel(pusher_kernels.push_v_with_efield),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -378,7 +378,7 @@ class EfieldWeights(Propagator):
         self._accum = Accumulator(
             particles,
             "Hcurl",
-            accum_kernels.linear_vlasov_ampere,
+            Pyccelkernel(accum_kernels.linear_vlasov_ampere),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -433,7 +433,7 @@ class EfieldWeights(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_weights_with_efield_lin_va,
+            Pyccelkernel(pusher_kernels.push_weights_with_efield_lin_va),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -572,7 +572,10 @@ class PressureCoupling6D(Propagator):
         self._GT = self.derham.grad.transpose()
 
         self._info = solver["info"]
-        self._rank = self.derham.comm.Get_rank()
+        if self.derham.comm is None:
+            self._rank = 0
+        else:
+            self._rank = self.derham.comm.Get_rank()
 
         assert u_space in {"Hcurl", "Hdiv", "H1vec"}
 
@@ -602,11 +605,11 @@ class PressureCoupling6D(Propagator):
 
         # Call the accumulation and Pusher class
         if use_perp_model:
-            accum_ker = accum_kernels.pc_lin_mhd_6d
-            pusher_ker = pusher_kernels.push_pc_GXu
+            accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d)
+            pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu)
         else:
-            accum_ker = accum_kernels.pc_lin_mhd_6d_full
-            pusher_ker = pusher_kernels.push_pc_GXu_full
+            accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d_full)
+            pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu_full)
 
         self._coupling_mat = coupling_params["Ah"] / coupling_params["Ab"]
         self._coupling_vec = coupling_params["Ah"] / coupling_params["Ab"]
@@ -895,7 +898,11 @@ class CurrentCoupling6DCurrent(Propagator):
         self._b_tilde = b_tilde
 
         self._info = solver["info"]
-        self._rank = self.derham.comm.Get_rank()
+
+        if self.derham.comm is None:
+            self._rank = 0
+        else:
+            self._rank = self.derham.comm.Get_rank()
 
         self._coupling_mat = Ah / Ab / epsilon**2
         self._coupling_vec = Ah / Ab / epsilon
@@ -907,7 +914,7 @@ class CurrentCoupling6DCurrent(Propagator):
         self._accumulator = Accumulator(
             particles,
             u_space,
-            accum_kernels.cc_lin_mhd_6d_2,
+            Pyccelkernel(accum_kernels.cc_lin_mhd_6d_2),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -966,11 +973,11 @@ class CurrentCoupling6DCurrent(Propagator):
 
         # load particle pusher kernel
         if u_space == "Hcurl":
-            kernel = pusher_kernels.push_bxu_Hcurl
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_Hcurl)
         elif u_space == "Hdiv":
-            kernel = pusher_kernels.push_bxu_Hdiv
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_Hdiv)
         elif u_space == "H1vec":
-            kernel = pusher_kernels.push_bxu_H1vec
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_H1vec)
         else:
             raise ValueError(
                 f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',

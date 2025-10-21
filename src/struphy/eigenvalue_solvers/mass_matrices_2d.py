@@ -2,10 +2,10 @@
 #
 # Copyright 2020 Florian Holderied
 
-import numpy as np
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_2d as ker
+from struphy.utils.arrays import xp as np
 
 
 # ================ mass matrix in V0 ===========================

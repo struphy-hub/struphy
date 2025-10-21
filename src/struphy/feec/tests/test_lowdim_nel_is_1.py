@@ -1,23 +1,21 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[32, 1, 1], [1, 32, 1], [1, 1, 32], [31, 32, 1], [32, 1, 31], [1, 31, 32]])
 @pytest.mark.parametrize("p", [[1, 1, 1]])
 @pytest.mark.parametrize("spl_kind", [[True, True, True]])
 def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     """Test Nel=1 in various directions."""
 
-    import numpy as np
     from matplotlib import pyplot as plt
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
     from struphy.feec.psydac_derham import Derham
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     print("Nel=", Nel)

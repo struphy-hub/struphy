@@ -1,11 +1,11 @@
 import time
 
-import numpy as np
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
+
+from struphy.utils.arrays import xp as np
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -22,7 +22,6 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
     from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 import importlib.metadata
 
-import numpy as np
 import psydac.core.bsplines as bsp
-from mpi4py import MPI
-from mpi4py.MPI import Intracomm
 from psydac.ddm.cart import DomainDecomposition
+from psydac.ddm.mpi import MockComm, MockMPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.feec.derivatives import Curl_3D, Divergence_3D, Gradient_3D
 from psydac.feec.global_projectors import Projector_H1, Projector_H1vec, Projector_Hcurl, Projector_Hdiv, Projector_L2
 from psydac.fem.grid import FemAssemblyGrid
@@ -34,6 +33,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+from struphy.utils.arrays import xp as np
 
 
 class Derham:
@@ -96,7 +96,7 @@ class Derham:
         dirichlet_bc: list | tuple = None,
         nquads: list | tuple = None,
         nq_pr: list | tuple = None,
-        comm: Intracomm = None,
+        comm=None,
         mpi_dims_mask: list = None,
         with_projectors: bool = True,
         polar_ck: int = -1,
@@ -384,8 +384,6 @@ class Derham:
         ]
 
         # distribute info on domain decomposition
-        self._domain_decomposition = self._Vh["0"].cart.domain_decomposition
-
         self._domain_array = self._get_domain_array()
         self._breaks_loc = [
             self.breaks[k][self.domain_decomposition.starts[k] : self.domain_decomposition.ends[k] + 2]
@@ -393,7 +391,7 @@ class Derham:
         ]
 
         self._index_array = self._get_index_array(
-            self._domain_decomposition,
+            self.domain_decomposition,
         )
         self._index_array_N = self._get_index_array(self._Vh["0"].cart)
         self._index_array_D = self._get_index_array(self._Vh["3"].cart)
@@ -800,7 +798,7 @@ class Derham:
         Nel: tuple | list,
         p: tuple | list,
         spl_kind: tuple | list,
-        comm: Intracomm = None,
+        comm=None,
         mpi_dims_mask: tuple | list = None,
     ):
         """Discretize the Derahm complex. Allows for the use of tiny-psydac.
@@ -828,12 +826,13 @@ class Derham:
 
         if "dev" in psydac_ver:
             # use tiny-psydac version
-            ddm = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
+            self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
+
             _derham = self._discretize_derham(
                 Nel=Nel,
                 p=p,
                 spl_kind=spl_kind,
-                ddm=ddm,
+                ddm=self.domain_decomposition,
             )
         else:
             from psydac.api.discretization import discretize
@@ -1138,7 +1137,7 @@ class Derham:
             dom_arr_loc[3 * n + 2] = el_end - el_sta + 1
 
         # distribute
-        if self.comm is not None:
+        if not isinstance(self.comm, (MockComm, type(None))):
             self.comm.Allgather(dom_arr_loc, dom_arr)
         else:
             dom_arr[:] = dom_arr_loc
@@ -1163,7 +1162,7 @@ class Derham:
         """
 
         # MPI info
-        if self.comm is not None:
+        if not isinstance(self.comm, (MockComm, type(None))):
             nproc = self.comm.Get_size()
         else:
             nproc = 1
@@ -1184,7 +1183,7 @@ class Derham:
             ind_arr_loc[2 * n + 1] = end
 
         # distribute
-        if self.comm is not None:
+        if not isinstance(self.comm, (MockComm, type(None))):
             self.comm.Allgather(ind_arr_loc, ind_arr)
         else:
             ind_arr[:] = ind_arr_loc

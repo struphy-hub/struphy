@@ -2,7 +2,8 @@ import ctypes
 import os
 
 import h5py
-import numpy as np
+
+from struphy.utils.arrays import xp as np
 
 
 class DataContainer:
@@ -24,7 +25,7 @@ class DataContainer:
         # set name of hdf5 file
         if comm is None:
             self._rank = None
-            _affix = ""
+            _affix = "_proc0"
         else:
             self._rank = comm.Get_rank()
             _affix = "_proc" + str(self._rank)

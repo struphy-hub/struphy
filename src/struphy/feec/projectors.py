@@ -1,6 +1,5 @@
-import numpy as np
-from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.ddm.mpi import mpi as MPI
 from psydac.feec.global_projectors import GlobalProjector
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
@@ -38,6 +37,7 @@ from struphy.fields_background.equils import set_defaults
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.utils.arrays import xp as np
 
 
 class CommutingProjector:
@@ -659,8 +659,12 @@ class CommutingProjectorLocal:
         if isinstance(fem_space, TensorFemSpace):
             # The comm, rank and size are only necessary for debugging. In particular, for printing stuff
             self._comm = self._coeff_space.cart.comm
-            self._rank = self._comm.Get_rank()
-            self._size = self._comm.Get_size()
+            if self._comm is None:
+                self._rank = 0
+                self._size = 1
+            else:
+                self._rank = self._comm.Get_rank()
+                self._size = self._comm.Get_size()
 
             # We get the start and endpoint for each sublist in out
             self._starts = np.array(self.coeff_space.starts)
@@ -682,8 +686,12 @@ class CommutingProjectorLocal:
         elif isinstance(fem_space, VectorFemSpace):
             # The comm, rank and size are only necessary for debugging. In particular, for printing stuff
             self._comm = self._coeff_space.spaces[0].cart.comm
-            self._rank = self._comm.Get_rank()
-            self._size = self._comm.Get_size()
+            if self._comm is None:
+                self._rank = 0
+                self._size = 1
+            else:
+                self._rank = self._comm.Get_rank()
+                self._size = self._comm.Get_size()
 
             # we collect all starts and ends in two big lists
             self._starts = np.array([vi.starts for vi in self.coeff_space.spaces])

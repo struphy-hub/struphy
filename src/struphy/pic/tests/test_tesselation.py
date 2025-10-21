@@ -1,9 +1,8 @@
 from time import time
 
-import numpy as np
 import pytest
 from matplotlib import pyplot as plt
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.equils import ConstantVelocity
@@ -13,7 +12,6 @@ from struphy.pic.particles import ParticlesSPH
 from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("ppb", [8, 12])
 @pytest.mark.parametrize("nx", [16, 10, 24])
 @pytest.mark.parametrize("ny", [1, 16, 10])
@@ -73,7 +71,6 @@ def test_draw(ppb, nx, ny, nz):
     assert np.allclose(particles.positions[:, 2], e3)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("ppb", [8, 12])
 @pytest.mark.parametrize("nx", [10, 8, 6])
 @pytest.mark.parametrize("ny", [1, 16, 10])
