@@ -80,33 +80,33 @@ def test_eval_field(Nel, p, spl_kind):
     uv.initialize_coeffs(pert_params=pert_params_uv)
 
     # evaluation points for meshgrid
-    eta1 = np.linspace(0, 1, 11)
-    eta2 = np.linspace(0, 1, 14)
-    eta3 = np.linspace(0, 1, 18)
+    eta1 = xp.linspace(0, 1, 11)
+    eta2 = xp.linspace(0, 1, 14)
+    eta3 = xp.linspace(0, 1, 18)
 
     # evaluation points for markers
     Np = 33
-    markers = np.random.rand(Np, 3)
-    markers_1 = np.zeros((eta1.size, 3))
+    markers = xp.random.rand(Np, 3)
+    markers_1 = xp.zeros((eta1.size, 3))
     markers_1[:, 0] = eta1
-    markers_2 = np.zeros((eta2.size, 3))
+    markers_2 = xp.zeros((eta2.size, 3))
     markers_2[:, 1] = eta2
-    markers_3 = np.zeros((eta3.size, 3))
+    markers_3 = xp.zeros((eta3.size, 3))
     markers_3[:, 2] = eta3
 
     # arrays for legacy evaluation
     arr1, arr2, arr3, is_sparse_meshgrid = Domain.prepare_eval_pts(eta1, eta2, eta3)
-    tmp = np.zeros_like(arr1)
+    tmp = xp.zeros_like(arr1)
 
     ######
     # V0 #
     ######
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(p0.vector.toarray(), p0.nbasis)
+    coeffs_loc = xp.reshape(p0.vector.toarray(), p0.nbasis)
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(p0.vector, coeffs, rank)
 
@@ -128,12 +128,12 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         0,
     )
-    val_legacy = np.squeeze(tmp.copy())
+    val_legacy = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # distributed evaluation and comparison
     val = p0(eta1, eta2, eta3, squeeze_out=True)
-    assert np.allclose(val, val_legacy)
+    assert xp.allclose(val, val_legacy)
 
     # marker evaluation
     m_vals = p0(markers)
@@ -146,19 +146,19 @@ def test_eval_field(Nel, p, spl_kind):
     m_vals_ref_2 = p0(0.0, eta2, 0.0, squeeze_out=True)
     m_vals_ref_3 = p0(0.0, 0.0, eta3, squeeze_out=True)
 
-    assert np.allclose(m_vals_1, m_vals_ref_1)
-    assert np.allclose(m_vals_2, m_vals_ref_2)
-    assert np.allclose(m_vals_3, m_vals_ref_3)
+    assert xp.allclose(m_vals_1, m_vals_ref_1)
+    assert xp.allclose(m_vals_2, m_vals_ref_2)
+    assert xp.allclose(m_vals_3, m_vals_ref_3)
 
     ######
     # V1 #
     ######
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(E1.vector[0].toarray(), E1.nbasis[0])
+    coeffs_loc = xp.reshape(E1.vector[0].toarray(), E1.nbasis[0])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(E1.vector[0], coeffs, rank)
 
@@ -180,15 +180,15 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         11,
     )
-    val_legacy_1 = np.squeeze(tmp.copy())
+    val_legacy_1 = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(E1.vector[1].toarray(), E1.nbasis[1])
+    coeffs_loc = xp.reshape(E1.vector[1].toarray(), E1.nbasis[1])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(E1.vector[1], coeffs, rank)
 
@@ -210,15 +210,15 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         12,
     )
-    val_legacy_2 = np.squeeze(tmp.copy())
+    val_legacy_2 = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(E1.vector[2].toarray(), E1.nbasis[2])
+    coeffs_loc = xp.reshape(E1.vector[2].toarray(), E1.nbasis[2])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(E1.vector[2], coeffs, rank)
 
@@ -240,14 +240,14 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         13,
     )
-    val_legacy_3 = np.squeeze(tmp.copy())
+    val_legacy_3 = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # distributed evaluation and comparison
     val1, val2, val3 = E1(eta1, eta2, eta3, squeeze_out=True)
-    assert np.allclose(val1, val_legacy_1)
-    assert np.allclose(val2, val_legacy_2)
-    assert np.allclose(val3, val_legacy_3)
+    assert xp.allclose(val1, val_legacy_1)
+    assert xp.allclose(val2, val_legacy_2)
+    assert xp.allclose(val3, val_legacy_3)
 
     # marker evaluation
     m_vals = E1(markers)
@@ -260,25 +260,25 @@ def test_eval_field(Nel, p, spl_kind):
     m_vals_ref_2 = E1(0.0, eta2, 0.0, squeeze_out=True)
     m_vals_ref_3 = E1(0.0, 0.0, eta3, squeeze_out=True)
 
-    assert np.all(
-        [np.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)]
+    assert xp.all(
+        [xp.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)]
     )
-    assert np.all(
-        [np.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)]
+    assert xp.all(
+        [xp.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)]
     )
-    assert np.all(
-        [np.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
+    assert xp.all(
+        [xp.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
     )
 
     ######
     # V2 #
     ######
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(B2.vector[0].toarray(), B2.nbasis[0])
+    coeffs_loc = xp.reshape(B2.vector[0].toarray(), B2.nbasis[0])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(B2.vector[0], coeffs, rank)
 
@@ -300,15 +300,15 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         21,
     )
-    val_legacy_1 = np.squeeze(tmp.copy())
+    val_legacy_1 = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(B2.vector[1].toarray(), B2.nbasis[1])
+    coeffs_loc = xp.reshape(B2.vector[1].toarray(), B2.nbasis[1])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(B2.vector[1], coeffs, rank)
 
@@ -330,15 +330,15 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         22,
     )
-    val_legacy_2 = np.squeeze(tmp.copy())
+    val_legacy_2 = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(B2.vector[2].toarray(), B2.nbasis[2])
+    coeffs_loc = xp.reshape(B2.vector[2].toarray(), B2.nbasis[2])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(B2.vector[2], coeffs, rank)
 
@@ -360,14 +360,14 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         23,
     )
-    val_legacy_3 = np.squeeze(tmp.copy())
+    val_legacy_3 = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # distributed evaluation and comparison
     val1, val2, val3 = B2(eta1, eta2, eta3, squeeze_out=True)
-    assert np.allclose(val1, val_legacy_1)
-    assert np.allclose(val2, val_legacy_2)
-    assert np.allclose(val3, val_legacy_3)
+    assert xp.allclose(val1, val_legacy_1)
+    assert xp.allclose(val2, val_legacy_2)
+    assert xp.allclose(val3, val_legacy_3)
 
     # marker evaluation
     m_vals = B2(markers)
@@ -380,25 +380,25 @@ def test_eval_field(Nel, p, spl_kind):
     m_vals_ref_2 = B2(0.0, eta2, 0.0, squeeze_out=True)
     m_vals_ref_3 = B2(0.0, 0.0, eta3, squeeze_out=True)
 
-    assert np.all(
-        [np.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)]
+    assert xp.all(
+        [xp.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)]
     )
-    assert np.all(
-        [np.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)]
+    assert xp.all(
+        [xp.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)]
     )
-    assert np.all(
-        [np.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
+    assert xp.all(
+        [xp.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
     )
 
     ######
     # V3 #
     ######
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(n3.vector.toarray(), n3.nbasis)
+    coeffs_loc = xp.reshape(n3.vector.toarray(), n3.nbasis)
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(n3.vector, coeffs, rank)
 
@@ -420,12 +420,12 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         3,
     )
-    val_legacy = np.squeeze(tmp.copy())
+    val_legacy = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # distributed evaluation and comparison
     val = n3(eta1, eta2, eta3, squeeze_out=True)
-    assert np.allclose(val, val_legacy)
+    assert xp.allclose(val, val_legacy)
 
     # marker evaluation
     m_vals = n3(markers)
@@ -438,19 +438,19 @@ def test_eval_field(Nel, p, spl_kind):
     m_vals_ref_2 = n3(0.0, eta2, 0.0, squeeze_out=True)
     m_vals_ref_3 = n3(0.0, 0.0, eta3, squeeze_out=True)
 
-    assert np.allclose(m_vals_1, m_vals_ref_1)
-    assert np.allclose(m_vals_2, m_vals_ref_2)
-    assert np.allclose(m_vals_3, m_vals_ref_3)
+    assert xp.allclose(m_vals_1, m_vals_ref_1)
+    assert xp.allclose(m_vals_2, m_vals_ref_2)
+    assert xp.allclose(m_vals_3, m_vals_ref_3)
 
     #########
     # V0vec #
     #########
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(uv.vector[0].toarray(), uv.nbasis[0])
+    coeffs_loc = xp.reshape(uv.vector[0].toarray(), uv.nbasis[0])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(uv.vector[0], coeffs, rank)
 
@@ -472,15 +472,15 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         0,
     )
-    val_legacy_1 = np.squeeze(tmp.copy())
+    val_legacy_1 = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(uv.vector[1].toarray(), uv.nbasis[1])
+    coeffs_loc = xp.reshape(uv.vector[1].toarray(), uv.nbasis[1])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(uv.vector[1], coeffs, rank)
 
@@ -502,15 +502,15 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         0,
     )
-    val_legacy_2 = np.squeeze(tmp.copy())
+    val_legacy_2 = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # create legacy arrays with same coeffs
-    coeffs_loc = np.reshape(uv.vector[2].toarray(), uv.nbasis[2])
+    coeffs_loc = xp.reshape(uv.vector[2].toarray(), uv.nbasis[2])
     if isinstance(comm, MockComm):
         coeffs = coeffs_loc
     else:
-        coeffs = np.zeros_like(coeffs_loc)
+        coeffs = xp.zeros_like(coeffs_loc)
         comm.Allreduce(coeffs_loc, coeffs, op=MPI.SUM)
     compare_arrays(uv.vector[2], coeffs, rank)
 
@@ -532,14 +532,14 @@ def test_eval_field(Nel, p, spl_kind):
         tmp,
         0,
     )
-    val_legacy_3 = np.squeeze(tmp.copy())
+    val_legacy_3 = xp.squeeze(tmp.copy())
     tmp[:] = 0
 
     # distributed evaluation and comparison
     val1, val2, val3 = uv(eta1, eta2, eta3, squeeze_out=True)
-    assert np.allclose(val1, val_legacy_1)
-    assert np.allclose(val2, val_legacy_2)
-    assert np.allclose(val3, val_legacy_3)
+    assert xp.allclose(val1, val_legacy_1)
+    assert xp.allclose(val2, val_legacy_2)
+    assert xp.allclose(val3, val_legacy_3)
 
     # marker evaluation
     m_vals = uv(markers)
@@ -552,14 +552,14 @@ def test_eval_field(Nel, p, spl_kind):
     m_vals_ref_2 = uv(0.0, eta2, 0.0, squeeze_out=True)
     m_vals_ref_3 = uv(0.0, 0.0, eta3, squeeze_out=True)
 
-    assert np.all(
-        [np.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)]
+    assert xp.all(
+        [xp.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)]
     )
-    assert np.all(
-        [np.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)]
+    assert xp.all(
+        [xp.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)]
     )
-    assert np.all(
-        [np.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
+    assert xp.all(
+        [xp.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
     )
 
 

@@ -191,7 +191,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         self.add_scalar("en_tot")
 
         # temporaries
-        self._tmp = np.empty(1, dtype=float)
+        self._tmp = xp.empty(1, dtype=float)
 
     def initialize_from_params(self):
         """Solve initial Poisson equation.
@@ -212,7 +212,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
 
         # sanity check
         # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [np.linspace(0, 1, 32)])
+        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
 
         # accumulate charge density
         charge_accum = AccumulatorVector(
@@ -257,7 +257,7 @@ class VlasovAmpereOneSpecies(StruphyModel):
         self._tmp[0] = (
             self._alpha**2
             / (2 * self.pointer["species1"].Np)
-            * np.dot(
+            * xp.dot(
                 self.pointer["species1"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
                 + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
@@ -464,7 +464,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self.add_scalar("en_tot")
 
         # temporaries
-        self._tmp = np.empty(1, dtype=float)
+        self._tmp = xp.empty(1, dtype=float)
 
     def initialize_from_params(self):
         """:meta private:"""
@@ -482,7 +482,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
 
         # sanity check
         # self.pointer['species1'].show_distribution_function(
-        #     [True] + [False]*5, [np.linspace(0, 1, 32)])
+        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
 
         # accumulate charge density
         charge_accum = AccumulatorVector(
@@ -529,7 +529,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
         self._tmp[0] = (
             self._alpha**2
             / (2 * self.pointer["species1"].Np)
-            * np.dot(
+            * xp.dot(
                 self.pointer["species1"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["species1"].markers_wo_holes[:, 4] ** 2
                 + self.pointer["species1"].markers_wo_holes[:, 5] ** 2,
@@ -714,7 +714,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.alpha = self.equation_params["species1"]["alpha"]
 
         # allocate memory for evaluating f0 in energy computation
-        self._f0_values = np.zeros(
+        self._f0_values = xp.zeros(
             self.pointer["species1"].markers.shape[0],
             dtype=float,
         )
@@ -781,7 +781,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
         self.add_scalar("en_tot")
 
         # temporaries
-        self._tmp = np.empty(1, dtype=float)
+        self._tmp = xp.empty(1, dtype=float)
         self.en_E = 0.0
 
     def initialize_from_params(self):
@@ -837,7 +837,7 @@ class LinearVlasovAmpereOneSpecies(StruphyModel):
             self.alpha**2
             * self.vth**2
             / (2 * self.pointer["species1"].Np)
-            * np.dot(
+            * xp.dot(
                 self.pointer["species1"].weights ** 2,  # w_p^2
                 self.pointer["species1"].sampling_density
                 / self._f0_values[self.pointer["species1"].valid_mks],  # s_{0,p} / f_{0,p}
@@ -1166,7 +1166,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self.add_scalar("en_tot")
 
         # MPI operations needed for scalar variables
-        self._tmp3 = np.empty(1, dtype=float)
+        self._tmp3 = xp.empty(1, dtype=float)
         self._e_field = self.derham.Vh["1"].zeros()
 
     def update_scalar_quantities(self):
@@ -1187,7 +1187,7 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
         self._tmp3[0] = (
             1
             / self.pointer["ions"].Np
-            * np.sum(
+            * xp.sum(
                 self.pointer["ions"].weights * self.pointer["ions"].velocities[:, 0] ** 2 / 2.0
                 + self.pointer["ions"].markers_wo_holes_and_ghost[:, 8],
             )

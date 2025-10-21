@@ -18,15 +18,15 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
             Particles object.
     """
 
-    res = np.empty(1, dtype=float)
+    res = xp.empty(1, dtype=float)
     utils.canonical_kinetic_particles(
         res,
         particles.markers,
-        np.array(derham.p),
+        xp.array(derham.p),
         derham.Vh_fem["0"].knots[0],
         derham.Vh_fem["0"].knots[1],
         derham.Vh_fem["0"].knots[2],
-        np.array(
+        xp.array(
             derham.V0.coeff_space.starts,
         ),
         *domain.args_map,
@@ -51,7 +51,7 @@ def get_electron_thermal_energy(density_0_form, derham, domain, nel1, nel2, nel3
             Discrete Derham complex.
     """
 
-    res = np.empty(1, dtype=float)
+    res = xp.empty(1, dtype=float)
     utils.thermal_energy(
         res,
         density_0_form._operators[0].matrix._data,

@@ -64,7 +64,7 @@ def main(
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
 
     # save time grid at which post-processing data is created
-    np.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+    xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
     # load parameters.yml
     with open(os.path.join(path, "parameters.yml"), "r") as f:

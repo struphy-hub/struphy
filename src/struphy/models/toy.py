@@ -170,7 +170,7 @@ class Vlasov(StruphyModel):
         self.add_scalar("en_f", compute="from_particles", species="ions")
 
         # MPI operations needed for scalar variables
-        self._tmp = np.empty(1, dtype=float)
+        self._tmp = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         self._tmp[0] = self.pointer["ions"].markers_wo_holes[:, 6].dot(
@@ -275,10 +275,10 @@ class GuidingCenter(StruphyModel):
         self.add_scalar("n_lost_particles", compute="from_particles", species="ions")
 
         # MPI operations needed for scalar variables
-        self._en_fv = np.empty(1, dtype=float)
-        self._en_fB = np.empty(1, dtype=float)
-        self._en_tot = np.empty(1, dtype=float)
-        self._n_lost_particles = np.empty(1, dtype=float)
+        self._en_fv = xp.empty(1, dtype=float)
+        self._en_fB = xp.empty(1, dtype=float)
+        self._en_tot = xp.empty(1, dtype=float)
+        self._n_lost_particles = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         # particles' kinetic energy
@@ -758,7 +758,7 @@ class VariationalCompressibleFluid(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f)
 
     def update_scalar_quantities(self):
@@ -799,7 +799,7 @@ class VariationalCompressibleFluid(StruphyModel):
     def __ener(self, rho, s):
         """Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis
         E(rho, s) = rho^gamma*exp(s/rho)"""
-        return np.power(rho, self._gamma) * np.exp(s / rho)
+        return xp.power(rho, self._gamma) * xp.exp(s / rho)
 
 
 class Poisson(StruphyModel):
@@ -969,7 +969,7 @@ class DeterministicParticleDiffusion(StruphyModel):
         self.add_scalar("en_f")
 
         # MPI operations needed for scalar variables
-        self._tmp = np.empty(1, dtype=float)
+        self._tmp = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         pass
@@ -1053,7 +1053,7 @@ class RandomParticleDiffusion(StruphyModel):
         self.add_scalar("en_f")
 
         # MPI operations needed for scalar variables
-        self._tmp = np.empty(1, dtype=float)
+        self._tmp = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         pass

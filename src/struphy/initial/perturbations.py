@@ -158,7 +158,7 @@ class ModesSin:
                 self._pfuns += [lambda eta3: 1.0]
             elif pfun == "localize":
                 self._pfuns += [
-                    lambda eta3: np.tanh((eta3 - 0.5) / params) / np.cosh((eta3 - 0.5) / params),
+                    lambda eta3: xp.tanh((eta3 - 0.5) / params) / xp.cosh((eta3 - 0.5) / params),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
@@ -170,10 +170,10 @@ class ModesSin:
             val += (
                 amp
                 * pfun(z)
-                * np.sin(
-                    l * 2.0 * np.pi / self._Lx * x
-                    + m * 2.0 * np.pi / self._Ly * y
-                    + n * 2.0 * np.pi / self._Lz * z
+                * xp.sin(
+                    l * 2.0 * xp.pi / self._Lx * x
+                    + m * 2.0 * xp.pi / self._Ly * y
+                    + n * 2.0 * xp.pi / self._Lz * z
                     + t,
                 )
             )
@@ -269,8 +269,8 @@ class ModesCos:
         val = 0.0
 
         for amp, l, m, n in zip(self._amps, self._ls, self._ms, self._ns):
-            val += amp * np.cos(
-                l * 2.0 * np.pi / self._Lx * x + m * 2.0 * np.pi / self._Ly * y + n * 2.0 * np.pi / self._Lz * z,
+            val += amp * xp.cos(
+                l * 2.0 * xp.pi / self._Lx * x + m * 2.0 * xp.pi / self._Ly * y + n * 2.0 * xp.pi / self._Lz * z,
             )
         # print( "Cos max value", val.max())
         return val
@@ -302,12 +302,12 @@ class CoaxialWaveguideElectric_r:
     def __call__(self, eta1, eta2, eta3):
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
-        theta = eta2 * 2.0 * np.pi
+        theta = eta2 * 2.0 * xp.pi
 
         val += (
             -self._m
             / r
-            * np.cos(self._m * theta)
+            * xp.cos(self._m * theta)
             * (self._a * scipy.special.jv(self._m, r) + self._b * scipy.special.yn(self._m, r))
         )
         return val
@@ -340,12 +340,12 @@ class CoaxialWaveguideElectric_theta:
     def __call__(self, eta1, eta2, eta3):
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
-        theta = eta2 * 2.0 * np.pi
+        theta = eta2 * 2.0 * xp.pi
 
         val += (
             self._a * ((self._m / r) * scipy.special.jv(self._m, r) - scipy.special.jv(self._m + 1, r))
             + (self._b * ((self._m / r) * scipy.special.yn(self._m, r) - scipy.special.yn(self._m + 1, r)))
-        ) * np.sin(self._m * theta)
+        ) * xp.sin(self._m * theta)
         return val
 
 
@@ -375,10 +375,10 @@ class CoaxialWaveguideMagnetic:
     def __call__(self, eta1, eta2, eta3):
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
-        theta = eta2 * 2.0 * np.pi
+        theta = eta2 * 2.0 * xp.pi
         z = eta3
 
-        val += (self._a * scipy.special.jv(self._m, r) + self._b * scipy.special.yn(self._m, r)) * np.cos(
+        val += (self._a * scipy.special.jv(self._m, r) + self._b * scipy.special.yn(self._m, r)) * xp.cos(
             self._m * theta
         )
         return val
@@ -468,7 +468,7 @@ class ModesCosCos:
             if pfun == "Id":
                 self._pfuns += [lambda z: 1.0]
             elif pfun == "localize":
-                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
+                self._pfuns += [lambda z, p=params: xp.tanh((z - 0.5) / p) / xp.cosh((z - 0.5) / p)]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
@@ -478,8 +478,8 @@ class ModesCosCos:
             val += (
                 amp
                 * pfun(z)
-                * np.cos(l * 2.0 * np.pi / self._Lx * x + thx)
-                * np.cos(m * 2.0 * np.pi / self._Ly * y + thy)
+                * xp.cos(l * 2.0 * xp.pi / self._Lx * x + thx)
+                * xp.cos(m * 2.0 * xp.pi / self._Ly * y + thy)
             )
         return val
 
@@ -567,7 +567,7 @@ class ModesSinSin:
             if pfun == "Id":
                 self._pfuns += [lambda z: 1.0]
             elif pfun == "localize":
-                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
+                self._pfuns += [lambda z, p=params: xp.tanh((z - 0.5) / p) / xp.cosh((z - 0.5) / p)]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
@@ -577,8 +577,8 @@ class ModesSinSin:
             val += (
                 amp
                 * pfun(z)
-                * np.sin(l * 2.0 * np.pi / self._Lx * x + thx)
-                * np.sin(m * 2.0 * np.pi / self._Ly * y + thy)
+                * xp.sin(l * 2.0 * xp.pi / self._Lx * x + thx)
+                * xp.sin(m * 2.0 * xp.pi / self._Ly * y + thy)
             )
         return val
 
@@ -668,7 +668,7 @@ class ModesSinCos:
             if pfun == "Id":
                 self._pfuns += [lambda z: 1.0]
             elif pfun == "localize":
-                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
+                self._pfuns += [lambda z, p=params: xp.tanh((z - 0.5) / p) / xp.cosh((z - 0.5) / p)]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
@@ -678,8 +678,8 @@ class ModesSinCos:
             val += (
                 amp
                 * pfun(z)
-                * np.sin(l * 2.0 * np.pi / self._Lx * x + thx)
-                * np.cos(m * 2.0 * np.pi / self._Ly * y + thy)
+                * xp.sin(l * 2.0 * xp.pi / self._Lx * x + thx)
+                * xp.cos(m * 2.0 * xp.pi / self._Ly * y + thy)
             )
         return val
 
@@ -769,7 +769,7 @@ class ModesCosSin:
             if pfun == "Id":
                 self._pfuns += [lambda z: 1.0]
             elif pfun == "localize":
-                self._pfuns += [lambda z, p=params: np.tanh((z - 0.5) / p) / np.cosh((z - 0.5) / p)]
+                self._pfuns += [lambda z, p=params: xp.tanh((z - 0.5) / p) / xp.cosh((z - 0.5) / p)]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
@@ -779,8 +779,8 @@ class ModesCosSin:
             val += (
                 amp
                 * pfun(z)
-                * np.cos(l * 2.0 * np.pi / self._Lx * x + thx)
-                * np.sin(m * 2.0 * np.pi / self._Ly * y + thy)
+                * xp.cos(l * 2.0 * xp.pi / self._Lx * x + thx)
+                * xp.sin(m * 2.0 * xp.pi / self._Ly * y + thy)
             )
         return val
 
@@ -898,18 +898,18 @@ class TorusModesSin:
                     ls = 1
                 else:
                     ls = params
-                self._pfuns += [lambda eta1: np.sin(ls * np.pi * eta1)]
+                self._pfuns += [lambda eta1: xp.sin(ls * xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: np.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / np.sqrt(2 * np.pi * params[1] ** 2),
+                    lambda eta1: xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
                     lambda eta1: -(eta1 - params[0])
                     / params[1] ** 2
-                    * np.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / np.sqrt(2 * np.pi * params[1] ** 2),
+                    * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
@@ -920,8 +920,8 @@ class TorusModesSin:
             val += (
                 amp
                 * pfun(eta1)
-                * np.sin(
-                    mi * 2.0 * np.pi * eta2 + ni * 2.0 * np.pi * eta3,
+                * xp.sin(
+                    mi * 2.0 * xp.pi * eta2 + ni * 2.0 * xp.pi * eta3,
                 )
             )
 
@@ -1041,20 +1041,20 @@ class TorusModesCos:
                     ls = 1
                 else:
                     ls = params
-                self._pfuns += [lambda eta1: np.sin(ls * np.pi * eta1)]
+                self._pfuns += [lambda eta1: xp.sin(ls * xp.pi * eta1)]
             elif pfun == "cos":
-                self._pfuns += [lambda eta1: np.cos(np.pi * eta1)]
+                self._pfuns += [lambda eta1: xp.cos(xp.pi * eta1)]
             elif pfun == "exp":
                 self._pfuns += [
-                    lambda eta1: np.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / np.sqrt(2 * np.pi * params[1] ** 2),
+                    lambda eta1: xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
                 ]
             elif pfun == "d_exp":
                 self._pfuns += [
                     lambda eta1: -(eta1 - params[0])
                     / params[1] ** 2
-                    * np.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
-                    / np.sqrt(2 * np.pi * params[1] ** 2),
+                    * xp.exp(-((eta1 - params[0]) ** 2) / (2 * params[1] ** 2))
+                    / xp.sqrt(2 * xp.pi * params[1] ** 2),
                 ]
             else:
                 raise ValueError(
@@ -1067,8 +1067,8 @@ class TorusModesCos:
             val += (
                 amp
                 * pfun(eta1)
-                * np.cos(
-                    mi * 2.0 * np.pi * eta2 + ni * 2.0 * np.pi * eta3,
+                * xp.cos(
+                    mi * 2.0 * xp.pi * eta2 + ni * 2.0 * xp.pi * eta3,
                 )
             )
 
@@ -1112,7 +1112,7 @@ class Shear_x:
         self._delta = delta
 
     def __call__(self, e1, e2, e3):
-        val = self._amp * (-np.tanh((e1 - 0.75) / self._delta) + np.tanh((e1 - 0.25) / self._delta) - 1)
+        val = self._amp * (-xp.tanh((e1 - 0.75) / self._delta) + xp.tanh((e1 - 0.25) / self._delta) - 1)
 
         return val
 
@@ -1154,7 +1154,7 @@ class Shear_y:
         self._delta = delta
 
     def __call__(self, e1, e2, e3):
-        val = self._amp * (-np.tanh((e2 - 0.75) / self._delta) + np.tanh((e2 - 0.25) / self._delta) - 1)
+        val = self._amp * (-xp.tanh((e2 - 0.75) / self._delta) + xp.tanh((e2 - 0.25) / self._delta) - 1)
 
         return val
 
@@ -1196,7 +1196,7 @@ class Shear_z:
         self._delta = delta
 
     def __call__(self, e1, e2, e3):
-        val = self._amp * (-np.tanh((e3 - 0.75) / self._delta) + np.tanh((e3 - 0.25) / self._delta) - 1)
+        val = self._amp * (-xp.tanh((e3 - 0.75) / self._delta) + xp.tanh((e3 - 0.25) / self._delta) - 1)
 
         return val
 
@@ -1307,9 +1307,9 @@ class RestelliAnalyticSolutionVelocity:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        R = np.sqrt(x**2 + y**2)
-        R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(-y, x)
+        R = xp.sqrt(x**2 + y**2)
+        R = xp.where(R == 0.0, 1e-9, R)
+        phi = xp.arctan2(-y, x)
         ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
@@ -1327,10 +1327,10 @@ class RestelliAnalyticSolutionVelocity:
         # from cylindrical to cartesian:
 
         if self._comp == "0":
-            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = xp.cos(phi) * uR - R * xp.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = -xp.sin(phi) * uR - R * xp.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1401,9 +1401,9 @@ class RestelliAnalyticSolutionVelocity_2:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        R = np.sqrt(x**2 + y**2)
-        R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(-y, x)
+        R = xp.sqrt(x**2 + y**2)
+        R = xp.where(R == 0.0, 1e-9, R)
+        phi = xp.arctan2(-y, x)
         ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
@@ -1421,10 +1421,10 @@ class RestelliAnalyticSolutionVelocity_2:
         # from cylindrical to cartesian:
 
         if self._comp == "0":
-            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = xp.cos(phi) * uR - R * xp.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = -xp.sin(phi) * uR - R * xp.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1495,9 +1495,9 @@ class RestelliAnalyticSolutionVelocity_3:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        R = np.sqrt(x**2 + y**2)
-        R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(-y, x)
+        R = xp.sqrt(x**2 + y**2)
+        R = xp.where(R == 0.0, 1e-9, R)
+        phi = xp.arctan2(-y, x)
         ustarR = (
             self._alpha * R / (self._a * self._R0) * (-z)
             + self._beta * self._Bp * self._R0 / (self._B0 * self._a * R) * z
@@ -1515,10 +1515,10 @@ class RestelliAnalyticSolutionVelocity_3:
         # from cylindrical to cartesian:
 
         if self._comp == "0":
-            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = xp.cos(phi) * uR - R * xp.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = -xp.sin(phi) * uR - R * xp.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1586,7 +1586,7 @@ class RestelliAnalyticSolutionPotential:
     # equilibrium potential
     def __call__(self, x, y, z):
         """Equilibrium potential."""
-        R = np.sqrt(x**2 + y**2)
+        R = xp.sqrt(x**2 + y**2)
         pp = 0.5 * self._a * self._B0 * self._alpha * (((R - self._R0) ** 2 + z**2) / self._a**2 - 2.0 / 3.0)
 
         return pp
@@ -1638,15 +1638,15 @@ class ManufacturedSolutionVelocity:
             """Velocity of ions."""
             """x component"""
             if self._dimension == "2D":
-                ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+                ux = -xp.sin(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
             elif self._dimension == "1D":
-                ux = np.sin(2 * np.pi * x) + 1.0
+                ux = xp.sin(2 * xp.pi * x) + 1.0
 
             """y component"""
             if self._dimension == "2D":
-                uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+                uy = -xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
             elif self._dimension == "1D":
-                uy = np.cos(2 * np.pi * x)
+                uy = xp.cos(2 * xp.pi * x)
 
             """z component"""
             uz = 0.0 * x
@@ -1664,15 +1664,15 @@ class ManufacturedSolutionVelocity:
             """Velocity of electrons."""
             """x component"""
             if self._dimension == "2D":
-                ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+                ux = -xp.sin(4 * xp.pi * x) * xp.sin(4 * xp.pi * y)
             elif self._dimension == "1D":
-                ux = np.sin(2.0 * np.pi * x)
+                ux = xp.sin(2.0 * xp.pi * x)
 
             """y component"""
             if self._dimension == "2D":
-                uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+                uy = -xp.cos(4 * xp.pi * x) * xp.cos(4 * xp.pi * y)
             elif self._dimension == "1D":
-                uy = np.cos(2 * np.pi * x)
+                uy = xp.cos(2 * xp.pi * x)
 
             """z component"""
             uz = 0.0 * x
@@ -1734,9 +1734,9 @@ class ManufacturedSolutionPotential:
     def __call__(self, x, y, z):
         """Potential."""
         if self._dimension == "2D":
-            phi = np.cos(2 * np.pi * x) + np.sin(2 * np.pi * y)
+            phi = xp.cos(2 * xp.pi * x) + xp.sin(2 * xp.pi * y)
         elif self._dimension == "1D":
-            phi = np.sin(2.0 * np.pi * x)
+            phi = xp.sin(2.0 * xp.pi * x)
 
         return phi
 
@@ -1787,15 +1787,15 @@ class ManufacturedSolutionVelocity_2:
             """Velocity of ions."""
             """x component"""
             if self._dimension == "2D":
-                ux = -np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+                ux = -xp.sin(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
             elif self._dimension == "1D":
-                ux = np.sin(2 * np.pi * x) + 1.0
+                ux = xp.sin(2 * xp.pi * x) + 1.0
 
             """y component"""
             if self._dimension == "2D":
-                uy = -np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+                uy = -xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
             elif self._dimension == "1D":
-                uy = np.cos(2 * np.pi * x)
+                uy = xp.cos(2 * xp.pi * x)
 
             """z component"""
             uz = 0.0 * x
@@ -1813,15 +1813,15 @@ class ManufacturedSolutionVelocity_2:
             """Velocity of electrons."""
             """x component"""
             if self._dimension == "2D":
-                ux = -np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
+                ux = -xp.sin(4 * xp.pi * x) * xp.sin(4 * xp.pi * y)
             elif self._dimension == "1D":
-                ux = np.sin(2.0 * np.pi * x)
+                ux = xp.sin(2.0 * xp.pi * x)
 
             """y component"""
             if self._dimension == "2D":
-                uy = -np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
+                uy = -xp.cos(4 * xp.pi * x) * xp.cos(4 * xp.pi * y)
             elif self._dimension == "1D":
-                uy = np.cos(2 * np.pi * x)
+                uy = xp.cos(2 * xp.pi * x)
 
             """z component"""
             uz = 0.0 * x
@@ -1905,9 +1905,9 @@ class TokamakManufacturedSolutionVelocity:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        R = np.sqrt(x**2 + y**2)
-        R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(-y, x)
+        R = xp.sqrt(x**2 + y**2)
+        R = xp.where(R == 0.0, 1e-9, R)
+        phi = xp.arctan2(-y, x)
         A = self._alpha / (self._a * self._R0)
         C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
 
@@ -1918,10 +1918,10 @@ class TokamakManufacturedSolutionVelocity:
         # from cylindrical to cartesian:
 
         if self._comp == "0":
-            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = xp.cos(phi) * uR - R * xp.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = -xp.sin(phi) * uR - R * xp.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -1996,9 +1996,9 @@ class TokamakManufacturedSolutionVelocity_1:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        R = np.sqrt(x**2 + y**2)
-        R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(-y, x)
+        R = xp.sqrt(x**2 + y**2)
+        R = xp.where(R == 0.0, 1e-9, R)
+        phi = xp.arctan2(-y, x)
         A = self._alpha / (self._a * self._R0)
         C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
 
@@ -2009,10 +2009,10 @@ class TokamakManufacturedSolutionVelocity_1:
         # from cylindrical to cartesian:
 
         if self._comp == "0":
-            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = xp.cos(phi) * uR - R * xp.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = -xp.sin(phi) * uR - R * xp.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ
@@ -2087,9 +2087,9 @@ class TokamakManufacturedSolutionVelocity_2:
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Velocity of ions and electrons."""
-        R = np.sqrt(x**2 + y**2)
-        R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(-y, x)
+        R = xp.sqrt(x**2 + y**2)
+        R = xp.where(R == 0.0, 1e-9, R)
+        phi = xp.arctan2(-y, x)
         A = self._alpha / (self._a * self._R0)
         C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
 
@@ -2100,10 +2100,10 @@ class TokamakManufacturedSolutionVelocity_2:
         # from cylindrical to cartesian:
 
         if self._comp == "0":
-            ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
+            ux = xp.cos(phi) * uR - R * xp.sin(phi) * uphi
             return ux
         elif self._comp == "1":
-            uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
+            uy = -xp.sin(phi) * uR - R * xp.cos(phi) * uphi
             return uy
         elif self._comp == "2":
             uz = uZ

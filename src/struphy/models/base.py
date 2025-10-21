@@ -506,7 +506,7 @@ class StruphyModel(metaclass=ABCMeta):
             ), "species must be a string when compute is 'from_particles'"
 
         self._scalar_quantities[name] = {
-            "value": np.empty(1, dtype=float),
+            "value": xp.empty(1, dtype=float),
             "species": species,
             "compute": compute,
             "summands": summands,
@@ -552,7 +552,7 @@ class StruphyModel(metaclass=ABCMeta):
             assert isinstance(value, float)
 
             # Create a numpy array to hold the scalar value
-            value_array = np.array([value], dtype=np.float64)
+            value_array = xp.array([value], dtype=xp.float64)
 
             # Perform MPI operations based on the compute flags
             if "sum_world" in compute_operations and self.comm_world is not None:
@@ -590,7 +590,7 @@ class StruphyModel(metaclass=ABCMeta):
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
-                n_mks_tot = np.array([self.pointer[species].Np])
+                n_mks_tot = xp.array([self.pointer[species].Np])
                 value_array /= n_mks_tot
 
             # Update the scalar value
@@ -721,17 +721,17 @@ class StruphyModel(metaclass=ABCMeta):
                     f"The number of markers for which data should be stored (={self._n_markers_saved}) murst be <= than the total number of markers (={obj.Np})"
                 )
                 if self._n_markers_saved > 0:
-                    val["kinetic_data"]["markers"] = np.zeros(
+                    val["kinetic_data"]["markers"] = xp.zeros(
                         (self._n_markers_saved, obj.markers.shape[1]),
                         dtype=float,
                     )
 
             if self._n_markers_saved > 0:
-                markers_on_proc = np.logical_and(
+                markers_on_proc = xp.logical_and(
                     obj.markers[:, -1] >= 0.0,
                     obj.markers[:, -1] < self._n_markers_saved,
                 )
-                n_markers_on_proc = np.count_nonzero(markers_on_proc)
+                n_markers_on_proc = xp.count_nonzero(markers_on_proc)
                 val["kinetic_data"]["markers"][:] = -1.0
                 val["kinetic_data"]["markers"][:n_markers_on_proc] = obj.markers[markers_on_proc]
 
@@ -771,7 +771,7 @@ class StruphyModel(metaclass=ABCMeta):
                 h2 = 1 / obj.boxes_per_dim[1]
                 h3 = 1 / obj.boxes_per_dim[2]
 
-                ndim = np.count_nonzero([d > 1 for d in obj.boxes_per_dim])
+                ndim = xp.count_nonzero([d > 1 for d in obj.boxes_per_dim])
                 if ndim == 0:
                     kernel_type = "gaussian_3d"
                 else:
@@ -795,7 +795,7 @@ class StruphyModel(metaclass=ABCMeta):
         sq_str = ""
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
-            assert not np.isnan(val[0]), f"Scalar {key} is {val[0]}."
+            assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
             sq_str += key + ": {:14.11f}".format(val[0]) + "   "
         print(sq_str)
 
@@ -1376,7 +1376,7 @@ class StruphyModel(metaclass=ABCMeta):
                 A = params["fluid"][species]["phys_params"]["A"]
 
                 # compute equation parameters
-                om_p = np.sqrt(units["n"] * (Z * e) ** 2 / (eps0 * A * mH))
+                om_p = xp.sqrt(units["n"] * (Z * e) ** 2 / (eps0 * A * mH))
                 om_c = Z * e * units["B"] / (A * mH)
                 equation_params[species] = {}
                 equation_params[species]["alpha"] = om_p / om_c
@@ -1395,7 +1395,7 @@ class StruphyModel(metaclass=ABCMeta):
                 A = params["kinetic"][species]["phys_params"]["A"]
 
                 # compute equation parameters
-                om_p = np.sqrt(units["n"] * (Z * e) ** 2 / (eps0 * A * mH))
+                om_p = xp.sqrt(units["n"] * (Z * e) ** 2 / (eps0 * A * mH))
                 om_c = Z * e * units["B"] / (A * mH)
                 equation_params[species] = {}
                 equation_params[species]["alpha"] = om_p / om_c
@@ -1897,17 +1897,17 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                             dims = (len(sli) - 2) // 3 + 1
                             for j in range(dims):
                                 val["bin_edges"][sli] += [
-                                    np.linspace(
+                                    xp.linspace(
                                         ranges[i][j][0],
                                         ranges[i][j][1],
                                         n_bins[i][j] + 1,
                                     ),
                                 ]
-                            val["kinetic_data"]["f"][sli] = np.zeros(
+                            val["kinetic_data"]["f"][sli] = xp.zeros(
                                 n_bins[i],
                                 dtype=float,
                             )
-                            val["kinetic_data"]["df"][sli] = np.zeros(
+                            val["kinetic_data"]["df"][sli] = xp.zeros(
                                 n_bins[i],
                                 dtype=float,
                             )
@@ -1920,17 +1920,17 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     val["plot_pts"] = []
                     for i, pts in enumerate(plot_pts):
                         assert len(pts) == 3
-                        eta1 = np.linspace(0.0, 1.0, pts[0])
-                        eta2 = np.linspace(0.0, 1.0, pts[1])
-                        eta3 = np.linspace(0.0, 1.0, pts[2])
-                        ee1, ee2, ee3 = np.meshgrid(
+                        eta1 = xp.linspace(0.0, 1.0, pts[0])
+                        eta2 = xp.linspace(0.0, 1.0, pts[1])
+                        eta3 = xp.linspace(0.0, 1.0, pts[2])
+                        ee1, ee2, ee3 = xp.meshgrid(
                             eta1,
                             eta2,
                             eta3,
                             indexing="ij",
                         )
                         val["plot_pts"] += [(ee1, ee2, ee3)]
-                        val["kinetic_data"]["n_sph"] += [np.zeros(ee1.shape, dtype=float)]
+                        val["kinetic_data"]["n_sph"] += [xp.zeros(ee1.shape, dtype=float)]
 
                 # other data (wave-particle power exchange, etc.)
                 # TODO
@@ -2033,14 +2033,14 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         units_affix["epsilon"] = ""
 
         h = 1 / 20
-        eta1 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-        eta2 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-        eta3 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta1 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta2 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta3 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
 
         # global parameters
         # plasma volume (hat x^3)
         det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
-        vol1 = np.mean(np.abs(det_tmp))
+        vol1 = xp.mean(xp.abs(det_tmp))
         # plasma volume (m⁻³)
         plasma_volume = vol1 * units["x"] ** 3
         # transit length (m)
@@ -2049,13 +2049,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
         if isinstance(self.equil, FluidEquilibriumWithB):
             B_tmp = self.equil.absB0(eta1, eta2, eta3)
         else:
-            B_tmp = np.zeros((eta1.size, eta2.size, eta3.size))
-        magnetic_field = np.mean(B_tmp * np.abs(det_tmp)) / vol1 * units["B"]
-        B_max = np.max(B_tmp) * units["B"]
-        B_min = np.min(B_tmp) * units["B"]
+            B_tmp = xp.zeros((eta1.size, eta2.size, eta3.size))
+        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * units["B"]
+        B_max = xp.max(B_tmp) * units["B"]
+        B_min = xp.min(B_tmp) * units["B"]
 
         if magnetic_field < 1e-14:
-            magnetic_field = np.nan
+            magnetic_field = xp.nan
             # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
 
         if verbose:
@@ -2095,13 +2095,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 pparams[species]["charge"] = val["params"]["phys_params"]["Z"] * e
                 # density (m⁻³)
                 pparams[species]["density"] = (
-                    np.mean(
+                    xp.mean(
                         self.equil.n0(
                             eta1,
                             eta2,
                             eta3,
                         )
-                        * np.abs(det_tmp),
+                        * xp.abs(det_tmp),
                     )
                     * units["x"] ** 3
                     / plasma_volume
@@ -2109,13 +2109,13 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 )
                 # pressure (bar)
                 pparams[species]["pressure"] = (
-                    np.mean(
+                    xp.mean(
                         self.equil.p0(
                             eta1,
                             eta2,
                             eta3,
                         )
-                        * np.abs(det_tmp),
+                        * xp.abs(det_tmp),
                     )
                     * units["x"] ** 3
                     / plasma_volume
@@ -2126,7 +2126,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 pparams[species]["kBT"] = pparams[species]["pressure"] * 1e5 / pparams[species]["density"] / e * 1e-3
 
         if len(self.kinetic) > 0:
-            eta1mg, eta2mg, eta3mg = np.meshgrid(
+            eta1mg, eta2mg, eta3mg = xp.meshgrid(
                 eta1,
                 eta2,
                 eta3,
@@ -2172,11 +2172,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                     # density (m⁻³)
                     pparams[species]["density"] = (
-                        np.mean(tmp.n(psi) * np.abs(det_tmp)) * units["x"] ** 3 / plasma_volume * units["n"]
+                        xp.mean(tmp.n(psi) * xp.abs(det_tmp)) * units["x"] ** 3 / plasma_volume * units["n"]
                     )
                     # thermal speed (m/s)
                     pparams[species]["v_th"] = (
-                        np.mean(tmp.vth(psi) * np.abs(det_tmp)) * units["x"] ** 3 / plasma_volume * units["v"]
+                        xp.mean(tmp.vth(psi) * xp.abs(det_tmp)) * units["x"] ** 3 / plasma_volume * units["v"]
                     )
                     # thermal energy (keV)
                     pparams[species]["kBT"] = pparams[species]["mass"] * pparams[species]["v_th"] ** 2 / e * 1e-3
@@ -2187,8 +2187,8 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 else:
                     # density (m⁻³)
-                    # pparams[species]['density'] = np.mean(tmp.n(
-                    #     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+                    # pparams[species]['density'] = xp.mean(tmp.n(
+                    #     eta1mg, eta2mg, eta3mg) * xp.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
                     pparams[species]["density"] = 99.0
                     # thermal speeds (m/s)
                     vth = []
@@ -2196,11 +2196,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     vths = [99.0]
                     for k in range(len(vths)):
                         vth += [
-                            vths[k] * np.abs(det_tmp) * units["x"] ** 3 / plasma_volume * units["v"],
+                            vths[k] * xp.abs(det_tmp) * units["x"] ** 3 / plasma_volume * units["v"],
                         ]
                     thermal_speed = 0.0
                     for dir in range(val["obj"].vdim):
-                        # pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
+                        # pparams[species]['vth' + str(dir + 1)] = xp.mean(vth[dir])
                         pparams[species]["vth" + str(dir + 1)] = 99.0
                         thermal_speed += pparams[species]["vth" + str(dir + 1)]
                     # TODO: here it is assumed that background density parameter is called "n",
@@ -2219,11 +2219,11 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         for species in pparams:
             # alfvén speed (m/s)
-            pparams[species]["v_A"] = magnetic_field / np.sqrt(
+            pparams[species]["v_A"] = magnetic_field / xp.sqrt(
                 mu0 * pparams[species]["mass"] * pparams[species]["density"],
             )
             # thermal speed (m/s)
-            pparams[species]["v_th"] = np.sqrt(
+            pparams[species]["v_th"] = xp.sqrt(
                 pparams[species]["kBT"] * 1e3 * e / pparams[species]["mass"],
             )
             # thermal frequency (Mrad/s)
@@ -2232,7 +2232,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             pparams[species]["Omega_c"] = pparams[species]["charge"] * magnetic_field / pparams[species]["mass"] * 1e-6
             # plasma frequency (Mrad/s)
             pparams[species]["Omega_p"] = (
-                np.sqrt(
+                xp.sqrt(
                     pparams[species]["density"] * (pparams[species]["charge"]) ** 2 / eps0 / pparams[species]["mass"],
                 )
                 * 1e-6
@@ -2242,7 +2242,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
             # Larmor radius (m)
             pparams[species]["rho_th"] = pparams[species]["v_th"] / (pparams[species]["Omega_c"] * 1e6)
             # MHD length scale (m)
-            pparams[species]["v_A/Omega_c"] = pparams[species]["v_A"] / (np.abs(pparams[species]["Omega_c"]) * 1e6)
+            pparams[species]["v_A/Omega_c"] = pparams[species]["v_A"] / (xp.abs(pparams[species]["Omega_c"]) * 1e6)
             # dim-less ratios
             pparams[species]["rho_th/L"] = pparams[species]["rho_th"] / transit_length
 

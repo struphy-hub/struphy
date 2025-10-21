@@ -209,14 +209,14 @@ class VlasovAmpere(Propagator):
             print("Iterations  for VlasovMaxwell:", info["niter"])
             print("Maxdiff e1  for VlasovMaxwell:", max_de)
             buffer_idx = self.particles[0].bufferindex
-            max_diff = np.max(
-                np.abs(
-                    np.sqrt(
+            max_diff = xp.max(
+                xp.abs(
+                    xp.sqrt(
                         self.particles[0].markers_wo_holes[:, 3] ** 2
                         + self.particles[0].markers_wo_holes[:, 4] ** 2
                         + self.particles[0].markers_wo_holes[:, 5] ** 2,
                     )
-                    - np.sqrt(
+                    - xp.sqrt(
                         self.particles[0].markers_wo_holes[:, buffer_idx + 3] ** 2
                         + self.particles[0].markers_wo_holes[:, buffer_idx + 4] ** 2
                         + self.particles[0].markers_wo_holes[:, buffer_idx + 5] ** 2,
@@ -343,8 +343,8 @@ class EfieldWeights(Propagator):
         self._e_sum = e.space.zeros()
 
         # marker storage
-        self._f0_values = np.zeros(particles.markers.shape[0], dtype=float)
-        self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
+        self._f0_values = xp.zeros(particles.markers.shape[0], dtype=float)
+        self._old_weights = xp.empty(particles.markers.shape[0], dtype=float)
 
         # ================================
         # ========= Schur Solver =========
@@ -440,8 +440,8 @@ class EfieldWeights(Propagator):
             print("Status          for StepEfieldWeights:", info["success"])
             print("Iterations      for StepEfieldWeights:", info["niter"])
             print("Maxdiff    e1   for StepEfieldWeights:", max_de)
-            max_diff = np.max(
-                np.abs(
+            max_diff = xp.max(
+                xp.abs(
                     self._old_weights[~self.particles[0].holes]
                     - self.particles[0].markers[~self.particles[0].holes, 6],
                 ),
@@ -900,14 +900,14 @@ class CurrentCoupling6DCurrent(Propagator):
         #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
 
         #     # memory allocation for magnetic field at quadrature points
-        #     self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._b_quad2 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._b_quad3 = np.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad1 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad2 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad3 = xp.zeros_like(self._nuh0_at_quad[0])
 
         #     # memory allocation for (self._b_quad x self._nuh0_at_quad) * self._coupling_vec
-        #     self._vec1 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._vec2 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._vec3 = np.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec1 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec2 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec3 = xp.zeros_like(self._nuh0_at_quad[0])
 
         # FEM spaces and basis extraction operators for u and b
         u_id = self.derham.space_to_form[u_space]
@@ -1297,7 +1297,7 @@ class CurrentCoupling5DCurlb(Propagator):
         #                                    out=[self._b_at_quad[0], self._b_at_quad[1], self._b_at_quad[2]])
 
         #     # evaluate B_parallel
-        #     self._B_para_at_quad = np.sum(
+        #     self._B_para_at_quad = xp.sum(
         #         p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
         #     self._B_para_at_quad += self._unit_b1_dot_curl_norm_b_at_quad
 
@@ -1622,7 +1622,7 @@ class CurrentCoupling5DGradB(Propagator):
         #     curl_norm_b_at_quad = WeightedMassOperator.eval_quad(
         #         self.derham.Vh_fem['2'], self._curl_norm_b)
 
-        #     self._unit_b1_dot_curl_norm_b_at_quad = np.sum(
+        #     self._unit_b1_dot_curl_norm_b_at_quad = xp.sum(
         #         p * q for p, q in zip(self._unit_b1_at_quad, curl_norm_b_at_quad))
 
         #     self._unit_b1_dot_curl_norm_b_at_quad /= self._det_df_at_quad
@@ -1636,10 +1636,10 @@ class CurrentCoupling5DGradB(Propagator):
         #     G_inv_at_quad = self.domain.metric_inv(
         #         *quad_pts, squeeze_out=False)
 
-        #     self._G_inv_bx_G_inv_at_quad = [[np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
-        #                                     [np.zeros_like(self._n0_at_quad), np.zeros_like(
-        #                                         self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
-        #                                     [np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)]]
+        #     self._G_inv_bx_G_inv_at_quad = [[xp.zeros_like(self._n0_at_quad), xp.zeros_like(self._n0_at_quad), xp.zeros_like(self._n0_at_quad)],
+        #                                     [xp.zeros_like(self._n0_at_quad), xp.zeros_like(
+        #                                         self._n0_at_quad), xp.zeros_like(self._n0_at_quad)],
+        #                                     [xp.zeros_like(self._n0_at_quad), xp.zeros_like(self._n0_at_quad), xp.zeros_like(self._n0_at_quad)]]
 
         #     for j in range(3):
         #         temp = (-self._unit_b1_at_quad[2]*G_inv_at_quad[1, j] + self._unit_b1_at_quad[1]*G_inv_at_quad[2, j],
@@ -1648,37 +1648,37 @@ class CurrentCoupling5DGradB(Propagator):
         #                 -self._unit_b1_at_quad[1]*G_inv_at_quad[0, j] + self._unit_b1_at_quad[0]*G_inv_at_quad[1, j])
 
         #         for i in range(3):
-        #             self._G_inv_bx_G_inv_at_quad[i][j] = np.sum(
+        #             self._G_inv_bx_G_inv_at_quad[i][j] = xp.sum(
         #                 p * q for p, q in zip(G_inv_at_quad[i], temp[:]))
 
         #     # memory allocation of magnetic field at quadrature points
-        #     self._b_at_quad = [np.zeros_like(self._n0_at_quad),
-        #                        np.zeros_like(self._n0_at_quad),
-        #                        np.zeros_like(self._n0_at_quad)]
+        #     self._b_at_quad = [xp.zeros_like(self._n0_at_quad),
+        #                        xp.zeros_like(self._n0_at_quad),
+        #                        xp.zeros_like(self._n0_at_quad)]
 
         #     # memory allocation of parallel magnetic field at quadrature points
-        #     self._B_para_at_quad = np.zeros_like(self._n0_at_quad)
+        #     self._B_para_at_quad = xp.zeros_like(self._n0_at_quad)
 
         #     # memory allocation of gradient of parallel magnetic field at quadrature points
-        #     self._grad_PBb_at_quad = (np.zeros_like(self._n0_at_quad),
-        #                               np.zeros_like(self._n0_at_quad),
-        #                               np.zeros_like(self._n0_at_quad))
+        #     self._grad_PBb_at_quad = (xp.zeros_like(self._n0_at_quad),
+        #                               xp.zeros_like(self._n0_at_quad),
+        #                               xp.zeros_like(self._n0_at_quad))
         #     # memory allocation for temporary matrix
-        #     self._temp = [[np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
-        #                   [np.zeros_like(self._n0_at_quad), np.zeros_like(
-        #                       self._n0_at_quad), np.zeros_like(self._n0_at_quad)],
-        #                   [np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad), np.zeros_like(self._n0_at_quad)]]
+        #     self._temp = [[xp.zeros_like(self._n0_at_quad), xp.zeros_like(self._n0_at_quad), xp.zeros_like(self._n0_at_quad)],
+        #                   [xp.zeros_like(self._n0_at_quad), xp.zeros_like(
+        #                       self._n0_at_quad), xp.zeros_like(self._n0_at_quad)],
+        #                   [xp.zeros_like(self._n0_at_quad), xp.zeros_like(self._n0_at_quad), xp.zeros_like(self._n0_at_quad)]]
 
         #     # memory allocation for control VEC
-        #     self._vec1 = np.zeros_like(self._n0_at_quad)
-        #     self._vec2 = np.zeros_like(self._n0_at_quad)
-        #     self._vec3 = np.zeros_like(self._n0_at_quad)
+        #     self._vec1 = xp.zeros_like(self._n0_at_quad)
+        #     self._vec2 = xp.zeros_like(self._n0_at_quad)
+        #     self._vec3 = xp.zeros_like(self._n0_at_quad)
 
         # choose algorithm
         self._butcher = ButcherTableau(algo)
         # temp fix due to refactoring of ButcherTableau:
-        self._butcher._a = np.diag(self._butcher.a, k=-1)
-        self._butcher._a = np.array(list(self._butcher.a) + [0.0])
+        self._butcher._a = xp.diag(self._butcher.a, k=-1)
+        self._butcher._a = xp.array(list(self._butcher.a) + [0.0])
 
         # instantiate Pusher
         if u_space == "Hdiv":
@@ -1739,7 +1739,7 @@ class CurrentCoupling5DGradB(Propagator):
         #                                    out=[self._b_at_quad[0], self._b_at_quad[1], self._b_at_quad[2]])
 
         #     # evaluate B_parallel
-        #     self._B_para_at_quad = np.sum(
+        #     self._B_para_at_quad = xp.sum(
         #         p * q for p, q in zip(self._unit_b1_at_quad, self._b_at_quad))
         #     self._B_para_at_quad += self._unit_b1_dot_curl_norm_b_at_quad
 
@@ -1757,11 +1757,11 @@ class CurrentCoupling5DGradB(Propagator):
         #             self._b_at_quad[0]*self._G_inv_bx_G_inv_at_quad[1][i]
 
         #     # assemble (temp)(grad B_parallel) / B_star_para * 2 * f0.vth_perp² / B0 * f0.n
-        #     self._vec1[:, :, :] = np.sum(p * q for p, q in zip(self._temp[0][:], self._grad_PBb_at_quad)) * \
+        #     self._vec1[:, :, :] = xp.sum(p * q for p, q in zip(self._temp[0][:], self._grad_PBb_at_quad)) * \
         #         self._control_const * self._coupling_vec / self._B_para_at_quad
-        #     self._vec2[:, :, :] = np.sum(p * q for p, q in zip(self._temp[1][:], self._grad_PBb_at_quad)) * \
+        #     self._vec2[:, :, :] = xp.sum(p * q for p, q in zip(self._temp[1][:], self._grad_PBb_at_quad)) * \
         #         self._control_const * self._coupling_vec / self._B_para_at_quad
-        #     self._vec3[:, :, :] = np.sum(p * q for p, q in zip(self._temp[2][:], self._grad_PBb_at_quad)) * \
+        #     self._vec3[:, :, :] = xp.sum(p * q for p, q in zip(self._temp[2][:], self._grad_PBb_at_quad)) * \
         #         self._control_const * self._coupling_vec / self._B_para_at_quad
 
         # save old u

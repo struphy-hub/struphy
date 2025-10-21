@@ -627,7 +627,7 @@ class ViscoresistiveMHD(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f, dofs=tmp_dof)
 
         self._ones = self.derham.Vh_pol["3"].zeros()
@@ -830,7 +830,7 @@ class ViscousFluid(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f, dofs=tmp_dof)
 
         self._ones = self.derham.Vh_pol["3"].zeros()

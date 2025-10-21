@@ -913,7 +913,7 @@ class ParticlesSPH(Particles):
                     out = out0 + out1
 
                 if flat_eval:
-                    out = np.squeeze(out)
+                    out = xp.squeeze(out)
 
             return out
 

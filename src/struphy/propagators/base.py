@@ -209,7 +209,7 @@ class Propagator(metaclass=ABCMeta):
             assert type(new) is type(self.feec_vars[i])
 
             # calculate maximum of difference abs(old - new)
-            diffs += [np.max(np.abs(self.feec_vars[i].toarray() - new.toarray()))]
+            diffs += [xp.max(xp.abs(self.feec_vars[i].toarray() - new.toarray()))]
 
             # copy new variables into self.feec_vars
             new.copy(out=self.feec_vars[i])
@@ -245,9 +245,9 @@ class Propagator(metaclass=ABCMeta):
             The arguments for the kernel function.
         """
         if comps is None:
-            comps = np.array([0])  # case for scalar evaluation
+            comps = xp.array([0])  # case for scalar evaluation
         else:
-            comps = np.array(comps, dtype=int)
+            comps = xp.array(comps, dtype=int)
 
         self._init_kernels += [
             (
@@ -293,12 +293,12 @@ class Propagator(metaclass=ABCMeta):
         """
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = [alpha] * 6
-        alpha = np.array(alpha)
+        alpha = xp.array(alpha)
 
         if comps is None:
-            comps = np.array([0])  # case for scalar evaluation
+            comps = xp.array([0])  # case for scalar evaluation
         else:
-            comps = np.array(comps, dtype=int)
+            comps = xp.array(comps, dtype=int)
 
         self._eval_kernels += [
             (

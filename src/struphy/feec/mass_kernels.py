@@ -323,19 +323,19 @@ def kernel_3d_mat(
     nq2 = shape(w2)[1]
     nq3 = shape(w3)[1]
 
-    tmp_bi1 = np.zeros(nq1)
-    tmp_bi2 = np.zeros(nq2)
-    tmp_bi3 = np.zeros(nq3)
+    tmp_bi1 = xp.zeros(nq1)
+    tmp_bi2 = xp.zeros(nq2)
+    tmp_bi3 = xp.zeros(nq3)
 
-    tmp_bj1 = np.zeros(nq1)
-    tmp_bj2 = np.zeros(nq2)
-    tmp_bj3 = np.zeros(nq3)
+    tmp_bj1 = xp.zeros(nq1)
+    tmp_bj2 = xp.zeros(nq2)
+    tmp_bj3 = xp.zeros(nq3)
 
-    tmp_w1 = np.zeros(nq1)
-    tmp_w2 = np.zeros(nq2)
-    tmp_w3 = np.zeros(nq3)
+    tmp_w1 = xp.zeros(nq1)
+    tmp_w2 = xp.zeros(nq2)
+    tmp_w3 = xp.zeros(nq3)
 
-    tmp_mat_fun = np.zeros((nq1, nq2, nq3))
+    tmp_mat_fun = xp.zeros((nq1, nq2, nq3))
 
     for iel1 in range(ne1):
         for iel2 in range(ne2):
@@ -582,19 +582,19 @@ def kernel_3d_matrixfree(
     nq2 = shape(w2)[1]
     nq3 = shape(w3)[1]
 
-    tmp_w1 = np.zeros(nq1)
-    tmp_w2 = np.zeros(nq2)
-    tmp_w3 = np.zeros(nq3)
+    tmp_w1 = xp.zeros(nq1)
+    tmp_w2 = xp.zeros(nq2)
+    tmp_w3 = xp.zeros(nq3)
 
-    tmp_bi1 = np.zeros(pi1 + 1)
-    tmp_bi2 = np.zeros(pi2 + 1)
-    tmp_bi3 = np.zeros(pi3 + 1)
+    tmp_bi1 = xp.zeros(pi1 + 1)
+    tmp_bi2 = xp.zeros(pi2 + 1)
+    tmp_bi3 = xp.zeros(pi3 + 1)
 
-    tmp_bj1 = np.zeros(pj1 + 1)
-    tmp_bj2 = np.zeros(pj2 + 1)
-    tmp_bj3 = np.zeros(pj3 + 1)
+    tmp_bj1 = xp.zeros(pj1 + 1)
+    tmp_bj2 = xp.zeros(pj2 + 1)
+    tmp_bj3 = xp.zeros(pj3 + 1)
 
-    tmp_mat_fun = np.zeros((nq1, nq2, nq3))
+    tmp_mat_fun = xp.zeros((nq1, nq2, nq3))
 
     for iel1 in range(ne1):
         for iel2 in range(ne2):
@@ -699,15 +699,15 @@ def kernel_3d_diag(
 
     nb1, nb2, nb3 = data.shape
 
-    tmp_bi1 = np.zeros(nq1)
-    tmp_bi2 = np.zeros(nq2)
-    tmp_bi3 = np.zeros(nq3)
+    tmp_bi1 = xp.zeros(nq1)
+    tmp_bi2 = xp.zeros(nq2)
+    tmp_bi3 = xp.zeros(nq3)
 
-    tmp_w1 = np.zeros(nq1)
-    tmp_w2 = np.zeros(nq2)
-    tmp_w3 = np.zeros(nq3)
+    tmp_w1 = xp.zeros(nq1)
+    tmp_w2 = xp.zeros(nq2)
+    tmp_w3 = xp.zeros(nq3)
 
-    tmp_mat_fun = np.zeros((nq1, nq2, nq3))
+    tmp_mat_fun = xp.zeros((nq1, nq2, nq3))
 
     for iel1 in range(ne1):
         for iel2 in range(ne2):

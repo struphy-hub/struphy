@@ -97,7 +97,7 @@ def derive_units(
 
     elif velocity_scale == "alfvén":
         assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
-        units["v"] = units["B"] / np.sqrt(units["n"] * A_bulk * mH * mu0)
+        units["v"] = units["B"] / xp.sqrt(units["n"] * A_bulk * mH * mu0)
 
     elif velocity_scale == "cyclotron":
         assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
@@ -107,7 +107,7 @@ def derive_units(
     elif velocity_scale == "thermal":
         assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
         assert kBT is not None
-        units["v"] = np.sqrt(kBT * 1000 * e / (mH * A_bulk))
+        units["v"] = xp.sqrt(kBT * 1000 * e / (mH * A_bulk))
 
     # time (s)
     units["t"] = units["x"] / units["v"]

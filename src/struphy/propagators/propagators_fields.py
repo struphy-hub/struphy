@@ -1259,13 +1259,13 @@ class FaradayExtended(Propagator):
         ]
 
         # Initialize Accumulator object for getting density from particles
-        self._pts_x = 1.0 / (2.0 * self.derham.Nel[0]) * np.polynomial.legendre.leggauss(
+        self._pts_x = 1.0 / (2.0 * self.derham.Nel[0]) * xp.polynomial.legendre.leggauss(
             self._nqs[0],
         )[0] + 1.0 / (2.0 * self.derham.Nel[0])
-        self._pts_y = 1.0 / (2.0 * self.derham.Nel[1]) * np.polynomial.legendre.leggauss(
+        self._pts_y = 1.0 / (2.0 * self.derham.Nel[1]) * xp.polynomial.legendre.leggauss(
             self._nqs[1],
         )[0] + 1.0 / (2.0 * self.derham.Nel[1])
-        self._pts_z = 1.0 / (2.0 * self.derham.Nel[2]) * np.polynomial.legendre.leggauss(
+        self._pts_z = 1.0 / (2.0 * self.derham.Nel[2]) * xp.polynomial.legendre.leggauss(
             self._nqs[2],
         )[0] + 1.0 / (2.0 * self.derham.Nel[2])
 
@@ -1305,15 +1305,15 @@ class FaradayExtended(Propagator):
 
         self._accum_density.accumulate(
             self._particles,
-            np.array(self.derham.Nel),
-            np.array(self._nqs),
-            np.array(
+            xp.array(self.derham.Nel),
+            xp.array(self._nqs),
+            xp.array(
                 self._pts_x,
             ),
-            np.array(self._pts_y),
-            np.array(self._pts_z),
-            np.array(self._p_shape),
-            np.array(self._p_size),
+            xp.array(self._pts_y),
+            xp.array(self._pts_z),
+            xp.array(self._p_shape),
+            xp.array(self._p_size),
         )
         self._accum_potential.accumulate(self._particles)
 
@@ -1480,18 +1480,18 @@ class CurrentCoupling6DDensity(Propagator):
         #         self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
 
         #     # memory allocation of magnetic field at quadrature points
-        #     self._b_quad1 = np.zeros_like(self._nh0_at_quad)
-        #     self._b_quad2 = np.zeros_like(self._nh0_at_quad)
-        #     self._b_quad3 = np.zeros_like(self._nh0_at_quad)
+        #     self._b_quad1 = xp.zeros_like(self._nh0_at_quad)
+        #     self._b_quad2 = xp.zeros_like(self._nh0_at_quad)
+        #     self._b_quad3 = xp.zeros_like(self._nh0_at_quad)
 
         #     # memory allocation for self._b_quad x self._nh0_at_quad * self._coupling_const
-        #     self._mat12 = np.zeros_like(self._nh0_at_quad)
-        #     self._mat13 = np.zeros_like(self._nh0_at_quad)
-        #     self._mat23 = np.zeros_like(self._nh0_at_quad)
+        #     self._mat12 = xp.zeros_like(self._nh0_at_quad)
+        #     self._mat13 = xp.zeros_like(self._nh0_at_quad)
+        #     self._mat23 = xp.zeros_like(self._nh0_at_quad)
 
-        #     self._mat21 = np.zeros_like(self._nh0_at_quad)
-        #     self._mat31 = np.zeros_like(self._nh0_at_quad)
-        #     self._mat32 = np.zeros_like(self._nh0_at_quad)
+        #     self._mat21 = xp.zeros_like(self._nh0_at_quad)
+        #     self._mat31 = xp.zeros_like(self._nh0_at_quad)
+        #     self._mat32 = xp.zeros_like(self._nh0_at_quad)
 
         self._type = solver["type"][0]
         self._tol = solver["tol"]
@@ -2356,31 +2356,31 @@ class CurrentCoupling5DDensity(Propagator):
         #     # evaluate unit_b1 (1form) dot epsilon * f0.u * curl_norm_b (2form) / |det(DF)| at quadrature points
         #     curl_norm_b_at_quad = WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._curl_norm_b)
 
-        #     self._unit_b1_dot_curl_norm_b_at_quad = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, curl_norm_b_at_quad))
+        #     self._unit_b1_dot_curl_norm_b_at_quad = xp.sum(p * q for p, q in zip(self._unit_b1_at_quad, curl_norm_b_at_quad))
 
         #     self._unit_b1_dot_curl_norm_b_at_quad /= det_df_at_quad
         #     self._unit_b1_dot_curl_norm_b_at_quad *= self._epsilon
         #     self._unit_b1_dot_curl_norm_b_at_quad *= u0_parallel
 
         #     # memory allocation for magnetic field at quadrature points
-        #     self._b_quad1 = np.zeros_like(self._n0_at_quad)
-        #     self._b_quad2 = np.zeros_like(self._n0_at_quad)
-        #     self._b_quad3 = np.zeros_like(self._n0_at_quad)
+        #     self._b_quad1 = xp.zeros_like(self._n0_at_quad)
+        #     self._b_quad2 = xp.zeros_like(self._n0_at_quad)
+        #     self._b_quad3 = xp.zeros_like(self._n0_at_quad)
 
         #     # memory allocation for parallel magnetic field at quadrature points
-        #     self._B_para = np.zeros_like(self._n0_at_quad)
+        #     self._B_para = xp.zeros_like(self._n0_at_quad)
 
         #     # memory allocation for control_const at quadrature points
-        #     self._control_const = np.zeros_like(self._n0_at_quad)
+        #     self._control_const = xp.zeros_like(self._n0_at_quad)
 
         #     # memory allocation for self._b_quad x self._nh0_at_quad * self._coupling_const
-        #     self._mat12 = np.zeros_like(self._n0_at_quad)
-        #     self._mat13 = np.zeros_like(self._n0_at_quad)
-        #     self._mat23 = np.zeros_like(self._n0_at_quad)
+        #     self._mat12 = xp.zeros_like(self._n0_at_quad)
+        #     self._mat13 = xp.zeros_like(self._n0_at_quad)
+        #     self._mat23 = xp.zeros_like(self._n0_at_quad)
 
-        #     self._mat21 = np.zeros_like(self._n0_at_quad)
-        #     self._mat31 = np.zeros_like(self._n0_at_quad)
-        #     self._mat32 = np.zeros_like(self._n0_at_quad)
+        #     self._mat21 = xp.zeros_like(self._n0_at_quad)
+        #     self._mat31 = xp.zeros_like(self._n0_at_quad)
+        #     self._mat32 = xp.zeros_like(self._n0_at_quad)
 
         u_id = self.derham.space_to_form[u_space]
         self._M = getattr(self.mass_ops, "M" + u_id + "n")
@@ -2439,7 +2439,7 @@ class CurrentCoupling5DDensity(Propagator):
         #                                    out=[self._b_quad1, self._b_quad2, self._b_quad3])
 
         #     # evaluate B_parallel
-        #     self._B_para = np.sum(p * q for p, q in zip(self._unit_b1_at_quad, [self._b_quad1, self._b_quad2, self._b_quad3]))
+        #     self._B_para = xp.sum(p * q for p, q in zip(self._unit_b1_at_quad, [self._b_quad1, self._b_quad2, self._b_quad3]))
 
         #     # evaluate coupling_const 1 - B_parallel / B^star_parallel
         #     self._control_const = 1 - (self._B_para / (self._B_para + self._unit_b1_dot_curl_norm_b_at_quad))
@@ -2614,7 +2614,7 @@ class ImplicitDiffusion(Propagator):
         super().__init__(phi)
 
         # always stabilize
-        if np.abs(sigma_1) < 1e-14:
+        if xp.abs(sigma_1) < 1e-14:
             sigma_1 = 1e-14
             print(f"Stabilizing Poisson solve with {sigma_1 = }")
 
@@ -3018,7 +3018,7 @@ class VariationalMomentumAdvection(Propagator):
 
             if self._info:
                 print("iteration : ", it, " error : ", err)
-            if err < tol**2 or np.isnan(err):
+            if err < tol**2 or xp.isnan(err):
                 break
 
             # Newton step
@@ -3032,7 +3032,7 @@ class VariationalMomentumAdvection(Propagator):
             un1 -= update
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
+        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
                 f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }",
             )
@@ -3051,7 +3051,7 @@ class VariationalMomentumAdvection(Propagator):
 
         for it in range(self._nonlin_solver["maxiter"]):
             # Picard iteration
-            if err < tol**2 or np.isnan(err):
+            if err < tol**2 or xp.isnan(err):
                 break
             # half time step approximation
             un12 = un.copy(out=self._tmp_un12)
@@ -3078,7 +3078,7 @@ class VariationalMomentumAdvection(Propagator):
             # Inverse the mass matrix to get the velocity
             un1 = self._Mrho.inv.dot(mn1, out=self._tmp_un1)
 
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
+        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
                 f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }",
             )
@@ -3367,7 +3367,7 @@ class VariationalDensityEvolve(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if err < tol**2 or np.isnan(err):
+            if err < tol**2 or xp.isnan(err):
                 break
 
             # Derivative for Newton
@@ -3397,7 +3397,7 @@ class VariationalDensityEvolve(Propagator):
 
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
+        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
                 f"!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }",
             )
@@ -3440,7 +3440,7 @@ class VariationalDensityEvolve(Propagator):
 
         # tmps
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
-        self._rhof_values = np.zeros(grid_shape, dtype=float)
+        self._rhof_values = xp.zeros(grid_shape, dtype=float)
 
         # Other mass matrices for newton solve
         self._M_drho = self.mass_ops.create_weighted_mass("L2", "L2")
@@ -3492,20 +3492,20 @@ class VariationalDensityEvolve(Propagator):
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
         # tmps
-        self._eval_dl_drho = np.zeros(grid_shape, dtype=float)
+        self._eval_dl_drho = xp.zeros(grid_shape, dtype=float)
 
-        self._uf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._uf1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._uf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._uf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
 
-        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
-        self._tmp_int_grid2 = np.zeros(grid_shape, dtype=float)
-        self._rhof_values = np.zeros(grid_shape, dtype=float)
-        self._rhof1_values = np.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid2 = xp.zeros(grid_shape, dtype=float)
+        self._rhof_values = xp.zeros(grid_shape, dtype=float)
+        self._rhof1_values = xp.zeros(grid_shape, dtype=float)
 
         if self._model == "full":
-            self._tmp_de_drho = np.zeros(grid_shape, dtype=float)
+            self._tmp_de_drho = xp.zeros(grid_shape, dtype=float)
             gam = self._gamma
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -3513,7 +3513,7 @@ class VariationalDensityEvolve(Propagator):
             )
             self._proj_rho2_metric_term = deepcopy(metric)
 
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -3522,7 +3522,7 @@ class VariationalDensityEvolve(Propagator):
             self._proj_drho_metric_term = deepcopy(metric)
 
             if self._linearize:
-                self._init_dener_drho = np.zeros(grid_shape, dtype=float)
+                self._init_dener_drho = xp.zeros(grid_shape, dtype=float)
 
     def _update_Pirho(self, rho):
         """Update the weights of the `BasisProjectionOperator` Pirho"""
@@ -3805,7 +3805,7 @@ class VariationalEntropyEvolve(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if err < tol**2 or np.isnan(err):
+            if err < tol**2 or xp.isnan(err):
                 break
 
             # Derivative for Newton
@@ -3827,7 +3827,7 @@ class VariationalEntropyEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
+        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
                 f"!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }",
             )
@@ -3914,15 +3914,15 @@ class VariationalEntropyEvolve(Propagator):
         )
 
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
-        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
         if self._model == "full":
-            self._tmp_de_ds = np.zeros(grid_shape, dtype=float)
+            self._tmp_de_ds = xp.zeros(grid_shape, dtype=float)
             if self._linearize:
-                self._init_dener_ds = np.zeros(grid_shape, dtype=float)
+                self._init_dener_ds = xp.zeros(grid_shape, dtype=float)
 
             gam = self._gamma
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -3930,7 +3930,7 @@ class VariationalEntropyEvolve(Propagator):
             )
             self._proj_rho2_metric_term = deepcopy(metric)
 
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -4192,7 +4192,7 @@ class VariationalMagFieldEvolve(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if err < tol**2 or np.isnan(err):
+            if err < tol**2 or xp.isnan(err):
                 break
 
             # Derivative for Newton
@@ -4214,7 +4214,7 @@ class VariationalMagFieldEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
+        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
                 f"!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }",
             )
@@ -4643,7 +4643,7 @@ class VariationalPBEvolve(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if err < tol**2 or np.isnan(err):
+            if err < tol**2 or xp.isnan(err):
                 break
 
             # Derivative for Newton
@@ -4665,7 +4665,7 @@ class VariationalPBEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
+        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
                 f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err = } \n {tol**2 = }",
             )
@@ -4717,7 +4717,7 @@ class VariationalPBEvolve(Propagator):
 
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
-        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
@@ -5180,7 +5180,7 @@ class VariationalQBEvolve(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if err < tol**2 or np.isnan(err):
+            if err < tol**2 or xp.isnan(err):
                 break
 
             # Derivative for Newton
@@ -5204,7 +5204,7 @@ class VariationalQBEvolve(Propagator):
             # Multiply by the mass matrix to get the momentum
             mn1 = self._Mrho.massop.dot(un1, out=self._tmp_mn1)
 
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
+        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
                 f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err = } \n {tol**2 = }",
             )
@@ -5256,7 +5256,7 @@ class VariationalQBEvolve(Propagator):
 
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
-        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
         # Inverse mass matrix needed to compute the error
         self.pc_Mv = preconditioner.MassMatrixDiagonalPreconditioner(
@@ -5736,7 +5736,7 @@ class VariationalViscosity(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if (err < tol**2 and it > 0) or np.isnan(err):
+            if (err < tol**2 and it > 0) or xp.isnan(err):
                 # force at least one iteration
                 break
 
@@ -5774,7 +5774,7 @@ class VariationalViscosity(Propagator):
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
+        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
                 f"!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err = } \n {tol**2 = }",
             )
@@ -5912,35 +5912,35 @@ class VariationalViscosity(Propagator):
 
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
-        self._guf0_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._guf1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._guf2_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._guf0_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._guf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._guf2_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
 
-        self._guf120_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._guf121_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._guf122_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._guf120_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._guf121_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._guf122_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
 
-        self._uf1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._uf12_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._uf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._uf12_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
 
-        self._gu_sq_values = np.zeros(grid_shape, dtype=float)
-        self._u_sq_values = np.zeros(grid_shape, dtype=float)
-        self._gu_init_values = np.zeros(grid_shape, dtype=float)
+        self._gu_sq_values = xp.zeros(grid_shape, dtype=float)
+        self._u_sq_values = xp.zeros(grid_shape, dtype=float)
+        self._gu_init_values = xp.zeros(grid_shape, dtype=float)
 
-        self._sf_values = np.zeros(grid_shape, dtype=float)
-        self._sf1_values = np.zeros(grid_shape, dtype=float)
-        self._rhof_values = np.zeros(grid_shape, dtype=float)
+        self._sf_values = xp.zeros(grid_shape, dtype=float)
+        self._sf1_values = xp.zeros(grid_shape, dtype=float)
+        self._rhof_values = xp.zeros(grid_shape, dtype=float)
 
-        self._e_n1 = np.zeros(grid_shape, dtype=float)
-        self._e_n = np.zeros(grid_shape, dtype=float)
+        self._e_n1 = xp.zeros(grid_shape, dtype=float)
+        self._e_n = xp.zeros(grid_shape, dtype=float)
 
-        self._de_s1_values = np.zeros(grid_shape, dtype=float)
+        self._de_s1_values = xp.zeros(grid_shape, dtype=float)
 
-        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
         gam = self._gamma
         if self._model == "full":
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -5948,7 +5948,7 @@ class VariationalViscosity(Propagator):
             )
             self._mass_metric_term = deepcopy(metric)
 
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -5981,7 +5981,7 @@ class VariationalViscosity(Propagator):
             self.pc_jac.update_mass_operator(self.M_de_ds)
 
         elif self._model in ["full_q", "linear_q", "deltaf_q"]:
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -5989,7 +5989,7 @@ class VariationalViscosity(Propagator):
             )
             self._mass_metric_term = deepcopy(metric)
 
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -5997,7 +5997,7 @@ class VariationalViscosity(Propagator):
             )
             self._energy_metric = deepcopy(metric)
 
-        metric = np.power(
+        metric = xp.power(
             self.domain.jacobian_det(
                 *integration_grid,
             ),
@@ -6063,7 +6063,7 @@ class VariationalViscosity(Propagator):
             gu_sq_v += gu1_v[i]
             gu_sq_v += gu2_v[i]
 
-        np.sqrt(gu_sq_v, out=gu_sq_v)
+        xp.sqrt(gu_sq_v, out=gu_sq_v)
 
         gu_sq_v *= dt * self._mu_a  # /2
 
@@ -6470,7 +6470,7 @@ class VariationalResistivity(Propagator):
             if self._info:
                 print("iteration : ", it, " error : ", err)
 
-            if (err < tol**2 and it > 0) or np.isnan(err):
+            if (err < tol**2 and it > 0) or xp.isnan(err):
                 break
 
             if self._model == "full":
@@ -6506,7 +6506,7 @@ class VariationalResistivity(Propagator):
             else:
                 sn1 += incr
 
-        if it == self._nonlin_solver["maxiter"] - 1 or np.isnan(err):
+        if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
                 f"!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err = } \n {tol**2 = }",
             )
@@ -6589,7 +6589,7 @@ class VariationalResistivity(Propagator):
         #         if self._info:
         #             print("iteration : ", it, " error : ", err)
 
-        #         if (err < tol**2 and it > 0) or np.isnan(err):
+        #         if (err < tol**2 and it > 0) or xp.isnan(err):
         #             break
 
         #         incr = self.inv_jac.dot(self.tot_rhs, out=self._tmp_sn_incr)
@@ -6704,26 +6704,26 @@ class VariationalResistivity(Propagator):
 
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
 
-        self._cb12_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._cb1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._cb12_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._cb1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
 
-        self._cb_sq_values = np.zeros(grid_shape, dtype=float)
-        self._cb_sq_values_init = np.zeros(grid_shape, dtype=float)
+        self._cb_sq_values = xp.zeros(grid_shape, dtype=float)
+        self._cb_sq_values_init = xp.zeros(grid_shape, dtype=float)
 
-        self._sf_values = np.zeros(grid_shape, dtype=float)
-        self._sf1_values = np.zeros(grid_shape, dtype=float)
-        self._rhof_values = np.zeros(grid_shape, dtype=float)
+        self._sf_values = xp.zeros(grid_shape, dtype=float)
+        self._sf1_values = xp.zeros(grid_shape, dtype=float)
+        self._rhof_values = xp.zeros(grid_shape, dtype=float)
 
-        self._e_n1 = np.zeros(grid_shape, dtype=float)
-        self._e_n = np.zeros(grid_shape, dtype=float)
+        self._e_n1 = xp.zeros(grid_shape, dtype=float)
+        self._e_n = xp.zeros(grid_shape, dtype=float)
 
-        self._de_s1_values = np.zeros(grid_shape, dtype=float)
+        self._de_s1_values = xp.zeros(grid_shape, dtype=float)
 
-        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
 
         gam = self._gamma
         if self._model == "full":
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -6731,7 +6731,7 @@ class VariationalResistivity(Propagator):
             )
             self._mass_metric_term = deepcopy(metric)
 
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -6764,7 +6764,7 @@ class VariationalResistivity(Propagator):
             self.pc_jac.update_mass_operator(self.M_de_ds)
 
         elif self._model in ["full_q", "linear_q", "deltaf_q"]:
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -6772,7 +6772,7 @@ class VariationalResistivity(Propagator):
             )
             self._mass_metric_term = deepcopy(metric)
 
-            metric = np.power(
+            metric = xp.power(
                 self.domain.jacobian_det(
                     *integration_grid,
                 ),
@@ -6819,7 +6819,7 @@ class VariationalResistivity(Propagator):
                 for j in range(3):
                     cb_sq_v += cb_v[i] * self._sq_term_metric_no_jac[i, j] * cb_v[j]
 
-            np.sqrt(cb_sq_v, out=cb_sq_v)
+            xp.sqrt(cb_sq_v, out=cb_sq_v)
 
             cb_sq_v *= dt * self._eta_a
 
@@ -6938,11 +6938,11 @@ class TimeDependentSource(Propagator):
         if hfun == "cos":
 
             def hfun(t):
-                return np.cos(omega * t)
+                return xp.cos(omega * t)
         elif hfun == "sin":
 
             def hfun(t):
-                return np.sin(omega * t)
+                return xp.sin(omega * t)
         else:
             raise NotImplementedError(f"{hfun = } not implemented.")
 
@@ -7252,7 +7252,7 @@ class HasegawaWakatani(Propagator):
 
         # get quadrature grid of V0
         pts = [grid.flatten() for grid in self.derham.quad_grid_pts["0"]]
-        mesh_pts = np.meshgrid(*pts, indexing="ij")
+        mesh_pts = xp.meshgrid(*pts, indexing="ij")
 
         # evaluate c(x, y) and metric coeff at local quadrature grid and multiply
         self._weights = c_fun(*mesh_pts)
@@ -7285,13 +7285,13 @@ class HasegawaWakatani(Propagator):
         for m in range(3):
             self._M1hw_weights += [[None, None, None]]
 
-        self._phi_5d = np.zeros((*self._phi_at_pts.shape, 3, 3), dtype=float)
-        self._tmp_5d = np.zeros((*self._phi_at_pts.shape, 3, 3), dtype=float)
-        self._tmp_5dT = np.zeros((3, 3, *self._phi_at_pts.shape), dtype=float)
+        self._phi_5d = xp.zeros((*self._phi_at_pts.shape, 3, 3), dtype=float)
+        self._tmp_5d = xp.zeros((*self._phi_at_pts.shape, 3, 3), dtype=float)
+        self._tmp_5dT = xp.zeros((3, 3, *self._phi_at_pts.shape), dtype=float)
         self._phi_5d[:, :, :, 0, 1] = self._phi_at_pts * self._jac_det
         self._phi_5d[:, :, :, 1, 0] = -self._phi_at_pts * self._jac_det
         self._tmp_5d[:] = self._jac_inv @ self._phi_5d @ self._jac_invT
-        self._tmp_5dT[:] = np.transpose(self._tmp_5d, axes=(3, 4, 0, 1, 2))
+        self._tmp_5dT[:] = xp.transpose(self._tmp_5d, axes=(3, 4, 0, 1, 2))
 
         self._M1hw_weights[0][1] = self._tmp_5dT[0, 1, :, :, :]
         self._M1hw_weights[1][0] = self._tmp_5dT[1, 0, :, :, :]
@@ -7381,7 +7381,7 @@ class HasegawaWakatani(Propagator):
         self._phi_5d[:, :, :, 0, 1] = self._phi_at_pts * self._jac_det
         self._phi_5d[:, :, :, 1, 0] = -self._phi_at_pts * self._jac_det
         self._tmp_5d[:] = self._jac_inv @ self._phi_5d @ self._jac_invT
-        self._tmp_5dT[:] = np.transpose(self._tmp_5d, axes=(3, 4, 0, 1, 2))
+        self._tmp_5dT[:] = xp.transpose(self._tmp_5d, axes=(3, 4, 0, 1, 2))
 
         self._M1hw_weights[0][1] = self._tmp_5dT[0, 1, :, :, :]
         self._M1hw_weights[1][0] = self._tmp_5dT[1, 0, :, :, :]
@@ -7993,39 +7993,39 @@ class TwoFluidQuasiNeutralFull(Propagator):
             self._A11np_notimedependency = (
                 self._nu
                 * (
-                    self._Dnp.T @ self._M3np @ self._Dnp
-                    + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                    self._Dxp.T @ self._M3np @ self._Dnp
+                    + 1.0 * self._Hodgexp.T @ self._Cxp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                 )
                 - 1.0 * self._M2Bnp / self._eps_norm
             )
             A11np = self._M2np + self._A11np_notimedependency
 
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-                A11np += self._stab_sigma * np.identity(A11np.shape[0])
+                A11np += self._stab_sigma * xp.identity(A11xp.shape[0])
                 self.A22np = (
-                    self._stab_sigma * np.identity(A11np.shape[0])
+                    self._stab_sigma * xp.identity(A11xp.shape[0])
                     + self._nu_e
                     * (
-                        self._Dnp.T @ self._M3np @ self._Dnp
-                        + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                        self._Dxp.T @ self._M3np @ self._Dnp
+                        + self._Hodgexp.T @ self._Cxp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                     )
                     + self._M2Bnp / self._eps_norm
                 )
                 self._A22prenp = (
-                    np.identity(self.A22np.shape[0]) * self._stab_sigma
-                )  # + self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp)
+                    xp.identity(self.A22xp.shape[0]) * self._stab_sigma
+                )  # + self._nu_e * (self._Dxp.T @ self._M3np @ self._Dnp)
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-                A11np += self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
+                A11np += self._stab_sigma * sc.sparse.eye(A11xp.shape[0], format="csr")
                 self.A22np = (
-                    self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
+                    self._stab_sigma * sc.sparse.eye(A11xp.shape[0], format="csr")
                     + self._nu_e
                     * (
-                        self._Dnp.T @ self._M3np @ self._Dnp
-                        + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                        self._Dxp.T @ self._M3np @ self._Dnp
+                        + self._Hodgexp.T @ self._Cxp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                     )
                     + self._M2Bnp / self._eps_norm
                 )
-                self._A22prenp = self._stab_sigma * sc.sparse.eye(self.A22np.shape[0], format="csr")
+                self._A22prenp = self._stab_sigma * sc.sparse.eye(self.A22xp.shape[0], format="csr")
 
             B1np = -self._M3np @ self._Dnp
             B2np = self._M3np @ self._Dnp
@@ -8036,7 +8036,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _Anp = [A11np, self.A22np]
             _Bnp = [B1np, B2np]
             _Fnp = [self._F1np, self._F2np]
-            self._A11prenp_notimedependency = self._nu * (self._Dnp.T @ self._M3np @ self._Dnp)
+            self._A11prenp_notimedependency = self._nu * (self._Dxp.T @ self._M3np @ self._Dnp)
             _A11prenp = self._M2np + self._A11prenp_notimedependency
             _Anppre = [_A11prenp, self._A22prenp]
 
@@ -8195,11 +8195,11 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # Numpy
             A11np = self._M2np / dt + self._A11np_notimedependency
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-                A11np += self._stab_sigma * np.identity(A11np.shape[0])
+                A11np += self._stab_sigma * xp.identity(A11xp.shape[0])
                 _A22prenp = self._A22prenp
                 A22np = self.A22np
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-                A11np += self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
+                A11np += self._stab_sigma * sc.sparse.eye(A11xp.shape[0], format="csr")
                 _A22prenp = self._A22prenp
                 A22np = self.A22np
 
@@ -8231,13 +8231,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
                 _F1np = (
                     self._M2np @ self._F1np
-                    + 1.0 / dt * self._M2np.dot(u0.vector.toarray())
+                    + 1.0 / dt * self._M2xp.dot(u0.vector.toarray())
                     - self._A11np_notimedependency.dot(u_prime.vector.toarray())
                 )
-                _F2np = self._M2np @ self._F2np - self.A22np.dot(ue_prime.vector.toarray())
+                _F2np = self._M2np @ self._F2np - self.A22xp.dot(ue_prime.vector.toarray())
                 _Fnp = [_F1np, _F2np]
             else:
-                _F1np = self._M2np @ self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
+                _F1np = self._M2np @ self._F1np + 1.0 / dt * self._M2xp.dot(unfeec.toarray())
                 _F2np = self._M2np @ self._F2np
                 _Fnp = [_F1np, _F2np]
 

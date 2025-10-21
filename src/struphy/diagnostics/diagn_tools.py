@@ -34,7 +34,7 @@ def power_spectrum_2d(
     Parameters
     ----------
     values : dict
-        Dictionary holding values of a B-spline FemField on the grid as 3d np.arrays:
+        Dictionary holding values of a B-spline FemField on the grid as 3d xp.arrays:
         values[n] contains the values at time step n, where n = 0:Nt-1:step with 0<step.
 
     name : str
@@ -77,13 +77,13 @@ def power_spectrum_2d(
 
     Returns
     -------
-    omega : np.array
+    omega : xp.array
         1d array of angular frequency.
 
-    kvec : np.array
+    kvec : xp.array
         1d array of wave vector.
 
-    dispersion : np.array
+    dispersion : xp.array
         2d array of shape (omega.size, kvce.size) holding the fft.
     """
 
@@ -94,13 +94,13 @@ def power_spectrum_2d(
     # check uniform grid in time
     dt = keys[1] - keys[0]
     print(f"time step: {dt}")
-    assert np.all([np.abs(y - x - dt) < 1e-12 for x, y in zip(keys[:-1], keys[1:])])
+    assert xp.all([xp.abs(y - x - dt) < 1e-12 for x, y in zip(keys[:-1], keys[1:])])
 
-    # create 4d np.array with shape (time, eta1, eta2, eta3)
+    # create 4d xp.array with shape (time, eta1, eta2, eta3)
     dim_t = len(keys)
     dim_eta = values[keys[0]][component].shape
 
-    temp = np.zeros((dim_t, *dim_eta))
+    temp = xp.zeros((dim_t, *dim_eta))
 
     for n, (time, snapshot) in enumerate(values.items()):
         temp[n, :, :, :] = snapshot[component]
@@ -132,17 +132,17 @@ def power_spectrum_2d(
     Nx = grid.size
     dx = grid[1] - grid[0]
     print(f"space step: {dx}")
-    assert np.allclose(grid[1:] - grid[:-1], dx * np.ones_like(grid[:-1]))
+    assert xp.allclose(grid[1:] - grid[:-1], dx * xp.ones_like(grid[:-1]))
 
-    dispersion = (2.0 / Nt) * (2.0 / Nx) * np.abs(fftn(data))[: Nt // 2, : Nx // 2]
-    kvec = 2 * np.pi * fftfreq(Nx, dx)[: Nx // 2]
-    omega = 2 * np.pi * fftfreq(Nt, dt)[: Nt // 2]
+    dispersion = (2.0 / Nt) * (2.0 / Nx) * xp.abs(fftn(data))[: Nt // 2, : Nx // 2]
+    kvec = 2 * xp.pi * fftfreq(Nx, dx)[: Nx // 2]
+    omega = 2 * xp.pi * fftfreq(Nt, dt)[: Nt // 2]
 
     if do_plot:
         _, ax = plt.subplots(1, 1, figsize=(10, 10))
         colormap = "plasma"
-        K, W = np.meshgrid(kvec, omega)
-        lvls = np.logspace(-15, -1, 27)
+        K, W = xp.meshgrid(kvec, omega)
+        lvls = xp.logspace(-15, -1, 27)
         disp_plot = ax.contourf(
             K,
             W,
@@ -171,12 +171,12 @@ def power_spectrum_2d(
         set_min = 0.0
         set_max = 0.0
         for key, branch in branches.items():
-            vals = np.real(branch)
+            vals = xp.real(branch)
             ax.plot(kvec, vals, "--", label=key)
-            tmp = np.min(vals)
+            tmp = xp.min(vals)
             if tmp < set_min:
                 set_min = tmp
-            tmp = np.max(vals)
+            tmp = xp.max(vals)
             if tmp > set_max:
                 set_max = tmp
 
@@ -273,8 +273,8 @@ def plot_scalars(
         plt.figure("en_tot_rel_err")
         plt.plot(
             time[1:],
-            np.divide(
-                np.abs(en_tot[1:] - en_tot[0]),
+            xp.divide(
+                xp.abs(en_tot[1:] - en_tot[0]),
                 en_tot[0],
             ),
         )
@@ -305,9 +305,9 @@ def plot_scalars(
     for key, plot_quantity in plot_quantities.items():
         # Get the indices of the extrema
         if do_fit:
-            inds_exs = argrelextrema(plot_quantity, np.greater, order=order)
+            inds_exs = argrelextrema(plot_quantity, xp.greater, order=order)
         elif fit_minima:
-            inds_exs = argrelextrema(plot_quantity, np.less, order=order)
+            inds_exs = argrelextrema(plot_quantity, xp.less, order=order)
         else:
             inds_exs = None
 
@@ -318,10 +318,10 @@ def plot_scalars(
 
             # for plotting take a bit more time at start and end
             if len(inds_exs[0]) >= 2:
-                time_start_idx = np.max(
+                time_start_idx = xp.max(
                     [0, 2 * inds_exs[0][start_extremum] - inds_exs[0][start_extremum + 1]],
                 )
-                time_end_idx = np.min(
+                time_end_idx = xp.min(
                     [
                         len(time) - 1,
                         2 * inds_exs[0][start_extremum + no_extrema - 1] - inds_exs[0][start_extremum + no_extrema - 2],
@@ -337,9 +337,9 @@ def plot_scalars(
 
             if inds_exs is not None:
                 # do the fitting
-                coeffs = np.polyfit(
+                coeffs = xp.polyfit(
                     times_extrema,
-                    np.log(
+                    xp.log(
                         quantity_extrema,
                     ),
                     deg=degree,
@@ -352,15 +352,15 @@ def plot_scalars(
                 )
                 plt.plot(
                     time_cut,
-                    np.exp(coeffs[0] * time_cut + coeffs[1]),
-                    label=r"$a * \exp(m x)$ with" + f"\na={np.round(np.exp(coeffs[1]), 3)} m={np.round(coeffs[0], 3)}",
+                    xp.exp(coeffs[0] * time_cut + coeffs[1]),
+                    label=r"$a * \exp(m x)$ with" + f"\na={xp.round(xp.exp(coeffs[1]), 3)} m={xp.round(coeffs[0], 3)}",
                 )
         else:
             plt.plot(time, plot_quantity[:], ".", label=key, markersize=2)
 
             if inds_exs is not None:
                 # do the fitting
-                coeffs = np.polyfit(
+                coeffs = xp.polyfit(
                     times_extrema,
                     quantity_extrema,
                     deg=degree,
@@ -375,8 +375,8 @@ def plot_scalars(
                 )
                 plt.plot(
                     time_cut,
-                    np.exp(coeffs[0] * time_cut + coeffs[1]),
-                    label=r"$a x + b$ with" + f"\na={np.round(coeffs[1], 3)} b={np.round(coeffs[0], 3)}",
+                    xp.exp(coeffs[0] * time_cut + coeffs[1]),
+                    label=r"$a x + b$ with" + f"\na={xp.round(coeffs[1], 3)} b={xp.round(coeffs[0], 3)}",
                 )
 
     plt.legend()
@@ -438,11 +438,11 @@ def plot_distr_fun(
 
             # load full distribution functions
             if filename == "f_binned.npy":
-                f = np.load(filepath)
+                f = xp.load(filepath)
 
             # load delta f
             elif filename == "delta_f_binned.npy":
-                delta_f = np.load(filepath)
+                delta_f = xp.load(filepath)
 
         assert f is not None, "No distribution function file found!"
 
@@ -450,7 +450,7 @@ def plot_distr_fun(
         directions = folder.split("_")
         for direction in directions:
             grids += [
-                np.load(
+                xp.load(
                     os.path.join(
                         subpath,
                         "grid_" + direction + ".npy",
@@ -461,8 +461,8 @@ def plot_distr_fun(
         # Get indices of where to plot in other directions
         grid_idxs = {}
         for k in range(f.ndim - 1):
-            grid_idxs[directions[k]] = np.argmin(
-                np.abs(grids[k] - grid_slices[directions[k]]),
+            grid_idxs[directions[k]] = xp.argmin(
+                xp.abs(grids[k] - grid_slices[directions[k]]),
             )
 
         for k in range(f.ndim - 1):
@@ -597,17 +597,17 @@ def plots_videos_2d(
         grid_idxs = {}
         for k in range(df_data.ndim - 1):
             direc = directions[k]
-            grid_idxs[direc] = np.argmin(
-                np.abs(grids[direc] - grid_slices[direc]),
+            grid_idxs[direc] = xp.argmin(
+                xp.abs(grids[direc] - grid_slices[direc]),
             )
 
-        grid_1 = np.load(
+        grid_1 = xp.load(
             os.path.join(
                 data_path,
                 "grid_" + label_1 + ".npy",
             ),
         )
-        grid_2 = np.load(
+        grid_2 = xp.load(
             os.path.join(
                 data_path,
                 "grid_" + label_2 + ".npy",
@@ -638,9 +638,9 @@ def plots_videos_2d(
                         var *= polar_params["r_max"] - polar_params["r_min"]
                         var += polar_params["r_min"]
                     elif polar_params["angular_coord"] == sl:
-                        var *= 2 * np.pi
+                        var *= 2 * xp.pi
 
-        grid_1_mesh, grid_2_mesh = np.meshgrid(grid_1, grid_2, indexing="ij")
+        grid_1_mesh, grid_2_mesh = xp.meshgrid(grid_1, grid_2, indexing="ij")
 
         if output == "video":
             plots_2d_video(
@@ -687,7 +687,7 @@ def video_2d(slc, diagn_path, images_path):
 
     Parameters
     ----------
-    t_grid : np.ndarray
+    t_grid : xp.ndarray
         1D-array containing all the times
 
     grid_slices : dict
@@ -775,15 +775,15 @@ def plots_2d_video(
 
     # Get parameters for time and labelling for it
     nt = len(t_grid)
-    log_nt = int(np.log10(nt)) + 1
+    log_nt = int(xp.log10(nt)) + 1
     len_dt = len(str(t_grid[1]).split(".")[1])
 
     # Get the correct scale for the plots
-    vmin += [np.min(df_binned[:]) / 3]
-    vmax += [np.max(df_binned[:]) / 3]
-    vmin = np.min(vmin)
-    vmax = np.max(vmax)
-    vscale = np.max(np.abs([vmin, vmax]))
+    vmin += [xp.min(df_binned[:]) / 3]
+    vmax += [xp.max(df_binned[:]) / 3]
+    vmin = xp.min(vmin)
+    vmax = xp.max(vmax)
+    vscale = xp.max(xp.abs([vmin, vmax]))
 
     # Set up the figure and axis once
     if do_polar:
@@ -881,18 +881,18 @@ def plots_2d_overview(
         fig_height = 8.5
     else:
         n_cols = 3
-        n_rows = int(np.ceil(n_times / n_cols))
+        n_rows = int(xp.ceil(n_times / n_cols))
         fig_height = 4 * n_rows
 
     fig_size = (4 * n_cols, fig_height)
 
     # Get the correct scale for the plots
     for time in times:
-        vmin += [np.min(df_binned[time]) / 3]
-        vmax += [np.max(df_binned[time]) / 3]
-    vmin = np.min(vmin)
-    vmax = np.max(vmax)
-    vscale = np.max(np.abs([vmin, vmax]))
+        vmin += [xp.min(df_binned[time]) / 3]
+        vmax += [xp.max(df_binned[time]) / 3]
+    vmin = xp.min(vmin)
+    vmax = xp.max(vmax)
+    vscale = xp.max(xp.abs([vmin, vmax]))
 
     # Plot options for polar plots
     subplot_kw = dict(projection="polar") if do_polar else None
@@ -901,8 +901,8 @@ def plots_2d_overview(
     fig, axes = plt.subplots(n_rows, n_cols, figsize=fig_size, subplot_kw=subplot_kw)
 
     # So we an use .flatten() even for just 1 plot
-    if not isinstance(axes, np.ndarray):
-        axes = np.array([axes])
+    if not isinstance(axes, xp.ndarray):
+        axes = xp.array([axes])
 
     # fig.tight_layout(h_pad=5.0, w_pad=5.0)
     # fig.tight_layout(pad=5.0)
@@ -918,7 +918,7 @@ def plots_2d_overview(
     # Set the suptitle
     fig.suptitle(f"Struphy model '{model_name}'")
 
-    for k in np.arange(n_times):
+    for k in xp.arange(n_times):
         obj = axes.flatten()[k]
         n = times[k]
         t = f"%.{len_dt}f" % t_grid[n]
@@ -990,13 +990,13 @@ def get_slices_grids_directions_and_df_data(plot_full_f, grid_slices, data_path,
     slices_2d : list[string]
         A list of all the slicings
 
-    grids : list[np.ndarray]
+    grids : list[xp.ndarray]
         A list of all grids according to the slices
 
     directions : list[string]
         A list of the directions that appear in all slices
 
-    df_data : np.ndarray
+    df_data : xp.ndarray
         The data of delta-f (in case of full-f: distribution function minus background)
     """
 
@@ -1005,7 +1005,7 @@ def get_slices_grids_directions_and_df_data(plot_full_f, grid_slices, data_path,
     # Load all the grids
     grids = {}
     for direction in directions:
-        grids[direction] = np.load(
+        grids[direction] = xp.load(
             os.path.join(data_path, "grid_" + direction + ".npy"),
         )
 
@@ -1014,7 +1014,7 @@ def get_slices_grids_directions_and_df_data(plot_full_f, grid_slices, data_path,
         _name = "f_binned.npy"
     else:
         _name = "delta_f_binned.npy"
-    _data = np.load(os.path.join(data_path, _name))
+    _data = xp.load(os.path.join(data_path, _name))
 
     # Check how many slicings have been given and make slices_2d for all
     # combinations of spatial and velocity dimensions

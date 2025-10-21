@@ -77,50 +77,50 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
             if direction == 0:
                 Nel = [Neli, 1, 1]
                 p = [pi, 1, 1]
-                e1 = np.linspace(0.0, 1.0, 50)
+                e1 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
                     spl_kind = [False, True, True]
 
                     def sol1_xyz(x, y, z):
-                        return np.cos(np.pi / Lx * x)
+                        return xp.cos(xp.pi / Lx * x)
 
                     def rho1_xyz(x, y, z):
-                        return np.cos(np.pi / Lx * x) * (np.pi / Lx) ** 2
+                        return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
                 else:
                     if bc_type == "dirichlet":
                         spl_kind = [False, True, True]
                         dirichlet_bc = [[not kd] * 2 for kd in spl_kind]
 
                     def sol1_xyz(x, y, z):
-                        return np.sin(2 * np.pi / Lx * x)
+                        return xp.sin(2 * xp.pi / Lx * x)
 
                     def rho1_xyz(x, y, z):
-                        return np.sin(2 * np.pi / Lx * x) * (2 * np.pi / Lx) ** 2
+                        return xp.sin(2 * xp.pi / Lx * x) * (2 * xp.pi / Lx) ** 2
 
             elif direction == 1:
                 Nel = [1, Neli, 1]
                 p = [1, pi, 1]
-                e2 = np.linspace(0.0, 1.0, 50)
+                e2 = xp.linspace(0.0, 1.0, 50)
 
                 if bc_type == "neumann":
                     spl_kind = [True, False, True]
 
                     def sol1_xyz(x, y, z):
-                        return np.cos(np.pi / Ly * y)
+                        return xp.cos(xp.pi / Ly * y)
 
                     def rho1_xyz(x, y, z):
-                        return np.cos(np.pi / Ly * y) * (np.pi / Ly) ** 2
+                        return xp.cos(xp.pi / Ly * y) * (xp.pi / Ly) ** 2
                 else:
                     if bc_type == "dirichlet":
                         spl_kind = [True, False, True]
                         dirichlet_bc = [[not kd] * 2 for kd in spl_kind]
 
                     def sol1_xyz(x, y, z):
-                        return np.sin(2 * np.pi / Ly * y)
+                        return xp.sin(2 * xp.pi / Ly * y)
 
                     def rho1_xyz(x, y, z):
-                        return np.sin(2 * np.pi / Ly * y) * (2 * np.pi / Ly) ** 2
+                        return xp.sin(2 * xp.pi / Ly * y) * (2 * xp.pi / Ly) ** 2
             else:
                 print("Direction should be either 0 or 1")
 
@@ -176,14 +176,14 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, show_plot=False):
                 plt.title(f"{Nel = }")
                 plt.legend()
 
-            error = np.max(np.abs(analytic_value1 - sol_val1))
+            error = xp.max(xp.abs(analytic_value1 - sol_val1))
             print(f"{direction = }, {pi = }, {Neli = }, {error=}")
 
             errors.append(error)
             h = 1 / (Neli)
             h_vec.append(h)
 
-        m, _ = np.polyfit(np.log(Nels), np.log(errors), deg=1)
+        m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
         print(f"For {pi = }, solution converges in {direction=} with rate {-m = } ")
         assert -m > (pi + 1 - 0.06)
 
@@ -250,10 +250,10 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
 
     # manufactured solution in 1D (overwritten for "neumann")
     def sol1_xyz(x, y, z):
-        return np.sin(2 * np.pi / Lx * x)
+        return xp.sin(2 * xp.pi / Lx * x)
 
     def rho1_xyz(x, y, z):
-        return np.sin(2 * np.pi / Lx * x) * (2 * np.pi / Lx) ** 2
+        return xp.sin(2 * xp.pi / Lx * x) * (2 * xp.pi / Lx) ** 2
 
     # boundary conditions
     dirichlet_bc = None
@@ -263,11 +263,11 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
-            return np.sin(2 * np.pi * x / Lx + 4 * np.pi / Ly * y)
+            return xp.sin(2 * xp.pi * x / Lx + 4 * xp.pi / Ly * y)
 
         def rho2_xyz(x, y, z):
-            ddx = np.sin(2 * np.pi / Lx * x + 4 * np.pi / Ly * y) * (2 * np.pi / Lx) ** 2
-            ddy = np.sin(2 * np.pi / Lx * x + 4 * np.pi / Ly * y) * (4 * np.pi / Ly) ** 2
+            ddx = xp.sin(2 * xp.pi / Lx * x + 4 * xp.pi / Ly * y) * (2 * xp.pi / Lx) ** 2
+            ddy = xp.sin(2 * xp.pi / Lx * x + 4 * xp.pi / Ly * y) * (4 * xp.pi / Ly) ** 2
             return ddx + ddy
 
     elif bc_type == "dirichlet":
@@ -277,11 +277,11 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
-            return np.sin(np.pi * x / Lx) * np.sin(4 * np.pi / Ly * y)
+            return xp.sin(xp.pi * x / Lx) * xp.sin(4 * xp.pi / Ly * y)
 
         def rho2_xyz(x, y, z):
-            ddx = np.sin(np.pi * x / Lx) * np.sin(4 * np.pi / Ly * y) * (np.pi / Lx) ** 2
-            ddy = np.sin(np.pi * x / Lx) * np.sin(4 * np.pi / Ly * y) * (4 * np.pi / Ly) ** 2
+            ddx = xp.sin(xp.pi * x / Lx) * xp.sin(4 * xp.pi / Ly * y) * (xp.pi / Lx) ** 2
+            ddy = xp.sin(xp.pi * x / Lx) * xp.sin(4 * xp.pi / Ly * y) * (4 * xp.pi / Ly) ** 2
             return ddx + ddy
 
     elif bc_type == "neumann":
@@ -289,19 +289,19 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
-            return np.cos(np.pi * x / Lx) * np.sin(4 * np.pi / Ly * y)
+            return xp.cos(xp.pi * x / Lx) * xp.sin(4 * xp.pi / Ly * y)
 
         def rho2_xyz(x, y, z):
-            ddx = np.cos(np.pi * x / Lx) * np.sin(4 * np.pi / Ly * y) * (np.pi / Lx) ** 2
-            ddy = np.cos(np.pi * x / Lx) * np.sin(4 * np.pi / Ly * y) * (4 * np.pi / Ly) ** 2
+            ddx = xp.cos(xp.pi * x / Lx) * xp.sin(4 * xp.pi / Ly * y) * (xp.pi / Lx) ** 2
+            ddy = xp.cos(xp.pi * x / Lx) * xp.sin(4 * xp.pi / Ly * y) * (4 * xp.pi / Ly) ** 2
             return ddx + ddy
 
         # manufactured solution in 1D
         def sol1_xyz(x, y, z):
-            return np.cos(np.pi / Lx * x)
+            return xp.cos(xp.pi / Lx * x)
 
         def rho1_xyz(x, y, z):
-            return np.cos(np.pi / Lx * x) * (np.pi / Lx) ** 2
+            return xp.cos(xp.pi / Lx * x) * (xp.pi / Lx) ** 2
 
     # create derham object
     derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
@@ -314,9 +314,9 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
     Propagator.mass_ops = mass_ops
 
     # evaluation grid
-    e1 = np.linspace(0.0, 1.0, 50)
-    e2 = np.linspace(0.0, 1.0, 50)
-    e3 = np.linspace(0.0, 1.0, 1)
+    e1 = xp.linspace(0.0, 1.0, 50)
+    e2 = xp.linspace(0.0, 1.0, 50)
+    e3 = xp.linspace(0.0, 1.0, 1)
 
     # pullbacks of right-hand side
     def rho1(e1, e2, e3):
@@ -355,8 +355,8 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, show_plot=False):
     analytic_value2 = sol2_xyz(x, y, z)
 
     # compute error
-    error1 = np.max(np.abs(analytic_value1 - sol_val1))
-    error2 = np.max(np.abs(analytic_value2 - sol_val2))
+    error1 = xp.max(xp.abs(analytic_value1 - sol_val1))
+    error2 = xp.max(xp.abs(analytic_value2 - sol_val2))
 
     print(f"{p = }, {bc_type = }, {mapping = }")
     print(f"{error1 = }")
@@ -429,14 +429,14 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     dirichlet_bc = [[True, True], [False, False], [False, False]]
 
     # evaluation grid
-    e1 = np.linspace(0.0, 1.0, 50)
-    e2 = np.linspace(0.0, 1.0, 60)
-    e3 = np.linspace(0.0, 1.0, 30)
+    e1 = xp.linspace(0.0, 1.0, 50)
+    e2 = xp.linspace(0.0, 1.0, 60)
+    e3 = xp.linspace(0.0, 1.0, 30)
 
     # solution and right-hand side on unit cube
     def rho(e1, e2, e3):
-        dd1 = np.sin(np.pi * e1) * np.sin(4 * np.pi * e2) * np.cos(2 * np.pi * e3) * (np.pi) ** 2
-        dd2 = np.sin(np.pi * e1) * np.sin(4 * np.pi * e2) * np.cos(2 * np.pi * e3) * (4 * np.pi) ** 2
+        dd1 = xp.sin(xp.pi * e1) * xp.sin(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3) * (xp.pi) ** 2
+        dd2 = xp.sin(xp.pi * e1) * xp.sin(4 * xp.pi * e2) * xp.cos(2 * xp.pi * e3) * (4 * xp.pi) ** 2
         return dd1 + dd2
 
     # create 3d derham object
@@ -517,8 +517,8 @@ def test_poisson_M1perp_3d_compare_2p5d(Nel, p, mapping, show_plot=False):
     sol_val_2p5d = domain.push(_phi_2p5d, e1, e2, e3, kind="0")
     x, y, z = domain(e1, e2, e3)
 
-    print("max diff:", np.max(np.abs(sol_val - sol_val_2p5d)))
-    assert np.max(np.abs(sol_val - sol_val_2p5d)) < 0.026
+    print("max diff:", xp.max(xp.abs(sol_val - sol_val_2p5d)))
+    assert xp.max(xp.abs(sol_val - sol_val_2p5d)) < 0.026
 
     if show_plot and rank == 0:
         plt.figure("e1-e2 plane", figsize=(24, 16))

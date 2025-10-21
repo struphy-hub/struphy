@@ -249,7 +249,7 @@ class GyroMaxwellian2D(Maxwellian):
         assert len(v) == 2
 
         # call equilibrium
-        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+        etas = (xp.vstack((eta1, eta2, eta3)).T).copy()
         absB0 = self.equil.absB0(etas)
 
         # J = v_perp/B
@@ -391,14 +391,14 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         assert eta3.ndim == 1
 
         if self.maxw_params["type"] == "Particles6D":
-            return np.sqrt(2.0 * energy) * 4.0 * np.pi
+            return xp.sqrt(2.0 * energy) * 4.0 * xp.pi
 
         else:
             # call equilibrium
-            etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+            etas = (xp.vstack((eta1, eta2, eta3)).T).copy()
             absB0 = self.equil.absB0(etas)
 
-            return np.sqrt(energy) * 2.0 * np.sqrt(2.0) / absB0
+            return xp.sqrt(energy) * 2.0 * xp.sqrt(2.0) / absB0
 
     @property
     def volume_form(self):
@@ -445,13 +445,13 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         rc_squared = (psic - self.equil.psi_range[0]) / (self.equil.psi_range[1] - self.equil.psi_range[0])
 
         # sorting out indices of negative rc²
-        neg_index = np.logical_not(rc_squared >= 0)
+        neg_index = xp.logical_not(rc_squared >= 0)
 
         # make them positive
         rc_squared[neg_index] *= -1
 
         # calculate rc
-        rc = np.sqrt(rc_squared)
+        rc = xp.sqrt(rc_squared)
         rc[neg_index] *= -1
 
         return rc
@@ -470,7 +470,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         """
 
         # collect arguments
-        assert isinstance(psic, np.ndarray)
+        assert isinstance(psic, xp.ndarray)
 
         # assuming that input comes from meshgrid.
         if psic.ndim == 3:
@@ -503,7 +503,7 @@ class CanonicalMaxwellian(CanonicalMaxwellian):
         """
 
         # collect arguments
-        assert isinstance(psic, np.ndarray)
+        assert isinstance(psic, xp.ndarray)
 
         # assuming that input comes from meshgrid.
         if psic.ndim == 3:

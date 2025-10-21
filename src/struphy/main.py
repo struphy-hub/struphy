@@ -147,9 +147,9 @@ def main(
     # store geometry vtk
     if rank == 0:
         grids_log = [
-            np.linspace(1e-6, 1.0, 32),
-            np.linspace(0.0, 1.0, 32),
-            np.linspace(0.0, 1.0, 32),
+            xp.linspace(1e-6, 1.0, 32),
+            xp.linspace(0.0, 1.0, 32),
+            xp.linspace(0.0, 1.0, 32),
         ]
 
         tmp = model.domain(*grids_log)
@@ -174,9 +174,9 @@ def main(
 
     # time quantities (current time value, value in seconds and index)
     time_state = {}
-    time_state["value"] = np.zeros(1, dtype=float)
-    time_state["value_sec"] = np.zeros(1, dtype=float)
-    time_state["index"] = np.zeros(1, dtype=int)
+    time_state["value"] = xp.zeros(1, dtype=float)
+    time_state["value_sec"] = xp.zeros(1, dtype=float)
+    time_state["index"] = xp.zeros(1, dtype=int)
 
     # add time quantities to data object for saving
     for key, val in time_state.items():

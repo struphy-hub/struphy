@@ -195,7 +195,7 @@ class Accumulator:
             Entries must be pyccel-conform types.
 
         args_control : any
-            Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
+            Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
 
         # flags for break
@@ -230,11 +230,11 @@ class Accumulator:
                         for i in range(3):
                             filters.apply_three_point_filter(
                                 vec[i]._data,
-                                np.array(self.derham.Nel),
-                                np.array(self.derham.spl_kind),
-                                np.array(self.derham.p),
-                                np.array(self.derham.Vh[self.form][i].starts),
-                                np.array(self.derham.Vh[self.form][i].ends),
+                                xp.array(self.derham.Nel),
+                                xp.array(self.derham.spl_kind),
+                                xp.array(self.derham.p),
+                                xp.array(self.derham.Vh[self.form][i].starts),
+                                xp.array(self.derham.Vh[self.form][i].ends),
                                 alpha=self.filter_params["alpha"],
                             )
 
@@ -247,11 +247,11 @@ class Accumulator:
                         for i in range(2):
                             filters.apply_three_point_filter(
                                 vec[i]._data,
-                                np.array(self.derham.Nel),
-                                np.array(self.derham.spl_kind),
-                                np.array(self.derham.p),
-                                np.array(self.derham.Vh[self.form][i].starts),
-                                np.array(self.derham.Vh[self.form][i].ends),
+                                xp.array(self.derham.Nel),
+                                xp.array(self.derham.spl_kind),
+                                xp.array(self.derham.p),
+                                xp.array(self.derham.Vh[self.form][i].starts),
+                                xp.array(self.derham.Vh[self.form][i].ends),
                                 alpha=self.filter_params["alpha"],
                             )
 
@@ -433,12 +433,12 @@ class Accumulator:
         assert tor_Nel >= 2 * max(modes)
 
         pn = self.derham.p
-        ir = np.empty(3, dtype=int)
+        ir = xp.empty(3, dtype=int)
 
         if (tor_Nel % 2) == 0:
-            vec_temp = np.zeros(int(tor_Nel / 2) + 1, dtype=complex)
+            vec_temp = xp.zeros(int(tor_Nel / 2) + 1, dtype=complex)
         else:
-            vec_temp = np.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
+            vec_temp = xp.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
 
         # no domain decomposition along the toroidal direction
         assert self.derham.domain_decomposition.nprocs[2] == 1
@@ -485,7 +485,7 @@ class Accumulator:
         field.vector = a
 
         # plot field
-        eta = np.linspace(0, 1, 100)
+        eta = xp.linspace(0, 1, 100)
         if eta_direction == 0:
             args = (eta, 0.5, 0.5)
         elif eta_direction == 1:
@@ -603,7 +603,7 @@ class AccumulatorVector:
         args_control : any
             Keyword arguments for an analytical control variate correction in the accumulation step.
             Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction.
-            Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
+            Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
 
         # flags for break
@@ -723,7 +723,7 @@ class AccumulatorVector:
         field.vector = a
 
         # plot field
-        eta = np.linspace(0, 1, 100)
+        eta = xp.linspace(0, 1, 100)
         if eta_direction == 0:
             args = (eta, 0.5, 0.5)
         elif eta_direction == 1:

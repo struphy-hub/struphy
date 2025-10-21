@@ -75,7 +75,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     # test weights
     particles.initialize_weights()
 
-    v1_bins = np.linspace(-5.0, 5.0, 200, endpoint=True)
+    v1_bins = xp.linspace(-5.0, 5.0, 200, endpoint=True)
     dv = v1_bins[1] - v1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -85,7 +85,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     v1_plot = v1_bins[:-1] + dv / 2
 
-    ana_res = 1.0 / np.sqrt(2.0 * np.pi) * np.exp(-(v1_plot**2) / 2.0)
+    ana_res = 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-(v1_plot**2) / 2.0)
 
     if show_plot:
         plt.plot(v1_plot, ana_res, label="Analytical result")
@@ -96,7 +96,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
+    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
     assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
 
@@ -126,7 +126,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -136,7 +136,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = 1.0 + amp_n * np.cos(2 * np.pi * l_n * e1_plot)
+    ana_res = 1.0 + amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
 
     if show_plot:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -147,7 +147,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
+    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
     assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
 
@@ -207,7 +207,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -217,7 +217,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = n1 + amp_n1 * np.cos(2 * np.pi * l_n1 * e1_plot) + n2 + amp_n2 * np.cos(2 * np.pi * l_n2 * e1_plot)
+    ana_res = n1 + amp_n1 * xp.cos(2 * xp.pi * l_n1 * e1_plot) + n2 + amp_n2 * xp.cos(2 * xp.pi * l_n2 * e1_plot)
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot:
@@ -232,14 +232,14 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         }
         s0 = Maxwellian3D(maxw_params=s0_dict)
 
-        v1 = np.linspace(-10.0, 10.0, 400)
-        phase_space = np.meshgrid(
-            np.array([0.0]),
-            np.array([0.0]),
-            np.array([0.0]),
+        v1 = xp.linspace(-10.0, 10.0, 400)
+        phase_space = xp.meshgrid(
+            xp.array([0.0]),
+            xp.array([0.0]),
+            xp.array([0.0]),
             v1,
-            np.array([0.0]),
-            np.array([0.0]),
+            xp.array([0.0]),
+            xp.array([0.0]),
         )
 
         s0_vals = s0(*phase_space).squeeze()
@@ -261,7 +261,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
+    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
@@ -345,7 +345,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -355,7 +355,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n * np.cos(2 * np.pi * l_n * e1_plot)
+    ana_res = amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
 
     if show_plot:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -366,7 +366,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
+    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
     assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
 
@@ -428,7 +428,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -438,7 +438,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n1 * np.cos(2 * np.pi * l_n1 * e1_plot) + n2 + amp_n2 * np.cos(2 * np.pi * l_n2 * e1_plot)
+    ana_res = amp_n1 * xp.cos(2 * xp.pi * l_n1 * e1_plot) + n2 + amp_n2 * xp.cos(2 * xp.pi * l_n2 * e1_plot)
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot:
@@ -453,14 +453,14 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         }
         s0 = Maxwellian3D(maxw_params=s0_dict)
 
-        v1 = np.linspace(-10.0, 10.0, 400)
-        phase_space = np.meshgrid(
-            np.array([0.0]),
-            np.array([0.0]),
-            np.array([0.0]),
+        v1 = xp.linspace(-10.0, 10.0, 400)
+        phase_space = xp.meshgrid(
+            xp.array([0.0]),
+            xp.array([0.0]),
+            xp.array([0.0]),
             v1,
-            np.array([0.0]),
-            np.array([0.0]),
+            xp.array([0.0]),
+            xp.array([0.0]),
         )
 
         s0_vals = s0(*phase_space).squeeze()
@@ -482,7 +482,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
+    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
@@ -568,7 +568,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     # test weights
     particles.initialize_weights()
 
-    v1_bins = np.linspace(-5.0, 5.0, 200, endpoint=True)
+    v1_bins = xp.linspace(-5.0, 5.0, 200, endpoint=True)
     dv = v1_bins[1] - v1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -580,13 +580,13 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     if comm is None:
         mpi_res = binned_res
     else:
-        mpi_res = np.zeros_like(binned_res)
+        mpi_res = xp.zeros_like(binned_res)
         comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
         comm.Barrier()
 
     v1_plot = v1_bins[:-1] + dv / 2
 
-    ana_res = 1.0 / np.sqrt(2.0 * np.pi) * np.exp(-(v1_plot**2) / 2.0)
+    ana_res = 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-(v1_plot**2) / 2.0)
 
     if show_plot and rank == 0:
         plt.plot(v1_plot, ana_res, label="Analytical result")
@@ -597,7 +597,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - mpi_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
+    l2_error = xp.sqrt(xp.sum((ana_res - mpi_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
     assert l2_error <= 0.03, f"Error between binned data and analytical result was {l2_error}"
 
@@ -628,7 +628,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -640,13 +640,13 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     if comm is None:
         mpi_res = binned_res
     else:
-        mpi_res = np.zeros_like(binned_res)
+        mpi_res = xp.zeros_like(binned_res)
         comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
         comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = 1.0 + amp_n * np.cos(2 * np.pi * l_n * e1_plot)
+    ana_res = 1.0 + amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
 
     if show_plot and rank == 0:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -657,7 +657,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - mpi_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
+    l2_error = xp.sqrt(xp.sum((ana_res - mpi_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
     assert l2_error <= 0.03, f"Error between binned data and analytical result was {l2_error}"
 
@@ -718,7 +718,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -730,13 +730,13 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     if comm is None:
         mpi_res = binned_res
     else:
-        mpi_res = np.zeros_like(binned_res)
+        mpi_res = xp.zeros_like(binned_res)
         comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
         comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = n1 + amp_n1 * np.cos(2 * np.pi * l_n1 * e1_plot) + n2 + amp_n2 * np.cos(2 * np.pi * l_n2 * e1_plot)
+    ana_res = n1 + amp_n1 * xp.cos(2 * xp.pi * l_n1 * e1_plot) + n2 + amp_n2 * xp.cos(2 * xp.pi * l_n2 * e1_plot)
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot and rank == 0:
@@ -751,14 +751,14 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         }
         s0 = Maxwellian3D(maxw_params=s0_dict)
 
-        v1 = np.linspace(-10.0, 10.0, 400)
-        phase_space = np.meshgrid(
-            np.array([0.0]),
-            np.array([0.0]),
-            np.array([0.0]),
+        v1 = xp.linspace(-10.0, 10.0, 400)
+        phase_space = xp.meshgrid(
+            xp.array([0.0]),
+            xp.array([0.0]),
+            xp.array([0.0]),
             v1,
-            np.array([0.0]),
-            np.array([0.0]),
+            xp.array([0.0]),
+            xp.array([0.0]),
         )
 
         s0_vals = s0(*phase_space).squeeze()
@@ -780,7 +780,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - mpi_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
+    l2_error = xp.sqrt(xp.sum((ana_res - mpi_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
@@ -875,7 +875,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -887,13 +887,13 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     if comm is None:
         mpi_res = binned_res
     else:
-        mpi_res = np.zeros_like(binned_res)
+        mpi_res = xp.zeros_like(binned_res)
         comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
         comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n * np.cos(2 * np.pi * l_n * e1_plot)
+    ana_res = amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
 
     if show_plot and rank == 0:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -904,7 +904,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - mpi_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
+    l2_error = xp.sqrt(xp.sum((ana_res - mpi_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
     assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
 
@@ -967,7 +967,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -979,13 +979,13 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     if comm is None:
         mpi_res = binned_res
     else:
-        mpi_res = np.zeros_like(binned_res)
+        mpi_res = xp.zeros_like(binned_res)
         comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
         comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n1 * np.cos(2 * np.pi * l_n1 * e1_plot) + n2 + amp_n2 * np.cos(2 * np.pi * l_n2 * e1_plot)
+    ana_res = amp_n1 * xp.cos(2 * xp.pi * l_n1 * e1_plot) + n2 + amp_n2 * xp.cos(2 * xp.pi * l_n2 * e1_plot)
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot and rank == 0:
@@ -1000,14 +1000,14 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         }
         s0 = Maxwellian3D(maxw_params=s0_dict)
 
-        v1 = np.linspace(-10.0, 10.0, 400)
-        phase_space = np.meshgrid(
-            np.array([0.0]),
-            np.array([0.0]),
-            np.array([0.0]),
+        v1 = xp.linspace(-10.0, 10.0, 400)
+        phase_space = xp.meshgrid(
+            xp.array([0.0]),
+            xp.array([0.0]),
+            xp.array([0.0]),
             v1,
-            np.array([0.0]),
-            np.array([0.0]),
+            xp.array([0.0]),
+            xp.array([0.0]),
         )
 
         s0_vals = s0(*phase_space).squeeze()
@@ -1029,7 +1029,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = np.sqrt(np.sum((ana_res - mpi_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
+    l2_error = xp.sqrt(xp.sum((ana_res - mpi_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
 
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
