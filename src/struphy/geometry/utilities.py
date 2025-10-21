@@ -17,6 +17,7 @@ from struphy.geometry.base import Domain, PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
 from struphy.io.options import GivenInBasis
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
+from struphy.utils.arrays import xp as np
 
 
 def field_line_tracing(

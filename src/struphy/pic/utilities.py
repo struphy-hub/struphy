@@ -1,5 +1,3 @@
-import numpy as np
-
 import struphy.pic.utilities_kernels as utils
 from struphy.io.options import (
     OptsLoading,

@@ -3,11 +3,11 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 
-import numpy as np
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.legacy.mass_matrices_3d_pre as mass_3d_pre
 from struphy.eigenvalue_solvers.mhd_operators_core import MHDOperatorsCore
+from struphy.utils.arrays import xp as np
 
 
 class MHDOperators:

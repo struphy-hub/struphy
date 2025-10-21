@@ -1,4 +1,3 @@
-import numpy as np
 import pytest
 from matplotlib import pyplot as plt
 
@@ -6,6 +5,7 @@ from struphy.fields_background.generic import (
     GenericCartesianFluidEquilibrium,
     GenericCartesianFluidEquilibriumWithB,
 )
+from struphy.utils.arrays import xp as np
 
 
 def test_generic_equils(show=False):

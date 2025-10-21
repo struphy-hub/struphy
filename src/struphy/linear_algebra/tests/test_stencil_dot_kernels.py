@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [12])
 @pytest.mark.parametrize("p", [1, 2, 3])
 @pytest.mark.parametrize("spl_kind", [False, True])
@@ -14,19 +13,18 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_dot_kernels.matvec_1d_kernel
     b) the result from Stencil .dot with precompiled=True"""
 
-    import numpy as np
-    from mpi4py import MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_dot_kernels import matvec_1d_kernel
+    from struphy.utils.arrays import xp as np
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     if rank == 0:
@@ -124,7 +122,6 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     assert np.allclose(out_pre._data, out._data)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[12, 16, 20]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[True, False, False]])
@@ -137,19 +134,18 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_dot_kernels.matvec_1d_kernel
     b) the result from Stencil .dot with precompiled=True"""
 
-    import numpy as np
-    from mpi4py import MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_dot_kernels import matvec_3d_kernel
+    from struphy.utils.arrays import xp as np
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     if rank == 0:

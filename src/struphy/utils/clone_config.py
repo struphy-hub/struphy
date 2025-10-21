@@ -1,5 +1,7 @@
-import numpy as np
-from mpi4py import MPI
+from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
+
+from struphy.utils.arrays import xp as np
 
 
 class CloneConfig:
@@ -40,6 +42,9 @@ class CloneConfig:
 
         self._species_list = None
 
+        self._clone_rank = 0
+        self._clone_id = 0
+
         if comm is not None:
             assert isinstance(comm, MPI.Intracomm)
             rank = comm.Get_rank()
@@ -59,10 +64,11 @@ class CloneConfig:
 
             # Create a sub-communicator for each clone
             self._sub_comm = comm.Split(clone_color, rank)
-            local_rank = self.sub_comm.Get_rank()
+            self._clone_rank = self.sub_comm.Get_rank()
 
             # Create an inter-clone communicator for cross-clone communication
-            self._inter_comm = comm.Split(local_rank, rank)
+            self._inter_comm = comm.Split(self.clone_rank, rank)
+            self._clone_id = self.inter_comm.Get_rank()
 
     def get_Np_clone(self, Np, clone_id=None):
         """
@@ -124,20 +130,28 @@ class CloneConfig:
 
     def print_clone_config(self):
         """Print a table summarizing the clone configuration."""
-        comm_world = MPI.COMM_WORLD
-        rank = comm_world.Get_rank()
-        size = comm_world.Get_size()
+        if isinstance(MPI.COMM_WORLD, MockComm):
+            comm_world = None
+            rank = 0
+            size = 1
+        else:
+            comm_world = MPI.COMM_WORLD
+            rank = comm_world.Get_rank()
+            size = comm_world.Get_size()
 
         ranks_per_clone = size // self.num_clones
         clone_color = rank // ranks_per_clone
 
         # Gather information from all ranks to the rank 0 process
-        clone_info = comm_world.gather(
-            (rank, clone_color, self.clone_rank, self.clone_id),
-            root=0,
-        )
+        if comm_world is None:
+            clone_info = [(rank, clone_color, self.clone_rank, self.clone_id)]
+        else:
+            clone_info = comm_world.gather(
+                (rank, clone_color, self.clone_rank, self.clone_id),
+                root=0,
+            )
 
-        if comm_world.Get_rank() == 0:
+        if rank == 0:
             print(f"\nNumber of clones: {self.num_clones}")
             # Generate an ASCII table for each clone
             message = ""
@@ -253,9 +267,9 @@ class CloneConfig:
     @property
     def clone_rank(self):
         """Get the rank of the process within its clone's sub_comm."""
-        return self.sub_comm.Get_rank()
+        return self._clone_rank
 
     @property
     def clone_id(self):
         """Get the clone identifier."""
-        return self.inter_comm.Get_rank()
+        return self._clone_id

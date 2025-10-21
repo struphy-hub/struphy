@@ -7,7 +7,6 @@ import sys
 import warnings
 from time import time
 
-import numpy as np
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
@@ -29,6 +28,7 @@ from struphy.fields_background.base import (
     NumericalMHDequilibrium,
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
+from struphy.utils.arrays import xp as np
 from struphy.utils.utils import read_state, subp_run
 
 

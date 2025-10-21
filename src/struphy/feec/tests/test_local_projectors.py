@@ -2,9 +2,9 @@ import inspect
 import time
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import MockComm
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.bsplines.bsplines import basis_funs, find_span
 from struphy.bsplines.evaluation_kernels_1d import evaluation_kernel_1d
@@ -12,6 +12,7 @@ from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProj
 from struphy.feec.local_projectors_kernels import fill_matrix_column
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
+from struphy.utils.arrays import xp as np
 
 
 def get_span_and_basis(pts, space):
@@ -150,7 +151,6 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
             assert np.max(errg) < 0.1
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("pi", [3, 4])
 @pytest.mark.parametrize("spl_kindi", [True, False])
@@ -1339,15 +1339,31 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
     meanglobal = np.mean(errorglo)
     maxglobal = np.max(errorglo)
 
-    reducemeanlocal = comm.reduce(meanlocal, op=MPI.SUM, root=0)
+    if isinstance(comm, MockComm):
+        reducemeanlocal = meanlocal
+    else:
+        reducemeanlocal = comm.reduce(meanlocal, op=MPI.SUM, root=0)
+
     if rank == 0:
         reducemeanlocal = reducemeanlocal / world_size
-    reducemaxlocal = comm.reduce(maxlocal, op=MPI.MAX, root=0)
 
-    reducemeanglobal = comm.reduce(meanglobal, op=MPI.SUM, root=0)
+    if isinstance(comm, MockComm):
+        reducemaxlocal = maxlocal
+    else:
+        reducemaxlocal = comm.reduce(maxlocal, op=MPI.MAX, root=0)
+
+    if isinstance(comm, MockComm):
+        reducemeanglobal = meanglobal
+    else:
+        reducemeanglobal = comm.reduce(meanglobal, op=MPI.SUM, root=0)
+
     if rank == 0:
         reducemeanglobal = reducemeanglobal / world_size
-    reducemaxglobal = comm.reduce(maxglobal, op=MPI.MAX, root=0)
+
+    if isinstance(comm, MockComm):
+        reducemaxglobal = maxglobal
+    else:
+        reducemaxglobal = comm.reduce(maxglobal, op=MPI.MAX, root=0)
 
     if rank == 0:
         assert reducemeanlocal < 10.0 * reducemeanglobal or reducemeanlocal < 10.0**-5

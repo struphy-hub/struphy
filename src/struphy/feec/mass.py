@@ -1,9 +1,8 @@
 import inspect
 from copy import deepcopy
 
-import numpy as np
-from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.ddm.mpi import mpi as MPI
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
@@ -17,6 +16,8 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities import RotationMatrix
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class WeightedMassOperators:
@@ -2468,9 +2469,11 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # load assembly kernel
         if not self._matrix_free:
-            self._assembly_kernel = getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_mat",
+            self._assembly_kernel = Pyccelkernel(
+                getattr(
+                    mass_kernels,
+                    "kernel_" + str(self._V.ldim) + "d_mat",
+                )
             )
 
     @property
@@ -3048,7 +3051,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 assert isinstance(out, (list, tuple))
 
         # load assembly kernel
-        kernel = getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval")
+        kernel = Pyccelkernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
@@ -3143,14 +3146,18 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         self._nquads = nquads
 
         self._dtype = V.coeff_space.dtype
-        self._dot_kernel = getattr(
-            mass_kernels,
-            "kernel_" + str(self._V.ldim) + "d_matrixfree",
+        self._dot_kernel = Pyccelkernel(
+            getattr(
+                mass_kernels,
+                "kernel_" + str(self._V.ldim) + "d_matrixfree",
+            )
         )
 
-        self._diag_kernel = getattr(
-            mass_kernels,
-            "kernel_" + str(self._V.ldim) + "d_diag",
+        self._diag_kernel = Pyccelkernel(
+            getattr(
+                mass_kernels,
+                "kernel_" + str(self._V.ldim) + "d_diag",
+            )
         )
 
         shape = tuple(e - s + 1 for s, e in zip(V.coeff_space.starts, V.coeff_space.ends))

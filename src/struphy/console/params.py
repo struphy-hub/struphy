@@ -1,7 +1,7 @@
 import sys
 
 import yaml
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel

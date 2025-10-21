@@ -1,9 +1,7 @@
 import os
 
-import numpy as np
 import pytest
 from matplotlib import pyplot as plt
-from mpi4py import MPI
 from scipy.special import jv, yn
 
 from struphy.io.options import EnvironmentOptions, BaseUnits, Time
@@ -22,6 +20,7 @@ from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Fie
 from struphy.kinetic_background import maxwellians
 from struphy.models.toy import Maxwell
 from struphy.topology import grids
+from struphy.utils.arrays import xp as np
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 

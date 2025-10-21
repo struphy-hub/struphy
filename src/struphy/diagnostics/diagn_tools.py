@@ -5,12 +5,12 @@ import subprocess
 
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
-import numpy as np
 from scipy.fft import fftfreq, fftn
 from scipy.signal import argrelextrema
 from tqdm import tqdm
 
 from struphy.dispersion_relations import analytic
+from struphy.utils.arrays import xp as np
 
 
 def power_spectrum_2d(

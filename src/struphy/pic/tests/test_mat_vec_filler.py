@@ -1,8 +1,8 @@
-import numpy as np
 import pytest
 
+from struphy.utils.arrays import xp as np
 
-@pytest.mark.mpi(min_size=2)
+
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -15,8 +15,8 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
     from time import sleep
 
-    from mpi4py import MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.bsplines import bsplines_kernels as bsp
@@ -24,7 +24,6 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
     from struphy.pic.accumulation import particle_to_mat_kernels as ptomat
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence

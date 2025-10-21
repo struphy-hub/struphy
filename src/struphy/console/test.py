@@ -35,19 +35,22 @@ def struphy_test(
     """
 
     if "unit" in group:
-        # first run only tests that require single process
-        cmd = [
-            "pytest",
-            "-k",
-            "not _models and not _tutorial and not pproc",
-        ]
-        if with_desc:
-            cmd += ["--with-desc"]
-        if vrbose:
-            cmd += ["--vrbose"]
-        if show_plots:
-            cmd += ["--show-plots"]
-        subp_run(cmd)
+        if mpi > 1:
+            cmd = [
+                "mpirun",
+                "-n",
+                str(mpi),
+                "pytest",
+                "-k",
+                "not _models and not _tutorial and not pproc",
+                "--with-mpi",
+            ]
+        else:
+            cmd = [
+                "pytest",
+                "-k",
+                "not _models and not _tutorial and not pproc",
+            ]
 
         # now run parallel unit tests
         cmd = [
@@ -66,6 +69,7 @@ def struphy_test(
             cmd += ["--vrbose"]
         if show_plots:
             cmd += ["--show-plots"]
+
         subp_run(cmd)
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
@@ -91,17 +95,26 @@ def struphy_test(
         subp_run(cmd)
 
     elif "verification" in group:
-        cmd = [
-            "mpirun",
-            "--oversubscribe",
-            "-n",
-            str(mpi),
-            "pytest",
-            "-k",
-            "_verif_",
-            "-s",
-            "--with-mpi",
-        ]
+        if mpi > 1:
+            cmd = [
+                "mpirun",
+                "--oversubscribe",
+                "-n",
+                str(mpi),
+                "pytest",
+                "-k",
+                "_verif_",
+                "-s",
+                "--with-mpi",
+            ]
+        else:
+            cmd = [
+                "pytest",
+                "-k",
+                "_verif_",
+                "-s",
+            ]
+
         if vrbose:
             cmd += ["--vrbose"]
         if nclones > 1:

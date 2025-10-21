@@ -5,7 +5,6 @@ from abc import ABCMeta, abstractmethod
 from line_profiler import profile
 
 import h5py
-import numpy as np
 import scipy.special as sp
 from line_profiler import profile
 from mpi4py import MPI
@@ -45,7 +44,9 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.utils import utils
+from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Particles(metaclass=ABCMeta):
@@ -194,9 +195,11 @@ class Particles(metaclass=ABCMeta):
         if self.mpi_comm is None:
             self._mpi_size = 1
             self._mpi_rank = 0
+            self._Barrier = lambda: None
         else:
             self._mpi_size = self.mpi_comm.Get_size()
             self._mpi_rank = self.mpi_comm.Get_rank()
+            self._Barrier = self.mpi_comm.Barrier
 
         # domain decomposition (MPI) and cell information
         self._boxes_per_dim = boxes_per_dim
@@ -330,14 +333,13 @@ class Particles(metaclass=ABCMeta):
         self._generate_sampling_moments()
 
         # create buffers for mpi_sort_markers
-        if self.mpi_comm is not None:
-            self._sorting_etas = np.zeros(self.markers.shape, dtype=float)
-            self._is_on_proc_domain = np.zeros((self.markers.shape[0], 3), dtype=bool)
-            self._can_stay = np.zeros(self.markers.shape[0], dtype=bool)
-            self._reqs = [None] * self.mpi_size
-            self._recvbufs = [None] * self.mpi_size
-            self._send_to_i = [None] * self.mpi_size
-            self._send_list = [None] * self.mpi_size
+        self._sorting_etas = np.zeros(self.markers.shape, dtype=float)
+        self._is_on_proc_domain = np.zeros((self.markers.shape[0], 3), dtype=bool)
+        self._can_stay = np.zeros(self.markers.shape[0], dtype=bool)
+        self._reqs = [None] * self.mpi_size
+        self._recvbufs = [None] * self.mpi_size
+        self._send_to_i = [None] * self.mpi_size
+        self._send_list = [None] * self.mpi_size
 
     @classmethod
     @abstractmethod
@@ -1708,7 +1710,7 @@ class Particles(metaclass=ABCMeta):
         if remove_ghost:
             self.remove_ghost_particles()
 
-        self.mpi_comm.Barrier()
+        self._Barrier()
 
         # before sorting, apply kinetic bc
         if apply_bc:
@@ -1747,7 +1749,7 @@ class Particles(metaclass=ABCMeta):
             assert all_on_right_proc
             # assert self.phasespace_coords.size > 0, f'No particles on process {self.mpi_rank}, please rebalance, aborting ...'
 
-        self.mpi_comm.Barrier()
+        self._Barrier()
 
     def initialize_weights(
         self,
@@ -3165,7 +3167,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
         self.self_communication_boxes()
         self.update_holes()
         if self.mpi_comm is not None:
-            self.mpi_comm.Barrier()
+            self._Barrier()
             self.sendrecv_all_to_all_boxes()
             self.sendrecv_markers_boxes()
             self.update_holes()
@@ -3234,7 +3236,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
                         test_reqs.pop()
                         reqs[i] = None
 
-        self.mpi_comm.Barrier()
+        self._Barrier()
 
     def _get_neighbouring_proc(self):
         """Find the neighbouring processes for the sending of boxes.
@@ -3773,7 +3775,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             self.put_particles_in_boxes()
 
             if len(_shp) == 1:
-                func = box_based_evaluation_flat
+                func = Pyccelkernel(box_based_evaluation_flat)
             elif len(_shp) == 3:
                 if _shp[0] > 1:
                     assert eta1[0, 0, 0] != eta1[1, 0, 0], "Meshgrids must be obtained with indexing='ij'!"
@@ -3781,7 +3783,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
                     assert eta2[0, 0, 0] != eta2[0, 1, 0], "Meshgrids must be obtained with indexing='ij'!"
                 if _shp[2] > 1:
                     assert eta3[0, 0, 0] != eta3[0, 0, 1], "Meshgrids must be obtained with indexing='ij'!"
-                func = box_based_evaluation_meshgrid
+                func = Pyccelkernel(box_based_evaluation_meshgrid)
 
             func(
                 self.args_markers,
@@ -3807,9 +3809,9 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             )
         else:
             if len(_shp) == 1:
-                func = naive_evaluation_flat
+                func = Pyccelkernel(naive_evaluation_flat)
             elif len(_shp) == 3:
-                func = naive_evaluation_meshgrid
+                func = Pyccelkernel(naive_evaluation_meshgrid)
             func(
                 self.args_markers,
                 eta1,
