@@ -22,6 +22,8 @@ from struphy.pic.utilities import (
 )
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -338,7 +340,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     particles.initialize_weights()
 
     # particle to grid coupling
-    kernel = charge_density_0form
+    kernel = Pyccelkernel(charge_density_0form)
     accum = AccumulatorVector(particles, "H1", kernel, mass_ops, domain.args_domain)
     # accum()
     # if do_plot:
