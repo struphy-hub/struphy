@@ -274,11 +274,6 @@ class StruphyModel(metaclass=ABCMeta):
         self._clone_config = new
 
     @property
-    def diagnostics(self):
-        """Dictionary of diagnostics."""
-        return self._diagnostics
-
-    @property
     def domain(self):
         """Domain object, see :ref:`avail_mappings`."""
         return self._domain
@@ -642,6 +637,18 @@ class StruphyModel(metaclass=ABCMeta):
                             projected_equil=self.projected_equil,
                             verbose=verbose,
                         )
+
+        # allocate memory for FE coeffs of fluid variables
+        if self.diagnostic_species:
+            for species, spec in self.diagnostic_species.items():
+                assert isinstance(spec, DiagnosticSpecies)
+                for k, v in spec.variables.items():
+                    assert isinstance(v, FEECVariable)
+                    v.allocate(
+                        derham=self.derham,
+                        domain=self.domain,
+                        equil=self.equil,
+                    )
 
         # TODO: allocate memory for FE coeffs of diagnostics
         # if self.params.diagnostic_fields is not None:
@@ -1489,131 +1496,6 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     ###################
     # Private methods :
     ###################
-
-    def _init_variable_dicts(self):
-        """
-        Initialize em-fields, fluid and kinetic dictionaries for information on the model variables.
-        """
-
-        # electromagnetic fields, fluid and/or kinetic species
-        self._em_fields = {}
-        self._fluid = {}
-        self._kinetic = {}
-        self._diagnostics = {}
-
-        if self.rank_world == 0 and self.verbose:
-            print("\nMODEL SPECIES:")
-
-        # create dictionaries for each em-field/species and fill in space/class name and parameters
-        for var_name, space in self.species()["em_fields"].items():
-            assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
-            assert self.params.em_fields is not None, '"em_fields" is missing in parameter file.'
-
-            if self.rank_world == 0 and self.verbose:
-                print("em_field:".ljust(25), f'"{var_name}" ({space})')
-
-            self._em_fields[var_name] = {}
-
-            # space
-            self._em_fields[var_name]["space"] = space
-
-            # initial conditions
-            if "background" in self.params.em_fields:
-                # background= self.params.em_fields["background"].get(var_name)
-                self._em_fields[var_name]["background"] = self.params.em_fields["background"].get(var_name)
-            # else:
-            #     background = None
-
-            if "perturbation" in self.params.em_fields:
-                # perturbation = self.params.em_fields["perturbation"].get(var_name)
-                self._em_fields[var_name]["perturbation"] = self.params.em_fields["perturbation"].get(var_name)
-            # else:
-            #     perturbation = None
-
-            # which components to save
-            if "save_data" in self.params.em_fields:
-                # save_data = self.params.em_fields["save_data"]["comps"][var_name]
-                self._em_fields[var_name]["save_data"] = self.params.em_fields["save_data"]["comps"][var_name]
-            else:
-                self._em_fields[var_name]["save_data"] = True
-                # save_data = True
-
-            # self._em_fields[var_name] = Variable(name=var_name,
-            #                                      space=space,
-            #                                      background=background,
-            #                                      perturbation=perturbation,
-            #                                      save_data=save_data,)
-
-            # overall parameters
-            # print(f'{self._em_fields = }')
-            self._em_fields["params"] = self.params.em_fields
-
-        for var_name, space in self.species()["fluid"].items():
-            assert isinstance(space, dict)
-            assert "fluid" in self.params, 'Top-level key "fluid" is missing in parameter file.'
-            assert var_name in self.params["fluid"], f"Fluid species {var_name} is missing in parameter file."
-
-            if self.rank_world == 0 and self.verbose:
-                print("fluid:".ljust(25), f'"{var_name}" ({space})')
-
-            self._fluid[var_name] = {}
-            for sub_var_name, sub_space in space.items():
-                self._fluid[var_name][sub_var_name] = {}
-
-                # space
-                self._fluid[var_name][sub_var_name]["space"] = sub_space
-
-                # initial conditions
-                if "background" in self.params["fluid"][var_name]:
-                    self._fluid[var_name][sub_var_name]["background"] = self.params["fluid"][var_name][
-                        "background"
-                    ].get(sub_var_name)
-                if "perturbation" in self.params["fluid"][var_name]:
-                    self._fluid[var_name][sub_var_name]["perturbation"] = self.params["fluid"][var_name][
-                        "perturbation"
-                    ].get(sub_var_name)
-
-                # which components to save
-                if "save_data" in self.params["fluid"][var_name]:
-                    self._fluid[var_name][sub_var_name]["save_data"] = self.params["fluid"][var_name]["save_data"][
-                        "comps"
-                    ][sub_var_name]
-
-                else:
-                    self._fluid[var_name][sub_var_name]["save_data"] = True
-
-            # overall parameters
-            self._fluid[var_name]["params"] = self.params["fluid"][var_name]
-
-        for var_name, space in self.species()["kinetic"].items():
-            assert "Particles" in space
-            assert "kinetic" in self.params, 'Top-level key "kinetic" is missing in parameter file.'
-            assert var_name in self.params["kinetic"], f"Kinetic species {var_name} is missing in parameter file."
-
-            if self.rank_world == 0 and self.verbose:
-                print("kinetic:".ljust(25), f'"{var_name}" ({space})')
-
-            self._kinetic[var_name] = {}
-            self._kinetic[var_name]["space"] = space
-            self._kinetic[var_name]["params"] = self.params["kinetic"][var_name]
-
-        if self.diagnostics_dct() is not None:
-            for var_name, space in self.diagnostics_dct().items():
-                assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
-
-                if self.rank_world == 0 and self.verbose:
-                    print("diagnostics:".ljust(25), f'"{var_name}" ({space})')
-
-                self._diagnostics[var_name] = {}
-                self._diagnostics[var_name]["space"] = space
-                self._diagnostics["params"] = self.params["diagnostics"][var_name]
-
-                # which components to save
-                if "save_data" in self.params["diagnostics"][var_name]:
-                    self._diagnostics[var_name]["save_data"] = self.params["diagnostics"][var_name]["save_data"]
-
-                else:
-                    self._diagnostics[var_name]["save_data"] = True
 
     def compute_plasma_params(self, verbose=True):
         """

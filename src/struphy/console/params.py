@@ -29,6 +29,8 @@ def struphy_params(model_name: str, params_path: str, yes: bool = False, check_f
         except AttributeError:
             pass
 
+    print(f"{model_name = }")
+
     # print units
     if check_file:
         print(f"Checking {check_file} with model {model_class}")
