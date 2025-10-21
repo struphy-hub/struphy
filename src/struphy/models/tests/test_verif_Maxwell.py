@@ -1,10 +1,11 @@
 import os
 
-import numpy as np
 import pytest
 from matplotlib import pyplot as plt
-from mpi4py import MPI
 from scipy.special import jv, yn
+
+from psydac.ddm.mpi import mpi as MPI
+from struphy.utils.arrays import xp as np
 
 from struphy import main
 from struphy.diagnostics.diagn_tools import power_spectrum_2d

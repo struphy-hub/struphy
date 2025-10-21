@@ -3,7 +3,7 @@ import os
 from types import ModuleType
 
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.io.options import EnvironmentOptions

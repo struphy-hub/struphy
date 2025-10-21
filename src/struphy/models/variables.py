@@ -4,8 +4,8 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
-import numpy as np
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
+from struphy.utils.arrays import xp as np
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium

@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Literal
 
 from struphy.utils.arrays import xp as np
-from mpi4py import MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
@@ -72,7 +71,7 @@ class Propagator(metaclass=ABCMeta):
     @abstractmethod
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if True:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
                 print(f"  {k}: {v}")

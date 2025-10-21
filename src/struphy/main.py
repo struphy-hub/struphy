@@ -10,8 +10,6 @@ from typing import Optional, TypedDict
 
 import h5py
 from line_profiler import profile
-from mpi4py import MPI
-from pyevtk.hl import gridToVTK
 
 from psydac.ddm.mpi import MockMPI
 from psydac.ddm.mpi import mpi as MPI

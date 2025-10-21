@@ -1,11 +1,11 @@
 import os
 
 import h5py
-import numpy as np
-import pytest
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-from mpi4py import MPI
+
+from psydac.ddm.mpi import mpi as MPI
+from struphy.utils.arrays import xp as np
 
 from struphy import main
 from struphy.fields_background import equils
