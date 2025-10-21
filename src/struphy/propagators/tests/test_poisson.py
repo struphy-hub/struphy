@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
-import numpy as np
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
@@ -23,13 +22,14 @@ from struphy.pic.utilities import (
 )
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 plt.rcParams.update({"font.size": 22})
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("bc_type", ["periodic", "dirichlet", "neumann"])
 @pytest.mark.parametrize(
@@ -340,7 +340,7 @@ def test_poisson_accum_1d(mapping, do_plot=False):
     particles.initialize_weights()
 
     # particle to grid coupling
-    kernel = charge_density_0form
+    kernel = Pyccelkernel(charge_density_0form)
     accum = AccumulatorVector(particles, "H1", kernel, mass_ops, domain.args_domain)
     # accum()
     # if do_plot:

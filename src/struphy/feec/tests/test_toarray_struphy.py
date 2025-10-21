@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
 @pytest.mark.parametrize("p", [[3, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, False]])
@@ -13,13 +12,13 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     TODO
     """
 
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.geometry import domains
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -33,7 +32,7 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     domain = domain_class(**dom_params)
 
     # create derham object
-    derham = Derham(Nel, p, spl_kind, comm=MPI.COMM_WORLD)
+    derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # assemble mass matrices in V0 and V1
     mass = WeightedMassOperators(derham, domain)

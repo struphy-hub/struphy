@@ -1,7 +1,7 @@
-import numpy as np
 import pytest
 
 from struphy.fields_background import equils
+from struphy.utils.arrays import xp as np
 
 
 @pytest.mark.parametrize(

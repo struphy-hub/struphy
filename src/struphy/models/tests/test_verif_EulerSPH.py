@@ -1,10 +1,9 @@
 import os
 
-import numpy as np
 import pytest
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.fields_background import equils
@@ -20,6 +19,7 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.topology import grids
+from struphy.utils.arrays import xp as np
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 

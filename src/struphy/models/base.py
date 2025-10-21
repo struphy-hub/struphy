@@ -5,10 +5,10 @@ from abc import ABCMeta, abstractmethod
 from functools import reduce
 from textwrap import indent
 
-import numpy as np
 import yaml
 from line_profiler import profile
-from mpi4py import MPI
+from psydac.ddm.mpi import MockMPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.stencil import StencilVector
 
 import struphy
@@ -35,6 +35,7 @@ from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml, read_state
 
@@ -526,14 +527,14 @@ class StruphyModel(metaclass=ABCMeta):
             value_array = np.array([value], dtype=np.float64)
 
             # Perform MPI operations based on the compute flags
-            if "sum_world" in compute_operations:
+            if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
                 MPI.COMM_WORLD.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
 
-            if "sum_within_clone" in compute_operations:
+            if "sum_within_clone" in compute_operations and self.derham.comm is not None:
                 self.derham.comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
@@ -961,8 +962,9 @@ class StruphyModel(metaclass=ABCMeta):
     #                     if obj.coords == "vpara_mu":
     #                         obj.save_magnetic_moment()
 
-    #                     if val["space"] != "ParticlesSPH" and obj.f0.coords == "constants_of_motion":
-    #                         obj.save_constants_of_motion()
+    # obj.draw_markers(sort=True, verbose=self.verbose)
+    # if self.comm_world is not None:
+    #     obj.mpi_sort_markers(do_test=True)
 
     #                     obj.initialize_weights(
     #                         reject_weights=obj.weights_params["reject_weights"],
@@ -1012,7 +1014,8 @@ class StruphyModel(metaclass=ABCMeta):
                 obj._markers[:, :] = data.file["restart/" + key][-1, :, :]
 
                 # important: sets holes attribute of markers!
-                obj.mpi_sort_markers(do_test=True)
+                if self.comm_world is not None:
+                    obj.mpi_sort_markers(do_test=True)
 
     def initialize_data_output(self, data: DataContainer, size):
         """

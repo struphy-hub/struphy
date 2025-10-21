@@ -3,7 +3,6 @@ import pickle
 import shutil
 
 import h5py
-import numpy as np
 import yaml
 from tqdm import tqdm
 
@@ -20,6 +19,7 @@ from struphy.models.base import StruphyModel, setup_derham
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.arrays import xp as np
 
 
 class ParamsIn:

@@ -1,8 +1,7 @@
 import os
 
-import numpy as np
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
@@ -12,6 +11,7 @@ from struphy.initial import perturbations
 from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
 from struphy.kinetic_background import maxwellians
 from struphy.topology import grids
+from struphy.utils.arrays import xp as np
 
 test_folder = os.path.join(os.getcwd(), "verification_tests")
 

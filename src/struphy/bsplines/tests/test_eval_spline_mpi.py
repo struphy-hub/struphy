@@ -1,12 +1,12 @@
 from sys import int_info
 from time import sleep
 
-import numpy as np
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
+
+from struphy.utils.arrays import xp as np
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -20,7 +20,6 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
     from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
@@ -203,7 +202,6 @@ def test_eval_kernels(Nel, p, spl_kind, n_markers=10):
         assert np.allclose(val, val_mpi)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -216,7 +214,6 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
     from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
@@ -509,7 +506,6 @@ def test_eval_pointwise(Nel, p, spl_kind, n_markers=10):
         assert np.allclose(val, val_mpi)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3], [3, 1, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -534,7 +530,6 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence
@@ -671,7 +666,6 @@ def test_eval_tensor_product(Nel, p, spl_kind, n_markers=10):
     assert np.allclose(vals, vals_mpi_fast)
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 1], [2, 1, 2], [3, 4, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -692,7 +686,6 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     from struphy.feec.utilities import create_equal_random_arrays as cera
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     # Psydac discrete Derham sequence

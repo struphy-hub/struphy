@@ -6,11 +6,11 @@
 Class for control variates in delta-f method for current coupling scheme.
 """
 
-import numpy as np
 import scipy.sparse as spa
 
 import struphy.feec.basics.kernels_3d as ker
 import struphy.feec.control_variates.kernels_control_variate as ker_cv
+from struphy.utils.arrays import xp as np
 
 
 class terms_control_variate:

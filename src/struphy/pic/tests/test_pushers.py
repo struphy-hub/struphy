@@ -1,7 +1,8 @@
 import pytest
 
+from struphy.utils.pyccel import Pyccelkernel
 
-@pytest.mark.mpi(min_size=2)
+
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -22,8 +23,7 @@ import pytest
     ],
 )
 def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
@@ -34,6 +34,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -112,7 +113,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        pusher_kernels.push_vxb_analytic,
+        Pyccelkernel(pusher_kernels.push_vxb_analytic),
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -137,7 +138,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -158,8 +158,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     ],
 )
 def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
@@ -170,6 +169,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -255,7 +255,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        pusher_kernels.push_bxu_Hdiv,
+        Pyccelkernel(pusher_kernels.push_bxu_Hdiv),
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -284,7 +284,6 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -305,8 +304,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     ],
 )
 def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
@@ -317,6 +315,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -402,7 +401,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        pusher_kernels.push_bxu_Hcurl,
+        Pyccelkernel(pusher_kernels.push_bxu_Hcurl),
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -431,7 +430,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -452,8 +450,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     ],
 )
 def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
@@ -464,6 +461,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -549,7 +547,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        pusher_kernels.push_bxu_H1vec,
+        Pyccelkernel(pusher_kernels.push_bxu_H1vec),
         (
             derham.args_derham,
             b2_eq_psy[0]._data + b2_psy[0]._data,
@@ -578,7 +576,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -599,8 +596,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     ],
 )
 def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
@@ -611,6 +607,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -696,7 +693,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        pusher_kernels.push_bxu_Hdiv_pauli,
+        Pyccelkernel(pusher_kernels.push_bxu_Hdiv_pauli),
         (
             derham.args_derham,
             *derham.p,
@@ -727,7 +724,6 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
@@ -748,8 +744,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     ],
 )
 def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
@@ -761,6 +756,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -839,7 +835,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy = Pusher_psy(
         particles,
-        pusher_kernels.push_eta_stage,
+        Pyccelkernel(pusher_kernels.push_eta_stage),
         (butcher.a, butcher.b, butcher.c),
         domain.args_domain,
         alpha_in_kernel=1.0,

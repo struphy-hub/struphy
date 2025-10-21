@@ -2,11 +2,11 @@ import os
 import shutil
 
 import h5py
-import numpy as np
 import yaml
 from tqdm import tqdm
 
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
+from struphy.utils.arrays import xp as np
 
 
 def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):

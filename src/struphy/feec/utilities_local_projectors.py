@@ -1,6 +1,5 @@
-import numpy as np
-
 from struphy.feec.local_projectors_kernels import are_quadrature_points_zero, get_rows, select_quasi_points
+from struphy.utils.arrays import xp as np
 
 
 def split_points(

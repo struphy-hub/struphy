@@ -3,15 +3,15 @@ import pickle
 from pathlib import Path
 
 import h5py
-import numpy as np
 import yaml
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 from scipy.special import jv, yn
 
 import struphy
 from struphy.post_processing import pproc_struphy
+from struphy.utils.arrays import xp as np
 
 
 def VlasovAmpereOneSpecies_weakLandau(
