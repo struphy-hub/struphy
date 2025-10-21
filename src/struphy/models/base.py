@@ -7,7 +7,8 @@ from textwrap import indent
 
 import yaml
 from line_profiler import profile
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
+from psydac.ddm.mpi import MockMPI
 from psydac.linalg.stencil import StencilVector
 
 import struphy
@@ -525,7 +526,7 @@ class StruphyModel(metaclass=ABCMeta):
             value_array = np.array([value], dtype=np.float64)
 
             # Perform MPI operations based on the compute flags
-            if "sum_world" in compute_operations:
+            if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
                 MPI.COMM_WORLD.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
