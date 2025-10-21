@@ -1,8 +1,7 @@
 import os
-from matplotlib import pyplot as plt
 
+from matplotlib import pyplot as plt
 from psydac.ddm.mpi import mpi as MPI
-from struphy.utils.arrays import xp as np
 
 from struphy import main
 from struphy.fields_background import equils
@@ -19,6 +18,7 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.topology import grids
+from struphy.utils.arrays import xp as np
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 

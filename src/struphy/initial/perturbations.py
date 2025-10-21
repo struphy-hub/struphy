@@ -11,7 +11,6 @@ from struphy.io.options import GivenInBasis, NoiseDirections, check_option
 from struphy.utils.arrays import xp as np
 
 
-
 @dataclass
 class Noise(Perturbation):
     """White noise for FEEC coefficients.

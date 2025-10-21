@@ -2,7 +2,6 @@ import copy
 
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
-from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent

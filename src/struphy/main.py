@@ -10,12 +10,10 @@ from typing import Optional, TypedDict
 
 import h5py
 from line_profiler import profile
-
 from psydac.ddm.mpi import MockMPI
 from psydac.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 
-from struphy.utils.arrays import xp as np
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.equils import HomogenSlab
 from struphy.geometry import domains
@@ -40,6 +38,7 @@ from struphy.post_processing.post_processing_tools import (
 from struphy.profiling.profiling import ProfileManager
 from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 
@@ -104,7 +103,7 @@ def run(
     save_step = env.save_step
     sort_step = env.sort_step
     num_clones = env.num_clones
-    use_mpi = not comm is None,
+    use_mpi = (not comm is None,)
 
     meta = {}
     meta["platform"] = sysconfig.get_platform()

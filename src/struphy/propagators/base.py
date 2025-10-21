@@ -4,7 +4,6 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
 
-from struphy.utils.arrays import xp as np
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
@@ -15,6 +14,7 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.io.options import check_option
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.utils.arrays import xp as np
 
 
 class Propagator(metaclass=ABCMeta):

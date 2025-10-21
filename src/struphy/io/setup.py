@@ -5,11 +5,11 @@ import shutil
 import sys
 from types import ModuleType
 
+from psydac.ddm.mpi import mpi as MPI
+
 from struphy.geometry.base import Domain
 from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
-from psydac.ddm.mpi import mpi as MPI
-
 from struphy.utils.arrays import xp as np
 
 

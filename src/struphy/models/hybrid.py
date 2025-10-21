@@ -9,7 +9,6 @@ from struphy.propagators import propagators_coupling, propagators_fields, propag
 from struphy.utils.arrays import xp as np
 from struphy.utils.pyccel import Pyccelkernel
 
-
 rank = MPI.COMM_WORLD.Get_rank()
 
 

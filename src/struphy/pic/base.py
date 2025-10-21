@@ -9,8 +9,10 @@ import scipy.special as sp
 try:
     from mpi4py.MPI import Intracomm
 except ModuleNotFoundError:
+
     class Intracomm:
         x = None
+
 
 from line_profiler import profile
 from psydac.ddm.mpi import MockComm
