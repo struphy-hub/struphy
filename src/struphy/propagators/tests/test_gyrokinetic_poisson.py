@@ -10,8 +10,8 @@ from struphy.geometry.base import Domain
 from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
-from struphy.utils.arrays import xp as np
 from struphy.propagators.propagators_fields import ImplicitDiffusion
+from struphy.utils.arrays import xp as np
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
