@@ -1,5 +1,5 @@
 import struphy.pic.utilities_kernels as utils
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):

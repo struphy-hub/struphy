@@ -2,7 +2,7 @@ from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 

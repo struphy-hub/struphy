@@ -46,7 +46,7 @@ from struphy.pic.sph_eval_kernels import (
     naive_evaluation_meshgrid,
 )
 from struphy.utils import utils
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.pyccel import Pyccelkernel
 

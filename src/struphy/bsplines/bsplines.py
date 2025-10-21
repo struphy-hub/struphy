@@ -16,7 +16,7 @@ References
 
 """
 
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 __all__ = [
     "find_span",

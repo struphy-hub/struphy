@@ -5,7 +5,7 @@
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_2d as ker
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 # ================ mass matrix in V0 ===========================

@@ -9,7 +9,7 @@ Basic modules to create tensor-product finite element spaces of univariate B-spl
 import matplotlib
 import scipy.sparse as spa
 
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 matplotlib.rcParams.update({"font.size": 16})
 import matplotlib.pyplot as plt

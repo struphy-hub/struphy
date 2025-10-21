@@ -41,7 +41,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     # Set seed
     seed = 1234
@@ -300,7 +300,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     # Set seed
     seed = 1234
@@ -524,7 +524,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     # Set seed
     seed = 1234
@@ -819,7 +819,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     # Set seed
     seed = 1234

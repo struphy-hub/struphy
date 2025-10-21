@@ -60,7 +60,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.pic.accumulation.particles_to_grid import Accumulator
     from struphy.pic.particles import Particles6D
     from struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     if isinstance(MPI.COMM_WORLD, MockComm):
         mpi_comm = None

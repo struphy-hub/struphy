@@ -4,7 +4,7 @@
 import scipy
 import scipy.special
 
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class ModesSin:

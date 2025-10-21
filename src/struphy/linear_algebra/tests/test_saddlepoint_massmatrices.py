@@ -29,7 +29,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
     from struphy.geometry import domains
     from struphy.initial import perturbations
     from struphy.linear_algebra.saddle_point import SaddlePointSolver
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -375,7 +375,7 @@ def _plot_velocity(data_reshaped):
     import matplotlib
     import matplotlib.pyplot as plt
 
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     matplotlib.use("Agg")
 

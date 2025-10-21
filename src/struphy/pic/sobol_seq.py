@@ -19,7 +19,7 @@ from __future__ import division
 
 from scipy.stats import norm
 
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 __all__ = ["i4_bit_hi1", "i4_bit_lo0", "i4_sobol_generate", "i4_sobol", "i4_uniform", "prime_ge", "is_prime"]
 

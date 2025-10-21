@@ -36,7 +36,7 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     print("\nStart of eigenspectrum calculation for toroidal mode number", n_tor)
     print("")

@@ -7,7 +7,7 @@ from psydac.ddm.mpi import mpi as MPI
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 from struphy.pic.particles import ParticlesSPH
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 @pytest.mark.parametrize("ppb", [8, 12])

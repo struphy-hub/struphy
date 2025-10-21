@@ -8,7 +8,7 @@ from struphy.fields_background.equils import set_defaults
 from struphy.initial import perturbations
 from struphy.initial.utilities import Noise
 from struphy.kinetic_background import moment_functions
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class KineticBackground(metaclass=ABCMeta):

@@ -16,7 +16,7 @@ from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 
@@ -73,7 +73,7 @@ class PushEta(Propagator):
         # define algorithm
         butcher = ButcherTableau(algo)
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp as np
+        from struphy.utils.arrays import xp
 
         butcher._a = np.diag(butcher.a, k=-1)
         butcher._a = np.array(list(butcher.a) + [0.0])
@@ -714,7 +714,7 @@ class PushGuidingCenterBxEstar(Propagator):
         else:
             butcher = ButcherTableau(algo["method"])
             # temp fix due to refactoring of ButcherTableau:
-            from struphy.utils.arrays import xp as np
+            from struphy.utils.arrays import xp
 
             butcher._a = np.diag(butcher.a, k=-1)
             butcher._a = np.array(list(butcher.a) + [0.0])
@@ -1133,7 +1133,7 @@ class PushGuidingCenterParallel(Propagator):
         else:
             butcher = ButcherTableau(algo["method"])
             # temp fix due to refactoring of ButcherTableau:
-            from struphy.utils.arrays import xp as np
+            from struphy.utils.arrays import xp
 
             butcher._a = np.diag(butcher.a, k=-1)
             butcher._a = np.array(list(butcher.a) + [0.0])
@@ -1250,7 +1250,7 @@ class PushDeterministicDiffusion(Propagator):
         # choose algorithm
         self._butcher = ButcherTableau(algo)
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp as np
+        from struphy.utils.arrays import xp
 
         self._butcher._a = np.diag(self._butcher.a, k=-1)
         self._butcher._a = np.array(list(self._butcher.a) + [0.0])
@@ -1353,7 +1353,7 @@ class PushRandomDiffusion(Propagator):
         # choose algorithm
         self._butcher = ButcherTableau("forward_euler")
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp as np
+        from struphy.utils.arrays import xp
 
         self._butcher._a = np.diag(self._butcher.a, k=-1)
         self._butcher._a = np.array(list(self._butcher.a) + [0.0])

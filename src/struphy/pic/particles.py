@@ -6,7 +6,7 @@ from struphy.geometry.base import Domain
 from struphy.kinetic_background import maxwellians
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class Particles6D(Particles):

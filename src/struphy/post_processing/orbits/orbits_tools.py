@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from struphy.io.setup import setup_domain_and_equil
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):

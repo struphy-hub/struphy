@@ -40,7 +40,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

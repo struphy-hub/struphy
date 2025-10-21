@@ -10,7 +10,7 @@ else:
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 

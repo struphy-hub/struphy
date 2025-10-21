@@ -49,7 +49,7 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 

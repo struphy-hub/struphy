@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from psydac.ddm.mpi import mpi as MPI
 
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 from struphy.utils.utils import dict_to_yaml
 
 
