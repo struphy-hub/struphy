@@ -29,7 +29,7 @@ def struphy_run(
     cprofile=False,
     verbose=False,
     likwid=False,
-    nperdomain=None,
+    xp.rdomain=None,
     stats=None,
     marker=None,
     hpcmd_suspend=None,
@@ -88,7 +88,7 @@ def struphy_run(
     likwid : bool
         Whether to run with Likwid (Needs to be installed first). Default is False.
 
-    nperdomain
+    xp.rdomain
     stats=None,
     marker=None,
     hpcmd_suspend=None,
@@ -125,8 +125,8 @@ def struphy_run(
         # if likwid_inp is None and likwid_input_abs is None:
         #     # use default likwid parameters
         likwid_command = ["likwid-mpirun", "-n", str(mpi), "-g", group, "-mpi", "openmpi"]
-        if nperdomain:
-            likwid_command += ["-nperdomain", nperdomain]
+        if xp.rdomain:
+            likwid_command += ["-xp.rdomain", xp.rdomain]
         if stats:
             likwid_command += ["-stats"]
         if marker:

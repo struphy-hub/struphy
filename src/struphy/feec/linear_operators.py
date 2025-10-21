@@ -66,14 +66,14 @@ class LinOpWithTransp(LinearOperator):
         if is_sparse == False:
             if out is None:
                 # We declare the matrix form of our linear operator
-                out = np.zeros([self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
+                out = xp.zeros([self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
             else:
-                assert isinstance(out, np.ndarray)
+                assert isinstance(out, xp.ndarray)
                 assert out.shape[0] == self.codomain.dimension
                 assert out.shape[1] == self.domain.dimension
 
             # We use this matrix to store the partial results that we shall combine into the final matrix with a reduction at the end
-            result = np.zeros((self.codomain.dimension, self.domain.dimension), dtype=self.dtype)
+            result = xp.zeros((self.codomain.dimension, self.domain.dimension), dtype=self.dtype)
         else:
             if out is not None:
                 raise Exception("If is_sparse is True then out must be set to None.")
@@ -90,17 +90,17 @@ class LinOpWithTransp(LinearOperator):
             starts = [vi.starts for vi in v]
             ends = [vi.ends for vi in v]
             # We collect the dimension of the BlockVector
-            npts = [sp.npts for sp in self.domain.spaces]
+            xp.s = [sp.xp.s for sp in self.domain.spaces]
             # We get the number of space we have
             nsp = len(self.domain.spaces)
             # We get the number of dimensions each space has.
             ndim = [sp.ndim for sp in self.domain.spaces]
 
             # First each rank is going to need to know the starts and ends of all other ranks
-            startsarr = np.array([starts[i][j] for i in range(nsp) for j in range(ndim[i])], dtype=int)
+            startsarr = xp.array([starts[i][j] for i in range(nsp) for j in range(ndim[i])], dtype=int)
 
             # Create an array to store gathered data from all ranks
-            allstarts = np.empty(size * len(startsarr), dtype=int)
+            allstarts = xp.empty(size * len(startsarr), dtype=int)
 
             # Use Allgather to gather 'starts' from all ranks into 'allstarts'
             if comm is None or isinstance(comm, MockComm):
@@ -111,9 +111,9 @@ class LinOpWithTransp(LinearOperator):
             # Reshape 'allstarts' to have 9 columns and 'size' rows
             allstarts = allstarts.reshape((size, len(startsarr)))
 
-            endsarr = np.array([ends[i][j] for i in range(nsp) for j in range(ndim[i])], dtype=int)
+            endsarr = xp.array([ends[i][j] for i in range(nsp) for j in range(ndim[i])], dtype=int)
             # Create an array to store gathered data from all ranks
-            allends = np.empty(size * len(endsarr), dtype=int)
+            allends = xp.empty(size * len(endsarr), dtype=int)
 
             # Use Allgather to gather 'ends' from all ranks into 'allends'
             if comm is None or isinstance(comm, MockComm):
@@ -127,16 +127,16 @@ class LinOpWithTransp(LinearOperator):
             currentrank = 0
             # Each rank will take care of setting to 1 each one of its entries while all other entries remain zero.
             while currentrank < size:
-                # since the size of npts changes denpending on h we need to compute a starting point for
+                # since the size of xp.s changes denpending on h we need to compute a starting point for
                 # our column index
                 spoint = 0
-                npredim = 0
+                xp.edim = 0
                 # We iterate over the stencil vectors inside the BlockVector
                 for h in range(nsp):
                     itterables = []
                     for i in range(ndim[h]):
                         itterables.append(
-                            range(allstarts[currentrank][i + npredim], allends[currentrank][i + npredim] + 1)
+                            range(allstarts[currentrank][i + xp.edim], allends[currentrank][i + xp.edim] + 1)
                         )
                     # We iterate over all the entries that belong to rank number currentrank
                     for i in itertools.product(*itterables):
@@ -148,13 +148,13 @@ class LinOpWithTransp(LinearOperator):
                         self.dot(v, out=tmp2)
                         # Compute to which column this iteration belongs
                         col = spoint
-                        col += np.ravel_multi_index(i, npts[h])
+                        col += xp.ravel_multi_index(i, xp.s[h])
                         if is_sparse == False:
                             result[:, col] = tmp2.toarray()
                         else:
                             aux = tmp2.toarray()
                             # We now need to now which entries on tmp2 are non-zero and store then in our data list
-                            for l in np.where(aux != 0)[0]:
+                            for l in xp.where(aux != 0)[0]:
                                 data.append(aux[l])
                                 colarr.append(col)
                                 row.append(l)
@@ -163,25 +163,25 @@ class LinOpWithTransp(LinearOperator):
                         v[h].update_ghost_regions()
                     cummulative = 1
                     for i in range(ndim[h]):
-                        cummulative *= npts[h][i]
+                        cummulative *= xp.s[h][i]
                     spoint += cummulative
-                    npredim += ndim[h]
+                    xp.edim += ndim[h]
                 currentrank += 1
         elif isinstance(self.domain, StencilVectorSpace):
             # We get the start and endpoint for each sublist in v
             starts = v.starts
             ends = v.ends
             # We get the dimensions of the StencilVector
-            npts = self.domain.npts
+            xp.s = self.domain.xp.s
             # We get the number of space we have
             nsp = 1
             # We get the number of dimensions the StencilVectorSpace has.
             ndim = self.domain.ndim
 
             # First each rank is going to need to know the starts and ends of all other ranks
-            startsarr = np.array([starts[j] for j in range(ndim)], dtype=int)
+            startsarr = xp.array([starts[j] for j in range(ndim)], dtype=int)
             # Create an array to store gathered data from all ranks
-            allstarts = np.empty(size * len(startsarr), dtype=int)
+            allstarts = xp.empty(size * len(startsarr), dtype=int)
 
             # Use Allgather to gather 'starts' from all ranks into 'allstarts'
             if comm is None or isinstance(comm, MockComm):
@@ -192,9 +192,9 @@ class LinOpWithTransp(LinearOperator):
             # Reshape 'allstarts' to have 3 columns and 'size' rows
             allstarts = allstarts.reshape((size, len(startsarr)))
 
-            endsarr = np.array([ends[j] for j in range(ndim)], dtype=int)
+            endsarr = xp.array([ends[j] for j in range(ndim)], dtype=int)
             # Create an array to store gathered data from all ranks
-            allends = np.empty(size * len(endsarr), dtype=int)
+            allends = xp.empty(size * len(endsarr), dtype=int)
 
             # Use Allgather to gather 'ends' from all ranks into 'allends'
             if comm is None or isinstance(comm, MockComm):
@@ -219,13 +219,13 @@ class LinOpWithTransp(LinearOperator):
                     # Compute dot product with the linear operator.
                     self.dot(v, out=tmp2)
                     # Compute to which column this iteration belongs
-                    col = np.ravel_multi_index(i, npts)
+                    col = xp.ravel_multi_index(i, xp.s)
                     if is_sparse == False:
                         result[:, col] = tmp2.toarray()
                     else:
                         aux = tmp2.toarray()
                         # We now need to now which entries on tmp2 are non-zero and store then in our data list
-                        for l in np.where(aux != 0)[0]:
+                        for l in xp.where(aux != 0)[0]:
                             data.append(aux[l])
                             colarr.append(col)
                             row.append(l)
@@ -334,9 +334,9 @@ class BoundaryOperator(LinOpWithTransp):
             vec_space_ten = vector_space
 
         if isinstance(vec_space_ten, StencilVectorSpace):
-            n_pts = vec_space_ten.npts
+            n_pts = vec_space_ten.xp.s
         else:
-            n_pts = [comp.npts for comp in vec_space_ten.spaces]
+            n_pts = [comp.xp.s for comp in vec_space_ten.spaces]
 
         dim_nz1_pol = 1
         dim_nz2_pol = 1

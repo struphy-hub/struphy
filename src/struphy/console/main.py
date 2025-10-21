@@ -591,7 +591,7 @@ def add_parser_run(subparsers, list_models, model_message, params_files, batch_f
             help="likwid measurement group",
         )
         parser_performance.add_argument(
-            "--nperdomain",
+            "--xp.rdomain",
             default=None,  # Example: S:36 means 36 cores/socket
             type=str,
             help="Set the number of processes per node by giving an affinity domain and count",

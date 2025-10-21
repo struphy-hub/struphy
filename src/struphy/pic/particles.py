@@ -303,7 +303,7 @@ class Particles5D(Particles):
     name : str
         Name of particle species.
 
-    Np : int
+    xp.: int
         Number of particles.
 
     bc : list
@@ -629,7 +629,7 @@ class Particles3D(Particles):
     name : str
         Name of particle species.
 
-    Np : int
+    xp.: int
         Number of particles.
 
     bc : list

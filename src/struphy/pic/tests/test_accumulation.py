@@ -24,7 +24,7 @@ from struphy.utils.pyccel import Pyccelkernel
         ],
     ],
 )
-def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
+def test_accumulation(Nel, p, spl_kind, mapping, xp.40, verbose=False):
     """
     A test to compare the old accumulation routine of step1 and step3 of cc_lin_mhd_6d with the old way (files stored in
     ../test_pic_legacy_files) and the new way using the Accumulator object (ghost_region_sender, particle_to_mat_kernels).
@@ -40,12 +40,12 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
 
     rank = MPI.COMM_WORLD.Get_rank()
 
-    pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose)
+    pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, xp. verbose)
     if verbose and rank == 0:
         print("\nTest for Step ph passed\n")
 
 
-def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
+def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, xp. verbose=False):
     from time import time
 
     from psydac.ddm.mpi import MockComm
@@ -83,8 +83,8 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
 
     domain_array = derham.domain_array
-    nprocs = derham.domain_decomposition.nprocs
-    domain_decomp = (domain_array, nprocs)
+    xp.ocs = derham.domain_decomposition.xp.ocs
+    domain_decomp = (domain_array, xp.ocs)
 
     mass_ops = WeightedMassOperators(derham, domain)
 
@@ -92,7 +92,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
         print(derham.domain_array)
 
     # load distributed markers first and use Send/Receive to make global marker copies for the legacy routines
-    loading_params = LoadingParameters(Np=Np, seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
+    loading_params = LoadingParameters(xp.xp. seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
 
     particles = Particles6D(
         comm_world=mpi_comm,
@@ -107,17 +107,17 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     particles.markers[
         ~particles.holes,
         6,
-    ] = np.random.rand(particles.n_mks_loc)
+    ] = xp.random.rand(particles.n_mks_loc)
 
     # gather all particles for legacy kernel
     if mpi_comm is None:
-        marker_shapes = np.array([particles.markers.shape[0]])
+        marker_shapes = xp.array([particles.markers.shape[0]])
     else:
-        marker_shapes = np.zeros(mpi_size, dtype=int)
-        mpi_comm.Allgather(np.array([particles.markers.shape[0]]), marker_shapes)
+        marker_shapes = xp.zeros(mpi_size, dtype=int)
+        mpi_comm.Allgather(xp.array([particles.markers.shape[0]]), marker_shapes)
     print(rank, marker_shapes)
 
-    particles_leg = np.zeros(
+    particles_leg = xp.zeros(
         (sum(marker_shapes), particles.markers.shape[1]),
         dtype=float,
     )
@@ -128,7 +128,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
         cumulative_lengths = marker_shapes[0]
 
         for i in range(1, mpi_size):
-            arr_recv = np.zeros(
+            arr_recv = xp.zeros(
                 (marker_shapes[i], particles.markers.shape[1]),
                 dtype=float,
             )
@@ -161,10 +161,10 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
 
     for a in range(3):
         Ni = SPACES.Nbase_1form[a]
-        vec[a] = np.zeros((Ni[0], Ni[1], Ni[2], 3), dtype=float)
+        vec[a] = xp.zeros((Ni[0], Ni[1], Ni[2], 3), dtype=float)
 
         for b in range(3):
-            mat[a][b] = np.zeros(
+            mat[a][b] = xp.zeros(
                 (
                     Ni[0],
                     Ni[1],
@@ -186,21 +186,21 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
         SPACES.T[0],
         SPACES.T[1],
         SPACES.T[2],
-        np.array(SPACES.p),
-        np.array(Nel),
-        np.array(SPACES.NbaseN),
-        np.array(SPACES.NbaseD),
+        xp.array(SPACES.p),
+        xp.array(Nel),
+        xp.array(SPACES.NbaseN),
+        xp.array(SPACES.NbaseD),
         particles_leg.shape[0],
         domain.kind_map,
         domain.params_numpy,
         domain.T[0],
         domain.T[1],
         domain.T[2],
-        np.array(domain.p),
-        np.array(
+        xp.array(domain.p),
+        xp.array(
             domain.Nel,
         ),
-        np.array(domain.NbaseN),
+        xp.array(domain.NbaseN),
         domain.cx,
         domain.cy,
         domain.cz,
@@ -217,7 +217,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     )
 
     end_time = time()
-    tot_time = np.round(end_time - start_time, 3)
+    tot_time = xp.round(end_time - start_time, 3)
 
     mat[0][0] /= Np
     mat[0][1] /= Np
@@ -250,7 +250,7 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     ACC(1.0, 1.0, 0.0)
 
     end_time = time()
-    tot_time = np.round(end_time - start_time, 3)
+    tot_time = xp.round(end_time - start_time, 3)
 
     if rank == 0 and verbose:
         print(f"Step ph New took {tot_time} seconds.")

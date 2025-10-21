@@ -388,10 +388,10 @@ def kernel_pullpush_pic(
     # tmp1 = zeros((3,), dtype=float)
     # tmp2 = zeros((3,), dtype=float)
 
-    np = shape(markers)[0]
+    xp.= shape(markers)[0]
 
     # check if a has holes or not
-    if shape(a)[0] == np:
+    if shape(a)[0] == xp.
         a_has_holes = True
     else:
         a_has_holes = False
@@ -399,7 +399,7 @@ def kernel_pullpush_pic(
     counter_a = 0
     counter_o = 0
 
-    for i in range(np):
+    for i in range(xp.:
         e1 = markers[i, 0]
         e2 = markers[i, 1]
         e3 = markers[i, 2]

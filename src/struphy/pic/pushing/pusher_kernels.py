@@ -3035,7 +3035,7 @@ def push_v_sph_pressure(
     h1, h2, h3 : float
         Kernel width in respective dimension.
 
-    gravity: np.ndarray
+    gravity: xp.ndarray
         Constant gravitational force as 3-vector.
     """
     # allocate arrays
@@ -3048,7 +3048,7 @@ def push_v_sph_pressure(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
@@ -3266,7 +3266,7 @@ def push_v_sph_pressure_ideal_gas(
     h1, h2, h3 : float
         Kernel width in respective dimension.
 
-    gravity: np.ndarray
+    gravity: xp.ndarray
         Constant gravitational force as 3-vector.
     """
     # allocate arrays
@@ -3279,7 +3279,7 @@ def push_v_sph_pressure_ideal_gas(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks
@@ -3498,7 +3498,7 @@ def push_v_viscosity(
     h1, h2, h3 : float
         Kernel width in respective dimension.
 
-    gravity: np.ndarray
+    gravity: xp.ndarray
         Constant gravitational force as 3-vector.
     """
     # allocate arrays
@@ -3511,7 +3511,7 @@ def push_v_viscosity(
     # get marker arguments
     markers = args_markers.markers
     n_markers = args_markers.n_markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
     valid_mks = args_markers.valid_mks

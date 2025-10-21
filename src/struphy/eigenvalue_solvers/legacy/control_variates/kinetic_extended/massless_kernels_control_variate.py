@@ -580,7 +580,7 @@ def vv(
     bb2: "float[:,:,:]",
     bb3: "float[:,:,:]",
     u: "float[:,:,:]",
-    Np_loc: "int",
+    xp.loc: "int",
     NbaseN: "int[:]",
     NbaseD: "int[:]",
     Nel: "int[:]",
@@ -684,7 +684,7 @@ def vv(
 
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (eta1, eta2, eta3, x, span1, span2, span3, ip, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, vel, vel2, dfinv, U_value, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, Jeq)
-    for ip in range(Np_loc):
+    for ip in range(xp.loc):
         vel[:] = 0.0
 
         eta1 = particles[0, ip]

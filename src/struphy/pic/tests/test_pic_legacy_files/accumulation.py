@@ -69,22 +69,22 @@ class Accumulator:
             else:
                 Ni = getattr(self.space, "Nbase_" + str(self.basis_u) + "form")[a]
 
-            self.vecs_loc[a] = np.empty((Ni[0], Ni[1], Ni[2]), dtype=float)
-            self.vecs_glo[a] = np.empty((Ni[0], Ni[1], Ni[2]), dtype=float)
+            self.vecs_loc[a] = xp.empty((Ni[0], Ni[1], Ni[2]), dtype=float)
+            self.vecs_glo[a] = xp.empty((Ni[0], Ni[1], Ni[2]), dtype=float)
 
             for b in range(3):
                 if self.space.dim == 2:
-                    self.blocks_loc[a][b] = np.empty(
+                    self.blocks_loc[a][b] = xp.empty(
                         (Ni[0], Ni[1], Ni[2], 2 * self.space.p[0] + 1, 2 * self.space.p[1] + 1, self.space.NbaseN[2]),
                         dtype=float,
                     )
-                    self.blocks_glo[a][b] = np.empty(
+                    self.blocks_glo[a][b] = xp.empty(
                         (Ni[0], Ni[1], Ni[2], 2 * self.space.p[0] + 1, 2 * self.space.p[1] + 1, self.space.NbaseN[2]),
                         dtype=float,
                     )
 
                 else:
-                    self.blocks_loc[a][b] = np.empty(
+                    self.blocks_loc[a][b] = xp.empty(
                         (
                             Ni[0],
                             Ni[1],
@@ -95,7 +95,7 @@ class Accumulator:
                         ),
                         dtype=float,
                     )
-                    self.blocks_glo[a][b] = np.empty(
+                    self.blocks_glo[a][b] = xp.empty(
                         (
                             Ni[0],
                             Ni[1],
@@ -134,16 +134,16 @@ class Accumulator:
                     Ni = self.space.Nbase_2form[a]
                     Nj = self.space.Nbase_2form[b]
 
-                indices = np.indices(self.blocks_glo[a][b].shape)
+                indices = xp.indices(self.blocks_glo[a][b].shape)
 
                 row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-                shift = [np.arange(Ni) - p for Ni, p in zip(Ni[:2], self.space.p[:2])]
+                shift = [xp.arange(Ni) - p for Ni, p in zip(Ni[:2], self.space.p[:2])]
 
                 if self.space.dim == 2:
-                    shift += [np.zeros(self.space.NbaseN[2], dtype=int)]
+                    shift += [xp.zeros(self.space.NbaseN[2], dtype=int)]
                 else:
-                    shift += [np.arange(Ni[2]) - self.space.p[2]]
+                    shift += [xp.arange(Ni[2]) - self.space.p[2]]
 
                 col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
                 col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
@@ -201,16 +201,16 @@ class Accumulator:
                     Ni = self.space.Nbase_2form[a]
                     Nj = self.space.Nbase_2form[b]
 
-                indices = np.indices(self.blocks_glo[a][b].shape)
+                indices = xp.indices(self.blocks_glo[a][b].shape)
 
                 row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-                shift = [np.arange(Ni) - p for Ni, p in zip(Ni[:2], self.space.p[:2])]
+                shift = [xp.arange(Ni) - p for Ni, p in zip(Ni[:2], self.space.p[:2])]
 
                 if self.space.dim == 2:
-                    shift += [np.zeros(self.space.NbaseN[2], dtype=int)]
+                    shift += [xp.zeros(self.space.NbaseN[2], dtype=int)]
                 else:
-                    shift += [np.arange(Ni[2]) - self.space.p[2]]
+                    shift += [xp.arange(Ni[2]) - self.space.p[2]]
 
                 col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
                 col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
@@ -242,7 +242,7 @@ class Accumulator:
         return M
 
     # ===============================================================
-    def accumulate_step1(self, particles_loc, Np, b2_eq, b2, mpi_comm):
+    def accumulate_step1(self, particles_loc, xp. b2_eq, b2, mpi_comm):
         """TODO"""
 
         b2_1, b2_2, b2_3 = self.space.extract_2(b2)
@@ -321,7 +321,7 @@ class Accumulator:
         self.blocks_glo[1][2] /= Np
 
     # ===============================================================
-    def accumulate_step3(self, particles_loc, Np, b2_eq, b2, mpi_comm):
+    def accumulate_step3(self, particles_loc, xp. b2_eq, b2, mpi_comm):
         """TODO"""
 
         b2_1, b2_2, b2_3 = self.space.extract_2(b2)
@@ -426,7 +426,7 @@ class Accumulator:
         self.vecs_glo[2] /= Np
 
     # ===============================================================
-    def accumulate_step_ph_full(self, particles_loc, Np, mpi_comm):
+    def accumulate_step_ph_full(self, particles_loc, xp. mpi_comm):
         """TODO"""
 
         if self.space.dim == 2:
@@ -528,15 +528,15 @@ class Accumulator:
         # build global sparse matrix and global vector
         if self.basis_u == 0:
             return self.to_sparse_step3(), self.space.Ev_0.dot(
-                np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
+                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
             )
 
         elif self.basis_u == 1:
             return self.to_sparse_step3(), self.space.E1_0.dot(
-                np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
+                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
             )
 
         elif self.basis_u == 2:
             return self.to_sparse_step3(), self.space.E2_0.dot(
-                np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
+                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
             )

@@ -45,7 +45,7 @@ def naive_evaluation_kernel(
     markers : array[float]
         Markers array.
 
-    Np : int
+    xp.: int
         Total number of particles.
 
     holes : bool
@@ -65,7 +65,7 @@ def naive_evaluation_kernel(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     n_particles = len(markers)
     out = 0.0
@@ -117,7 +117,7 @@ def boxed_based_kernel(
     markers : array[float]
         Markers array.
 
-    Np : int
+    xp.: int
         Total number of particles.
 
     holes : bool
@@ -137,7 +137,7 @@ def boxed_based_kernel(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     out = 0.0
     for neigh in range(27):
@@ -185,7 +185,7 @@ def naive_evaluation_flat(
     markers : array[float]
         Markers array.
 
-    Np : int
+    xp.: int
         Total number of particles.
 
     holes : bool
@@ -208,7 +208,7 @@ def naive_evaluation_flat(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     n_eval = len(eta1)
     out[:] = 0.0
@@ -261,7 +261,7 @@ def naive_evaluation_meshgrid(
     markers : array[float]
         Markers array.
 
-    Np : int
+    xp.: int
         Total number of particles.
 
     holes : bool
@@ -284,7 +284,7 @@ def naive_evaluation_meshgrid(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     n_eval_1 = eta1.shape[0]
     n_eval_2 = eta1.shape[1]
@@ -350,7 +350,7 @@ def box_based_evaluation_flat(
     markers : array[float]
         Markers array.
 
-    Np : int
+    xp.: int
         Total number of particles.
 
     holes : bool
@@ -373,7 +373,7 @@ def box_based_evaluation_flat(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     n_eval = len(eta1)
     out[:] = 0.0
@@ -459,7 +459,7 @@ def box_based_evaluation_meshgrid(
     markers : array[float]
         Markers array.
 
-    Np : int
+    xp.: int
         Total number of particles.
 
     holes : bool
@@ -482,7 +482,7 @@ def box_based_evaluation_meshgrid(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     n_eval_1 = eta1.shape[0]
     n_eval_2 = eta1.shape[1]

@@ -1,7 +1,7 @@
 import os
 
 import vtkmodules.all as vtk
-from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk
+from vtkmodules.util.numpy_support import numpy_to_vtk as xp.vtk
 from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
 from vtkmodules.vtkIOXML import vtkXMLRectilinearGridWriter, vtkXMLUnstructuredGridWriter
 

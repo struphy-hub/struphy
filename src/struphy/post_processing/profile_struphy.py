@@ -47,7 +47,7 @@ def main():
     # load data
     sim_names = []
     dicts_pre = []
-    nproc = []
+    xp.oc = []
     Nel = []
     for path in sys.argv[4:]:
         print("")
@@ -61,7 +61,7 @@ def main():
         with open(path + "meta.txt", "r") as f:
             lines = f.readlines()
 
-        nproc += [int(lines[4].split()[-1])]
+        xp.oc += [int(lines[4].split()[-1])]
 
         with open(path + "parameters.yml", "r") as f:
             params = yaml.load(f, Loader=yaml.FullLoader)
@@ -98,7 +98,7 @@ def main():
     print("-" * 154)
     for position, key in enumerate(dicts[0].keys()):
         if list_of_funcs == None:
-            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
+            for dict, sim_name, n, dim in zip(dicts, sim_names, xp.oc, Nel):
                 string = f"{sim_name}".ljust(20) + f"{n}".ljust(7) + f"{position:2d}".ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
@@ -116,7 +116,7 @@ def main():
         elif any(func in key for func in list_of_funcs) and "dependencies_" not in key and "_dot" not in key:
             d_saved[key] = {"mpi_size": [], "Nel": [], "time": []}
 
-            for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
+            for dict, sim_name, n, dim in zip(dicts, sim_names, xp.oc, Nel):
                 string = f"{sim_name}".ljust(20) + f"{n}".ljust(7) + f"{position:2d}".ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
                     string += str(value).ljust(15)
@@ -150,17 +150,17 @@ def main():
                 plt.ylabel("time [s]")
                 plt.title("Strong scaling for Nel=" + str(val["Nel"][0]) + " cells")
                 plt.legend(loc="lower left")
-                plt.loglog(val["mpi_size"], val["time"][0] / 2 ** np.arange(len(val["time"])), "k--", alpha=0.3)
+                plt.loglog(val["mpi_size"], val["time"][0] / 2 ** xp.arange(len(val["time"])), "k--", alpha=0.3)
             # weak scaling plot
             else:
                 plt.plot(val["mpi_size"], val["time"], label=key)
                 plt.xlabel("mpi_size")
                 plt.ylabel("time [s]")
                 plt.title(
-                    "Weak scaling for cells/mpi_size=" + str(np.prod(val["Nel"][0]) / val["mpi_size"][0]) + "=const."
+                    "Weak scaling for cells/mpi_size=" + str(xp.prod(val["Nel"][0]) / val["mpi_size"][0]) + "=const."
                 )
                 plt.legend(loc="upper left")
-                # plt.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
+                # plt.loglog(val['mpi_size'], val['time'][0]*xp.ones_like(val['time']), 'k--', alpha=0.3)
                 plt.xscale("log")
 
     plt.show()

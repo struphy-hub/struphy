@@ -12,7 +12,7 @@ class CloneConfig:
     into sub_comm (for intra-clone communication) and inter_comm (for
     cross-clone communication).
 
-    It also provides a method for getting the Np for the current clone, this is needed
+    It also provides a method for getting the xp.for the current clone, this is needed
     for injecting the correct number of particles in each clone.
     """
 
@@ -70,16 +70,16 @@ class CloneConfig:
             self._inter_comm = comm.Split(self.clone_rank, rank)
             self._clone_id = self.inter_comm.Get_rank()
 
-    def get_Np_clone(self, Np, clone_id=None):
+    def get_Np_clone(self, xp. clone_id=None):
         """
         Distribute the total number of particles among clones.
 
-        Given the total particle count (Np), this method calculates how many particles
+        Given the total particle count (xp., this method calculates how many particles
         should be allocated to a specific clone. The distribution is even, with any remainder
         distributed to the first few clones.
 
         Parameters:
-            Np : int
+            xp.: int
                 Total number of particles to be distributed.
             clone_id : int, optional
                 The identifier of the clone. If None, the current clone's ID is used.
@@ -92,22 +92,22 @@ class CloneConfig:
             clone_id = self.clone_id
 
         # Calculate the base value and remainder
-        base_value = Np // self.num_clones
-        remainder = Np % self.num_clones
+        base_value = xp.// self.num_clones
+        remainder = xp.% self.num_clones
 
-        Np_clone = base_value
+        xp.clone = base_value
 
         if clone_id < remainder:
-            Np_clone += 1
+            xp.clone += 1
 
-        return Np_clone
+        return xp.clone
 
     def get_Np_global(self, species_name):
         """
-        Return the total particle count (Np).
+        Return the total particle count (xp..
 
-        If Np is not explicitly set in the params,
-        then Np is calculated based on ppc or ppb.
+        If xp.is not explicitly set in the params,
+        then xp.is calculated based on ppc or ppb.
 
         Parameters:
             species_name: str
@@ -119,13 +119,13 @@ class CloneConfig:
         species = self.params["kinetic"][species_name]
         markers = species["markers"]
 
-        if "Np" in markers:
-            return markers["Np"]
+        if "xp. in markers:
+            return markers["xp.]
         elif "ppc" in markers:
-            n_cells = np.prod(self.params["grid"]["Nel"], dtype=int)
+            n_cells = xp.prod(self.params["grid"]["Nel"], dtype=int)
             return int(markers["ppc"] * n_cells)
         elif "ppb" in markers:
-            n_boxes = np.prod(species["boxes_per_dim"], dtype=int) * self.num_clones
+            n_boxes = xp.prod(species["boxes_per_dim"], dtype=int) * self.num_clones
             return int(markers["ppb"] * n_boxes)
 
     def print_clone_config(self):
@@ -176,7 +176,7 @@ class CloneConfig:
                 _skip = True
             else:
                 for name, species in self.params["kinetic"].items():
-                    if ("Np" not in species["markers"]) and ("ppc" not in species["markers"]):
+                    if ("xp. not in species["markers"]) and ("ppc" not in species["markers"]):
                         _skip = True
 
             if _skip:
@@ -186,7 +186,7 @@ class CloneConfig:
 
             assert "grid" in self.params
 
-            marker_keys = ["Np", "ppc"]
+            marker_keys = ["xp., "ppc"]
 
             species_list = list([sp for sp in self.params["kinetic"].keys()])
             column_sums = {species_name: {marker_key: 0 for marker_key in marker_keys} for species_name in species_list}
@@ -208,17 +208,17 @@ class CloneConfig:
             for species_name in species_list:
                 for i_clone in range(self.num_clones):
                     row = f"{i_clone:6} "
-                    # Np = self.params["kinetic"][species_name]["markers"]["Np"]
-                    Np = self.get_Np_global(species_name)
-                    n_cells_clone = np.prod(self.params["grid"]["Nel"])
+                    # xp.= self.params["kinetic"][species_name]["markers"]["xp.]
+                    xp.= self.get_Np_global(species_name)
+                    n_cells_clone = xp.prod(self.params["grid"]["Nel"])
 
-                    Np_clone = self.get_Np_clone(Np, clone_id=i_clone)
-                    ppc_clone = Np_clone / n_cells_clone
+                    xp.clone = self.get_Np_clone(xp. clone_id=i_clone)
+                    ppc_clone = xp.clone / n_cells_clone
 
-                    row += f"| {str(Np_clone):30} "
+                    row += f"| {str(xp.clone):30} "
                     row += f"| {str(ppc_clone):30} "
 
-                    column_sums[species_name]["Np"] += Np_clone
+                    column_sums[species_name]["xp.] += xp.clone
                     column_sums[species_name]["ppc"] += ppc_clone
 
                     rows += row + "\n"

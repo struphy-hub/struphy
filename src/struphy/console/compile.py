@@ -169,7 +169,7 @@ def struphy_compile(
             f"\ncompiler={state['last_used_compiler']}\nflags_omp_pic={state['last_used_omp_pic']}\nflags_omp_feec={state['last_used_omp_feec']}",
         )
         if len(list_not_compiled) > 0:
-            print("\nPure Python kernels (not compiled) are:")
+            print("\xp.re Python kernels (not compiled) are:")
             for ker in list_not_compiled:
                 print(ker)
 

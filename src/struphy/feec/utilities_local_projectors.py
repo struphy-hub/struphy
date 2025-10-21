@@ -10,7 +10,7 @@ def split_points(
     starts,
     ends,
     p,
-    npts,
+    xp.s,
     periodic,
     wij,
     whij,
@@ -32,10 +32,10 @@ def split_points(
     shifts : 1d int array
         For each one of the three spatial directions it determines by which amount to shift the position index (pos) in case we have to loop over the evaluation points.
 
-    pts : list of np.array
+    pts : list of xp.array
         3D list of 2D array with the quasi-interpolation points
         (or Gauss-Legendre quadrature points for histopolation).
-        In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces .
+        In format (ns, nb, xp. = (spatial direction, B-spline index, point) for StencilVector spaces .
 
     starts : 1D int array
         Array with the BlockVector (or StencilVector) start indices for each MPI rank.
@@ -46,10 +46,10 @@ def split_points(
     p : 1D int array
         Contains the B-splines degrees for each one of the three spatial directions.
 
-    npts : list of ints
+    xp.s : list of ints
         Contains the number of B-splines for each one of the three spatial directions.
 
-    periodic : 1D bool np.array
+    periodic : 1D bool xp.array
         For each one of the three spatial directions contains the information of whether the B-splines are periodic or not.
 
     wij: 3d float array
@@ -74,18 +74,18 @@ def split_points(
     """
     # We iterate over the three spatial directions
     for n, pt in enumerate(pts):
-        original_pts_size[n] = np.shape(pt)[0]
+        original_pts_size[n] = xp.shape(pt)[0]
         # We initialize localpts with as many entries as the global pt, but with all entries being -1
         # This function will change the values of the needed entries from -1 to the value of the point.
         if IoH[n] == "I":
-            localpts = np.full((np.shape(pt)[0]), fill_value=-1, dtype=float)
+            localpts = xp.full((xp.shape(pt)[0]), fill_value=-1, dtype=float)
         elif IoH[n] == "H":
-            localpts = np.full((np.shape(pt)), fill_value=-1, dtype=float)
+            localpts = xp.full((xp.shape(pt)), fill_value=-1, dtype=float)
 
         for i in range(starts[n], ends[n] + 1):
-            startj1, endj1 = select_quasi_points(int(i), int(p[n]), int(npts[n]), bool(periodic[n]))
+            startj1, endj1 = select_quasi_points(int(i), int(p[n]), int(xp.s[n]), bool(periodic[n]))
             for j1 in range(lenj[n]):
-                if startj1 + j1 < np.shape(pt)[0]:
+                if startj1 + j1 < xp.shape(pt)[0]:
                     pos = startj1 + j1
                 else:
                     pos = int(startj1 + j1 + shift[n])
@@ -97,42 +97,42 @@ def split_points(
                         localpts[pos] = pt[pos]
         # We get the local points by grabing only the values different from -1.
         if IoH[n] == "I":
-            localpos = np.where(localpts != -1)[0]
+            localpos = xp.where(localpts != -1)[0]
         elif IoH[n] == "H":
-            localpos = np.where(localpts[:, 0] != -1)[0]
+            localpos = xp.where(localpts[:, 0] != -1)[0]
         localpts = localpts[localpos]
-        localptsout.append(np.array(localpts))
+        localptsout.append(xp.array(localpts))
 
         ##
         # We build the index_translation array that shall turn global indices into local indices
         ##
-        mini_indextranslation = np.full(
-            (np.shape(pt)[0]),
+        mini_indextranslation = xp.full(
+            (xp.shape(pt)[0]),
             fill_value=-1,
             dtype=int,
         )
         for i, j in enumerate(localpos):
             mini_indextranslation[j] = i
 
-        index_translation.append(np.array(mini_indextranslation))
+        index_translation.append(xp.array(mini_indextranslation))
 
         ##
         # We build the inv_index_translation that shall turn local indices into global indices
         ##
 
-        inv_mini_indextranslation = np.full(
-            (np.shape(localptsout[-1])[0]),
+        inv_mini_indextranslation = xp.full(
+            (xp.shape(localptsout[-1])[0]),
             fill_value=-1,
             dtype=int,
         )
         for i, j in enumerate(localpos):
             inv_mini_indextranslation[i] = j
 
-        inv_index_translation.append(np.array(inv_mini_indextranslation))
+        inv_index_translation.append(xp.array(inv_mini_indextranslation))
 
 
 def get_values_and_indices_splines(Nbasis, degree, periodic, spans, values):
-    """Given an array with the values of the splines evaluated at certain points this function returns a np.array that tell us the index of each spline. So we can know to which spline each
+    """Given an array with the values of the splines evaluated at certain points this function returns a xp.array that tell us the index of each spline. So we can know to which spline each
     value corresponds. It also modifies the evaluation values in the case we have one spline of degree one with periodic boundary conditions, so it is artificially equal to the identity.
 
     Parameters
@@ -146,31 +146,31 @@ def get_values_and_indices_splines(Nbasis, degree, periodic, spans, values):
     periodic : bool
         Whether we have periodic boundary conditions or nor.
 
-    span : np.array
+    span : xp.array
     2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
 
-    values : np.array
+    values : xp.array
     3d array of values of basis functions indexed by (n, nq, basis function).
 
     Returns
     -------
 
-    eval_indeces : np.array
+    eval_indeces : xp.array
     3d array of basis functions indices, indexed by (n, nq, basis function).
 
-    values : np.array
+    values : xp.array
     3d array of values of basis functions indexed by (n, nq, basis function).
 
     """
     # In this case we want this spatial direction to be "neglected", that means we artificially set the values of the B-spline to 1 at all points. So it becomes the multiplicative identity.
     if Nbasis == 1 and degree == 1 and periodic:
         # Set all values to 1 for the identity case
-        values = np.ones((values.shape[0], values.shape[1], 1))
-        eval_indeces = np.zeros_like(values, dtype=int)
+        values = xp.ones((values.shape[0], values.shape[1], 1))
+        eval_indeces = xp.zeros_like(values, dtype=int)
     else:
-        eval_indeces = np.zeros_like(values, dtype=int)
-        for i in range(np.shape(spans)[0]):
-            for k in range(np.shape(spans)[1]):
+        eval_indeces = xp.zeros_like(values, dtype=int)
+        for i in range(xp.shape(spans)[0]):
+            for k in range(xp.shape(spans)[1]):
                 for j in range(degree + 1):
                     eval_indeces[i, k, j] = (spans[i][k] - degree + j) % Nbasis
 
@@ -179,31 +179,31 @@ def get_values_and_indices_splines(Nbasis, degree, periodic, spans, values):
 
 def get_one_spline(a, values, eval_indeces):
     """Given the spline index, an array with the splines evaluated at the evaluation points and another array with the indices indicating to which spline each value corresponds, this function returns
-    a 1d np.array with the desired spline evaluated at all evaluation points.
+    a 1d xp.array with the desired spline evaluated at all evaluation points.
 
     Parameters
     ----------
     a : int
     Spline index
 
-    values : np.array
+    values : xp.array
     3d array of values of basis functions indexed by (n, nq, basis function).
 
-    eval_indeces : np.array
+    eval_indeces : xp.array
     3d array of basis functions indices, indexed by (n, nq, basis function).
 
     Returns
     -------
-    my_values : np.array
+    my_values : xp.array
     1d array of values for the spline evaluated at all evaluation points.
 
     """
-    my_values = np.zeros(np.shape(values)[0] * np.shape(values)[1])
-    for i in range(np.shape(values)[0]):
-        for j in range(np.shape(values)[1]):
-            for k in range(np.shape(values)[2]):
+    my_values = xp.zeros(xp.shape(values)[0] * xp.shape(values)[1])
+    for i in range(xp.shape(values)[0]):
+        for j in range(xp.shape(values)[1]):
+            for k in range(xp.shape(values)[2]):
                 if eval_indeces[i, j, k] == a:
-                    my_values[i * np.shape(values)[1] + j] = values[i, j, k]
+                    my_values[i * xp.shape(values)[1] + j] = values[i, j, k]
                     break
     return my_values
 
@@ -213,7 +213,7 @@ def get_span_and_basis(pts, space):
 
     Parameters
     ----------
-    pts : np.array
+    pts : xp.array
         2d array of points (ii, iq) = (interval, quadrature point).
 
     space : SplineSpace
@@ -221,10 +221,10 @@ def get_span_and_basis(pts, space):
 
     Returns
     -------
-    span : np.array
+    span : xp.array
         2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
 
-    basis : np.array
+    basis : xp.array
         3d array of values of basis functions indexed by (n, nq, basis function).
     """
 
@@ -234,8 +234,8 @@ def get_span_and_basis(pts, space):
     T = space.knots
     p = space.degree
 
-    span = np.zeros(pts.shape, dtype=int)
-    basis = np.zeros((*pts.shape, p + 1), dtype=float)
+    span = xp.zeros(pts.shape, dtype=int)
+    basis = xp.zeros((*pts.shape, p + 1), dtype=float)
 
     for n in range(pts.shape[0]):
         for nq in range(pts.shape[1]):
@@ -260,7 +260,7 @@ def transform_into_ranges(numbers):
 
     Parameters
     ----------
-    numbers : np int array
+    numbers : xp.int array
         1d array containing zeros or ones.
 
     Returns
@@ -417,7 +417,7 @@ def get_non_zero_B_spline_indices(periodic, IoH, p, B_nbasis, starts, ends, Basi
 
     Parameters
     ----------
-    periodic : np bool array
+    periodic : xp.bool array
         1d array containing the information about whether we haver periodic (True) or clamped (False) boundary conditions.
 
     IoH : list char
@@ -426,13 +426,13 @@ def get_non_zero_B_spline_indices(periodic, IoH, p, B_nbasis, starts, ends, Basi
     p : 1D int array
         1d array of 3 ints, they denote the degree of the B-splines for each one of the three spatial directions.
 
-    B_nbasis : np int array
+    B_nbasis : xp.int array
         1d array containing the number of B_splines in each spatial direction.
 
-    starts : np int array
+    starts : xp.int array
         1d array containing for each spatial direction the start index of the FE coefficients the current MPI rank is responsible for.
 
-    ends : np int array
+    ends : xp.int array
         1d array containing for each spatial direction the end index of the FE coefficients the current MPI rank is responsible for.
 
     Basis_functions_indices_B : list
@@ -463,7 +463,7 @@ def get_non_zero_B_spline_indices(periodic, IoH, p, B_nbasis, starts, ends, Basi
                 stuck,
             )
 
-        Basis_functions_indices_B.append(np.array(aux_indices))
+        Basis_functions_indices_B.append(xp.array(aux_indices))
 
 
 def get_non_zero_D_spline_indices(periodic, IoH, p, D_nbasis, starts, ends, Basis_functions_indices_D):
@@ -472,7 +472,7 @@ def get_non_zero_D_spline_indices(periodic, IoH, p, D_nbasis, starts, ends, Basi
 
     Parameters
     ----------
-    periodic : np bool array
+    periodic : xp.bool array
         1d array containing the information about whether we haver periodic (True) or clamped (False) boundary conditions.
 
     IoH : list char
@@ -481,13 +481,13 @@ def get_non_zero_D_spline_indices(periodic, IoH, p, D_nbasis, starts, ends, Basi
     p : 1D int array
         1d array of 3 ints, they denote the degree of the B-splines (not the D-splines) for each one of the three spatial directions.
 
-    D_nbasis : np int array
+    D_nbasis : xp.int array
         1d array containing the number of D_splines in each spatial direction.
 
-    starts : np int array
+    starts : xp.int array
         1d array containing for each spatial direction the start index of the FE coefficients the current MPI rank is responsible for.
 
-    ends : np int array
+    ends : xp.int array
         1d array containing for each spatial direction the end index of the FE coefficients the current MPI rank is responsible for.
 
     Basis_functions_indices_D : list
@@ -521,7 +521,7 @@ def get_non_zero_D_spline_indices(periodic, IoH, p, D_nbasis, starts, ends, Basi
                 stuck,
             )
 
-        Basis_functions_indices_D.append(np.array(aux_indices))
+        Basis_functions_indices_D.append(xp.array(aux_indices))
 
 
 def build_translation_list_for_non_zero_spline_indices(
@@ -538,10 +538,10 @@ def build_translation_list_for_non_zero_spline_indices(
 
     Parameters
     ----------
-    B_nbasis : np int array
+    B_nbasis : xp.int array
         1d array containing the number of B_splines in each spatial direction.
 
-    D_nbasis : np int array
+    D_nbasis : xp.int array
         1d array containing the number of D_splines in each spatial direction.
 
     Basis_functions_indices_B : list
@@ -566,34 +566,34 @@ def build_translation_list_for_non_zero_spline_indices(
     Returns
     -------
     translation_indices_B_or_D_splines[0] : Dictionary
-        This dictionary has two np int arrays full of -1 as elements the one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
+        This dictionary has two xp.int arrays full of -1 as elements the one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
         function in such a way that ith entry of the list has the index of self._Basis_functions_indices_B(or D) where the ith B(D)-spline label is stored. This applies for the first
         spatial direction.
 
     translation_indices_B_or_D_splines_[1] : Dictionary
-        This dictionary has two np int arrays full of -1 as elements the one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
+        This dictionary has two xp.int arrays full of -1 as elements the one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
         function in such a way that ith entry of the list has the index of self._Basis_functions_indices_B(or D) where the ith B(D)-spline label is stored. This applies for the second
         spatial direction.
 
     translation_indices_B_or_D_splines[2] : Dictionary
-        This dictionary has two np int arrays full of -1 as elements the one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
+        This dictionary has two xp.int arrays full of -1 as elements the one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
         function in such a way that ith entry of the list has the index of self._Basis_functions_indices_B(or D) where the ith B(D)-spline label is stored. This applies for the third
         spatial direction.
 
     """
     translation_indices_B_or_D_splines = [
         {
-            "B": np.full((B_nbasis[h]), fill_value=-1, dtype=int),
-            "D": np.full((D_nbasis[h]), fill_value=-1, dtype=int),
+            "B": xp.full((B_nbasis[h]), fill_value=-1, dtype=int),
+            "D": xp.full((D_nbasis[h]), fill_value=-1, dtype=int),
         }
         for h in range(3)
     ]
 
     for h in range(3):
-        translation_indices_B_or_D_splines[h]["B"][Basis_functions_indices_B[h]] = np.arange(
+        translation_indices_B_or_D_splines[h]["B"][Basis_functions_indices_B[h]] = xp.arange(
             len(Basis_functions_indices_B[h])
         )
-        translation_indices_B_or_D_splines[h]["D"][Basis_functions_indices_D[h]] = np.arange(
+        translation_indices_B_or_D_splines[h]["D"][Basis_functions_indices_D[h]] = xp.arange(
             len(Basis_functions_indices_D[h])
         )
 
@@ -636,15 +636,15 @@ def evaluate_relevant_splines_at_relevant_points(
     Returns
     -------
     values_B_or_D_splines[0] : Dictionary
-        This dictionary has two lists each one full with np float arrays. The one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
+        This dictionary has two lists each one full with xp.float arrays. The one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
         function in such a way that the ith entry of the list has the values of the B-spline with index  Basis_functions_indices_B[0][i]  evaluated at all the localpoints in the first spatial direction.
 
     values_B_or_D_splines[1] : Dictionary
-        This dictionary has two lists each one full with np float arrays. The one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
+        This dictionary has two lists each one full with xp.float arrays. The one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
         function in such a way that the ith entry of the list has the values of the B-spline with index  Basis_functions_indices_B[1][i]  evaluated at all the localpoints in the second spatial direction.
 
     values_B_or_D_splines[2] : Dictionary
-        This dictionary has two lists each one full with np float arrays. The one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
+        This dictionary has two lists each one full with xp.float arrays. The one with key 'B' for the B-splines and the one with key 'D' for the D-splines. They shall be filled by this
         function in such a way that the ith entry of the list has the values of the B-spline with index  Basis_functions_indices_B[2][i]  evaluated at all the localpoints in the third spatial direction.
     """
     # Initialize the result dictionary
@@ -653,7 +653,7 @@ def evaluate_relevant_splines_at_relevant_points(
     for h in range(3):
         # Reshape localpts[h] if necessary
         localpts_reshaped = (
-            localpts[h].reshape((np.shape(localpts[h])[0], 1)) if len(np.shape(localpts[h])) == 1 else localpts[h]
+            localpts[h].reshape((xp.shape(localpts[h])[0], 1)) if len(xp.shape(localpts[h])) == 1 else localpts[h]
         )
 
         # Get spans and evaluation values for B-splines and D-splines
@@ -707,22 +707,22 @@ def determine_non_zero_rows_for_each_spline(
         list of int arrays with the indices of those D-splines that produce non-zero entries in the BasisProjectionOperatorLocal for the rows relevant to the current MPI rank.
         It contains 3 arrays of ints each one taking care of one spatial direction.
 
-    starts : np int array
+    starts : xp.int array
         1d array containing for each spatial direction the start index of the FE coefficients the current MPI rank is responsible for.
 
-    ends : np int array
+    ends : xp.int array
         1d array containing for each spatial direction the end index of the FE coefficients the current MPI rank is responsible for.
 
     p : 1D int array
         1d array of 3 ints, they denote the degree of the B-splines (not the D-splines) for each one of the three spatial directions.
 
-    B_nbasis : np int array
+    B_nbasis : xp.int array
         1d array containing the number of B_splines in each spatial direction.
 
-    D_nbasis : np int array
+    D_nbasis : xp.int array
         1d array containing the number of D_splines in each spatial direction.
 
-    periodic : np bool array
+    periodic : xp.bool array
         1d array containing the information about whether we haver periodic (True) or clamped (False) boundary conditions.
 
     IoH : list bool
@@ -759,7 +759,7 @@ def determine_non_zero_rows_for_each_spline(
 
     def process_splines(indices, nbasis, is_D, h):
         for i in indices[h]:
-            aux = np.zeros((ends[h] + 1 - starts[h]), dtype=int)
+            aux = xp.zeros((ends[h] + 1 - starts[h]), dtype=int)
             get_rows(
                 int(i),
                 int(starts[h]),
@@ -773,8 +773,8 @@ def determine_non_zero_rows_for_each_spline(
             )
             rangestart, rangeend = transform_into_ranges(aux)
             key = "D" if is_D else "B"
-            rows_B_or_D_splines[h][key].append(np.array(rangestart, dtype=int))
-            rowe_B_or_D_splines[h][key].append(np.array(rangeend, dtype=int))
+            rows_B_or_D_splines[h][key].append(xp.array(rangestart, dtype=int))
+            rowe_B_or_D_splines[h][key].append(xp.array(rangeend, dtype=int))
 
     for h in range(3):
         process_splines(Basis_functions_indices_B, B_nbasis, False, h)
@@ -858,12 +858,12 @@ def is_spline_zero_at_quadrature_points(
         1d array of 3 ints, they denote the degree of the B-splines (not the D-splines) for each one of the three spatial directions.
 
     values_B_or_D_splines : list of three dictionaries
-        Each dictionary takes care of one spatial direction and has two lists each one full with np float arrays. The one with key 'B' for the B-splines and the one with key 'D'
+        Each dictionary takes care of one spatial direction and has two lists each one full with xp.float arrays. The one with key 'B' for the B-splines and the one with key 'D'
         for the D-splines. For the h-th dictionary the ith entry (with key 'B') of the list has the values of the B-spline with index  Basis_functions_indices_B[h][i]  evaluated
         at all the localpoints in the h-th spatial direction.
 
     translation_indices_B_or_D_splines : List of three dictionaries
-        Each dictionary takes care of one spatial direction and has two np int arrays the one with key 'B' for the B-splines and the one with key 'D' for the D-splines.
+        Each dictionary takes care of one spatial direction and has two xp.int arrays the one with key 'B' for the B-splines and the one with key 'D' for the D-splines.
         For the h-th dictionary the ith entry of the array has the index of Basis_functions_indices_B(or D) where the ith B(D)-spline label is stored.
         This applies for the h-th spatial direction.
 
@@ -873,15 +873,15 @@ def is_spline_zero_at_quadrature_points(
     Returns
     -------
     are_zero_B_or_D_splines[0] : dictionary
-        This dictionary has two entries one for B-splines and one for D-splines. As explained at the begining of this documentation each entry is a list of np int arrays, that tell us if a given
+        This dictionary has two entries one for B-splines and one for D-splines. As explained at the begining of this documentation each entry is a list of xp.int arrays, that tell us if a given
         spline is zero for all quadrature points used to compute one of the required integrals. This particular dictionary takes care of the first spatial direction
 
     are_zero_B_or_D_splines[1] : dictionary
-        This dictionary has two entries one for B-splines and one for D-splines. As explained at the begining of this documentation each entry is a list of np int arrays, that tell us if a given
+        This dictionary has two entries one for B-splines and one for D-splines. As explained at the begining of this documentation each entry is a list of xp.int arrays, that tell us if a given
         spline is zero for all quadrature points used to compute one of the required integrals. This particular dictionary takes care of the second spatial direction
 
     are_zero_B_or_D_splines[2] : dictionary
-        This dictionary has two entries one for B-splines and one for D-splines. As explained at the begining of this documentation each entry is a list of np int arrays, that tell us if a given
+        This dictionary has two entries one for B-splines and one for D-splines. As explained at the begining of this documentation each entry is a list of xp.int arrays, that tell us if a given
         spline is zero for all quadrature points used to compute one of the required integrals. This particular dictionary takes care of the third spatial direction
 
     """
@@ -890,7 +890,7 @@ def is_spline_zero_at_quadrature_points(
     for h in range(3):
         if necessary_direction[h]:
             for i in Basis_functions_indices_B[h]:
-                Auxiliar = np.ones((np.shape(localpts[h])[0]), dtype=int)
+                Auxiliar = xp.ones((xp.shape(localpts[h])[0]), dtype=int)
                 are_quadrature_points_zero(
                     Auxiliar,
                     int(
@@ -901,7 +901,7 @@ def is_spline_zero_at_quadrature_points(
                 are_zero_B_or_D_splines[h]["B"].append(Auxiliar)
 
             for i in Basis_functions_indices_D[h]:
-                Auxiliar = np.ones((np.shape(localpts[h])[0]), dtype=int)
+                Auxiliar = xp.ones((xp.shape(localpts[h])[0]), dtype=int)
                 are_quadrature_points_zero(
                     Auxiliar,
                     int(

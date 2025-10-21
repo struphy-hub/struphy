@@ -26,7 +26,7 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
             * i : A(s, chi)*exp(n_tor*2*pi*phi*i)
 
     path_out : string, optional
-        if given, directory where to save the .npy eigenspectrum.
+        if given, directory where to save the .xp. eigenspectrum.
     """
 
     import os
@@ -148,11 +148,11 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
 
     print("Assembly of final system matrix done --> start of eigenvalue calculation")
 
-    omega2, U2_eig = np.linalg.eig(MAT)
+    omega2, U2_eig = xp.linalg.eig(MAT)
 
     print("Eigenstates calculated")
 
-    # save spectrum as .npy
+    # save spectrum as .xp.
     if path_out is not None:
         assert isinstance(path_out, str)
 
@@ -161,8 +161,8 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
         else:
             n_tor_str = "+" + str(n_tor)
 
-        np.save(
-            os.path.join(path_out, "spec_n_" + n_tor_str + ".npy"), np.vstack((omega2.reshape(1, omega2.size), U2_eig))
+        xp.save(
+            os.path.join(path_out, "spec_n_" + n_tor_str + ".xp."), xp.vstack((omega2.reshape(1, omega2.size), U2_eig))
         )
 
     # or return eigenfrequencies, eigenvectors and system matrix

@@ -204,14 +204,14 @@ def bv_right(
     )
     # ========================= C.T ===========================
     return tensor_space_FEM.C.T.dot(
-        np.concatenate((temp_twoform1.flatten(), temp_twoform2.flatten(), temp_twoform3.flatten()))
+        xp.concatenate((temp_twoform1.flatten(), temp_twoform2.flatten(), temp_twoform3.flatten()))
     )
 
 
 def vv_right(
     stage_index,
     tol,
-    Np_loc,
+    xp.loc,
     LO_inv,
     domain,
     acc,
@@ -259,7 +259,7 @@ def vv_right(
             b2,
             b3,
             LO_inv,
-            Np_loc,
+            xp.loc,
             NbaseN,
             NbaseD,
             Nel,
@@ -289,7 +289,7 @@ def vv_right(
             b2,
             b3,
             LO_inv,
-            Np_loc,
+            xp.loc,
             NbaseN,
             NbaseD,
             Nel,
@@ -319,7 +319,7 @@ def vv_right(
             b2,
             b3,
             LO_inv,
-            Np_loc,
+            xp.loc,
             NbaseN,
             NbaseD,
             Nel,
@@ -349,7 +349,7 @@ def vv_right(
             b2,
             b3,
             LO_inv,
-            Np_loc,
+            xp.loc,
             NbaseN,
             NbaseD,
             Nel,

@@ -50,48 +50,48 @@ class projectors_L2_3d:
         self.indD = tensor_space.indD
         self.polar = False  # local projectors for polar splines are not implemented yet
 
-        self.lambdas_0 = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2]), dtype=float)
-        self.potential_lambdas_0 = np.zeros((NbaseN[0], NbaseN[1], NbaseN[2]), dtype=float)
+        self.lambdas_0 = xp.zeros((NbaseN[0], NbaseN[1], NbaseN[2]), dtype=float)
+        self.potential_lambdas_0 = xp.zeros((NbaseN[0], NbaseN[1], NbaseN[2]), dtype=float)
 
-        self.lambdas_1_11 = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
-        self.lambdas_1_12 = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
-        self.lambdas_1_13 = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
+        self.lambdas_1_11 = xp.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
+        self.lambdas_1_12 = xp.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
+        self.lambdas_1_13 = xp.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
 
-        self.lambdas_1_21 = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
-        self.lambdas_1_22 = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
-        self.lambdas_1_23 = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
+        self.lambdas_1_21 = xp.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
+        self.lambdas_1_22 = xp.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
+        self.lambdas_1_23 = xp.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
 
-        self.lambdas_1_31 = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
-        self.lambdas_1_32 = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
-        self.lambdas_1_33 = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
+        self.lambdas_1_31 = xp.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
+        self.lambdas_1_32 = xp.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
+        self.lambdas_1_33 = xp.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
 
-        self.lambdas_2_11 = np.zeros((NbaseN[0], NbaseD[1], NbaseD[2]), dtype=float)
-        self.lambdas_2_12 = np.zeros((NbaseD[0], NbaseN[1], NbaseD[2]), dtype=float)
-        self.lambdas_2_13 = np.zeros((NbaseD[0], NbaseD[1], NbaseN[2]), dtype=float)
+        self.lambdas_2_11 = xp.zeros((NbaseN[0], NbaseD[1], NbaseD[2]), dtype=float)
+        self.lambdas_2_12 = xp.zeros((NbaseD[0], NbaseN[1], NbaseD[2]), dtype=float)
+        self.lambdas_2_13 = xp.zeros((NbaseD[0], NbaseD[1], NbaseN[2]), dtype=float)
 
-        self.lambdas_2_21 = np.zeros((NbaseN[0], NbaseD[1], NbaseD[2]), dtype=float)
-        self.lambdas_2_22 = np.zeros((NbaseD[0], NbaseN[1], NbaseD[2]), dtype=float)
-        self.lambdas_2_23 = np.zeros((NbaseD[0], NbaseD[1], NbaseN[2]), dtype=float)
+        self.lambdas_2_21 = xp.zeros((NbaseN[0], NbaseD[1], NbaseD[2]), dtype=float)
+        self.lambdas_2_22 = xp.zeros((NbaseD[0], NbaseN[1], NbaseD[2]), dtype=float)
+        self.lambdas_2_23 = xp.zeros((NbaseD[0], NbaseD[1], NbaseN[2]), dtype=float)
 
-        self.lambdas_2_31 = np.zeros((NbaseN[0], NbaseD[1], NbaseD[2]), dtype=float)
-        self.lambdas_2_32 = np.zeros((NbaseD[0], NbaseN[1], NbaseD[2]), dtype=float)
-        self.lambdas_2_33 = np.zeros((NbaseD[0], NbaseD[1], NbaseN[2]), dtype=float)
+        self.lambdas_2_31 = xp.zeros((NbaseN[0], NbaseD[1], NbaseD[2]), dtype=float)
+        self.lambdas_2_32 = xp.zeros((NbaseD[0], NbaseN[1], NbaseD[2]), dtype=float)
+        self.lambdas_2_33 = xp.zeros((NbaseD[0], NbaseD[1], NbaseN[2]), dtype=float)
 
-        self.lambdas_3 = np.zeros((NbaseD[0], NbaseD[1], NbaseD[2]), dtype=float)
+        self.lambdas_3 = xp.zeros((NbaseD[0], NbaseD[1], NbaseD[2]), dtype=float)
 
         self.p_size = p_size
         self.p_shape = p_shape
 
-        self.related = np.zeros(3, dtype=int)
+        self.related = xp.zeros(3, dtype=int)
         for a in range(3):
-            # self.related[a] = int(np.floor(NbaseN[a]/2.0))
+            # self.related[a] = int(xp.floor(NbaseN[a]/2.0))
             self.related[a] = int(
-                np.floor((3 * int((self.p_size[a] * (self.p_shape[a] + 1)) * self.Nel[a] + 1) + 3 * self.p[a]) / 2.0)
+                xp.floor((3 * int((self.p_size[a] * (self.p_shape[a] + 1)) * self.Nel[a] + 1) + 3 * self.p[a]) / 2.0)
             )
             if (2 * self.related[a] + 1) > NbaseN[a]:
-                self.related[a] = int(np.floor(NbaseN[a] / 2.0))
+                self.related[a] = int(xp.floor(NbaseN[a] / 2.0))
 
-        self.kernel_0_loc = np.zeros(
+        self.kernel_0_loc = xp.zeros(
             (
                 NbaseN[0],
                 NbaseN[1],
@@ -103,7 +103,7 @@ class projectors_L2_3d:
             dtype=float,
         )
 
-        self.kernel_1_11_loc = np.zeros(
+        self.kernel_1_11_loc = xp.zeros(
             (
                 NbaseD[0],
                 NbaseN[1],
@@ -114,7 +114,7 @@ class projectors_L2_3d:
             ),
             dtype=float,
         )
-        self.kernel_1_12_loc = np.zeros(
+        self.kernel_1_12_loc = xp.zeros(
             (
                 NbaseD[0],
                 NbaseN[1],
@@ -125,7 +125,7 @@ class projectors_L2_3d:
             ),
             dtype=float,
         )
-        self.kernel_1_13_loc = np.zeros(
+        self.kernel_1_13_loc = xp.zeros(
             (
                 NbaseD[0],
                 NbaseN[1],
@@ -137,18 +137,7 @@ class projectors_L2_3d:
             dtype=float,
         )
 
-        self.kernel_1_22_loc = np.zeros(
-            (
-                NbaseN[0],
-                NbaseD[1],
-                NbaseN[2],
-                2 * self.related[0] + 1,
-                2 * self.related[1] + 1,
-                2 * self.related[2] + 1,
-            ),
-            dtype=float,
-        )
-        self.kernel_1_23_loc = np.zeros(
+        self.kernel_1_22_loc = xp.zeros(
             (
                 NbaseN[0],
                 NbaseD[1],
@@ -159,8 +148,19 @@ class projectors_L2_3d:
             ),
             dtype=float,
         )
+        self.kernel_1_23_loc = xp.zeros(
+            (
+                NbaseN[0],
+                NbaseD[1],
+                NbaseN[2],
+                2 * self.related[0] + 1,
+                2 * self.related[1] + 1,
+                2 * self.related[2] + 1,
+            ),
+            dtype=float,
+        )
 
-        self.kernel_1_33_loc = np.zeros(
+        self.kernel_1_33_loc = xp.zeros(
             (
                 NbaseN[0],
                 NbaseN[1],
@@ -172,12 +172,12 @@ class projectors_L2_3d:
             dtype=float,
         )
 
-        self.right_loc_1 = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
-        self.right_loc_2 = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
-        self.right_loc_3 = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
+        self.right_loc_1 = xp.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
+        self.right_loc_2 = xp.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
+        self.right_loc_3 = xp.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
 
         if self.mpi_rank == 0:
-            self.kernel_0 = np.zeros(
+            self.kernel_0 = xp.zeros(
                 (
                     NbaseN[0],
                     NbaseN[1],
@@ -189,7 +189,7 @@ class projectors_L2_3d:
                 dtype=float,
             )
 
-            self.kernel_1_11 = np.zeros(
+            self.kernel_1_11 = xp.zeros(
                 (
                     NbaseD[0],
                     NbaseN[1],
@@ -200,7 +200,7 @@ class projectors_L2_3d:
                 ),
                 dtype=float,
             )
-            self.kernel_1_12 = np.zeros(
+            self.kernel_1_12 = xp.zeros(
                 (
                     NbaseN[0],
                     NbaseD[1],
@@ -211,7 +211,7 @@ class projectors_L2_3d:
                 ),
                 dtype=float,
             )
-            self.kernel_1_13 = np.zeros(
+            self.kernel_1_13 = xp.zeros(
                 (
                     NbaseN[0],
                     NbaseN[1],
@@ -223,7 +223,7 @@ class projectors_L2_3d:
                 dtype=float,
             )
 
-            self.kernel_1_22 = np.zeros(
+            self.kernel_1_22 = xp.zeros(
                 (
                     NbaseN[0],
                     NbaseD[1],
@@ -234,7 +234,7 @@ class projectors_L2_3d:
                 ),
                 dtype=float,
             )
-            self.kernel_1_23 = np.zeros(
+            self.kernel_1_23 = xp.zeros(
                 (
                     NbaseN[0],
                     NbaseN[1],
@@ -246,7 +246,7 @@ class projectors_L2_3d:
                 dtype=float,
             )
 
-            self.kernel_1_33 = np.zeros(
+            self.kernel_1_33 = xp.zeros(
                 (
                     NbaseN[0],
                     NbaseN[1],
@@ -258,9 +258,9 @@ class projectors_L2_3d:
                 dtype=float,
             )
 
-            self.right_1 = np.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
-            self.right_2 = np.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
-            self.right_3 = np.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
+            self.right_1 = xp.zeros((NbaseD[0], NbaseN[1], NbaseN[2]), dtype=float)
+            self.right_2 = xp.zeros((NbaseN[0], NbaseD[1], NbaseN[2]), dtype=float)
+            self.right_3 = xp.zeros((NbaseN[0], NbaseN[1], NbaseD[2]), dtype=float)
 
         else:
             self.kernel_0 = None
@@ -301,11 +301,11 @@ class projectors_L2_3d:
         Nj = tensor_space_FEM.Nbase_0form
 
         # conversion to sparse matrix
-        indices = np.indices(
+        indices = xp.indices(
             (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
         )
 
-        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
         row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
@@ -358,11 +358,11 @@ class projectors_L2_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices(
+        indices = xp.indices(
             (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
         )
 
-        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
         row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
@@ -384,11 +384,11 @@ class projectors_L2_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices(
+        indices = xp.indices(
             (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
         )
 
-        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
         row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
@@ -410,11 +410,11 @@ class projectors_L2_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices(
+        indices = xp.indices(
             (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
         )
 
-        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
         row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
@@ -436,11 +436,11 @@ class projectors_L2_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices(
+        indices = xp.indices(
             (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
         )
 
-        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
         row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
@@ -462,11 +462,11 @@ class projectors_L2_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices(
+        indices = xp.indices(
             (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
         )
 
-        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
         row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
@@ -488,11 +488,11 @@ class projectors_L2_3d:
         Nj = tensor_space_FEM.Nbase_1form[b]
 
         # convert to sparse matrix
-        indices = np.indices(
+        indices = xp.indices(
             (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
         )
 
-        shift = [np.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
+        shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
 
         row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
@@ -510,9 +510,9 @@ class projectors_L2_3d:
         # final block matrix
         M = spa.bmat([[M11, M12, M13], [M12.T, M22, M23], [M13.T, M23.T, M33]], format="csr")
         # print('insider_check', self.kernel_1_33)
-        return (M, np.concatenate((self.right_1.flatten(), self.right_2.flatten(), self.right_3.flatten())))
+        return (M, xp.concatenate((self.right_1.flatten(), self.right_2.flatten(), self.right_3.flatten())))
 
-    def heavy_test(self, test1, test2, test3, acc, particles_loc, Np, domain):
+    def heavy_test(self, test1, test2, test3, acc, particles_loc, xp. domain):
         ker_loc.kernel_1_heavy(
             self.basisN[0],
             self.basisN[1],
@@ -538,7 +538,7 @@ class projectors_L2_3d:
             acc.oneform_temp1,
             acc.oneform_temp2,
             acc.oneform_temp3,
-            Np,
+            xp.
             self.n_quad,
             self.p,
             self.Nel,
@@ -570,9 +570,9 @@ class projectors_L2_3d:
             domain.cz,
         )
 
-        # ker_loc.kernel_1_heavy(self.pts[0][0], self.pts[1][0], self.pts[2][0], self.wts[0][0], self.wts[1][0], self.wts[2][0], test1, test2, test3, acc.oneform_temp1, acc.oneform_temp2, acc.oneform_temp3, Np, self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13, self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23, self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.num_cell, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.NbaseN, self.NbaseD, particles_loc.shape[1], domain.kind_map, domain.params, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
+        # ker_loc.kernel_1_heavy(self.pts[0][0], self.pts[1][0], self.pts[2][0], self.wts[0][0], self.wts[1][0], self.wts[2][0], test1, test2, test3, acc.oneform_temp1, acc.oneform_temp2, acc.oneform_temp3, xp. self.n_quad, self.p, self.Nel, self.p_shape, self.p_size, particles_loc, self.lambdas_1_11, self.lambdas_1_12, self.lambdas_1_13, self.lambdas_1_21, self.lambdas_1_22, self.lambdas_1_23, self.lambdas_1_31, self.lambdas_1_32, self.lambdas_1_33, self.num_cell, self.coeff_i[0], self.coeff_i[1], self.coeff_i[2], self.coeff_h[0], self.coeff_h[1], self.coeff_h[2], self.NbaseN, self.NbaseD, particles_loc.shape[1], domain.kind_map, domain.params, domain.T[0], domain.T[1], domain.T[2], domain.p, domain.Nel, domain.NbaseN, domain.cx, domain.cy, domain.cz)
 
-    def potential_pi_0(self, particles_loc, Np, domain, mpi_comm):
+    def potential_pi_0(self, particles_loc, xp. domain, mpi_comm):
         """
         Local projector on the discrete space V0.
 
@@ -585,7 +585,7 @@ class projectors_L2_3d:
         """
         if self.bc[0] == True and self.bc[1] == True and self.bc[2] == True:
             ker_loc.potential_kernel_0_form(
-                Np,
+                xp.
                 self.p,
                 self.Nel,
                 self.p_shape,
@@ -618,7 +618,7 @@ class projectors_L2_3d:
         mpi_comm.Reduce(self.lambdas_0, self.potential_lambdas_0, op=MPI.SUM, root=0)
         # print('check_lambdas', self.lambdas_0)
 
-    def S_pi_0(self, particles_loc, Np, domain):
+    def S_pi_0(self, particles_loc, xp. domain):
         """
         Local projector on the discrete space V0.
 
@@ -632,7 +632,7 @@ class projectors_L2_3d:
         self.kernel_0[:, :, :, :, :, :] = 0.0
         if self.bc[0] == True and self.bc[1] == True and self.bc[2] == True:
             ker_loc.kernel_0_form(
-                Np,
+                xp.
                 self.p,
                 self.Nel,
                 self.p_shape,
@@ -664,7 +664,7 @@ class projectors_L2_3d:
 
         # print('check_lambdas', self.lambdas_0)
 
-    def S_pi_1(self, particles_loc, Np, domain):
+    def S_pi_1(self, particles_loc, xp. domain):
         """
             Local projector on the discrete space V1.
 
@@ -715,7 +715,7 @@ class projectors_L2_3d:
                 self.wts[0],
                 self.wts[1],
                 self.wts[2],
-                Np,
+                xp.
                 self.n_quad,
                 self.p,
                 self.Nel,
@@ -756,7 +756,7 @@ class projectors_L2_3d:
         else:
             print("non-periodic case not implemented!!!")
 
-    def vv_S1(self, particles_loc, Np, domain, index_label, accvv, dt, mpi_comm):
+    def vv_S1(self, particles_loc, xp. domain, index_label, accvv, dt, mpi_comm):
         if self.bc[0] == True and self.bc[1] == True and self.bc[2] == True:
             if index_label == 1:
                 ker_loc.vv_1_form(
@@ -770,7 +770,7 @@ class projectors_L2_3d:
                     self.right_loc_1,
                     self.right_loc_2,
                     self.right_loc_3,
-                    Np,
+                    xp.
                     self.n_quad,
                     self.p,
                     self.Nel,
@@ -822,7 +822,7 @@ class projectors_L2_3d:
                     self.right_loc_1,
                     self.right_loc_2,
                     self.right_loc_3,
-                    Np,
+                    xp.
                     self.n_quad,
                     self.p,
                     self.Nel,
@@ -874,7 +874,7 @@ class projectors_L2_3d:
                     self.right_loc_1,
                     self.right_loc_2,
                     self.right_loc_3,
-                    Np,
+                    xp.
                     self.n_quad,
                     self.p,
                     self.Nel,
@@ -926,7 +926,7 @@ class projectors_L2_3d:
                     self.right_loc_1,
                     self.right_loc_2,
                     self.right_loc_3,
-                    Np,
+                    xp.
                     self.n_quad,
                     self.p,
                     self.Nel,

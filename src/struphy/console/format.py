@@ -322,7 +322,7 @@ def get_pylint_score(file_path, verbose=False, pass_score=8.0):
     passes_pylint = False
 
     if verbose:
-        print(f"\nPylint report for {file_path}:")
+        print(f"\xp.lint report for {file_path}:")
         print(output)
 
     # Parse the output to get the score
@@ -582,7 +582,7 @@ def parse_json_file_to_html(json_file_path, html_output_path):
         # Include external CSS and JS libraries
         html_content.extend(
             [
-                "<link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css'>",
+                "<link rel='stylesheet' href='https://cdn.jsdelivr.net/xp./bulma@0.9.3/css/bulma.min.css'>",
                 "<link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css'>",
                 "<script src='https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js'></script>",
                 "<script>hljs.configure({ignoreUnescapedHTML: true}); hljs.highlightAll();</script>",

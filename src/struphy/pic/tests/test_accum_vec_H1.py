@@ -36,7 +36,7 @@ from struphy.utils.pyccel import Pyccelkernel
     ],
 )
 @pytest.mark.parametrize("num_clones", [1, 2])
-def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
+def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, xp.1000):
     r"""DRAFT: test the accumulation of the rhs (H1-space) in Poisson's equation .
 
     Tests:
@@ -76,7 +76,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
 
     params = {
         "grid": {"Nel": Nel},
-        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / np.prod(Nel)}}},
+        "kinetic": {"test_particles": {"markers": {"xp.: xp. "ppc": xp./ xp.prod(Nel)}}},
     }
     if mpi_comm is None:
         clone_config = None
@@ -98,15 +98,15 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         )
 
     domain_array = derham.domain_array
-    nprocs = derham.domain_decomposition.nprocs
-    domain_decomp = (domain_array, nprocs)
+    xp.ocs = derham.domain_decomposition.xp.ocs
+    domain_decomp = (domain_array, xp.ocs)
 
     if mpi_rank == 0:
         print("Domain decomposition according to", derham.domain_array)
 
     # load distributed markers first and use Send/Receive to make global marker copies for the legacy routines
     loading_params = LoadingParameters(
-        Np=Np,
+        xp.xp.
         seed=1607,
         moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0),
         spatial="uniform",
@@ -129,12 +129,12 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     _w0 = particles.weights
 
     print("Test weights:")
-    print(f"rank {mpi_rank}:", _w0.shape, np.min(_w0), np.max(_w0))
+    print(f"rank {mpi_rank}:", _w0.shape, xp.min(_w0), xp.max(_w0))
 
     _sqrtg = domain.jacobian_det(0.5, 0.5, 0.5)
 
-    assert np.isclose(np.min(_w0), _sqrtg)
-    assert np.isclose(np.max(_w0), _sqrtg)
+    assert xp.isclose(xp.min(_w0), _sqrtg)
+    assert xp.isclose(xp.max(_w0), _sqrtg)
 
     # mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -151,19 +151,19 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     acc()
 
     # sum all MC integrals
-    _sum_within_clone = np.empty(1, dtype=float)
-    _sum_within_clone[0] = np.sum(acc.vectors[0].toarray())
+    _sum_within_clone = xp.empty(1, dtype=float)
+    _sum_within_clone[0] = xp.sum(acc.vectors[0].toarray())
     if clone_config is not None:
         clone_config.sub_comm.Allreduce(MPI.IN_PLACE, _sum_within_clone, op=MPI.SUM)
 
     print(f"rank {mpi_rank}: {_sum_within_clone = }, {_sqrtg = }")
 
     # Check within clone
-    assert np.isclose(_sum_within_clone, _sqrtg)
+    assert xp.isclose(_sum_within_clone, _sqrtg)
 
     # Check for all clones
-    _sum_between_clones = np.empty(1, dtype=float)
-    _sum_between_clones[0] = np.sum(acc.vectors[0].toarray())
+    _sum_between_clones = xp.empty(1, dtype=float)
+    _sum_between_clones[0] = xp.sum(acc.vectors[0].toarray())
 
     if mpi_comm is not None:
         mpi_comm.Allreduce(MPI.IN_PLACE, _sum_between_clones, op=MPI.SUM)
@@ -172,7 +172,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     print(f"rank {mpi_rank}: {_sum_between_clones = }, {_sqrtg = }")
 
     # Check within clone
-    assert np.isclose(_sum_between_clones, _sqrtg)
+    assert xp.isclose(_sum_between_clones, _sqrtg)
 
 
 if __name__ == "__main__":
@@ -186,5 +186,5 @@ if __name__ == "__main__":
                 {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0},
             ],
             num_clones=num_clones,
-            Np=1000,
+            xp.1000,
         )

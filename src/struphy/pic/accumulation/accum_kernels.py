@@ -43,7 +43,7 @@ def charge_density_0form(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
     weight_idx = args_markers.weight_idx
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
@@ -113,7 +113,7 @@ def hybrid_fA_density(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate
     cell_left = empty(3, dtype=int)
@@ -162,7 +162,7 @@ def hybrid_fA_density(
         # metric coeffs
         det_df = linalg_kernels.det(dfm)
 
-        weight = markers[ip, 6] / (p_size[0] * p_size[1] * p_size[2]) / Np / det_df
+        weight = markers[ip, 6] / (p_size[0] * p_size[1] * p_size[2]) / xp./ det_df
 
         ie1 = int(eta1 * Nel[0])
         ie2 = int(eta2 * Nel[1])
@@ -263,7 +263,7 @@ def hybrid_fA_Arelated(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -310,28 +310,28 @@ def hybrid_fA_Arelated(
 
         # filling_m
         filling_m[0, 0] = (
-            weight / Np * (df_inv[0, 0] * df_inv[0, 0] + df_inv[0, 1] * df_inv[0, 1] + df_inv[0, 2] * df_inv[0, 2])
+            weight / xp.* (df_inv[0, 0] * df_inv[0, 0] + df_inv[0, 1] * df_inv[0, 1] + df_inv[0, 2] * df_inv[0, 2])
         )
         filling_m[0, 1] = (
-            weight / Np * (df_inv[0, 0] * df_inv[1, 0] + df_inv[0, 1] * df_inv[1, 1] + df_inv[0, 2] * df_inv[1, 2])
+            weight / xp.* (df_inv[0, 0] * df_inv[1, 0] + df_inv[0, 1] * df_inv[1, 1] + df_inv[0, 2] * df_inv[1, 2])
         )
         filling_m[0, 2] = (
-            weight / Np * (df_inv[0, 0] * df_inv[2, 0] + df_inv[0, 1] * df_inv[2, 1] + df_inv[0, 2] * df_inv[2, 2])
+            weight / xp.* (df_inv[0, 0] * df_inv[2, 0] + df_inv[0, 1] * df_inv[2, 1] + df_inv[0, 2] * df_inv[2, 2])
         )
 
         filling_m[1, 1] = (
-            weight / Np * (df_inv[1, 0] * df_inv[1, 0] + df_inv[1, 1] * df_inv[1, 1] + df_inv[1, 2] * df_inv[1, 2])
+            weight / xp.* (df_inv[1, 0] * df_inv[1, 0] + df_inv[1, 1] * df_inv[1, 1] + df_inv[1, 2] * df_inv[1, 2])
         )
         filling_m[1, 2] = (
-            weight / Np * (df_inv[1, 0] * df_inv[2, 0] + df_inv[1, 1] * df_inv[2, 1] + df_inv[1, 2] * df_inv[2, 2])
+            weight / xp.* (df_inv[1, 0] * df_inv[2, 0] + df_inv[1, 1] * df_inv[2, 1] + df_inv[1, 2] * df_inv[2, 2])
         )
 
         filling_m[2, 2] = (
-            weight / Np * (df_inv[2, 0] * df_inv[2, 0] + df_inv[2, 1] * df_inv[2, 1] + df_inv[2, 2] * df_inv[2, 2])
+            weight / xp.* (df_inv[2, 0] * df_inv[2, 0] + df_inv[2, 1] * df_inv[2, 1] + df_inv[2, 2] * df_inv[2, 2])
         )
 
         # filling_v
-        filling_v[:] = weight / Np * df_inv_times_v
+        filling_v[:] = weight / xp.* df_inv_times_v
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_b_v1_symm(
@@ -404,7 +404,7 @@ def linear_vlasov_ampere(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -453,7 +453,7 @@ def linear_vlasov_ampere(
 
         # filling_m = alpha^2 * kappa^2 * f0 / (N * s_0 * v_th^2) * (DF^{-1} v_p)_mu * (DF^{-1} v_p)_nu
         linalg_kernels.outer(df_inv_v, df_inv_v, filling_m)
-        filling_m[:, :] *= f0_values[ip] / (Np * markers[ip, 7])
+        filling_m[:, :] *= f0_values[ip] / (xp.* markers[ip, 7])
 
         # filling_v = alpha^2 * kappa / N * w_p * DL^{-1} * v_p
         filling_v[:] = markers[ip, 6] * df_inv_v / Np
@@ -509,7 +509,7 @@ def vlasov_maxwell_poisson(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -571,7 +571,7 @@ def vlasov_maxwell(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for metric coeffs
     dfm = zeros((3, 3), dtype=float)
@@ -686,7 +686,7 @@ def cc_lin_mhd_6d_1(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -888,7 +888,7 @@ def cc_lin_mhd_6d_2(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -1184,7 +1184,7 @@ def pc_lin_mhd_6d_full(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -1243,8 +1243,8 @@ def pc_lin_mhd_6d_full(
 
         weight = markers[ip, 8]
 
-        filling_m[:, :] = weight * tmp1 / Np * scale_mat
-        filling_v[:] = weight * tmp_v / Np * scale_vec
+        filling_m[:, :] = weight * tmp1 / xp.* scale_mat
+        filling_v[:] = weight * tmp_v / xp.* scale_vec
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_v1_pressure_full(
@@ -1383,7 +1383,7 @@ def pc_lin_mhd_6d(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)

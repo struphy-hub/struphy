@@ -249,7 +249,7 @@ def bv_right(
     )
     # ========================= C.T ===========================
     return tensor_space_FEM.C.T.dot(
-        np.concatenate((temp_twoform1.flatten(), temp_twoform2.flatten(), temp_twoform3.flatten()))
+        xp.concatenate((temp_twoform1.flatten(), temp_twoform2.flatten(), temp_twoform3.flatten()))
     )
 
 
@@ -430,7 +430,7 @@ def uv_right(
     )
     # ========================= C.T ===========================
     temp_final = temp_final_0.flatten() + tensor_space_FEM.G.T.dot(
-        np.concatenate((temp_final_1.flatten(), temp_final_2.flatten(), temp_final_3.flatten()))
+        xp.concatenate((temp_final_1.flatten(), temp_final_2.flatten(), temp_final_3.flatten()))
     )
 
     return temp_final
@@ -439,7 +439,7 @@ def uv_right(
 def vv_right(
     tol,
     stage_index,
-    Np_loc,
+    xp.loc,
     u,
     domain,
     acc,
@@ -487,7 +487,7 @@ def vv_right(
             b2,
             b3,
             u,
-            Np_loc,
+            xp.loc,
             NbaseN,
             NbaseD,
             Nel,
@@ -517,7 +517,7 @@ def vv_right(
             b2,
             b3,
             u,
-            Np_loc,
+            xp.loc,
             NbaseN,
             NbaseD,
             Nel,
@@ -547,7 +547,7 @@ def vv_right(
             b2,
             b3,
             u,
-            Np_loc,
+            xp.loc,
             NbaseN,
             NbaseD,
             Nel,
@@ -577,7 +577,7 @@ def vv_right(
             b2,
             b3,
             u,
-            Np_loc,
+            xp.loc,
             NbaseN,
             NbaseD,
             Nel,

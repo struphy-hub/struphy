@@ -431,8 +431,8 @@ def piecewise_gather(
     pts3: "float[:,:]",
     Nel: "int[:]",
     particles: "float[:,:]",
-    Np_loc: "int",
-    Np: "int",
+    xp.loc: "int",
+    xp. "int",
     gather_1: "float[:,:,:,:,:,:]",
     gather_2: "float[:,:,:,:,:,:]",
     gather_3: "float[:,:,:,:,:,:]",
@@ -504,7 +504,7 @@ def piecewise_gather(
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do reduction ( + : gather_1, gather_2, gather_3) private (ip, eta1, eta2, eta3, ie1, ie2, ie3, vel, weight_p, point_left, point_right, cell_left, cell_number1, cell_number2, cell_number3, il1, il2 ,il3, q1, q2, q3, temp1, temp4, value_x, value_y, value_z, ww, index1, index2, index3, preindex1, preindex2, preindex3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df)
 
-    for ip in range(Np_loc):
+    for ip in range(xp.loc):
         eta1 = particles[0, ip]
         eta2 = particles[1, ip]
         eta3 = particles[2, ip]
@@ -516,7 +516,7 @@ def piecewise_gather(
         vel[0] = particles[3, ip] + ddt * mid_particles[0, ip]
         vel[1] = particles[4, ip] + ddt * mid_particles[1, ip]
         vel[2] = particles[5, ip] + ddt * mid_particles[2, ip]
-        weight_p = particles[6, ip] / (p_size[0] * p_size[1] * p_size[2]) / Np  # note we need to multiply cell size
+        weight_p = particles[6, ip] / (p_size[0] * p_size[1] * p_size[2]) / xp. # note we need to multiply cell size
 
         # the points here are still not put in the periodic box [0, 1] x [0, 1] x [0, 1]
         point_left[0] = eta1 - 0.5 * compact[0]
@@ -631,8 +631,8 @@ def piecewise_scatter(
     p_size: "float[:]",
     RK_vector: "float[:,:]",
     Nel: "int[:]",
-    Np_loc: "int",
-    Np: "int",
+    xp.loc: "int",
+    xp. "int",
     weight_1: "float[:,:,:,:,:,:]",
     weight_2: "float[:,:,:,:,:,:]",
     weight_3: "float[:,:,:,:,:,:]",
@@ -709,7 +709,7 @@ def piecewise_scatter(
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (ip, eta1, eta2, eta3, weight_p, point_left, point_right, cell_left, cell_number1, cell_number2, cell_number3, il1, il2, il3, q1, q2, q3, temp1, temp4, value_x, value_y, value_z, ww, index1, index2, index3, preindex1, preindex2, preindex3, vel, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df)
 
-    for ip in range(Np_loc):
+    for ip in range(xp.loc):
         eta1 = particles[0, ip]
         eta2 = particles[1, ip]
         eta3 = particles[2, ip]

@@ -11,7 +11,7 @@ class MarkerArguments:
     markers : array[float]
         Markers array.
 
-    Np : int
+    xp.: int
         Total number of particles.
 
     vdim : int
@@ -41,7 +41,7 @@ class MarkerArguments:
         self,
         markers: "float[:, :]",
         valid_mks: "bool[:]",
-        Np: int,
+        xp. int,
         vdim: int,
         weight_idx: int,
         first_diagnostics_idx: int,
@@ -52,7 +52,7 @@ class MarkerArguments:
     ):
         self.markers = markers
         self.valid_mks = valid_mks
-        self.Np = Np
+        self.xp.= Np
         self.vdim = vdim
         self.weight_idx = weight_idx
         self.n_markers = markers.shape[0]

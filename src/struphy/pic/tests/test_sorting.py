@@ -17,9 +17,9 @@ from struphy.utils.arrays import xp
 def test_flattening(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
-    n1s = np.array(np.random.rand(10) * (nx + 1), dtype=int)
-    n2s = np.array(np.random.rand(10) * (ny + 1), dtype=int)
-    n3s = np.array(np.random.rand(10) * (nz + 1), dtype=int)
+    n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
+    n2s = xp.array(xp.random.rand(10) * (ny + 1), dtype=int)
+    n3s = xp.array(xp.random.rand(10) * (nz + 1), dtype=int)
     for n1 in n1s:
         for n2 in n2s:
             for n3 in n3s:
@@ -37,9 +37,9 @@ def test_flattening(nx, ny, nz, algo):
 def test_flattening(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
-    n1s = np.array(np.random.rand(10) * (nx + 1), dtype=int)
-    n2s = np.array(np.random.rand(10) * (ny + 1), dtype=int)
-    n3s = np.array(np.random.rand(10) * (nz + 1), dtype=int)
+    n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
+    n2s = xp.array(xp.random.rand(10) * (ny + 1), dtype=int)
+    n3s = xp.array(xp.random.rand(10) * (nz + 1), dtype=int)
     for n1 in n1s:
         for n2 in n2s:
             for n3 in n3s:
@@ -57,9 +57,9 @@ def test_flattening(nx, ny, nz, algo):
 def test_flattening(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
-    n1s = np.array(np.random.rand(10) * (nx + 1), dtype=int)
-    n2s = np.array(np.random.rand(10) * (ny + 1), dtype=int)
-    n3s = np.array(np.random.rand(10) * (nz + 1), dtype=int)
+    n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
+    n2s = xp.array(xp.random.rand(10) * (ny + 1), dtype=int)
+    n3s = xp.array(xp.random.rand(10) * (nz + 1), dtype=int)
     for n1 in n1s:
         for n2 in n2s:
             for n3 in n3s:
@@ -91,8 +91,8 @@ def test_flattening(nx, ny, nz, algo):
         ],
     ],
 )
-@pytest.mark.parametrize("Np", [10000])
-def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
+@pytest.mark.parametrize("xp., [10000])
+def test_sorting(Nel, p, spl_kind, mapping, xp. verbose=False):
     mpi_comm = MPI.COMM_WORLD
     # assert mpi_comm.size >= 2
     rank = mpi_comm.Get_rank()
@@ -107,10 +107,10 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm)
 
     domain_array = derham.domain_array
-    nprocs = derham.domain_decomposition.nprocs
-    domain_decomp = (domain_array, nprocs)
+    xp.ocs = derham.domain_decomposition.xp.ocs
+    domain_decomp = (domain_array, xp.ocs)
 
-    loading_params = LoadingParameters(Np=Np, seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
+    loading_params = LoadingParameters(xp.xp. seed=1607, moments=(0.0, 0.0, 0.0, 1.0, 2.0, 3.0), spatial="uniform")
     boxes_per_dim = (3, 3, 6)
 
     particles = Particles6D(

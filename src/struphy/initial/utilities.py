@@ -98,6 +98,6 @@ class Noise:
         self._amp = amp
 
     def __call__(self, x, y, z):
-        val = self._amp * np.random.rand(*x.shape).squeeze()
+        val = self._amp * xp.random.rand(*x.shape).squeeze()
 
         return val

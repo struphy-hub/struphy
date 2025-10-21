@@ -18,9 +18,9 @@ def set_particles_symmetric_3d_3v(numbers: "float[:,:]", markers: "float[:,:]"):
     e = zeros(3, dtype=float)
     v = zeros(3, dtype=float)
 
-    np = 64 * shape(numbers)[0]
+    xp.= 64 * shape(numbers)[0]
 
-    for i_part in range(np):
+    for i_part in range(xp.:
         ip = i_part % 64
 
         if ip == 0:
@@ -54,9 +54,9 @@ def set_particles_symmetric_2d_3v(numbers: "float[:,:]", markers: "float[:,:]"):
     e = zeros(2, dtype=float)
     v = zeros(3, dtype=float)
 
-    np = 32 * shape(numbers)[0]
+    xp.= 32 * shape(numbers)[0]
 
-    for i_part in range(np):
+    for i_part in range(xp.:
         ip = i_part % 32
 
         if ip == 0:
@@ -93,13 +93,13 @@ def tile_int_kernel(
 
     Parameters
     ----------
-    fun: np.ndarray
+    fun: xp.ndarray
         The integrand evaluated at the quadrature points (meshgrid).
 
-    x_wts, y_wts, z_wts: np.ndarray
+    x_wts, y_wts, z_wts: xp.ndarray
         Quadrature weights for tile integral.
 
-    out: np.ndarray
+    out: xp.ndarray
         The result holding all tile integrals in one sorting box."""
 
     _shp = shape(out)

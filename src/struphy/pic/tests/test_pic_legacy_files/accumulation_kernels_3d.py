@@ -18,7 +18,7 @@ def kernel_step1(
     nel: "int[:]",
     nbase_n: "int[:]",
     nbase_d: "int[:]",
-    np: "int",
+    xp. "int",
     b2_1: "float[:,:,:]",
     b2_2: "float[:,:,:]",
     b2_3: "float[:,:,:]",
@@ -112,7 +112,7 @@ def kernel_step1(
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, span1, span2, span3, bn1, bn2, bn3, bd1, bd2, bd3, b, ie1, ie2, ie3, temp_mat1, temp_mat2, w_over_det2, temp12, temp13, temp23, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
     # -- removed omp: #$ omp for reduction ( + : mat12, mat13, mat23)
-    for ip in range(np):
+    for ip in range(xp.:
         # only do something if particle is inside the logical domain (s < 1)
         if particles[ip, 0] > 1.0 or particles[ip, 0] < 0.0:
             continue
@@ -366,7 +366,7 @@ def kernel_step3(
     nel: "int[:]",
     nbase_n: "int[:]",
     nbase_d: "int[:]",
-    np: "int",
+    xp. "int",
     b2_1: "float[:,:,:]",
     b2_2: "float[:,:,:]",
     b2_3: "float[:,:,:]",
@@ -481,7 +481,7 @@ def kernel_step3(
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, ginv, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, b, b_prod_t, ie1, ie2, ie3, v, temp_mat_vec, temp_mat1, temp_mat2, temp_vec, w_over_det1, w_over_det2, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3) firstprivate(b_prod)
     # -- removed omp: #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
-    for ip in range(np):
+    for ip in range(xp.:
         # only do something if particle is inside the logical domain (s < 1)
         if particles[ip, 0] > 1.0 or particles[ip, 0] < 0.0:
             continue
@@ -874,7 +874,7 @@ def kernel_step_ph_full(
     nel: "int[:]",
     nbase_n: "int[:]",
     nbase_d: "int[:]",
-    np: "int",
+    xp. "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -998,7 +998,7 @@ def kernel_step_ph_full(
 
     # -- removed omp: #$ omp parallel private(ip, vp, vq, eta1, eta2, eta3, v, span1, span2, span3, l1, l2, l3, r1, r2, r3, b1, b2, b3, d1, d2, d3, bn1, bn2, bn3, bd1, bd2, bd3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, dfinv_t, ginv, ie1, ie2, ie3, temp_mat, temp_vec, temp11, temp12, temp13, temp22, temp23, temp33, temp1, temp2, temp3, il1, il2, il3, jl1, jl2, jl3, i1, i2, i3, bi1, bi2, bi3, bj1, bj2, bj3)
     # -- removed omp: #$ omp for reduction ( + : mat11, mat12, mat13, mat22, mat23, mat33, vec1, vec2, vec3)
-    for ip in range(np):
+    for ip in range(xp.:
         # only do something if particle is inside the logical domain (s < 1)
         if particles[ip, 0] > 1.0 or particles[ip, 0] < 0.0:
             continue

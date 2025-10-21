@@ -28,7 +28,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     rank = comm.Get_rank()
 
     if rank == 0:
-        print("\nParameters:")
+        print("\xp.rameters:")
         print("Nel=", Nel)
         print("p=", p)
         print("spl_kind=", spl_kind)
@@ -62,7 +62,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     e_in = int(mat.domain.ends[0])
     p_in = int(mat.domain.pads[0])
 
-    npts = codomain.coeff_space.npts[0]
+    xp.s = codomain.coeff_space.xp.s[0]
 
     # matrix
     for i in range(s_out, e_out + 1):
@@ -73,13 +73,13 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
                 mat._data[p_out + i_loc, d1] = m - i
                 mat_pre._data[p_out + i_loc, d1] = m - i
             else:
-                if m >= 0 and m < npts:
+                if m >= 0 and m < xp.s:
                     mat._data[p_out + i_loc, d1] = m - i
                     mat_pre._data[p_out + i_loc, d1] = m - i
 
     # random vector
-    # np.random.seed(123)
-    x[s_in : e_in + 1] = np.random.rand(domain.coeff_space.npts[0])
+    # xp.random.seed(123)
+    x[s_in : e_in + 1] = xp.random.rand(domain.coeff_space.xp.s[0])
 
     if rank == 0:
         print(f"spl_kind={spl_kind}")
@@ -118,8 +118,8 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
         print("\nout_ker=", out_ker._data)
         print("\nout_pre=", out_pre._data)
 
-    assert np.allclose(out_ker._data, out._data)
-    assert np.allclose(out_pre._data, out._data)
+    assert xp.allclose(out_ker._data, out._data)
+    assert xp.allclose(out_pre._data, out._data)
 
 
 @pytest.mark.parametrize("Nel", [[12, 16, 20]])
@@ -149,7 +149,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     rank = comm.Get_rank()
 
     if rank == 0:
-        print("\nParameters:")
+        print("\xp.rameters:")
         print("Nel=", Nel)
         print("p=", p)
         print("spl_kind=", spl_kind)
@@ -177,16 +177,16 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     x = StencilVector(domain.coeff_space)
     out_ker = StencilVector(codomain.coeff_space)
 
-    s_out = np.array(mat.codomain.starts)
-    e_out = np.array(mat.codomain.ends)
-    p_out = np.array(mat.codomain.pads)
-    s_in = np.array(mat.domain.starts)
-    e_in = np.array(mat.domain.ends)
-    p_in = np.array(mat.domain.pads)
+    s_out = xp.array(mat.codomain.starts)
+    e_out = xp.array(mat.codomain.ends)
+    p_out = xp.array(mat.codomain.pads)
+    s_in = xp.array(mat.domain.starts)
+    e_in = xp.array(mat.domain.ends)
+    p_in = xp.array(mat.domain.pads)
 
     # random matrix
-    np.random.seed(123)
-    tmp1 = np.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in p])
+    xp.random.seed(123)
+    tmp1 = xp.random.rand(*codomain.coeff_space.xp.s, *[2 * q + 1 for q in p])
     mat[
         s_out[0] : e_out[0] + 1,
         s_out[1] : e_out[1] + 1,
@@ -207,7 +207,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     ]
 
     # random vector
-    tmp2 = np.random.rand(*domain.coeff_space.npts)
+    tmp2 = xp.random.rand(*domain.coeff_space.xp.s)
     x[
         s_in[0] : e_in[0] + 1,
         s_in[1] : e_in[1] + 1,
@@ -226,7 +226,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     # kernel matvec
     add = [int(end_in >= end_out) for end_in, end_out in zip(mat.domain.ends, mat.codomain.ends)]
-    add = np.array(add)
+    add = xp.array(add)
     matvec_3d_kernel(mat._data, x._data, out_ker._data, s_in, p_in, add, s_out, e_out, p_out)
 
     # precompiled .dot
@@ -253,12 +253,12 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
         print("\nout_ker[2]=", out_ker._data[p_out[0], p_out[1], :])
         print("\nout_pre[2]=", out_pre._data[p_out[0], p_out[1], :])
 
-    assert np.allclose(
+    assert xp.allclose(
         out_ker[s_out[0] : e_out[0] + 1, s_out[1] : e_out[1] + 1, s_out[2] : e_out[2] + 1],
         out[s_out[0] : e_out[0] + 1, s_out[1] : e_out[1] + 1, s_out[2] : e_out[2] + 1],
     )
 
-    assert np.allclose(
+    assert xp.allclose(
         out_pre[s_out[0] : e_out[0] + 1, s_out[1] : e_out[1] + 1, s_out[2] : e_out[2] + 1],
         out[s_out[0] : e_out[0] + 1, s_out[1] : e_out[1] + 1, s_out[2] : e_out[2] + 1],
     )

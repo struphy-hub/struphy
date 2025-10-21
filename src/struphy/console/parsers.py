@@ -17,7 +17,7 @@ def add_likwid_parser(parser):
         help="likwid measurement group",
     )
     parser_likwid.add_argument(
-        "--nperdomain",
+        "--xp.rdomain",
         default=None,  # Example: S:36 means 36 cores/socket
         type=str,
         help="Set the number of processes per node by giving an affinity domain and count",

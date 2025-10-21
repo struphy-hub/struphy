@@ -5,7 +5,7 @@ import struphy.linear_algebra.linalg_kernels as linalg
 
 # ==============================================================================================
 def kernel_0_form(
-    Np: "int",
+    xp. "int",
     p: "int[:]",
     Nel: "int[:]",
     p_shape: "int[:]",
@@ -19,7 +19,7 @@ def kernel_0_form(
     coeff_z: "float[:]",
     NbaseN: "int[:]",
     related: "int[:]",
-    Np_loc: "int",
+    xp.loc: "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -79,7 +79,7 @@ def kernel_0_form(
     lambdas[:, :, :] = 0.0
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do reduction ( + : kernel_0, lambdas) private (ip, w, width2, cell_left, point_left, point_right, cell_number, compact, width, mat_f, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, final_1, final_2, final_3, lambda_index1, lambda_index2, lambda_index3, global_i1, global_i2, global_i3, global_il1, global_il2, global_il3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, eta1, eta2, eta3)
-    for ip in range(Np_loc):
+    for ip in range(xp.loc):
         # lambdas[:,:,:] = 0.0
         w = particle[6, ip] / Np
         compact[0] = (p_shape[0] + 1.0) * p_size[0]
@@ -231,7 +231,7 @@ def kernel_0_form(
 
 # ==============================================================================================
 def potential_kernel_0_form(
-    Np: "int",
+    xp. "int",
     p: "int[:]",
     Nel: "int[:]",
     p_shape: "int[:]",
@@ -245,7 +245,7 @@ def potential_kernel_0_form(
     coeff_z: "float[:]",
     NbaseN: "int[:]",
     related: "int[:]",
-    Np_loc: "int",
+    xp.loc: "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -306,7 +306,7 @@ def potential_kernel_0_form(
     det_df = params_map[0] * params_map[1] * params_map[2]
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do reduction ( + : lambdas) private (ip, w, width, cell_left, point_left, point_right, cell_number, compact, mat_f, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, final_1, final_2, final_3, eta1, eta2, eta3, lambda_index1, lambda_index2, lambda_index3)
-    for ip in range(Np_loc):
+    for ip in range(xp.loc):
         # lambdas[:,:,:] = 0.0
         w = particle[6, ip] / Np
         compact[0] = (p_shape[0] + 1.0) * p_size[0]
@@ -400,7 +400,7 @@ def kernel_1_form(
     wts1: "float[:]",
     wts2: "float[:]",
     wts3: "float[:]",
-    Np: "int",
+    xp. "int",
     quad: "int[:]",
     p: "int[:]",
     Nel: "int[:]",
@@ -432,7 +432,7 @@ def kernel_1_form(
     NbaseN: "int[:]",
     NbaseD: "int[:]",
     related: "int[:]",
-    Np_loc: "int",
+    xp.loc: "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -500,7 +500,7 @@ def kernel_1_form(
     # ====================================
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do reduction ( + : kernel_11, kernel_12, kernel_13, kernel_22, kernel_23, kernel_33, right1, right2, right3) private (mid1, mid2, mid3, ip, w, det_df, vol, width2, lambdas_11, lambdas_22, lambdas_33, lambdas_12, lambdas_13, lambdas_21, lambdas_23, lambdas_31, lambdas_32, cell_left, point_left, point_right, cell_number, compact, width, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, lambda_index1, lambda_index2, lambda_index3, global_i1, global_i2, global_i3, global_il1, global_il2, global_il3, f_int, jl1, eta1, eta2, eta3, final_index1, final_index2, final_index3)
-    for ip in range(Np_loc):
+    for ip in range(xp.loc):
         w = particle[6, ip] / Np
 
         lambdas_11[:, :, :] = 0.0
@@ -1117,7 +1117,7 @@ def bv_localproj_push(
     wts1: "float[:]",
     wts2: "float[:]",
     wts3: "float[:]",
-    Np: "int",
+    xp. "int",
     quad: "int[:]",
     p: "int[:]",
     Nel: "int[:]",
@@ -1143,7 +1143,7 @@ def bv_localproj_push(
     NbaseN: "int[:]",
     NbaseD: "int[:]",
     related: "int[:]",
-    Np_loc: "int",
+    xp.loc: "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -1206,7 +1206,7 @@ def bv_localproj_push(
     # ====================================
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (i, grids_shapex, grids_shapey, grids_shapez, vel, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_12, lambdas_13, lambdas_21, lambdas_22, lambdas_23, lambdas_31, lambdas_32, lambdas_33, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, f_int, jl1, eta1, eta2, eta3, final_index1, final_index2, final_index3, lambda_index1, lambda_index2, lambda_index3)
-    for ip in range(Np_loc):
+    for ip in range(xp.loc):
         vel[:] = 0.0
 
         w = particle[6, ip] / Np
@@ -1657,7 +1657,7 @@ def kernel_1_heavy(
     in1: "float[:,:,:]",
     in2: "float[:,:,:]",
     in3: "float[:,:,:]",
-    Np: "int",
+    xp. "int",
     quad: "int[:]",
     p: "int[:]",
     Nel: "int[:]",
@@ -1682,7 +1682,7 @@ def kernel_1_heavy(
     coeff_h_z: "float[:]",
     NbaseN: "int[:]",
     NbaseD: "int[:]",
-    Np_loc: "int",
+    xp.loc: "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -1749,7 +1749,7 @@ def kernel_1_heavy(
 
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do reduction ( + : out1, out2, out3) private (value1, value2, value3, i, grids_shapex, grids_shapey, grids_shapez, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_12, lambdas_13, lambdas_21, lambdas_22, lambdas_23, lambdas_31, lambdas_32, lambdas_33, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, lambda_index1, lambda_index2, lambda_index3, eta1, eta2, eta3, final_index1, final_index2, final_index3, f_int)
-    for ip in range(Np_loc):
+    for ip in range(xp.loc):
         w = particle[6, ip] / Np
 
         lambdas_11[:, :, :] = 0.0
@@ -2219,7 +2219,7 @@ def vv_1_form(
     right1: "float[:,:,:]",
     right2: "float[:,:,:]",
     right3: "float[:,:,:]",
-    Np: "int",
+    xp. "int",
     quad: "int[:]",
     p: "int[:]",
     Nel: "int[:]",
@@ -2246,7 +2246,7 @@ def vv_1_form(
     NbaseN: "int[:]",
     NbaseD: "int[:]",
     related: "int[:]",
-    Np_loc: "int",
+    xp.loc: "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -2322,7 +2322,7 @@ def vv_1_form(
     # ====================================
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do reduction ( + : right1, right2, right3) private (i, grids_shapex, grids_shapey, grids_shapez, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_22, lambdas_33, lambdas_12, lambdas_13, lambdas_21, lambdas_23, lambdas_31, lambdas_32, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, jl1, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, lambda_index1, lambda_index2, lambda_index3, eta1, eta2, eta3, final_index1, final_index2, final_index3, f_int)
-    for ip in range(Np_loc):
+    for ip in range(xp.loc):
         w = particle[6, ip] / Np
 
         lambdas_11[:, :, :] = 0.0
@@ -2763,7 +2763,7 @@ def vv_push(
     wts1: "float[:]",
     wts2: "float[:]",
     wts3: "float[:]",
-    Np: "int",
+    xp. "int",
     quad: "int[:]",
     p: "int[:]",
     Nel: "int[:]",
@@ -2789,7 +2789,7 @@ def vv_push(
     NbaseN: "int[:]",
     NbaseD: "int[:]",
     related: "int[:]",
-    Np_loc: "int",
+    xp.loc: "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -2852,7 +2852,7 @@ def vv_push(
     # ====================================
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (i, grids_shapex, grids_shapey, grids_shapez, vel, mid1, mid2, mid3, ip, w, det_df, vol, lambdas_11, lambdas_12, lambdas_13, lambdas_21, lambdas_22, lambdas_23, lambdas_31, lambdas_32, lambdas_33, cell_left, point_left, point_right, cell_number, compact, mat_11, mat_12, mat_13, mat_21, mat_22, mat_23, mat_31, mat_32, mat_33, i1, i2, i3, il1, il2, il3, jl1, index1, index2, index3, value_x, value_y, value_z, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dft, eta1, eta2, eta3, final_index1, final_index2, final_index3, lambda_index1, lambda_index2, lambda_index3, f_int)
-    for ip in range(Np_loc):
+    for ip in range(xp.loc):
         vel[:] = 0.0
 
         w = particle[6, ip] / Np

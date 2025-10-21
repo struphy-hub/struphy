@@ -17,7 +17,7 @@ import struphy.pic.tests.test_pic_legacy_files.spline_evaluation_3d as eva3
 def pusher_step4(
     particles: "float[:,:]",
     dt: "float",
-    np: "int",
+    xp. "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -85,7 +85,7 @@ def pusher_step4(
 
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (ip, e, v, e_new, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, dfinv, k1, k2, k3, k4)
-    for ip in range(np):
+    for ip in range(xp.:
         # only do something if particle is inside the logical domain (0 < s < 1)
         if particles[0, ip] < 0.0 or particles[0, ip] > 1.0:
             continue
@@ -437,7 +437,7 @@ def reflect(
 def pusher_step4_pcart(
     particles: "float[:,:]",
     dt: "float",
-    np: "int",
+    xp. "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -521,7 +521,7 @@ def pusher_step4_pcart(
 
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (ip, eta, v, fx_pseudo, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df_old, fx, dfinv_old, df_pseudo_old, df, dfinv, df_pseudo, v_temp, k1, k2, k3, k4)
-    for ip in range(np):
+    for ip in range(xp.:
         # only do something if particle is inside the logical domain (s < 1)
         if particles[0, ip] > 1.0:
             continue
@@ -958,7 +958,7 @@ def pusher_step4_pcart(
 def pusher_step4_cart(
     particles: "float[:,:]",
     dt: "float",
-    np: "int",
+    xp. "int",
     kind_map: "int",
     params_map: "float[:]",
     tf1: "float[:]",
@@ -1021,7 +1021,7 @@ def pusher_step4_cart(
 
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (ip, e, v, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, x_old, x_new, dfinv, temp)
-    for ip in range(np):
+    for ip in range(xp.:
         e[:] = particles[0:3, ip]
         v[:] = particles[3:6, ip]
 
@@ -1151,7 +1151,7 @@ def pusher_rk4_pc_full(
     nel,
     nbase_n,
     nbase_d,
-    np,
+    xp.
     u1,
     u2,
     u3,
@@ -1279,7 +1279,7 @@ def pusher_rk4_pc_full(
     k4_v = empty(3, dtype=float)
     # ========================================================
 
-    for ip in range(np):
+    for ip in range(xp.:
         # only do something if particle is inside the logical domain (0 < s < 1)
         if particles[0, ip] < 0.0 or particles[0, ip] > 1.0:
             particles[0:3, ip] = -1.0
@@ -1780,7 +1780,7 @@ def pusher_rk4_pc_perp(
     nel: "int[:]",
     nbase_n: "int[:]",
     nbase_d: "int[:]",
-    np: "int",
+    xp. "int",
     u1: "float[:,:,:]",
     u2: "float[:,:,:]",
     u3: "float[:,:,:]",
@@ -1905,7 +1905,7 @@ def pusher_rk4_pc_perp(
     k4_v = empty(3, dtype=float)
     # ========================================================
 
-    for ip in range(np):
+    for ip in range(xp.:
         eta[:] = particles[0:3, ip]
         v[:] = particles[3:6, ip]
 

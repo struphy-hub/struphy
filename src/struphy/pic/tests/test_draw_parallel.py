@@ -56,8 +56,8 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
-    nprocs = derham.domain_decomposition.nprocs
-    domain_decomp = (domain_array, nprocs)
+    xp.ocs = derham.domain_decomposition.xp.ocs
+    domain_decomp = (domain_array, xp.ocs)
 
     if rank == 0:
         print()
@@ -85,7 +85,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     particles.initialize_weights()
     _w0 = particles.weights
     print("Test weights:")
-    print(f"rank {rank}:", _w0.shape, np.min(_w0), np.max(_w0))
+    print(f"rank {rank}:", _w0.shape, xp.min(_w0), xp.max(_w0))
 
     comm.Barrier()
     print("Number of particles w/wo holes on each process before sorting : ")
@@ -106,17 +106,17 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     print("Rank", rank, ":", particles.n_mks_loc, particles.markers.shape[0])
 
     # are all markers in the correct domain?
-    conds = np.logical_and(
+    conds = xp.logical_and(
         particles.markers[:, :3] > derham.domain_array[rank, 0::3],
         particles.markers[:, :3] < derham.domain_array[rank, 1::3],
     )
     holes = particles.markers[:, 0] == -1.0
-    stay = np.all(conds, axis=1)
+    stay = xp.all(conds, axis=1)
 
-    error_mks = particles.markers[np.logical_and(~stay, ~holes)]
+    error_mks = particles.markers[xp.logical_and(~stay, ~holes)]
 
     assert error_mks.size == 0, (
-        f"rank {rank} | markers not on correct process: {np.nonzero(np.logical_and(~stay, ~holes))} \n corresponding positions:\n {error_mks[:, :3]}"
+        f"rank {rank} | markers not on correct process: {xp.nonzero(xp.logical_and(~stay, ~holes))} \n corresponding positions:\n {error_mks[:, :3]}"
     )
 
 

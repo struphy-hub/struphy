@@ -204,8 +204,8 @@ class PICVariable(Variable):
             domain_decomp = None
         else:
             domain_array = derham.domain_array
-            nprocs = derham.domain_decomposition.nprocs
-            domain_decomp = (domain_array, nprocs)
+            xp.ocs = derham.domain_decomposition.xp.ocs
+            domain_decomp = (domain_array, xp.ocs)
 
         kinetic_class = getattr(particles, self.space)
 
@@ -253,11 +253,11 @@ class PICVariable(Variable):
         else:
             self._n_to_save = n_markers
 
-        assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
+        assert self._n_to_save <= self.particles.xp. (
+            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.xp.)"
         )
         if self._n_to_save > 0:
-            self._saved_markers = np.zeros(
+            self._saved_markers = xp.zeros(
                 (self._n_to_save, self.particles.markers.shape[1]),
                 dtype=float,
             )
@@ -270,7 +270,7 @@ class PICVariable(Variable):
         return self._n_to_save
 
     @property
-    def saved_markers(self) -> np.ndarray:
+    def saved_markers(self) -> xp.ndarray:
         return self._saved_markers
 
 
@@ -349,8 +349,8 @@ class SPHVariable(Variable):
             domain_decomp = None
         else:
             domain_array = derham.domain_array
-            nprocs = derham.domain_decomposition.nprocs
-            domain_decomp = (domain_array, nprocs)
+            xp.ocs = derham.domain_decomposition.xp.ocs
+            domain_decomp = (domain_array, xp.ocs)
 
         comm_world = MPI.COMM_WORLD
         if comm_world.Get_size() == 1:
@@ -394,11 +394,11 @@ class SPHVariable(Variable):
         else:
             self._n_to_save = n_markers
 
-        assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
+        assert self._n_to_save <= self.particles.xp. (
+            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.xp.)"
         )
         if self._n_to_save > 0:
-            self._saved_markers = np.zeros(
+            self._saved_markers = xp.zeros(
                 (self._n_to_save, self.particles.markers.shape[1]),
                 dtype=float,
             )
@@ -411,5 +411,5 @@ class SPHVariable(Variable):
         return self._n_to_save
 
     @property
-    def saved_markers(self) -> np.ndarray:
+    def saved_markers(self) -> xp.ndarray:
         return self._saved_markers

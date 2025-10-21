@@ -516,7 +516,7 @@ def sph_pressure_coeffs(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     n_cols = shape(markers)[1]
-    Np = args_markers.Np
+    xp.= args_markers.Np
     weight_idx = args_markers.weight_idx
     valid_mks = args_markers.valid_mks
 
@@ -644,7 +644,7 @@ def sph_mean_velocity_coeffs(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     n_cols = shape(markers)[1]
-    Np = args_markers.Np
+    xp.= args_markers.Np
     vdim = args_markers.vdim
     weight_idx = args_markers.weight_idx
     valid_mks = args_markers.valid_mks
@@ -731,7 +731,7 @@ def sph_mean_velocity(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     n_cols = shape(markers)[1]
-    Np = args_markers.Np
+    xp.= args_markers.Np
     vdim = args_markers.vdim
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
@@ -855,7 +855,7 @@ def sph_grad_mean_velocity(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     n_cols = shape(markers)[1]
-    Np = args_markers.Np
+    xp.= args_markers.Np
     vdim = args_markers.vdim
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx
@@ -943,7 +943,7 @@ def sph_viscosity_tensor(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
     n_cols = shape(markers)[1]
-    Np = args_markers.Np
+    xp.= args_markers.Np
     vdim = args_markers.vdim
     weight_idx = args_markers.weight_idx
     first_free_idx = args_markers.first_free_idx

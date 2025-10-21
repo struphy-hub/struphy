@@ -22,7 +22,7 @@ def pusher_step3(
     nel: "int[:]",
     nbase_n: "int[:]",
     nbase_d: "int[:]",
-    np: "int",
+    xp. "int",
     b_eq_1: "float[:,:,:]",
     b_eq_2: "float[:,:,:]",
     b_eq_3: "float[:,:,:]",
@@ -140,7 +140,7 @@ def pusher_step3(
 
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, dfinv, dfinv_t, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, der1, der2, bn1, bn2, bd1, bd2, cs, u, u_cart, b, b_cart, b_grad, b_grad_cart, e_cart)
-    for ip in range(np):
+    for ip in range(xp.:
         # only do something if particle is inside the logical domain (0 < s < 1)
         if particles[0, ip] < 0.0 or particles[0, ip] > 1.0:
             continue
@@ -380,7 +380,7 @@ def pusher_step5(
     nel: "int[:]",
     nbase_n: "int[:]",
     nbase_d: "int[:]",
-    np: "int",
+    xp. "int",
     b_eq_1: "float[:,:,:]",
     b_eq_2: "float[:,:,:]",
     b_eq_3: "float[:,:,:]",
@@ -485,7 +485,7 @@ def pusher_step5(
 
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (ip, eta1, eta2, eta3, span1f, span2f, span3f, l1f, l2f, l3f, r1f, r2f, r3f, b1f, b2f, b3f, d1f, d2f, d3f, der1f, der2f, der3f, df, fx, det_df, span1, span2, l1, l2, r1, r2, b1, b2, d1, d2, bn1, bn2, bd1, bd2, cs, b, b_cart, b_norm, b0, v, vpar, vxb0, vperp, b0xvperp)
-    for ip in range(np):
+    for ip in range(xp.:
         # only do something if particle is inside the logical domain (0 < s < 1)
         if particles[0, ip] < 0.0 or particles[0, ip] > 1.0:
             continue

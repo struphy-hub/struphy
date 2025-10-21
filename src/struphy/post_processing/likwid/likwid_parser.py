@@ -562,7 +562,7 @@ class Project:
     def __str__(self):
         """String representation of the Project instance."""
         return (
-            f"Project(name={self.name},\npath={self.path},\nnum_mpi={self.num_mpi}, "
+            f"Project(name={self.name},\xp.th={self.path},\nnum_mpi={self.num_mpi}, "
             f"simulation_finished={self.simulation_finished}, "
             f"nodelist={self.nodelist}, "
             f"likwid_outputs_count={len(self.likwid_outputs)})"

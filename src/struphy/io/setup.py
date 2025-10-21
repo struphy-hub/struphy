@@ -33,7 +33,7 @@ def setup_folders(
     """
     if MPI.COMM_WORLD.Get_rank() == 0:
         if verbose:
-            print("\nPREPARATION AND CLEAN-UP:")
+            print("\xp.EPARATION AND CLEAN-UP:")
 
         # create output folder if it does not exit
         if not os.path.exists(path_out):
@@ -160,7 +160,7 @@ def setup_derham(
         print(f"GL quad pts (hist):".ljust(25), nq_pr)
         print(
             "MPI proc. per dir.:".ljust(25),
-            derham.domain_decomposition.nprocs,
+            derham.domain_decomposition.xp.ocs,
         )
         print("use polar splines:".ljust(25), derham.polar_ck == 1)
         print("domain on process 0:".ljust(25), derham.domain_array[0])

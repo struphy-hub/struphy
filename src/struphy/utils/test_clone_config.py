@@ -4,9 +4,9 @@ from psydac.ddm.mpi import mpi as MPI
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
-@pytest.mark.parametrize("Np", [1000, 999])
+@pytest.mark.parametrize("xp., [1000, 999])
 @pytest.mark.parametrize("num_clones", [1, 2])
-def test_clone_config(Nel, Np, num_clones):
+def test_clone_config(Nel, xp. num_clones):
     from struphy.utils.clone_config import CloneConfig
 
     if isinstance(MPI.COMM_WORLD, MockComm):
@@ -23,7 +23,7 @@ def test_clone_config(Nel, Np, num_clones):
         "kinetic": {
             species: {
                 "markers": {
-                    "Np": Np,
+                    "xp.: xp.
                 }
             }
         },
@@ -31,13 +31,13 @@ def test_clone_config(Nel, Np, num_clones):
 
     pconf = CloneConfig(params=params, comm=comm, num_clones=num_clones)
     assert pconf.get_Np_global(species_name=species) == Np
-    if Np % num_clones == 0:
-        assert pconf.get_Np_clone(Np) == Np / num_clones
+    if xp.% num_clones == 0:
+        assert pconf.get_Np_clone(xp. == xp./ num_clones
 
     # Print outputs
     pconf.print_clone_config()
     pconf.print_particle_config()
-    print(f"{pconf.get_Np_clone(Np) = }")
+    print(f"{pconf.get_Np_clone(xp. = }")
 
 
 if __name__ == "__main__":

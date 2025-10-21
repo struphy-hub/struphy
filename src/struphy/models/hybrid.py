@@ -236,8 +236,8 @@ class LinearMHDVlasovCC(StruphyModel):
         self.add_scalar("n_lost_particles", compute="from_particles", species="energetic_ions")
 
         # temporary vectors for scalar quantities:
-        self._tmp = np.empty(1, dtype=float)
-        self._n_lost_particles = np.empty(1, dtype=float)
+        self._tmp = xp.empty(1, dtype=float)
+        self._n_lost_particles = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         # perturbed fields
@@ -273,7 +273,7 @@ class LinearMHDVlasovCC(StruphyModel):
         if self.rank_world == 0:
             print(
                 "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
+                self._n_lost_particles[0] / self.pointer["energetic_ions"].xp.* 100,
                 "%",
             )
 
@@ -500,8 +500,8 @@ class LinearMHDVlasovPC(StruphyModel):
         # temporary vectors for scalar quantities
         self._tmp_u = self.derham.Vh["2"].zeros()
         self._tmp_b1 = self.derham.Vh["2"].zeros()
-        self._tmp = np.empty(1, dtype=float)
-        self._n_lost_particles = np.empty(1, dtype=float)
+        self._tmp = xp.empty(1, dtype=float)
+        self._n_lost_particles = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         # perturbed fields
@@ -539,7 +539,7 @@ class LinearMHDVlasovPC(StruphyModel):
         if self.rank_world == 0:
             print(
                 "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
+                self._n_lost_particles[0] / self.pointer["energetic_ions"].xp.* 100,
                 "%",
             )
 
@@ -715,10 +715,10 @@ class LinearMHDDriftkineticCC(StruphyModel):
         else:
             self._ones[:] = 1.0
 
-        self._en_fv = np.empty(1, dtype=float)
-        self._en_fB = np.empty(1, dtype=float)
-        self._en_tot = np.empty(1, dtype=float)
-        self._n_lost_particles = np.empty(1, dtype=float)
+        self._en_fv = xp.empty(1, dtype=float)
+        self._en_fB = xp.empty(1, dtype=float)
+        self._en_tot = xp.empty(1, dtype=float)
+        self._n_lost_particles = xp.empty(1, dtype=float)
 
         self._PB = getattr(self.basis_ops, "PB")
         self._PBb = self._PB.codomain.zeros()
@@ -771,7 +771,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.update_scalar("en_tot")
 
         # print number of lost particles
-        n_lost_markers = np.array(particles.n_lost_markers)
+        n_lost_markers = xp.array(particles.n_lost_markers)
 
         if self.derham.comm is not None:
             self.derham.comm.Allreduce(
@@ -790,7 +790,7 @@ class LinearMHDDriftkineticCC(StruphyModel):
         if rank == 0:
             print(
                 "Lost particle ratio: ",
-                n_lost_markers / particles.Np * 100,
+                n_lost_markers / particles.xp.* 100,
                 "% \n",
             )
 
@@ -956,7 +956,7 @@ class ColdPlasmaVlasov(StruphyModel):
         hot_params = params["kinetic"]["hot_electrons"]
 
         # model parameters
-        self._alpha = np.abs(
+        self._alpha = xp.abs(
             self.equation_params["cold_electrons"]["alpha"],
         )
         self._epsilon_cold = self.equation_params["cold_electrons"]["epsilon"]
@@ -1022,7 +1022,7 @@ class ColdPlasmaVlasov(StruphyModel):
         self.add_scalar("en_tot")
 
         # temporaries
-        self._tmp = np.empty(1, dtype=float)
+        self._tmp = xp.empty(1, dtype=float)
 
     def initialize_from_params(self):
         """:meta private:"""
@@ -1044,8 +1044,8 @@ class ColdPlasmaVlasov(StruphyModel):
         charge_accum()
 
         # Locally subtract mean charge for solvability with periodic bc
-        if np.all(charge_accum.vectors[0].space.periods):
-            charge_accum._vectors[0][:] -= np.mean(
+        if xp.all(charge_accum.vectors[0].space.periods):
+            charge_accum._vectors[0][:] -= xp.mean(
                 charge_accum.vectors[0].toarray()[charge_accum.vectors[0].toarray() != 0],
             )
 
@@ -1081,8 +1081,8 @@ class ColdPlasmaVlasov(StruphyModel):
             * self._alpha**2
             * self._epsilon_hot
             / self._epsilon_cold
-            / (2 * self.pointer["hot_electrons"].Np)
-            * np.dot(
+            / (2 * self.pointer["hot_electrons"].xp.
+            * xp.dot(
                 self.pointer["hot_electrons"].markers_wo_holes[:, 3] ** 2
                 + self.pointer["hot_electrons"].markers_wo_holes[:, 4] ** 2
                 + self.pointer["hot_electrons"].markers_wo_holes[:, 5] ** 2,

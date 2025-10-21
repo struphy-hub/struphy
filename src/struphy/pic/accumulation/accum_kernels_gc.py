@@ -45,7 +45,7 @@ def gc_density_0form(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -83,7 +83,7 @@ def gc_mag_density_0form(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -102,7 +102,7 @@ def gc_mag_density_0form(
         mu = markers[ip, 9]
 
         # filling =mu*w_p/N
-        filling = mu * weight / Np * scale
+        filling = mu * weight / xp.* scale
 
         particle_to_mat_kernels.vec_fill_b_v0(args_derham, eta1, eta2, eta3, vec, filling)
 
@@ -156,7 +156,7 @@ def cc_lin_mhd_5d_D(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -336,7 +336,7 @@ def cc_lin_mhd_5d_curlb(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -534,7 +534,7 @@ def cc_lin_mhd_5d_M(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for a field evaluation
     norm_b1 = empty(3, dtype=float)
@@ -664,7 +664,7 @@ def cc_lin_mhd_5d_gradB(
     """
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -828,7 +828,7 @@ def cc_lin_mhd_5d_gradB_dg_init(
     r"""TODO"""
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -1044,7 +1044,7 @@ def cc_lin_mhd_5d_gradB_dg(
     r"""TODO"""
 
     markers = args_markers.markers
-    Np = args_markers.Np
+    xp.= args_markers.Np
 
     # allocate for magnetic field evaluation
     eta_diff = empty(3, dtype=float)
