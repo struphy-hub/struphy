@@ -594,10 +594,11 @@ class StruphyModel(metaclass=ABCMeta):
                 value_array /= self.pointer[species].Np
 
             # Update the scalar value
-            print(f"{type(self._scalar_quantities[name]['value'][0]) = }")
-            print(f"{value_array = }")
-            print(f"{type(value_array) = }")
-            self._scalar_quantities[name]["value"][0] = value_array[0]
+            if value_array.ndim == 0:
+                self._scalar_quantities[name]["value"][0] = value_array.item()
+            else:
+                self._scalar_quantities[name]["value"][0] = value_array[0]
+
 
         else:
             # Sum the values of the summands
