@@ -11,8 +11,6 @@ from typing import Optional, TypedDict
 import h5py
 import numpy as np
 from line_profiler import profile
-from mpi4py import MPI
-from pyevtk.hl import gridToVTK
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.equils import HomogenSlab

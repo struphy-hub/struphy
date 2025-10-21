@@ -2,7 +2,8 @@ import os
 from dataclasses import dataclass
 from typing import Literal, get_args
 
-import numpy as np
+from psydac.ddm.mpi import mpi as MPI
+from struphy.utils.arrays import xp as np
 
 from struphy.physics.physics import ConstantsOfNature
 
@@ -176,8 +177,6 @@ class Units:
 
     def derive_units(self, velocity_scale: str = "light", A_bulk: int = None, Z_bulk: int = None, verbose=False):
         """Derive the remaining units from the base units, velocity scale and bulk species' A and Z."""
-
-        from mpi4py import MPI
 
         con = ConstantsOfNature()
 
