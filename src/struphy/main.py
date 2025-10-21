@@ -46,6 +46,7 @@ from struphy.post_processing.post_processing_tools import (
 from struphy.profiling.profiling import ProfileManager
 from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.arrays import xp
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 
@@ -176,7 +177,7 @@ def run(
                 clone_config.print_particle_config()
 
     model.clone_config = clone_config
-    comm.Barrier()
+    Barrier()
 
     ## configure model instance
 
@@ -215,7 +216,7 @@ def run(
     if rank < 32:
         if rank == 0:
             print("")
-        comm.Barrier()
+        Barrier()
         print(f"Rank {rank}: executing main.run() for model {model_name} ...")
 
     if size > 32 and rank == 32:
@@ -224,9 +225,9 @@ def run(
     # store geometry vtk
     if rank == 0:
         grids_log = [
-            np.linspace(1e-6, 1.0, 32),
-            np.linspace(0.0, 1.0, 32),
-            np.linspace(0.0, 1.0, 32),
+            xp.linspace(1e-6, 1.0, 32),
+            xp.linspace(0.0, 1.0, 32),
+            xp.linspace(0.0, 1.0, 32),
         ]
 
         tmp = model.domain(*grids_log)
@@ -251,9 +252,9 @@ def run(
 
     # time quantities (current time value, value in seconds and index)
     time_state = {}
-    time_state["value"] = np.zeros(1, dtype=float)
-    time_state["value_sec"] = np.zeros(1, dtype=float)
-    time_state["index"] = np.zeros(1, dtype=int)
+    time_state["value"] = xp.zeros(1, dtype=float)
+    time_state["value_sec"] = xp.zeros(1, dtype=float)
+    time_state["index"] = xp.zeros(1, dtype=int)
 
     # add time quantities to data object for saving
     for key, val in time_state.items():
@@ -299,7 +300,7 @@ def run(
     # time loop
     run_time_now = 0.0
     while True:
-        comm.Barrier()
+        Barrier()
 
         # stop time loop?
         break_cond_1 = time_state["value"][0] >= Tend
@@ -475,7 +476,7 @@ def pproc(
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
 
     # save time grid at which post-processing data is created
-    np.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+    xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
     if "feec" in file.keys():
         exist_fields = True
@@ -634,28 +635,28 @@ class SimData:
         self._f = {}
         self._spline_values = {}
         self._n_sph = {}
-        self.grids_log: list[np.ndarray] = None
-        self.grids_phy: list[np.ndarray] = None
-        self.t_grid: np.ndarray = None
+        self.grids_log: list[xp.ndarray] = None
+        self.grids_phy: list[xp.ndarray] = None
+        self.t_grid: xp.ndarray = None
 
     @property
-    def orbits(self) -> dict[str, np.ndarray]:
+    def orbits(self) -> dict[str, xp.ndarray]:
         """Keys: species name. Values: 3d arrays indexed by (n, p, a), where 'n' is the time index, 'p' the particle index and 'a' the attribute index."""
         return self._orbits
 
     @property
-    def f(self) -> dict[str, dict[str, dict[str, np.ndarray]]]:
-        """Keys: species name. Values: dicts of slice names ('e1_v1' etc.) holding dicts of corresponding np.arrays for plotting."""
+    def f(self) -> dict[str, dict[str, dict[str, xp.ndarray]]]:
+        """Keys: species name. Values: dicts of slice names ('e1_v1' etc.) holding dicts of corresponding xp.arrays for plotting."""
         return self._f
 
     @property
-    def spline_values(self) -> dict[str, dict[str, np.ndarray]]:
+    def spline_values(self) -> dict[str, dict[str, xp.ndarray]]:
         """Keys: species name. Values: dicts of variable names with values being 3d arrays on the grid."""
         return self._spline_values
 
     @property
-    def n_sph(self) -> dict[str, dict[str, dict[str, np.ndarray]]]:
-        """Keys: species name. Values: dicts of view names ('view_0' etc.) holding dicts of corresponding np.arrays for plotting."""
+    def n_sph(self) -> dict[str, dict[str, dict[str, xp.ndarray]]]:
+        """Keys: species name. Values: dicts of view names ('view_0' etc.) holding dicts of corresponding xp.arrays for plotting."""
         return self._n_sph
 
     @property
@@ -757,7 +758,7 @@ def load_data(path: str) -> SimData:
     simdata = SimData(path)
 
     # load time grid
-    simdata.t_grid = np.load(os.path.join(path_pproc, "t_grid.npy"))
+    simdata.t_grid = xp.load(os.path.join(path_pproc, "t_grid.npy"))
 
     # data paths
     path_fields = os.path.join(path_pproc, "fields_data")
@@ -808,9 +809,9 @@ def load_data(path: str) -> SimData:
                         # print(f"{file = }")
                         if ".npy" in file:
                             step = int(file.split(".")[0].split("_")[-1])
-                            tmp = np.load(os.path.join(path_dat, file))
+                            tmp = xp.load(os.path.join(path_dat, file))
                             if n == 0:
-                                simdata._orbits[spec] = np.zeros((Nt, *tmp.shape), dtype=float)
+                                simdata._orbits[spec] = xp.zeros((Nt, *tmp.shape), dtype=float)
                             simdata._orbits[spec][step] = tmp
                             n += 1
 
@@ -825,7 +826,7 @@ def load_data(path: str) -> SimData:
                         # print(f"{files = }")
                         for file in files:
                             name = file.split(".")[0]
-                            tmp = np.load(os.path.join(path_dat, sli, file))
+                            tmp = xp.load(os.path.join(path_dat, sli, file))
                             # print(f"{name = }")
                             simdata._f[spec][sli][name] = tmp
 
@@ -840,7 +841,7 @@ def load_data(path: str) -> SimData:
                         # print(f"{files = }")
                         for file in files:
                             name = file.split(".")[0]
-                            tmp = np.load(os.path.join(path_dat, sli, file))
+                            tmp = xp.load(os.path.join(path_dat, sli, file))
                             # print(f"{name = }")
                             simdata._n_sph[spec][sli][name] = tmp
 

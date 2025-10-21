@@ -2,7 +2,8 @@ import ctypes
 import os
 
 import h5py
-import numpy as np
+
+from struphy.utils.arrays import xp
 
 
 class DataContainer:
@@ -24,7 +25,7 @@ class DataContainer:
         # set name of hdf5 file
         if comm is None:
             self._rank = None
-            _affix = ""
+            _affix = "_proc0"
         else:
             self._rank = comm.Get_rank()
             _affix = "_proc" + str(self._rank)
@@ -82,11 +83,11 @@ class DataContainer:
         Parameters
         ----------
         data_dict : dict
-            Name-object pairs to save during time stepping, e.g. {key : val}. key must be a string and val must be a np.array of fixed shape. Scalar values (floats) must therefore be passed as 1d arrays of size 1.
+            Name-object pairs to save during time stepping, e.g. {key : val}. key must be a string and val must be a xp.array of fixed shape. Scalar values (floats) must therefore be passed as 1d arrays of size 1.
         """
 
         for key, val in data_dict.items():
-            assert isinstance(val, np.ndarray)
+            assert isinstance(val, xp.ndarray)
 
             # if dataset already exists, check for compatibility with given array
             if key in self._dset_dict:

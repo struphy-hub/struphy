@@ -1,8 +1,9 @@
-import numpy as np
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic import Vector, VectorSpace
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
+
+from struphy.utils.arrays import xp
 
 
 class PolarDerhamSpace(VectorSpace):
@@ -208,7 +209,7 @@ class PolarVector(Vector):
     Element of a PolarDerhamSpace.
 
     An instance of a PolarVector consists of two parts:
-        1. a list of np.arrays of the polar coeffs (not distributed)
+        1. a list of xp.arrays of the polar coeffs (not distributed)
         2. a tensor product StencilVector/BlockVector of the parent space with inner rings set to zero (distributed).
 
     Parameters
@@ -223,7 +224,7 @@ class PolarVector(Vector):
         self._dtype = V.dtype
 
         # initialize polar coeffs
-        self._pol = [np.zeros((m, n)) for m, n in zip(V.n_polar, V.n3)]
+        self._pol = [xp.zeros((m, n)) for m, n in zip(V.n_polar, V.n3)]
 
         # full tensor product vector
         self._tp = V.parent_space.zeros()
@@ -240,7 +241,7 @@ class PolarVector(Vector):
 
     @property
     def pol(self):
-        """Polar coefficients as np.array."""
+        """Polar coefficients as xp.array."""
         return self._pol
 
     @pol.setter
@@ -326,7 +327,7 @@ class PolarVector(Vector):
             if self.space.comm is not None and allreduce:
                 self.space.comm.Allreduce(MPI.IN_PLACE, out, op=MPI.SUM)
 
-            out = np.concatenate((self.pol[0].flatten(), out))
+            out = xp.concatenate((self.pol[0].flatten(), out))
 
         else:
             out1 = self.tp[0].toarray()[self.space.n_rings[0] * self.space.n[1] * self.space.n3[0] :]
@@ -339,7 +340,7 @@ class PolarVector(Vector):
                 self.space.comm.Allreduce(MPI.IN_PLACE, out2, op=MPI.SUM)
                 self.space.comm.Allreduce(MPI.IN_PLACE, out3, op=MPI.SUM)
 
-            out = np.concatenate(
+            out = xp.concatenate(
                 (
                     self.pol[0].flatten(),
                     out1,
@@ -365,7 +366,7 @@ class PolarVector(Vector):
         self._tp.copy(out=w.tp)
         # copy polar part
         for n, pl in enumerate(self._pol):
-            np.copyto(w._pol[n], pl, casting="no")
+            xp.copyto(w._pol[n], pl, casting="no")
         return w
 
     def __neg__(self):

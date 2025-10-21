@@ -2,8 +2,6 @@
 
 import copy
 
-import numpy as np
-
 from struphy.fields_background.base import AxisymmMHDequilibrium
 from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.geometry.base import (
@@ -14,6 +12,7 @@ from struphy.geometry.base import (
     interp_mapping,
 )
 from struphy.geometry.utilities import field_line_tracing
+from struphy.utils.arrays import xp
 
 
 class Tokamak(PoloidalSplineTorus):
@@ -157,8 +156,8 @@ class GVECunit(Spline):
 
         def XYZ(e1, e2, e3):
             rho = _rmin + e1 * (1.0 - _rmin)
-            theta = 2 * np.pi * e2
-            zeta = 2 * np.pi * e3 / gvec_equil._nfp
+            theta = 2 * xp.pi * e2
+            zeta = 2 * xp.pi * e3 / gvec_equil._nfp
             if gvec_equil.params["use_boozer"]:
                 ev = gvec.EvaluationsBoozer(rho=rho, theta_B=theta, zeta_B=zeta, state=gvec_equil.state)
             else:
@@ -209,9 +208,6 @@ class DESCunit(Spline):
             desc_equil = DESCequilibrium()
         else:
             assert isinstance(desc_equil, DESCequilibrium)
-
-        # use params setter
-        self.params = copy.deepcopy(locals())
 
         Nel = desc_equil.params["Nel"]
         p = desc_equil.params["p"]
@@ -290,10 +286,10 @@ class IGAPolarCylinder(PoloidalSplineStraight):
 
         # get control points
         def X(eta1, eta2):
-            return a * eta1 * np.cos(2 * np.pi * eta2)
+            return a * eta1 * xp.cos(2 * xp.pi * eta2)
 
         def Y(eta1, eta2):
-            return a * eta1 * np.sin(2 * np.pi * eta2)
+            return a * eta1 * xp.sin(2 * xp.pi * eta2)
 
         spl_kind = (False, True)
 
@@ -367,17 +363,17 @@ class IGAPolarTorus(PoloidalSplineTorus):
         if sfl:
 
             def theta(eta1, eta2):
-                return 2 * np.arctan(np.sqrt((1 + a * eta1 / R0) / (1 - a * eta1 / R0)) * np.tan(np.pi * eta2))
+                return 2 * xp.arctan(xp.sqrt((1 + a * eta1 / R0) / (1 - a * eta1 / R0)) * xp.tan(xp.pi * eta2))
         else:
 
             def theta(eta1, eta2):
-                return 2 * np.pi * eta2
+                return 2 * xp.pi * eta2
 
         def R(eta1, eta2):
-            return a * eta1 * np.cos(theta(eta1, eta2)) + R0
+            return a * eta1 * xp.cos(theta(eta1, eta2)) + R0
 
         def Z(eta1, eta2):
-            return a * eta1 * np.sin(theta(eta1, eta2))
+            return a * eta1 * xp.sin(theta(eta1, eta2))
 
         spl_kind = (False, True)
 
@@ -769,24 +765,24 @@ class HollowTorus(Domain):
     def inverse_map(self, x, y, z, bounded=True, change_out_order=False):
         """Analytical inverse map of HollowTorus"""
 
-        mr = np.sqrt(x**2 + y**2) - self.params["R0"]
+        mr = xp.sqrt(x**2 + y**2) - self.params["R0"]
 
-        eta3 = np.arctan2(-y, x) % (2 * np.pi / self.params["tor_period"]) / (2 * np.pi) * self.params["tor_period"]
-        eta2 = np.arctan2(z, mr) % (2 * np.pi / self.params["pol_period"]) / (2 * np.pi / self.params["pol_period"])
-        eta1 = (z / np.sin(2 * np.pi * eta2 / self.params["pol_period"]) - self.params["a1"]) / (
+        eta3 = xp.arctan2(-y, x) % (2 * xp.pi / self.params["tor_period"]) / (2 * xp.pi) * self.params["tor_period"]
+        eta2 = xp.arctan2(z, mr) % (2 * xp.pi / self.params["pol_period"]) / (2 * xp.pi / self.params["pol_period"])
+        eta1 = (z / xp.sin(2 * xp.pi * eta2 / self.params["pol_period"]) - self.params["a1"]) / (
             self.params["a2"] - self.params["a1"]
         )
 
         if bounded:
             eta1[eta1 > 1] = 1.0
             eta1[eta1 < 0] = 0.0
-            assert np.all(np.logical_and(eta1 >= 0, eta1 <= 1))
+            assert xp.all(xp.logical_and(eta1 >= 0, eta1 <= 1))
 
-        assert np.all(np.logical_and(eta2 >= 0, eta2 <= 1))
-        assert np.all(np.logical_and(eta3 >= 0, eta3 <= 1))
+        assert xp.all(xp.logical_and(eta2 >= 0, eta2 <= 1))
+        assert xp.all(xp.logical_and(eta3 >= 0, eta3 <= 1))
 
         if change_out_order:
-            return np.transpose((eta1, eta2, eta3))
+            return xp.transpose((eta1, eta2, eta3))
 
         else:
             return eta1, eta2, eta3

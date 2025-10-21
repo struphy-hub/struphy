@@ -2,8 +2,9 @@
 
 from abc import ABCMeta, abstractmethod
 
-import numpy as np
 from matplotlib import pyplot as plt
+
+from struphy.utils.arrays import xp
 
 
 class DispersionRelations1D(metaclass=ABCMeta):
@@ -99,18 +100,18 @@ class DispersionRelations1D(metaclass=ABCMeta):
         plt.ylabel(rf"Im($\omega$) [{unit_om}]")
         for name, omega in self.branches.items():
             plt.subplot(2, 1, 1)
-            plt.plot(k, np.real(omega), label=name)
+            plt.plot(k, xp.real(omega), label=name)
             plt.subplot(2, 1, 2)
-            plt.plot(k, np.imag(omega), label=name)
+            plt.plot(k, xp.imag(omega), label=name)
 
         plt.subplot(2, 1, 1)
         for lab, kc in self.k_crit.items():
-            if kc > np.min(k) and kc < np.max(k):
+            if kc > xp.min(k) and kc < xp.max(k):
                 plt.axvline(kc, color="k", linestyle="--", linewidth=0.5, label=lab)
         plt.legend()
         plt.subplot(2, 1, 2)
         for lab, kc in self.k_crit.items():
-            if kc > np.min(k) and kc < np.max(k):
+            if kc > xp.min(k) and kc < xp.max(k):
                 plt.axvline(kc, color="k", linestyle="--", linewidth=0.5, label=lab)
 
 

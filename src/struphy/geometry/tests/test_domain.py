@@ -4,9 +4,8 @@ import pytest
 def test_prepare_arg():
     """Tests prepare_arg static method in domain base class."""
 
-    import numpy as np
-
     from struphy.geometry.base import Domain
+    from struphy.utils.arrays import xp
 
     def a1(e1, e2, e3):
         return e1 * e2
@@ -22,12 +21,12 @@ def test_prepare_arg():
         a_2 = e2 * e3
         a_3 = e3 * e1
 
-        return np.stack((a_1, a_2, a_3), axis=0)
+        return xp.stack((a_1, a_2, a_3), axis=0)
 
     # ========== tensor-product/slice evaluation ===============
-    e1 = np.random.rand(4)
-    e2 = np.random.rand(5)
-    e3 = np.random.rand(6)
+    e1 = xp.random.rand(4)
+    e2 = xp.random.rand(5)
+    e3 = xp.random.rand(6)
 
     E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(e1, e2, e3, flat_eval=False)
 
@@ -85,7 +84,7 @@ def test_prepare_arg():
     assert Domain.prepare_arg([A1, A2, A3], E1, E2, E3).shape == shape_vector
 
     # ============== markers evaluation ==========================
-    markers = np.random.rand(10, 6)
+    markers = xp.random.rand(10, 6)
 
     shape_scalar = (markers.shape[0], 1)
     shape_vector = (markers.shape[0], 3)
@@ -150,6 +149,7 @@ def test_prepare_arg():
         "ShafranovSqrtCylinder",
         "ShafranovDshapedCylinder",
         "GVECunit",
+        "DESCunit",
         "IGAPolarCylinder",
         "IGAPolarTorus",
         "Tokamak",
@@ -158,16 +158,15 @@ def test_prepare_arg():
 def test_evaluation_mappings(mapping):
     """Tests domain object creation with default parameters and evaluation of metric coefficients."""
 
-    import numpy as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
+    from struphy.utils.arrays import xp
 
     # arrays:
-    arr1 = np.linspace(0.0, 1.0, 4)
-    arr2 = np.linspace(0.0, 1.0, 5)
-    arr3 = np.linspace(0.0, 1.0, 6)
-    arrm = np.random.rand(10, 8)
+    arr1 = xp.linspace(0.0, 1.0, 4)
+    arr2 = xp.linspace(0.0, 1.0, 5)
+    arr3 = xp.linspace(0.0, 1.0, 6)
+    arrm = xp.random.rand(10, 8)
     print()
     print('Testing "evaluate"...')
     print("array shapes:", arr1.shape, arr2.shape, arr3.shape, arrm.shape)
@@ -263,9 +262,9 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(arr1, arr2, arr3).shape == (3, 3) + arr1.shape + arr2.shape + arr3.shape
 
     # matrix evaluations at one point in third direction
-    mat12_x, mat12_y = np.meshgrid(arr1, arr2, indexing="ij")
-    mat13_x, mat13_z = np.meshgrid(arr1, arr3, indexing="ij")
-    mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing="ij")
+    mat12_x, mat12_y = xp.meshgrid(arr1, arr2, indexing="ij")
+    mat13_x, mat13_z = xp.meshgrid(arr1, arr3, indexing="ij")
+    mat23_y, mat23_z = xp.meshgrid(arr2, arr3, indexing="ij")
 
     # eta1-eta2 matrix evaluation:
     print("eta1-eta2 matrix evaluation, shape:", domain(mat12_x, mat12_y, 0.5, squeeze_out=True).shape)
@@ -295,7 +294,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(0.5, mat23_y, mat23_z, squeeze_out=True).shape == (3, 3) + mat23_y.shape
 
     # matrix evaluations for sparse meshgrid
-    mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing="ij", sparse=True)
+    mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij", sparse=True)
     print("sparse meshgrid matrix evaluation, shape:", domain(mat_x, mat_y, mat_z).shape)
     assert domain(mat_x, mat_y, mat_z).shape == (3,) + (mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
     assert domain.jacobian(mat_x, mat_y, mat_z).shape == (3, 3) + (mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
@@ -305,7 +304,7 @@ def test_evaluation_mappings(mapping):
     assert domain.metric_inv(mat_x, mat_y, mat_z).shape == (3, 3) + (mat_x.shape[0], mat_y.shape[1], mat_z.shape[2])
 
     # matrix evaluations
-    mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing="ij")
+    mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij")
     print("matrix evaluation, shape:", domain(mat_x, mat_y, mat_z).shape)
     assert domain(mat_x, mat_y, mat_z).shape == (3,) + mat_x.shape
     assert domain.jacobian(mat_x, mat_y, mat_z).shape == (3, 3) + mat_x.shape
@@ -318,24 +317,23 @@ def test_evaluation_mappings(mapping):
 def test_pullback():
     """Tests pullbacks to p-forms."""
 
-    import numpy as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
+    from struphy.utils.arrays import xp
 
     # arrays:
-    arr1 = np.linspace(0.0, 1.0, 4)
-    arr2 = np.linspace(0.0, 1.0, 5)
-    arr3 = np.linspace(0.0, 1.0, 6)
+    arr1 = xp.linspace(0.0, 1.0, 4)
+    arr2 = xp.linspace(0.0, 1.0, 5)
+    arr3 = xp.linspace(0.0, 1.0, 6)
     print()
     print('Testing "pull"...')
     print("array shapes:", arr1.shape, arr2.shape, arr3.shape)
 
-    markers = np.random.rand(13, 6)
+    markers = xp.random.rand(13, 6)
 
     # physical function to pull back (used as components of forms too):
     def fun(x, y, z):
-        return np.exp(x) * np.sin(y) * np.cos(z)
+        return xp.exp(x) * xp.sin(y) * xp.cos(z)
 
     domain_class = getattr(domains, "Colella")
     domain = domain_class()
@@ -423,9 +421,9 @@ def test_pullback():
             )
 
         # matrix pullbacks at one point in third direction
-        mat12_x, mat12_y = np.meshgrid(arr1, arr2, indexing="ij")
-        mat13_x, mat13_z = np.meshgrid(arr1, arr3, indexing="ij")
-        mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing="ij")
+        mat12_x, mat12_y = xp.meshgrid(arr1, arr2, indexing="ij")
+        mat13_x, mat13_z = xp.meshgrid(arr1, arr3, indexing="ij")
+        mat23_y, mat23_z = xp.meshgrid(arr2, arr3, indexing="ij")
 
         # eta1-eta2 matrix pullback:
         if p_str == "0" or p_str == "3":
@@ -452,7 +450,7 @@ def test_pullback():
             )
 
         # matrix pullbacks for sparse meshgrid
-        mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing="ij", sparse=True)
+        mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij", sparse=True)
         if p_str == "0" or p_str == "3":
             assert domain.pull(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == (
                 mat_x.shape[0],
@@ -468,7 +466,7 @@ def test_pullback():
             )
 
         # matrix pullbacks
-        mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing="ij")
+        mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij")
         if p_str == "0" or p_str == "3":
             assert domain.pull(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == mat_x.shape
         else:
@@ -478,24 +476,23 @@ def test_pullback():
 def test_pushforward():
     """Tests pushforward of p-forms."""
 
-    import numpy as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
+    from struphy.utils.arrays import xp
 
     # arrays:
-    arr1 = np.linspace(0.0, 1.0, 4)
-    arr2 = np.linspace(0.0, 1.0, 5)
-    arr3 = np.linspace(0.0, 1.0, 6)
+    arr1 = xp.linspace(0.0, 1.0, 4)
+    arr2 = xp.linspace(0.0, 1.0, 5)
+    arr3 = xp.linspace(0.0, 1.0, 6)
     print()
     print('Testing "push"...')
     print("array shapes:", arr1.shape, arr2.shape, arr3.shape)
 
-    markers = np.random.rand(13, 6)
+    markers = xp.random.rand(13, 6)
 
     # logical function to push (used as components of forms too):
     def fun(e1, e2, e3):
-        return np.exp(e1) * np.sin(e2) * np.cos(e3)
+        return xp.exp(e1) * xp.sin(e2) * xp.cos(e3)
 
     domain_class = getattr(domains, "Colella")
     domain = domain_class()
@@ -583,9 +580,9 @@ def test_pushforward():
             )
 
         # matrix pushs at one point in third direction
-        mat12_x, mat12_y = np.meshgrid(arr1, arr2, indexing="ij")
-        mat13_x, mat13_z = np.meshgrid(arr1, arr3, indexing="ij")
-        mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing="ij")
+        mat12_x, mat12_y = xp.meshgrid(arr1, arr2, indexing="ij")
+        mat13_x, mat13_z = xp.meshgrid(arr1, arr3, indexing="ij")
+        mat23_y, mat23_z = xp.meshgrid(arr2, arr3, indexing="ij")
 
         # eta1-eta2 matrix push:
         if p_str == "0" or p_str == "3":
@@ -612,7 +609,7 @@ def test_pushforward():
             )
 
         # matrix pushs for sparse meshgrid
-        mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing="ij", sparse=True)
+        mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij", sparse=True)
         if p_str == "0" or p_str == "3":
             assert domain.push(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == (
                 mat_x.shape[0],
@@ -628,7 +625,7 @@ def test_pushforward():
             )
 
         # matrix pushs
-        mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing="ij")
+        mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij")
         if p_str == "0" or p_str == "3":
             assert domain.push(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == mat_x.shape
         else:
@@ -638,24 +635,23 @@ def test_pushforward():
 def test_transform():
     """Tests transformation of p-forms."""
 
-    import numpy as np
-
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
+    from struphy.utils.arrays import xp
 
     # arrays:
-    arr1 = np.linspace(0.0, 1.0, 4)
-    arr2 = np.linspace(0.0, 1.0, 5)
-    arr3 = np.linspace(0.0, 1.0, 6)
+    arr1 = xp.linspace(0.0, 1.0, 4)
+    arr2 = xp.linspace(0.0, 1.0, 5)
+    arr3 = xp.linspace(0.0, 1.0, 6)
     print()
     print('Testing "transform"...')
     print("array shapes:", arr1.shape, arr2.shape, arr3.shape)
 
-    markers = np.random.rand(13, 6)
+    markers = xp.random.rand(13, 6)
 
     # logical function to push (used as components of forms too):
     def fun(e1, e2, e3):
-        return np.exp(e1) * np.sin(e2) * np.cos(e3)
+        return xp.exp(e1) * xp.sin(e2) * xp.cos(e3)
 
     domain_class = getattr(domains, "Colella")
     domain = domain_class()
@@ -755,9 +751,9 @@ def test_transform():
             )
 
         # matrix transforms at one point in third direction
-        mat12_x, mat12_y = np.meshgrid(arr1, arr2, indexing="ij")
-        mat13_x, mat13_z = np.meshgrid(arr1, arr3, indexing="ij")
-        mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing="ij")
+        mat12_x, mat12_y = xp.meshgrid(arr1, arr2, indexing="ij")
+        mat13_x, mat13_z = xp.meshgrid(arr1, arr3, indexing="ij")
+        mat23_y, mat23_z = xp.meshgrid(arr2, arr3, indexing="ij")
 
         # eta1-eta2 matrix transform:
         if p_str == "0_to_3" or p_str == "3_to_0":
@@ -793,7 +789,7 @@ def test_transform():
             )
 
         # matrix transforms for sparse meshgrid
-        mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing="ij", sparse=True)
+        mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij", sparse=True)
         if p_str == "0_to_3" or p_str == "3_to_0":
             assert domain.transform(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == (
                 mat_x.shape[0],
@@ -809,7 +805,7 @@ def test_transform():
             )
 
         # matrix transforms
-        mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing="ij")
+        mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing="ij")
         if p_str == "0_to_3" or p_str == "3_to_0":
             assert domain.transform(fun_form, mat_x, mat_y, mat_z, kind=p_str).shape == mat_x.shape
         else:
@@ -821,18 +817,18 @@ def test_transform():
 #    """
 #
 #    from struphy.geometry import domains
-#    import numpy as np
+#    from struphy.utils.arrays import xp
 #
 #    # arrays:
-#    arr1 = np.linspace(0., 1., 4)
-#    arr2 = np.linspace(0., 1., 5)
-#    arr3 = np.linspace(0., 1., 6)
+#    arr1 = xp.linspace(0., 1., 4)
+#    arr2 = xp.linspace(0., 1., 5)
+#    arr3 = xp.linspace(0., 1., 6)
 #    print()
 #    print('Testing "transform"...')
 #    print('array shapes:', arr1.shape, arr2.shape, arr3.shape)
 #
 #    # logical function to tranform (used as components of forms too):
-#    fun = lambda eta1, eta2, eta3: np.exp(eta1)*np.sin(eta2)*np.cos(eta3)
+#    fun = lambda eta1, eta2, eta3: xp.exp(eta1)*xp.sin(eta2)*xp.cos(eta3)
 #
 #    domain_class = getattr(domains, 'Colella')
 #    domain = domain_class()
@@ -889,9 +885,9 @@ def test_transform():
 #        assert a.shape[0] == arr1.size and a.shape[1] == arr2.size and a.shape[2] == arr3.size
 #
 #        # matrix transformation at one point in third direction
-#        mat12_x, mat12_y = np.meshgrid(arr1, arr2, indexing='ij')
-#        mat13_x, mat13_z = np.meshgrid(arr1, arr3, indexing='ij')
-#        mat23_y, mat23_z = np.meshgrid(arr2, arr3, indexing='ij')
+#        mat12_x, mat12_y = xp.meshgrid(arr1, arr2, indexing='ij')
+#        mat13_x, mat13_z = xp.meshgrid(arr1, arr3, indexing='ij')
+#        mat23_y, mat23_z = xp.meshgrid(arr2, arr3, indexing='ij')
 #
 #        # eta1-eta2 matrix transformation:
 #        a = domain.transform(fun_form, mat12_x, mat12_y, .5, p_str)
@@ -907,21 +903,21 @@ def test_transform():
 #        assert a.shape == mat23_y.shape
 #
 #        # matrix transformation for sparse meshgrid
-#        mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij', sparse=True)
+#        mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing='ij', sparse=True)
 #        a = domain.transform(fun_form, mat_x, mat_y, mat_z, p_str)
 #        #print('sparse meshgrid matrix transformation, shape:', a.shape)
 #        assert a.shape[0] == mat_x.shape[0] and a.shape[1] == mat_y.shape[1] and a.shape[2] == mat_z.shape[2]
 #
 #        # matrix transformation
-#        mat_x, mat_y, mat_z = np.meshgrid(arr1, arr2, arr3, indexing='ij')
+#        mat_x, mat_y, mat_z = xp.meshgrid(arr1, arr2, arr3, indexing='ij')
 #        a = domain.transform(fun_form, mat_x, mat_y, mat_z, p_str)
 #        #print('matrix transformation, shape:', a.shape)
 #        assert a.shape == mat_x.shape
 
 
 if __name__ == "__main__":
-    test_prepare_arg()
-    test_evaluation_mappings("GVECunit")
-    test_pullback()
-    test_pushforward()
-    test_transform()
+    # test_prepare_arg()
+    test_evaluation_mappings("DESCunit")
+    # test_pullback()
+    # test_pushforward()
+    # test_transform()

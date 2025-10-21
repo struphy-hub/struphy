@@ -12,6 +12,7 @@ from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
+from struphy.utils.arrays import xp
 
 
 class Particles6D(Particles):
@@ -45,7 +46,7 @@ class Particles6D(Particles):
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
         self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
-
+        print(kwargs.keys())
         super().__init__(**kwargs)
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian
@@ -221,7 +222,8 @@ class Particles6D(Particles):
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = self.markers[
             ~self.holes, slice_gc
         ]
-        self.mpi_sort_markers(alpha=1)
+        if self.mpi_comm is not None:
+            self.mpi_sort_markers(alpha=1)
 
         utilities_kernels.eval_canonical_toroidal_moment_6d(
             self.markers,
@@ -234,7 +236,8 @@ class Particles6D(Particles):
         )
 
         # send back and clear buffer
-        self.mpi_sort_markers()
+        if self.mpi_comm is not None:
+            self.mpi_sort_markers()
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = 0
 
 

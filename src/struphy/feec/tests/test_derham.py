@@ -1,24 +1,22 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 8, 12]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True]])
 def test_psydac_derham(Nel, p, spl_kind):
     """Remark: p=even projectors yield slightly different results, pass with atol=1e-3."""
 
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
+    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
-    assert comm.size >= 2
     rank = comm.Get_rank()
 
     print("Nel=", Nel)
@@ -49,11 +47,11 @@ def test_psydac_derham(Nel, p, spl_kind):
     N3_tot = DR_STR.Ntot_3form
 
     # Random vectors for testing
-    np.random.seed(1981)
-    x0 = np.random.rand(N0_tot)
-    x1 = np.random.rand(np.sum(N1_tot))
-    x2 = np.random.rand(np.sum(N2_tot))
-    x3 = np.random.rand(N3_tot)
+    xp.random.seed(1981)
+    x0 = xp.random.rand(N0_tot)
+    x1 = xp.random.rand(xp.sum(N1_tot))
+    x2 = xp.random.rand(xp.sum(N2_tot))
+    x3 = xp.random.rand(N3_tot)
 
     ############################
     ### TEST STENCIL VECTORS ###
@@ -176,7 +174,7 @@ def test_psydac_derham(Nel, p, spl_kind):
     zero2_STR = curl_STR.dot(d1_STR)
     zero2_PSY = derham.curl.dot(d1_PSY)
 
-    assert np.allclose(zero2_STR, np.zeros_like(zero2_STR))
+    assert xp.allclose(zero2_STR, xp.zeros_like(zero2_STR))
     if rank == 0:
         print("\nCompare curl of grad:")
     compare_arrays(zero2_PSY, DR_STR.extract_2(zero2_STR), rank)
@@ -185,7 +183,7 @@ def test_psydac_derham(Nel, p, spl_kind):
     zero3_STR = div_STR.dot(d2_STR)
     zero3_PSY = derham.div.dot(d2_PSY)
 
-    assert np.allclose(zero3_STR, np.zeros_like(zero3_STR))
+    assert xp.allclose(zero3_STR, xp.zeros_like(zero3_STR))
     if rank == 0:
         print("\nCompare div of curl:")
     compare_arrays(zero3_PSY, DR_STR.extract_3(zero3_STR), rank)
@@ -203,7 +201,7 @@ def test_psydac_derham(Nel, p, spl_kind):
 
     # compare projectors
     def f(eta1, eta2, eta3):
-        return np.sin(4 * np.pi * eta1) * np.cos(2 * np.pi * eta2) + np.exp(np.cos(2 * np.pi * eta3))
+        return xp.sin(4 * xp.pi * eta1) * xp.cos(2 * xp.pi * eta2) + xp.exp(xp.cos(2 * xp.pi * eta3))
 
     fh0_STR = PI("0", f)
     fh0_PSY = derham.P["0"](f)

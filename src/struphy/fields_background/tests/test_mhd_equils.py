@@ -1,7 +1,7 @@
-import numpy as np
 import pytest
 
 from struphy.fields_background import equils
+from struphy.utils.arrays import xp
 
 
 @pytest.mark.parametrize(
@@ -9,44 +9,44 @@ from struphy.fields_background import equils
     [
         ("HomogenSlab", {}, "Cuboid", {}),
         ("HomogenSlab", {}, "Colella", {"alpha": 0.06}),
-        ("ShearedSlab", {"a": 0.75, "R0": 3.5}, "Cuboid", {"r1": 0.75, "r2": 2 * np.pi * 0.75, "r3": 2 * np.pi * 3.5}),
+        ("ShearedSlab", {"a": 0.75, "R0": 3.5}, "Cuboid", {"r1": 0.75, "r2": 2 * xp.pi * 0.75, "r3": 2 * xp.pi * 3.5}),
         (
             "ShearedSlab",
             {"a": 0.75, "R0": 3.5, "q0": "inf", "q1": "inf"},
             "Cuboid",
-            {"r1": 0.75, "r2": 2 * np.pi * 0.75, "r3": 2 * np.pi * 3.5},
+            {"r1": 0.75, "r2": 2 * xp.pi * 0.75, "r3": 2 * xp.pi * 3.5},
         ),
         (
             "ShearedSlab",
             {"a": 0.55, "R0": 4.5},
             "Orthogonal",
-            {"Lx": 0.55, "Ly": 2 * np.pi * 0.55, "Lz": 2 * np.pi * 4.5},
+            {"Lx": 0.55, "Ly": 2 * xp.pi * 0.55, "Lz": 2 * xp.pi * 4.5},
         ),
-        ("ScrewPinch", {"a": 0.45, "R0": 2.5}, "HollowCylinder", {"a1": 0.05, "a2": 0.45, "Lz": 2 * np.pi * 2.5}),
-        ("ScrewPinch", {"a": 1.45, "R0": 6.5}, "IGAPolarCylinder", {"a": 1.45, "Lz": 2 * np.pi * 6.5}),
+        ("ScrewPinch", {"a": 0.45, "R0": 2.5}, "HollowCylinder", {"a1": 0.05, "a2": 0.45, "Lz": 2 * xp.pi * 2.5}),
+        ("ScrewPinch", {"a": 1.45, "R0": 6.5}, "IGAPolarCylinder", {"a": 1.45, "Lz": 2 * xp.pi * 6.5}),
         (
             "ScrewPinch",
             {"a": 0.45, "R0": 2.5, "q0": 1.5, "q1": 1.5},
             "HollowCylinder",
-            {"a1": 0.05, "a2": 0.45, "Lz": 2 * np.pi * 2.5},
+            {"a1": 0.05, "a2": 0.45, "Lz": 2 * xp.pi * 2.5},
         ),
         (
             "ScrewPinch",
             {"a": 1.45, "R0": 6.5, "q0": 1.5, "q1": 1.5},
             "IGAPolarCylinder",
-            {"a": 1.45, "Lz": 2 * np.pi * 6.5},
+            {"a": 1.45, "Lz": 2 * xp.pi * 6.5},
         ),
         (
             "ScrewPinch",
             {"a": 0.45, "R0": 2.5, "q0": "inf", "q1": "inf"},
             "HollowCylinder",
-            {"a1": 0.05, "a2": 0.45, "Lz": 2 * np.pi * 2.5},
+            {"a1": 0.05, "a2": 0.45, "Lz": 2 * xp.pi * 2.5},
         ),
         (
             "ScrewPinch",
             {"a": 1.45, "R0": 6.5, "q0": "inf", "q1": "inf"},
             "IGAPolarCylinder",
-            {"a": 1.45, "Lz": 2 * np.pi * 6.5},
+            {"a": 1.45, "Lz": 2 * xp.pi * 6.5},
         ),
         (
             "AdhocTorus",
@@ -141,24 +141,24 @@ def test_equils(equil_domain_pair):
     from struphy.geometry import domains
 
     # logical evalution point
-    pt = (np.random.rand(), np.random.rand(), np.random.rand())
+    pt = (xp.random.rand(), xp.random.rand(), xp.random.rand())
 
     # logical arrays:
-    e1 = np.random.rand(4)
-    e2 = np.random.rand(5)
-    e3 = np.random.rand(6)
+    e1 = xp.random.rand(4)
+    e2 = xp.random.rand(5)
+    e3 = xp.random.rand(6)
 
     # 2d slices
-    mat_12_1, mat_12_2 = np.meshgrid(e1, e2, indexing="ij")
-    mat_13_1, mat_13_3 = np.meshgrid(e1, e3, indexing="ij")
-    mat_23_2, mat_23_3 = np.meshgrid(e2, e3, indexing="ij")
+    mat_12_1, mat_12_2 = xp.meshgrid(e1, e2, indexing="ij")
+    mat_13_1, mat_13_3 = xp.meshgrid(e1, e3, indexing="ij")
+    mat_23_2, mat_23_3 = xp.meshgrid(e2, e3, indexing="ij")
 
     # 3d
-    mat_123_1, mat_123_2, mat_123_3 = np.meshgrid(e1, e2, e3, indexing="ij")
-    mat_123_1_sp, mat_123_2_sp, mat_123_3_sp = np.meshgrid(e1, e2, e3, indexing="ij", sparse=True)
+    mat_123_1, mat_123_2, mat_123_3 = xp.meshgrid(e1, e2, e3, indexing="ij")
+    mat_123_1_sp, mat_123_2_sp, mat_123_3_sp = xp.meshgrid(e1, e2, e3, indexing="ij", sparse=True)
 
     # markers
-    markers = np.random.rand(33, 10)
+    markers = xp.random.rand(33, 10)
 
     # create MHD equilibrium
     eq_mhd = getattr(equils, equil_domain_pair[0])(**equil_domain_pair[1])
@@ -274,8 +274,8 @@ def test_equils(equil_domain_pair):
     # --------- eta1 evaluation ---------
     results = []
 
-    e2_pt = np.random.rand()
-    e3_pt = np.random.rand()
+    e2_pt = xp.random.rand()
+    e3_pt = xp.random.rand()
 
     # scalar functions
     results.append(eq_mhd.absB0(e1, e2_pt, e3_pt, squeeze_out=True))
@@ -321,8 +321,8 @@ def test_equils(equil_domain_pair):
     # --------- eta2 evaluation ---------
     results = []
 
-    e1_pt = np.random.rand()
-    e3_pt = np.random.rand()
+    e1_pt = xp.random.rand()
+    e3_pt = xp.random.rand()
 
     # scalar functions
     results.append(eq_mhd.absB0(e1_pt, e2, e3_pt, squeeze_out=True))
@@ -370,8 +370,8 @@ def test_equils(equil_domain_pair):
     # --------- eta3 evaluation ---------
     results = []
 
-    e1_pt = np.random.rand()
-    e2_pt = np.random.rand()
+    e1_pt = xp.random.rand()
+    e2_pt = xp.random.rand()
 
     # scalar functions
     results.append(eq_mhd.absB0(e1_pt, e2_pt, e3, squeeze_out=True))
@@ -419,7 +419,7 @@ def test_equils(equil_domain_pair):
     # --------- eta1-eta2 evaluation ---------
     results = []
 
-    e3_pt = np.random.rand()
+    e3_pt = xp.random.rand()
 
     # scalar functions
     results.append(eq_mhd.absB0(e1, e2, e3_pt, squeeze_out=True))
@@ -467,7 +467,7 @@ def test_equils(equil_domain_pair):
     # --------- eta1-eta3 evaluation ---------
     results = []
 
-    e2_pt = np.random.rand()
+    e2_pt = xp.random.rand()
 
     # scalar functions
     results.append(eq_mhd.absB0(e1, e2_pt, e3, squeeze_out=True))
@@ -515,7 +515,7 @@ def test_equils(equil_domain_pair):
     # --------- eta2-eta3 evaluation ---------
     results = []
 
-    e1_pt = np.random.rand()
+    e1_pt = xp.random.rand()
 
     # scalar functions
     results.append(eq_mhd.absB0(e1_pt, e2, e3, squeeze_out=True))
@@ -609,7 +609,7 @@ def test_equils(equil_domain_pair):
     # --------- 12 matrix evaluation ---------
     results = []
 
-    e3_pt = np.random.rand()
+    e3_pt = xp.random.rand()
 
     # scalar functions
     results.append(eq_mhd.absB0(mat_12_1, mat_12_2, e3_pt, squeeze_out=True))
@@ -657,7 +657,7 @@ def test_equils(equil_domain_pair):
     # --------- 13 matrix evaluation ---------
     results = []
 
-    e2_pt = np.random.rand()
+    e2_pt = xp.random.rand()
 
     # scalar functions
     results.append(eq_mhd.absB0(mat_13_1, e2_pt, mat_13_3, squeeze_out=True))
@@ -705,7 +705,7 @@ def test_equils(equil_domain_pair):
     # --------- 23 matrix evaluation ---------
     results = []
 
-    e1_pt = np.random.rand()
+    e1_pt = xp.random.rand()
 
     # scalar functions
     results.append(eq_mhd.absB0(e1_pt, mat_23_2, mat_23_3, squeeze_out=True))
@@ -848,22 +848,22 @@ def assert_scalar(result, kind, *etas):
         markers = etas[0]
         n_p = markers.shape[0]
 
-        assert isinstance(result, np.ndarray)
+        assert isinstance(result, xp.ndarray)
         assert result.shape == (n_p,)
 
         for ip in range(n_p):
             assert isinstance(result[ip], float)
-            assert not np.isnan(result[ip])
+            assert not xp.isnan(result[ip])
 
     else:
         # point-wise
         if kind == "point":
             assert isinstance(result, float)
-            assert not np.isnan(result)
+            assert not xp.isnan(result)
 
         # slices
         else:
-            assert isinstance(result, np.ndarray)
+            assert isinstance(result, xp.ndarray)
 
             # eta1-array
             if kind == "e1":
@@ -915,27 +915,27 @@ def assert_vector(result, kind, *etas):
         markers = etas[0]
         n_p = markers.shape[0]
 
-        assert isinstance(result, np.ndarray)
+        assert isinstance(result, xp.ndarray)
         assert result.shape == (3, n_p)
 
         for c in range(3):
             for ip in range(n_p):
                 assert isinstance(result[c, ip], float)
-                assert not np.isnan(result[c, ip])
+                assert not xp.isnan(result[c, ip])
 
     else:
         # point-wise
         if kind == "point":
-            assert isinstance(result, np.ndarray)
+            assert isinstance(result, xp.ndarray)
             assert result.shape == (3,)
 
             for c in range(3):
                 assert isinstance(result[c], float)
-                assert not np.isnan(result[c])
+                assert not xp.isnan(result[c])
 
         # slices
         else:
-            assert isinstance(result, np.ndarray)
+            assert isinstance(result, xp.ndarray)
 
             # eta1-array
             if kind == "e1":

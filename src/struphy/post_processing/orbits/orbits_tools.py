@@ -2,11 +2,11 @@ import os
 import shutil
 
 import h5py
-import numpy as np
 import yaml
 from tqdm import tqdm
 
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
+from struphy.utils.arrays import xp
 
 
 def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
@@ -61,7 +61,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         if file.endswith(".npy")
     ]
     pproc_nt = len(npy_files_list)
-    n_markers = np.load(os.path.join(path_orbits, npy_files_list[0])).shape[0]
+    n_markers = xp.load(os.path.join(path_orbits, npy_files_list[0])).shape[0]
 
     # re-ordering npy_files
     npy_files_list = sorted(npy_files_list)
@@ -76,10 +76,10 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         os.mkdir(path_gc)
 
     # temporary marker array
-    temp = np.empty((n_markers, 7), dtype=float)
-    etas = np.empty((n_markers, 3), dtype=float)
-    B_cart = np.empty((n_markers, 3), dtype=float)
-    lost_particles_mask = np.empty(n_markers, dtype=bool)
+    temp = xp.empty((n_markers, 7), dtype=float)
+    etas = xp.empty((n_markers, 3), dtype=float)
+    B_cart = xp.empty((n_markers, 3), dtype=float)
+    lost_particles_mask = xp.empty(n_markers, dtype=bool)
 
     print("Evaluation of guiding center for " + str(species))
 
@@ -94,13 +94,13 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         file_txt = os.path.join(path_gc, npy_files_list[n][:-4] + ".txt")
 
         # call .npy file
-        temp[:, :] = np.load(os.path.join(path_orbits, npy_files_list[n]))
+        temp[:, :] = xp.load(os.path.join(path_orbits, npy_files_list[n]))
 
         # move ids to last column and save
-        temp = np.roll(temp, -1, axis=1)
+        temp = xp.roll(temp, -1, axis=1)
 
         # sorting out lost particles
-        lost_particles_mask = np.all(temp[:, :-1] == 0, axis=1)
+        lost_particles_mask = xp.all(temp[:, :-1] == 0, axis=1)
 
         # domain inverse map
         etas[~lost_particles_mask, :] = domain.inverse_map(
@@ -110,7 +110,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
 
         # eval cartesian magnetic filed at marker positions
         B_cart[~lost_particles_mask, :] = equil.b_cart(
-            *np.concatenate(
+            *xp.concatenate(
                 (
                     etas[:, 0][:, None],
                     etas[:, 1][:, None],
@@ -123,10 +123,10 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         calculate_guiding_center_from_6d(temp, B_cart)
 
         # move ids to first column and save
-        temp = np.roll(temp, 1, axis=1)
+        temp = xp.roll(temp, 1, axis=1)
 
-        np.save(file_npy, temp)
-        np.savetxt(file_txt, temp[:, :4], fmt="%12.6f", delimiter=", ")
+        xp.save(file_npy, temp)
+        xp.savetxt(file_txt, temp[:, :4], fmt="%12.6f", delimiter=", ")
 
 
 def post_process_orbit_classification(path_kinetics_species, species):
@@ -168,16 +168,16 @@ def post_process_orbit_classification(path_kinetics_species, species):
         if file.endswith(".npy")
     ]
     pproc_nt = len(npy_files_list)
-    n_markers = np.load(os.path.join(path_gc, npy_files_list[0])).shape[0]
+    n_markers = xp.load(os.path.join(path_gc, npy_files_list[0])).shape[0]
 
     # re-ordering npy_files
     npy_files_list = sorted(npy_files_list)
 
     # temporary marker array
-    temp = np.empty((n_markers, 8), dtype=float)
-    v_parallel = np.empty(n_markers, dtype=float)
-    trapped_particle_mask = np.empty(n_markers, dtype=bool)
-    lost_particle_mask = np.empty(n_markers, dtype=bool)
+    temp = xp.empty((n_markers, 8), dtype=float)
+    v_parallel = xp.empty(n_markers, dtype=float)
+    trapped_particle_mask = xp.empty(n_markers, dtype=bool)
+    lost_particle_mask = xp.empty(n_markers, dtype=bool)
 
     print("Classifying guiding center orbits for " + str(species))
 
@@ -188,16 +188,16 @@ def post_process_orbit_classification(path_kinetics_species, species):
 
         # load .npy files
         file_npy = os.path.join(path_gc, npy_files_list[n])
-        temp[:, :-1] = np.load(file_npy)
+        temp[:, :-1] = xp.load(file_npy)
 
         # initial time step
         if n == 0:
             v_init = temp[:, 4]
-            np.save(file_npy, temp)
+            xp.save(file_npy, temp)
             continue
 
         # synchronizing with former time step
-        temp[:, -1] = np.load(
+        temp[:, -1] = xp.load(
             os.path.join(
                 path_gc,
                 npy_files_list[n - 1],
@@ -205,10 +205,10 @@ def post_process_orbit_classification(path_kinetics_species, species):
         )[:, -1]
 
         # call parallel velocity data from .npy file
-        v_parallel = np.load(os.path.join(path_gc, npy_files_list[n]))[:, 4]
+        v_parallel = xp.load(os.path.join(path_gc, npy_files_list[n]))[:, 4]
 
         # sorting out lost particles
-        lost_particle_mask = np.all(temp[:, 1:-1] == 0, axis=1)
+        lost_particle_mask = xp.all(temp[:, 1:-1] == 0, axis=1)
 
         # check reverse of parallel velocity
         trapped_particle_mask[:] = False
@@ -221,4 +221,4 @@ def post_process_orbit_classification(path_kinetics_species, species):
         # assign "-1" at the last index of lost particles
         temp[lost_particle_mask, -1] = -1
 
-        np.save(file_npy, temp)
+        xp.save(file_npy, temp)

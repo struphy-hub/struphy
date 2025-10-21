@@ -2,11 +2,11 @@
 
 from abc import ABCMeta, abstractmethod
 
-import numpy as np
 from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
 
 from struphy.geometry.base import Domain
+from struphy.utils.arrays import xp
 
 
 class FluidEquilibrium(metaclass=ABCMeta):
@@ -140,7 +140,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
 
     def vth0(self, *etas, squeeze_out=False):
         """0-form thermal velocity on logical cube [0, 1]^3."""
-        return np.sqrt(self.t0(*etas, squeeze_out=squeeze_out))
+        return xp.sqrt(self.t0(*etas, squeeze_out=squeeze_out))
 
     def vth3(self, *etas, squeeze_out=False):
         """3-form thermal velocity on logical cube [0, 1]^3."""
@@ -156,7 +156,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
         """0-form square root of the pressure on logical cube [0, 1]^3."""
         # xyz = self.domain(*etas, squeeze_out=False)
         p = self.p0(*etas)
-        q = np.sqrt(p)
+        q = xp.sqrt(p)
         return self.domain.pull(q, *etas, kind="0", squeeze_out=squeeze_out)
 
     def q3(self, *etas, squeeze_out=False):
@@ -176,7 +176,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
         # xyz = self.domain(*etas, squeeze_out=False)
         p = self.p0(*etas)
         n = self.n0(*etas)
-        s = n * np.log(p / (2 / 3 * np.power(n, 5 / 3)))
+        s = n * xp.log(p / (2 / 3 * xp.power(n, 5 / 3)))
         return self.domain.pull(s, *etas, kind="0", squeeze_out=squeeze_out)
 
     def s3_monoatomic(self, *etas, squeeze_out=False):
@@ -198,7 +198,7 @@ class FluidEquilibrium(metaclass=ABCMeta):
         # xyz = self.domain(*etas, squeeze_out=False)
         p = self.p0(*etas)
         n = self.n0(*etas)
-        s = n * np.log(p / (2 / 5 * np.power(n, 7 / 5)))
+        s = n * xp.log(p / (2 / 5 * xp.power(n, 7 / 5)))
         return self.domain.pull(s, *etas, kind="0", squeeze_out=squeeze_out)
 
     def s3_diatomic(self, *etas, squeeze_out=False):
@@ -395,7 +395,7 @@ class FluidEquilibriumWithB(FluidEquilibrium):
         """Unit vector Cartesian components of magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
         absB = self.absB0(*etas, squeeze_out=squeeze_out)
-        out = np.array([b[0] / absB, b[1] / absB, b[2] / absB], dtype=float)
+        out = xp.array([b[0] / absB, b[1] / absB, b[2] / absB], dtype=float)
         return out, xyz
 
     def gradB1(self, *etas, squeeze_out=False):
@@ -481,7 +481,7 @@ class FluidEquilibriumWithB(FluidEquilibrium):
     def absB0(self, *etas, squeeze_out=False):
         """0-form absolute value of magnetic field on logical cube [0, 1]^3."""
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
-        return np.sqrt(b[0] ** 2 + b[1] ** 2 + b[2] ** 2)
+        return xp.sqrt(b[0] ** 2 + b[1] ** 2 + b[2] ** 2)
 
     def absB3(self, *etas, squeeze_out=False):
         """3-form absolute value of magnetic field on logical cube [0, 1]^3."""
@@ -804,7 +804,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
         j, xyz = self.j_cart(*etas, squeeze_out=squeeze_out)
         gradB, xyz = self.gradB_cart(*etas, squeeze_out=squeeze_out)
         absB = self.absB0(*etas, squeeze_out=squeeze_out)
-        out = np.array(
+        out = xp.array(
             [
                 j[0] / absB + (b[1] * gradB[2] - b[2] * gradB[1]) / absB**2,
                 j[1] / absB + (b[2] * gradB[0] - b[0] * gradB[2]) / absB**2,
@@ -908,9 +908,9 @@ class MHDequilibrium(FluidEquilibriumWithB):
             "HollowTorus",
         )
 
-        e1 = np.linspace(0.0001, 1, n1)
-        e2 = np.linspace(0, 1, n2)
-        e3 = np.linspace(0, 1, n3)
+        e1 = xp.linspace(0.0001, 1, n1)
+        e2 = xp.linspace(0, 1, n2)
+        e3 = xp.linspace(0, 1, n3)
 
         if self.domain.__class__.__name__ in ("GVECunit", "DESCunit"):
             if n_planes > 1:
@@ -935,7 +935,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
         print("Computation of abs(B) done.")
         j_cart, xyz = self.j_cart(e1, e2, e3)
         print("Computation of current density done.")
-        absJ = np.sqrt(j_cart[0] ** 2 + j_cart[1] ** 2 + j_cart[2] ** 2)
+        absJ = xp.sqrt(j_cart[0] ** 2 + j_cart[1] ** 2 + j_cart[2] ** 2)
 
         _path = struphy.__path__[0] + "/fields_background/mhd_equil/gvec/output/"
         gridToVTK(
@@ -958,14 +958,14 @@ class MHDequilibrium(FluidEquilibriumWithB):
                 print(key, ": ", val)
 
         # poloidal plane grid
-        fig = plt.figure(figsize=(13, np.ceil(n_planes / 2) * 6.5))
+        fig = plt.figure(figsize=(13, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
             xp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = np.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
@@ -975,7 +975,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
                 l1 = "x"
                 l2 = "y"
 
-            ax = fig.add_subplot(int(np.ceil(n_planes / 2)), 2, n + 1)
+            ax = fig.add_subplot(int(xp.ceil(n_planes / 2)), 2, n + 1)
             for i in range(pc1.shape[0]):
                 for j in range(pc1.shape[1] - 1):
                     if i < pc1.shape[0] - 1:
@@ -1004,9 +1004,9 @@ class MHDequilibrium(FluidEquilibriumWithB):
             )
 
         # top view
-        e1 = np.linspace(0, 1, n1)  # radial coordinate in [0, 1]
-        e2 = np.linspace(0, 1, 3)  # poloidal angle in [0, 1]
-        e3 = np.linspace(0, 1, n3)  # toroidal angle in [0, 1]
+        e1 = xp.linspace(0, 1, n1)  # radial coordinate in [0, 1]
+        e2 = xp.linspace(0, 1, 3)  # poloidal angle in [0, 1]
+        e3 = xp.linspace(0, 1, n3)  # toroidal angle in [0, 1]
 
         xt, yt, zt = self.domain(e1, e2, e3)
 
@@ -1058,14 +1058,14 @@ class MHDequilibrium(FluidEquilibriumWithB):
             ax.set_title("Device top view")
 
         # Jacobian determinant
-        fig = plt.figure(figsize=(13, np.ceil(n_planes / 2) * 6.5))
+        fig = plt.figure(figsize=(13, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
             xp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = np.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
@@ -1077,7 +1077,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
             detp = det_df[:, :, int(n * jump)].squeeze()
 
-            ax = fig.add_subplot(int(np.ceil(n_planes / 2)), 2, n + 1)
+            ax = fig.add_subplot(int(xp.ceil(n_planes / 2)), 2, n + 1)
             map = ax.contourf(pc1, pc2, detp, 30)
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
@@ -1088,14 +1088,14 @@ class MHDequilibrium(FluidEquilibriumWithB):
             fig.colorbar(map, ax=ax, location="right")
 
         # pressure
-        fig = plt.figure(figsize=(15, np.ceil(n_planes / 2) * 6.5))
+        fig = plt.figure(figsize=(15, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
             xp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = np.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
@@ -1107,7 +1107,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
             pp = p[:, :, int(n * jump)].squeeze()
 
-            ax = fig.add_subplot(int(np.ceil(n_planes / 2)), 2, n + 1)
+            ax = fig.add_subplot(int(xp.ceil(n_planes / 2)), 2, n + 1)
             map = ax.contourf(pc1, pc2, pp, 30)
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
@@ -1118,14 +1118,14 @@ class MHDequilibrium(FluidEquilibriumWithB):
             fig.colorbar(map, ax=ax, location="right")
 
         # density
-        fig = plt.figure(figsize=(15, np.ceil(n_planes / 2) * 6.5))
+        fig = plt.figure(figsize=(15, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
             xp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = np.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
@@ -1137,7 +1137,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
             nn = n_dens[:, :, int(n * jump)].squeeze()
 
-            ax = fig.add_subplot(int(np.ceil(n_planes / 2)), 2, n + 1)
+            ax = fig.add_subplot(int(xp.ceil(n_planes / 2)), 2, n + 1)
             map = ax.contourf(pc1, pc2, nn, 30)
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
@@ -1148,14 +1148,14 @@ class MHDequilibrium(FluidEquilibriumWithB):
             fig.colorbar(map, ax=ax, location="right")
 
         # magnetic field strength
-        fig = plt.figure(figsize=(15, np.ceil(n_planes / 2) * 6.5))
+        fig = plt.figure(figsize=(15, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
             xp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = np.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
@@ -1167,7 +1167,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
             ab = absB[:, :, int(n * jump)].squeeze()
 
-            ax = fig.add_subplot(int(np.ceil(n_planes / 2)), 2, n + 1)
+            ax = fig.add_subplot(int(xp.ceil(n_planes / 2)), 2, n + 1)
             map = ax.contourf(pc1, pc2, ab, 30)
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
@@ -1178,14 +1178,14 @@ class MHDequilibrium(FluidEquilibriumWithB):
             fig.colorbar(map, ax=ax, location="right")
 
         # current density
-        fig = plt.figure(figsize=(15, np.ceil(n_planes / 2) * 6.5))
+        fig = plt.figure(figsize=(15, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
             xp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = np.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
@@ -1197,7 +1197,7 @@ class MHDequilibrium(FluidEquilibriumWithB):
 
             ab = absJ[:, :, int(n * jump)].squeeze()
 
-            ax = fig.add_subplot(int(np.ceil(n_planes / 2)), 2, n + 1)
+            ax = fig.add_subplot(int(xp.ceil(n_planes / 2)), 2, n + 1)
             map = ax.contourf(pc1, pc2, ab, 30)
             ax.set_xlabel(l1)
             ax.set_ylabel(l2)
@@ -1307,8 +1307,8 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
         BZ = self.psi(R, Z, dR=1) / R
 
         # push-forward to Cartesian components
-        Bx = BR * np.cos(Phi) - BP * np.sin(Phi)
-        By = BR * np.sin(Phi) + BP * np.cos(Phi)
+        Bx = BR * xp.cos(Phi) - BP * xp.sin(Phi)
+        By = BR * xp.sin(Phi) + BP * xp.cos(Phi)
         Bz = 1 * BZ
 
         return Bx, By, Bz
@@ -1324,8 +1324,8 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
         jZ = self.g_tor(R, Z, dR=1) / R
 
         # push-forward to Cartesian components
-        jx = jR * np.cos(Phi) - jP * np.sin(Phi)
-        jy = jR * np.sin(Phi) + jP * np.cos(Phi)
+        jx = jR * xp.cos(Phi) - jP * xp.sin(Phi)
+        jy = jR * xp.sin(Phi) + jP * xp.cos(Phi)
         jz = 1 * jZ
 
         return jx, jy, jz
@@ -1335,7 +1335,7 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
 
         R, Phi, Z = self.inverse_map(x, y, z)
 
-        RabsB = np.sqrt(
+        RabsB = xp.sqrt(
             self.psi(R, Z, dZ=1) ** 2 + self.g_tor(R, Z) ** 2 + self.psi(R, Z, dR=1) ** 2,
         )
 
@@ -1363,8 +1363,8 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
         )
 
         # push-forward to Cartesian components
-        gradBx = gradBR * np.cos(Phi) - gradBP * np.sin(Phi)
-        gradBy = gradBR * np.sin(Phi) + gradBP * np.cos(Phi)
+        gradBx = gradBR * xp.cos(Phi) - gradBP * xp.sin(Phi)
+        gradBy = gradBR * xp.sin(Phi) + gradBP * xp.cos(Phi)
         gradBz = 1 * gradBZ
 
         return gradBx, gradBy, gradBz
@@ -1373,8 +1373,8 @@ class AxisymmMHDequilibrium(CartesianMHDequilibrium):
     def inverse_map(x, y, z):
         """Inverse cylindrical mapping."""
 
-        R = np.sqrt(x**2 + y**2)
-        P = np.arctan2(y, x)
+        R = xp.sqrt(x**2 + y**2)
+        P = xp.arctan2(y, x)
         Z = 1 * z
 
         return R, P, Z

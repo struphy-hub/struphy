@@ -1,9 +1,10 @@
 import glob
 import pickle
 
-import numpy as np
 import pandas as pd
 import yaml
+
+from struphy.utils.arrays import xp
 
 
 def sort_by_num_threads(bm):
@@ -142,14 +143,14 @@ def add_plot_diagonal(
     bandwidth_GBps,
     label="",
     ymax=1e4,
-    operational_intensity_FLOPpMB=np.arange(0, 1000, 1),
+    operational_intensity_FLOPpMB=xp.arange(0, 1000, 1),
 ):
     max_performance_GFLOP = operational_intensity_FLOPpMB * bandwidth_GBps
     (line,) = mfig.axs.plot(operational_intensity_FLOPpMB, max_performance_GFLOP)
     # Specify the y-value where you want to place the text
     specific_y = ymax
     # Interpolate to find the corresponding x-value
-    specific_x = np.interp(
+    specific_x = xp.interp(
         specific_y,
         max_performance_GFLOP,
         operational_intensity_FLOPpMB,
@@ -209,10 +210,10 @@ def get_average_val(
             xvec.append(x)
             yvec.append(y)
     # print('xvec', xvec, 'yvec', yvec)
-    xvec = np.array(xvec)
-    yvec = np.array(yvec)
+    xvec = xp.array(xvec)
+    yvec = xp.array(yvec)
     # print('xvec', xvec, 'yvec', yvec)
-    return np.average(xvec), np.average(yvec), np.std(xvec), np.std(yvec)
+    return xp.average(xvec), xp.average(yvec), xp.std(xvec), xp.std(yvec)
 
 
 def get_maximum(path, df_index=-1, metric="DP [MFLOP/s] STAT", column_name="Sum"):

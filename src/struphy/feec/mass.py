@@ -1,9 +1,8 @@
 import inspect
 from copy import deepcopy
 
-import numpy as np
-from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.ddm.mpi import mpi as MPI
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
@@ -17,6 +16,8 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities import RotationMatrix
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.utils.arrays import xp
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class WeightedMassOperators:
@@ -776,7 +777,7 @@ class WeightedMassOperators:
             1. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
             2. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
             3. ``1D list`` : 1d list consisting of either a) strings or b) matrices (3x3 callables or 3x3 list) and can be mixed. Predefined names are ``G``, ``Ginv``, ``DFinv``, ``sqrt_g``. Access them using strings in the 1d list: ``weights=['<name>']``. Possible choices for key-value pairs in **weights** are, at the moment: ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`. To access them, use for ``<name>`` the string ``eq_<method name>``, where ``<method name>`` can be found in the just mentioned base classes for MHD equilibria. By default, all scalars are multiplied. For division of scalars use ``1/<name>``.
-            4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
+            4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
         assemble: bool
             Whether to assemble the weighted mass matrix, i.e. computes the integrals with
@@ -985,11 +986,11 @@ class WeightedMassOperators:
             else:
                 dummy_eta = (0.0, 0.0, 0.0)
                 val = func(*dummy_eta)
-                assert isinstance(val, np.ndarray)
+                assert isinstance(val, xp.ndarray)
                 out = len(val.shape) - 3
         else:
             if isinstance(func, list):
-                if isinstance(func[0], np.ndarray):
+                if isinstance(func[0], xp.ndarray):
                     out = 2
                 else:
                     out = len(func) - 1
@@ -1051,7 +1052,7 @@ class WeightedMassOperators:
             )
 
             grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
-            self._f_values = np.zeros(grid_shape, dtype=float)
+            self._f_values = xp.zeros(grid_shape, dtype=float)
 
             metric = domain.metric(*integration_grid)
             self._mass_metric_term = deepcopy(metric)
@@ -2082,7 +2083,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         1. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
         2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
-        3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
+        3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
     transposed : bool
         Whether to assemble the transposed operator.
@@ -2363,16 +2364,16 @@ class WeightedMassOperator(LinOpWithTransp):
                             ]
 
                             if callable(weights_info[a][b]):
-                                PTS = np.meshgrid(*pts, indexing="ij")
+                                PTS = xp.meshgrid(*pts, indexing="ij")
                                 mat_w = weights_info[a][b](*PTS).copy()
-                            elif isinstance(weights_info[a][b], np.ndarray):
+                            elif isinstance(weights_info[a][b], xp.ndarray):
                                 mat_w = weights_info[a][b]
 
                             assert mat_w.shape == tuple(
                                 [pt.size for pt in pts],
                             )
 
-                            if np.any(np.abs(mat_w) > 1e-14):
+                            if xp.any(xp.abs(mat_w) > 1e-14):
                                 if self._matrix_free:
                                     blocks[-1] += [
                                         StencilMatrixFreeMassOperator(
@@ -2468,9 +2469,11 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # load assembly kernel
         if not self._matrix_free:
-            self._assembly_kernel = getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_mat",
+            self._assembly_kernel = Pyccelkernel(
+                getattr(
+                    mass_kernels,
+                    "kernel_" + str(self._V.ldim) + "d_mat",
+                )
             )
 
     @property
@@ -2686,7 +2689,7 @@ class WeightedMassOperator(LinOpWithTransp):
         Parameters
         ----------
         weights : list | NoneType
-            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to
+            Weight function(s) (callables or xp.ndarrays) in a 2d list of shape corresponding to
             number of components of domain/codomain.
             If ``weights=None``, the weight is taken from the given weights in the
             instanziation of the object, else it will be overriden.
@@ -2709,7 +2712,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             if weight is not None:
                                 assert callable(weight) or isinstance(
                                     weight,
-                                    np.ndarray,
+                                    xp.ndarray,
                                 )
                             self._mat[a, b].weights = weight
 
@@ -2819,13 +2822,13 @@ class WeightedMassOperator(LinOpWithTransp):
 
                     # evaluate weight at quadrature points
                     if callable(loc_weight):
-                        PTS = np.meshgrid(*pts, indexing="ij")
+                        PTS = xp.meshgrid(*pts, indexing="ij")
                         mat_w = loc_weight(*PTS).copy()
-                    elif isinstance(loc_weight, np.ndarray):
+                    elif isinstance(loc_weight, xp.ndarray):
                         mat_w = loc_weight
                     elif loc_weight is not None:
                         raise TypeError(
-                            "weights must be callable or np.ndarray or None but is {}".format(
+                            "weights must be callable or xp.ndarray or None but is {}".format(
                                 type(self._weights[a][b]),
                             ),
                         )
@@ -2833,8 +2836,8 @@ class WeightedMassOperator(LinOpWithTransp):
                     if loc_weight is not None:
                         assert mat_w.shape == tuple([pt.size for pt in pts])
 
-                    not_weight_zero = np.array(
-                        int(loc_weight is not None and np.any(np.abs(mat_w) > 1e-14)),
+                    not_weight_zero = xp.array(
+                        int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
                     )
                     if self._mpi_comm is not None:
                         self._mpi_comm.Allreduce(
@@ -2858,7 +2861,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             mat = self._mat
                             if loc_weight is None:
                                 # in case it's none we still need to have zeros weights to call the kernel
-                                mat_w = np.zeros(
+                                mat_w = xp.zeros(
                                     tuple([pt.size for pt in pts]),
                                 )
                         else:
@@ -2994,12 +2997,12 @@ class WeightedMassOperator(LinOpWithTransp):
         coeffs : StencilVector | BlockVector
             The coefficient vector corresponding to the FEM field. Ghost regions must be up-to-date!
 
-        out : np.ndarray | list/tuple of np.ndarrays, optional
+        out : xp.ndarray | list/tuple of xp.ndarrays, optional
             If given, the result will be written into these arrays in-place. Number of outs must be compatible with number of components of FEM field.
 
         Returns
         -------
-        out : np.ndarray | list/tuple of np.ndarrays
+        out : xp.ndarray | list/tuple of xp.ndarrays
             The values of the FEM field at the quadrature points.
         """
 
@@ -3018,7 +3021,7 @@ class WeightedMassOperator(LinOpWithTransp):
             out = ()
             if isinstance(W, TensorFemSpace):
                 out += (
-                    np.zeros(
+                    xp.zeros(
                         [
                             q_grid[nquad].points.size
                             for q_grid, nquad in zip(self.derham.get_quad_grids(W, nquads=self.nquads), self.nquads)
@@ -3029,7 +3032,7 @@ class WeightedMassOperator(LinOpWithTransp):
             else:
                 for space in W.spaces:
                     out += (
-                        np.zeros(
+                        xp.zeros(
                             [
                                 q_grid[nquad].points.size
                                 for q_grid, nquad in zip(
@@ -3042,13 +3045,13 @@ class WeightedMassOperator(LinOpWithTransp):
 
         else:
             if isinstance(W, TensorFemSpace):
-                assert isinstance(out, np.ndarray)
+                assert isinstance(out, xp.ndarray)
                 out = (out,)
             else:
                 assert isinstance(out, (list, tuple))
 
         # load assembly kernel
-        kernel = getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval")
+        kernel = Pyccelkernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
@@ -3143,18 +3146,22 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         self._nquads = nquads
 
         self._dtype = V.coeff_space.dtype
-        self._dot_kernel = getattr(
-            mass_kernels,
-            "kernel_" + str(self._V.ldim) + "d_matrixfree",
+        self._dot_kernel = Pyccelkernel(
+            getattr(
+                mass_kernels,
+                "kernel_" + str(self._V.ldim) + "d_matrixfree",
+            )
         )
 
-        self._diag_kernel = getattr(
-            mass_kernels,
-            "kernel_" + str(self._V.ldim) + "d_diag",
+        self._diag_kernel = Pyccelkernel(
+            getattr(
+                mass_kernels,
+                "kernel_" + str(self._V.ldim) + "d_diag",
+            )
         )
 
         shape = tuple(e - s + 1 for s, e in zip(V.coeff_space.starts, V.coeff_space.ends))
-        self._diag_tmp = np.zeros((shape))
+        self._diag_tmp = xp.zeros((shape))
 
         # knot span indices of elements of local domain
         self._codomain_spans = [
@@ -3281,16 +3288,16 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # evaluate weight at quadrature points
         if callable(self._weights):
-            PTS = np.meshgrid(*self._pts, indexing="ij")
+            PTS = xp.meshgrid(*self._pts, indexing="ij")
             mat_w = self._weights(*PTS).copy()
-        elif isinstance(self._weights, np.ndarray):
+        elif isinstance(self._weights, xp.ndarray):
             mat_w = self._weights
 
         if self._weights is not None:
             assert mat_w.shape == tuple([pt.size for pt in self._pts])
 
             # call kernel (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
-            if np.any(np.abs(mat_w) > 1e-14):
+            if xp.any(xp.abs(mat_w) > 1e-14):
                 self._dot_kernel(
                     *self._codomain_spans,
                     *self._domain_spans,
@@ -3350,9 +3357,9 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # evaluate weight at quadrature points
         if callable(self._weights):
-            PTS = np.meshgrid(*self._pts, indexing="ij")
+            PTS = xp.meshgrid(*self._pts, indexing="ij")
             mat_w = self._weights(*PTS).copy()
-        elif isinstance(self._weights, np.ndarray):
+        elif isinstance(self._weights, xp.ndarray):
             mat_w = self._weights
 
         diag = self._diag_tmp
@@ -3372,12 +3379,12 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # Calculate entries of StencilDiagonalMatrix
         if sqrt:
-            diag = np.sqrt(diag)
+            diag = xp.sqrt(diag)
 
         if inverse:
-            data = np.divide(1, diag, out=data)
+            data = xp.divide(1, diag, out=data)
         elif out:
-            np.copyto(data, diag)
+            xp.copyto(data, diag)
         else:
             data = diag.copy()
 

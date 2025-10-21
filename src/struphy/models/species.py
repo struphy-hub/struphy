@@ -1,16 +1,11 @@
 import warnings
 from abc import ABCMeta, abstractmethod
-from copy import deepcopy
-from dataclasses import dataclass
-from typing import Callable
 
 import numpy as np
 from mpi4py import MPI
 import warnings
 
-from struphy.fields_background.base import FluidEquilibrium
 from struphy.io.options import Units
-from struphy.kinetic_background.base import KineticBackground
 from struphy.models.variables import Variable
 from struphy.pic.utilities import (LoadingParameters, 
                                    WeightsParameters, 
@@ -83,7 +78,7 @@ class Species(metaclass=ABCMeta):
             con = ConstantsOfNature()
 
             # relevant frequencies
-            om_p = np.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
+            om_p = xp.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
             om_c = Z * con.e * units.B / (A * con.mH)
             
             # compute equation parameters

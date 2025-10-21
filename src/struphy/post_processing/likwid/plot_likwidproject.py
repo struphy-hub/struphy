@@ -8,7 +8,6 @@ import re
 import sys
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -17,6 +16,7 @@ import struphy.post_processing.likwid.hardware_dicts as hwd
 import struphy.post_processing.likwid.likwid_parser as lp
 import struphy.post_processing.likwid.maxplotlylib as mply
 import struphy.post_processing.likwid.roofline_plotter as rp
+from struphy.utils.arrays import xp
 
 
 def clean_string(string_in):
@@ -196,16 +196,16 @@ def plot_roofline(
 
     fig.update_xaxes(
         type="log",  # Ensure the x-axis is logarithmic
-        range=[np.log10(xmin), np.log10(xmax)],
+        range=[xp.log10(xmin), xp.log10(xmax)],
         title="Operational intensity (FLOP/Byte)",
         tickvals=xtick_values,  # Set where ticks appear
         ticktext=[str(t) for t in xtick_values],
-        # ticktext=[f'$10^{{{int(np.log10(t))}}}$' for t in xtick_values]  # Set tick labels
+        # ticktext=[f'$10^{{{int(xp.log10(t))}}}$' for t in xtick_values]  # Set tick labels
     )
 
     fig.update_yaxes(
         type="log",  # Ensure the x-axis is logarithmic
-        range=[np.log10(ymin), np.log10(ymax)],
+        range=[xp.log10(ymin), xp.log10(ymax)],
         title="Performance [GFLOP/s]",
         tickvals=ytick_values,  # Set where ticks appear
         ticktext=[str(t) for t in ytick_values],

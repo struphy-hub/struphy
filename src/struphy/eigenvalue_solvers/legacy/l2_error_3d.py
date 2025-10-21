@@ -6,10 +6,10 @@
 Modules to compute L2-errors of discrete p-forms with analytical forms in 3D.
 """
 
-import numpy as np
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_3d as ker
+from struphy.utils.arrays import xp
 
 
 # ======= error in V0 ====================
@@ -25,7 +25,7 @@ def l2_error_V0(tensor_space_FEM, domain, fun, coeff):
     domain : domain
         domain object defining the geometry
 
-    fun : callable or np.ndarray
+    fun : callable or xp.ndarray
         the 0-form with which the error shall be computed
 
     coeff : array_like
@@ -54,16 +54,16 @@ def l2_error_V0(tensor_space_FEM, domain, fun, coeff):
     det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
 
     # evaluation of given 0-form at quadrature points
-    mat_f = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f = xp.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
 
     if callable(fun):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
         mat_f[:, :, :] = fun(quad_mesh[0], quad_mesh[1], quad_mesh[2])
     else:
         mat_f[:, :, :] = fun
 
     # compute error
-    error = np.zeros(Nel, dtype=float)
+    error = xp.zeros(Nel, dtype=float)
 
     ker.kernel_l2error(
         Nel,
@@ -94,7 +94,7 @@ def l2_error_V0(tensor_space_FEM, domain, fun, coeff):
         det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
     )
 
-    return np.sqrt(error.sum())
+    return xp.sqrt(error.sum())
 
 
 # ======= error in V1 ====================
@@ -110,7 +110,7 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
     domain : domain
         domain object defining the geometry
 
-    fun : list of callables or np.ndarrays
+    fun : list of callables or xp.ndarrays
         the three 1-form components with which the error shall be computed
 
     coeff : list of array_like
@@ -141,12 +141,12 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
     metric_coeffs *= abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
 
     # evaluation of given 1-form components at quadrature points
-    mat_f1 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
-    mat_f2 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
-    mat_f3 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f1 = xp.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f2 = xp.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f3 = xp.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
 
     if callable(fun[0]):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
         mat_f1[:, :, :] = fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f2[:, :, :] = fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f3[:, :, :] = fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2])
@@ -156,7 +156,7 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
         mat_f3[:, :, :] = fun[2]
 
     # compute error
-    error = np.zeros(Nel, dtype=float)
+    error = xp.zeros(Nel, dtype=float)
 
     # 1 * f1 * G^11 * |det(DF)| * f1
     ker.kernel_l2error(
@@ -314,7 +314,7 @@ def l2_error_V1(tensor_space_FEM, domain, fun, coeff):
         1 * metric_coeffs[2, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
     )
 
-    return np.sqrt(error.sum())
+    return xp.sqrt(error.sum())
 
 
 # ======= error in V2 ====================
@@ -330,7 +330,7 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
     domain : domain
         domain object defining the geometry
 
-    fun : list of callables or np.ndarrays
+    fun : list of callables or xp.ndarrays
         the three 2-form components with which the error shall be computed
 
     coeff : list of array_like
@@ -361,12 +361,12 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
     metric_coeffs /= abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
 
     # evaluation of given 2-form components at quadrature points
-    mat_f1 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
-    mat_f2 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
-    mat_f3 = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f1 = xp.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f2 = xp.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f3 = xp.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
 
     if callable(fun[0]):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
         mat_f1[:, :, :] = fun[0](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f2[:, :, :] = fun[1](quad_mesh[0], quad_mesh[1], quad_mesh[2])
         mat_f3[:, :, :] = fun[2](quad_mesh[0], quad_mesh[1], quad_mesh[2])
@@ -376,7 +376,7 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
         mat_f3[:, :, :] = fun[2]
 
     # compute error
-    error = np.zeros(Nel, dtype=float)
+    error = xp.zeros(Nel, dtype=float)
 
     # 1 * f1 * G_11 / |det(DF)| * f1
     ker.kernel_l2error(
@@ -534,7 +534,7 @@ def l2_error_V2(tensor_space_FEM, domain, fun, coeff):
         1 * metric_coeffs[2, 2].reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
     )
 
-    return np.sqrt(error.sum())
+    return xp.sqrt(error.sum())
 
 
 # ======= error in V3 ====================
@@ -550,7 +550,7 @@ def l2_error_V3(tensor_space_FEM, domain, fun, coeff):
     domain : domain
         domain object defining the geometry
 
-    fun : callable or np.ndarray
+    fun : callable or xp.ndarray
         the 3-form component with which the error shall be computed
 
     coeff : array_like
@@ -579,16 +579,16 @@ def l2_error_V3(tensor_space_FEM, domain, fun, coeff):
     det_df = abs(domain.jacobian_det(pts[0].flatten(), pts[1].flatten(), pts[2].flatten()))
 
     # evaluation of given 3-form component at quadrature points
-    mat_f = np.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
+    mat_f = xp.empty((pts[0].size, pts[1].size, pts[2].size), dtype=float)
 
     if callable(fun):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), pts[2].flatten(), indexing="ij")
         mat_f[:, :, :] = fun(quad_mesh[0], quad_mesh[1], quad_mesh[2])
     else:
         mat_f[:, :, :] = fun
 
     # compute error
-    error = np.zeros(Nel, dtype=float)
+    error = xp.zeros(Nel, dtype=float)
 
     ker.kernel_l2error(
         Nel,
@@ -619,4 +619,4 @@ def l2_error_V3(tensor_space_FEM, domain, fun, coeff):
         1 / det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1], Nel[2], n_quad[2]),
     )
 
-    return np.sqrt(error.sum())
+    return xp.sqrt(error.sum())

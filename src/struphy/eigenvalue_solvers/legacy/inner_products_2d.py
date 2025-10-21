@@ -6,10 +6,10 @@
 Modules to compute inner products with given functions in 2D.
 """
 
-import numpy as np
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_2d as ker
+from struphy.utils.arrays import xp
 
 
 # ================ inner product in V0 ===========================
@@ -25,7 +25,7 @@ def inner_prod_V0(tensor_space_FEM, domain, fun):
     domain : domain
         domain object defining the geometry
 
-    fun : callable or np.ndarray
+    fun : callable or xp.ndarray
         the 0-form with which the inner products shall be computed (either callable or 2D array with values at quadrature points)
     """
 
@@ -46,10 +46,10 @@ def inner_prod_V0(tensor_space_FEM, domain, fun):
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
 
     # evaluation of given 0-form at quadrature points
-    mat_f = np.empty((pts[0].size, pts[1].size), dtype=float)
+    mat_f = xp.empty((pts[0].size, pts[1].size), dtype=float)
 
     if callable(fun):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
         mat_f[:, :] = fun(quad_mesh[0], quad_mesh[1], 0.0)
     else:
         mat_f[:, :] = fun
@@ -57,7 +57,7 @@ def inner_prod_V0(tensor_space_FEM, domain, fun):
     # assembly
     Ni = tensor_space_FEM.Nbase_0form
 
-    F = np.zeros((Ni[0], Ni[1]), dtype=float)
+    F = xp.zeros((Ni[0], Ni[1]), dtype=float)
 
     mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
 
@@ -94,7 +94,7 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
     domain : domain
         domain object defining the geometry
 
-    fun : list of callables or np.ndarrays
+    fun : list of callables or xp.ndarrays
         the 1-form components with which the inner products shall be computed (either list of 3 callables or 2D arrays with values at quadrature points)
     """
 
@@ -127,10 +127,10 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
     g_inv = domain.metric_inv(pts[0].flatten(), pts[1].flatten(), 0.0)
 
     # 1-form components at quadrature points
-    mat_f = np.empty((pts[0].size, pts[1].size), dtype=float)
+    mat_f = xp.empty((pts[0].size, pts[1].size), dtype=float)
 
     if callable(fun[0]):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
 
     # components of global inner product
     F = [0, 0, 0]
@@ -138,7 +138,7 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
     # assembly
     for a in range(3):
         Ni = tensor_space_FEM.Nbase_1form[a]
-        F[a] = np.zeros((Ni[0], Ni[1]), dtype=float)
+        F[a] = xp.zeros((Ni[0], Ni[1]), dtype=float)
 
         mat_f[:, :] = 0.0
 
@@ -170,7 +170,7 @@ def inner_prod_V1(tensor_space_FEM, domain, fun):
             mat_f * det_df,
         )
 
-    F1 = tensor_space_FEM.E1_pol_0.dot(np.concatenate((F[0].flatten(), F[1].flatten())))
+    F1 = tensor_space_FEM.E1_pol_0.dot(xp.concatenate((F[0].flatten(), F[1].flatten())))
     F2 = tensor_space_FEM.E0_pol_0.dot(F[2].flatten())
 
     return F1, F2
@@ -187,7 +187,7 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
     domain : domain
         domain object defining the geometry
 
-    fun : list of callables or np.ndarrays
+    fun : list of callables or xp.ndarrays
         the 2-form components with which the inner products shall be computed (either list of 3 callables or 2D arrays with values at quadrature points)
     """
 
@@ -220,10 +220,10 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
     g = domain.metric(pts[0].flatten(), pts[1].flatten(), 0.0)
 
     # 2-form components at quadrature points
-    mat_f = np.empty((pts[0].size, pts[1].size), dtype=float)
+    mat_f = xp.empty((pts[0].size, pts[1].size), dtype=float)
 
     if callable(fun[0]):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
 
     # components of global inner product
     F = [0, 0, 0]
@@ -231,7 +231,7 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
     # assembly
     for a in range(3):
         Ni = tensor_space_FEM.Nbase_2form[a]
-        F[a] = np.zeros((Ni[0], Ni[1]), dtype=float)
+        F[a] = xp.zeros((Ni[0], Ni[1]), dtype=float)
 
         mat_f[:, :] = 0.0
 
@@ -263,7 +263,7 @@ def inner_prod_V2(tensor_space_FEM, domain, fun):
             mat_f / det_df,
         )
 
-    F1 = tensor_space_FEM.E2_pol_0.dot(np.concatenate((F[0].flatten(), F[1].flatten())))
+    F1 = tensor_space_FEM.E2_pol_0.dot(xp.concatenate((F[0].flatten(), F[1].flatten())))
     F2 = tensor_space_FEM.E3_pol_0.dot(F[2].flatten())
 
     return F1, F2
@@ -280,7 +280,7 @@ def inner_prod_V3(tensor_space_FEM, domain, fun):
     domain : domain
         domain object defining the geometry
 
-    fun : callable or np.ndarray
+    fun : callable or xp.ndarray
         the 3-form component with which the inner products shall be computed (either callable or 2D array with values at quadrature points)
     """
 
@@ -301,10 +301,10 @@ def inner_prod_V3(tensor_space_FEM, domain, fun):
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
 
     # evaluation of given 3-form at quadrature points
-    mat_f = np.empty((pts[0].size, pts[1].size), dtype=float)
+    mat_f = xp.empty((pts[0].size, pts[1].size), dtype=float)
 
     if callable(fun):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
         mat_f[:, :] = fun(quad_mesh[0], quad_mesh[1], 0.0)
     else:
         mat_f[:, :] = fun
@@ -312,7 +312,7 @@ def inner_prod_V3(tensor_space_FEM, domain, fun):
     # assembly
     Ni = tensor_space_FEM.Nbase_3form
 
-    F = np.zeros((Ni[0], Ni[1]), dtype=float)
+    F = xp.zeros((Ni[0], Ni[1]), dtype=float)
 
     mat_f = mat_f.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
 

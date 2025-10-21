@@ -16,7 +16,7 @@ References
 
 """
 
-import numpy as np
+from struphy.utils.arrays import xp
 
 __all__ = [
     "find_span",
@@ -105,7 +105,7 @@ def scaling_vector(knots, degree, span):
         Scaling vector with elements (p + 1)/(t[i + p + 1] - t[i])
     """
 
-    x = np.zeros(degree + 1, dtype=float)
+    x = xp.zeros(degree + 1, dtype=float)
 
     for il in range(degree + 1):
         i = span - il
@@ -148,9 +148,9 @@ def basis_funs(knots, degree, x, span, normalize=False):
     by using 'left' and 'right' temporary arrays that are one element shorter.
 
     """
-    left = np.empty(degree, dtype=float)
-    right = np.empty(degree, dtype=float)
-    values = np.empty(degree + 1, dtype=float)
+    left = xp.empty(degree, dtype=float)
+    right = xp.empty(degree, dtype=float)
+    values = xp.empty(degree + 1, dtype=float)
 
     values[0] = 1.0
 
@@ -205,7 +205,7 @@ def basis_funs_1st_der(knots, degree, x, span):
     # Compute derivatives at x using formula based on difference of splines of degree deg - 1
     # -------
     # j = 0
-    ders = np.empty(degree + 1, dtype=float)
+    ders = xp.empty(degree + 1, dtype=float)
     saved = degree * values[0] / (knots[span + 1] - knots[span + 1 - degree])
     ders[0] = -saved
 
@@ -261,11 +261,11 @@ def basis_funs_all_ders(knots, degree, x, span, n):
         - innermost loops are replaced with vector operations on slices.
 
     """
-    left = np.empty(degree)
-    right = np.empty(degree)
-    ndu = np.empty((degree + 1, degree + 1))
-    a = np.empty((2, degree + 1))
-    ders = np.zeros((n + 1, degree + 1))  # output array
+    left = xp.empty(degree)
+    right = xp.empty(degree)
+    ndu = xp.empty((degree + 1, degree + 1))
+    a = xp.empty((2, degree + 1))
+    ders = xp.zeros((n + 1, degree + 1))  # output array
 
     # Number of derivatives that need to be effectively computed
     # Derivatives higher than degree are = 0.
@@ -304,7 +304,7 @@ def basis_funs_all_ders(knots, degree, x, span, n):
             j1 = 1 if (rk > -1) else -rk
             j2 = k - 1 if (r - 1 <= pk) else degree - r
             a[s2, j1 : j2 + 1] = (a[s1, j1 : j2 + 1] - a[s1, j1 - 1 : j2]) * ndu[pk + 1, rk + j1 : rk + j2 + 1]
-            d += np.dot(a[s2, j1 : j2 + 1], ndu[rk + j1 : rk + j2 + 1, pk])
+            d += xp.dot(a[s2, j1 : j2 + 1], ndu[rk + j1 : rk + j2 + 1, pk])
             if r <= pk:
                 a[s2, k] = -a[s1, k - 1] * ndu[pk + 1, r]
                 d += a[s2, k] * ndu[r, pk]
@@ -362,7 +362,7 @@ def collocation_matrix(knots, degree, xgrid, periodic, normalize=False):
     nx = len(xgrid)
 
     # Collocation matrix as 2D Numpy array (dense storage)
-    mat = np.zeros((nx, nb), dtype=float)
+    mat = xp.zeros((nx, nb), dtype=float)
 
     # Indexing of basis functions (periodic or not) for a given span
     if periodic:
@@ -418,12 +418,12 @@ def histopolation_matrix(knots, degree, xgrid, periodic):
     # Number of integrals
     if periodic:
         el_b = breakpoints(knots, degree)
-        xgrid = np.array([el_b[0]] + list(xgrid) + [el_b[-1]])
+        xgrid = xp.array([el_b[0]] + list(xgrid) + [el_b[-1]])
 
     ni = len(xgrid) - 1
 
     # Histopolation matrix of M-splines as 2D Numpy array (dense storage)
-    his = np.zeros((ni, nbD), dtype=float)
+    his = xp.zeros((ni, nbD), dtype=float)
 
     # Collocation matrix of B-splines
     col = collocation_matrix(knots, degree, xgrid, False, normalize=False)
@@ -434,7 +434,7 @@ def histopolation_matrix(knots, degree, xgrid, periodic):
             for k in range(j + 1):
                 his[i, j % nbD] += col[i, k] - col[i + 1, k]
 
-            if np.abs(his[i, j % nbD]) < 1e-14:
+            if xp.abs(his[i, j % nbD]) < 1e-14:
                 his[i, j % nbD] = 0.0
 
     # add first to last integration interval in case of periodic splines
@@ -470,7 +470,7 @@ def breakpoints(knots, degree):
     else:
         endsl = -degree
 
-    return np.unique(knots[slice(degree, endsl)])
+    return xp.unique(knots[slice(degree, endsl)])
 
 
 # ==============================================================================
@@ -501,13 +501,13 @@ def greville(knots, degree, periodic):
     n = len(T) - 2 * p - 1 if periodic else len(T) - p - 1
 
     # Compute greville abscissas as average of p consecutive knot values
-    xg = np.around([sum(T[i : i + p]) / p for i in range(s, s + n)], decimals=15)
+    xg = xp.around([sum(T[i : i + p]) / p for i in range(s, s + n)], decimals=15)
 
     # If needed apply periodic boundary conditions
     if periodic:
         a = T[p]
         b = T[-p]
-        xg = np.around((xg - a) % (b - a) + a, decimals=15)
+        xg = xp.around((xg - a) % (b - a) + a, decimals=15)
 
     return xg
 
@@ -537,7 +537,7 @@ def elements_spans(knots, degree):
     >>> from psydac.core.bsplines import make_knots, elements_spans
 
     >>> p = 3 ; n = 8
-    >>> grid  = np.arange( n-p+1 )
+    >>> grid  = xp.arange( n-p+1 )
     >>> knots = make_knots( breaks=grid, degree=p, periodic=False )
     >>> spans = elements_spans( knots=knots, degree=p )
     >>> spans
@@ -549,13 +549,13 @@ def elements_spans(knots, degree):
     2) This function could be written in two lines:
 
        breaks = breakpoints( knots, degree )
-       spans  = np.searchsorted( knots, breaks[:-1], side='right' ) - 1
+       spans  = xp.searchsorted( knots, breaks[:-1], side='right' ) - 1
 
     """
     breaks = breakpoints(knots, degree)
     nk = len(knots)
     ne = len(breaks) - 1
-    spans = np.zeros(ne, dtype=int)
+    spans = xp.zeros(ne, dtype=int)
 
     ie = 0
     for ik in range(degree, nk - degree):
@@ -600,13 +600,13 @@ def make_knots(breaks, degree, periodic):
 
     # Consistency checks
     assert len(breaks) > 1
-    assert all(np.diff(breaks) > 0)
+    assert all(xp.diff(breaks) > 0)
     assert degree > 0
     if periodic:
         assert len(breaks) > degree
 
     p = degree
-    T = np.zeros(len(breaks) + 2 * p, dtype=float)
+    T = xp.zeros(len(breaks) + 2 * p, dtype=float)
     T[p:-p] = breaks
 
     if periodic:
@@ -671,13 +671,13 @@ def quadrature_grid(breaks, quad_rule_x, quad_rule_w):
     assert min(quad_rule_x) >= -1
     assert max(quad_rule_x) <= +1
 
-    quad_rule_x = np.asarray(quad_rule_x)
-    quad_rule_w = np.asarray(quad_rule_w)
+    quad_rule_x = xp.asarray(quad_rule_x)
+    quad_rule_w = xp.asarray(quad_rule_w)
 
     ne = len(breaks) - 1
     nq = len(quad_rule_x)
-    quad_x = np.zeros((ne, nq), dtype=float)
-    quad_w = np.zeros((ne, nq), dtype=float)
+    quad_x = xp.zeros((ne, nq), dtype=float)
+    quad_w = xp.zeros((ne, nq), dtype=float)
 
     # Compute location and weight of quadrature points from basic rule
     for ie, (a, b) in enumerate(zip(breaks[:-1], breaks[1:])):
@@ -724,7 +724,7 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalize=False):
     # TODO: check if it is safe to compute span only once for each element
 
     ne, nq = quad_grid.shape
-    basis = np.zeros((ne, degree + 1, nders + 1, nq), dtype=float)
+    basis = xp.zeros((ne, degree + 1, nders + 1, nq), dtype=float)
 
     # Loop over elements
     for ie in range(ne):

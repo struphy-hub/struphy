@@ -1,7 +1,6 @@
 "Base classes for particle deposition (accumulation) on the grid."
 
-import numpy as np
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilMatrix, StencilVector
 
@@ -13,6 +12,8 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
+from struphy.utils.arrays import xp
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Accumulator:
@@ -66,6 +67,7 @@ class Accumulator:
 
     filter_params : dict
         Params for the accumulation filter: use_filter(string, either `three_point or `fourier), repeat(int), alpha(float) and modes(list with int).
+
     Note
     ----
         Struphy accumulation kernels called by ``Accumulator`` objects must be added to ``struphy/pic/accumulation/accum_kernels.py``
@@ -77,7 +79,7 @@ class Accumulator:
         self,
         particles: Particles,
         space_id: str,
-        kernel,
+        kernel: Pyccelkernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         *,
@@ -87,6 +89,7 @@ class Accumulator:
     ):
         self._particles = particles
         self._space_id = space_id
+        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
         self._kernel = kernel
         self._derham = mass_ops.derham
         self._args_domain = args_domain
@@ -188,7 +191,7 @@ class Accumulator:
             Entries must be pyccel-conform types.
 
         args_control : any
-            Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
+            Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
 
         # flags for break
@@ -200,7 +203,7 @@ class Accumulator:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+        with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
                 self.particles.args_markers,
                 self.derham.args_derham,
@@ -304,7 +307,7 @@ class Accumulator:
         return self._particles
 
     @property
-    def kernel(self):
+    def kernel(self) -> Pyccelkernel:
         """The accumulation kernel."""
         return self._kernel
 
@@ -385,7 +388,7 @@ class Accumulator:
         field.vector = a
 
         # plot field
-        eta = np.linspace(0, 1, 100)
+        eta = xp.linspace(0, 1, 100)
         if eta_direction == 0:
             args = (eta, 0.5, 0.5)
         elif eta_direction == 1:
@@ -424,19 +427,21 @@ class AccumulatorVector:
 
     args_domain : DomainArguments
         Mapping infos.
+
     """
 
     def __init__(
         self,
         particles: Particles,
         space_id: str,
-        kernel,
+        kernel: Pyccelkernel,
         mass_ops: WeightedMassOperators,
         args_domain: DomainArguments,
         filter_params: FilterParameters = None,
     ):
         self._particles = particles
         self._space_id = space_id
+        assert isinstance(kernel, Pyccelkernel), f"{kernel} is not of type Pyccelkernel"
         self._kernel = kernel
         self._derham = mass_ops.derham
         self._args_domain = args_domain
@@ -505,7 +510,7 @@ class AccumulatorVector:
         args_control : any
             Keyword arguments for an analytical control variate correction in the accumulation step.
             Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction.
-            Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
+            Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
 
         # flags for break
@@ -516,10 +521,10 @@ class AccumulatorVector:
             dat[:] = 0.0
 
         # accumulate into matrix (and vector) with markers
-        with ProfileManager.profile_region("kernel: " + self.kernel.__name__):
+        with ProfileManager.profile_region("kernel: " + self.kernel.name):
             self.kernel(
                 self.particles.args_markers,
-                self.derham._args_derham,
+                self.derham.args_derham,
                 self.args_domain,
                 *self._args_data,
                 *optional_args,
@@ -568,7 +573,7 @@ class AccumulatorVector:
         return self._particles
 
     @property
-    def kernel(self):
+    def kernel(self) -> Pyccelkernel:
         """The accumulation kernel."""
         return self._kernel
 
@@ -639,7 +644,7 @@ class AccumulatorVector:
         field.vector = a
 
         # plot field
-        eta = np.linspace(0, 1, 100)
+        eta = xp.linspace(0, 1, 100)
         if eta_direction == 0:
             args = (eta, 0.5, 0.5)
         elif eta_direction == 1:
