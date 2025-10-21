@@ -95,17 +95,26 @@ def struphy_test(
         subp_run(cmd)
 
     elif "verification" in group:
-        cmd = [
-            "mpirun",
-            "--oversubscribe",
-            "-n",
-            str(mpi),
-            "pytest",
-            "-k",
-            "_verif_",
-            "-s",
-            "--with-mpi",
-        ]
+        if mpi > 1:
+            cmd = [
+                "mpirun",
+                "--oversubscribe",
+                "-n",
+                str(mpi),
+                "pytest",
+                "-k",
+                "_verif_",
+                "-s",
+                "--with-mpi",
+            ]
+        else:
+            cmd = [
+                "pytest",
+                "-k",
+                "_verif_",
+                "-s",
+            ]
+            
         if vrbose:
             cmd += ["--vrbose"]
         if nclones > 1:
