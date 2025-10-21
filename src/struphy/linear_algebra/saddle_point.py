@@ -7,7 +7,7 @@ from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.solvers import inverse
 
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
-from struphy.utils.arrays import xp
+from struphy.utils.arrays import xp as np
 
 
 class SaddlePointSolver:
@@ -28,7 +28,7 @@ class SaddlePointSolver:
         } \right)
 
     using either the Uzawa iteration :math:`BA^{-1}B^{\top} y = BA^{-1} f` or using on of the solvers given in :mod:`psydac.linalg.solvers`. The prefered solver is GMRES.
-    The decission which variant to use is given by the type of A. If A is of type list of xp.ndarrays or sc.sparse.csr_matrices, then this class uses the Uzawa algorithm.
+    The decission which variant to use is given by the type of A. If A is of type list of np.ndarrays or sc.sparse.csr_matrices, then this class uses the Uzawa algorithm.
     If A is of type LinearOperator or BlockLinearOperator, a solver is used for the inverse.
     Using the Uzawa algorithm, solution is given by:
 
@@ -41,7 +41,7 @@ class SaddlePointSolver:
     ----------
     A : list, LinearOperator or BlockLinearOperator
         Upper left block.
-        Either the entries on the diagonals of block A are given as list of xp.ndarray or sc.sparse.csr_matrix.
+        Either the entries on the diagonals of block A are given as list of np.ndarray or sc.sparse.csr_matrix.
         Alternative: Give whole matrice A as LinearOperator or BlockLinearOperator.
         list: Uzawa algorithm is used.
         LinearOperator: A solver given in :mod:`psydac.linalg.solvers` is used. Specified by solver_name.
@@ -49,16 +49,16 @@ class SaddlePointSolver:
 
     B : list, LinearOperator or BlockLinearOperator
         Lower left block.
-        Uzwaw Algorithm: All entries of block B are given either as list of xp.ndarray or sc.sparse.csr_matrix.
+        Uzwaw Algorithm: All entries of block B are given either as list of np.ndarray or sc.sparse.csr_matrix.
         Solver: Give whole B as LinearOperator or BlocklinearOperator
 
     F : list
         Right hand side of the upper block.
-        Uzawa: Given as list of xp.ndarray or sc.sparse.csr_matrix.
+        Uzawa: Given as list of np.ndarray or sc.sparse.csr_matrix.
         Solver: Given as LinearOperator or BlockLinearOperator
 
     Apre : list
-        The non-inverted preconditioner for entries on the diagonals of block A are given as list of xp.ndarray or sc.sparse.csr_matrix. Only required for the Uzawa algorithm.
+        The non-inverted preconditioner for entries on the diagonals of block A are given as list of np.ndarray or sc.sparse.csr_matrix. Only required for the Uzawa algorithm.
 
     method_to_solve : str
         Method for the inverses. Choose from 'DirectNPInverse', 'ScipySparse', 'InexactNPInverse' ,'SparseSolver'. Only required for the Uzawa algorithm.
@@ -98,14 +98,14 @@ class SaddlePointSolver:
         if isinstance(A, list):
             self._variant = "Uzawa"
             for i in A:
-                assert isinstance(i, xp.ndarray) or isinstance(i, sc.sparse.csr_matrix)
+                assert isinstance(i, np.ndarray) or isinstance(i, sc.sparse.csr_matrix)
             for i in B:
-                assert isinstance(i, xp.ndarray) or isinstance(i, sc.sparse.csr_matrix)
+                assert isinstance(i, np.ndarray) or isinstance(i, sc.sparse.csr_matrix)
             for i in F:
-                assert isinstance(i, xp.ndarray) or isinstance(i, sc.sparse.csr_matrix)
+                assert isinstance(i, np.ndarray) or isinstance(i, sc.sparse.csr_matrix)
             for i in Apre:
                 assert (
-                    isinstance(i, xp.ndarray)
+                    isinstance(i, np.ndarray)
                     or isinstance(i, sc.sparse.csr_matrix)
                     or isinstance(i, sc.sparse.csr_array)
                 )
@@ -169,9 +169,9 @@ class SaddlePointSolver:
             self._setup_inverses()
 
             # Solution vectors numpy
-            self._Pnp = xp.zeros(self._B1xp.shape[0])
-            self._Unp = xp.zeros(self._A[0].shape[1])
-            self._Uenp = xp.zeros(self._A[1].shape[1])
+            self._Pnp = np.zeros(self._B1np.shape[0])
+            self._Unp = np.zeros(self._A[0].shape[1])
+            self._Uenp = np.zeros(self._A[1].shape[1])
             # Allocate memory for matrices used in solving the system
             self._rhs0np = self._F[0].copy()
             self._rhs1np = self._F[1].copy()
@@ -195,8 +195,8 @@ class SaddlePointSolver:
                 same_A0 = (A0_old != A0_new).nnz == 0
                 same_A1 = (A1_old != A1_new).nnz == 0
             else:
-                same_A0 = xp.allclose(A0_old, A0_new, atol=1e-10)
-                same_A1 = xp.allclose(A1_old, A1_new, atol=1e-10)
+                same_A0 = np.allclose(A0_old, A0_new, atol=1e-10)
+                same_A1 = np.allclose(A1_old, A1_new, atol=1e-10)
             if same_A0 and same_A1:
                 need_update = False
             self._A = a
@@ -240,8 +240,8 @@ class SaddlePointSolver:
                 same_A0 = (A0_old != A0_new).nnz == 0
                 same_A1 = (A1_old != A1_new).nnz == 0
             else:
-                same_A0 = xp.allclose(A0_old, A0_new, atol=1e-10)
-                same_A1 = xp.allclose(A1_old, A1_new, atol=1e-10)
+                same_A0 = np.allclose(A0_old, A0_new, atol=1e-10)
+                same_A1 = np.allclose(A1_old, A1_new, atol=1e-10)
             if same_A0 and same_A1:
                 need_update = False
             self._Apre = a
@@ -256,11 +256,11 @@ class SaddlePointSolver:
 
         Parameters
         ----------
-        U_init : Vector, xp.ndarray or sc.sparse.csr.csr_matrix, optional
-            Initial guess for the velocity of the ions. If None, initializes to zero. Types xp.ndarray and sc.sparse.csr.csr_matrix can only be given if system should be solved with Uzawa algorithm.
+        U_init : Vector, np.ndarray or sc.sparse.csr.csr_matrix, optional
+            Initial guess for the velocity of the ions. If None, initializes to zero. Types np.ndarray and sc.sparse.csr.csr_matrix can only be given if system should be solved with Uzawa algorithm.
 
-        Ue_init : Vector, xp.ndarray or sc.sparse.csr.csr_matrix, optional
-            Initial guess for the velocity of the electrons. If None, initializes to zero. Types xp.ndarray and sc.sparse.csr.csr_matrix can only be given if system should be solved with Uzawa algorithm.
+        Ue_init : Vector, np.ndarray or sc.sparse.csr.csr_matrix, optional
+            Initial guess for the velocity of the electrons. If None, initializes to zero. Types np.ndarray and sc.sparse.csr.csr_matrix can only be given if system should be solved with Uzawa algorithm.
 
         P_init : Vector, optional
             Initial guess for the potential. If None, initializes to zero.
@@ -310,7 +310,7 @@ class SaddlePointSolver:
                 self._spectralresult = []
 
             # Initialize P to zero or given initial guess
-            if isinstance(U_init, xp.ndarray) or isinstance(U_init, sc.sparse.csr.csr_matrix):
+            if isinstance(U_init, np.ndarray) or isinstance(U_init, sc.sparse.csr.csr_matrix):
                 self._Pnp = P_init if P_init is not None else self._P
                 self._Unp = U_init if U_init is not None else self._U
                 self._Uenp = Ue_init if U_init is not None else self._Ue
@@ -330,31 +330,31 @@ class SaddlePointSolver:
             for iteration in range(self._max_iter):
                 # Step 1: Compute velocity U by solving A U = -Bᵀ P + F -A Un
                 self._rhs0np *= 0
-                self._rhs0np -= self._B1xp.transpose().dot(self._Pnp)
-                self._rhs0np -= self._Axp.dot(self._Unp)
+                self._rhs0np -= self._B1np.transpose().dot(self._Pnp)
+                self._rhs0np -= self._Anp.dot(self._Unp)
                 self._rhs0np += self._F[0]
                 if self._preconditioner == False:
                     self._Unp += self._Anpinv.dot(self._rhs0np)
                 elif self._preconditioner == True:
                     self._Unp += self._Anpinv.dot(self._A11npinv @ self._rhs0np)
 
-                R1 = self._B1xp.dot(self._Unp)
+                R1 = self._B1np.dot(self._Unp)
 
                 self._rhs1np *= 0
-                self._rhs1np -= self._B2xp.transpose().dot(self._Pnp)
-                self._rhs1np -= self._Aexp.dot(self._Uenp)
+                self._rhs1np -= self._B2np.transpose().dot(self._Pnp)
+                self._rhs1np -= self._Aenp.dot(self._Uenp)
                 self._rhs1np += self._F[1]
                 if self._preconditioner == False:
                     self._Uenp += self._Aenpinv.dot(self._rhs1np)
                 elif self._preconditioner == True:
                     self._Uenp += self._Aenpinv.dot(self._A22npinv @ self._rhs1np)
 
-                R2 = self._B2xp.dot(self._Uenp)
+                R2 = self._B2np.dot(self._Uenp)
 
                 # Step 2: Compute residual R = BU (divergence of U)
-                R = R1 + R2  # self._B1xp.dot(self._Unp) + self._B2xp.dot(self._Uenp)
-                residual_norm = xp.linalg.norm(R)
-                residual_normR1 = xp.linalg.norm(R)
+                R = R1 + R2  # self._B1np.dot(self._Unp) + self._B2np.dot(self._Uenp)
+                residual_norm = np.linalg.norm(R)
+                residual_normR1 = np.linalg.norm(R)
                 self._residual_norms.append(residual_normR1)  # Store residual norm
                 # Check for convergence based on residual norm
                 if residual_norm < self._tol:
@@ -368,9 +368,9 @@ class SaddlePointSolver:
                     return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
                 # Steepest gradient
-                alpha = (R.dot(R)) / (R.dot(self._Precxp.dot(R)))
+                alpha = (R.dot(R)) / (R.dot(self._Precnp.dot(R)))
                 # Minimal residual
-                # alpha = ((self._Precxp.dot(R)).dot(R)) / ((self._Precxp.dot(R)).dot(self._Precxp.dot(R)))
+                # alpha = ((self._Precnp.dot(R)).dot(R)) / ((self._Precnp.dot(R)).dot(self._Precnp.dot(R)))
                 self._Pnp += alpha.real * R.real
 
                 if self._verbose:
@@ -433,7 +433,7 @@ class SaddlePointSolver:
                 self._Aenpinv = self._compute_inverse(A1, which="A[1]")
 
         # Precompute Schur complement
-        self._Precnp = self._B1np @ self._Anpinv @ self._B1xp.T + self._B2np @ self._Aenpinv @ self._B2xp.T
+        self._Precnp = self._B1np @ self._Anpinv @ self._B1np.T + self._B2np @ self._Aenpinv @ self._B2np.T
 
     def _is_inverse_still_valid(self, inv, mat, name="", pre=None):
         # try:
@@ -444,10 +444,10 @@ class SaddlePointSolver:
         I_approx = inv @ test_mat
 
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            I_exact = xp.eye(test_mat.shape[0])
-            if not xp.allclose(I_approx, I_exact, atol=1e-6):
+            I_exact = np.eye(test_mat.shape[0])
+            if not np.allclose(I_approx, I_exact, atol=1e-6):
                 diff = I_approx - I_exact
-                max_abs = xp.abs(diff).max()
+                max_abs = np.abs(diff).max()
                 print(f"{name} inverse is NOT valid anymore. Max diff: {max_abs:.2e}")
                 return False
             print(f"{name} inverse is still valid.")
@@ -455,7 +455,7 @@ class SaddlePointSolver:
         elif self._method_to_solve == "ScipySparse":
             I_exact = sc.sparse.identity(I_approx.shape[0], format=I_approx.format)
             diff = (I_approx - I_exact).tocoo()
-            max_abs = xp.abs(diff.data).max() if diff.nnz > 0 else 0.0
+            max_abs = np.abs(diff.data).max() if diff.nnz > 0 else 0.0
 
             if max_abs > 1e-6:
                 print(f"{name} inverse is NOT valid anymore.")
@@ -468,12 +468,12 @@ class SaddlePointSolver:
     def _compute_inverse(self, mat, which="matrix"):
         print(f"Computing inverse for {which} using method {self._method_to_solve}")
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            return xp.linalg.inv(mat)
+            return np.linalg.inv(mat)
         elif self._method_to_solve == "ScipySparse":
             return sc.sparse.linalg.inv(mat)
         elif self._method_to_solve == "SparseSolver":
             solver = SparseSolver(mat)
-            return solver.solve(xp.eye(mat.shape[0]))
+            return solver.solve(np.eye(mat.shape[0]))
         else:
             raise ValueError(f"Unknown solver method {self._method_to_solve}")
 
@@ -481,14 +481,14 @@ class SaddlePointSolver:
         # Spectral analysis
         # A11 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            eigvalsA11_before, eigvecs_before = xp.linalg.eig(self._A[0])
-            condA11_before = xp.linalg.cond(self._A[0])
+            eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0])
+            condA11_before = np.linalg.cond(self._A[0])
         elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-            eigvalsA11_before, eigvecs_before = xp.linalg.eig(self._A[0].toarray())
-            condA11_before = xp.linalg.cond(self._A[0].toarray())
+            eigvalsA11_before, eigvecs_before = np.linalg.eig(self._A[0].toarray())
+            condA11_before = np.linalg.cond(self._A[0].toarray())
         maxbeforeA11 = max(eigvalsA11_before)
-        maxbeforeA11_abs = xp.max(xp.abs(eigvalsA11_before))
-        minbeforeA11_abs = xp.min(xp.abs(eigvalsA11_before))
+        maxbeforeA11_abs = np.max(np.abs(eigvalsA11_before))
+        minbeforeA11_abs = np.min(np.abs(eigvalsA11_before))
         minbeforeA11 = min(eigvalsA11_before)
         specA11_bef = maxbeforeA11 / minbeforeA11
         specA11_bef_abs = maxbeforeA11_abs / minbeforeA11_abs
@@ -501,14 +501,14 @@ class SaddlePointSolver:
 
         # A22 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-            eigvalsA22_before, eigvecs_before = xp.linalg.eig(self._A[1])
-            condA22_before = xp.linalg.cond(self._A[1])
+            eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1])
+            condA22_before = np.linalg.cond(self._A[1])
         elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-            eigvalsA22_before, eigvecs_before = xp.linalg.eig(self._A[1].toarray())
-            condA22_before = xp.linalg.cond(self._A[1].toarray())
+            eigvalsA22_before, eigvecs_before = np.linalg.eig(self._A[1].toarray())
+            condA22_before = np.linalg.cond(self._A[1].toarray())
         maxbeforeA22 = max(eigvalsA22_before)
-        maxbeforeA22_abs = xp.max(xp.abs(eigvalsA22_before))
-        minbeforeA22_abs = xp.min(xp.abs(eigvalsA22_before))
+        maxbeforeA22_abs = np.max(np.abs(eigvalsA22_before))
+        minbeforeA22_abs = np.min(np.abs(eigvalsA22_before))
         minbeforeA22 = min(eigvalsA22_before)
         specA22_bef = maxbeforeA22 / minbeforeA22
         specA22_bef_abs = maxbeforeA22_abs / minbeforeA22_abs
@@ -523,13 +523,13 @@ class SaddlePointSolver:
         if self._preconditioner == True:
             # A11 after preconditioning with its inverse
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-                eigvalsA11_after_prec, eigvecs_after = xp.linalg.eig(self._A11npinv @ self._A[0])  # Implement this
+                eigvalsA11_after_prec, eigvecs_after = np.linalg.eig(self._A11npinv @ self._A[0])  # Implement this
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-                eigvalsA11_after_prec, eigvecs_after = xp.linalg.eig((self._A11npinv @ self._A[0]).toarray())
+                eigvalsA11_after_prec, eigvecs_after = np.linalg.eig((self._A11npinv @ self._A[0]).toarray())
             maxafterA11_prec = max(eigvalsA11_after_prec)
             minafterA11_prec = min(eigvalsA11_after_prec)
-            maxafterA11_abs_prec = xp.max(xp.abs(eigvalsA11_after_prec))
-            minafterA11_abs_prec = xp.min(xp.abs(eigvalsA11_after_prec))
+            maxafterA11_abs_prec = np.max(np.abs(eigvalsA11_after_prec))
+            minafterA11_abs_prec = np.min(np.abs(eigvalsA11_after_prec))
             specA11_aft_prec = maxafterA11_prec / minafterA11_prec
             specA11_aft_abs_prec = maxafterA11_abs_prec / minafterA11_abs_prec
             # print(f'{maxafterA11_prec = }')
@@ -541,15 +541,15 @@ class SaddlePointSolver:
 
             # A22 after preconditioning with its inverse
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-                eigvalsA22_after_prec, eigvecs_after = xp.linalg.eig(self._A22npinv @ self._A[1])  # Implement this
-                condA22_after = xp.linalg.cond(self._A22npinv @ self._A[1])
+                eigvalsA22_after_prec, eigvecs_after = np.linalg.eig(self._A22npinv @ self._A[1])  # Implement this
+                condA22_after = np.linalg.cond(self._A22npinv @ self._A[1])
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-                eigvalsA22_after_prec, eigvecs_after = xp.linalg.eig((self._A22npinv @ self._A[1]).toarray())
-                condA22_after = xp.linalg.cond((self._A22npinv @ self._A[1]).toarray())
+                eigvalsA22_after_prec, eigvecs_after = np.linalg.eig((self._A22npinv @ self._A[1]).toarray())
+                condA22_after = np.linalg.cond((self._A22npinv @ self._A[1]).toarray())
             maxafterA22_prec = max(eigvalsA22_after_prec)
             minafterA22_prec = min(eigvalsA22_after_prec)
-            maxafterA22_abs_prec = xp.max(xp.abs(eigvalsA22_after_prec))
-            minafterA22_abs_prec = xp.min(xp.abs(eigvalsA22_after_prec))
+            maxafterA22_abs_prec = np.max(np.abs(eigvalsA22_after_prec))
+            minafterA22_abs_prec = np.min(np.abs(eigvalsA22_after_prec))
             specA22_aft_prec = maxafterA22_prec / minafterA22_prec
             specA22_aft_abs_prec = maxafterA22_abs_prec / minafterA22_abs_prec
             # print(f'{maxafterA22_prec = }')

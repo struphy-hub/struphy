@@ -18,16 +18,16 @@ def weighted_arc_lengths_flux_surface(r: "float[:]", z: "float[:]", grad_psi: "f
 
     Parameters
     ----------
-    r : xp.ndarray
+    r : np.ndarray
         R coordinates of the flux surface.
 
-    z : xp.ndarray
+    z : np.ndarray
         Z coordinates of the flux surface.
 
-    grad_psi : xp.ndarray
+    grad_psi : np.ndarray
         Absolute values of the flux function gradient on the flux surface: |grad(psi)| = sqrt[ (d_R psi)**2 + (d_Z psi)**2 ].
 
-    dwls : xp.ndarray
+    dwls : np.ndarray
         The weighted arc lengths will be written into this array. Length must be one smaller than lengths of r, z and grad_psi.
 
     kind : int

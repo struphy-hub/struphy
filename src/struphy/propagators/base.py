@@ -14,7 +14,7 @@ from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.io.options import check_option
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
-from struphy.utils.arrays import xp
+from struphy.utils.arrays import xp as np
 
 
 class Propagator(metaclass=ABCMeta):
@@ -111,7 +111,7 @@ class Propagator(metaclass=ABCMeta):
             assert new.space == old.space
 
             # calculate maximum of difference abs(new - old)
-            diffs[var] = xp.max(xp.abs(new.toarray() - old.toarray()))
+            diffs[var] = np.max(np.abs(new.toarray() - old.toarray()))
 
             # copy new coeffs into old
             new.copy(out=old)
@@ -246,9 +246,9 @@ class Propagator(metaclass=ABCMeta):
             The arguments for the kernel function.
         """
         if comps is None:
-            comps = xp.array([0])  # case for scalar evaluation
+            comps = np.array([0])  # case for scalar evaluation
         else:
-            comps = xp.array(comps, dtype=int)
+            comps = np.array(comps, dtype=int)
 
         if not hasattr(self, "_init_kernels"):
             self._init_kernels = []
@@ -297,12 +297,12 @@ class Propagator(metaclass=ABCMeta):
         """
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = [alpha] * 6
-        alpha = xp.array(alpha)
+        alpha = np.array(alpha)
 
         if comps is None:
-            comps = xp.array([0])  # case for scalar evaluation
+            comps = np.array([0])  # case for scalar evaluation
         else:
-            comps = xp.array(comps, dtype=int)
+            comps = np.array(comps, dtype=int)
 
         if not hasattr(self, "_eval_kernels"):
             self._eval_kernels = []

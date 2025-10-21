@@ -34,7 +34,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-    from struphy.utils.arrays import xp
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -125,7 +125,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     )
 
     # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers, markers_str.T)
 
     # push markers
     dt = 0.1
@@ -135,7 +135,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -169,7 +169,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-    from struphy.utils.arrays import xp
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -250,8 +250,8 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
         basis_u=2,
         bc_pos=0,
     )
-    mu0_str = xp.zeros(markers_str.shape[1], dtype=float)
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
+    mu0_str = np.zeros(markers_str.shape[1], dtype=float)
+    pow_str = np.zeros(markers_str.shape[1], dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -271,7 +271,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     )
 
     # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers, markers_str.T)
 
     # push markers
     dt = 0.1
@@ -281,7 +281,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -315,7 +315,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-    from struphy.utils.arrays import xp
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -396,8 +396,8 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
         basis_u=1,
         bc_pos=0,
     )
-    mu0_str = xp.zeros(markers_str.shape[1], dtype=float)
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
+    mu0_str = np.zeros(markers_str.shape[1], dtype=float)
+    pow_str = np.zeros(markers_str.shape[1], dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -417,7 +417,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     )
 
     # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers, markers_str.T)
 
     # push markers
     dt = 0.1
@@ -427,7 +427,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -461,7 +461,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-    from struphy.utils.arrays import xp
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -542,8 +542,8 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
         basis_u=0,
         bc_pos=0,
     )
-    mu0_str = xp.zeros(markers_str.shape[1], dtype=float)
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
+    mu0_str = np.zeros(markers_str.shape[1], dtype=float)
+    pow_str = np.zeros(markers_str.shape[1], dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -563,7 +563,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     )
 
     # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers, markers_str.T)
 
     # push markers
     dt = 0.1
@@ -573,7 +573,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -607,7 +607,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-    from struphy.utils.arrays import xp
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -688,8 +688,8 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
         basis_u=2,
         bc_pos=0,
     )
-    mu0_str = xp.random.rand(markers_str.shape[1])
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
+    mu0_str = np.random.rand(markers_str.shape[1])
+    pow_str = np.zeros(markers_str.shape[1], dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -711,7 +711,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     )
 
     # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers, markers_str.T)
 
     # push markers
     dt = 0.1
@@ -721,7 +721,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_psy(dt)
 
     # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
+    assert np.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -756,7 +756,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
     from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-    from struphy.utils.arrays import xp
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -830,8 +830,8 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     butcher = ButcherTableau("rk4")
     # temp fix due to refactoring of ButcherTableau:
-    butcher._a = xp.diag(butcher.a, k=-1)
-    butcher._a = xp.array(list(butcher._a) + [0.0])
+    butcher._a = np.diag(butcher.a, k=-1)
+    butcher._a = np.array(list(butcher._a) + [0.0])
 
     pusher_psy = Pusher_psy(
         particles,
@@ -843,7 +843,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     )
 
     # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
+    assert np.allclose(particles.markers, markers_str.T)
 
     # push markers
     dt = 0.1
@@ -851,12 +851,12 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     pusher_str.push_step4(markers_str, dt)
     pusher_psy(dt)
 
-    n_mks_load = xp.zeros(size, dtype=int)
+    n_mks_load = np.zeros(size, dtype=int)
 
-    comm.Allgather(xp.array(xp.shape(particles.markers)[0]), n_mks_load)
+    comm.Allgather(np.array(np.shape(particles.markers)[0]), n_mks_load)
 
-    sendcounts = xp.zeros(size, dtype=int)
-    displacements = xp.zeros(size, dtype=int)
+    sendcounts = np.zeros(size, dtype=int)
+    displacements = np.zeros(size, dtype=int)
     accum_sendcounts = 0.0
 
     for i in range(size):
@@ -864,18 +864,18 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
         displacements[i] = accum_sendcounts
         accum_sendcounts += sendcounts[i]
 
-    all_particles_psy = xp.zeros((int(accum_sendcounts) * 3,), dtype=float)
-    all_particles_str = xp.zeros((int(accum_sendcounts) * 3,), dtype=float)
+    all_particles_psy = np.zeros((int(accum_sendcounts) * 3,), dtype=float)
+    all_particles_str = np.zeros((int(accum_sendcounts) * 3,), dtype=float)
 
     comm.Barrier()
-    comm.Allgatherv(xp.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
-    comm.Allgatherv(xp.array(markers_str.T[:, :3]), [all_particles_str, sendcounts, displacements, MPI.DOUBLE])
+    comm.Allgatherv(np.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
+    comm.Allgatherv(np.array(markers_str.T[:, :3]), [all_particles_str, sendcounts, displacements, MPI.DOUBLE])
     comm.Barrier()
 
-    unique_psy = xp.unique(all_particles_psy)
-    unique_str = xp.unique(all_particles_str)
+    unique_psy = np.unique(all_particles_psy)
+    unique_str = np.unique(all_particles_str)
 
-    assert xp.allclose(unique_psy, unique_str)
+    assert np.allclose(unique_psy, unique_str)
 
 
 if __name__ == "__main__":

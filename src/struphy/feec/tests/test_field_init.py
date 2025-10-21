@@ -13,7 +13,7 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import FieldsBackground
-    from struphy.utils.arrays import xp
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -22,14 +22,14 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     # evaluation grids for comparisons
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
-    meshgrids = xp.meshgrid(e1, e2, e3, indexing="ij")
+    e1 = np.linspace(0.0, 1.0, Nel[0])
+    e2 = np.linspace(0.0, 1.0, Nel[1])
+    e3 = np.linspace(0.0, 1.0, Nel[2])
+    meshgrids = np.meshgrid(e1, e2, e3, indexing="ij")
 
     # test values
-    xp.random.seed(1234)
-    val = xp.random.rand()
+    np.random.seed(1234)
+    val = np.random.rand()
     if val > 0.5:
         val = int(val * 10)
 
@@ -40,20 +40,20 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
             background = FieldsBackground(type="LogicalConst", values=(val,))
             field.initialize_coeffs(backgrounds=background)
             print(
-                f"\n{rank = }, {space = }, after init:\n {xp.max(xp.abs(field(*meshgrids) - val)) = }",
+                f"\n{rank = }, {space = }, after init:\n {np.max(np.abs(field(*meshgrids) - val)) = }",
             )
             # print(f'{field(*meshgrids) = }')
-            assert xp.allclose(field(*meshgrids), val)
+            assert np.allclose(field(*meshgrids), val)
         else:
             background = FieldsBackground(type="LogicalConst", values=(val, None, val))
             field.initialize_coeffs(backgrounds=background)
             for j, val in enumerate(background.values):
                 if val is not None:
                     print(
-                        f"\n{rank = }, {space = }, after init:\n {j = }, {xp.max(xp.abs(field(*meshgrids)[j] - val)) = }",
+                        f"\n{rank = }, {space = }, after init:\n {j = }, {np.max(np.abs(field(*meshgrids)[j] - val)) = }",
                     )
                     # print(f'{field(*meshgrids)[i] = }')
-                    assert xp.allclose(field(*meshgrids)[j], val)
+                    assert np.allclose(field(*meshgrids)[j], val)
 
 
 @pytest.mark.parametrize("Nel", [[18, 24, 12]])
@@ -72,7 +72,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
     from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
     from struphy.geometry import domains
     from struphy.io.options import FieldsBackground
-    from struphy.utils.arrays import xp
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -88,10 +88,10 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
     bckgr_4 = FieldsBackground(type="FluidEquilibrium", variable="uv")
 
     # evaluation grids for comparisons
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
-    meshgrids = xp.meshgrid(e1, e2, e3, indexing="ij")
+    e1 = np.linspace(0.0, 1.0, Nel[0])
+    e2 = np.linspace(0.0, 1.0, Nel[1])
+    e3 = np.linspace(0.0, 1.0, Nel[2])
+    meshgrids = np.meshgrid(e1, e2, e3, indexing="ij")
 
     # test
     for key, val in inspect.getmembers(equils):
@@ -132,8 +132,8 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             elif "ShearedSlab" in key:
                 mhd_equil.domain = domains.Cuboid(
                     r1=mhd_equil.params["a"],
-                    r2=mhd_equil.params["a"] * 2 * xp.pi,
-                    r3=mhd_equil.params["R0"] * 2 * xp.pi,
+                    r2=mhd_equil.params["a"] * 2 * np.pi,
+                    r3=mhd_equil.params["R0"] * 2 * np.pi,
                 )
             elif "ShearFluid" in key:
                 mhd_equil.domain = domains.Cuboid(
@@ -145,7 +145,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 mhd_equil.domain = domains.HollowCylinder(
                     a1=1e-3,
                     a2=mhd_equil.params["a"],
-                    Lz=mhd_equil.params["R0"] * 2 * xp.pi,
+                    Lz=mhd_equil.params["R0"] * 2 * np.pi,
                 )
             else:
                 try:
@@ -186,57 +186,57 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
 
             # scalar spaces
             print(
-                f"{xp.max(xp.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids))) / xp.max(xp.abs(mhd_equil.p3(*meshgrids)))}"
+                f"{np.max(np.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids))) / np.max(np.abs(mhd_equil.p3(*meshgrids)))}"
             )
             assert (
-                xp.max(
-                    xp.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids)),
+                np.max(
+                    np.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids)),
                 )
-                / xp.max(xp.abs(mhd_equil.p3(*meshgrids)))
+                / np.max(np.abs(mhd_equil.p3(*meshgrids)))
                 < 0.54
             )
 
             if isinstance(mhd_equil, FluidEquilibriumWithB):
                 print(
-                    f"{xp.max(xp.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))) / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))}"
+                    f"{np.max(np.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))) / np.max(np.abs(mhd_equil.absB0(*meshgrids)))}"
                 )
                 assert (
-                    xp.max(
-                        xp.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids)),
+                    np.max(
+                        np.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids)),
                     )
-                    / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))
+                    / np.max(np.abs(mhd_equil.absB0(*meshgrids)))
                     < 0.057
                 )
             print("Scalar asserts passed.")
 
             # vector-valued spaces
             ref = mhd_equil.u1(*meshgrids)
-            if xp.max(xp.abs(ref[0])) < 1e-11:
+            if np.max(np.abs(ref[0])) < 1e-11:
                 denom = 1.0
             else:
-                denom = xp.max(xp.abs(ref[0]))
+                denom = np.max(np.abs(ref[0]))
             print(
-                f"{xp.max(xp.abs(field_1(*meshgrids)[0] - ref[0])) / denom = }",
+                f"{np.max(np.abs(field_1(*meshgrids)[0] - ref[0])) / denom = }",
             )
-            assert xp.max(xp.abs(field_1(*meshgrids)[0] - ref[0])) / denom < 0.28
-            if xp.max(xp.abs(ref[1])) < 1e-11:
+            assert np.max(np.abs(field_1(*meshgrids)[0] - ref[0])) / denom < 0.28
+            if np.max(np.abs(ref[1])) < 1e-11:
                 denom = 1.0
             else:
-                denom = xp.max(xp.abs(ref[1]))
+                denom = np.max(np.abs(ref[1]))
             print(
-                f"{xp.max(xp.abs(field_1(*meshgrids)[1] - ref[1])) / denom = }",
+                f"{np.max(np.abs(field_1(*meshgrids)[1] - ref[1])) / denom = }",
             )
-            assert xp.max(xp.abs(field_1(*meshgrids)[1] - ref[1])) / denom < 0.33
-            if xp.max(xp.abs(ref[2])) < 1e-11:
+            assert np.max(np.abs(field_1(*meshgrids)[1] - ref[1])) / denom < 0.33
+            if np.max(np.abs(ref[2])) < 1e-11:
                 denom = 1.0
             else:
-                denom = xp.max(xp.abs(ref[2]))
+                denom = np.max(np.abs(ref[2]))
             print(
-                f"{xp.max(xp.abs(field_1(*meshgrids)[2] - ref[2])) / denom = }",
+                f"{np.max(np.abs(field_1(*meshgrids)[2] - ref[2])) / denom = }",
             )
             assert (
-                xp.max(
-                    xp.abs(
+                np.max(
+                    np.abs(
                         field_1(*meshgrids)[2] - ref[2],
                     ),
                 )
@@ -246,75 +246,75 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             print("u1 asserts passed.")
 
             ref = mhd_equil.u2(*meshgrids)
-            if xp.max(xp.abs(ref[0])) < 1e-11:
+            if np.max(np.abs(ref[0])) < 1e-11:
                 denom = 1.0
             else:
-                denom = xp.max(xp.abs(ref[0]))
+                denom = np.max(np.abs(ref[0]))
             print(
-                f"{xp.max(xp.abs(field_2(*meshgrids)[0] - ref[0])) / denom = }",
+                f"{np.max(np.abs(field_2(*meshgrids)[0] - ref[0])) / denom = }",
             )
-            assert xp.max(xp.abs(field_2(*meshgrids)[0] - ref[0])) / denom < 0.86
-            if xp.max(xp.abs(ref[1])) < 1e-11:
+            assert np.max(np.abs(field_2(*meshgrids)[0] - ref[0])) / denom < 0.86
+            if np.max(np.abs(ref[1])) < 1e-11:
                 denom = 1.0
             else:
-                denom = xp.max(xp.abs(ref[1]))
+                denom = np.max(np.abs(ref[1]))
             print(
-                f"{xp.max(xp.abs(field_2(*meshgrids)[1] - ref[1])) / denom = }",
+                f"{np.max(np.abs(field_2(*meshgrids)[1] - ref[1])) / denom = }",
             )
             assert (
-                xp.max(
-                    xp.abs(
+                np.max(
+                    np.abs(
                         field_2(*meshgrids)[1] - ref[1],
                     ),
                 )
                 / denom
                 < 0.4
             )
-            if xp.max(xp.abs(ref[2])) < 1e-11:
+            if np.max(np.abs(ref[2])) < 1e-11:
                 denom = 1.0
             else:
-                denom = xp.max(xp.abs(ref[2]))
+                denom = np.max(np.abs(ref[2]))
             print(
-                f"{xp.max(xp.abs(field_2(*meshgrids)[2] - ref[2])) / denom = }",
+                f"{np.max(np.abs(field_2(*meshgrids)[2] - ref[2])) / denom = }",
             )
-            assert xp.max(xp.abs(field_2(*meshgrids)[2] - ref[2])) / denom < 0.21
+            assert np.max(np.abs(field_2(*meshgrids)[2] - ref[2])) / denom < 0.21
             print("u2 asserts passed.")
 
             ref = mhd_equil.uv(*meshgrids)
-            if xp.max(xp.abs(ref[0])) < 1e-11:
+            if np.max(np.abs(ref[0])) < 1e-11:
                 denom = 1.0
             else:
-                denom = xp.max(xp.abs(ref[0]))
+                denom = np.max(np.abs(ref[0]))
             print(
-                f"{xp.max(xp.abs(field_4(*meshgrids)[0] - ref[0])) / denom = }",
+                f"{np.max(np.abs(field_4(*meshgrids)[0] - ref[0])) / denom = }",
             )
-            assert xp.max(xp.abs(field_4(*meshgrids)[0] - ref[0])) / denom < 0.6
-            if xp.max(xp.abs(ref[1])) < 1e-11:
+            assert np.max(np.abs(field_4(*meshgrids)[0] - ref[0])) / denom < 0.6
+            if np.max(np.abs(ref[1])) < 1e-11:
                 denom = 1.0
             else:
-                denom = xp.max(xp.abs(ref[1]))
+                denom = np.max(np.abs(ref[1]))
             print(
-                f"{xp.max(xp.abs(field_4(*meshgrids)[1] - ref[1])) / denom = }",
+                f"{np.max(np.abs(field_4(*meshgrids)[1] - ref[1])) / denom = }",
             )
             assert (
-                xp.max(
-                    xp.abs(
+                np.max(
+                    np.abs(
                         field_4(*meshgrids)[1] - ref[1],
                     ),
                 )
                 / denom
                 < 0.2
             )
-            if xp.max(xp.abs(ref[2])) < 1e-11:
+            if np.max(np.abs(ref[2])) < 1e-11:
                 denom = 1.0
             else:
-                denom = xp.max(xp.abs(ref[2]))
+                denom = np.max(np.abs(ref[2]))
             print(
-                f"{xp.max(xp.abs(field_4(*meshgrids)[2] - ref[2])) / denom = }",
+                f"{np.max(np.abs(field_4(*meshgrids)[2] - ref[2])) / denom = }",
             )
             assert (
-                xp.max(
-                    xp.abs(
+                np.max(
+                    np.abs(
                         field_4(*meshgrids)[2] - ref[2],
                     ),
                 )
@@ -355,7 +355,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                     absB0_h = mhd_equil.domain.push(field_0, *meshgrids)
                     absB0 = mhd_equil.domain.push(mhd_equil.absB0, *meshgrids)
 
-                    levels = xp.linspace(xp.min(absB0) - 1e-10, xp.max(absB0), 20)
+                    levels = np.linspace(np.min(absB0) - 1e-10, np.max(absB0), 20)
 
                     plt.figure(f"0/3-forms top, {mhd_equil = }")
                     plt.subplot(2, 3, 1)
@@ -493,7 +493,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 p3_h = mhd_equil.domain.push(field_3, *meshgrids)
                 p3 = mhd_equil.domain.push(mhd_equil.p3, *meshgrids)
 
-                levels = xp.linspace(xp.min(p3) - 1e-10, xp.max(p3), 20)
+                levels = np.linspace(np.min(p3) - 1e-10, np.max(p3), 20)
 
                 plt.figure(f"0/3-forms top, {mhd_equil = }")
                 plt.subplot(2, 3, 2)
@@ -640,7 +640,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 )
 
                 for i, (bh, b) in enumerate(zip(b1h, b1)):
-                    levels = xp.linspace(xp.min(b) - 1e-10, xp.max(b), 20)
+                    levels = np.linspace(np.min(b) - 1e-10, np.max(b), 20)
 
                     plt.figure(f"1-forms top, {mhd_equil = }")
                     plt.subplot(2, 3, 1 + i)
@@ -789,7 +789,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 )
 
                 for i, (bh, b) in enumerate(zip(b2h, b2)):
-                    levels = xp.linspace(xp.min(b) - 1e-10, xp.max(b), 20)
+                    levels = np.linspace(np.min(b) - 1e-10, np.max(b), 20)
 
                     plt.figure(f"2-forms top, {mhd_equil = }")
                     plt.subplot(2, 3, 1 + i)
@@ -938,7 +938,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
                 )
 
                 for i, (bh, b) in enumerate(zip(bvh, bv)):
-                    levels = xp.linspace(xp.min(b) - 1e-10, xp.max(b), 20)
+                    levels = np.linspace(np.min(b) - 1e-10, np.max(b), 20)
 
                     plt.figure(f"vector-fields top, {mhd_equil = }")
                     plt.subplot(2, 3, 1 + i)
@@ -1089,7 +1089,7 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.initial.perturbations import ModesCos, ModesSin
     from struphy.io.options import FieldsBackground
-    from struphy.utils.arrays import xp
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1167,10 +1167,10 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     field_2 = derham.create_spline_function("name_2", "Hdiv", backgrounds=bckgr_2, perturbations=[f_cos_22])
 
     # evaluation grids for comparisons
-    e1 = xp.linspace(0.0, 1.0, Nel[0])
-    e2 = xp.linspace(0.0, 1.0, Nel[1])
-    e3 = xp.linspace(0.0, 1.0, Nel[2])
-    meshgrids = xp.meshgrid(e1, e2, e3, indexing="ij")
+    e1 = np.linspace(0.0, 1.0, Nel[0])
+    e2 = np.linspace(0.0, 1.0, Nel[1])
+    e3 = np.linspace(0.0, 1.0, Nel[2])
+    meshgrids = np.meshgrid(e1, e2, e3, indexing="ij")
 
     fun_0 = avg_0 + f_sin_0(*meshgrids) + f_cos_0(*meshgrids)
 
@@ -1189,24 +1189,24 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     f1_h = field_1(*meshgrids)
     f2_h = field_2(*meshgrids)
 
-    print(f"{xp.max(xp.abs(fun_0 - f0_h)) = }")
-    print(f"{xp.max(xp.abs(fun_1[0] - f1_h[0])) = }")
-    print(f"{xp.max(xp.abs(fun_1[1] - f1_h[1])) = }")
-    print(f"{xp.max(xp.abs(fun_1[2] - f1_h[2])) = }")
-    print(f"{xp.max(xp.abs(fun_2[0] - f2_h[0])) = }")
-    print(f"{xp.max(xp.abs(fun_2[1] - f2_h[1])) = }")
-    print(f"{xp.max(xp.abs(fun_2[2] - f2_h[2])) = }")
+    print(f"{np.max(np.abs(fun_0 - f0_h)) = }")
+    print(f"{np.max(np.abs(fun_1[0] - f1_h[0])) = }")
+    print(f"{np.max(np.abs(fun_1[1] - f1_h[1])) = }")
+    print(f"{np.max(np.abs(fun_1[2] - f1_h[2])) = }")
+    print(f"{np.max(np.abs(fun_2[0] - f2_h[0])) = }")
+    print(f"{np.max(np.abs(fun_2[1] - f2_h[1])) = }")
+    print(f"{np.max(np.abs(fun_2[2] - f2_h[2])) = }")
 
-    assert xp.max(xp.abs(fun_0 - f0_h)) < 3e-5
-    assert xp.max(xp.abs(fun_1[0] - f1_h[0])) < 3e-5
-    assert xp.max(xp.abs(fun_1[1] - f1_h[1])) < 3e-5
-    assert xp.max(xp.abs(fun_1[2] - f1_h[2])) < 3e-5
-    assert xp.max(xp.abs(fun_2[0] - f2_h[0])) < 3e-5
-    assert xp.max(xp.abs(fun_2[1] - f2_h[1])) < 3e-5
-    assert xp.max(xp.abs(fun_2[2] - f2_h[2])) < 3e-5
+    assert np.max(np.abs(fun_0 - f0_h)) < 3e-5
+    assert np.max(np.abs(fun_1[0] - f1_h[0])) < 3e-5
+    assert np.max(np.abs(fun_1[1] - f1_h[1])) < 3e-5
+    assert np.max(np.abs(fun_1[2] - f1_h[2])) < 3e-5
+    assert np.max(np.abs(fun_2[0] - f2_h[0])) < 3e-5
+    assert np.max(np.abs(fun_2[1] - f2_h[1])) < 3e-5
+    assert np.max(np.abs(fun_2[2] - f2_h[2])) < 3e-5
 
     if show_plot and rank == 0:
-        levels = xp.linspace(xp.min(fun_0) - 1e-10, xp.max(fun_0), 40)
+        levels = np.linspace(np.min(fun_0) - 1e-10, np.max(fun_0), 40)
 
         plt.figure("0-form", figsize=(10, 16))
         plt.subplot(2, 1, 1)
@@ -1239,7 +1239,7 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
 
         plt.figure("1-form", figsize=(30, 16))
         for i, (f_h, fun) in enumerate(zip(f1_h, fun_1)):
-            levels = xp.linspace(xp.min(fun) - 1e-10, xp.max(fun), 40)
+            levels = np.linspace(np.min(fun) - 1e-10, np.max(fun), 40)
 
             plt.subplot(2, 3, 1 + i)
             plt.contourf(
@@ -1271,7 +1271,7 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
 
         plt.figure("2-form", figsize=(30, 16))
         for i, (f_h, fun) in enumerate(zip(f2_h, fun_2)):
-            levels = xp.linspace(xp.min(fun) - 1e-10, xp.max(fun), 40)
+            levels = np.linspace(np.min(fun) - 1e-10, np.max(fun), 40)
 
             plt.subplot(2, 3, 1 + i)
             plt.contourf(
@@ -1317,7 +1317,7 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.initial.perturbations import Noise
-    from struphy.utils.arrays import xp
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1327,23 +1327,23 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
     field = derham.create_spline_function("field", space)
 
     derham_np = Derham(Nel, p, spl_kind, comm=None)
-    field_np = derham_xp.create_spline_function("field", space)
+    field_np = derham_np.create_spline_function("field", space)
 
     # initial conditions
     pert = Noise(direction=direction, amp=0.0001, seed=1234, comp=0)
 
     field.initialize_coeffs(perturbations=pert)
-    field_xp.initialize_coeffs(perturbations=pert)
+    field_np.initialize_coeffs(perturbations=pert)
 
     # print('#'*80)
-    # print(f'npts={field.vector[0].space.npts}, npts_np={field_xp.vector[0].space.npts}')
+    # print(f'npts={field.vector[0].space.npts}, npts_np={field_np.vector[0].space.npts}')
     # print(f'rank={rank}: nprocs={derham.domain_array[rank]}')
-    # print(f'rank={rank}, field={field.vector[0].toarray_local().shape}, field_np={field_xp.vector[0].toarray_local().shape}')
-    # print(f'rank={rank}: \ncomp{0}={field.vector[0].toarray_local()}, \ncomp{0}_np={field_xp.vector[0].toarray_local()}')
+    # print(f'rank={rank}, field={field.vector[0].toarray_local().shape}, field_np={field_np.vector[0].toarray_local().shape}')
+    # print(f'rank={rank}: \ncomp{0}={field.vector[0].toarray_local()}, \ncomp{0}_np={field_np.vector[0].toarray_local()}')
 
     compare_arrays(
         field.vector,
-        [field_xp.vector[n].toarray_local() for n in range(3)],
+        [field_np.vector[n].toarray_local() for n in range(3)],
         rank,
     )
 
