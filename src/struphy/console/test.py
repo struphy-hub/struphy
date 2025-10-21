@@ -114,7 +114,7 @@ def struphy_test(
                 "_verif_",
                 "-s",
             ]
-            
+
         if vrbose:
             cmd += ["--vrbose"]
         if nclones > 1:
