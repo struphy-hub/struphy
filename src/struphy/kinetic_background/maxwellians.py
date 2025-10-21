@@ -6,7 +6,7 @@ from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
 from struphy.initial.base import Perturbation
 from struphy.kinetic_background.base import Maxwellian
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class Maxwellian3D(Maxwellian):

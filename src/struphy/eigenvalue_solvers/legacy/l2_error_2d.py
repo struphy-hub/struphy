@@ -9,7 +9,7 @@ Modules to compute L2-errors of discrete p-forms with analytical forms in 2D.
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_2d as ker
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 # ======= error in V0 ====================

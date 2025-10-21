@@ -5,7 +5,7 @@ from typing import Literal, get_args
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.physics.physics import ConstantsOfNature
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 ## Literal options
 

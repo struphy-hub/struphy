@@ -4,7 +4,7 @@ def test_kinetic_background_magics(show_plot=False):
     import matplotlib.pyplot as plt
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     Nel = [32, 1, 1]
     e1 = np.linspace(0.0, 1.0, Nel[0])

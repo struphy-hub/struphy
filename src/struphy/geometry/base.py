@@ -11,7 +11,7 @@ import struphy.bsplines.bsplines as bsp
 from struphy.geometry import evaluation_kernels, transform_kernels
 from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class Domain(metaclass=ABCMeta):

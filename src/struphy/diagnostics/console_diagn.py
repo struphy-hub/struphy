@@ -11,7 +11,7 @@ import yaml
 import struphy
 import struphy.utils.utils as utils
 from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_videos_2d
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 def main():

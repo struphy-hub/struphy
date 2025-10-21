@@ -5,7 +5,7 @@ from struphy.io.options import (
     OptsRecontructBC,
     OptsSpatialLoading,
 )
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class LoadingParameters:

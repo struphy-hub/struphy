@@ -12,7 +12,7 @@ from struphy.feec.basis_projection_ops import (
 )
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class BracketOperator(LinOpWithTransp):

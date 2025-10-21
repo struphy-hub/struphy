@@ -4,7 +4,7 @@ from abc import ABCMeta, abstractmethod
 
 from matplotlib import pyplot as plt
 
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class DispersionRelations1D(metaclass=ABCMeta):

@@ -19,7 +19,7 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.topology import grids
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 

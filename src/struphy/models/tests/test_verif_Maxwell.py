@@ -14,7 +14,7 @@ from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Fie
 from struphy.kinetic_background import maxwellians
 from struphy.models.toy import Maxwell
 from struphy.topology import grids
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 

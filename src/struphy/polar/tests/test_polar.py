@@ -176,7 +176,7 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     from struphy.polar.basic import PolarDerhamSpace, PolarVector
     from struphy.polar.extraction_operators import PolarExtractionBlocksC1
     from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -307,7 +307,7 @@ def test_projectors(Nel, p, spl_kind):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.domains import IGAPolarCylinder
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

@@ -1,7 +1,7 @@
 import pytest
 
 from struphy.fields_background.base import FluidEquilibrium, LogicalMHDequilibrium
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 @pytest.mark.parametrize(
