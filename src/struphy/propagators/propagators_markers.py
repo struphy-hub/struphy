@@ -1723,9 +1723,9 @@ class PushVinSPHpressure(Propagator):
 
         # pusher kernel
         if self.options.thermodynamics == "isothermal":
-            kernel = pusher_kernels.push_v_sph_pressure
+            kernel = Pyccelkernel(pusher_kernels.push_v_sph_pressure)
         elif self.options.thermodynamics == "polytropic":
-            kernel = pusher_kernels.push_v_sph_pressure_ideal_gas
+            kernel = Pyccelkernel(pusher_kernels.push_v_sph_pressure_ideal_gas)
 
         gravity = np.array(self.options.gravity, dtype=float)
 
@@ -1886,7 +1886,7 @@ class PushVinViscousPotential(Propagator):
             args_init,
         )
 
-        kernel = pusher_kernels.push_v_viscosity
+        kernel = Pyccelkernel(pusher_kernels.push_v_viscosity)
 
         args_kernel = (
             boxes,
