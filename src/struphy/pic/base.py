@@ -1877,7 +1877,7 @@ class Particles(metaclass=ABCMeta):
             The reconstructed delta-f distribution function.
         """
 
-        assert np.count_nonzero(components) == len(bin_edges)
+        assert np.count_nonzero(np.array(components)) == len(bin_edges)
 
         # volume of a bin
         bin_vol = 1.0
