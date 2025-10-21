@@ -473,7 +473,7 @@ class QNAdiabatic(Propagator):
             "info": False,
             "verbose": False,
             "recycle": True,
-            "stab_fac": 1e-8,
+            "stab_fac": 0.0,
         }
         if default:
             dct = descend_options_dict(dct, [])
