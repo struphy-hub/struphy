@@ -1,5 +1,3 @@
-from dataclasses import dataclass
-
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
@@ -11,7 +9,6 @@ from struphy.propagators import propagators_coupling, propagators_fields, propag
 from struphy.propagators.base import Propagator
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 rank = MPI.COMM_WORLD.Get_rank()
 

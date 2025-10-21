@@ -10,7 +10,6 @@ from struphy.propagators import propagators_coupling, propagators_fields, propag
 
 rank = MPI.COMM_WORLD.Get_rank()
 
-
 rank = MPI.COMM_WORLD.Get_rank()
 
 

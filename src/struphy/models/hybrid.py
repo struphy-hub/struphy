@@ -12,9 +12,6 @@ from struphy.utils.pyccel import Pyccelkernel
 rank = MPI.COMM_WORLD.Get_rank()
 
 
-rank = MPI.COMM_WORLD.Get_rank()
-
-
 class LinearMHDVlasovCC(StruphyModel):
     r"""
     Hybrid linear MHD + energetic ions (6D Vlasov) with **current coupling scheme**.

@@ -3,9 +3,7 @@ import os
 import h5py
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-
 from psydac.ddm.mpi import mpi as MPI
-from struphy.utils.arrays import xp as np
 
 from struphy import main
 from struphy.fields_background import equils
@@ -21,6 +19,7 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.topology import grids
+from struphy.utils.arrays import xp as np
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 

@@ -7,8 +7,8 @@ from textwrap import indent
 
 import yaml
 from line_profiler import profile
-from psydac.ddm.mpi import mpi as MPI
 from psydac.ddm.mpi import MockMPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.stencil import StencilVector
 
 import struphy
@@ -961,8 +961,9 @@ class StruphyModel(metaclass=ABCMeta):
     #                     if obj.coords == "vpara_mu":
     #                         obj.save_magnetic_moment()
 
-    #                     if val["space"] != "ParticlesSPH" and obj.f0.coords == "constants_of_motion":
-    #                         obj.save_constants_of_motion()
+    # obj.draw_markers(sort=True, verbose=self.verbose)
+    # if self.comm_world is not None:
+    #     obj.mpi_sort_markers(do_test=True)
 
     #                     obj.initialize_weights(
     #                         reject_weights=obj.weights_params["reject_weights"],

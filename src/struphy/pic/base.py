@@ -5,6 +5,15 @@ from abc import ABCMeta, abstractmethod
 
 import h5py
 import scipy.special as sp
+
+try:
+    from mpi4py.MPI import Intracomm
+except ModuleNotFoundError:
+
+    class Intracomm:
+        x = None
+
+
 from line_profiler import profile
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm

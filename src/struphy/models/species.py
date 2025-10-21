@@ -2,7 +2,6 @@ import warnings
 from abc import ABCMeta, abstractmethod
 
 from psydac.ddm.mpi import mpi as MPI
-from struphy.utils.arrays import xp as np
 
 from struphy.io.options import Units
 from struphy.models.variables import Variable
@@ -14,6 +13,7 @@ from struphy.pic.utilities import (
     LoadingParameters,
     WeightsParameters,
 )
+from struphy.utils.arrays import xp as np
 
 
 class Species(metaclass=ABCMeta):

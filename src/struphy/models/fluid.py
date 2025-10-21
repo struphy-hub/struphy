@@ -1,8 +1,6 @@
-import numpy as np
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
-from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
 from struphy.feec.variational_utilities import H1vecMassMatrix_density, InternalEnergyEvaluator
@@ -13,7 +11,6 @@ from struphy.polar.basic import PolarVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 
 rank = MPI.COMM_WORLD.Get_rank()
-
 
 rank = MPI.COMM_WORLD.Get_rank()
 

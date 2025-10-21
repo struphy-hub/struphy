@@ -5,7 +5,6 @@ from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
 from psydac.ddm.mpi import mpi as MPI
-from struphy.utils.arrays import xp as np
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
@@ -22,6 +21,7 @@ from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import particles
 from struphy.pic.base import Particles
 from struphy.pic.particles import ParticlesSPH
+from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 
 if TYPE_CHECKING:

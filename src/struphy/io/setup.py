@@ -5,13 +5,12 @@ import shutil
 import sys
 from types import ModuleType
 
-import yaml
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.geometry.base import Domain
-from struphy.geometry.domains import Cuboid
-from struphy.io.options import DerhamOptions, Time, Units
+from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.arrays import xp as np
 
 
 def import_parameters_py(params_path: str) -> ModuleType:

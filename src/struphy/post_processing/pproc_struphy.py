@@ -9,6 +9,7 @@ import yaml
 import struphy.post_processing.orbits.orbits_tools as orbits_pproc
 import struphy.post_processing.post_processing_tools as pproc
 from struphy.io.setup import import_parameters_py
+from struphy.utils.arrays import xp as np
 
 
 def main(

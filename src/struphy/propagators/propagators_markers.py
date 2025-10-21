@@ -6,8 +6,8 @@ from typing import Callable, Literal, get_args
 
 import numpy as np
 from line_profiler import profile
-from mpi4py import MPI
 from numpy import array, polynomial, random
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic import LinearOperator
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
