@@ -7993,39 +7993,39 @@ class TwoFluidQuasiNeutralFull(Propagator):
             self._A11np_notimedependency = (
                 self._nu
                 * (
-                    self._Dxp.T @ self._M3np @ self._Dnp
-                    + 1.0 * self._Hodgexp.T @ self._Cxp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                    self._Dnp.T @ self._M3np @ self._Dnp
+                    + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                 )
                 - 1.0 * self._M2Bnp / self._eps_norm
             )
             A11np = self._M2np + self._A11np_notimedependency
 
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-                A11np += self._stab_sigma * xp.identity(A11xp.shape[0])
+                A11np += self._stab_sigma * xp.identity(A11np.shape[0])
                 self.A22np = (
-                    self._stab_sigma * xp.identity(A11xp.shape[0])
+                    self._stab_sigma * xp.identity(A11np.shape[0])
                     + self._nu_e
                     * (
-                        self._Dxp.T @ self._M3np @ self._Dnp
-                        + self._Hodgexp.T @ self._Cxp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                        self._Dnp.T @ self._M3np @ self._Dnp
+                        + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                     )
                     + self._M2Bnp / self._eps_norm
                 )
                 self._A22prenp = (
-                    xp.identity(self.A22xp.shape[0]) * self._stab_sigma
-                )  # + self._nu_e * (self._Dxp.T @ self._M3np @ self._Dnp)
+                    xp.identity(self.A22np.shape[0]) * self._stab_sigma
+                )  # + self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp)
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-                A11np += self._stab_sigma * sc.sparse.eye(A11xp.shape[0], format="csr")
+                A11np += self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
                 self.A22np = (
-                    self._stab_sigma * sc.sparse.eye(A11xp.shape[0], format="csr")
+                    self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
                     + self._nu_e
                     * (
-                        self._Dxp.T @ self._M3np @ self._Dnp
-                        + self._Hodgexp.T @ self._Cxp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                        self._Dnp.T @ self._M3np @ self._Dnp
+                        + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
                     )
                     + self._M2Bnp / self._eps_norm
                 )
-                self._A22prenp = self._stab_sigma * sc.sparse.eye(self.A22xp.shape[0], format="csr")
+                self._A22prenp = self._stab_sigma * sc.sparse.eye(self.A22np.shape[0], format="csr")
 
             B1np = -self._M3np @ self._Dnp
             B2np = self._M3np @ self._Dnp
@@ -8036,7 +8036,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             _Anp = [A11np, self.A22np]
             _Bnp = [B1np, B2np]
             _Fnp = [self._F1np, self._F2np]
-            self._A11prenp_notimedependency = self._nu * (self._Dxp.T @ self._M3np @ self._Dnp)
+            self._A11prenp_notimedependency = self._nu * (self._Dnp.T @ self._M3np @ self._Dnp)
             _A11prenp = self._M2np + self._A11prenp_notimedependency
             _Anppre = [_A11prenp, self._A22prenp]
 
@@ -8195,11 +8195,11 @@ class TwoFluidQuasiNeutralFull(Propagator):
             # Numpy
             A11np = self._M2np / dt + self._A11np_notimedependency
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
-                A11np += self._stab_sigma * xp.identity(A11xp.shape[0])
+                A11np += self._stab_sigma * xp.identity(A11np.shape[0])
                 _A22prenp = self._A22prenp
                 A22np = self.A22np
             elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
-                A11np += self._stab_sigma * sc.sparse.eye(A11xp.shape[0], format="csr")
+                A11np += self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
                 _A22prenp = self._A22prenp
                 A22np = self.A22np
 
@@ -8231,13 +8231,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
                 _F1np = (
                     self._M2np @ self._F1np
-                    + 1.0 / dt * self._M2xp.dot(u0.vector.toarray())
+                    + 1.0 / dt * self._M2np.dot(u0.vector.toarray())
                     - self._A11np_notimedependency.dot(u_prime.vector.toarray())
                 )
-                _F2np = self._M2np @ self._F2np - self.A22xp.dot(ue_prime.vector.toarray())
+                _F2np = self._M2np @ self._F2np - self.A22np.dot(ue_prime.vector.toarray())
                 _Fnp = [_F1np, _F2np]
             else:
-                _F1np = self._M2np @ self._F1np + 1.0 / dt * self._M2xp.dot(unfeec.toarray())
+                _F1np = self._M2np @ self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
                 _F2np = self._M2np @ self._F2np
                 _Fnp = [_F1np, _F2np]
 
