@@ -1,15 +1,10 @@
 import warnings
 from abc import ABCMeta, abstractmethod
-from copy import deepcopy
-from dataclasses import dataclass
-from typing import Callable
 
-import numpy as np
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
+from struphy.utils.arrays import xp as np
 
-from struphy.fields_background.base import FluidEquilibrium
 from struphy.io.options import Units
-from struphy.kinetic_background.base import KineticBackground
 from struphy.models.variables import Variable
 from struphy.physics.physics import ConstantsOfNature
 from struphy.pic.utilities import (
