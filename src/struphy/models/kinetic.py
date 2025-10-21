@@ -1,3 +1,5 @@
+from psydac.ddm.mpi import mpi as MPI
+
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
@@ -7,6 +9,9 @@ from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 from struphy.utils.arrays import xp as np
 from struphy.utils.pyccel import Pyccelkernel
+
+
+rank = MPI.COMM_WORLD.Get_rank()
 
 
 class VlasovAmpereOneSpecies(StruphyModel):
