@@ -1436,7 +1436,7 @@ class QuasiNeutralAdiabatic(StruphyModel):
         # x = np.linspace(0, 1, 200)
         # res = self._em_fields["phi_mean"]["obj"](x, x, x)
         # plt.plot(x, res[:, 0, 0])
-        # plt.title("Phi mean")
+        # plt.title("Phi circle")
         # plt.show()
 
         # Accumulate vector for computing lambda
@@ -1474,6 +1474,7 @@ class QuasiNeutralAdiabatic(StruphyModel):
         )
         # Invert matrix to get lambda
         _solver_accum.dot(_accum_vec_lambda.vectors[0], out=_lambd)
+
         # test = SplineFunction("test", "H1", self.derham_3D_x, _lambd)
         # res = test(x, x, x)
         # plt.plot(x, res[:, 0, 0])
@@ -1491,6 +1492,7 @@ class QuasiNeutralAdiabatic(StruphyModel):
         # plt.plot(x, res[:, 0, 0])
         # plt.title("Phi")
         # plt.show()
+        # exit()
 
     def update_scalar_quantities(self):
         # Kinetic energy

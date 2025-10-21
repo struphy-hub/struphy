@@ -141,6 +141,7 @@ def qn_adiabatic_v_vec_kin(
     b2_1: "float[:,:,:]",
     b2_2: "float[:,:,:]",
     b2_3: "float[:,:,:]",
+    args_derham_3D_full: "DerhamArguments",
 ):
     """ TODO """
     ders = zeros((3, args_derham.pn[0] + 1), dtype=float)
@@ -166,6 +167,19 @@ def qn_adiabatic_v_vec_kin(
         eta3 = markers[ip, 2]
 
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1_full, span2_full, span3_full = get_spans(eta1, eta2, eta3, args_derham_3D_full)
+
+        # Evaluate magnetic field
+        eval_2form_spline_mpi(
+            span1_full,
+            span2_full,
+            span3_full,
+            args_derham_3D_full,
+            b2_1,
+            b2_2,
+            b2_3,
+            b_vec,
+        )
 
         bsplines_kernels.basis_funs_all_ders(
             args_derham.tn1,
@@ -176,18 +190,6 @@ def qn_adiabatic_v_vec_kin(
             right,
             2,
             ders,
-        )
-
-        # Evaluate magnetic field
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            b2_1,
-            b2_2,
-            b2_3,
-            b_vec,
         )
 
         args_derham.bn1[:] = ders[1, :]
@@ -228,7 +230,7 @@ def qn_adiabatic_v_correc(
     old_markers: "float[:,:]",
 ):
     """ TODO """
-    ders = zeros(args_derham.pn[0] + 1, dtype=float)
+    ders = zeros((2, args_derham.pn[0] + 1), dtype=float)
     left = zeros(args_derham.pn[0], dtype=float)
     right = zeros(args_derham.pn[0], dtype=float)
 
@@ -255,21 +257,22 @@ def qn_adiabatic_v_correc(
 
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-        bsplines_kernels.basis_funs_1st_der(
+        bsplines_kernels.basis_funs_all_ders(
             args_derham.tn1,
             args_derham.pn[0],
             eta1,
             span1,
             left,
             right,
+            1,
             ders,
         )
 
-        args_derham.bn1[:] = ders[:]
+        args_derham.bn1[:] = ders[1, :]
         args_derham.bn2[:] = 1.0
         args_derham.bn3[:] = 1.0
 
-        # x-component of V x B
+        # old velocity times weights
         filling = old_markers[ip, 4]
         filling *= markers[ip, 6]
         particle_to_mat_kernels.vec_fill_v0(
@@ -292,17 +295,18 @@ def qn_adiabatic_v_correc(
 
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-        bsplines_kernels.basis_funs_1st_der(
+        bsplines_kernels.basis_funs_all_ders(
             args_derham.tn1,
             args_derham.pn[0],
             eta1,
             span1,
             left,
             right,
+            1,
             ders,
         )
 
-        args_derham.bn1[:] = ders[:]
+        args_derham.bn1[:] = ders[1, :]
         args_derham.bn2[:] = 1.0
         args_derham.bn3[:] = 1.0
 
@@ -325,6 +329,7 @@ def qn_adiabatic_v_vec_pot(
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
     p_coeffs: "float[:,:,:]",
+    args_derham_3D_full: "DerhamArguments",
 ):
     """ TODO """
     ders = zeros(args_derham.pn[0] + 1, dtype=float)
@@ -349,29 +354,31 @@ def qn_adiabatic_v_vec_pot(
         eta3 = markers[ip, 2]
 
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1_full, span2_full, span3_full = get_spans(eta1, eta2, eta3, args_derham_3D_full)
 
         bsplines_kernels.basis_funs_1st_der(
-            args_derham.tn1,
-            args_derham.pn[0],
+            args_derham_3D_full.tn1,
+            args_derham_3D_full.pn[0],
             eta1,
-            span1,
+            span1_full,
             left,
             right,
             ders,
         )
 
-        args_derham.bn1[:] = ders[:]
+        args_derham_3D_full.bn1[:] = ders[:]
 
         # Evaluate flux-surface average electric field
         phi_mean = eval_0form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
+            span1_full,
+            span2_full,
+            span3_full,
+            args_derham_3D_full,
             p_coeffs,
         )
 
         # Only set basis functions equal to one after computing the value of phi
+        args_derham.bn1[:] = ders[:]
         args_derham.bn2[:] = 1.0
         args_derham.bn3[:] = 1.0
 

@@ -454,7 +454,8 @@ class EfieldWeights(Propagator):
 
 
 class QNAdiabatic(Propagator):
-    """ The kinetic substep and consequent update of phi_fsa and lambda.
+    """ The kinetic and potential substeps and consequent update of phi_fsa and lambda.
+    Put together for avoiding code duplication.
     
     TODO
     """
@@ -472,6 +473,7 @@ class QNAdiabatic(Propagator):
             "info": False,
             "verbose": False,
             "recycle": True,
+            "stab_fac": 1e-8,
         }
         if default:
             dct = descend_options_dict(dct, [])
@@ -491,6 +493,10 @@ class QNAdiabatic(Propagator):
         solver=options(default=True)["solver"],
     ):
         super().__init__(phi_mean, lambd, particles)
+
+        self._derham_3D_x = derham_3D_x
+        self._mass_ops_3D_x = mass_ops_3D_x
+        self._stab_fac = solver["stab_fac"]
 
         # Store B-field
         self._b2 = b2
@@ -576,7 +582,7 @@ class QNAdiabatic(Propagator):
         )
 
         # Pusher for V x B
-        args_kernel_vxb= (
+        args_kernel_vxb = (
             self.derham.args_derham,
             self._b2[0]._data,
             self._b2[1]._data,
@@ -590,9 +596,13 @@ class QNAdiabatic(Propagator):
             alpha_in_kernel=1.0,
         )
 
+        # Stabilize accumulated matrix
+        self._invert_mat = self._accum_mat.operators[0].copy()
+
         # Invert accumulated matrix
         self._solver_accum = inverse(
-            self._accum_mat.operators[0],
+            self._invert_mat,
+            # self._accum_mat.operators[0],
             "pcg",
             tol=1e-10,
             maxiter=3000,
@@ -679,9 +689,9 @@ class QNAdiabatic(Propagator):
         )
 
     def __call__(self, dt):
-        # self._call_kinetic_step(dt)
+        self._call_kinetic_step(dt)
         self._update_phi_mean()
-        # self._call_potential_step(dt)
+        self._call_potential_step(dt)
         self._update_lambda()
     
     def _call_kinetic_step(self, dt):
@@ -697,9 +707,6 @@ class QNAdiabatic(Propagator):
         # Push eta by half a time step
         self._push_eta(0.5 * dt)
 
-        # Push V x B
-        self._push_vxb(dt)
-
         # Accumulate A
         self._accum_mat()
 
@@ -708,10 +715,29 @@ class QNAdiabatic(Propagator):
             self._b2.blocks[0]._data,
             self._b2.blocks[1]._data,
             self._b2.blocks[2]._data,
+            self.derham.args_derham,
         )
+
+        # Stabilize accumulated matrix
+        # Have to reassign because cannot copy into SumLinearOperator...
+        self._invert_mat = self._accum_mat.operators[0].copy()
+        self._invert_mat._mat += self._stab_fac * self._mass_ops_3D_x.M0
+        self._solver_accum.linop = self._invert_mat
 
         # Invert matrix to get kinetic part of lambda
         self._solver_accum.dot(self._accum_vec_kin.vectors[0], out=self._lambd)
+
+        # from struphy.feec.psydac_derham import SplineFunction
+        # import matplotlib.pyplot as plt
+        # x = np.linspace(0, 1, 200)
+        # test = SplineFunction("test", "H1", self._accum_mat._derham, self._lambd)
+        # res = test(x, x, x)
+        # plt.plot(x, res[:, 0, 0])
+        # plt.title("Lambda spline function in kinetic step in Propagator")
+        # plt.show()
+
+        # Push V x B
+        self._push_vxb(dt)
 
         # Push v by a full step
         self._push_v_x(dt)
@@ -729,6 +755,12 @@ class QNAdiabatic(Propagator):
         # Accumulate correction FE vector
         self._accum_vec_correc(self._old_markers)
 
+        # Stabilize accumulated matrix
+        # Have to reassign because cannot copy into SumLinearOperator...
+        self._invert_mat = self._accum_mat.operators[0].copy()
+        self._invert_mat._mat += self._stab_fac * self._mass_ops_3D_x.M0
+        self._solver_accum.linop = self._invert_mat
+
         # Invert A
         self._solver_accum.dot(self._accum_vec_correc.vectors[0], out=self._v_correction_vec)
 
@@ -742,11 +774,27 @@ class QNAdiabatic(Propagator):
 
         # Accumulate vector
         self._accum_vec_pot(
-            self.feec_vars[0]._data
+            self.feec_vars[0]._data,
+            self.derham.args_derham,
         )
+
+        # Stabilize accumulated matrix
+        # Have to reassign because cannot copy into SumLinearOperator...
+        self._invert_mat = self._accum_mat.operators[0].copy()
+        self._invert_mat._mat += self._stab_fac * self._mass_ops_3D_x.M0
+        self._solver_accum.linop = self._invert_mat
 
         # Invert matrix to get potential part of lambda
         self._solver_accum.dot(self._accum_vec_pot.vectors[0], out=self._lambd)
+
+        # from struphy.feec.psydac_derham import SplineFunction
+        # import matplotlib.pyplot as plt
+        # x = np.linspace(0, 1, 200)
+        # test = SplineFunction("test", "H1", self._accum_mat._derham, self._lambd)
+        # res = test(x, x, x)
+        # plt.plot(x, res[:, 0, 0])
+        # plt.title("Lambda spline function in potential step in Propagator")
+        # plt.show()
 
         # Push v
         self._push_v_x(dt)
@@ -782,7 +830,6 @@ class QNAdiabatic(Propagator):
         # plt.title("Accumulated spline function in Propagator")
         # plt.show()
 
-
     def _update_lambda(self):
         """ Update flux surface averaged electric field and lambda """
 
@@ -806,6 +853,12 @@ class QNAdiabatic(Propagator):
         # Accumulate A
         self._accum_mat()
 
+        # Stabilize accumulated matrix
+        # Have to reassign because cannot copy into SumLinearOperator...
+        self._invert_mat = self._accum_mat.operators[0].copy()
+        self._invert_mat._mat += self._stab_fac * self._mass_ops_3D_x.M0
+        self._solver_accum.linop = self._invert_mat
+
         # Invert matrix to get lambda
         self._solver_accum.dot(self._accum_vec_lambda.vectors[0], out=self._lambd)
 
@@ -817,7 +870,6 @@ class QNAdiabatic(Propagator):
 
         self._lambd.copy(out=self.feec_vars[1])
         self.feec_vars[1].update_ghost_regions()
-        exit()
 
 
 class PressureCoupling6D(Propagator):

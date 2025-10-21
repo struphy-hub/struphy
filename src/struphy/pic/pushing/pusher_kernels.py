@@ -521,6 +521,7 @@ def push_v_x_QN_adiabatic(
     lambd: "float[:,:,:]",
 ):
     """ TODO """
+    ders = zeros((2, args_derham.pn[0] + 1), dtype=float)
     left = zeros(args_derham.pn[0], dtype=float)
     right = zeros(args_derham.pn[0], dtype=float)
     
@@ -540,16 +541,18 @@ def push_v_x_QN_adiabatic(
 
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-        bsplines_kernels.basis_funs_1st_der(
+        bsplines_kernels.basis_funs_all_ders(
             args_derham.tn1,
             args_derham.pn[0],
             eta1,
             span1,
             left,
             right,
-            args_derham.bn1,
+            1,
+            ders,
         )
 
+        args_derham.bn1[:] = ders[1, :]
         args_derham.bn2[:] = 1.0
         args_derham.bn3[:] = 1.0
 
