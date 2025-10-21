@@ -14,6 +14,7 @@ except ModuleNotFoundError:
         x = None
 
 
+from line_profiler import profile
 from psydac.ddm.mpi import MockComm
 from psydac.ddm.mpi import mpi as MPI
 from sympy.ntheory import factorint
@@ -25,10 +26,11 @@ from struphy.fields_background.equils import set_defaults
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibrium
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
-from struphy.initial import perturbations
+from struphy.initial.base import Perturbation
+from struphy.io.options import OptsLoading
 from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
-from struphy.kinetic_background import maxwellians
+from struphy.kinetic_background.base import KineticBackground, Maxwellian
 from struphy.pic import sampling_kernels, sobol_seq
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
@@ -44,6 +46,11 @@ from struphy.pic.sph_eval_kernels import (
     distance,
     naive_evaluation_flat,
     naive_evaluation_meshgrid,
+)
+from struphy.pic.utilities import (
+    BoundaryParameters,
+    LoadingParameters,
+    WeightsParameters,
 )
 from struphy.utils import utils
 from struphy.utils.arrays import xp as np
@@ -79,12 +86,6 @@ class Particles(metaclass=ABCMeta):
     clone_config : CloneConfig
         Manages the configuration for clone-based (copied grids) parallel processing using MPI.
 
-    Np : int
-        Number of particles.
-
-    ppc : int
-        Particles per cell. Cells are defined from ``domain_array``.
-
     domain_decomp : tuple
         The first entry is a domain_array (see :attr:`~struphy.feec.psydac_derham.Derham.domain_array`) and
         the second entry is the number of MPI processes in each direction.
@@ -93,43 +94,26 @@ class Particles(metaclass=ABCMeta):
             True if the dimension is to be used in the domain decomposition (=default for each dimension).
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
 
-    ppb : int
-        Particles per sorting box. Boxes are defined from ``boxes_per_dim``.
-
     boxes_per_dim : tuple
         Number of boxes in each logical direction (n_eta1, n_eta2, n_eta3).
 
     box_bufsize : float
         Between 0 and 1, relative buffer size for box array (default = 0.25).
 
-    bc : list
-        Either 'remove', 'reflect', 'periodic' or 'refill' in each direction.
-
-    bc_refill : list
-        Either 'inner' or 'outer'.
-
-    bc_sph : list
-        Boundary condition for sph density evaluation.
-        Either 'periodic', 'mirror', 'static' or 'force' in each direction.
-
     type : str
         Either 'full_f' (default), 'delta_f' or 'sph'.
-
-    control_variate : bool
-        Whether to use a control variate for noise reduction (only if type is 'full_f' or 'sph').
 
     name : str
         Name of particle species.
 
-    loading : str
-        Drawing of markers; either 'pseudo_random', 'sobol_standard',
-        'sobol_antithetic', 'external' or 'restart'.
+    loading_params : LoadingParameters
+        Parameterts for particle loading.
 
-    loading_params : dict
-        Parameterts for loading, see defaults below.
+    weights_params : WeightsParameters
+        Parameters for particle weights.
 
-    weights_params : dict
-        Parameterts for initializing weights, see defaults below.
+    boundary_params : BoundaryParameters
+        Parameters for particle boundary conditions.
 
     bufsize : float
         Size of buffer (as multiple of total size, default=.25) in markers array.
@@ -143,10 +127,16 @@ class Particles(metaclass=ABCMeta):
     projected_equil : ProjectedFluidEquilibrium
         Struphy fluid equilibrium projected into a discrete Derham complex.
 
-    bckgr_params : dict
-        Kinetic background parameters.
+    background : KineticBackground
+        Kinetic background.
 
-    pert_params : dict
+    initial_condition : KineticBackground
+        Kinetic initial condition.
+
+    n_as_volume_form: bool
+        Whether the number density n is given as a volume form or scalar function (=default).
+
+    perturbations : Perturbation | list
         Kinetic perturbation parameters.
 
     equation_params : dict
@@ -160,28 +150,23 @@ class Particles(metaclass=ABCMeta):
         self,
         comm_world: Intracomm = None,
         clone_config: CloneConfig = None,
-        Np: int = None,
-        ppc: int = None,
         domain_decomp: tuple = None,
         mpi_dims_mask: tuple | list = None,
-        ppb: int = 10,
         boxes_per_dim: tuple | list = None,
         box_bufsize: float = 5.0,
-        bc: list = None,
-        bc_refill: str = None,
-        bc_sph: str = None,
         type: str = "full_f",
-        control_variate: bool = False,
         name: str = "some_name",
-        loading: str = "pseudo_random",
-        loading_params: dict = None,
-        weights_params: dict = None,
+        loading_params: LoadingParameters = None,
+        weights_params: WeightsParameters = None,
+        boundary_params: BoundaryParameters = None,
         bufsize: float = 0.25,
         domain: Domain = None,
         equil: FluidEquilibrium = None,
         projected_equil: ProjectedFluidEquilibrium = None,
-        bckgr_params: dict = None,
-        pert_params: dict = None,
+        background: KineticBackground | FluidEquilibrium = None,
+        initial_condition: KineticBackground = None,
+        perturbations: dict[str, Perturbation] = None,
+        n_as_volume_form: bool = False,
         equation_params: dict = None,
         verbose: bool = False,
     ):
@@ -195,8 +180,21 @@ class Particles(metaclass=ABCMeta):
             self._num_clones = self.clone_config.num_clones
             self._clone_id = self.clone_config.clone_id
 
+        # defaults
+        if loading_params is None:
+            loading_params = LoadingParameters()
+
+        if weights_params is None:
+            weights_params = WeightsParameters()
+
+        if boundary_params is None:
+            boundary_params = BoundaryParameters()
+
         # other parameters
         self._name = name
+        self._loading_params = loading_params
+        self._weights_params = weights_params
+        self._boundary_params = boundary_params
         self._domain = domain
         self._equil = equil
         self._projected_equil = projected_equil
@@ -224,8 +222,8 @@ class Particles(metaclass=ABCMeta):
 
         # total number of cells (equal to mpi_size if no grid)
         n_cells = np.sum(np.prod(self.domain_array[:, 2::3], axis=1, dtype=int)) * self.num_clones
-        if verbose:
-            print(f"{self.mpi_rank = }, {n_cells = }")
+        # if verbose:
+        #     print(f"\n{self.mpi_rank = }, {n_cells = }")
 
         # total number of boxes
         if self.boxes_per_dim is None:
@@ -239,10 +237,13 @@ class Particles(metaclass=ABCMeta):
             )
             n_boxes = np.prod(np.array(self.boxes_per_dim), dtype=int) * self.num_clones
 
-        if verbose:
-            print(f"{self.mpi_rank = }, {n_boxes = }")
+        # if verbose:
+        #     print(f"\n{self.mpi_rank = }, {n_boxes = }")
 
         # total number of markers (Np) and particles per cell (ppc)
+        Np = self.loading_params.Np
+        ppc = self.loading_params.ppc
+        ppb = self.loading_params.ppb
         if Np is not None:
             self._Np = int(Np)
             self._ppc = self.Np / n_cells
@@ -263,6 +264,8 @@ class Particles(metaclass=ABCMeta):
         self._allocate_marker_array()
 
         # boundary conditions
+        bc = boundary_params.bc
+        bc_refill = boundary_params.bc_refill
         if bc is None:
             bc = ["periodic", "periodic", "periodic"]
 
@@ -281,82 +284,62 @@ class Particles(metaclass=ABCMeta):
         self._remove_axes = [axis for axis, b_c in enumerate(bc) if b_c == "remove"]
         self._bc_refill = bc_refill
 
+        bc_sph = boundary_params.bc_sph
         if bc_sph is None:
             bc_sph = [bci if bci == "periodic" else "mirror" for bci in self.bc]
 
         for bci in bc_sph:
             assert bci in ("periodic", "mirror", "fixed")
-
         self._bc_sph = bc_sph
 
         # particle type
         assert type in ("full_f", "delta_f", "sph")
         self._type = type
-        self._control_variate = control_variate
 
         # initialize sorting boxes
         self._verbose = verbose
         self._initialize_sorting_boxes()
 
         # particle loading parameters
-        assert loading in (
-            "pseudo_random",
-            "sobol_standard",
-            "sobol_antithetic",
-            "external",
-            "restart",
-            "tesselation",
-        )
-        self._loading = loading
+        self._loading = loading_params.loading
+        self._spatial = loading_params.spatial
 
-        loading_params_default = {
-            "seed": None,
-            "dir_particles": None,
-            "moments": None,
-            "spatial": "uniform",
-            "initial": None,
-            "n_quad": 1,
-        }
-
-        self._loading_params = set_defaults(
-            loading_params,
-            loading_params_default,
-        )
-        self._spatial = self.loading_params["spatial"]
-
-        # weights parameters
-        weights_params_default = {
-            "reject_weights": False,
-            "threshold": 0.0,
-        }
-
-        self._weights_params = set_defaults(
-            weights_params,
-            weights_params_default,
-        )
+        # weights
+        self._reject_weights = weights_params.reject_weights
+        self._threshold = weights_params.threshold
+        self._control_variate = weights_params.control_variate
 
         # background
-        if bckgr_params is None:
-            bckgr_params = {"Maxwellian3D": {}, "pforms": [None, None]}
-
-        # background p-form description in [eta, v] (None means 0-form, "vol" means volume form -> divide by det)
-        if isinstance(bckgr_params, FluidEquilibrium):
-            self._bckgr_params = bckgr_params
-            self._pforms = [None, None]
+        if background is None:
+            raise ValueError("A background function must be passed to Particles.")
         else:
-            self._bckgr_params = copy.deepcopy(bckgr_params)
-            self._pforms = self.bckgr_params.pop("pforms", [None, None])
+            self._background = background
+
+        # background p-form description in [eta, v] (False means 0-form, True means volume form -> divide by det)
+        if isinstance(background, FluidEquilibrium):
+            self._is_volume_form = (n_as_volume_form, False)
+        else:
+            self._is_volume_form = (
+                n_as_volume_form,
+                self.background.volume_form,
+            )
 
         # set background function
         self._set_background_function()
         self._set_background_coordinates()
 
-        # perturbation parameters
-        self._pert_params = pert_params
+        # perturbation parameters (needed for fluid background)
+        self._perturbations = perturbations
+
+        # initial condition
+        if initial_condition is None:
+            self._initial_condition = self.background
+        else:
+            self._initial_condition = initial_condition
 
         # for loading
-        if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
-            self._auto_sampling_params()
+        # if self.loading_params["moments"] is None and self.type != "sph" and isinstance(self.bckgr_params, dict):
+        self._generate_sampling_moments()
 
         # create buffers for mpi_sort_markers
         self._sorting_etas = np.zeros(self.markers.shape, dtype=float)
@@ -369,8 +352,8 @@ class Particles(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def default_bckgr_params(cls):
-        """Dictionary holding the minimal information of the default background."""
+    def default_background(cls):
+        """The default background (of type Maxwellian)."""
         pass
 
     @abstractmethod
@@ -467,7 +450,7 @@ class Particles(metaclass=ABCMeta):
         return self._type
 
     @property
-    def loading(self):
+    def loading(self) -> OptsLoading:
         """Type of particle loading."""
         return self._loading
 
@@ -543,24 +526,37 @@ class Particles(metaclass=ABCMeta):
         return self._clone_id
 
     @property
-    def bckgr_params(self):
-        """Kinetic background parameters."""
-        return self._bckgr_params
+    def background(self) -> KineticBackground:
+        """Kinetic background."""
+        return self._background
 
     @property
-    def pert_params(self):
-        """Kinetic perturbation parameters."""
-        return self._pert_params
+    def perturbations(self) -> dict[str, Perturbation]:
+        """Kinetic perturbations, keys are the names of moments of the distribution function ("n", "u1", etc.)."""
+        return self._perturbations
 
     @property
-    def loading_params(self):
-        """Parameters for marker loading."""
+    def loading_params(self) -> LoadingParameters:
         return self._loading_params
 
     @property
-    def weights_params(self):
-        """Parameters for initializing weights."""
+    def weights_params(self) -> WeightsParameters:
         return self._weights_params
+
+    @property
+    def boundary_params(self) -> BoundaryParameters:
+        """Parameters for marker loading."""
+        return self._boundary_params
+
+    @property
+    def reject_weights(self):
+        """Whether to reect weights below threshold."""
+        return self._reject_weights
+
+    @property
+    def threshold(self):
+        """Threshold for rejecting weights."""
+        return self._threshold
 
     @property
     def boxes_per_dim(self):
@@ -576,6 +572,11 @@ class Particles(metaclass=ABCMeta):
     def equation_params(self):
         """Parameters appearing in model equation due to Struphy normalization."""
         return self._equation_params
+
+    @property
+    def initial_condition(self) -> KineticBackground:
+        """Kinetic initial condition"""
+        return self._initial_condition
 
     @property
     def f_init(self):
@@ -597,7 +598,7 @@ class Particles(metaclass=ABCMeta):
         return self._u_init
 
     @property
-    def f0(self):
+    def f0(self) -> Maxwellian:
         assert hasattr(self, "_f0"), AttributeError(
             "No background distribution available, please run self._set_background_function()",
         )
@@ -834,11 +835,9 @@ class Particles(metaclass=ABCMeta):
         self._markers[self.valid_mks, self.index["ids"]] = new
 
     @property
-    def pforms(self):
-        """Tuple of size 2; each entry must be either "vol" or None, defining the p-form
-        (space and velocity, respectively) of f_init.
-        """
-        return self._pforms
+    def is_volume_form(self):
+        """Tuple of size 2 for (position, velocity), defining the p-form representation of f_init: True means volume-form, False means 0-form."""
+        return self._is_volume_form
 
     @property
     def spatial(self):
@@ -992,38 +991,35 @@ class Particles(metaclass=ABCMeta):
         return dom_arr, tuple(nprocs)
 
     def _set_background_function(self):
-        self._f0 = None
-        if isinstance(self.bckgr_params, FluidEquilibrium):
-            self._f0 = self.bckgr_params
-        else:
-            for fi, maxw_params in self.bckgr_params.items():
-                if fi[-2] == "_":
-                    fi_type = fi[:-2]
-                else:
-                    fi_type = fi
+        self._f0 = self.background
 
-                # SPH case: f0 is set to a FluidEquilibrium
-                if self.type == "sph":
-                    _eq = getattr(equils, fi_type)(**maxw_params)
-                    if not isinstance(_eq, NumericalFluidEquilibrium):
-                        _eq.domain = self.domain
-                    if self._f0 is None:
-                        self._f0 = _eq
-                    else:
-                        raise NotImplementedError("Summation of fluid backgrounds not yet implemented.")
-                        # self._f0 = self._f0 + (lambda e1, e2, e3: _eq.n0(e1, e2, e3))
-                # default case
-                else:
-                    if self._f0 is None:
-                        self._f0 = getattr(maxwellians, fi_type)(
-                            maxw_params=maxw_params,
-                            equil=self.equil,
-                        )
-                    else:
-                        self._f0 = self._f0 + getattr(maxwellians, fi_type)(
-                            maxw_params=maxw_params,
-                            equil=self.equil,
-                        )
+        # if isinstance(self.background, FluidEquilibrium):
+        #     self._f0 = self.background
+        # else:
+        #     self._f0 = copy.deepcopy(self.background)
+        #     self.f0.add_perturbation = False
+
+        # self._f0 = None
+        # if isinstance(self.bckgr_params, FluidEquilibrium):
+        #     self._f0 = self.bckgr_params
+        # else:
+        #     for bckgr in self.backgrounds:
+        #         # SPH case: f0 is set to a FluidEquilibrium
+        #         if self.type == "sph":
+        #             _eq = getattr(equils, fi_type)(**maxw_params)
+        #             if not isinstance(_eq, NumericalFluidEquilibrium):
+        #                 _eq.domain = self.domain
+        #             if self._f0 is None:
+        #                 self._f0 = _eq
+        #             else:
+        #                 raise NotImplementedError("Summation of fluid backgrounds not yet implemented.")
+        #                 # self._f0 = self._f0 + (lambda e1, e2, e3: _eq.n0(e1, e2, e3))
+        #         # default case
+        #         else:
+        #             if self._f0 is None:
+        #                 self._f0 = bckgr
+        #             else:
+        #                 self._f0 = self._f0 + bckgr
 
     def _set_background_coordinates(self):
         if self.type != "sph" and self.f0.coords == "constants_of_motion":
@@ -1171,7 +1167,7 @@ class Particles(metaclass=ABCMeta):
                 bc_sph=self.bc_sph,
                 is_domain_boundary=is_domain_boundary,
                 comm=self.mpi_comm,
-                verbose=self.verbose,
+                verbose=False,
                 box_bufsize=self._box_bufsize,
             )
 
@@ -1183,97 +1179,139 @@ class Particles(metaclass=ABCMeta):
         else:
             self._sorting_boxes = None
 
-    def _auto_sampling_params(self):
-        """Automatically determine sampling parameters from the background given"""
-        ns = []
-        us = []
-        vths = []
+    def _generate_sampling_moments(self):
+        """Automatically determine moments for sampling distribution (Gaussian) from the given background."""
 
-        for fi, params in self.bckgr_params.items():
-            if fi[-2] == "_":
-                fi_type = fi[:-2]
-            else:
-                fi_type = fi
+        if self.loading_params.moments is None:
+            self.loading_params.moments = tuple([0.0] * self.vdim + [1.0] * self.vdim)
 
-            us.append([])
-            vths.append([])
+        # TODO: reformulate this function with KineticBackground methods
 
-            bckgr = getattr(maxwellians, fi_type)
-            default_maxw_params = bckgr.default_maxw_params()
+        # ns = []
+        # us = []
+        # vths = []
 
-            for key in default_maxw_params:
-                if key[0] == "n":
-                    if key in params:
-                        ns += [params[key]]
-                    else:
-                        ns += [1.0]
+        # for fi, params in self.bckgr_params.items():
+        #     if fi[-2] == "_":
+        #         fi_type = fi[:-2]
+        #     else:
+        #         fi_type = fi
 
-                elif key[0] == "u":
-                    if key in params:
-                        us[-1] += [params[key]]
-                    else:
-                        us[-1] += [0.0]
+        #     us.append([])
+        #     vths.append([])
 
-                elif key[0] == "v":
-                    if key in params:
-                        vths[-1] += [params[key]]
-                    else:
-                        vths[-1] += [1.0]
+        #     bckgr = getattr(maxwellians, fi_type)
 
-        assert len(ns) == len(us) == len(vths)
+        #     for key in default_maxw_params:
+        #         if key[0] == "n":
+        #             if key in params:
+        #                 ns += [params[key]]
+        #             else:
+        #                 ns += [1.0]
 
-        ns = np.array(ns)
-        us = np.array(us)
-        vths = np.array(vths)
+        #         elif key[0] == "u":
+        #             if key in params:
+        #                 us[-1] += [params[key]]
+        #             else:
+        #                 us[-1] += [0.0]
+
+        #         elif key[0] == "v":
+        #             if key in params:
+        #                 vths[-1] += [params[key]]
+        #             else:
+        #                 vths[-1] += [1.0]
+
+        # assert len(ns) == len(us) == len(vths)
+
+        # ns = np.array(ns)
+        # us = np.array(us)
+        # vths = np.array(vths)
 
         # Use the mean of shifts and thermal velocity such that outermost shift+thermal is
         # new shift + new thermal
-        mean_us = np.mean(us, axis=0)
-        us_ext = us + vths * np.where(us >= 0, 1, -1)
-        us_ext_dist = us_ext - mean_us[None, :]
-        new_vths = np.max(np.abs(us_ext_dist), axis=0)
+        # mean_us = np.mean(us, axis=0)
+        # us_ext = us + vths * np.where(us >= 0, 1, -1)
+        # us_ext_dist = us_ext - mean_us[None, :]
+        # new_vths = np.max(np.abs(us_ext_dist), axis=0)
 
-        new_moments = []
+        # new_moments = []
 
-        new_moments += [*mean_us]
-        new_moments += [*new_vths]
-        new_moments = [float(moment) for moment in new_moments]
+        # new_moments += [*mean_us]
+        # new_moments += [*new_vths]
+        # new_moments = [float(moment) for moment in new_moments]
 
-        self.loading_params["moments"] = new_moments
+        # self.loading_params["moments"] = new_moments
 
-    def _set_initial_condition(self, bp_copy=None, pp_copy=None):
-        """Compute callable initial condition from background + perturbation."""
+    def _set_initial_condition(self):
+        if self.type != "sph":
+            self._f_init = self.initial_condition
+        else:
+            # Get the initialization function and pass the correct arguments
+            assert isinstance(self.f0, FluidEquilibrium)
+            self._u_init = self.f0.u_cart
 
-        if bp_copy is None:
-            bp_copy = copy.deepcopy(self.bckgr_params)
-        if pp_copy is None:
-            pp_copy = copy.deepcopy(self.pert_params)
+            if self.perturbations is not None:
+                for (
+                    moment,
+                    pert,
+                ) in self.perturbations.items():  # only one perturbation is taken into account at the moment
+                    assert isinstance(moment, str)
+                    if pert is None:
+                        continue
+                    assert isinstance(pert, Perturbation)
 
-        # Get the initialization function and pass the correct arguments
-        self._f_init = None
-        for fi, maxw_params in bp_copy.items():
-            if fi[-2] == "_":
-                fi_type = fi[:-2]
+                    if moment == "n":
+                        _fun = TransformedPformComponent(
+                            pert,
+                            pert.given_in_basis,
+                            "0",
+                            comp=pert.comp,
+                            domain=self.domain,
+                        )
+                    elif moment == "u1":
+                        _fun = TransformedPformComponent(
+                            pert,
+                            pert.given_in_basis,
+                            "v",
+                            comp=pert.comp,
+                            domain=self.domain,
+                        )
+                        _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
+                        self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
+                        # TODO: add other velocity components
             else:
-                fi_type = fi
+                _fun = None
 
-            pert_params = pp_copy
-            if pp_copy is not None:
-                if fi in pp_copy:
-                    pert_params = pp_copy[fi]
+            def _f_init(*etas, flat_eval=False):
+                if len(etas) == 1:
+                    if _fun is None:
+                        out = self.f0.n0(etas[0])
+                    else:
+                        out = self.f0.n0(etas[0]) + _fun(*etas[0].T)
+                else:
+                    assert len(etas) == 3
+                    E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
+                        etas[0],
+                        etas[1],
+                        etas[2],
+                        flat_eval=flat_eval,
+                    )
 
-            if self._f_init is None:
-                self._f_init = getattr(maxwellians, fi_type)(
-                    maxw_params=maxw_params,
-                    pert_params=pert_params,
-                    equil=self.equil,
-                )
-            else:
-                self._f_init = self._f_init + getattr(maxwellians, fi_type)(
-                    maxw_params=maxw_params,
-                    pert_params=pert_params,
-                    equil=self.equil,
-                )
+                    out0 = self.f0.n0(E1, E2, E3)
+
+                    if _fun is None:
+                        out = out0
+                    else:
+                        out1 = _fun(E1, E2, E3)
+                        assert out0.shape == out1.shape
+                        out = out0 + out1
+
+                    if flat_eval:
+                        out = np.squeeze(out)
+
+                return out
+
+            self._f_init = _f_init
 
     def _load_external(
         self,
@@ -1292,7 +1330,7 @@ class Particles(metaclass=ABCMeta):
         """
         if self.mpi_rank == 0:
             file = h5py.File(
-                self.loading_params["dir_external"],
+                self.loading_params.dir_external,
                 "r",
             )
             print(f"\nLoading markers from file: {file}")
@@ -1325,16 +1363,16 @@ class Particles(metaclass=ABCMeta):
 
         o_path = state["o_path"]
 
-        if self.loading_params["dir_particles_abs"] is None:
+        if self.loading_params.dir_particles_abs is None:
             data_path = os.path.join(
                 o_path,
-                self.loading_params["dir_particles"],
+                self.loading_params.dir_particles,
             )
         else:
-            data_path = self.loading_params["dir_particles_abs"]
+            data_path = self.loading_params.dir_particles_abs
 
         data = DataContainer(data_path, comm=self.mpi_comm)
-        self._markers[:, :] = data.file["restart/" + self.loading_params["key"]][-1, :, :]
+        self._markers[:, :] = data.file["restart/" + self.loading_params.restart_key][-1, :, :]
 
     def _load_tesselation(self, n_quad: int = 1):
         """
@@ -1488,13 +1526,13 @@ class Particles(metaclass=ABCMeta):
         else:
             if self.mpi_rank == 0 and verbose:
                 print("\nLoading fresh markers:")
-                for key, val in self.loading_params.items():
+                for key, val in self.loading_params.__dict__.items():
                     print((key + " :").ljust(25), val)
 
             # 1. standard random number generator (pseudo-random)
             if self.loading == "pseudo_random":
                 # set seed
-                _seed = self.loading_params["seed"]
+                _seed = self.loading_params.seed
                 if _seed is not None:
                     np.random.seed(_seed)
 
@@ -1575,8 +1613,8 @@ class Particles(metaclass=ABCMeta):
                 self.velocities = np.array(self.u_init(self.positions)[0]).T
             else:
                 # inverse transform sampling in velocity space
-                u_mean = np.array(self.loading_params["moments"][: self.vdim])
-                v_th = np.array(self.loading_params["moments"][self.vdim :])
+                u_mean = np.array(self.loading_params.moments[: self.vdim])
+                v_th = np.array(self.loading_params.moments[self.vdim :])
 
                 # Particles6D: (1d Maxwellian, 1d Maxwellian, 1d Maxwellian)
                 if self.vdim == 3:
@@ -1625,8 +1663,8 @@ class Particles(metaclass=ABCMeta):
             self.marker_ids = _first_marker_id + np.arange(n_mks_load_loc, dtype=float)
 
             # set specific initial condition for some particles
-            if self.loading_params["initial"] is not None:
-                specific_markers = self.loading_params["initial"]
+            if self.loading_params.specific_markers is not None:
+                specific_markers = self.loading_params.specific_markers
 
                 counter = 0
                 for i in range(len(specific_markers)):
@@ -1653,6 +1691,7 @@ class Particles(metaclass=ABCMeta):
                 self.mpi_sort_markers()
             self.do_sort()
 
+    @profile
     def mpi_sort_markers(
         self,
         apply_bc: bool = True,
@@ -1733,8 +1772,8 @@ class Particles(metaclass=ABCMeta):
         *,
         bckgr_params: dict = None,
         pert_params: dict = None,
-        reject_weights: bool = False,
-        threshold: float = 1e-8,
+        # reject_weights: bool = False,
+        # threshold: float = 1e-8,
     ):
         r"""
         Computes the initial weights
@@ -1755,20 +1794,14 @@ class Particles(metaclass=ABCMeta):
 
         pert_params : dict
             Kinetic perturbation parameters for initial condition.
-
-        reject_weights : bool
-            Whether to use ``threshold`` for rejecting weights.
-
-        threshold : float
-            Minimal value of a weight; below the marker is set to a hole.les.
         """
 
         if self.loading == "tesselation":
-            if self.pforms[0] is None:
+            if not self.is_volume_form[0]:
                 fvol = TransformedPformComponent([self.f_init], "0", "3", domain=self.domain)
             else:
                 fvol = self.f_init
-            cell_avg = self.tesselation.cell_averages(fvol, n_quad=self.loading_params["n_quad"])
+            cell_avg = self.tesselation.cell_averages(fvol, n_quad=self.loading_params.n_quad)
             self.weights0 = cell_avg.flatten()
         else:
             assert self.domain is not None, "A domain is needed to initialize weights."
@@ -1790,10 +1823,10 @@ class Particles(metaclass=ABCMeta):
                 f_init = self.f_init(*self.f_coords.T)
 
             # if f_init is vol-form, transform to 0-form
-            if self.pforms[0] == "vol":
+            if self.is_volume_form[0]:
                 f_init /= self.domain.jacobian_det(self.positions)
 
-            if self.pforms[1] == "vol":
+            if self.is_volume_form[1]:
                 f_init /= self.f_init.velocity_jacobian_det(
                     *self.f_jacobian_coords.T,
                 )
@@ -1804,13 +1837,13 @@ class Particles(metaclass=ABCMeta):
             # compute w0 and save at vdim + 5
             self.weights0 = f_init / self.sampling_density
 
-        if reject_weights:
-            reject = self.markers[:, self.index["w0"]] < threshold
+        if self.reject_weights:
+            reject = self.markers[:, self.index["w0"]] < self.threshold
             self._markers[reject] = -1.0
             self.update_holes()
             self.reset_marker_ids()
             print(
-                f"\nWeights < {threshold} have been rejected, number of valid markers on process {self.mpi_rank} is {self.n_mks_loc}."
+                f"\nWeights < {self.threshold} have been rejected, number of valid markers on process {self.mpi_rank} is {self.n_mks_loc}."
             )
 
         # compute (time-dependent) weights at vdim + 3
@@ -1819,6 +1852,7 @@ class Particles(metaclass=ABCMeta):
         else:
             self.weights = self.weights0
 
+    @profile
     def update_weights(self):
         """
         Applies the control variate method, i.e. updates the time-dependent marker weights
@@ -1835,10 +1869,10 @@ class Particles(metaclass=ABCMeta):
             f0 = self.f0(*self.f_coords.T)
 
         # if f_init is vol-form, transform to 0-form
-        if self.pforms[0] == "vol":
+        if self.is_volume_form[0]:
             f0 /= self.domain.jacobian_det(self.positions)
 
-        if self.pforms[1] == "vol":
+        if self.is_volume_form[1]:
             f0 /= self.f0.velocity_jacobian_det(*self.f_jacobian_coords.T)
 
         self.weights = self.weights0 - f0 / self.sampling_density
@@ -1853,16 +1887,22 @@ class Particles(metaclass=ABCMeta):
         )[self.mpi_rank]
         self.marker_ids = first_marker_id + np.arange(self.n_mks_loc, dtype=int)
 
-    def binning(self, components, bin_edges, divide_by_jac=True):
+    @profile
+    def binning(
+        self,
+        components: tuple[bool],
+        bin_edges: tuple[np.ndarray],
+        divide_by_jac: bool = True,
+    ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
         Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
 
         Parameters
         ----------
-        components : list[bool]
+        components : tuple[bool]
             List of length 3 + vdim; an entry is True if the direction in phase space is to be binned.
 
-        bin_edges : list[array]
+        bin_edges : tuple[array]
             List of bin edges (resolution) having the length of True entries in components.
 
         divide_by_jac : boll
@@ -1982,6 +2022,7 @@ class Particles(metaclass=ABCMeta):
 
         return outside_inds
 
+    @profile
     def apply_kinetic_bc(self, newton=False):
         """
         Apply boundary conditions to markers that are outside of the logical unit cube.
@@ -2399,8 +2440,7 @@ class Particles(metaclass=ABCMeta):
 
             # A particle on box i only sees particles in boxes that belong to neighbours[i]
             initialize_neighbours(self._neighbours, self.nx, self.ny, self.nz)
-            if self._verbose:
-                print(f"{self._rank = }\n{self._neighbours = }")
+            # print(f"{self._rank = }\n{self._neighbours = }")
 
             self._swap_line_1 = np.zeros(self._markers_shape[1])
             self._swap_line_2 = np.zeros(self._markers_shape[1])
@@ -2569,6 +2609,7 @@ class Particles(metaclass=ABCMeta):
 
         self._markers[:, :] = self._markers[self._argsort_array]
 
+    @profile
     def put_particles_in_boxes(self):
         """Assign the right box to the particles and the list of the particles to each box.
         If sorting_boxes was instantiated with an MPI comm, then the particles in the
@@ -2591,12 +2632,12 @@ class Particles(metaclass=ABCMeta):
             self.check_and_assign_particles_to_boxes()
             self.update_ghost_particles()
 
-        if self.verbose:
-            valid_box_ids = np.nonzero(self._sorting_boxes._boxes[:, 0] != -1)[0]
-            print(f"Boxes holding at least one particle: {valid_box_ids}")
-            for i in valid_box_ids:
-                n_mks_box = np.count_nonzero(self._sorting_boxes._boxes[i] != -1)
-                print(f"Number of markers in box {i} is {n_mks_box}")
+        # if self.verbose:
+        #     valid_box_ids = np.nonzero(self._sorting_boxes._boxes[:, 0] != -1)[0]
+        #     print(f"Boxes holding at least one particle: {valid_box_ids}")
+        #     for i in valid_box_ids:
+        #         n_mks_box = np.count_nonzero(self._sorting_boxes._boxes[i] != -1)
+        #         print(f"Number of markers in box {i} is {n_mks_box}")
 
     def check_and_assign_particles_to_boxes(self):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
@@ -2628,6 +2669,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
             self._sorting_boxes._next_index,
         )
 
+    @profile
     def do_sort(self, use_numpy_argsort=False):
         """Assign the particles to boxes and then sort them."""
         nx = self._sorting_boxes.nx
@@ -2668,8 +2710,8 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         4. optional: mirror position for boundary conditions
         """
         shifts = self.sorting_boxes.bc_sph_index_shifts
-        if self.verbose:
-            print(f"{self.sorting_boxes.bc_sph_index_shifts = }")
+        # if self.verbose:
+        #     print(f"{self.sorting_boxes.bc_sph_index_shifts = }")
 
         ## Faces
 
@@ -3136,12 +3178,13 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
 
             self.markers[holes_inds[np.arange(self._send_info_box[self.mpi_rank])]] = self._send_list_box[self.mpi_rank]
 
+    @profile
     def communicate_boxes(self, verbose=False):
-        if verbose:
-            n_valid = np.count_nonzero(self.valid_mks)
-            n_holes = np.count_nonzero(self.holes)
-            n_ghosts = np.count_nonzero(self.ghost_particles)
-            print(f"before communicate_boxes: {self.mpi_rank = }, {n_valid = } {n_holes = }, {n_ghosts = }")
+        # if verbose:
+        #     n_valid = np.count_nonzero(self.valid_mks)
+        #     n_holes = np.count_nonzero(self.holes)
+        #     n_ghosts = np.count_nonzero(self.ghost_particles)
+        #     print(f"before communicate_boxes: {self.mpi_rank = }, {n_valid = } {n_holes = }, {n_ghosts = }")
 
         self.prepare_ghost_particles()
         self.get_destinations_box()
@@ -3154,11 +3197,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             self.update_holes()
         self.update_ghost_particles()
 
-        if verbose:
-            n_valid = np.count_nonzero(self.valid_mks)
-            n_holes = np.count_nonzero(self.holes)
-            n_ghosts = np.count_nonzero(self.ghost_particles)
-            print(f"after communicate_boxes: {self.mpi_rank = }, {n_valid = }, {n_holes = }, {n_ghosts = }")
+        # if verbose:
+        #     n_valid = np.count_nonzero(self.valid_mks)
+        #     n_holes = np.count_nonzero(self.holes)
+        #     n_ghosts = np.count_nonzero(self.ghost_particles)
+        #     print(f"after communicate_boxes: {self.mpi_rank = }, {n_valid = }, {n_holes = }, {n_ghosts = }")
 
     def sendrecv_all_to_all_boxes(self):
         """

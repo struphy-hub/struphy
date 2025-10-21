@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
 @pytest.mark.parametrize(
     "dirichlet_bc",
-    [None, [[False, True], [True, False], [False, False]], [[True, False], [False, True], [False, False]]],
+    [None, [(False, True), (True, False), (False, False)], [(True, False), (False, True), (False, False)]],
 )
 @pytest.mark.parametrize("mapping", [["Colella", {"Lx": 1.0, "Ly": 6.0, "alpha": 0.1, "Lz": 10.0}]])
 def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
@@ -101,10 +101,11 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     if dirichlet_bc is not None:
         for i, knd in enumerate(spl_kind):
             if knd:
-                dirichlet_bc[i] = [False, False]
+                dirichlet_bc[i] = (False, False)
     else:
-        dirichlet_bc = [[False, False]] * 3
+        dirichlet_bc = [(False, False)] * 3
 
+    dirichlet_bc = tuple(dirichlet_bc)
     print(f"{dirichlet_bc = }")
 
     # derham object
@@ -369,7 +370,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 @pytest.mark.parametrize(
     "dirichlet_bc",
-    [None, [[False, True], [False, False], [False, True]], [[False, False], [False, False], [True, False]]],
+    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
@@ -431,9 +432,11 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     if dirichlet_bc is not None:
         for i, knd in enumerate(spl_kind):
             if knd:
-                dirichlet_bc[i] = [False, False]
+                dirichlet_bc[i] = (False, False)
     else:
-        dirichlet_bc = [[False, False]] * 3
+        dirichlet_bc = [(False, False)] * 3
+
+    dirichlet_bc = tuple(dirichlet_bc)
 
     # derham object
     derham = Derham(
@@ -563,7 +566,7 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 @pytest.mark.parametrize(
     "dirichlet_bc",
-    [None, [[False, True], [False, False], [False, True]], [[False, False], [False, False], [True, False]]],
+    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
 )
 @pytest.mark.parametrize("mapping", [["HollowCylinder", {"a1": 0.1, "a2": 1.0, "Lz": 18.84955592153876}]])
 def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
@@ -661,9 +664,11 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     if dirichlet_bc is not None:
         for i, knd in enumerate(spl_kind):
             if knd:
-                dirichlet_bc[i] = [False, False]
+                dirichlet_bc[i] = (False, False)
     else:
-        dirichlet_bc = [[False, False]] * 3
+        dirichlet_bc = [(False, False)] * 3
+
+    dirichlet_bc = tuple(dirichlet_bc)
 
     # derham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
@@ -868,7 +873,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 @pytest.mark.parametrize(
     "dirichlet_bc",
-    [None, [[False, True], [False, False], [False, True]], [[False, False], [False, False], [True, False]]],
+    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
@@ -933,9 +938,11 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     if dirichlet_bc is not None:
         for i, knd in enumerate(spl_kind):
             if knd:
-                dirichlet_bc[i] = [False, False]
+                dirichlet_bc[i] = (False, False)
     else:
-        dirichlet_bc = [[False, False]] * 3
+        dirichlet_bc = [(False, False)] * 3
+
+    dirichlet_bc = tuple(dirichlet_bc)
 
     # derham object
     derham = Derham(

@@ -460,7 +460,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 @pytest.mark.parametrize(
     "dirichlet_bc",
-    [None, [[False, True], [False, False], [False, True]], [[False, False], [False, False], [True, False]]],
+    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
@@ -515,9 +515,11 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     if dirichlet_bc is not None:
         for i, knd in enumerate(spl_kind):
             if knd:
-                dirichlet_bc[i] = [False, False]
+                dirichlet_bc[i] = (False, False)
     else:
-        dirichlet_bc = [[False, False]] * 3
+        dirichlet_bc = [(False, False)] * 3
+
+    dirichlet_bc = tuple(dirichlet_bc)
 
     # derham object
     nq_el = [p[0] + 1, p[1] + 1, p[2] + 1]

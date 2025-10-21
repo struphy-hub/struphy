@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
     'numpy',
     'pyccel>=2.0',
-    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@no-mpi',
+    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'scipy',
     'h5py',
     'matplotlib',
@@ -34,6 +34,7 @@ dependencies = [
     'argcomplete',
     'pytest',
     'pytest-mpi',
+    'line_profiler',
 ]
 
 [project.license]
@@ -166,4 +167,14 @@ ignore = [
     "F405",
     "D211",
     "D213",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "models",
+    "toy",
+    "fluid",
+    "kinetic",
+    "hybrid",
+    "single",
 ]

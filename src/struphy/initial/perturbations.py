@@ -1,13 +1,48 @@
 #!/usr/bin/env python3
-"Analytical perturbations (modes)."
+"Analytical perturbations."
+
+from dataclasses import dataclass
 
 import scipy
 import scipy.special
 
+from struphy.initial.base import Perturbation
+from struphy.io.options import GivenInBasis, NoiseDirections, check_option
 from struphy.utils.arrays import xp as np
 
 
-class ModesSin:
+@dataclass
+class Noise(Perturbation):
+    """White noise for FEEC coefficients.
+
+    Parameters
+    ----------
+    direction: str
+        The direction(s) of variation of the noise: 'e1', 'e2', 'e3', 'e1e2', etc.
+
+    amp: float
+        Noise amplitude.
+
+    seed: int
+        Seed for the random number generator.
+    """
+
+    direction: NoiseDirections = "e3"
+    amp: float = 0.0001
+    seed: int = None
+    comp: int = 0
+    given_in_basis: GivenInBasis = "0"
+
+    def __post_init__(
+        self,
+    ):
+        check_option(self.direction, NoiseDirections)
+
+    def __call__(self):
+        pass
+
+
+class ModesSin(Perturbation):
     r"""Sinusoidal function in 3D.
 
     .. math::
@@ -26,25 +61,25 @@ class ModesSin:
         \end{aligned}
         \right.
 
-    Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
+    Can be used in logical space (use 'given_in_basis'), where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
     and :math:`L_x=L_y=L_z=1.0` (default).
 
     Parameters
     ----------
-    ls : tuple | list
+    ls : tuple[int]
         Mode numbers in x-direction (kx = l*2*pi/Lx).
 
-    ms : tuple | list
+    ms : tuple[int]
         Mode numbers in y-direction (ky = m*2*pi/Ly).
 
-    ns : tuple | list
+    ns : tuple[int]
         Mode numbers in z-direction (kz = n*2*pi/Lz).
 
-    amps : tuple | list
+    amps : tuple[float]
         Amplitude of each mode.
 
     theta : tuple | list
-        Phase of each mode
+        Phase of each mode.
 
     pfuns : tuple | list[str]
         "Id" or "localize" define the profile functions.
@@ -57,43 +92,27 @@ class ModesSin:
     Lx, Ly, Lz : float
         Domain lengths.
 
-    Note
-    ----
-    Example of use in a ``.yml`` parameter file::
+    given_in_basis : str
+        In which basis the perturbation is represented (see base class).
 
-        perturbations :
-            type : ModesSin
-            ModesSin :
-                comps :
-                    scalar_name : '0' # choices: null, 'physical', '0', '3'
-                    vector_name : [null , 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
-                ls :
-                    scalar_name: [1, 3] # two x-modes for scalar variable
-                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable
-                theta :
-                    scalar_name: [0, 3.1415]
-                    vector_name: [null, [0, 0], [1.5708]]
-                pfuns :
-                    vector_name: [null, ['localize'], ['Id']]
-                pfuns_params
-                    vector_name: [null, ['0.1'], [0.]]
-                Lx : 7.853981633974483
-                Ly : 1.
-                Lz : 1.
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
     def __init__(
         self,
-        ls=None,
-        ms=None,
-        ns=None,
-        amps=(1e-4,),
-        theta=None,
+        ls: tuple[int] = None,
+        ms: tuple[int] = None,
+        ns: tuple[int] = None,
+        amps: tuple[float] = (1e-4,),
+        theta: tuple[float] = None,
         pfuns=("Id",),
         pfuns_params=(0.0,),
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
     ):
         if ls is not None:
             n_modes = len(ls)
@@ -143,15 +162,6 @@ class ModesSin:
         else:
             assert len(pfuns_params) == n_modes
 
-        self._ls = ls
-        self._ms = ms
-        self._ns = ns
-        self._amps = amps
-        self._Lx = Lx
-        self._Ly = Ly
-        self._Lz = Lz
-        self._theta = theta
-
         self._pfuns = []
         for pfun, params in zip(pfuns, pfuns_params):
             if pfun == "Id":
@@ -162,6 +172,19 @@ class ModesSin:
                 ]
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
+
+        self._ls = ls
+        self._ms = ms
+        self._ns = ns
+        self._amps = amps
+        self._Lx = Lx
+        self._Ly = Ly
+        self._Lz = Lz
+        self._theta = theta
+
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
 
     def __call__(self, x, y, z):
         val = 0.0
@@ -181,52 +204,52 @@ class ModesSin:
         return val
 
 
-class ModesCos:
+class ModesCos(Perturbation):
     r"""Cosinusoidal function in 3D.
 
     .. math::
 
         u(x, y, z) = \sum_{s} A_s \cos \left(l_s \frac{2\pi}{L_x} x + m_s \frac{2\pi}{L_y} y + n_s \frac{2\pi}{L_z} z \right) \,.
 
-    Can be used in logical space, where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
+    Can be used in logical space (use 'given_in_basis'), where :math:`x \to \eta_1,\, y\to \eta_2,\, z \to \eta_3`
     and :math:`L_x=L_y=L_z=1.0` (default).
 
     Parameters
     ----------
-    ls : tuple | list
+    ls : tuple[int]
         Mode numbers in x-direction (kx = l*2*pi/Lx).
 
-    ms : tuple | list
+    ms : tuple[int]
         Mode numbers in y-direction (ky = m*2*pi/Ly).
 
-    ns : tuple | list
+    ns : tuple[int]
         Mode numbers in z-direction (kz = n*2*pi/Lz).
 
-    amps : tuple | list
+    amps : tuple[float]
         Amplitude of each mode.
 
     Lx, Ly, Lz : float
         Domain lengths.
 
-    Note
-    ----
-    Example of use in a ``.yml`` parameter file::
+    given_in_basis : str
+        In which basis the perturbation is represented (see base class).
 
-        perturbations :
-            type : ModesCos
-            ModesCos :
-                comps :
-                    scalar_name : '0' # choices: null, 'physical', '0', '3'
-                    vector_name : [null , 'v', '2']  # choices: null, 'physical', '1', '2', 'v', 'norm'
-                ls :
-                    scalar_name: [1, 3] # two x-modes for scalar variable
-                    vector_name: [null, [0, 1], [4]] # two x-modes for 2nd comp. and one x-mode for third component of vector-valued variable
-                Lx : 7.853981633974483
-                Ly : 1.
-                Lz : 1.
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, ls=None, ms=None, ns=None, amps=(1e-4,), Lx=1.0, Ly=1.0, Lz=1.0):
+    def __init__(
+        self,
+        ls: tuple[int] = None,
+        ms: tuple[int] = None,
+        ns: tuple[int] = None,
+        amps: tuple[float] = (1e-4,),
+        Lx=1.0,
+        Ly=1.0,
+        Lz=1.0,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
         if ls is not None:
             n_modes = len(ls)
         elif ms is not None:
@@ -265,6 +288,10 @@ class ModesCos:
         self._Ly = Ly
         self._Lz = Lz
 
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
     def __call__(self, x, y, z):
         val = 0.0
 
@@ -276,7 +303,7 @@ class ModesCos:
         return val
 
 
-class CoaxialWaveguideElectric_r:
+class CoaxialWaveguideElectric_r(Perturbation):
     r"""Initializes function for Coaxial Waveguide electric field in radial direction.
 
     Solutions taken from TUM master thesis of Alicia Robles Pérez:
@@ -299,6 +326,10 @@ class CoaxialWaveguideElectric_r:
         self._a = a
         self._b = b
 
+        # use the setters
+        self.given_in_basis = "norm"
+        self.comp = 0
+
     def __call__(self, eta1, eta2, eta3):
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
@@ -313,7 +344,7 @@ class CoaxialWaveguideElectric_r:
         return val
 
 
-class CoaxialWaveguideElectric_theta:
+class CoaxialWaveguideElectric_theta(Perturbation):
     r"""
     Initializes funtion for Coaxial Waveguide electric field in the azimuthal direction.
 
@@ -337,6 +368,10 @@ class CoaxialWaveguideElectric_theta:
         self._a = a
         self._b = b
 
+        # use the setters
+        self.given_in_basis = "norm"
+        self.comp = 1
+
     def __call__(self, eta1, eta2, eta3):
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
@@ -349,7 +384,7 @@ class CoaxialWaveguideElectric_theta:
         return val
 
 
-class CoaxialWaveguideMagnetic:
+class CoaxialWaveguideMagnetic(Perturbation):
     r"""Initializes funtion for Coaxial Waveguide magnetic field in $z$-direction.
 
     Solutions taken from TUM master thesis of Alicia Robles Pérez:
@@ -372,6 +407,10 @@ class CoaxialWaveguideMagnetic:
         self._a = a
         self._b = b
 
+        # use the setters
+        self.given_in_basis = "norm"
+        self.comp = 2
+
     def __call__(self, eta1, eta2, eta3):
         val = 0.0
         r = eta1 * (self._r2 - self._r1) + self._r1
@@ -384,7 +423,7 @@ class CoaxialWaveguideMagnetic:
         return val
 
 
-class ModesCosCos:
+class ModesCosCos(Perturbation):
     r"""
 
     .. math::
@@ -409,6 +448,8 @@ class ModesCosCos:
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
     ):
         if ls is not None:
             n_modes = len(ls)
@@ -472,6 +513,10 @@ class ModesCosCos:
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
     def __call__(self, x, y, z):
         val = 0.0
         for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
@@ -484,7 +529,7 @@ class ModesCosCos:
         return val
 
 
-class ModesSinSin:
+class ModesSinSin(Perturbation):
     r"""
 
     .. math::
@@ -508,6 +553,8 @@ class ModesSinSin:
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
     ):
         if ls is not None:
             n_modes = len(ls)
@@ -571,6 +618,10 @@ class ModesSinSin:
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
     def __call__(self, x, y, z):
         val = 0.0
         for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
@@ -583,7 +634,7 @@ class ModesSinSin:
         return val
 
 
-class ModesSinCos:
+class ModesSinCos(Perturbation):
     r"""
 
     .. math::
@@ -607,6 +658,8 @@ class ModesSinCos:
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
     ):
         # number of modes
         if ls is not None:
@@ -672,6 +725,10 @@ class ModesSinCos:
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
     def __call__(self, x, y, z):
         val = 0.0
         for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
@@ -684,7 +741,7 @@ class ModesSinCos:
         return val
 
 
-class ModesCosSin:
+class ModesCosSin(Perturbation):
     r"""
 
     .. math::
@@ -708,6 +765,8 @@ class ModesCosSin:
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
     ):
         # number of modes
         if ls is not None:
@@ -773,6 +832,10 @@ class ModesCosSin:
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
     def __call__(self, x, y, z):
         val = 0.0
         for amp, l, m, thx, thy, pfun in zip(self._amps, self._ls, self._ms, self._theta_x, self._theta_y, self._pfuns):
@@ -785,7 +848,7 @@ class ModesCosSin:
         return val
 
 
-class TorusModesSin:
+class TorusModesSin(Perturbation):
     r"""Sinusoidal function in the periodic coordinates of a Torus.
 
     .. math::
@@ -806,7 +869,7 @@ class TorusModesSin:
         \end{aligned}
         \right.
 
-    Can only be defined in logical coordinates.
+    Can ony be used in logical space (use 'given_in_basis').
 
     Parameters
     ----------
@@ -825,40 +888,25 @@ class TorusModesSin:
     pfun_params : tuple | list
         Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
 
-    Note
-    ----
-    In the parameter .yml, use the following template in the section ``fluid/<species>``::
+    given_in_basis : str
+        In which basis the perturbation is represented (see base class).
 
-        perturbations :
-            type : TorusModesSin
-            TorusModesSin :
-                comps :
-                    n3 : null                     # choices: null, 'physical', '0', '3'
-                    u2 : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
-                    p3 : '0'                      # choices: null, 'physical', '0', '3'
-                ms :
-                    n3: null            # poloidal mode numbers
-                    u2: [[0], [0], [0]] # poloidal mode numbers
-                    p3: [0]             # poloidal mode numbers
-                ns :
-                    n3: null            # toroidal mode numbers
-                    u2: [[1], [1], [1]] # toroidal mode numbers
-                    p3: [1]             # toroidal mode numbers
-                amps :
-                    n3: null                        # amplitudes of each mode
-                    u2: [[0.001], [0.001], [0.001]] # amplitudes of each mode
-                    p3: [0.01]                      # amplitudes of each mode
-                pfuns :
-                    n3: null                        # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
-                    u2: [['sin'], ['sin'], ['exp']] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
-                    p3: [0.01]                      # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
-                pfun_params :
-                    n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
-                    u2: [2, null, [[0.5, 1.]]]    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
-                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos"
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, ms=None, ns=None, amps=(1e-4,), pfuns=("sin",), pfun_params=None):
+    def __init__(
+        self,
+        ms=None,
+        ns=None,
+        amps=(1e-4,),
+        pfuns=("sin",),
+        pfun_params=None,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        assert "physical" not in given_in_basis
+
         if ms is not None:
             n_modes = len(ms)
         elif ns is not None:
@@ -914,6 +962,10 @@ class TorusModesSin:
             else:
                 raise ValueError(f"Profile function {pfun} is not defined..")
 
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
     def __call__(self, eta1, eta2, eta3):
         val = 0.0
         for mi, ni, pfun, amp in zip(self._ms, self._ns, self._pfuns, self._amps):
@@ -928,7 +980,7 @@ class TorusModesSin:
         return val
 
 
-class TorusModesCos:
+class TorusModesCos(Perturbation):
     r"""Cosinusoidal function in the periodic coordinates of a Torus.
 
     .. math::
@@ -949,59 +1001,44 @@ class TorusModesCos:
         \end{aligned}
         \right.
 
-    Can only be defined in logical coordinates.
+    Can only be used in logical space (use 'given_in_basis').
 
     Parameters
     ----------
-    ms : tuple | list[int]
+    ms : tuple[int]
         Poloidal mode numbers.
 
-    ns : tuple | list[int]
+    ns : tuple[int]
         Toroidal mode numbers.
 
-    pfuns : tuple | list[str]
+    pfuns : tuple[str]
         "sin" or "cos" or "exp" to define the profile functions.
 
-    amps : tuple | list[float]
+    amps : tuple[float]
         Amplitudes of each mode (m_i, n_i).
 
     pfun_params : tuple | list
         Provides :math:`[r_0, \sigma]` parameters for each "exp" profile fucntion, and l_s for "sin" and "cos".
 
-    Note
-    ----
-    In the parameter .yml, use the following template in the section ``fluid/<species>``::
+    given_in_basis : str
+        In which basis the perturbation is represented (see base class).
 
-        perturbations :
-            type : TorusModesCos
-            TorusModesCos :
-                comps :
-                    n3 : null                     # choices: null, 'physical', '0', '3'
-                    u2 : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
-                    p3 : H1                       # choices: null, 'physical', '0', '3'
-                ms :
-                    n3: null            # poloidal mode numbers
-                    u2: [[0], [0], [0]] # poloidal mode numbers
-                    p3: [0]             # poloidal mode numbers
-                ns :
-                    n3: null            # toroidal mode numbers
-                    u2: [[1], [1], [1]] # toroidal mode numbers
-                    p3: [1]             # toroidal mode numbers
-                amps :
-                    n3: null                        # amplitudes of each mode
-                    u2: [[0.001], [0.001], [0.001]] # amplitudes of each mode
-                    p3: [0.01]                      # amplitudes of each mode
-                pfuns :
-                    n3: null                        # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
-                    u2: [['sin'], ['sin'], ['exp']] # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
-                    p3: [0.01]                      # profile function in eta1-direction ('sin' or 'cos' or 'exp' or 'd_exp')
-                pfun_params :
-                    n3: null                      # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
-                    u2: [2, null, [[0.5, 1.]]]    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
-                    p3: [0.01]                    # Provides [r_0, sigma] parameters for each "exp" and "d_exp" profile fucntion, and l_s for "sin" and "cos".
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, ms=None, ns=None, amps=(1e-4,), pfuns=("sin",), pfun_params=None):
+    def __init__(
+        self,
+        ms: tuple = (2,),
+        ns: tuple = (1,),
+        amps: tuple = (0.1,),
+        pfuns: tuple = ("sin",),
+        pfun_params=None,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        assert "physical" not in given_in_basis
+
         if ms is not None:
             n_modes = len(ms)
         elif ns is not None:
@@ -1061,6 +1098,10 @@ class TorusModesCos:
                     'Profile function must be "sin" or "cos" or "exp".',
                 )
 
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
+
     def __call__(self, eta1, eta2, eta3):
         val = 0.0
         for mi, ni, pfun, amp in zip(self._ms, self._ns, self._pfuns, self._amps):
@@ -1075,7 +1116,7 @@ class TorusModesCos:
         return val
 
 
-class Shear_x:
+class Shear_x(Perturbation):
     r"""Double shear layer in eta1 (-1 in outer regions, 1 in inner regions).
 
     .. math::
@@ -1092,24 +1133,28 @@ class Shear_x:
     delta : float
         Characteristic size of the shear layer
 
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``fluid/<species>``::
+    given_in_basis : str
+        In which basis the perturbation is represented (see base class).
 
-        perturbations :
-            type : Shear_x
-            Shear_x :
-                comps :
-                    rho3 : null                   # choices: null, 'physical', '0', '3'
-                    uv : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
-                    s3 : H1                       # choices: null, 'physical', '0', '3'
-                amp : 0.001 # amplitudes of each mode
-                delta : 0.03333 # characteristic size of the shear layer
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, amp=1e-4, delta=1 / 15):
+    def __init__(
+        self,
+        amp=1e-4,
+        delta=1 / 15,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+
         self._amp = amp
         self._delta = delta
+
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
 
     def __call__(self, e1, e2, e3):
         val = self._amp * (-np.tanh((e1 - 0.75) / self._delta) + np.tanh((e1 - 0.25) / self._delta) - 1)
@@ -1117,7 +1162,7 @@ class Shear_x:
         return val
 
 
-class Shear_y:
+class Shear_y(Perturbation):
     r"""Double shear layer in eta2 (-1 in outer regions, 1 in inner regions).
 
     .. math::
@@ -1134,24 +1179,28 @@ class Shear_y:
     delta : float
         Characteristic size of the shear layer
 
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``fluid/<species>``::
+    given_in_basis : str
+        In which basis the perturbation is represented (see base class).
 
-        perturbations :
-            type : Shear_y
-            Shear_y :
-                comps :
-                    rho3 : null                   # choices: null, 'physical', '0', '3'
-                    uv : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
-                    s3 : H1                       # choices: null, 'physical', '0', '3'
-                amp : 0.001 # amplitudes of each mode
-                delta : 0.03333 # characteristic size of the shear layer
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, amp=1e-4, delta=1 / 15):
+    def __init__(
+        self,
+        amp=1e-4,
+        delta=1 / 15,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+
         self._amp = amp
         self._delta = delta
+
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
 
     def __call__(self, e1, e2, e3):
         val = self._amp * (-np.tanh((e2 - 0.75) / self._delta) + np.tanh((e2 - 0.25) / self._delta) - 1)
@@ -1159,7 +1208,7 @@ class Shear_y:
         return val
 
 
-class Shear_z:
+class Shear_z(Perturbation):
     r"""Double shear layer in eta3 (-1 in outer regions, 1 in inner regions).
 
     .. math::
@@ -1176,24 +1225,28 @@ class Shear_z:
     delta : float
         Characteristic size of the shear layer
 
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``fluid/<species>``::
+    given_in_basis : str
+        In which basis the perturbation is represented (see base class).
 
-        perturbations :
-            type : Shear_y
-            Shear_y :
-                comps :
-                    rho3 : null                   # choices: null, 'physical', '0', '3'
-                    uv : ['physical', 'v', '2']   # choices: null, 'physical', '1', '2', 'v', 'norm'
-                    s3 : H1                       # choices: null, 'physical', '0', '3'
-                amp : 0.001 # amplitudes of each mode
-                delta : 0.03333 # characteristic size of the shear layer
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, amp=1e-4, delta=1 / 15):
+    def __init__(
+        self,
+        amp=1e-4,
+        delta=1 / 15,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+
         self._amp = amp
         self._delta = delta
+
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
 
     def __call__(self, e1, e2, e3):
         val = self._amp * (-np.tanh((e3 - 0.75) / self._delta) + np.tanh((e3 - 0.25) / self._delta) - 1)
@@ -1201,7 +1254,7 @@ class Shear_z:
         return val
 
 
-class Erf_z:
+class Erf_z(Perturbation):
     r"""Shear layer in eta3 (-1 in lower regions, 1 in upper regions).
 
     .. math::
@@ -1218,24 +1271,28 @@ class Erf_z:
     delta : float
         Characteristic size of the shear layer
 
-    Note
-    ----
-    In the parameter .yml, use the following in the section ``fluid/<species>``::
+    given_in_basis : str
+        In which basis the perturbation is represented (see base class).
 
-        perturbations :
-            type : Erf_z
-        Erf_z :
-            comps :
-                b2 : ['2', null, null] # choices: null, 'physical', '0', '3'
-            amp :
-                b2 : [0.001] # amplitudes of each mode
-            delta :
-                b2 : [0.02] # characteristic size of the shear layer
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, amp=1e-4, delta=1 / 15):
+    def __init__(
+        self,
+        amp=1e-4,
+        delta=1 / 15,
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+
         self._amp = amp
         self._delta = delta
+
+        # use the setters
+        self.given_in_basis = given_in_basis
+        self.comp = comp
 
     def __call__(self, e1, e2, e3):
         from scipy.special import erf
@@ -1245,7 +1302,7 @@ class Erf_z:
         return val
 
 
-class RestelliAnalyticSolutionVelocity:
+class RestelliAnalyticSolutionVelocity(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
     .. math::
@@ -1274,8 +1331,6 @@ class RestelliAnalyticSolutionVelocity:
 
     Parameters
     ----------
-    comp : string
-        Which component of the solution ('0', '1' or '2').
     a : float
         Minor radius of torus (default: 1.).
     R0 : float
@@ -1288,6 +1343,8 @@ class RestelliAnalyticSolutionVelocity:
         (default: 0.1)
     beta : float
         (default: 1.0)
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
 
     References
     ----------
@@ -1295,14 +1352,26 @@ class RestelliAnalyticSolutionVelocity:
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
-        self._comp = comp
+    def __init__(
+        self,
+        a=1.0,
+        R0=2.0,
+        B0=10.0,
+        Bp=12.5,
+        alpha=0.1,
+        beta=1.0,
+        comp: int = 0,
+    ):
         self._a = a
         self._R0 = R0
         self._B0 = B0
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
+
+        # use the setters
+        self.given_in_basis = "physical"
+        self.comp = comp
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
@@ -1326,20 +1395,20 @@ class RestelliAnalyticSolutionVelocity:
 
         # from cylindrical to cartesian:
 
-        if self._comp == "0":
+        if self.comp == 0:
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
-        elif self._comp == "1":
+        elif self.comp == 1:
             uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
-        elif self._comp == "2":
+        elif self.comp == 2:
             uz = uZ
             return uz
         else:
-            raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
+            raise ValueError(f"Invalid component '{self._comp}'. Must be 0, 1, or 2.")
 
 
-class RestelliAnalyticSolutionVelocity_2:
+class RestelliAnalyticSolutionVelocity_2(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
     .. math::
@@ -1368,8 +1437,6 @@ class RestelliAnalyticSolutionVelocity_2:
 
     Parameters
     ----------
-    comp : string
-        Which component of the solution ('0', '1' or '2').
     a : float
         Minor radius of torus (default: 1.).
     R0 : float
@@ -1382,6 +1449,8 @@ class RestelliAnalyticSolutionVelocity_2:
         (default: 0.1)
     beta : float
         (default: 1.0)
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
 
     References
     ----------
@@ -1389,14 +1458,26 @@ class RestelliAnalyticSolutionVelocity_2:
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
-        self._comp = comp
+    def __init__(
+        self,
+        a=1.0,
+        R0=2.0,
+        B0=10.0,
+        Bp=12.5,
+        alpha=0.1,
+        beta=1.0,
+        comp: int = 0,
+    ):
         self._a = a
         self._R0 = R0
         self._B0 = B0
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
+
+        # use the setter
+        self.given_in_basis = "physical"
+        self.comp = comp
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
@@ -1420,20 +1501,20 @@ class RestelliAnalyticSolutionVelocity_2:
 
         # from cylindrical to cartesian:
 
-        if self._comp == "0":
+        if self.comp == 0:
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
-        elif self._comp == "1":
+        elif self.comp == 1:
             uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
-        elif self._comp == "2":
+        elif self.comp == 2:
             uz = uZ
             return uz
         else:
             raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
 
 
-class RestelliAnalyticSolutionVelocity_3:
+class RestelliAnalyticSolutionVelocity_3(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
     .. math::
@@ -1462,8 +1543,6 @@ class RestelliAnalyticSolutionVelocity_3:
 
     Parameters
     ----------
-    comp : string
-        Which component of the solution ('0', '1' or '2').
     a : float
         Minor radius of torus (default: 1.).
     R0 : float
@@ -1476,6 +1555,8 @@ class RestelliAnalyticSolutionVelocity_3:
         (default: 0.1)
     beta : float
         (default: 1.0)
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
 
     References
     ----------
@@ -1483,14 +1564,26 @@ class RestelliAnalyticSolutionVelocity_3:
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
-        self._comp = comp
+    def __init__(
+        self,
+        a=1.0,
+        R0=2.0,
+        B0=10.0,
+        Bp=12.5,
+        alpha=0.1,
+        beta=1.0,
+        comp: int = 0,
+    ):
         self._a = a
         self._R0 = R0
         self._B0 = B0
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
+
+        # use the setters
+        self.given_in_basis = "physical"
+        self.comp = comp
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
@@ -1514,20 +1607,20 @@ class RestelliAnalyticSolutionVelocity_3:
 
         # from cylindrical to cartesian:
 
-        if self._comp == "0":
+        if self.comp == 0:
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
-        elif self._comp == "1":
+        elif self.comp == 1:
             uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
-        elif self._comp == "2":
+        elif self.comp == 2:
             uz = uZ
             return uz
         else:
             raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
 
 
-class RestelliAnalyticSolutionPotential:
+class RestelliAnalyticSolutionPotential(Perturbation):
     r"""Analytic solution :math:`\phi` of the system:
 
     .. math::
@@ -1583,6 +1676,9 @@ class RestelliAnalyticSolutionPotential:
         self._alpha = alpha
         self._beta = beta
 
+        # use the setter
+        self.given_in_basis = "physical"
+
     # equilibrium potential
     def __call__(self, x, y, z):
         """Equilibrium potential."""
@@ -1592,7 +1688,7 @@ class RestelliAnalyticSolutionPotential:
         return pp
 
 
-class ManufacturedSolutionVelocity:
+class ManufacturedSolutionVelocity(Perturbation):
     r"""Analytic solutions :math:`u` and :math:`u_e` of the system:
 
     .. math::
@@ -1624,13 +1720,24 @@ class ManufacturedSolutionVelocity:
         Defines the manufactured solution to be selected ('1D' or '2D').
     b0 : float
         Magnetic field (default: 1.0).
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, species="Ions", comp="0", dimension="1D", b0=1.0):
+    def __init__(
+        self,
+        species="Ions",
+        dimension="1D",
+        b0=1.0,
+        comp: int = 0,
+    ):
         self._b = b0
         self._species = species
-        self._comp = comp
         self._dimension = dimension
+
+        # use the setters
+        self.given_in_basis = "physical"
+        self.comp = comp
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
@@ -1651,11 +1758,11 @@ class ManufacturedSolutionVelocity:
             """z component"""
             uz = 0.0 * x
 
-            if self._comp == "0":
+            if self.comp == 0:
                 return ux
-            elif self._comp == "1":
+            elif self.comp == 1:
                 return uy
-            elif self._comp == "2":
+            elif self.comp == 2:
                 return uz
             else:
                 raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
@@ -1677,11 +1784,11 @@ class ManufacturedSolutionVelocity:
             """z component"""
             uz = 0.0 * x
 
-            if self._comp == "0":
+            if self.comp == 0:
                 return ux
-            if self._comp == "1":
+            if self.comp == 1:
                 return uy
-            if self._comp == "2":
+            if self.comp == 2:
                 return uz
             else:
                 raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
@@ -1690,7 +1797,7 @@ class ManufacturedSolutionVelocity:
             raise ValueError(f"Invalid species '{self._species}'. Must be 'Ions' or 'Electrons'.")
 
 
-class ManufacturedSolutionPotential:
+class ManufacturedSolutionPotential(Perturbation):
     r"""Analytic solution :math:`\phi` of the system:
 
     .. math::
@@ -1730,6 +1837,9 @@ class ManufacturedSolutionPotential:
         self._ab = b0
         self._dimension = dimension
 
+        # use the setter
+        self.given_in_basis = "physical"
+
     # equilibrium ion velocity
     def __call__(self, x, y, z):
         """Potential."""
@@ -1741,7 +1851,7 @@ class ManufacturedSolutionPotential:
         return phi
 
 
-class ManufacturedSolutionVelocity_2:
+class ManufacturedSolutionVelocity_2(Perturbation):
     r"""Analytic solutions :math:`u` and :math:`u_e` of the system:
 
     .. math::
@@ -1767,19 +1877,28 @@ class ManufacturedSolutionVelocity_2:
     ----------
     species : string
         'Ions' or 'Electrons'.
-    comp : string
-        Which component of the solution ('0', '1' or '2').
     dimension: string
         Defines the manufactured solution to be selected ('1D' or '2D').
     b0 : float
         Magnetic field (default: 1.0).
+    comp : int
+        Which component (0, 1 or 2) of vector is perturbed (=0 for scalar-valued functions)
     """
 
-    def __init__(self, species="Ions", comp="0", dimension="1D", b0=1.0):
+    def __init__(
+        self,
+        species="Ions",
+        dimension="1D",
+        b0=1.0,
+        comp: int = 0,
+    ):
         self._b = b0
         self._species = species
-        self._comp = comp
         self._dimension = dimension
+
+        # use the setters
+        self.given_in_basis = "physical"
+        self.comp = comp
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
@@ -1800,11 +1919,11 @@ class ManufacturedSolutionVelocity_2:
             """z component"""
             uz = 0.0 * x
 
-            if self._comp == "0":
+            if self.comp == 0:
                 return ux
-            elif self._comp == "1":
+            elif self.comp == 1:
                 return uy
-            elif self._comp == "2":
+            elif self.comp == 2:
                 return uz
             else:
                 raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
@@ -1826,11 +1945,11 @@ class ManufacturedSolutionVelocity_2:
             """z component"""
             uz = 0.0 * x
 
-            if self._comp == "0":
+            if self.comp == 0:
                 return ux
-            if self._comp == "1":
+            if self.comp == 1:
                 return uy
-            if self._comp == "2":
+            if self.comp == 2:
                 return uz
             else:
                 raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
@@ -1839,7 +1958,58 @@ class ManufacturedSolutionVelocity_2:
             raise ValueError(f"Invalid species '{self._species}'. Must be 'Ions' or 'Electrons'.")
 
 
-class TokamakManufacturedSolutionVelocity:
+class ITPA_density(Perturbation):
+    r"""ITPA radial density profile in `A. Könies et al. 2018  <https://iopscience.iop.org/article/10.1088/1741-4326/aae4e6>`_
+
+    .. math::
+
+        n(\eta_1) = n_0*c_3\exp\left[-\frac{c_2}{c_1}\tanh\left(\frac{\eta_1 - c_0}{c_2}\right)\right]\,.
+    """
+
+    def __init__(
+        self,
+        n0: float = 0.00720655,
+        c: tuple = (0.491230, 0.298228, 0.198739, 0.521298),
+        given_in_basis: GivenInBasis = "0",
+        comp: int = 0,
+    ):
+        """
+        Parameters
+        ----------
+        n0 : float
+            ITPA profile density
+
+        c : tuple | list
+            4 ITPA profile coefficients
+        """
+
+        assert len(c) == 4
+
+        self._n0 = n0
+        self._c = c
+
+        # use the setters
+        self.given_in_basis = "physical"
+        self.comp = comp
+
+    def __call__(self, eta1, eta2=None, eta3=None):
+        val = 0.0
+
+        if self._c[2] == 0.0:
+            val = self._c[3] - 0 * eta1
+        else:
+            val = (
+                self._n0
+                * self._c[3]
+                * np.exp(
+                    -self._c[2] / self._c[1] * np.tanh((eta1 - self._c[0]) / self._c[2]),
+                )
+            )
+
+        return val
+
+
+class TokamakManufacturedSolutionVelocity(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
     .. math::
@@ -1893,7 +2063,16 @@ class TokamakManufacturedSolutionVelocity:
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+    def __init__(
+        self,
+        comp=0,
+        a=1.0,
+        R0=2.0,
+        B0=10.0,
+        Bp=12.5,
+        alpha=0.1,
+        beta=1.0,
+    ):
         self._comp = comp
         self._a = a
         self._R0 = R0
@@ -1901,6 +2080,10 @@ class TokamakManufacturedSolutionVelocity:
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
+
+        # use the setters
+        self.given_in_basis = "physical"
+        self.comp = comp
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
@@ -1917,20 +2100,20 @@ class TokamakManufacturedSolutionVelocity:
 
         # from cylindrical to cartesian:
 
-        if self._comp == "0":
+        if self.comp == 0:
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
-        elif self._comp == "1":
+        elif self.comp == 1:
             uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
-        elif self._comp == "2":
+        elif self.comp == 2:
             uz = uZ
             return uz
         else:
             raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
 
 
-class TokamakManufacturedSolutionVelocity_1:
+class TokamakManufacturedSolutionVelocity_1(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
     .. math::
@@ -1984,7 +2167,16 @@ class TokamakManufacturedSolutionVelocity_1:
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+    def __init__(
+        self,
+        comp=0,
+        a=1.0,
+        R0=2.0,
+        B0=10.0,
+        Bp=12.5,
+        alpha=0.1,
+        beta=1.0,
+    ):
         self._comp = comp
         self._a = a
         self._R0 = R0
@@ -1992,6 +2184,10 @@ class TokamakManufacturedSolutionVelocity_1:
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
+
+        # use the setters
+        self.given_in_basis = "physical"
+        self.comp = comp
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
@@ -2008,20 +2204,20 @@ class TokamakManufacturedSolutionVelocity_1:
 
         # from cylindrical to cartesian:
 
-        if self._comp == "0":
+        if self.comp == 0:
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
-        elif self._comp == "1":
+        elif self.comp == 1:
             uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
-        elif self._comp == "2":
+        elif self.comp == 2:
             uz = uZ
             return uz
         else:
             raise ValueError(f"Invalid component '{self._comp}'. Must be '0', '1', or '2'.")
 
 
-class TokamakManufacturedSolutionVelocity_2:
+class TokamakManufacturedSolutionVelocity_2(Perturbation):
     r"""Analytic solution :math:`u=u_e` of the system:
 
     .. math::
@@ -2075,7 +2271,16 @@ class TokamakManufacturedSolutionVelocity_2:
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    def __init__(self, comp="0", a=1.0, R0=2.0, B0=10.0, Bp=12.5, alpha=0.1, beta=1.0):
+    def __init__(
+        self,
+        comp=0,
+        a=1.0,
+        R0=2.0,
+        B0=10.0,
+        Bp=12.5,
+        alpha=0.1,
+        beta=1.0,
+    ):
         self._comp = comp
         self._a = a
         self._R0 = R0
@@ -2083,6 +2288,10 @@ class TokamakManufacturedSolutionVelocity_2:
         self._Bp = Bp
         self._alpha = alpha
         self._beta = beta
+
+        # use the setters
+        self.given_in_basis = "physical"
+        self.comp = comp
 
     # equilibrium ion velocity
     def __call__(self, x, y, z):
@@ -2099,13 +2308,13 @@ class TokamakManufacturedSolutionVelocity_2:
 
         # from cylindrical to cartesian:
 
-        if self._comp == "0":
+        if self.comp == 0:
             ux = np.cos(phi) * uR - R * np.sin(phi) * uphi
             return ux
-        elif self._comp == "1":
+        elif self.comp == 1:
             uy = -np.sin(phi) * uR - R * np.cos(phi) * uphi
             return uy
-        elif self._comp == "2":
+        elif self.comp == 2:
             uz = uZ
             return uz
         else:

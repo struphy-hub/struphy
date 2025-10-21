@@ -3,8 +3,11 @@ from matplotlib import pyplot as plt
 from psydac.ddm.mpi import MockComm
 from psydac.ddm.mpi import mpi as MPI
 
+from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry import domains
+from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
+from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 from struphy.utils.arrays import xp as np
 
 
@@ -37,55 +40,47 @@ def test_sph_evaluation_1d(
     domain = domain_class(**dom_params)
 
     if tesselation:
-        loading = "tesselation"
-        loading_params = {"n_quad": 1}
         if kernel == "trigonometric_1d" and derivative == 1:
             ppb = 100
         else:
             ppb = 4
+        loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
     else:
-        loading = "pseudo_random"
-        loading_params = {"seed": 223}
         if derivative == 0:
             ppb = 1000
         else:
             ppb = 20000
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
 
     # background
-    cst_vel = {"density_profile": "constant", "n": 1.5}
-    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    background = ConstantVelocity(n=1.5, density_profile="constant")
+    background.domain = domain
 
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
-    modes = {"ModesCos": mode_params}
-    pert_params = {"n": modes}
+    pert = {"n": perturbations.ModesCos(ls=(1,), amps=(1e-0,))}
 
     if derivative == 0:
         fun_exact = lambda e1, e2, e3: 1.5 + np.cos(2 * np.pi * e1)
     else:
         fun_exact = lambda e1, e2, e3: -2 * np.pi * np.sin(2 * np.pi * e1)
 
-    # boundary conditions
-    bc_sph = [bc_x, "periodic", "periodic"]
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=1.0,
+        domain=domain,
+        background=background,
+        perturbations=pert,
+        n_as_volume_form=True,
+    )
 
     # eval points
     eta1 = np.linspace(0, 1.0, eval_pts)
     eta2 = np.array([0.0])
     eta3 = np.array([0.0])
-
-    # particles object
-    particles = ParticlesSPH(
-        comm_world=comm,
-        ppb=ppb,
-        boxes_per_dim=boxes_per_dim,
-        bc_sph=bc_sph,
-        bufsize=1.0,
-        loading=loading,
-        loading_params=loading_params,
-        domain=domain,
-        bckgr_params=bckgr_params,
-        pert_params=pert_params,
-        verbose=False,
-    )
 
     particles.draw_markers(sort=False, verbose=False)
     if comm is not None:
@@ -169,20 +164,18 @@ def test_sph_evaluation_2d(
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
 
-    loading = "tesselation"
-    loading_params = {"n_quad": 1}
     if kernel == "trigonometric_2d" and derivative != 0:
         ppb = 100
     else:
         ppb = 16
 
-    # background
-    cst_vel = {"density_profile": "constant", "n": 1.5}
-    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
 
-    mode_params = {"given_in_basis": "0", "ls": [1], "ms": [1], "amps": [1.0]}
-    modes = {"ModesCosCos": mode_params}
-    pert_params = {"n": modes}
+    # background
+    background = ConstantVelocity(n=1.5, density_profile="constant")
+    background.domain = domain
+
+    pert = {"n": perturbations.ModesCosCos(ls=(1,), ms=(1,), amps=(1e-0,))}
 
     if derivative == 0:
         fun_exact = lambda e1, e2, e3: 1.5 + np.cos(2 * np.pi * e1) * np.cos(2 * np.pi * e2)
@@ -192,7 +185,7 @@ def test_sph_evaluation_2d(
         fun_exact = lambda e1, e2, e3: -2 * np.pi * np.cos(2 * np.pi * e1) * np.sin(2 * np.pi * e2)
 
     # boundary conditions
-    bc_sph = [bc_x, bc_y, "periodic"]
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
 
     # eval points
     eta1 = np.linspace(0, 1.0, eval_pts)
@@ -202,15 +195,14 @@ def test_sph_evaluation_2d(
     # particles object
     particles = ParticlesSPH(
         comm_world=comm,
-        ppb=ppb,
-        boxes_per_dim=boxes_per_dim,
-        bc_sph=bc_sph,
-        bufsize=1.0,
-        loading=loading,
         loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=1.0,
         domain=domain,
-        bckgr_params=bckgr_params,
-        pert_params=pert_params,
+        background=background,
+        perturbations=pert,
+        n_as_volume_form=True,
         verbose=False,
     )
 
@@ -296,16 +288,16 @@ def test_sph_evaluation_3d(
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
 
-    loading = "tesselation"
-    loading_params = {"n_quad": 1}
     if kernel in ("trigonometric_3d", "linear_isotropic_3d") and derivative != 0:
         ppb = 100
     else:
         ppb = 64
 
+    loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+
     # background
-    cst_vel = {"density_profile": "constant", "n": 1.5}
-    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    background = ConstantVelocity(n=1.5, density_profile="constant")
+    background.domain = domain
 
     if derivative == 0:
         fun_exact = lambda e1, e2, e3: 1.5 + 0.0 * e1
@@ -313,7 +305,7 @@ def test_sph_evaluation_3d(
         fun_exact = lambda e1, e2, e3: 0.0 * e1
 
     # boundary conditions
-    bc_sph = [bc_x, bc_y, bc_z]
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, bc_z))
 
     # eval points
     eta1 = np.linspace(0, 1.0, eval_pts)
@@ -323,15 +315,13 @@ def test_sph_evaluation_3d(
     # particles object
     particles = ParticlesSPH(
         comm_world=comm,
-        ppb=ppb,
-        boxes_per_dim=boxes_per_dim,
-        bc_sph=bc_sph,
-        bufsize=2.0,
-        loading=loading,
         loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=2.0,
         domain=domain,
-        bckgr_params=bckgr_params,
-        # pert_params=pert_params,
+        background=background,
+        n_as_volume_form=True,
         verbose=False,
     )
 
@@ -419,30 +409,23 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
     domain = domain_class(**dom_params)
 
     if tesselation:
-        loading = "tesselation"
-        loading_params = {"n_quad": 1}
-        # ppbs = [5000, 10000, 15000, 20000, 25000]
         ppbs = [4, 8, 16, 32, 64]
         Nps = [None] * len(ppbs)
     else:
-        loading = "pseudo_random"
-        loading_params = {"seed": 1607}
         Nps = [(2**k) * 10**3 for k in range(-2, 9)]
         ppbs = [None] * len(Nps)
 
     # background
-    cst_vel = {"density_profile": "constant", "n": 1.5}
-    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    background = ConstantVelocity(n=1.5, density_profile="constant")
+    background.domain = domain
 
-    # perturbation
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [-1e-0]}
+    # perturbation]}
     if bc_x in ("periodic", "fixed"):
         fun_exact = lambda e1, e2, e3: 1.5 - np.sin(2 * np.pi * e1)
-        modes = {"ModesSin": mode_params}
+        pert = {"n": perturbations.ModesSin(ls=(1,), amps=(-1e-0,))}
     elif bc_x == "mirror":
         fun_exact = lambda e1, e2, e3: 1.5 - np.cos(2 * np.pi * e1)
-        modes = {"ModesCos": mode_params}
-    pert_params = {"n": modes}
+        pert = {"n": perturbations.ModesCos(ls=(1,), amps=(-1e-0,))}
 
     # exact solution
     eta1 = np.linspace(0, 1.0, eval_pts)  # add offset for non-periodic boundary conditions, TODO: implement Neumann
@@ -451,21 +434,27 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
     ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
     exact_eval = fun_exact(ee1, ee2, ee3)
 
+    # boundary conditions
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+
     # loop
     err_vec = []
     for Np, ppb in zip(Nps, ppbs):
+        if tesselation:
+            loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+        else:
+            loading_params = LoadingParameters(Np=Np, seed=1607)
+
         particles = ParticlesSPH(
             comm_world=comm,
-            Np=Np,
-            ppb=ppb,
-            boxes_per_dim=boxes_per_dim,
-            bc_sph=[bc_x, "periodic", "periodic"],
-            bufsize=1.0,
-            loading=loading,
             loading_params=loading_params,
+            boundary_params=boundary_params,
+            boxes_per_dim=boxes_per_dim,
+            bufsize=1.0,
             domain=domain,
-            bckgr_params=bckgr_params,
-            pert_params=pert_params,
+            background=background,
+            perturbations=pert,
+            n_as_volume_form=True,
             verbose=False,
         )
 
@@ -539,28 +528,25 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
     domain = domain_class(**dom_params)
 
     if tesselation:
-        loading = "tesselation"
-        loading_params = {"seed": 1607}
         Np = None
         ppb = 160
+        loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
     else:
-        loading = "pseudo_random"
-        loading_params = {"seed": 1607}
         Np = 160000
         ppb = None
+        loading_params = LoadingParameters(Np=Np, ppb=ppb, seed=1607)
 
-    cst_vel = {"density_profile": "constant", "n": 1.5}
-    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    # background
+    background = ConstantVelocity(n=1.5, density_profile="constant")
+    background.domain = domain
 
     # perturbation
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [-1e-0]}
     if bc_x in ("periodic", "fixed"):
         fun_exact = lambda e1, e2, e3: 1.5 - np.sin(2 * np.pi * e1)
-        modes = {"ModesSin": mode_params}
+        pert = {"n": perturbations.ModesSin(ls=(1,), amps=(-1e-0,))}
     elif bc_x == "mirror":
         fun_exact = lambda e1, e2, e3: 1.5 - np.cos(2 * np.pi * e1)
-        modes = {"ModesCos": mode_params}
-    pert_params = {"n": modes}
+        pert = {"n": perturbations.ModesCos(ls=(1,), amps=(-1e-0,))}
 
     # exact solution
     eta1 = np.linspace(0, 1.0, eval_pts)  # add offset for non-periodic boundary conditions, TODO: implement Neumann
@@ -569,22 +555,23 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
     ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
     exact_eval = fun_exact(ee1, ee2, ee3)
 
-    # parameters
+    # boundary conditions
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+
+    # loop
     h_vec = [((2**k) * 10**-3 * 0.25) for k in range(2, 12)]
     err_vec = []
     for h1 in h_vec:
         particles = ParticlesSPH(
             comm_world=comm,
-            Np=Np,
-            ppb=ppb,
-            boxes_per_dim=boxes_per_dim,
-            bc_sph=[bc_x, "periodic", "periodic"],
-            bufsize=1.0,
-            loading=loading,
             loading_params=loading_params,
+            boundary_params=boundary_params,
+            boxes_per_dim=boxes_per_dim,
+            bufsize=1.0,
             domain=domain,
-            bckgr_params=bckgr_params,
-            pert_params=pert_params,
+            background=background,
+            perturbations=pert,
+            n_as_volume_form=True,
             verbose=False,
         )
 
@@ -659,30 +646,23 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
     domain = domain_class(**dom_params)
 
     if tesselation:
-        loading = "tesselation"
-        loading_params = {"n_quad": 1}
-        # ppbs = [5000, 10000, 15000, 20000, 25000]
         ppbs = [4, 8, 16, 32, 64]
         Nps = [None] * len(ppbs)
-
     else:
-        loading = "pseudo_random"
-        loading_params = {"seed": 1607}
         Nps = [(2**k) * 10**3 for k in range(-2, 9)]
         ppbs = [None] * len(Nps)
 
-    cst_vel = {"density_profile": "constant", "n": 1.5}
-    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    # background
+    background = ConstantVelocity(n=1.5, density_profile="constant")
+    background.domain = domain
 
     # perturbation
-    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [-1e-0]}
     if bc_x in ("periodic", "fixed"):
         fun_exact = lambda e1, e2, e3: 1.5 - np.sin(2 * np.pi * e1)
-        modes = {"ModesSin": mode_params}
+        pert = {"n": perturbations.ModesSin(ls=(1,), amps=(-1e-0,))}
     elif bc_x == "mirror":
         fun_exact = lambda e1, e2, e3: 1.5 - np.cos(2 * np.pi * e1)
-        modes = {"ModesCos": mode_params}
-    pert_params = {"n": modes}
+        pert = {"n": perturbations.ModesCos(ls=(1,), amps=(-1e-0,))}
 
     # exact solution
     eta1 = np.linspace(0, 1.0, eval_pts)
@@ -691,23 +671,29 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
     ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
     exact_eval = fun_exact(ee1, ee2, ee3)
 
+    # boundary conditions
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+
     h_arr = [((2**k) * 10**-3 * 0.25) for k in range(2, 12)]
     err_vec = []
     for h in h_arr:
         err_vec += [[]]
         for Np, ppb in zip(Nps, ppbs):
+            if tesselation:
+                loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+            else:
+                loading_params = LoadingParameters(Np=Np, seed=1607)
+
             particles = ParticlesSPH(
                 comm_world=comm,
-                Np=Np,
-                ppb=ppb,
-                boxes_per_dim=boxes_per_dim,
-                bc_sph=[bc_x, "periodic", "periodic"],
-                bufsize=1.0,
-                loading=loading,
                 loading_params=loading_params,
+                boundary_params=boundary_params,
+                boxes_per_dim=boxes_per_dim,
+                bufsize=1.0,
                 domain=domain,
-                bckgr_params=bckgr_params,
-                pert_params=pert_params,
+                background=background,
+                perturbations=pert,
+                n_as_volume_form=True,
                 verbose=False,
             )
 
@@ -808,39 +794,32 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
     domain = domain_class(**dom_params)
 
     if tesselation:
-        loading = "tesselation"
-        loading_params = {"n_quad": 1}
         ppbs = [4, 8, 16, 32, 64, 200]
         Nps = [None] * len(ppbs)
     else:
-        loading = "pseudo_random"
-        loading_params = {"seed": 1607}
         Nps = [(2**k) * 10**3 for k in range(-2, 9)]
         ppbs = [None] * len(Nps)
 
-    cst_vel = {"density_profile": "constant", "n": 1.5}
-    bckgr_params = {"ConstantVelocity": cst_vel, "pforms": ["vol", None]}
+    # background
+    background = ConstantVelocity(n=1.5, density_profile="constant")
+    background.domain = domain
 
     # perturbation
-    mode_params = {"given_in_basis": "0", "ls": [1], "ms": [1], "amps": [-1e-0]}
-
     if bc_x in ("periodic", "fixed"):
         if bc_y in ("periodic", "fixed"):
             fun_exact = lambda x, y, z: 1.5 - np.sin(2 * np.pi / Lx * x) * np.sin(2 * np.pi / Ly * y)
-            modes = {"ModesSinSin": mode_params}
+            pert = {"n": perturbations.ModesSinSin(ls=(1,), ms=(1,), amps=(-1e-0,))}
         elif bc_y == "mirror":
             fun_exact = lambda x, y, z: 1.5 - np.sin(2 * np.pi / Lx * x) * np.cos(2 * np.pi / Ly * y)
-            modes = {"ModesSinCos": mode_params}
+            pert = {"n": perturbations.ModesSinCos(ls=(1,), ms=(1,), amps=(-1e-0,))}
 
     elif bc_x == "mirror":
         if bc_y in ("periodic", "fixed"):
             fun_exact = lambda x, y, z: 1.5 - np.cos(2 * np.pi / Lx * x) * np.sin(2 * np.pi / Ly * y)
-            modes = {"ModesCosSin": mode_params}
+            pert = {"n": perturbations.ModesCosSin(ls=(1,), ms=(1,), amps=(-1e-0,))}
         elif bc_y == "mirror":
             fun_exact = lambda x, y, z: 1.5 - np.cos(2 * np.pi / Lx * x) * np.cos(2 * np.pi / Ly * y)
-            modes = {"ModesCosCos": mode_params}
-
-    pert_params = {"n": modes}
+            pert = {"n": perturbations.ModesCosCos(ls=(1,), ms=(1,), amps=(-1e-0,))}
 
     # exact solution
     eta1 = np.linspace(0, 1.0, 41)
@@ -850,23 +829,28 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
     x, y, z = domain(eta1, eta2, eta3)
     exact_eval = fun_exact(x, y, z)
 
+    # boundary conditions
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
+
     err_vec = []
     for Np, ppb in zip(Nps, ppbs):
+        if tesselation:
+            loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
+        else:
+            loading_params = LoadingParameters(Np=Np, seed=1607)
+
         particles = ParticlesSPH(
             comm_world=comm,
-            Np=Np,
-            ppb=ppb,
+            loading_params=loading_params,
+            boundary_params=boundary_params,
             boxes_per_dim=boxes_per_dim,
-            bc_sph=[bc_x, bc_y, "periodic"],
             bufsize=1.0,
             box_bufsize=4.0,
-            loading=loading,
-            loading_params=loading_params,
             domain=domain,
-            bckgr_params=bckgr_params,
-            pert_params=pert_params,
+            background=background,
+            perturbations=pert,
+            n_as_volume_form=True,
             verbose=False,
-            mpi_dims_mask=[True, False, False],
         )
         if rank == 0:
             print(f"{particles.domain_array}")
@@ -886,11 +870,6 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         else:
             all_eval = np.zeros_like(test_eval)
             comm.Allreduce(test_eval, all_eval, op=MPI.SUM)
-
-        # if rank == 0:
-        #     print(f"{all_eval.squeeze().shape}")
-        #     print(f"{all_eval.squeeze()[0]}")
-        #     print(f"{all_eval.squeeze().T[0]}")
 
         # error in max-norm
         diff = np.max(np.abs(all_eval - exact_eval)) / np.max(np.abs(exact_eval))
@@ -933,17 +912,17 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
 
 
 if __name__ == "__main__":
-    # test_sph_evaluation_1d(
-    #     (24, 1, 1),
-    #     "trigonometric_1d",
-    #     # "gaussian_1d",
-    #     1,
-    #     "periodic",
-    #     # "mirror",
-    #     10,
-    #     tesselation=True,
-    #     show_plot=True
-    # )
+    test_sph_evaluation_1d(
+        (24, 1, 1),
+        "trigonometric_1d",
+        # "gaussian_1d",
+        1,
+        # "periodic",
+        "mirror",
+        16,
+        tesselation=False,
+        show_plot=True,
+    )
 
     # test_sph_evaluation_2d(
     #     (12, 12, 1),
@@ -974,7 +953,7 @@ if __name__ == "__main__":
     # test_evaluation_SPH_h_convergence_1d((12,1,1), "periodic", eval_pts=16, tesselation=True, show_plot=True)
     # test_evaluation_mc_Np_and_h_convergence_1d((12,1,1),"mirror", eval_pts=16, tesselation = False,  show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((24, 24, 1), "periodic", "periodic",  tesselation=True, show_plot=True)
-    test_evaluation_SPH_Np_convergence_2d((24, 24, 1), "periodic", "fixed", tesselation=True, show_plot=True)
+    # test_evaluation_SPH_Np_convergence_2d((24, 24, 1), "periodic", "fixed", tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "periodic", tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "fixed", "fixed",   tesselation=True, show_plot=True)
     # test_evaluation_SPH_Np_convergence_2d((32, 32, 1), "mirror", "mirror",  tesselation=True, show_plot=True)

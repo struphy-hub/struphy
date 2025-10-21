@@ -1,6 +1,8 @@
+from typing import get_args
+
 import pytest
 
-from struphy.ode.utils import ButcherTableau
+from struphy.ode.utils import OptsButcher
 
 
 @pytest.mark.parametrize(
@@ -13,7 +15,7 @@ from struphy.ode.utils import ButcherTableau
         ("1", "0", "2"),
     ],
 )
-@pytest.mark.parametrize("algo", ButcherTableau.available_methods())
+@pytest.mark.parametrize("algo", get_args(OptsButcher))
 def test_exp_growth(spaces, algo, show_plots=False):
     """Solve dy/dt = omega*y for different feec variables y and with all available solvers
     from the ButcherTableau."""
@@ -25,6 +27,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.ode.solvers import ODEsolverFEEC
+    from struphy.ode.utils import ButcherTableau
     from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
@@ -98,9 +101,10 @@ def test_exp_growth(spaces, algo, show_plots=False):
         vector_field[var] = f
 
     print(f"{vector_field = }")
-    print(f"{algo = }")
+    butcher = ButcherTableau(algo=algo)
+    print(f"{butcher = }")
 
-    solver = ODEsolverFEEC(vector_field, algo=algo)
+    solver = ODEsolverFEEC(vector_field, butcher=butcher)
 
     hs = [0.1]
     n_hs = 6
