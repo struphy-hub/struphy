@@ -185,7 +185,7 @@ def run(
                 clone_config.print_particle_config()
 
     model.clone_config = clone_config
-    comm.Barrier()
+    Barrier()
 
     ## configure model instance
 
@@ -226,7 +226,7 @@ def run(
     if rank < 32:
         if rank == 0:
             print("")
-        comm.Barrier()
+        Barrier()
         print(f"Rank {rank}: executing main.run() for model {model_name} ...")
 
     if size > 32 and rank == 32:
