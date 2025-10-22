@@ -4,6 +4,7 @@ import copy
 from dataclasses import dataclass
 from typing import Callable, Literal, get_args
 
+import cunumpy as xp
 from line_profiler import profile
 from numpy import array, polynomial, random
 from psydac.ddm.mpi import mpi as MPI
@@ -30,7 +31,6 @@ from struphy.pic.pushing import eval_kernels_gc, pusher_kernels, pusher_kernels_
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 
@@ -100,7 +100,7 @@ class PushEta(Propagator):
         # define algorithm
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp
+        import cunumpy as xp
 
         butcher._a = xp.diag(butcher.a, k=-1)
         butcher._a = xp.concatenate([xp.asarray(butcher.a), xp.array([0.0])])
@@ -158,7 +158,7 @@ class PushVxB(Propagator):
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable | SPHVariable)
-            assert new.space in ("Particles6D", "ParticlesSPH")
+            assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
             self._ions = new
 
     def __init__(self):
@@ -289,7 +289,7 @@ class PushVinEfield(Propagator):
         @var.setter
         def var(self, new):
             assert isinstance(new, PICVariable | SPHVariable)
-            assert new.space in ("Particles6D", "ParticlesSPH")
+            assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
             self._var = new
 
     def __init__(self):
@@ -842,7 +842,7 @@ class PushGuidingCenterBxEstar(Propagator):
             else:
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
-            from struphy.utils.arrays import xp
+            import cunumpy as xp
 
             butcher._a = xp.diag(butcher.a, k=-1)
             butcher._a = xp.concatenate([xp.asarray(butcher.a), xp.array([0.0])])
@@ -1290,7 +1290,7 @@ class PushGuidingCenterParallel(Propagator):
             else:
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
-            from struphy.utils.arrays import xp
+            import cunumpy as xp
 
             butcher._a = xp.diag(butcher.a, k=-1)
             butcher._a = xp.concatenate([xp.asarray(butcher.a), xp.array([0.0])])
@@ -1432,7 +1432,7 @@ class PushDeterministicDiffusion(Propagator):
         # choose algorithm
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp
+        import cunumpy as xp
 
         self._butcher._a = xp.diag(self._butcher.a, k=-1)
         self._butcher._a = xp.array(list(self._butcher.a) + [0.0])
@@ -1566,7 +1566,7 @@ class PushRandomDiffusion(Propagator):
 
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp
+        import cunumpy as xp
 
         self._butcher._a = xp.diag(self._butcher.a, k=-1)
         self._butcher._a = xp.array(list(self._butcher.a) + [0.0])

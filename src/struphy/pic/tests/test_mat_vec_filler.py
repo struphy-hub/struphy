@@ -1,6 +1,5 @@
+import cunumpy as xp
 import pytest
-
-from struphy.utils.arrays import xp
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])

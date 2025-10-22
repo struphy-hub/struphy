@@ -14,6 +14,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     """
     from time import time
 
+    import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
@@ -24,7 +25,6 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
-    from struphy.utils.arrays import xp
 
     # mpi communicator
     MPI_COMM = MPI.COMM_WORLD
@@ -464,6 +464,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
+    import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
@@ -474,7 +475,6 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     from struphy.fields_background.equils import ScrewPinch
     from struphy.geometry import domains
     from struphy.polar.basic import PolarVector
-    from struphy.utils.arrays import xp
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -726,7 +726,7 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
     TODO
     """
 
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     if verbose:
         if MPI_COMM is not None:

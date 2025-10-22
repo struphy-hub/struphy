@@ -28,12 +28,10 @@ for name, obj in inspect.getmembers(fluid):
 if rank == 0:
     print(f"\n{fluid_models = }")
 
-kinetic_models = [
-    "VlasovAmpereOneSpecies",
-]
-# for name, obj in inspect.getmembers(kinetic):
-#     if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
-#         kinetic_models += [name]
+kinetic_models = []
+for name, obj in inspect.getmembers(kinetic):
+    if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
+        kinetic_models += [name]
 if rank == 0:
     print(f"\n{kinetic_models = }")
 

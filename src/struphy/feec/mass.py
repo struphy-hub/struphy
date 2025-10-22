@@ -1,6 +1,7 @@
 import inspect
 from copy import deepcopy
 
+import cunumpy as xp
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.ddm.mpi import mpi as MPI
 from psydac.fem.tensor import TensorFemSpace
@@ -16,7 +17,6 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities import RotationMatrix
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 

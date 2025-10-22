@@ -6,9 +6,8 @@
 Modules to assemble discrete derivatives.
 """
 
+import cunumpy as xp
 import scipy.sparse as spa
-
-from struphy.utils.arrays import xp
 
 
 # ================== 1d incident matrix =======================

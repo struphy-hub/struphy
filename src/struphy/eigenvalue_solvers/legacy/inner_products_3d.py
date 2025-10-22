@@ -6,10 +6,10 @@
 Modules to compute inner products with given functions in 3D.
 """
 
+import cunumpy as xp
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_3d as ker
-from struphy.utils.arrays import xp
 
 
 # ================ inner product in V0 ===========================

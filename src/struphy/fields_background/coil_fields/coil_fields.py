@@ -1,6 +1,7 @@
+import cunumpy as xp
+
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.coil_fields.base import CoilMagneticField, load_csv_data
-from struphy.utils.arrays import xp
 
 
 class RatGUI(CoilMagneticField):
