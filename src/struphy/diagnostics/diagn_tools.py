@@ -10,7 +10,7 @@ from scipy.signal import argrelextrema
 from tqdm import tqdm
 
 from struphy.dispersion_relations import analytic
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 def power_spectrum_2d(

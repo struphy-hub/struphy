@@ -38,7 +38,7 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
     """
 
     import struphy.bsplines.bsplines as bsp
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # greville points in radial direction (s)
     gN_1 = bsp.greville(space.T[0], space.p[0], space.spl_kind[0])
@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
     import yaml
 
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # parse arguments
     parser = argparse.ArgumentParser(

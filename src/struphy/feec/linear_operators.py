@@ -10,7 +10,7 @@ from scipy import sparse
 
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class LinOpWithTransp(LinearOperator):

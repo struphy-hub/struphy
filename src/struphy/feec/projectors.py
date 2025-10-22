@@ -37,7 +37,7 @@ from struphy.fields_background.equils import set_defaults
 from struphy.kernel_arguments.local_projectors_args_kernels import LocalProjectorsArguments
 from struphy.polar.basic import PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class CommutingProjector:

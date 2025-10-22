@@ -19,7 +19,7 @@ from struphy.models.base import StruphyModel, setup_derham
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class ParamsIn:

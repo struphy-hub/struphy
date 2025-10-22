@@ -29,7 +29,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
     from struphy.models.variables import FEECVariable
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

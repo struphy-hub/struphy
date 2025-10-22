@@ -12,7 +12,7 @@ from struphy.geometry.base import (
     interp_mapping,
 )
 from struphy.geometry.utilities import field_line_tracing
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class Tokamak(PoloidalSplineTorus):

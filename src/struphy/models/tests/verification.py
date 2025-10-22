@@ -11,7 +11,7 @@ from scipy.special import jv, yn
 
 import struphy
 from struphy.post_processing import pproc_struphy
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 def VlasovAmpereOneSpecies_weakLandau(

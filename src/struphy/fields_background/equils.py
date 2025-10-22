@@ -28,7 +28,7 @@ from struphy.fields_background.base import (
     NumericalMHDequilibrium,
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
-from struphy.utils.arrays import xp
+import cunumpy as xp
 from struphy.utils.utils import read_state, subp_run
 
 

@@ -10,7 +10,7 @@ from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
 from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 @pytest.mark.parametrize("ppb", [8, 12])

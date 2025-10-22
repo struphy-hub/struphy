@@ -47,7 +47,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         LoadingParameters,
         WeightsParameters,
     )
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # Set seed
     seed = 1234
@@ -280,7 +280,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         LoadingParameters,
         WeightsParameters,
     )
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # Set seed
     seed = 1234
@@ -477,7 +477,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         LoadingParameters,
         WeightsParameters,
     )
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # Set seed
     seed = 1234
@@ -774,7 +774,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         LoadingParameters,
         WeightsParameters,
     )
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # Set seed
     seed = 1234

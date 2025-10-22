@@ -5,7 +5,7 @@ from struphy.fields_background.generic import (
     GenericCartesianFluidEquilibrium,
     GenericCartesianFluidEquilibriumWithB,
 )
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 def test_generic_equils(show=False):

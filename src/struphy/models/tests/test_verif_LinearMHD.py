@@ -11,7 +11,7 @@ from struphy.initial import perturbations
 from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
 from struphy.kinetic_background import maxwellians
 from struphy.topology import grids
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 test_folder = os.path.join(os.getcwd(), "verification_tests")
 

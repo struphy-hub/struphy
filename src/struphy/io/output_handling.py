@@ -3,7 +3,7 @@ import os
 
 import h5py
 
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class DataContainer:

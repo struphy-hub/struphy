@@ -16,7 +16,7 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities import RotationMatrix
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.arrays import xp
+import cunumpy as xp
 from struphy.utils.pyccel import Pyccelkernel
 
 

@@ -11,7 +11,7 @@ def test_maxwellian_3d_uniform(Nel, show_plot=False):
     import matplotlib.pyplot as plt
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
     e2 = xp.linspace(0.0, 1.0, Nel[1])
@@ -97,7 +97,7 @@ def test_maxwellian_3d_perturbed(Nel, show_plot=False):
 
     from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
     v1 = xp.linspace(-5.0, 5.0, 128)
@@ -263,7 +263,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
     from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
     from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
     e2 = xp.linspace(0.0, 1.0, Nel[1])
@@ -669,7 +669,7 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
     import matplotlib.pyplot as plt
 
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
     e2 = xp.linspace(0.0, 1.0, Nel[1])
@@ -763,7 +763,7 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
 
     from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
     v1 = xp.linspace(-5.0, 5.0, 128)
@@ -1025,7 +1025,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
     from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
     e2 = xp.linspace(0.0, 1.0, Nel[1])
@@ -1423,7 +1423,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     from struphy.geometry import domains
     from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
     e2 = xp.linspace(0.0, 1.0, Nel[1])

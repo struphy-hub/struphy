@@ -21,7 +21,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     from struphy.feec.preconditioner import MassMatrixPreconditioner
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     MPI_COMM = MPI.COMM_WORLD
 

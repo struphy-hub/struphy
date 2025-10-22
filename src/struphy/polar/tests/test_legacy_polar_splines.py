@@ -12,7 +12,7 @@ def test_polar_splines_2D(plot=False):
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.geometry import domains
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # parameters
     # number of elements (number of elements in angular direction must be a multiple of 3)

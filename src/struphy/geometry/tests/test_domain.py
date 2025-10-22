@@ -5,7 +5,7 @@ def test_prepare_arg():
     """Tests prepare_arg static method in domain base class."""
 
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     def a1(e1, e2, e3):
         return e1 * e2
@@ -160,7 +160,7 @@ def test_evaluation_mappings(mapping):
 
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # arrays:
     arr1 = xp.linspace(0.0, 1.0, 4)
@@ -319,7 +319,7 @@ def test_pullback():
 
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # arrays:
     arr1 = xp.linspace(0.0, 1.0, 4)
@@ -478,7 +478,7 @@ def test_pushforward():
 
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # arrays:
     arr1 = xp.linspace(0.0, 1.0, 4)
@@ -637,7 +637,7 @@ def test_transform():
 
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # arrays:
     arr1 = xp.linspace(0.0, 1.0, 4)
@@ -817,7 +817,7 @@ def test_transform():
 #    """
 #
 #    from struphy.geometry import domains
-#    from struphy.utils.arrays import xp
+#    import cunumpy as xp
 #
 #    # arrays:
 #    arr1 = xp.linspace(0., 1., 4)

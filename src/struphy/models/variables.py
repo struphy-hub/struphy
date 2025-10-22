@@ -21,7 +21,7 @@ from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import particles
 from struphy.pic.base import Particles
 from struphy.pic.particles import ParticlesSPH
-from struphy.utils.arrays import xp
+import cunumpy as xp
 from struphy.utils.clone_config import CloneConfig
 
 if TYPE_CHECKING:

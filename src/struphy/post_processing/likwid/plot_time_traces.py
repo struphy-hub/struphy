@@ -7,7 +7,7 @@ import plotly.io as pio
 
 # pio.kaleido.scope.mathjax = None
 import struphy.post_processing.likwid.maxplotlylib as mply
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 def glob_to_regex(pat: str) -> str:

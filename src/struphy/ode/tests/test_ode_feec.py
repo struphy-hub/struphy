@@ -28,7 +28,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.ode.solvers import ODEsolverFEEC
     from struphy.ode.utils import ButcherTableau
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

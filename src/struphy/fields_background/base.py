@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
 
 from struphy.geometry.base import Domain
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class FluidEquilibrium(metaclass=ABCMeta):

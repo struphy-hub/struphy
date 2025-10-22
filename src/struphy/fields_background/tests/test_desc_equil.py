@@ -3,7 +3,7 @@ import importlib.util
 import pytest
 from matplotlib import pyplot as plt
 
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 desc_spec = importlib.util.find_spec("desc")
 

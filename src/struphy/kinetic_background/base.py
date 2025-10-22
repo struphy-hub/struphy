@@ -5,7 +5,7 @@ from typing import Callable
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.initial.base import Perturbation
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class KineticBackground(metaclass=ABCMeta):

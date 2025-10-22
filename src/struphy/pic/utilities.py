@@ -5,7 +5,7 @@ from struphy.io.options import (
     OptsRecontructBC,
     OptsSpatialLoading,
 )
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class LoadingParameters:

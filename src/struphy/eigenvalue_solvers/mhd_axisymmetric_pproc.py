@@ -5,7 +5,7 @@ def main():
 
     import yaml
 
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # parse arguments
     parser = argparse.ArgumentParser(description="Restrict a full .npy eigenspectrum to a range of eigenfrequencies.")

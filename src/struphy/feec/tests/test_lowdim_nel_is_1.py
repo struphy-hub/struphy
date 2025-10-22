@@ -13,7 +13,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     from psydac.linalg.stencil import StencilVector
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

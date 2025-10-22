@@ -13,7 +13,7 @@ from struphy.pic.utilities import (
     LoadingParameters,
     WeightsParameters,
 )
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class Species(metaclass=ABCMeta):

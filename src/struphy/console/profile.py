@@ -11,7 +11,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
 
     import struphy.utils.utils as utils
     from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     # Read struphy state file
     state = utils.read_state()

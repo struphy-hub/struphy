@@ -13,7 +13,7 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import FieldsBackground
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -72,7 +72,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
     from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
     from struphy.geometry import domains
     from struphy.io.options import FieldsBackground
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1089,7 +1089,7 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.initial.perturbations import ModesCos, ModesSin
     from struphy.io.options import FieldsBackground
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1317,7 +1317,7 @@ def test_noise_init(Nel, p, spl_kind, space, direction):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.initial.perturbations import Noise
-    from struphy.utils.arrays import xp
+    import cunumpy as xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

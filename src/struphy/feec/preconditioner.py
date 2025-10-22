@@ -11,7 +11,7 @@ from scipy.linalg import solve_circulant
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class MassMatrixPreconditioner(LinearOperator):
