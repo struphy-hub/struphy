@@ -4,8 +4,9 @@ import pytest
 def test_prepare_arg():
     """Tests prepare_arg static method in domain base class."""
 
+    import cunumpy as xp
+
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp
 
     def a1(e1, e2, e3):
         return e1 * e2
@@ -158,9 +159,10 @@ def test_prepare_arg():
 def test_evaluation_mappings(mapping):
     """Tests domain object creation with default parameters and evaluation of metric coefficients."""
 
+    import cunumpy as xp
+
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp
 
     # arrays:
     arr1 = xp.linspace(0.0, 1.0, 4)
@@ -317,9 +319,10 @@ def test_evaluation_mappings(mapping):
 def test_pullback():
     """Tests pullbacks to p-forms."""
 
+    import cunumpy as xp
+
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp
 
     # arrays:
     arr1 = xp.linspace(0.0, 1.0, 4)
@@ -476,9 +479,10 @@ def test_pullback():
 def test_pushforward():
     """Tests pushforward of p-forms."""
 
+    import cunumpy as xp
+
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp
 
     # arrays:
     arr1 = xp.linspace(0.0, 1.0, 4)
@@ -635,9 +639,10 @@ def test_pushforward():
 def test_transform():
     """Tests transformation of p-forms."""
 
+    import cunumpy as xp
+
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
-    from struphy.utils.arrays import xp
 
     # arrays:
     arr1 = xp.linspace(0.0, 1.0, 4)
@@ -817,7 +822,7 @@ def test_transform():
 #    """
 #
 #    from struphy.geometry import domains
-#    from struphy.utils.arrays import xp
+#    import cunumpy as xp
 #
 #    # arrays:
 #    arr1 = xp.linspace(0., 1., 4)

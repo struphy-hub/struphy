@@ -1,9 +1,8 @@
 import importlib.util
 
+import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
-
-from struphy.utils.arrays import xp
 
 desc_spec = importlib.util.find_spec("desc")
 

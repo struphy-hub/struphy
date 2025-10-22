@@ -14,6 +14,7 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     TODO
     """
 
+    import cunumpy as xp
     from psydac.ddm.mpi import MockComm
     from psydac.ddm.mpi import mpi as MPI
 
@@ -21,7 +22,6 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
-    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

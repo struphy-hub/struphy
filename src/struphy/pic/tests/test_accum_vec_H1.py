@@ -47,6 +47,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
 
     import copy
 
+    import cunumpy as xp
     from psydac.ddm.mpi import MockComm
     from psydac.ddm.mpi import mpi as MPI
 

@@ -35,6 +35,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         name and specification of the mapping
     """
 
+    import cunumpy as xp
     import matplotlib.pyplot as plt
     from psydac.ddm.mpi import mpi as MPI
 
@@ -267,6 +268,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         name and specification of the mapping
     """
 
+    import cunumpy as xp
     import matplotlib.pyplot as plt
     from psydac.ddm.mpi import mpi as MPI
 
@@ -462,6 +464,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         name and specification of the mapping
     """
 
+    import cunumpy as xp
     import matplotlib.pyplot as plt
     from psydac.ddm.mpi import MockComm
     from psydac.ddm.mpi import mpi as MPI
@@ -758,6 +761,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         name and specification of the mapping
     """
 
+    import cunumpy as xp
     import matplotlib.pyplot as plt
     from psydac.ddm.mpi import MockComm
     from psydac.ddm.mpi import mpi as MPI

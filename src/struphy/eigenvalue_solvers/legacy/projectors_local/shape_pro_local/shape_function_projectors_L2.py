@@ -5,12 +5,12 @@
 Classes for local projectors in 1D and 3D based on quasi-spline interpolation and histopolation.
 """
 
+import cunumpy as xp
 import scipy.sparse as spa
 from psydac.ddm.mpi import mpi as MPI
 
 import struphy.feec.bsplines as bsp
 import struphy.feec.projectors.shape_pro_local.shape_L2_projector_kernel as ker_loc
-from struphy.utils.arrays import xp
 
 
 # ======================= 3d ====================================

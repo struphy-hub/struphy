@@ -1,3 +1,4 @@
+import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
 from psydac.ddm.mpi import mpi as MPI

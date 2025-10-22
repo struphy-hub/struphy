@@ -1,8 +1,7 @@
+import cunumpy as xp
 import pytest
 from psydac.ddm.mpi import MockComm
 from psydac.ddm.mpi import mpi as MPI
-
-from struphy.utils.arrays import xp
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])

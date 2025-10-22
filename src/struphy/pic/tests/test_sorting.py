@@ -1,5 +1,6 @@
 from time import time
 
+import cunumpy as xp
 import pytest
 from psydac.ddm.mpi import mpi as MPI
 

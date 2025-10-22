@@ -1,3 +1,4 @@
+import cunumpy as xp
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.ddm.mpi import mpi as MPI
 from psydac.fem.basic import FemSpace
@@ -14,7 +15,6 @@ from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 

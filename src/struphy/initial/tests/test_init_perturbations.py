@@ -20,6 +20,7 @@ import pytest
 def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False):
     """Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py."""
 
+    import cunumpy as xp
     from matplotlib import pyplot as plt
     from psydac.ddm.mpi import mpi as MPI
 

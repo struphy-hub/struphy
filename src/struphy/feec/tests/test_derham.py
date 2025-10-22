@@ -7,6 +7,7 @@ import pytest
 def test_psydac_derham(Nel, p, spl_kind):
     """Remark: p=even projectors yield slightly different results, pass with atol=1e-3."""
 
+    import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
@@ -14,7 +15,6 @@ def test_psydac_derham(Nel, p, spl_kind):
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
-    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

@@ -12,7 +12,6 @@ from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
-from struphy.utils.arrays import xp
 
 
 class Particles6D(Particles):
