@@ -19,7 +19,7 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.topology import grids
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 
@@ -144,7 +144,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
                     plt.plot(x.squeeze(), n_sph[i, :, 0, 0], style, label=f"time={i * dt:4.2f}")
                     plt.xlim(0, 2.5)
                     plt.legend()
-                    ax.set_xticks(np.linspace(0, 2.5, nx + 1))
+                    ax.set_xticks(xp.linspace(0, 2.5, nx + 1))
                     ax.xaxis.set_major_formatter(FormatStrFormatter("%.2f"))
                     plt.grid(c="k")
                     plt.xlabel("x")
@@ -156,7 +156,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
 
             plt.show()
 
-        error = np.max(np.abs(n_sph[0] - n_sph[-1]))
+        error = xp.max(xp.abs(n_sph[0] - n_sph[-1]))
         print(f"SPH sound wave {error = }.")
         assert error < 6e-4
         print("Assertion passed.")

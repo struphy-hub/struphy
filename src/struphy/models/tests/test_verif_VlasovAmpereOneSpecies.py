@@ -19,7 +19,7 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.topology import grids
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 
@@ -116,7 +116,7 @@ def test_weak_Landau(do_plot: bool = False):
         r = 0.3677
         omega = 1.4156
         phi = 0.5362
-        return 2 * eps**2 * np.pi / k**2 * r**2 * np.exp(2 * gamma * t) * np.cos(omega * t - phi) ** 2
+        return 2 * eps**2 * xp.pi / k**2 * r**2 * xp.exp(2 * gamma * t) * xp.cos(omega * t - phi) ** 2
 
     # get parameters
     dt = time_opts.dt
@@ -130,12 +130,12 @@ def test_weak_Landau(do_plot: bool = False):
         with h5py.File(os.path.join(pa_data, "data_proc0.hdf5"), "r") as f:
             time = f["time"]["value"][()]
             E = f["scalar"]["en_E"][()]
-        logE = np.log10(E)
+        logE = xp.log10(E)
 
         # find where time derivative of E is zero
-        dEdt = (np.roll(logE, -1) - np.roll(logE, 1))[1:-1] / (2.0 * dt)
-        zeros = dEdt * np.roll(dEdt, -1) < 0.0
-        maxima_inds = np.logical_and(zeros, dEdt > 0.0)
+        dEdt = (xp.roll(logE, -1) - xp.roll(logE, 1))[1:-1] / (2.0 * dt)
+        zeros = dEdt * xp.roll(dEdt, -1) < 0.0
+        maxima_inds = xp.logical_and(zeros, dEdt > 0.0)
         maxima = logE[1:-1][maxima_inds]
         t_maxima = time[1:-1][maxima_inds]
 
@@ -143,7 +143,7 @@ def test_weak_Landau(do_plot: bool = False):
         if do_plot:
             plt.figure(figsize=(18, 12))
             plt.plot(time, logE, label="numerical")
-            plt.plot(time, np.log10(E_exact(time)), label="exact")
+            plt.plot(time, xp.log10(E_exact(time)), label="exact")
             plt.legend()
             plt.title(f"{dt=}, {algo=}, {Nel=}, {p=}, {ppc=}")
             plt.xlabel("time [m/c]")
@@ -154,11 +154,11 @@ def test_weak_Landau(do_plot: bool = False):
             plt.show()
 
         # linear fit
-        linfit = np.polyfit(t_maxima[:5], maxima[:5], 1)
+        linfit = xp.polyfit(t_maxima[:5], maxima[:5], 1)
         gamma_num = linfit[0]
 
         # assert
-        rel_error = np.abs(gamma_num - gamma) / np.abs(gamma)
+        rel_error = xp.abs(gamma_num - gamma) / xp.abs(gamma)
         assert rel_error < 0.22, f"Assertion for weak Landau damping failed: {gamma_num = } vs. {gamma = }."
         print(f"Assertion for weak Landau damping passed ({rel_error = }).")
 

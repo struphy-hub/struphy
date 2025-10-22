@@ -21,7 +21,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     from struphy.feec.utilities import RotationMatrix, compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
     from struphy.geometry import domains
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -48,7 +48,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
         eq_mhd = ShearedSlab(
             **{
                 "a": (mapping[1]["r1"] - mapping[1]["l1"]),
-                "R0": (mapping[1]["r3"] - mapping[1]["l3"]) / (2 * np.pi),
+                "R0": (mapping[1]["r3"] - mapping[1]["l3"]) / (2 * xp.pi),
                 "B0": 1.0,
                 "q0": 1.05,
                 "q1": 1.8,
@@ -63,7 +63,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
         eq_mhd = ShearedSlab(
             **{
                 "a": mapping[1]["Lx"],
-                "R0": mapping[1]["Lz"] / (2 * np.pi),
+                "R0": mapping[1]["Lz"] / (2 * xp.pi),
                 "B0": 1.0,
                 "q0": 1.05,
                 "q1": 1.8,
@@ -386,7 +386,7 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     from struphy.fields_background.equils import ScrewPinch
     from struphy.geometry import domains
     from struphy.polar.basic import PolarVector
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -499,11 +499,11 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     x2_pol_psy.tp = x2_psy
     x3_pol_psy.tp = x3_psy
 
-    np.random.seed(1607)
-    x0_pol_psy.pol = [np.random.rand(x0_pol_psy.pol[0].shape[0], x0_pol_psy.pol[0].shape[1])]
-    x1_pol_psy.pol = [np.random.rand(x1_pol_psy.pol[n].shape[0], x1_pol_psy.pol[n].shape[1]) for n in range(3)]
-    x2_pol_psy.pol = [np.random.rand(x2_pol_psy.pol[n].shape[0], x2_pol_psy.pol[n].shape[1]) for n in range(3)]
-    x3_pol_psy.pol = [np.random.rand(x3_pol_psy.pol[0].shape[0], x3_pol_psy.pol[0].shape[1])]
+    xp.random.seed(1607)
+    x0_pol_psy.pol = [xp.random.rand(x0_pol_psy.pol[0].shape[0], x0_pol_psy.pol[0].shape[1])]
+    x1_pol_psy.pol = [xp.random.rand(x1_pol_psy.pol[n].shape[0], x1_pol_psy.pol[n].shape[1]) for n in range(3)]
+    x2_pol_psy.pol = [xp.random.rand(x2_pol_psy.pol[n].shape[0], x2_pol_psy.pol[n].shape[1]) for n in range(3)]
+    x3_pol_psy.pol = [xp.random.rand(x3_pol_psy.pol[0].shape[0], x3_pol_psy.pol[0].shape[1])]
 
     # apply boundary conditions to old STRUPHY
     x0_pol_str = x0_pol_psy.toarray(True)
@@ -533,12 +533,12 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     rn_pol_psy = mass_mats.M2n.dot(x2_pol_psy, apply_bc=True)
     rJ_pol_psy = mass_mats.M2J.dot(x2_pol_psy, apply_bc=True)
 
-    assert np.allclose(r0_pol_str, r0_pol_psy.toarray(True))
-    assert np.allclose(r1_pol_str, r1_pol_psy.toarray(True))
-    assert np.allclose(r2_pol_str, r2_pol_psy.toarray(True))
-    assert np.allclose(r3_pol_str, r3_pol_psy.toarray(True))
-    assert np.allclose(rn_pol_str, rn_pol_psy.toarray(True))
-    assert np.allclose(rJ_pol_str, rJ_pol_psy.toarray(True))
+    assert xp.allclose(r0_pol_str, r0_pol_psy.toarray(True))
+    assert xp.allclose(r1_pol_str, r1_pol_psy.toarray(True))
+    assert xp.allclose(r2_pol_str, r2_pol_psy.toarray(True))
+    assert xp.allclose(r3_pol_str, r3_pol_psy.toarray(True))
+    assert xp.allclose(rn_pol_str, rn_pol_psy.toarray(True))
+    assert xp.allclose(rJ_pol_str, rJ_pol_psy.toarray(True))
 
     # perfrom matrix-vector products (without boundary conditions)
     r0_pol_str = space.M0(x0_pol_str)
@@ -551,12 +551,12 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     r2_pol_psy = mass_mats.M2.dot(x2_pol_psy, apply_bc=False)
     r3_pol_psy = mass_mats.M3.dot(x3_pol_psy, apply_bc=False)
 
-    assert np.allclose(r0_pol_str, r0_pol_psy.toarray(True))
-    assert np.allclose(r1_pol_str, r1_pol_psy.toarray(True))
-    assert np.allclose(r2_pol_str, r2_pol_psy.toarray(True))
-    assert np.allclose(r3_pol_str, r3_pol_psy.toarray(True))
-    assert np.allclose(rn_pol_str, rn_pol_psy.toarray(True))
-    assert np.allclose(rJ_pol_str, rJ_pol_psy.toarray(True))
+    assert xp.allclose(r0_pol_str, r0_pol_psy.toarray(True))
+    assert xp.allclose(r1_pol_str, r1_pol_psy.toarray(True))
+    assert xp.allclose(r2_pol_str, r2_pol_psy.toarray(True))
+    assert xp.allclose(r3_pol_str, r3_pol_psy.toarray(True))
+    assert xp.allclose(rn_pol_str, rn_pol_psy.toarray(True))
+    assert xp.allclose(rJ_pol_str, rJ_pol_psy.toarray(True))
 
     print(f"Rank {mpi_rank} | All tests passed!")
 
@@ -584,7 +584,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
     from struphy.geometry import domains
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -611,7 +611,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
         eq_mhd = ShearedSlab(
             **{
                 "a": (mapping[1]["r1"] - mapping[1]["l1"]),
-                "R0": (mapping[1]["r3"] - mapping[1]["l3"]) / (2 * np.pi),
+                "R0": (mapping[1]["r3"] - mapping[1]["l3"]) / (2 * xp.pi),
                 "B0": 1.0,
                 "q0": 1.05,
                 "q1": 1.8,
@@ -626,7 +626,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
         eq_mhd = ShearedSlab(
             **{
                 "a": mapping[1]["Lx"],
-                "R0": mapping[1]["Lz"] / (2 * np.pi),
+                "R0": mapping[1]["Lz"] / (2 * xp.pi),
                 "B0": 1.0,
                 "q0": 1.05,
                 "q1": 1.8,
@@ -751,27 +751,27 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
             print("Done")
 
         # compare output arrays
-        assert np.allclose(r0.toarray(), r0_pre.toarray())
-        assert np.allclose(r1.toarray(), r1_pre.toarray())
-        assert np.allclose(r2.toarray(), r2_pre.toarray())
-        assert np.allclose(r3.toarray(), r3_pre.toarray())
-        assert np.allclose(rv.toarray(), rv_pre.toarray())
+        assert xp.allclose(r0.toarray(), r0_pre.toarray())
+        assert xp.allclose(r1.toarray(), r1_pre.toarray())
+        assert xp.allclose(r2.toarray(), r2_pre.toarray())
+        assert xp.allclose(r3.toarray(), r3_pre.toarray())
+        assert xp.allclose(rv.toarray(), rv_pre.toarray())
 
-        assert np.allclose(r1n.toarray(), r1n_pre.toarray())
-        assert np.allclose(r2n.toarray(), r2n_pre.toarray())
-        assert np.allclose(rvn.toarray(), rvn_pre.toarray())
+        assert xp.allclose(r1n.toarray(), r1n_pre.toarray())
+        assert xp.allclose(r2n.toarray(), r2n_pre.toarray())
+        assert xp.allclose(rvn.toarray(), rvn_pre.toarray())
 
-        assert np.allclose(r1Bninv.toarray(), r1Bninv_pre.toarray())
-        assert np.allclose(r1Bninv.toarray(), r1Bninvold_pre.toarray())
-        assert np.allclose(r1Bninvold.toarray(), r1Bninv_pre.toarray())
+        assert xp.allclose(r1Bninv.toarray(), r1Bninv_pre.toarray())
+        assert xp.allclose(r1Bninv.toarray(), r1Bninvold_pre.toarray())
+        assert xp.allclose(r1Bninvold.toarray(), r1Bninv_pre.toarray())
 
     # test if preconditioner satisfies PC * M = Identity
     if mapping[0] == "Cuboid" or mapping[0] == "HollowCylinder":
-        assert np.allclose(mass_mats.M0.dot(M0pre.solve(x0)).toarray(), derham.boundary_ops["0"].dot(x0).toarray())
-        assert np.allclose(mass_mats.M1.dot(M1pre.solve(x1)).toarray(), derham.boundary_ops["1"].dot(x1).toarray())
-        assert np.allclose(mass_mats.M2.dot(M2pre.solve(x2)).toarray(), derham.boundary_ops["2"].dot(x2).toarray())
-        assert np.allclose(mass_mats.M3.dot(M3pre.solve(x3)).toarray(), derham.boundary_ops["3"].dot(x3).toarray())
-        assert np.allclose(mass_mats.Mv.dot(Mvpre.solve(xv)).toarray(), derham.boundary_ops["v"].dot(xv).toarray())
+        assert xp.allclose(mass_mats.M0.dot(M0pre.solve(x0)).toarray(), derham.boundary_ops["0"].dot(x0).toarray())
+        assert xp.allclose(mass_mats.M1.dot(M1pre.solve(x1)).toarray(), derham.boundary_ops["1"].dot(x1).toarray())
+        assert xp.allclose(mass_mats.M2.dot(M2pre.solve(x2)).toarray(), derham.boundary_ops["2"].dot(x2).toarray())
+        assert xp.allclose(mass_mats.M3.dot(M3pre.solve(x3)).toarray(), derham.boundary_ops["3"].dot(x3).toarray())
+        assert xp.allclose(mass_mats.Mv.dot(Mvpre.solve(xv)).toarray(), derham.boundary_ops["v"].dot(xv).toarray())
 
     # test preconditioner in iterative solver
     M0inv = inverse(mass_mats.M0, "pcg", pc=M0pre, tol=1e-8, maxiter=1000)
@@ -892,7 +892,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     from struphy.fields_background.equils import ScrewPinch
     from struphy.geometry import domains
     from struphy.polar.basic import PolarVector
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -986,11 +986,11 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     x2_pol.tp = x2
     x3_pol.tp = x3
 
-    np.random.seed(1607)
-    x0_pol.pol = [np.random.rand(x0_pol.pol[0].shape[0], x0_pol.pol[0].shape[1])]
-    x1_pol.pol = [np.random.rand(x1_pol.pol[n].shape[0], x1_pol.pol[n].shape[1]) for n in range(3)]
-    x2_pol.pol = [np.random.rand(x2_pol.pol[n].shape[0], x2_pol.pol[n].shape[1]) for n in range(3)]
-    x3_pol.pol = [np.random.rand(x3_pol.pol[0].shape[0], x3_pol.pol[0].shape[1])]
+    xp.random.seed(1607)
+    x0_pol.pol = [xp.random.rand(x0_pol.pol[0].shape[0], x0_pol.pol[0].shape[1])]
+    x1_pol.pol = [xp.random.rand(x1_pol.pol[n].shape[0], x1_pol.pol[n].shape[1]) for n in range(3)]
+    x2_pol.pol = [xp.random.rand(x2_pol.pol[n].shape[0], x2_pol.pol[n].shape[1]) for n in range(3)]
+    x3_pol.pol = [xp.random.rand(x3_pol.pol[0].shape[0], x3_pol.pol[0].shape[1])]
 
     # test preconditioner in iterative solver and compare to case without preconditioner
     M0inv = inverse(mass_mats.M0, "pcg", pc=M0pre, tol=1e-8, maxiter=500)

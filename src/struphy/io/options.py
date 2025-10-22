@@ -5,7 +5,7 @@ from typing import Literal, get_args
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.physics.physics import ConstantsOfNature
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 ## Literal options
 
@@ -189,7 +189,7 @@ class Units:
 
         elif velocity_scale == "alfvén":
             assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
-            self._v = self.B / np.sqrt(self.n * A_bulk * con.mH * con.mu0)
+            self._v = self.B / xp.sqrt(self.n * A_bulk * con.mH * con.mu0)
 
         elif velocity_scale == "cyclotron":
             assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
@@ -199,7 +199,7 @@ class Units:
         elif velocity_scale == "thermal":
             assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
             assert self.kBT is not None
-            self._v = np.sqrt(self.kBT * 1000 * con.e / (con.mH * A_bulk))
+            self._v = xp.sqrt(self.kBT * 1000 * con.e / (con.mH * A_bulk))
 
         # time (s)
         self._t = self.x / self.v
