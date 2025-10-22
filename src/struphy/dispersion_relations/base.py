@@ -2,9 +2,8 @@
 
 from abc import ABCMeta, abstractmethod
 
-from matplotlib import pyplot as plt
-
 import cunumpy as xp
+from matplotlib import pyplot as plt
 
 
 class DispersionRelations1D(metaclass=ABCMeta):

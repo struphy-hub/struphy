@@ -1,3 +1,4 @@
+import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
 from psydac.ddm.mpi import MockComm
@@ -8,7 +9,6 @@ from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
 from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-import cunumpy as xp
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])

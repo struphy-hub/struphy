@@ -1,7 +1,6 @@
+import cunumpy as xp
 from psydac.ddm.mpi import MockComm
 from psydac.ddm.mpi import mpi as MPI
-
-import cunumpy as xp
 
 
 class CloneConfig:

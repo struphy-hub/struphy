@@ -1,3 +1,4 @@
+import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
 
@@ -5,7 +6,6 @@ from struphy.fields_background.generic import (
     GenericCartesianFluidEquilibrium,
     GenericCartesianFluidEquilibriumWithB,
 )
-import cunumpy as xp
 
 
 def test_generic_equils(show=False):

@@ -1,7 +1,7 @@
+import cunumpy as xp
 import pytest
 
 from struphy.fields_background.base import FluidEquilibrium, LogicalMHDequilibrium
-import cunumpy as xp
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,5 @@
-import pytest
-
 import cunumpy as xp
+import pytest
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])

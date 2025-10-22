@@ -1,9 +1,8 @@
 import ctypes
 import os
 
-import h5py
-
 import cunumpy as xp
+import h5py
 
 
 class DataContainer:

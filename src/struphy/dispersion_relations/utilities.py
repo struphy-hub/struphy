@@ -1,6 +1,5 @@
-from scipy.special import erfi
-
 import cunumpy as xp
+from scipy.special import erfi
 
 
 def Zplasma(xi, der=0):

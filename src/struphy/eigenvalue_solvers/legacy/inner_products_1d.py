@@ -6,9 +6,8 @@
 Modules to compute inner products in 1d.
 """
 
-import scipy.sparse as spa
-
 import cunumpy as xp
+import scipy.sparse as spa
 
 
 # ======= inner product in V0 ====================

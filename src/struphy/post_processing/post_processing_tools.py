@@ -2,6 +2,7 @@ import os
 import pickle
 import shutil
 
+import cunumpy as xp
 import h5py
 import yaml
 from tqdm import tqdm
@@ -19,7 +20,6 @@ from struphy.models.base import StruphyModel, setup_derham
 from struphy.models.species import ParticleSpecies
 from struphy.models.variables import PICVariable
 from struphy.topology.grids import TensorProductGrid
-import cunumpy as xp
 
 
 class ParamsIn:

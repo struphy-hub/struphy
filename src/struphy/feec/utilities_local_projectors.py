@@ -1,5 +1,6 @@
-from struphy.feec.local_projectors_kernels import are_quadrature_points_zero, get_rows, select_quasi_points
 import cunumpy as xp
+
+from struphy.feec.local_projectors_kernels import are_quadrature_points_zero, get_rows, select_quasi_points
 
 
 def split_points(

@@ -6,9 +6,8 @@
 Modules to compute L2-errors in 1d.
 """
 
-import scipy.sparse as spa
-
 import cunumpy as xp
+import scipy.sparse as spa
 
 
 # ======= error in V0 ====================

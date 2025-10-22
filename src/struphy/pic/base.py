@@ -14,6 +14,7 @@ except ModuleNotFoundError:
         x = None
 
 
+import cunumpy as xp
 from line_profiler import profile
 from psydac.ddm.mpi import MockComm
 from psydac.ddm.mpi import mpi as MPI
@@ -53,7 +54,6 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.utils import utils
-import cunumpy as xp
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.pyccel import Pyccelkernel
 
