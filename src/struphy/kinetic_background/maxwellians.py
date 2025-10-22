@@ -249,7 +249,7 @@ class GyroMaxwellian2D(Maxwellian):
         assert len(v) == 2
 
         # call equilibrium
-        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+        etas = (xp.vstack((eta1, eta2, eta3)).T).copy()
         absB0 = self.equil.absB0(etas)
 
         # J = v_perp/B
@@ -408,14 +408,14 @@ class CanonicalMaxwellian:
         assert eta3.ndim == 1
 
         if self.maxw_params["type"] == "Particles6D":
-            return np.sqrt(2.0 * energy) * 4.0 * np.pi
+            return xp.sqrt(2.0 * energy) * 4.0 * xp.pi
 
         else:
             # call equilibrium
-            etas = (np.vstack((eta1, eta2, eta3)).T).copy()
+            etas = (xp.vstack((eta1, eta2, eta3)).T).copy()
             absB0 = self.equil.absB0(etas)
 
-            return np.sqrt(energy) * 2.0 * np.sqrt(2.0) / absB0
+            return xp.sqrt(energy) * 2.0 * xp.sqrt(2.0) / absB0
 
     def gaussian(self, e, vth=1.0):
         """3-dim. normal distribution, to which array-valued thermal velocities can be passed.
@@ -433,10 +433,10 @@ class CanonicalMaxwellian:
         An array of size(e).
         """
 
-        if isinstance(vth, np.ndarray):
+        if isinstance(vth, xp.ndarray):
             assert e.shape == vth.shape, f"{e.shape = } but {vth.shape = }"
 
-        return 2.0 * np.sqrt(e / np.pi) / vth**3 * np.exp(-e / vth**2)
+        return 2.0 * xp.sqrt(e / xp.pi) / vth**3 * xp.exp(-e / vth**2)
 
     def __call__(self, *args):
         """Evaluates the canonical Maxwellian distribution function.
@@ -458,16 +458,16 @@ class CanonicalMaxwellian:
 
         Returns
         -------
-        f : np.ndarray
+        f : xp.ndarray
             The evaluated Maxwellian.
         """
 
         # Check that all args have the same shape
-        shape0 = np.shape(args[0])
+        shape0 = xp.shape(args[0])
         for i, arg in enumerate(args):
-            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
-            assert np.ndim(arg) == 1 or np.ndim(arg) == 3, (
-                f"{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation."
+            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) = }, but must be {shape0 = }."
+            assert xp.ndim(arg) == 1 or xp.ndim(arg) == 3, (
+                f"{xp.ndim(arg) = } not allowed for canonical Maxwellian evaluation."
             )  # flat or meshgrid evaluation
 
         # Get result evaluated with each particles' psic
@@ -475,26 +475,26 @@ class CanonicalMaxwellian:
         vths = self.vth(args[2])
 
         # take care of correct broadcasting, assuming args come from phase space meshgrid
-        if np.ndim(args[0]) == 3:
+        if xp.ndim(args[0]) == 3:
             # move eta axes to the back
-            arg_t = np.moveaxis(args[0], 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
+            arg_t = xp.moveaxis(args[0], 0, -1)
+            arg_t = xp.moveaxis(arg_t, 0, -1)
+            arg_t = xp.moveaxis(arg_t, 0, -1)
 
             # broadcast
             res_broad = res + 0.0 * arg_t
 
             # move eta axes to the front
-            res = np.moveaxis(res_broad, -1, 0)
-            res = np.moveaxis(res, -1, 0)
-            res = np.moveaxis(res, -1, 0)
+            res = xp.moveaxis(res_broad, -1, 0)
+            res = xp.moveaxis(res, -1, 0)
+            res = xp.moveaxis(res, -1, 0)
 
         # Multiply result with gaussian in energy
-        if np.ndim(args[0]) == 3:
+        if xp.ndim(args[0]) == 3:
             vth_broad = vths + 0.0 * arg_t
-            vth = np.moveaxis(vth_broad, -1, 0)
-            vth = np.moveaxis(vth, -1, 0)
-            vth = np.moveaxis(vth, -1, 0)
+            vth = xp.moveaxis(vth_broad, -1, 0)
+            vth = xp.moveaxis(vth, -1, 0)
+            vth = xp.moveaxis(vth, -1, 0)
         else:
             vth = vths
 
@@ -547,13 +547,13 @@ class CanonicalMaxwellian:
         rc_squared = (psic - self.equil.psi_range[0]) / (self.equil.psi_range[1] - self.equil.psi_range[0])
 
         # sorting out indices of negative rc²
-        neg_index = np.logical_not(rc_squared >= 0)
+        neg_index = xp.logical_not(rc_squared >= 0)
 
         # make them positive
         rc_squared[neg_index] *= -1
 
         # calculate rc
-        rc = np.sqrt(rc_squared)
+        rc = xp.sqrt(rc_squared)
         rc[neg_index] *= -1
 
         return rc
@@ -571,7 +571,7 @@ class CanonicalMaxwellian:
         A float (background value) or a numpy.array of the evaluated density.
         """
         # collect arguments
-        assert isinstance(psic, np.ndarray)
+        assert isinstance(psic, xp.ndarray)
 
         # assuming that input comes from meshgrid.
         if psic.ndim == 3:
@@ -615,7 +615,7 @@ class CanonicalMaxwellian:
         """
 
         # collect arguments
-        assert isinstance(psic, np.ndarray)
+        assert isinstance(psic, xp.ndarray)
 
         # assuming that input comes from meshgrid.
         if psic.ndim == 3:

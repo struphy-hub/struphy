@@ -105,10 +105,10 @@ class PushEta(Propagator):
         # define algorithm
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp as np
+        from struphy.utils.arrays import xp
 
-        butcher._a = np.diag(butcher.a, k=-1)
-        butcher._a = np.array(list(butcher.a) + [0.0])
+        butcher._a = xp.diag(butcher.a, k=-1)
+        butcher._a = xp.array(list(butcher.a) + [0.0])
 
         args_kernel = (
             butcher.a,
@@ -162,7 +162,7 @@ class PushVxB(Propagator):
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable | SPHVariable)
-            assert new.space in ("Particles6D", "ParticlesSPH")
+            assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
             self._ions = new
             
     def __init__(self):
@@ -292,7 +292,7 @@ class PushVinEfield(Propagator):
         @var.setter
         def var(self, new):
             assert isinstance(new, PICVariable | SPHVariable)
-            assert new.space in ("Particles6D", "ParticlesSPH")
+            assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
             self._var = new
 
     def __init__(self):
@@ -842,10 +842,10 @@ class PushGuidingCenterBxEstar(Propagator):
             else:
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
-            from struphy.utils.arrays import xp as np
+            from struphy.utils.arrays import xp
 
-            butcher._a = np.diag(butcher.a, k=-1)
-            butcher._a = np.array(list(butcher.a) + [0.0])
+            butcher._a = xp.diag(butcher.a, k=-1)
+            butcher._a = xp.array(list(butcher.a) + [0.0])
 
             kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_explicit_multistage)
 
@@ -1287,10 +1287,10 @@ class PushGuidingCenterParallel(Propagator):
             else:
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
-            from struphy.utils.arrays import xp as np
+            from struphy.utils.arrays import xp
 
-            butcher._a = np.diag(butcher.a, k=-1)
-            butcher._a = np.array(list(butcher.a) + [0.0])
+            butcher._a = xp.diag(butcher.a, k=-1)
+            butcher._a = xp.array(list(butcher.a) + [0.0])
 
             kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_explicit_multistage)
 
@@ -1429,10 +1429,10 @@ class PushDeterministicDiffusion(Propagator):
         # choose algorithm
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp as np
+        from struphy.utils.arrays import xp
 
-        self._butcher._a = np.diag(self._butcher.a, k=-1)
-        self._butcher._a = np.array(list(self._butcher.a) + [0.0])
+        self._butcher._a = xp.diag(self._butcher.a, k=-1)
+        self._butcher._a = xp.array(list(self._butcher.a) + [0.0])
 
         particles = self.variables.var.particles
 
@@ -1563,10 +1563,10 @@ class PushRandomDiffusion(Propagator):
 
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp as np
+        from struphy.utils.arrays import xp
 
-        self._butcher._a = np.diag(self._butcher.a, k=-1)
-        self._butcher._a = np.array(list(self._butcher.a) + [0.0])
+        self._butcher._a = xp.diag(self._butcher.a, k=-1)
+        self._butcher._a = xp.array(list(self._butcher.a) + [0.0])
 
         # instantiate Pusher
         args_kernel = (
@@ -1725,7 +1725,7 @@ class PushVinSPHpressure(Propagator):
         elif self.options.thermodynamics == "polytropic":
             kernel = Pyccelkernel(pusher_kernels.push_v_sph_pressure_ideal_gas)
 
-        gravity = np.array(self.options.gravity, dtype=float)
+        gravity = xp.array(self.options.gravity, dtype=float)
 
         args_kernel = (
             boxes,

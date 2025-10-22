@@ -196,23 +196,23 @@ class BinningPlot:
         # computations and allocations
         self._bin_edges = []
         for nb, rng in zip(n_bins, ranges):
-            self._bin_edges += [np.linspace(rng[0], rng[1], nb + 1)]
+            self._bin_edges += [xp.linspace(rng[0], rng[1], nb + 1)]
         self._bin_edges = tuple(self.bin_edges)
 
-        self._f = np.zeros(n_bins, dtype=float)
-        self._df = np.zeros(n_bins, dtype=float)
+        self._f = xp.zeros(n_bins, dtype=float)
+        self._df = xp.zeros(n_bins, dtype=float)
 
     @property
     def bin_edges(self) -> tuple:
         return self._bin_edges
 
     @property
-    def f(self) -> np.ndarray:
+    def f(self) -> xp.ndarray:
         """The binned distribution function (full-f)."""
         return self._f
 
     @property
-    def df(self) -> np.ndarray:
+    def df(self) -> xp.ndarray:
         """The binned distribution function minus the background (delta-f)."""
         return self._df
 
@@ -261,19 +261,19 @@ class KernelDensityPlot:
         pts_e2: int = 16,
         pts_e3: int = 1,
     ):
-        e1 = np.linspace(0.0, 1.0, pts_e1)
-        e2 = np.linspace(0.0, 1.0, pts_e2)
-        e3 = np.linspace(0.0, 1.0, pts_e3)
-        ee1, ee2, ee3 = np.meshgrid(e1, e2, e3, indexing="ij")
+        e1 = xp.linspace(0.0, 1.0, pts_e1)
+        e2 = xp.linspace(0.0, 1.0, pts_e2)
+        e3 = xp.linspace(0.0, 1.0, pts_e3)
+        ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
         self._plot_pts = (ee1, ee2, ee3)
-        self._n_sph = np.zeros(ee1.shape, dtype=float)
+        self._n_sph = xp.zeros(ee1.shape, dtype=float)
 
     @property
     def plot_pts(self) -> tuple:
         return self._plot_pts
 
     @property
-    def n_sph(self) -> np.ndarray:
+    def n_sph(self) -> xp.ndarray:
         """The evaluated density."""
         return self._n_sph
 
@@ -294,15 +294,15 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
             Particles object.
     """
 
-    res = np.empty(1, dtype=float)
+    res = xp.empty(1, dtype=float)
     utils.canonical_kinetic_particles(
         res,
         particles.markers,
-        np.array(derham.p),
+        xp.array(derham.p),
         derham.Vh_fem["0"].knots[0],
         derham.Vh_fem["0"].knots[1],
         derham.Vh_fem["0"].knots[2],
-        np.array(
+        xp.array(
             derham.V0.coeff_space.starts,
         ),
         *domain.args_map,
@@ -327,7 +327,7 @@ def get_electron_thermal_energy(density_0_form, derham, domain, nel1, nel2, nel3
             Discrete Derham complex.
     """
 
-    res = np.empty(1, dtype=float)
+    res = xp.empty(1, dtype=float)
     utils.thermal_energy(
         res,
         density_0_form._operators[0].matrix._data,

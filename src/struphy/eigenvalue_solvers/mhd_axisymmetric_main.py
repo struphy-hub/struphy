@@ -36,7 +36,7 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     print("\nStart of eigenspectrum calculation for toroidal mode number", n_tor)
     print("")
@@ -148,7 +148,7 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
 
     print("Assembly of final system matrix done --> start of eigenvalue calculation")
 
-    omega2, U2_eig = np.linalg.eig(MAT)
+    omega2, U2_eig = xp.linalg.eig(MAT)
 
     print("Eigenstates calculated")
 
@@ -161,8 +161,8 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
         else:
             n_tor_str = "+" + str(n_tor)
 
-        np.save(
-            os.path.join(path_out, "spec_n_" + n_tor_str + ".npy"), np.vstack((omega2.reshape(1, omega2.size), U2_eig))
+        xp.save(
+            os.path.join(path_out, "spec_n_" + n_tor_str + ".npy"), xp.vstack((omega2.reshape(1, omega2.size), U2_eig))
         )
 
     # or return eigenfrequencies, eigenvectors and system matrix

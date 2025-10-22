@@ -7,7 +7,7 @@ import plotly.io as pio
 
 # pio.kaleido.scope.mathjax = None
 import struphy.post_processing.likwid.maxplotlylib as mply
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 def glob_to_regex(pat: str) -> str:
@@ -121,9 +121,9 @@ def plot_avg_duration_bar_chart(
 
     # Compute statistics per region
     regions = sorted(region_durations.keys())
-    avg_durations = [np.mean(region_durations[r]) for r in regions]
-    min_durations = [np.min(region_durations[r]) for r in regions]
-    max_durations = [np.max(region_durations[r]) for r in regions]
+    avg_durations = [xp.mean(region_durations[r]) for r in regions]
+    min_durations = [xp.min(region_durations[r]) for r in regions]
+    max_durations = [xp.max(region_durations[r]) for r in regions]
     yerr = [
         [avg - min_ for avg, min_ in zip(avg_durations, min_durations)],
         [max_ - avg for avg, max_ in zip(avg_durations, max_durations)],
@@ -131,7 +131,7 @@ def plot_avg_duration_bar_chart(
 
     # Plot bar chart with error bars (min-max spans)
     plt.figure(figsize=(12, 6))
-    x = np.arange(len(regions))
+    x = xp.arange(len(regions))
     plt.bar(x, avg_durations, yerr=yerr, capsize=5, color="skyblue", edgecolor="k")
     plt.yscale("log")
     plt.xticks(x, regions, rotation=45, ha="right")
@@ -175,7 +175,7 @@ def plot_gantt_chart_plotly(
     region_start_times = {}
     for rank_data in profiling_data["rank_data"].values():
         for region_name, info in rank_data.items():
-            first_start_time = np.min(info["start_times"])
+            first_start_time = xp.min(info["start_times"])
             if region_name not in region_start_times or first_start_time < region_start_times[region_name]:
                 region_start_times[region_name] = first_start_time
 
@@ -291,7 +291,7 @@ def plot_gantt_chart(
         region_start_times = {}
         for rank_data in profiling_data["rank_data"].values():
             for region_name, info in rank_data.items():
-                first_start_time = np.min(info["start_times"])
+                first_start_time = xp.min(info["start_times"])
                 if region_name not in region_start_times or first_start_time < region_start_times[region_name]:
                     region_start_times[region_name] = first_start_time
 

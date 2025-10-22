@@ -9,7 +9,7 @@ Modules to compute L2-errors of discrete p-forms with analytical forms in 2D.
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_2d as ker
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 # ======= error in V0 ====================
@@ -25,7 +25,7 @@ def l2_error_V0(tensor_space_FEM, domain, f0, c0, method="standard"):
     domain : domain
         domain object defining the geometry
 
-    f0 : callable or np.ndarray
+    f0 : callable or xp.ndarray
         the 0-form with which the error shall be computed
 
     c0 : array_like
@@ -63,12 +63,12 @@ def l2_error_V0(tensor_space_FEM, domain, f0, c0, method="standard"):
 
     # evaluation of exact 0-form at quadrature points
     if callable(f0):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
         f0 = f0(quad_mesh[0], quad_mesh[1], 0.0)
 
     if method == "standard":
         # evaluation of discrete 0-form at quadrature points
-        f0_h = tensor_space_FEM.evaluate_NN(pts[0].flatten(), pts[1].flatten(), np.array([0.0]), c0, "V0")[:, :, 0]
+        f0_h = tensor_space_FEM.evaluate_NN(pts[0].flatten(), pts[1].flatten(), xp.array([0.0]), c0, "V0")[:, :, 0]
 
         # compute error
         error = 0.0
@@ -78,7 +78,7 @@ def l2_error_V0(tensor_space_FEM, domain, f0, c0, method="standard"):
 
     else:
         # compute error in each element
-        error = np.zeros(Nel[:2], dtype=float)
+        error = xp.zeros(Nel[:2], dtype=float)
 
         ker.kernel_l2error(
             Nel,
@@ -106,7 +106,7 @@ def l2_error_V0(tensor_space_FEM, domain, f0, c0, method="standard"):
 
         error = error.sum()
 
-    return np.sqrt(error)
+    return xp.sqrt(error)
 
 
 # ======= error in V1 ====================
@@ -122,7 +122,7 @@ def l2_error_V1(tensor_space_FEM, domain, f1, c1, method="standard"):
     domain : domain
         domain object defining the geometry
 
-    f1 : list of callables or np.ndarrays
+    f1 : list of callables or xp.ndarrays
         the three 1-form components with which the error shall be computed
 
     c1 : list of array_like
@@ -162,16 +162,16 @@ def l2_error_V1(tensor_space_FEM, domain, f1, c1, method="standard"):
 
     # evaluation of exact 1-form components at quadrature points
     if callable(f1[0]):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
         f1_1 = f1[0](quad_mesh[0], quad_mesh[1], 0.0)
         f1_2 = f1[1](quad_mesh[0], quad_mesh[1], 0.0)
         f1_3 = f1[2](quad_mesh[0], quad_mesh[1], 0.0)
 
     if method == "standard":
         # evaluation of discrete 1-form components at quadrature points
-        f1_h_1 = tensor_space_FEM.evaluate_DN(pts[0].flatten(), pts[1].flatten(), np.array([0.0]), c1_1, "V1")[:, :, 0]
-        f1_h_2 = tensor_space_FEM.evaluate_ND(pts[0].flatten(), pts[1].flatten(), np.array([0.0]), c1_2, "V1")[:, :, 0]
-        f1_h_3 = tensor_space_FEM.evaluate_NN(pts[0].flatten(), pts[1].flatten(), np.array([0.0]), c1_3, "V1")[:, :, 0]
+        f1_h_1 = tensor_space_FEM.evaluate_DN(pts[0].flatten(), pts[1].flatten(), xp.array([0.0]), c1_1, "V1")[:, :, 0]
+        f1_h_2 = tensor_space_FEM.evaluate_ND(pts[0].flatten(), pts[1].flatten(), xp.array([0.0]), c1_2, "V1")[:, :, 0]
+        f1_h_3 = tensor_space_FEM.evaluate_NN(pts[0].flatten(), pts[1].flatten(), xp.array([0.0]), c1_3, "V1")[:, :, 0]
 
         # compute error
         error = 0.0
@@ -194,7 +194,7 @@ def l2_error_V1(tensor_space_FEM, domain, f1, c1, method="standard"):
 
     else:
         # compute error in each element
-        error = np.zeros(Nel[:2], dtype=float)
+        error = xp.zeros(Nel[:2], dtype=float)
 
         # 1 * d_f1 * G^11 * |det(DF)| * d_f1
         ker.kernel_l2error(
@@ -298,7 +298,7 @@ def l2_error_V1(tensor_space_FEM, domain, f1, c1, method="standard"):
 
         error = error.sum()
 
-    return np.sqrt(error)
+    return xp.sqrt(error)
 
 
 # ======= error in V2 ====================
@@ -314,7 +314,7 @@ def l2_error_V2(tensor_space_FEM, domain, f2, c2, method="standard"):
     domain : domain
         domain object defining the geometry
 
-    f2 : list of callables or np.ndarrays
+    f2 : list of callables or xp.ndarrays
         the three 2-form components with which the error shall be computed
 
     c2 : list of array_like
@@ -354,16 +354,16 @@ def l2_error_V2(tensor_space_FEM, domain, f2, c2, method="standard"):
 
     # evaluation of exact 2-form components at quadrature points
     if callable(f2[0]):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
         f2_1 = f2[0](quad_mesh[0], quad_mesh[1], 0.0)
         f2_2 = f2[1](quad_mesh[0], quad_mesh[1], 0.0)
         f2_3 = f2[2](quad_mesh[0], quad_mesh[1], 0.0)
 
     if method == "standard":
         # evaluation of discrete 2-form components at quadrature points
-        f2_h_1 = tensor_space_FEM.evaluate_ND(pts[0].flatten(), pts[1].flatten(), np.array([0.0]), c2_1, "V2")[:, :, 0]
-        f2_h_2 = tensor_space_FEM.evaluate_DN(pts[0].flatten(), pts[1].flatten(), np.array([0.0]), c2_2, "V2")[:, :, 0]
-        f2_h_3 = tensor_space_FEM.evaluate_DD(pts[0].flatten(), pts[1].flatten(), np.array([0.0]), c2_3, "V2")[:, :, 0]
+        f2_h_1 = tensor_space_FEM.evaluate_ND(pts[0].flatten(), pts[1].flatten(), xp.array([0.0]), c2_1, "V2")[:, :, 0]
+        f2_h_2 = tensor_space_FEM.evaluate_DN(pts[0].flatten(), pts[1].flatten(), xp.array([0.0]), c2_2, "V2")[:, :, 0]
+        f2_h_3 = tensor_space_FEM.evaluate_DD(pts[0].flatten(), pts[1].flatten(), xp.array([0.0]), c2_3, "V2")[:, :, 0]
 
         # compute error
         error = 0.0
@@ -386,7 +386,7 @@ def l2_error_V2(tensor_space_FEM, domain, f2, c2, method="standard"):
 
     else:
         # compute error in each element
-        error = np.zeros(Nel[:2], dtype=float)
+        error = xp.zeros(Nel[:2], dtype=float)
 
         # 1 * d_f1 * G_11 / |det(DF)| * d_f1
         ker.kernel_l2error(
@@ -490,7 +490,7 @@ def l2_error_V2(tensor_space_FEM, domain, f2, c2, method="standard"):
 
         error = error.sum()
 
-    return np.sqrt(error)
+    return xp.sqrt(error)
 
 
 # ======= error in V3 ====================
@@ -506,7 +506,7 @@ def l2_error_V3(tensor_space_FEM, domain, f3, c3, method="standard"):
     domain : domain
         domain object defining the geometry
 
-    f3 : callable or np.ndarray
+    f3 : callable or xp.ndarray
         the 3-form component with which the error shall be computed
 
     c3 : array_like
@@ -544,12 +544,12 @@ def l2_error_V3(tensor_space_FEM, domain, f3, c3, method="standard"):
 
     # evaluation of exact 3-form at quadrature points
     if callable(f3):
-        quad_mesh = np.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
+        quad_mesh = xp.meshgrid(pts[0].flatten(), pts[1].flatten(), indexing="ij")
         f3 = f3(quad_mesh[0], quad_mesh[1], 0.0)
 
     if method == "standard":
         # evaluation of discrete 3-form at quadrature points
-        f3_h = tensor_space_FEM.evaluate_DD(pts[0].flatten(), pts[1].flatten(), np.array([0.0]), c3, "V3")[:, :, 0]
+        f3_h = tensor_space_FEM.evaluate_DD(pts[0].flatten(), pts[1].flatten(), xp.array([0.0]), c3, "V3")[:, :, 0]
 
         # compute error
         error = 0.0
@@ -559,7 +559,7 @@ def l2_error_V3(tensor_space_FEM, domain, f3, c3, method="standard"):
 
     else:
         # compute error in each element
-        error = np.zeros(Nel[:2], dtype=float)
+        error = xp.zeros(Nel[:2], dtype=float)
 
         ker.kernel_l2error(
             Nel,
@@ -587,4 +587,4 @@ def l2_error_V3(tensor_space_FEM, domain, f3, c3, method="standard"):
 
         error = error.sum()
 
-    return np.sqrt(error)
+    return xp.sqrt(error)

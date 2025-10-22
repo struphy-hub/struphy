@@ -14,7 +14,7 @@ from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 
@@ -51,7 +51,7 @@ class BasisProjectionOperators:
 
         self._rank = derham.comm.Get_rank() if derham.comm is not None else 0
 
-        if np.any([p == 1 and Nel > 1 for p, Nel in zip(derham.p, derham.Nel)]):
+        if xp.any([p == 1 and Nel > 1 for p, Nel in zip(derham.p, derham.Nel)]):
             if MPI.COMM_WORLD.Get_rank() == 0:
                 print(
                     f'\nWARNING: Class "BasisProjectionOperators" called with p={derham.p} (interpolation of piece-wise constants should be avoided).',
@@ -1051,11 +1051,11 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
         if isinstance(V, TensorFemSpace):
             self._Vspaces = [V.coeff_space]
             self._V1ds = [V.spaces]
-            self._VNbasis = np.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
+            self._VNbasis = xp.array([self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis])
         else:
             self._Vspaces = V.coeff_space
             self._V1ds = [comp.spaces for comp in V.spaces]
-            self._VNbasis = np.array(
+            self._VNbasis = xp.array(
                 [
                     [self._V1ds[0][0].nbasis, self._V1ds[0][1].nbasis, self._V1ds[0][2].nbasis],
                     [
@@ -1283,7 +1283,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                             self._pds,
                             self._periodic,
                             self._p,
-                            np.array([col0, col1, col2]),
+                            xp.array([col0, col1, col2]),
                             self._VNbasis,
                             self._mat._data,
                             coeff,
@@ -1358,7 +1358,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                 self._pds,
                                 self._periodic,
                                 self._p,
-                                np.array(
+                                xp.array(
                                     [
                                         col0,
                                         col1,
@@ -1438,7 +1438,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                 self._pds[h],
                                 self._periodic,
                                 self._p,
-                                np.array(
+                                xp.array(
                                     [
                                         col0,
                                         col1,
@@ -1539,7 +1539,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                     self._pds[h],
                                     self._periodic,
                                     self._p,
-                                    np.array(
+                                    xp.array(
                                         [
                                             col0,
                                             col1,
@@ -1613,7 +1613,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         Finite element spline space (domain, input space).
 
     weights : list
-        Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
+        Weight function(s) (callables or xp.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
 
     V_extraction_op : PolarExtractionOperator | IdentityOperator
         Extraction operator to polar sub-space of V.
@@ -1889,7 +1889,7 @@ class BasisProjectionOperator(LinOpWithTransp):
         Parameters
         ----------
         weights : list
-            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
+            Weight function(s) (callables or xp.ndarrays) in a 2d list of shape corresponding to number of components of domain/codomain.
         """
 
         self._weights = weights
@@ -1945,13 +1945,13 @@ class BasisProjectionOperator(LinOpWithTransp):
 
             # input vector space (domain), column of block
             for j, (Vspace, V1d, loc_weight) in enumerate(zip(_Vspaces, _V1ds, weight_line)):
-                _starts_in = np.array(Vspace.starts)
-                _ends_in = np.array(Vspace.ends)
-                _pads_in = np.array(Vspace.pads)
+                _starts_in = xp.array(Vspace.starts)
+                _ends_in = xp.array(Vspace.ends)
+                _pads_in = xp.array(Vspace.pads)
 
-                _starts_out = np.array(Wspace.starts)
-                _ends_out = np.array(Wspace.ends)
-                _pads_out = np.array(Wspace.pads)
+                _starts_out = xp.array(Wspace.starts)
+                _ends_out = xp.array(Wspace.ends)
+                _pads_out = xp.array(Wspace.pads)
 
                 # use cached information if asked
                 if self._use_cache:
@@ -1998,21 +1998,21 @@ class BasisProjectionOperator(LinOpWithTransp):
                 # Evaluate weight function at quadrature points
                 # evaluate weight at quadrature points
                 if callable(loc_weight):
-                    PTS = np.meshgrid(*_ptsG, indexing="ij")
+                    PTS = xp.meshgrid(*_ptsG, indexing="ij")
                     mat_w = loc_weight(*PTS).copy()
-                elif isinstance(loc_weight, np.ndarray):
+                elif isinstance(loc_weight, xp.ndarray):
                     assert loc_weight.shape == (len(_ptsG[0]), len(_ptsG[1]), len(_ptsG[2]))
                     mat_w = loc_weight
                 elif loc_weight is not None:
                     raise TypeError(
-                        "weights must be np.ndarray, callable or None",
+                        "weights must be xp.ndarray, callable or None",
                     )
 
                 # Call the kernel if weight function is not zero or in the scalar case
                 # to avoid calling _block of a StencilMatrix in the else
 
-                not_weight_zero = np.array(
-                    int(loc_weight is not None and np.any(np.abs(mat_w) > 1e-14)),
+                not_weight_zero = xp.array(
+                    int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
                 )
 
                 if self._mpi_comm is not None:

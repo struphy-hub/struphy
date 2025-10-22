@@ -13,7 +13,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     from psydac.linalg.stencil import StencilVector
 
     from struphy.feec.psydac_derham import Derham
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -74,17 +74,17 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     ### TEST COMMUTING PROJECTORS ###
     #################################
     def fun(eta):
-        return np.cos(2 * np.pi * eta)
+        return xp.cos(2 * xp.pi * eta)
 
     def dfun(eta):
-        return -2 * np.pi * np.sin(2 * np.pi * eta)
+        return -2 * xp.pi * xp.sin(2 * xp.pi * eta)
 
     # evaluation points and gradient
     e1 = 0.0
     e2 = 0.0
     e3 = 0.0
     if Nel[0] > 1:
-        e1 = np.linspace(0.0, 1.0, 100)
+        e1 = xp.linspace(0.0, 1.0, 100)
         e = e1
         c = 0
 
@@ -95,12 +95,12 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
             return dfun(x)
 
         def dfy(x, y, z):
-            return np.zeros_like(x)
+            return xp.zeros_like(x)
 
         def dfz(x, y, z):
-            return np.zeros_like(x)
+            return xp.zeros_like(x)
     elif Nel[1] > 1:
-        e2 = np.linspace(0.0, 1.0, 100)
+        e2 = xp.linspace(0.0, 1.0, 100)
         e = e2
         c = 1
 
@@ -108,15 +108,15 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
             return fun(y)
 
         def dfx(x, y, z):
-            return np.zeros_like(y)
+            return xp.zeros_like(y)
 
         def dfy(x, y, z):
             return dfun(y)
 
         def dfz(x, y, z):
-            return np.zeros_like(y)
+            return xp.zeros_like(y)
     elif Nel[2] > 1:
-        e3 = np.linspace(0.0, 1.0, 100)
+        e3 = xp.linspace(0.0, 1.0, 100)
         e = e3
         c = 2
 
@@ -124,10 +124,10 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
             return fun(z)
 
         def dfx(x, y, z):
-            return np.zeros_like(z)
+            return xp.zeros_like(z)
 
         def dfy(x, y, z):
-            return np.zeros_like(z)
+            return xp.zeros_like(z)
 
         def dfz(x, y, z):
             return dfun(z)
@@ -160,22 +160,22 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_f0_vals = field_f0(e1, e2, e3, squeeze_out=True)
 
     # a) projection error
-    err_f0 = np.max(np.abs(f(e1, e2, e3) - field_f0_vals))
+    err_f0 = xp.max(xp.abs(f(e1, e2, e3) - field_f0_vals))
     print(f"\n{err_f0 = }")
     assert err_f0 < 1e-2
 
     # b) commuting property
     df0_h = derham.grad.dot(f0_h)
-    assert np.allclose(df0_h.toarray(), proj_of_grad_f.toarray())
+    assert xp.allclose(df0_h.toarray(), proj_of_grad_f.toarray())
 
     # c) derivative error
     field_df0 = derham.create_spline_function("df0", "Hcurl")
     field_df0.vector = df0_h
     field_df0_vals = field_df0(e1, e2, e3, squeeze_out=True)
 
-    err_df0 = [np.max(np.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(grad_f, field_df0_vals)]
+    err_df0 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(grad_f, field_df0_vals)]
     print(f"{err_df0 = }")
-    assert np.max(err_df0) < 0.64
+    assert xp.max(err_df0) < 0.64
 
     # d) plotting
     plt.figure(figsize=(8, 12))
@@ -202,22 +202,22 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_f1_vals = field_f1(e1, e2, e3, squeeze_out=True)
 
     # a) projection error
-    err_f1 = [np.max(np.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip([f, f, f], field_f1_vals)]
+    err_f1 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip([f, f, f], field_f1_vals)]
     print(f"{err_f1 = }")
-    assert np.max(err_f1) < 0.09
+    assert xp.max(err_f1) < 0.09
 
     # b) commuting property
     df1_h = derham.curl.dot(f1_h)
-    assert np.allclose(df1_h.toarray(), proj_of_curl_fff.toarray())
+    assert xp.allclose(df1_h.toarray(), proj_of_curl_fff.toarray())
 
     # c) derivative error
     field_df1 = derham.create_spline_function("df1", "Hdiv")
     field_df1.vector = df1_h
     field_df1_vals = field_df1(e1, e2, e3, squeeze_out=True)
 
-    err_df1 = [np.max(np.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(curl_f, field_df1_vals)]
+    err_df1 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(curl_f, field_df1_vals)]
     print(f"{err_df1 = }")
-    assert np.max(err_df1) < 0.64
+    assert xp.max(err_df1) < 0.64
 
     # d) plotting
     plt.figure(figsize=(8, 12))
@@ -249,22 +249,22 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_f2_vals = field_f2(e1, e2, e3, squeeze_out=True)
 
     # a) projection error
-    err_f2 = [np.max(np.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip([f, f, f], field_f2_vals)]
+    err_f2 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip([f, f, f], field_f2_vals)]
     print(f"{err_f2 = }")
-    assert np.max(err_f2) < 0.09
+    assert xp.max(err_f2) < 0.09
 
     # b) commuting property
     df2_h = derham.div.dot(f2_h)
-    assert np.allclose(df2_h.toarray(), proj_of_div_fff.toarray())
+    assert xp.allclose(df2_h.toarray(), proj_of_div_fff.toarray())
 
     # c) derivative error
     field_df2 = derham.create_spline_function("df2", "L2")
     field_df2.vector = df2_h
     field_df2_vals = field_df2(e1, e2, e3, squeeze_out=True)
 
-    err_df2 = np.max(np.abs(div_f(e1, e2, e3) - field_df2_vals))
+    err_df2 = xp.max(xp.abs(div_f(e1, e2, e3) - field_df2_vals))
     print(f"{err_df2 = }")
-    assert np.max(err_df2) < 0.64
+    assert xp.max(err_df2) < 0.64
 
     # d) plotting
     plt.figure(figsize=(8, 12))
@@ -291,7 +291,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_f3_vals = field_f3(e1, e2, e3, squeeze_out=True)
 
     # a) projection error
-    err_f3 = np.max(np.abs(f(e1, e2, e3) - field_f3_vals))
+    err_f3 = xp.max(xp.abs(f(e1, e2, e3) - field_f3_vals))
     print(f"{err_f3 = }")
     assert err_f3 < 0.09
 

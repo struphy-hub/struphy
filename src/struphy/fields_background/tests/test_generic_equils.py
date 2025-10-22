@@ -5,12 +5,12 @@ from struphy.fields_background.generic import (
     GenericCartesianFluidEquilibrium,
     GenericCartesianFluidEquilibriumWithB,
 )
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 def test_generic_equils(show=False):
-    fun_vec = lambda x, y, z: (np.cos(2 * np.pi * x), np.cos(2 * np.pi * y), z)
-    fun_n = lambda x, y, z: np.exp(-((x - 1) ** 2) - (y) ** 2)
+    fun_vec = lambda x, y, z: (xp.cos(2 * xp.pi * x), xp.cos(2 * xp.pi * y), z)
+    fun_n = lambda x, y, z: xp.exp(-((x - 1) ** 2) - (y) ** 2)
     fun_p = lambda x, y, z: x**2
     gen_eq = GenericCartesianFluidEquilibrium(
         u_xyz=fun_vec,
@@ -25,22 +25,22 @@ def test_generic_equils(show=False):
         gradB_xyz=fun_vec,
     )
 
-    x = np.linspace(-3, 3, 32)
-    y = np.linspace(-4, 4, 32)
+    x = xp.linspace(-3, 3, 32)
+    y = xp.linspace(-4, 4, 32)
     z = 1.0
-    xx, yy, zz = np.meshgrid(x, y, z)
+    xx, yy, zz = xp.meshgrid(x, y, z)
 
     # gen_eq
-    assert all([np.all(tmp == fun_i) for tmp, fun_i in zip(gen_eq.u_xyz(xx, yy, zz), fun_vec(xx, yy, zz))])
-    assert np.all(gen_eq.p_xyz(xx, yy, zz) == fun_p(xx, yy, zz))
-    assert np.all(gen_eq.n_xyz(xx, yy, zz) == fun_n(xx, yy, zz))
+    assert all([xp.all(tmp == fun_i) for tmp, fun_i in zip(gen_eq.u_xyz(xx, yy, zz), fun_vec(xx, yy, zz))])
+    assert xp.all(gen_eq.p_xyz(xx, yy, zz) == fun_p(xx, yy, zz))
+    assert xp.all(gen_eq.n_xyz(xx, yy, zz) == fun_n(xx, yy, zz))
 
     # gen_eq_B
-    assert all([np.all(tmp == fun_i) for tmp, fun_i in zip(gen_eq_B.u_xyz(xx, yy, zz), fun_vec(xx, yy, zz))])
-    assert np.all(gen_eq_B.p_xyz(xx, yy, zz) == fun_p(xx, yy, zz))
-    assert np.all(gen_eq_B.n_xyz(xx, yy, zz) == fun_n(xx, yy, zz))
-    assert all([np.all(tmp == fun_i) for tmp, fun_i in zip(gen_eq_B.b_xyz(xx, yy, zz), fun_vec(xx, yy, zz))])
-    assert all([np.all(tmp == fun_i) for tmp, fun_i in zip(gen_eq_B.gradB_xyz(xx, yy, zz), fun_vec(xx, yy, zz))])
+    assert all([xp.all(tmp == fun_i) for tmp, fun_i in zip(gen_eq_B.u_xyz(xx, yy, zz), fun_vec(xx, yy, zz))])
+    assert xp.all(gen_eq_B.p_xyz(xx, yy, zz) == fun_p(xx, yy, zz))
+    assert xp.all(gen_eq_B.n_xyz(xx, yy, zz) == fun_n(xx, yy, zz))
+    assert all([xp.all(tmp == fun_i) for tmp, fun_i in zip(gen_eq_B.b_xyz(xx, yy, zz), fun_vec(xx, yy, zz))])
+    assert all([xp.all(tmp == fun_i) for tmp, fun_i in zip(gen_eq_B.gradB_xyz(xx, yy, zz), fun_vec(xx, yy, zz))])
 
     if show:
         plt.figure(figsize=(12, 12))

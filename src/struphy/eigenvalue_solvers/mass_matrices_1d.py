@@ -5,7 +5,7 @@
 import scipy.sparse as spa
 
 import struphy.bsplines.bsplines as bsp
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 # ======= mass matrices in 1D ====================
@@ -47,7 +47,7 @@ def get_M(spline_space, phi_i=0, phi_j=0, fun=None):
 
     # evaluation of weight function at quadrature points (optional)
     if fun == None:
-        mat_fun = np.ones(pts.shape, dtype=float)
+        mat_fun = xp.ones(pts.shape, dtype=float)
     else:
         mat_fun = fun(pts.flatten()).reshape(Nel, n_quad)
 
@@ -74,7 +74,7 @@ def get_M(spline_space, phi_i=0, phi_j=0, fun=None):
         bj = basisD[:, :, 0, :]
 
     # matrix assembly
-    M = np.zeros((Ni, 2 * p + 1), dtype=float)
+    M = xp.zeros((Ni, 2 * p + 1), dtype=float)
 
     for ie in range(Nel):
         for il in range(p + 1 - ni):
@@ -86,8 +86,8 @@ def get_M(spline_space, phi_i=0, phi_j=0, fun=None):
 
                 M[(ie + il) % Ni, p + jl - il] += value
 
-    indices = np.indices((Ni, 2 * p + 1))
-    shift = np.arange(Ni) - p
+    indices = xp.indices((Ni, 2 * p + 1))
+    shift = xp.arange(Ni) - p
 
     row = indices[0].flatten()
     col = (indices[1] + shift[:, None]) % Nj
@@ -137,13 +137,13 @@ def get_M_gen(spline_space, phi_i=0, phi_j=0, fun=None, jac=None):
 
     # evaluation of weight function at quadrature points (optional)
     if fun == None:
-        mat_fun = np.ones(pts.shape, dtype=float)
+        mat_fun = xp.ones(pts.shape, dtype=float)
     else:
         mat_fun = fun(pts.flatten()).reshape(Nel, n_quad)
 
     # evaluation of jacobian at quadrature points
     if jac == None:
-        mat_jac = np.ones(pts.shape, dtype=float)
+        mat_jac = xp.ones(pts.shape, dtype=float)
     else:
         mat_jac = jac(pts.flatten()).reshape(Nel, n_quad)
 
@@ -180,7 +180,7 @@ def get_M_gen(spline_space, phi_i=0, phi_j=0, fun=None, jac=None):
         bj = basis_t[:, :, 0, :]
 
     # matrix assembly
-    M = np.zeros((Ni, 2 * p + 1), dtype=float)
+    M = xp.zeros((Ni, 2 * p + 1), dtype=float)
 
     for ie in range(Nel):
         for il in range(p + 1 - ni):
@@ -192,8 +192,8 @@ def get_M_gen(spline_space, phi_i=0, phi_j=0, fun=None, jac=None):
 
                 M[(ie + il) % Ni, p + jl - il] += value
 
-    indices = np.indices((Ni, 2 * p + 1))
-    shift = np.arange(Ni) - p
+    indices = xp.indices((Ni, 2 * p + 1))
+    shift = xp.arange(Ni) - p
 
     row = indices[0].flatten()
     col = (indices[1] + shift[:, None]) % Nj
@@ -235,11 +235,11 @@ def test_M(spline_space, phi_i=0, phi_j=0, fun=lambda eta: 1.0, jac=lambda eta: 
         bj = lambda eta: spline_space.evaluate_D(eta, cj) / spline_space.Nel
 
     # coefficients
-    ci = np.zeros(Ni, dtype=float)
-    cj = np.zeros(Nj, dtype=float)
+    ci = xp.zeros(Ni, dtype=float)
+    cj = xp.zeros(Nj, dtype=float)
 
     # integration
-    M = np.zeros((Ni, Nj), dtype=float)
+    M = xp.zeros((Ni, Nj), dtype=float)
 
     for i in range(Ni):
         for j in range(Nj):
