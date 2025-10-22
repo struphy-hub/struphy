@@ -257,14 +257,14 @@ class VlasovAmpere(Propagator):
             print("Maxdiff e1  for VlasovMaxwell:", max_de)
             particles = self.variables.ions.particles
             buffer_idx = particles.bufferindex
-            max_diff = np.max(
-                np.abs(
-                    np.sqrt(
+            max_diff = xp.max(
+                xp.abs(
+                    xp.sqrt(
                         particles.markers_wo_holes[:, 3] ** 2
                         + particles.markers_wo_holes[:, 4] ** 2
                         + particles.markers_wo_holes[:, 5] ** 2,
                     )
-                    - np.sqrt(
+                    - xp.sqrt(
                         particles.markers_wo_holes[:, buffer_idx + 3] ** 2
                         + particles.markers_wo_holes[:, buffer_idx + 4] ** 2
                         + particles.markers_wo_holes[:, buffer_idx + 5] ** 2,
@@ -391,8 +391,8 @@ class EfieldWeights(Propagator):
         self._e_sum = e.space.zeros()
 
         # marker storage
-        self._f0_values = np.zeros(particles.markers.shape[0], dtype=float)
-        self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
+        self._f0_values = xp.zeros(particles.markers.shape[0], dtype=float)
+        self._old_weights = xp.empty(particles.markers.shape[0], dtype=float)
 
         # ================================
         # ========= Schur Solver =========
@@ -488,8 +488,8 @@ class EfieldWeights(Propagator):
             print("Status          for StepEfieldWeights:", info["success"])
             print("Iterations      for StepEfieldWeights:", info["niter"])
             print("Maxdiff    e1   for StepEfieldWeights:", max_de)
-            max_diff = np.max(
-                np.abs(
+            max_diff = xp.max(
+                xp.abs(
                     self._old_weights[~self.particles[0].holes]
                     - self.particles[0].markers[~self.particles[0].holes, 6],
                 ),
@@ -948,14 +948,14 @@ class CurrentCoupling6DCurrent(Propagator):
         #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
 
         #     # memory allocation for magnetic field at quadrature points
-        #     self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._b_quad2 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._b_quad3 = np.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad1 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad2 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad3 = xp.zeros_like(self._nuh0_at_quad[0])
 
         #     # memory allocation for (self._b_quad x self._nuh0_at_quad) * self._coupling_vec
-        #     self._vec1 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._vec2 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._vec3 = np.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec1 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec2 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec3 = xp.zeros_like(self._nuh0_at_quad[0])
 
         # FEM spaces and basis extraction operators for u and b
         u_id = self.derham.space_to_form[u_space]
@@ -1583,8 +1583,8 @@ class CurrentCoupling5DGradB(Propagator):
             butcher = self.options.butcher
             import numpy as np
 
-            butcher._a = np.diag(butcher.a, k=-1)
-            butcher._a = np.array(list(butcher.a) + [0.0])
+            butcher._a = xp.diag(butcher.a, k=-1)
+            butcher._a = xp.array(list(butcher.a) + [0.0])
 
             self._args_pusher_kernel = (
                 self.domain.args_domain,
@@ -1827,10 +1827,10 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_old
             particles.save_magnetic_energy(PB_b)
-            en_fB_old = np.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+            en_fB_old = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
             en_fB_old /= n_mks_tot
 
-            buffer_array = np.array([en_fB_old])
+            buffer_array = xp.array([en_fB_old])
 
             if particles.mpi_comm is not None:
                 particles.mpi_comm.Allreduce(
@@ -1873,10 +1873,10 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_new
             particles.save_magnetic_energy(PB_b)
-            en_fB_new = np.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+            en_fB_new = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
             en_fB_new /= n_mks_tot
 
-            buffer_array = np.array([en_fB_new])
+            buffer_array = xp.array([en_fB_new])
 
             if particles.mpi_comm is not None:
                 particles.mpi_comm.Allreduce(
@@ -1920,13 +1920,13 @@ class CurrentCoupling5DGradB(Propagator):
                 markers[~holes, first_free_idx : first_free_idx + 3] = markers[~holes, 0:3]
 
                 # calculate denominator ||z^{n+1, k} - z^n||^2
-                sum_u_diff_loc = np.sum((u_diff.toarray() ** 2))
+                sum_u_diff_loc = xp.sum((u_diff.toarray() ** 2))
 
-                sum_H_diff_loc = np.sum(
+                sum_H_diff_loc = xp.sum(
                     (markers[~holes, :3] - markers[~holes, first_init_idx : first_init_idx + 3]) ** 2
                 )
 
-                buffer_array = np.array([sum_u_diff_loc])
+                buffer_array = xp.array([sum_u_diff_loc])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(
@@ -1937,7 +1937,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 denominator = buffer_array[0]
 
-                buffer_array = np.array([sum_H_diff_loc])
+                buffer_array = xp.array([sum_H_diff_loc])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(
@@ -1964,11 +1964,11 @@ class CurrentCoupling5DGradB(Propagator):
                     *self._args_accum_kernel_en_fB_mid,
                     first_free_idx + 3,
                 )
-                en_fB_mid = np.sum(markers[~holes, first_free_idx + 3].dot(markers[~holes, 5])) * self.options.ep_scale
+                en_fB_mid = xp.sum(markers[~holes, first_free_idx + 3].dot(markers[~holes, 5])) * self.options.ep_scale
 
                 en_fB_mid /= n_mks_tot
 
-                buffer_array = np.array([en_fB_mid])
+                buffer_array = xp.array([en_fB_mid])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(
@@ -2016,8 +2016,8 @@ class CurrentCoupling5DGradB(Propagator):
                     alpha,
                 )
 
-                sum_H_diff_loc = np.sum(
-                    np.abs(markers[~holes, 0:3] - markers[~holes, first_free_idx : first_free_idx + 3])
+                sum_H_diff_loc = xp.sum(
+                    xp.abs(markers[~holes, 0:3] - markers[~holes, first_free_idx : first_free_idx + 3])
                 )
 
                 if particles.mpi_comm is not None:
@@ -2025,10 +2025,10 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # update en_fB_new
                 particles.save_magnetic_energy(PB_b)
-                en_fB_new = np.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+                en_fB_new = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
                 en_fB_new /= n_mks_tot
 
-                buffer_array = np.array([en_fB_new])
+                buffer_array = xp.array([en_fB_new])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(
@@ -2047,12 +2047,12 @@ class CurrentCoupling5DGradB(Propagator):
                 en_fB_new = buffer_array[0]
 
                 # calculate total energy difference
-                e_diff = np.abs(en_U_new + en_fB_new - en_tot_old)
+                e_diff = xp.abs(en_U_new + en_fB_new - en_tot_old)
 
                 # calculate ||z^{n+1, k} - z^{n+1, k-1||
-                sum_u_diff_loc = np.sum(np.abs(u_new.toarray() - u_old.toarray()))
+                sum_u_diff_loc = xp.sum(xp.abs(u_new.toarray() - u_old.toarray()))
 
-                buffer_array = np.array([sum_u_diff_loc])
+                buffer_array = xp.array([sum_u_diff_loc])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(
@@ -2063,7 +2063,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 diff = buffer_array[0]
 
-                buffer_array = np.array([sum_H_diff_loc])
+                buffer_array = xp.array([sum_H_diff_loc])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(

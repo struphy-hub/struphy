@@ -16,9 +16,9 @@ from struphy.pic.utilities import BoundaryParameters, LoadingParameters, Weights
 def test_flattening(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
-    n1s = np.array(np.random.rand(10) * (nx + 1), dtype=int)
-    n2s = np.array(np.random.rand(10) * (ny + 1), dtype=int)
-    n3s = np.array(np.random.rand(10) * (nz + 1), dtype=int)
+    n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
+    n2s = xp.array(xp.random.rand(10) * (ny + 1), dtype=int)
+    n3s = xp.array(xp.random.rand(10) * (nz + 1), dtype=int)
     for n1 in n1s:
         for n2 in n2s:
             for n3 in n3s:
@@ -36,9 +36,9 @@ def test_flattening(nx, ny, nz, algo):
 def test_flattening(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
-    n1s = np.array(np.random.rand(10) * (nx + 1), dtype=int)
-    n2s = np.array(np.random.rand(10) * (ny + 1), dtype=int)
-    n3s = np.array(np.random.rand(10) * (nz + 1), dtype=int)
+    n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
+    n2s = xp.array(xp.random.rand(10) * (ny + 1), dtype=int)
+    n3s = xp.array(xp.random.rand(10) * (nz + 1), dtype=int)
     for n1 in n1s:
         for n2 in n2s:
             for n3 in n3s:
@@ -56,9 +56,9 @@ def test_flattening(nx, ny, nz, algo):
 def test_flattening(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
-    n1s = np.array(np.random.rand(10) * (nx + 1), dtype=int)
-    n2s = np.array(np.random.rand(10) * (ny + 1), dtype=int)
-    n3s = np.array(np.random.rand(10) * (nz + 1), dtype=int)
+    n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
+    n2s = xp.array(xp.random.rand(10) * (ny + 1), dtype=int)
+    n3s = xp.array(xp.random.rand(10) * (nz + 1), dtype=int)
     for n1 in n1s:
         for n2 in n2s:
             for n3 in n3s:

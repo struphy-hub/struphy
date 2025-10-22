@@ -8,7 +8,7 @@ Modules to compute inner products in 1d.
 
 import scipy.sparse as spa
 
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 # ======= inner product in V0 ====================
@@ -40,7 +40,7 @@ def inner_prod_V0(spline_space, fun, mapping=None):
 
     # evaluation of mapping at quadrature points
     if mapping == None:
-        mat_map = np.ones(pts.shape, dtype=float)
+        mat_map = xp.ones(pts.shape, dtype=float)
     else:
         mat_map = mapping(pts.flatten()).reshape(pts.shape)
 
@@ -48,7 +48,7 @@ def inner_prod_V0(spline_space, fun, mapping=None):
     mat_f = fun(pts.flatten()).reshape(pts.shape)
 
     # assembly
-    F = np.zeros(NbaseN, dtype=float)
+    F = xp.zeros(NbaseN, dtype=float)
 
     for ie in range(Nel):
         for il in range(p + 1):
@@ -91,7 +91,7 @@ def inner_prod_V1(spline_space, fun, mapping=None):
 
     # evaluation of mapping at quadrature points
     if mapping == None:
-        mat_map = np.ones(pts.shape, dtype=float)
+        mat_map = xp.ones(pts.shape, dtype=float)
     else:
         mat_map = 1 / mapping(pts.flatten()).reshape(pts.shape)
 
@@ -99,7 +99,7 @@ def inner_prod_V1(spline_space, fun, mapping=None):
     mat_f = fun(pts.flatten()).reshape(pts.shape)
 
     # assembly
-    F = np.zeros(NbaseD, dtype=float)
+    F = xp.zeros(NbaseD, dtype=float)
 
     for ie in range(Nel):
         for il in range(p):

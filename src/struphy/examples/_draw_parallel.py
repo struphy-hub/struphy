@@ -3,7 +3,7 @@ from psydac.ddm.mpi import mpi as MPI
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
 from struphy.pic.particles import Particles6D
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 def main():
@@ -69,18 +69,18 @@ def main():
     )
 
     # are all markers in the correct domain?
-    conds = np.logical_and(
+    conds = xp.logical_and(
         particles.markers[:, :3] > derham.domain_array[rank, 0::3],
         particles.markers[:, :3] < derham.domain_array[rank, 1::3],
     )
 
     holes = particles.markers[:, 0] == -1.0
-    stay = np.all(conds, axis=1)
+    stay = xp.all(conds, axis=1)
 
-    error_mks = particles.markers[np.logical_and(~stay, ~holes)]
+    error_mks = particles.markers[xp.logical_and(~stay, ~holes)]
 
     print(
-        f"rank {rank} | markers not on correct process: {np.nonzero(np.logical_and(~stay, ~holes))} \
+        f"rank {rank} | markers not on correct process: {xp.nonzero(xp.logical_and(~stay, ~holes))} \
             \n corresponding positions:\n {error_mks[:, :3]}"
     )
 

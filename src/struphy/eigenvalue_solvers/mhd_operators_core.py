@@ -8,7 +8,7 @@ import scipy.sparse as spa
 import struphy.eigenvalue_solvers.kernels_projectors_global_mhd as ker
 import struphy.eigenvalue_solvers.mass_matrices_2d as mass_2d
 import struphy.eigenvalue_solvers.mass_matrices_3d as mass_3d
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class MHDOperatorsCore:
@@ -58,11 +58,11 @@ class MHDOperatorsCore:
         self.subs_cum = [space.projectors.subs_cum for space in self.space.spaces]
 
         # get 1D indices of non-vanishing values of expressions dofs_0(N), dofs_0(D), dofs_1(N) and dofs_1(D)
-        self.dofs_0_N_i = [list(np.nonzero(space.projectors.I.toarray())) for space in self.space.spaces]
-        self.dofs_1_D_i = [list(np.nonzero(space.projectors.H.toarray())) for space in self.space.spaces]
+        self.dofs_0_N_i = [list(xp.nonzero(space.projectors.I.toarray())) for space in self.space.spaces]
+        self.dofs_1_D_i = [list(xp.nonzero(space.projectors.H.toarray())) for space in self.space.spaces]
 
-        self.dofs_0_D_i = [list(np.nonzero(space.projectors.ID.toarray())) for space in self.space.spaces]
-        self.dofs_1_N_i = [list(np.nonzero(space.projectors.HN.toarray())) for space in self.space.spaces]
+        self.dofs_0_D_i = [list(xp.nonzero(space.projectors.ID.toarray())) for space in self.space.spaces]
+        self.dofs_1_N_i = [list(xp.nonzero(space.projectors.HN.toarray())) for space in self.space.spaces]
 
         for i in range(self.space.dim):
             for j in range(2):
@@ -116,9 +116,9 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_N_i[0][0],
@@ -130,8 +130,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_N[0],
                     self.basis_int_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_3_pts,
                     val,
                     row,
@@ -150,9 +150,9 @@ class MHDOperatorsCore:
                 B2_2_pts = B2_2_pts.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_N_i[0][0],
@@ -164,8 +164,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_N[0],
                     self.basis_int_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_2_pts,
                     val,
                     row,
@@ -184,9 +184,9 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0],
@@ -198,8 +198,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_N[0],
                     self.basis_his_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_3_pts,
                     val,
                     row,
@@ -218,9 +218,9 @@ class MHDOperatorsCore:
                 B2_1_pts = B2_1_pts.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0],
@@ -232,8 +232,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_N[0],
                     self.basis_his_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_1_pts,
                     val,
                     row,
@@ -251,9 +251,9 @@ class MHDOperatorsCore:
                 B2_2_pts = self.equilibrium.b2_2(self.eta_int[0], self.eta_int[1], 0.0)
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs0_2d(
                     self.dofs_0_N_i[0][0],
@@ -279,9 +279,9 @@ class MHDOperatorsCore:
                 B2_1_pts = self.equilibrium.b2_1(self.eta_int[0], self.eta_int[1], 0.0)
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs0_2d(
                     self.dofs_0_N_i[0][0],
@@ -309,13 +309,13 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
 
@@ -332,8 +332,8 @@ class MHDOperatorsCore:
                     self.basis_his_N[0],
                     self.basis_int_N[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_3_pts,
                     val,
                     row,
@@ -350,13 +350,13 @@ class MHDOperatorsCore:
                 B2_2_pts = B2_2_pts.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
 
@@ -373,8 +373,8 @@ class MHDOperatorsCore:
                     self.basis_his_N[0],
                     self.basis_int_N[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_2_pts,
                     val,
                     row,
@@ -391,13 +391,13 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
 
@@ -414,8 +414,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_his_N[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_3_pts,
                     val,
                     row,
@@ -432,13 +432,13 @@ class MHDOperatorsCore:
                 B2_1_pts = B2_1_pts.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
 
@@ -455,8 +455,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_his_N[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_1_pts,
                     val,
                     row,
@@ -473,13 +473,13 @@ class MHDOperatorsCore:
                 B2_2_pts = B2_2_pts.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
                 )
 
@@ -496,8 +496,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_int_N[1],
                     self.basis_his_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_2_pts,
                     val,
                     row,
@@ -514,13 +514,13 @@ class MHDOperatorsCore:
                 B2_1_pts = B2_1_pts.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
                 )
 
@@ -537,8 +537,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_int_N[1],
                     self.basis_his_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_1_pts,
                     val,
                     row,
@@ -561,9 +561,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_D_i[0][0],
@@ -575,8 +575,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_D[0],
                     self.basis_int_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_3_pts / det_dF,
                     val,
                     row,
@@ -599,9 +599,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_D_i[0][0],
@@ -613,8 +613,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_D[0],
                     self.basis_int_D[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_2_pts / det_dF,
                     val,
                     row,
@@ -637,9 +637,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0],
@@ -651,8 +651,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_N[0],
                     self.basis_his_D[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_3_pts / det_dF,
                     val,
                     row,
@@ -675,9 +675,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_D_i[0][0],
@@ -689,8 +689,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_D[0],
                     self.basis_his_D[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_1_pts / det_dF,
                     val,
                     row,
@@ -711,9 +711,9 @@ class MHDOperatorsCore:
                 det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], 0.0))
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
 
                 ker.rhs0_2d(
                     self.dofs_0_N_i[0][0],
@@ -742,9 +742,9 @@ class MHDOperatorsCore:
                 det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], 0.0))
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs0_2d(
                     self.dofs_0_D_i[0][0],
@@ -778,13 +778,13 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=int
                 )
 
@@ -801,8 +801,8 @@ class MHDOperatorsCore:
                     self.basis_his_D[0],
                     self.basis_int_N[1],
                     self.basis_int_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_3_pts / det_dF,
                     val,
                     row,
@@ -825,13 +825,13 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
 
@@ -848,8 +848,8 @@ class MHDOperatorsCore:
                     self.basis_his_D[0],
                     self.basis_int_D[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_2_pts / det_dF,
                     val,
                     row,
@@ -872,13 +872,13 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=int
                 )
 
@@ -895,8 +895,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_his_D[1],
                     self.basis_int_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_3_pts / det_dF,
                     val,
                     row,
@@ -919,13 +919,13 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
 
@@ -942,8 +942,8 @@ class MHDOperatorsCore:
                     self.basis_int_D[0],
                     self.basis_his_D[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_1_pts / det_dF,
                     val,
                     row,
@@ -966,13 +966,13 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
                 )
 
@@ -989,8 +989,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_int_D[1],
                     self.basis_his_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_2_pts / det_dF,
                     val,
                     row,
@@ -1013,13 +1013,13 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
                 )
 
@@ -1036,8 +1036,8 @@ class MHDOperatorsCore:
                     self.basis_int_D[0],
                     self.basis_int_N[1],
                     self.basis_his_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_1_pts / det_dF,
                     val,
                     row,
@@ -1093,9 +1093,9 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0],
@@ -1107,8 +1107,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_N[0],
                     self.basis_his_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1133,9 +1133,9 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_N_i[0][0],
@@ -1147,8 +1147,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_N[0],
                     self.basis_int_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1173,9 +1173,9 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
 
                 ker.rhs2_2d(
                     self.dofs_1_N_i[0][0],
@@ -1190,8 +1190,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_his_N[0],
                     self.basis_his_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1219,13 +1219,13 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
                 )
 
@@ -1245,8 +1245,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_his_N[1],
                     self.basis_his_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1271,13 +1271,13 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
                 )
 
@@ -1297,8 +1297,8 @@ class MHDOperatorsCore:
                     self.basis_his_N[0],
                     self.basis_int_N[1],
                     self.basis_his_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1323,13 +1323,13 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
 
@@ -1349,8 +1349,8 @@ class MHDOperatorsCore:
                     self.basis_his_N[0],
                     self.basis_his_N[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1377,9 +1377,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0],
@@ -1391,8 +1391,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_N[0],
                     self.basis_his_D[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1419,9 +1419,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_D_i[0][0],
@@ -1433,8 +1433,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_D[0],
                     self.basis_int_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1463,9 +1463,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
 
                 ker.rhs2_2d(
                     self.dofs_1_D_i[0][0],
@@ -1480,8 +1480,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_his_D[0],
                     self.basis_his_D[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1513,13 +1513,13 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
                 )
 
@@ -1539,8 +1539,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_his_D[1],
                     self.basis_his_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1569,13 +1569,13 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
                 )
 
@@ -1595,8 +1595,8 @@ class MHDOperatorsCore:
                     self.basis_his_D[0],
                     self.basis_int_N[1],
                     self.basis_his_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1625,13 +1625,13 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
+                val = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
                 )
-                row = np.empty(
+                row = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
-                col = np.empty(
+                col = xp.empty(
                     self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
                 )
 
@@ -1651,8 +1651,8 @@ class MHDOperatorsCore:
                     self.basis_his_D[0],
                     self.basis_his_D[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1696,9 +1696,9 @@ class MHDOperatorsCore:
             det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
 
             # assemble sparse matrix
-            val = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
-            row = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
-            col = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+            val = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
+            row = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+            col = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
 
             ker.rhs2_2d(
                 self.dofs_1_D_i[0][0],
@@ -1713,8 +1713,8 @@ class MHDOperatorsCore:
                 self.wts[1],
                 self.basis_his_D[0],
                 self.basis_his_D[1],
-                np.array(self.space.NbaseN),
-                np.array(self.space.NbaseD),
+                xp.array(self.space.NbaseN),
+                xp.array(self.space.NbaseD),
                 P3_pts / det_dF,
                 val,
                 row,
@@ -1745,13 +1745,13 @@ class MHDOperatorsCore:
             det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
             # assemble sparse matrix
-            val = np.empty(
+            val = xp.empty(
                 self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=float
             )
-            row = np.empty(
+            row = xp.empty(
                 self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
             )
-            col = np.empty(
+            col = xp.empty(
                 self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
             )
 
@@ -1774,8 +1774,8 @@ class MHDOperatorsCore:
                 self.basis_his_D[0],
                 self.basis_his_D[1],
                 self.basis_his_D[2],
-                np.array(self.space.NbaseN),
-                np.array(self.space.NbaseD),
+                xp.array(self.space.NbaseN),
+                xp.array(self.space.NbaseD),
                 P3_pts / det_dF,
                 val,
                 row,

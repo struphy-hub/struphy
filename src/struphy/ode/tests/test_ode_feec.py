@@ -39,7 +39,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
 
     c0 = 1.2
     omega = 2.3
-    y_exact = lambda t: c0 * np.exp(omega * t)
+    y_exact = lambda t: c0 * xp.exp(omega * t)
 
     vector_field = {}
     for i, space in enumerate(spaces):
@@ -116,7 +116,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
     errors = {}
     for i, h in enumerate(hs):
         errors[h] = {}
-        time = np.linspace(0, Tend, int(Tend / h) + 1)
+        time = xp.linspace(0, Tend, int(Tend / h) + 1)
         print(f"{h = }, {time.size = }")
         yvec = y_exact(time)
         ymax = {}
@@ -128,16 +128,16 @@ def test_exp_growth(spaces, algo, show_plots=False):
                 for b in var.blocks:
                     b[:] = c0
             var.update_ghost_regions()
-            ymax[var] = c0 * np.ones_like(time)
+            ymax[var] = c0 * xp.ones_like(time)
         for n in range(time.size - 1):
             tn = h * n
             solver(tn, h)
             for var in vector_field:
-                ymax[var][n + 1] = np.max(var.toarray())
+                ymax[var][n + 1] = xp.max(var.toarray())
 
         # checks
         for var in vector_field:
-            errors[h][var] = h * np.sum(np.abs(yvec - ymax[var])) / (h * np.sum(np.abs(yvec)))
+            errors[h][var] = h * xp.sum(xp.abs(yvec - ymax[var])) / (h * xp.sum(xp.abs(yvec)))
             print(f"{errors[h][var] = }")
             assert errors[h][var] < 0.31
 
@@ -160,9 +160,9 @@ def test_exp_growth(spaces, algo, show_plots=False):
             h_vec += [h]
             err_vec += [dct[var]]
 
-        m, _ = np.polyfit(np.log(h_vec), np.log(err_vec), deg=1)
+        m, _ = xp.polyfit(xp.log(h_vec), xp.log(err_vec), deg=1)
         print(f"{spaces[j]}-space, fitted convergence rate = {m} for {algo = } with {solver.butcher.conv_rate = }")
-        assert np.abs(m - solver.butcher.conv_rate) < 0.1
+        assert xp.abs(m - solver.butcher.conv_rate) < 0.1
         print(f"Convergence check passed on {rank = }.")
 
         if rank == 0:
