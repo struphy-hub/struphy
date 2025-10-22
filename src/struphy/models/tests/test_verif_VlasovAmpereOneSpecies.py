@@ -116,7 +116,7 @@ def test_weak_Landau(do_plot: bool = False):
         r = 0.3677
         omega = 1.4156
         phi = 0.5362
-        return 2 * eps**2 * xp.pi / k**2 * r**2 * xp.exp(2 * gamma * t) * xp.cos(omega * t - phi) ** 2
+        return 16 * eps**2 * r**2 * xp.exp(2 * gamma * t) * 2 * xp.pi * xp.cos(omega * t - phi) ** 2 / 2
 
     # get parameters
     dt = time_opts.dt
