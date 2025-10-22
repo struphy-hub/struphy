@@ -2,6 +2,7 @@ from typing import Any, Callable
 
 from struphy.utils.arrays import xp
 
+
 class Pyccelkernel:
     def __init__(self, kernel: Callable[..., Any], use_cupy: bool = False) -> None:
         self._kernel = kernel

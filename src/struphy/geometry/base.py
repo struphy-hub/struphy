@@ -14,6 +14,7 @@ from struphy.kernel_arguments.pusher_args_kernels import DomainArguments
 from struphy.linear_algebra import linalg_kron
 from struphy.utils.pyccel import Pyccelkernel
 
+
 class Domain(metaclass=ABCMeta):
     r"""Base class for mapped domains (single patch).
 

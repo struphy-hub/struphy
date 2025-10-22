@@ -572,7 +572,6 @@ class StruphyModel(metaclass=ABCMeta):
             else:
                 self._scalar_quantities[name]["value"][0] = value_array[0]
 
-
         else:
             # Sum the values of the summands
             value = sum(self._scalar_quantities[summand]["value"][0] for summand in summands)

@@ -255,8 +255,8 @@ def run(
                 pointData["absB0"] = absB0
 
         from struphy.utils.arrays import array_backend
-        
-        print('calling gridToVTK')
+
+        print("calling gridToVTK")
         if array_backend.backend == "numpy":
             gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
         else:
@@ -268,7 +268,7 @@ def run(
 
             # Now call gridToVTK safely
             gridToVTK(os.path.join(path_out, "geometry"), *grids_phy_cpu, pointData=pointData_cpu)
-    
+
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     # use MPI.COMM_WORLD as communicator when storing the outputs
     data = DataContainer(path_out, comm=comm)
@@ -287,7 +287,7 @@ def run(
             data.add_data({key_time: val})
             data.add_data({key_time_restart: val})
         else:
-            val_cpu = val.get()#  if isinstance(val, xp.ndarray) else val
+            val_cpu = val.get()  #  if isinstance(val, xp.ndarray) else val
 
             # Then assign
             print(f"{val_cpu = } {type(val_cpu) = }")

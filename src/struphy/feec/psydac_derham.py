@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import importlib.metadata
-import numpy as np
 
 import cunumpy as xp
+import numpy as np
 import psydac.core.bsplines as bsp
 from psydac.ddm.cart import DomainDecomposition
 from psydac.ddm.mpi import MockComm, MockMPI
