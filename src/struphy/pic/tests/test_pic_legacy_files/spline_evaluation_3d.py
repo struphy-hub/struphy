@@ -806,7 +806,7 @@ def evaluate_tensor_product(
     Returns:
     --------
         values:                     double[:, :, :]     values of spline at points from
-                                                        np.meshgrid(eta1, eta2, eta3, indexing='ij').
+                                                        xp.meshgrid(eta1, eta2, eta3, indexing='ij').
     """
 
     for i1 in range(len(eta1)):

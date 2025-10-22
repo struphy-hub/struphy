@@ -8,7 +8,7 @@ from psydac.linalg.stencil import StencilMatrix, StencilVector
 import struphy.feec.utilities_kernels as kernels
 from struphy.feec import banded_to_stencil_kernels as bts
 from struphy.polar.basic import PolarVector
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class RotationMatrix:
@@ -41,7 +41,7 @@ class RotationMatrix:
 
     def __call__(self, e1, e2, e3):
         # array from 2d list gives 3x3 array is in the first two indices
-        tmp = np.array(
+        tmp = xp.array(
             [
                 [self._cross_mask[m][n] * fun(e1, e2, e3) for n, fun in enumerate(row)]
                 for m, row in enumerate(self._funs)
@@ -49,7 +49,7 @@ class RotationMatrix:
         )
 
         # numpy operates on the last two indices with @
-        return np.transpose(tmp, axes=(2, 3, 4, 0, 1))
+        return xp.transpose(tmp, axes=(2, 3, 4, 0, 1))
 
 
 def create_equal_random_arrays(V, seed=123, flattened=False):
@@ -77,7 +77,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
 
     assert isinstance(V, (TensorFemSpace, VectorFemSpace))
 
-    np.random.seed(seed)
+    xp.random.seed(seed)
 
     arr = []
 
@@ -93,7 +93,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
 
         dims = V.coeff_space.npts
 
-        arr += [np.random.rand(*dims)]
+        arr += [xp.random.rand(*dims)]
 
         s = arr_psy.starts
         e = arr_psy.ends
@@ -111,7 +111,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
         for d, block in enumerate(arr_psy.blocks):
             dims = V.spaces[d].coeff_space.npts
 
-            arr += [np.random.rand(*dims)]
+            arr += [xp.random.rand(*dims)]
 
             s = block.starts
             e = block.ends
@@ -121,7 +121,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
             ]
 
         if flattened:
-            arr = np.concatenate(
+            arr = xp.concatenate(
                 (
                     arr[0].flatten(),
                     arr[1].flatten(),
@@ -168,11 +168,11 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                 arr_psy.space.npts[2],
             )[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1]
 
-        assert np.allclose(tmp1, tmp2, atol=atol)
+        assert xp.allclose(tmp1, tmp2, atol=atol)
 
     elif isinstance(arr_psy, BlockVector):
         if not (isinstance(arr, tuple) or isinstance(arr, list)):
-            arrs = np.split(
+            arrs = xp.split(
                 arr,
                 [
                     arr_psy.blocks[0].shape[0],
@@ -197,7 +197,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                     s[2] : e[2] + 1,
                 ]
 
-            assert np.allclose(tmp1, tmp2, atol=atol)
+            assert xp.allclose(tmp1, tmp2, atol=atol)
 
     elif isinstance(arr_psy, StencilMatrix):
         s = arr_psy.codomain.starts
@@ -216,7 +216,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
         if tmp_arr.shape == tmp1.shape:
             tmp2 = tmp_arr
         else:
-            tmp2 = np.zeros(
+            tmp2 = xp.zeros(
                 (
                     e[0] + 1 - s[0],
                     e[1] + 1 - s[1],
@@ -229,7 +229,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
             )
             bts.band_to_stencil_3d(tmp_arr, tmp2)
 
-        assert np.allclose(tmp1, tmp2, atol=atol)
+        assert xp.allclose(tmp1, tmp2, atol=atol)
 
     elif isinstance(arr_psy, BlockLinearOperator):
         for row_psy, row in zip(arr_psy.blocks, arr):
@@ -260,7 +260,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                 if tmp_mat.shape == tmp1.shape:
                     tmp2 = tmp_mat
                 else:
-                    tmp2 = np.zeros(
+                    tmp2 = xp.zeros(
                         (
                             e[0] + 1 - s[0],
                             e[1] + 1 - s[1],
@@ -273,7 +273,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
                     )
                     bts.band_to_stencil_3d(tmp_mat, tmp2)
 
-                assert np.allclose(tmp1, tmp2, atol=atol)
+                assert xp.allclose(tmp1, tmp2, atol=atol)
 
     else:
         raise AssertionError("Wrong input type.")

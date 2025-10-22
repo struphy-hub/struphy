@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal, get_args
 
-import numpy as np
+from struphy.utils.arrays import xp
 
 OptsButcher = Literal[
     "rk4",
@@ -67,14 +67,14 @@ class ButcherTableau:
         else:
             raise NotImplementedError(f"Chosen algorithm {self.algo} is not implemented.")
 
-        self._b = np.array(b)
-        self._c = np.array(c)
+        self._b = xp.array(b)
+        self._c = xp.array(c)
         assert self._b.size == self._c.size
 
         self._n_stages = self._b.size
         assert len(a) == self.n_stages - 1
 
-        self._a = np.tri(self.n_stages, k=-1)
+        self._a = xp.tri(self.n_stages, k=-1)
         for l, st in enumerate(a):
             assert len(st) == l + 1
             self._a[l + 1, : l + 1] = st

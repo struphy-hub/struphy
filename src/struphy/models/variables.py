@@ -21,7 +21,7 @@ from struphy.kinetic_background.base import KineticBackground
 from struphy.pic import particles
 from struphy.pic.base import Particles
 from struphy.pic.particles import ParticlesSPH
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 from struphy.utils.clone_config import CloneConfig
 
 if TYPE_CHECKING:
@@ -257,7 +257,7 @@ class PICVariable(Variable):
             f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
         )
         if self._n_to_save > 0:
-            self._saved_markers = np.zeros(
+            self._saved_markers = xp.zeros(
                 (self._n_to_save, self.particles.markers.shape[1]),
                 dtype=float,
             )
@@ -270,7 +270,7 @@ class PICVariable(Variable):
         return self._n_to_save
 
     @property
-    def saved_markers(self) -> np.ndarray:
+    def saved_markers(self) -> xp.ndarray:
         return self._saved_markers
 
 
@@ -398,7 +398,7 @@ class SPHVariable(Variable):
             f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
         )
         if self._n_to_save > 0:
-            self._saved_markers = np.zeros(
+            self._saved_markers = xp.zeros(
                 (self._n_to_save, self.particles.markers.shape[1]),
                 dtype=float,
             )
@@ -411,5 +411,5 @@ class SPHVariable(Variable):
         return self._n_to_save
 
     @property
-    def saved_markers(self) -> np.ndarray:
+    def saved_markers(self) -> xp.ndarray:
         return self._saved_markers

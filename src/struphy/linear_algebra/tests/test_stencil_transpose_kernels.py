@@ -19,7 +19,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_1d_kernel
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -112,8 +112,8 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
         print("\nmatT_pre=", matT_pre._data)
         print("\nmatT_pre.toarray=\n", matT_pre.toarray())
 
-    assert np.allclose(matT_ker[s_in : e_in + 1, :], matT[s_in : e_in + 1, :])
-    assert np.allclose(matT_pre[s_in : e_in + 1, :], matT[s_in : e_in + 1, :])
+    assert xp.allclose(matT_ker[s_in : e_in + 1, :], matT[s_in : e_in + 1, :])
+    assert xp.allclose(matT_pre[s_in : e_in + 1, :], matT[s_in : e_in + 1, :])
 
 
 @pytest.mark.parametrize("Nel", [[12, 16, 20]])
@@ -134,7 +134,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.linear_algebra.stencil_transpose_kernels import transpose_3d_kernel
-    from struphy.utils.arrays import xp as np
+    from struphy.utils.arrays import xp
 
     # only for M1 Mac users
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
@@ -170,16 +170,16 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     mat_pre = StencilMatrix(domain.coeff_space, codomain.coeff_space, backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True)
     matT_ker = StencilMatrix(codomain.coeff_space, domain.coeff_space)
 
-    s_out = np.array(mat.codomain.starts)
-    e_out = np.array(mat.codomain.ends)
-    p_out = np.array(mat.codomain.pads)
-    s_in = np.array(mat.domain.starts)
-    e_in = np.array(mat.domain.ends)
-    p_in = np.array(mat.domain.pads)
+    s_out = xp.array(mat.codomain.starts)
+    e_out = xp.array(mat.codomain.ends)
+    p_out = xp.array(mat.codomain.pads)
+    s_in = xp.array(mat.domain.starts)
+    e_in = xp.array(mat.domain.ends)
+    p_in = xp.array(mat.domain.pads)
 
     # random matrix
-    np.random.seed(123)
-    tmp1 = np.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in p])
+    xp.random.seed(123)
+    tmp1 = xp.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in p])
     mat[
         s_out[0] : e_out[0] + 1,
         s_out[1] : e_out[1] + 1,
@@ -208,7 +208,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     # kernel transpose
     add = [int(end_out >= end_in) for end_in, end_out in zip(mat.domain.ends, mat.codomain.ends)]
-    add = np.array(add)
+    add = xp.array(add)
     transpose_3d_kernel(mat._data, matT_ker._data, s_out, p_out, add, s_in, e_in, p_in)
 
     # precompiled transpose
@@ -237,12 +237,12 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
         print("\nmatT_ker[2]=", matT_ker._data[p_in[0], p_in[1], :, 1, 1, :])
         print("\nmatT_pre[2]=", matT_pre._data[p_in[0], p_in[1], :, 1, 1, :])
 
-    assert np.allclose(
+    assert xp.allclose(
         matT_ker[s_in[0] : e_in[0] + 1, s_in[1] : e_in[1] + 1, s_in[2] : e_in[2] + 1],
         matT[s_in[0] : e_in[0] + 1, s_in[1] : e_in[1] + 1, s_in[2] : e_in[2] + 1],
     )
 
-    assert np.allclose(
+    assert xp.allclose(
         matT_pre[s_in[0] : e_in[0] + 1, s_in[1] : e_in[1] + 1, s_in[2] : e_in[2] + 1],
         matT[s_in[0] : e_in[0] + 1, s_in[1] : e_in[1] + 1, s_in[2] : e_in[2] + 1],
     )

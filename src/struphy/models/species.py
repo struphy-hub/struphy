@@ -13,7 +13,7 @@ from struphy.pic.utilities import (
     LoadingParameters,
     WeightsParameters,
 )
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class Species(metaclass=ABCMeta):
@@ -82,7 +82,7 @@ class Species(metaclass=ABCMeta):
             con = ConstantsOfNature()
 
             # relevant frequencies
-            om_p = np.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
+            om_p = xp.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
             om_c = Z * con.e * units.B / (A * con.mH)
 
             # compute equation parameters

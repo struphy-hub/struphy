@@ -29,6 +29,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     from struphy.initial import perturbations
     from struphy.initial.base import Perturbation
     from struphy.models.variables import FEECVariable
+    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -49,10 +50,10 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     form_vector = ["1", "2", "v", "norm", "physical_at_eta"]
 
     # evaluation points
-    e1 = np.linspace(0.0, 1.0, 30)
-    e2 = np.linspace(0.0, 1.0, 40)
-    e3 = np.linspace(0.0, 1.0, 50)
-    eee1, eee2, eee3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    e1 = xp.linspace(0.0, 1.0, 30)
+    e2 = xp.linspace(0.0, 1.0, 40)
+    e3 = xp.linspace(0.0, 1.0, 50)
+    eee1, eee2, eee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     # mode paramters
     kwargs = {}
@@ -129,7 +130,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         field_vals_xyz = domain.push(field, e1, e2, e3, kind=form)
 
                         x, y, z = domain(e1, e2, e3)
-                        r = np.sqrt(x**2 + y**2)
+                        r = xp.sqrt(x**2 + y**2)
 
                         if fun_form == "physical":
                             fun_vals_xyz = perturbation_xyz(x, y, z)
@@ -138,7 +139,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         else:
                             fun_vals_xyz = domain.push(perturbation, eee1, eee2, eee3, kind=fun_form)
 
-                        error = np.max(np.abs(field_vals_xyz - fun_vals_xyz)) / np.max(np.abs(fun_vals_xyz))
+                        error = xp.max(xp.abs(field_vals_xyz - fun_vals_xyz)) / xp.max(xp.abs(fun_vals_xyz))
                         print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
 
@@ -253,7 +254,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         f_xyz = [f1_xyz, f2_xyz, f3_xyz]
 
                         x, y, z = domain(e1, e2, e3)
-                        r = np.sqrt(x**2 + y**2)
+                        r = xp.sqrt(x**2 + y**2)
 
                         # exact values
                         if fun_form == "physical":
@@ -278,7 +279,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
                         error = 0.0
                         for fi, funi in zip(f_xyz, fun_xyz_vec):
-                            error += np.max(np.abs(fi - funi)) / np.max(np.abs(funi))
+                            error += xp.max(xp.abs(fi - funi)) / xp.max(xp.abs(funi))
                         error /= 3.0
                         print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02

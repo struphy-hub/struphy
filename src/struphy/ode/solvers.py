@@ -4,7 +4,7 @@ from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.ode.utils import ButcherTableau
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class ODEsolverFEEC:

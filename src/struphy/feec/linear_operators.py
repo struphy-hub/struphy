@@ -10,7 +10,7 @@ from scipy import sparse
 
 from struphy.feec.utilities import apply_essential_bc_to_array
 from struphy.polar.basic import PolarDerhamSpace
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class LinOpWithTransp(LinearOperator):
@@ -65,14 +65,14 @@ class LinOpWithTransp(LinearOperator):
         if is_sparse == False:
             if out is None:
                 # We declare the matrix form of our linear operator
-                out = np.zeros([self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
+                out = xp.zeros([self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
             else:
-                assert isinstance(out, np.ndarray)
+                assert isinstance(out, xp.ndarray)
                 assert out.shape[0] == self.codomain.dimension
                 assert out.shape[1] == self.domain.dimension
 
             # We use this matrix to store the partial results that we shall combine into the final matrix with a reduction at the end
-            result = np.zeros((self.codomain.dimension, self.domain.dimension), dtype=self.dtype)
+            result = xp.zeros((self.codomain.dimension, self.domain.dimension), dtype=self.dtype)
         else:
             if out is not None:
                 raise Exception("If is_sparse is True then out must be set to None.")
@@ -96,10 +96,10 @@ class LinOpWithTransp(LinearOperator):
             ndim = [sp.ndim for sp in self.domain.spaces]
 
             # First each rank is going to need to know the starts and ends of all other ranks
-            startsarr = np.array([starts[i][j] for i in range(nsp) for j in range(ndim[i])], dtype=int)
+            startsarr = xp.array([starts[i][j] for i in range(nsp) for j in range(ndim[i])], dtype=int)
 
             # Create an array to store gathered data from all ranks
-            allstarts = np.empty(size * len(startsarr), dtype=int)
+            allstarts = xp.empty(size * len(startsarr), dtype=int)
 
             # Use Allgather to gather 'starts' from all ranks into 'allstarts'
             if comm is None or isinstance(comm, MockComm):
@@ -110,9 +110,9 @@ class LinOpWithTransp(LinearOperator):
             # Reshape 'allstarts' to have 9 columns and 'size' rows
             allstarts = allstarts.reshape((size, len(startsarr)))
 
-            endsarr = np.array([ends[i][j] for i in range(nsp) for j in range(ndim[i])], dtype=int)
+            endsarr = xp.array([ends[i][j] for i in range(nsp) for j in range(ndim[i])], dtype=int)
             # Create an array to store gathered data from all ranks
-            allends = np.empty(size * len(endsarr), dtype=int)
+            allends = xp.empty(size * len(endsarr), dtype=int)
 
             # Use Allgather to gather 'ends' from all ranks into 'allends'
             if comm is None or isinstance(comm, MockComm):
@@ -147,13 +147,13 @@ class LinOpWithTransp(LinearOperator):
                         self.dot(v, out=tmp2)
                         # Compute to which column this iteration belongs
                         col = spoint
-                        col += np.ravel_multi_index(i, npts[h])
+                        col += xp.ravel_multi_index(i, npts[h])
                         if is_sparse == False:
                             result[:, col] = tmp2.toarray()
                         else:
                             aux = tmp2.toarray()
                             # We now need to now which entries on tmp2 are non-zero and store then in our data list
-                            for l in np.where(aux != 0)[0]:
+                            for l in xp.where(aux != 0)[0]:
                                 data.append(aux[l])
                                 colarr.append(col)
                                 row.append(l)
@@ -178,9 +178,9 @@ class LinOpWithTransp(LinearOperator):
             ndim = self.domain.ndim
 
             # First each rank is going to need to know the starts and ends of all other ranks
-            startsarr = np.array([starts[j] for j in range(ndim)], dtype=int)
+            startsarr = xp.array([starts[j] for j in range(ndim)], dtype=int)
             # Create an array to store gathered data from all ranks
-            allstarts = np.empty(size * len(startsarr), dtype=int)
+            allstarts = xp.empty(size * len(startsarr), dtype=int)
 
             # Use Allgather to gather 'starts' from all ranks into 'allstarts'
             if comm is None or isinstance(comm, MockComm):
@@ -191,9 +191,9 @@ class LinOpWithTransp(LinearOperator):
             # Reshape 'allstarts' to have 3 columns and 'size' rows
             allstarts = allstarts.reshape((size, len(startsarr)))
 
-            endsarr = np.array([ends[j] for j in range(ndim)], dtype=int)
+            endsarr = xp.array([ends[j] for j in range(ndim)], dtype=int)
             # Create an array to store gathered data from all ranks
-            allends = np.empty(size * len(endsarr), dtype=int)
+            allends = xp.empty(size * len(endsarr), dtype=int)
 
             # Use Allgather to gather 'ends' from all ranks into 'allends'
             if comm is None or isinstance(comm, MockComm):
@@ -218,13 +218,13 @@ class LinOpWithTransp(LinearOperator):
                     # Compute dot product with the linear operator.
                     self.dot(v, out=tmp2)
                     # Compute to which column this iteration belongs
-                    col = np.ravel_multi_index(i, npts)
+                    col = xp.ravel_multi_index(i, npts)
                     if is_sparse == False:
                         result[:, col] = tmp2.toarray()
                     else:
                         aux = tmp2.toarray()
                         # We now need to now which entries on tmp2 are non-zero and store then in our data list
-                        for l in np.where(aux != 0)[0]:
+                        for l in xp.where(aux != 0)[0]:
                             data.append(aux[l])
                             colarr.append(col)
                             row.append(l)

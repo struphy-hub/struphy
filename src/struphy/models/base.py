@@ -35,6 +35,7 @@ from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 from struphy.topology.grids import TensorProductGrid
+from struphy.utils.arrays import xp
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml, read_state
 
@@ -477,7 +478,7 @@ class StruphyModel(metaclass=ABCMeta):
             self._scalar_quantities = {}
 
         self._scalar_quantities[name] = {
-            "value": np.empty(1, dtype=float),
+            "value": xp.empty(1, dtype=float),
             "variable": variable,
             "compute": compute,
             "summands": summands,
@@ -523,7 +524,7 @@ class StruphyModel(metaclass=ABCMeta):
             assert isinstance(value, float)
 
             # Create a numpy array to hold the scalar value
-            value_array = np.array([value], dtype=np.float64)
+            value_array = xp.array([value], dtype=xp.float64)
 
             # Perform MPI operations based on the compute flags
             if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
@@ -561,7 +562,7 @@ class StruphyModel(metaclass=ABCMeta):
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
-                n_mks_tot = np.array([variable.particles.Np])
+                n_mks_tot = xp.array([variable.particles.Np])
                 value_array /= n_mks_tot
 
             # Update the scalar value
@@ -727,11 +728,11 @@ class StruphyModel(metaclass=ABCMeta):
                 assert isinstance(obj, Particles)
 
             if var.n_to_save > 0:
-                markers_on_proc = np.logical_and(
+                markers_on_proc = xp.logical_and(
                     obj.markers[:, -1] >= 0.0,
                     obj.markers[:, -1] < var.n_to_save,
                 )
-                n_markers_on_proc = np.count_nonzero(markers_on_proc)
+                n_markers_on_proc = xp.count_nonzero(markers_on_proc)
                 var.saved_markers[:] = -1.0
                 var.saved_markers[:n_markers_on_proc] = obj.markers[markers_on_proc]
 
@@ -775,7 +776,7 @@ class StruphyModel(metaclass=ABCMeta):
                     h2 = 1 / obj.boxes_per_dim[1]
                     h3 = 1 / obj.boxes_per_dim[2]
 
-                    ndim = np.count_nonzero([d > 1 for d in obj.boxes_per_dim])
+                    ndim = xp.count_nonzero([d > 1 for d in obj.boxes_per_dim])
                     if ndim == 0:
                         kernel_type = "gaussian_3d"
                     else:
@@ -799,7 +800,7 @@ class StruphyModel(metaclass=ABCMeta):
         sq_str = ""
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
-            assert not np.isnan(val[0]), f"Scalar {key} is {val[0]}."
+            assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
             sq_str += key + ": {:14.11f}".format(val[0]) + "   "
         print(sq_str)
 
@@ -1553,15 +1554,15 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         units_affix["epsilon"] = ""
 
         h = 1 / 20
-        eta1 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-        eta2 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-        eta3 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta1 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta2 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta3 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
 
         ##  global parameters
 
         # plasma volume (hat x^3)
         det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
-        vol1 = np.mean(np.abs(det_tmp))
+        vol1 = xp.mean(xp.abs(det_tmp))
         # plasma volume (m⁻³)
         plasma_volume = vol1 * self.units.x**3
         # transit length (m)
@@ -1570,13 +1571,13 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         if isinstance(self.equil, FluidEquilibriumWithB):
             B_tmp = self.equil.absB0(eta1, eta2, eta3)
         else:
-            B_tmp = np.zeros((eta1.size, eta2.size, eta3.size))
-        magnetic_field = np.mean(B_tmp * np.abs(det_tmp)) / vol1 * self.units.B
-        B_max = np.max(B_tmp) * self.units.B
-        B_min = np.min(B_tmp) * self.units.B
+            B_tmp = xp.zeros((eta1.size, eta2.size, eta3.size))
+        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.units.B
+        B_max = xp.max(B_tmp) * self.units.B
+        B_min = xp.min(B_tmp) * self.units.B
 
         if magnetic_field < 1e-14:
-            magnetic_field = np.nan
+            magnetic_field = xp.nan
             # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
@@ -1616,13 +1617,13 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #         self._pparams[species]["charge"] = val["params"]["phys_params"]["Z"] * e
         #         # density (m⁻³)
         #         self._pparams[species]["density"] = (
-        #             np.mean(
+        #             xp.mean(
         #                 self.equil.n0(
         #                     eta1,
         #                     eta2,
         #                     eta3,
         #                 )
-        #                 * np.abs(det_tmp),
+        #                 * xp.abs(det_tmp),
         #             )
         #             * self.units.x ** 3
         #             / plasma_volume
@@ -1630,13 +1631,13 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #         )
         #         # pressure (bar)
         #         self._pparams[species]["pressure"] = (
-        #             np.mean(
+        #             xp.mean(
         #                 self.equil.p0(
         #                     eta1,
         #                     eta2,
         #                     eta3,
         #                 )
-        #                 * np.abs(det_tmp),
+        #                 * xp.abs(det_tmp),
         #             )
         #             * self.units.x ** 3
         #             / plasma_volume
@@ -1647,7 +1648,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #         self._pparams[species]["kBT"] = self._pparams[species]["pressure"] * 1e5 / self._pparams[species]["density"] / e * 1e-3
 
         # if len(self.kinetic) > 0:
-        #     eta1mg, eta2mg, eta3mg = np.meshgrid(
+        #     eta1mg, eta2mg, eta3mg = xp.meshgrid(
         #         eta1,
         #         eta2,
         #         eta3,
@@ -1693,11 +1694,11 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
 
         #             # density (m⁻³)
         #             self._pparams[species]["density"] = (
-        #                 np.mean(tmp.n(psi) * np.abs(det_tmp)) * self.units.x ** 3 / plasma_volume * self.units.n
+        #                 xp.mean(tmp.n(psi) * xp.abs(det_tmp)) * self.units.x ** 3 / plasma_volume * self.units.n
         #             )
         #             # thermal speed (m/s)
         #             self._pparams[species]["v_th"] = (
-        #                 np.mean(tmp.vth(psi) * np.abs(det_tmp)) * self.units.x ** 3 / plasma_volume * self.units.v
+        #                 xp.mean(tmp.vth(psi) * xp.abs(det_tmp)) * self.units.x ** 3 / plasma_volume * self.units.v
         #             )
         #             # thermal energy (keV)
         #             self._pparams[species]["kBT"] = self._pparams[species]["mass"] * self._pparams[species]["v_th"] ** 2 / e * 1e-3
@@ -1708,8 +1709,8 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
 
         #         else:
         #             # density (m⁻³)
-        #             # self._pparams[species]['density'] = np.mean(tmp.n(
-        #             #     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+        #             # self._pparams[species]['density'] = xp.mean(tmp.n(
+        #             #     eta1mg, eta2mg, eta3mg) * xp.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
         #             self._pparams[species]["density"] = 99.0
         #             # thermal speeds (m/s)
         #             vth = []
@@ -1717,11 +1718,11 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #             vths = [99.0]
         #             for k in range(len(vths)):
         #                 vth += [
-        #                     vths[k] * np.abs(det_tmp) * self.units.x ** 3 / plasma_volume * self.units.v,
+        #                     vths[k] * xp.abs(det_tmp) * self.units.x ** 3 / plasma_volume * self.units.v,
         #                 ]
         #             thermal_speed = 0.0
         #             for dir in range(val["obj"].vdim):
-        #                 # self._pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
+        #                 # self._pparams[species]['vth' + str(dir + 1)] = xp.mean(vth[dir])
         #                 self._pparams[species]["vth" + str(dir + 1)] = 99.0
         #                 thermal_speed += self._pparams[species]["vth" + str(dir + 1)]
         #             # TODO: here it is assumed that background density parameter is called "n",
@@ -1740,11 +1741,11 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
 
         # for species in self._pparams:
         #     # alfvén speed (m/s)
-        #     self._pparams[species]["v_A"] = magnetic_field / np.sqrt(
+        #     self._pparams[species]["v_A"] = magnetic_field / xp.sqrt(
         #         mu0 * self._pparams[species]["mass"] * self._pparams[species]["density"],
         #     )
         #     # thermal speed (m/s)
-        #     self._pparams[species]["v_th"] = np.sqrt(
+        #     self._pparams[species]["v_th"] = xp.sqrt(
         #         self._pparams[species]["kBT"] * 1e3 * e / self._pparams[species]["mass"],
         #     )
         #     # thermal frequency (Mrad/s)
@@ -1753,7 +1754,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #     self._pparams[species]["Omega_c"] = self._pparams[species]["charge"] * magnetic_field / self._pparams[species]["mass"] * 1e-6
         #     # plasma frequency (Mrad/s)
         #     self._pparams[species]["Omega_p"] = (
-        #         np.sqrt(
+        #         xp.sqrt(
         #             self._pparams[species]["density"] * (self._pparams[species]["charge"]) ** 2 / eps0 / self._pparams[species]["mass"],
         #         )
         #         * 1e-6
@@ -1763,7 +1764,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #     # Larmor radius (m)
         #     self._pparams[species]["rho_th"] = self._pparams[species]["v_th"] / (self._pparams[species]["Omega_c"] * 1e6)
         #     # MHD length scale (m)
-        #     self._pparams[species]["v_A/Omega_c"] = self._pparams[species]["v_A"] / (np.abs(self._pparams[species]["Omega_c"]) * 1e6)
+        #     self._pparams[species]["v_A/Omega_c"] = self._pparams[species]["v_A"] / (xp.abs(self._pparams[species]["Omega_c"]) * 1e6)
         #     # dim-less ratios
         #     self._pparams[species]["rho_th/L"] = self._pparams[species]["rho_th"] / transit_length
 

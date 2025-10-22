@@ -9,8 +9,7 @@ from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.polar.basic import PolarVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-
-rank = MPI.COMM_WORLD.Get_rank()
+from struphy.utils.arrays import xp
 
 rank = MPI.COMM_WORLD.Get_rank()
 
@@ -578,7 +577,7 @@ class ViscoResistiveMHD(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f)
 
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self.propagators.variat_ent.options.gamma)
@@ -778,7 +777,7 @@ class ViscousFluid(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f)
 
         self._energy_evaluator = InternalEnergyEvaluator(self.derham, self.propagators.variat_ent.options.gamma)
@@ -997,7 +996,7 @@ class ViscoResistiveMHD_with_p(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f)
 
         self._ones = self.derham.Vh_pol["3"].zeros()
@@ -1196,7 +1195,7 @@ class ViscoResistiveLinearMHD(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f)
 
         self._ones = self.derham.Vh_pol["3"].zeros()
@@ -1434,7 +1433,7 @@ class ViscoResistiveDeltafMHD(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f)
 
         self._ones = self.derham.Vh_pol["3"].zeros()
@@ -1660,7 +1659,7 @@ class ViscoResistiveMHD_with_q(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f)
 
         self._ones = self.derham.Vh_pol["3"].zeros()
@@ -1863,7 +1862,7 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f)
 
         self._ones = self.derham.Vh_pol["3"].zeros()
@@ -2088,7 +2087,7 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
         def f(e1, e2, e3):
             return 1
 
-        f = np.vectorize(f)
+        f = xp.vectorize(f)
         self._integrator = projV3(f)
 
         self._ones = self.derham.Vh_pol["3"].zeros()

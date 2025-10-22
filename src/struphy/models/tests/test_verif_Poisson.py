@@ -18,7 +18,7 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.topology import grids
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 
@@ -59,7 +59,7 @@ def test_poisson_1d(do_plot=False):
     model = Poisson()
 
     # propagator options
-    omega = 2 * np.pi
+    omega = 2 * xp.pi
     model.propagators.source.options = model.propagators.source.Options(omega=omega)
     model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)
 
@@ -71,9 +71,9 @@ def test_poisson_1d(do_plot=False):
 
     # analytical solution
     Lx = r1 - l1
-    rhs_exact = lambda e1, e2, e3, t: amp * np.cos(l * 2 * np.pi / Lx * e1) * np.cos(omega * t)
+    rhs_exact = lambda e1, e2, e3, t: amp * xp.cos(l * 2 * xp.pi / Lx * e1) * xp.cos(omega * t)
     phi_exact = (
-        lambda e1, e2, e3, t: amp / (l * 2 * np.pi / Lx) ** 2 * np.cos(l * 2 * np.pi / Lx * e1) * np.cos(omega * t)
+        lambda e1, e2, e3, t: amp / (l * 2 * xp.pi / Lx) ** 2 * xp.cos(l * 2 * xp.pi / Lx * e1) * xp.cos(omega * t)
     )
 
     # start run
@@ -116,7 +116,7 @@ def test_poisson_1d(do_plot=False):
         for i, t in enumerate(phi):
             phi_h = phi[t][0][:, 0, 0]
             phi_e = phi_exact(x, 0, 0, t)
-            new_err = np.abs(np.max(phi_h - phi_e)) / (amp / (l * 2 * np.pi / Lx) ** 2)
+            new_err = xp.abs(xp.max(phi_h - phi_e)) / (amp / (l * 2 * xp.pi / Lx) ** 2)
             if new_err > err:
                 err = new_err
 
@@ -125,7 +125,7 @@ def test_poisson_1d(do_plot=False):
                 plt.plot(x, phi_h, label="phi")
                 plt.plot(x, phi_e, "r--", label="exact")
                 plt.title(f"phi at {t = }")
-                plt.ylim(-amp / (l * 2 * np.pi / Lx) ** 2, amp / (l * 2 * np.pi / Lx) ** 2)
+                plt.ylim(-amp / (l * 2 * xp.pi / Lx) ** 2, amp / (l * 2 * xp.pi / Lx) ** 2)
                 plt.legend()
 
                 plt.subplot(5, 2, 2 * c + 2)

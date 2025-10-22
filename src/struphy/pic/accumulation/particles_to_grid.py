@@ -12,6 +12,8 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
+from struphy.utils.arrays import xp
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Accumulator:
@@ -189,7 +191,7 @@ class Accumulator:
             Entries must be pyccel-conform types.
 
         args_control : any
-            Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
+            Keyword arguments for an analytical control variate correction in the accumulation step. Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction. Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
 
         # flags for break
@@ -386,7 +388,7 @@ class Accumulator:
         field.vector = a
 
         # plot field
-        eta = np.linspace(0, 1, 100)
+        eta = xp.linspace(0, 1, 100)
         if eta_direction == 0:
             args = (eta, 0.5, 0.5)
         elif eta_direction == 1:
@@ -508,7 +510,7 @@ class AccumulatorVector:
         args_control : any
             Keyword arguments for an analytical control variate correction in the accumulation step.
             Possible keywords are 'control_vec' for a vector correction or 'control_mat' for a matrix correction.
-            Values are a 1d (vector) or 2d (matrix) list with callables or np.ndarrays used for the correction.
+            Values are a 1d (vector) or 2d (matrix) list with callables or xp.ndarrays used for the correction.
         """
 
         # flags for break
@@ -642,7 +644,7 @@ class AccumulatorVector:
         field.vector = a
 
         # plot field
-        eta = np.linspace(0, 1, 100)
+        eta = xp.linspace(0, 1, 100)
         if eta_direction == 0:
             args = (eta, 0.5, 0.5)
         elif eta_direction == 1:

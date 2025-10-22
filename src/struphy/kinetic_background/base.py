@@ -8,7 +8,7 @@ import numpy as np
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
 from struphy.initial.base import Perturbation
-from struphy.initial.utilities import Noise
+from struphy.utils.arrays import xp
 
 
 class KineticBackground(metaclass=ABCMeta):
@@ -106,7 +106,7 @@ class KineticBackground(metaclass=ABCMeta):
 
         Returns
         -------
-        f0 : np.ndarray
+        f0 : xp.ndarray
             The evaluated background.
         """
         pass
@@ -121,12 +121,12 @@ class KineticBackground(metaclass=ABCMeta):
         return ScalarMultiplyKineticBackground(self, a)
 
     def __div__(self, a):
-        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
         assert a != 0, "Cannot divide by zero!"
         return ScalarMultiplyKineticBackground(self, 1 / a)
 
     def __rdiv__(self, a):
-        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
         assert a != 0, "Cannot divide by zero!"
         return ScalarMultiplyKineticBackground(self, 1 / a)
 
@@ -234,7 +234,7 @@ class SumKineticBackground(KineticBackground):
 
         Returns
         -------
-        f0 : np.ndarray
+        f0 : xp.ndarray
             The evaluated background.
         """
         return self._f1(*args) + self._f2(*args)
@@ -243,7 +243,7 @@ class SumKineticBackground(KineticBackground):
 class ScalarMultiplyKineticBackground(KineticBackground):
     def __init__(self, f0, a):
         assert isinstance(f0, KineticBackground)
-        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
 
         self._f = f0
         self._a = a
@@ -320,7 +320,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
 
         Returns
         -------
-        f0 : np.ndarray
+        f0 : xp.ndarray
             The evaluated background.
         """
         return self._a * self._f(*args)
@@ -396,14 +396,14 @@ class Maxwellian(KineticBackground):
         An array of size(v).
         """
 
-        if isinstance(v, np.ndarray) and isinstance(u, np.ndarray):
+        if isinstance(v, xp.ndarray) and isinstance(u, xp.ndarray):
             assert v.shape == u.shape, f"{v.shape = } but {u.shape = }"
 
         if not polar:
-            out = 1.0 / vth * 1.0 / np.sqrt(2.0 * np.pi) * np.exp(-((v - u) ** 2) / (2.0 * vth**2))
+            out = 1.0 / vth * 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-((v - u) ** 2) / (2.0 * vth**2))
         else:
-            assert np.all(v >= 0.0)
-            out = 1.0 / vth**2 * np.exp(-((v - u) ** 2) / (2.0 * vth**2))
+            assert xp.all(v >= 0.0)
+            out = 1.0 / vth**2 * xp.exp(-((v - u) ** 2) / (2.0 * vth**2))
             if volume_form:
                 out *= v
 
@@ -429,16 +429,16 @@ class Maxwellian(KineticBackground):
 
         Returns
         -------
-        f : np.ndarray
+        f : xp.ndarray
             The evaluated Maxwellian.
         """
 
         # Check that all args have the same shape
-        shape0 = np.shape(args[0])
+        shape0 = xp.shape(args[0])
         for i, arg in enumerate(args):
-            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
-            assert np.ndim(arg) == 1 or np.ndim(arg) == 3 + self.vdim, (
-                f"{np.ndim(arg) = } not allowed for Maxwellian evaluation."
+            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) = }, but must be {shape0 = }."
+            assert xp.ndim(arg) == 1 or xp.ndim(arg) == 3 + self.vdim, (
+                f"{xp.ndim(arg) = } not allowed for Maxwellian evaluation."
             )  # flat or meshgrid evaluation
 
         # Get result evaluated at eta's
@@ -447,33 +447,33 @@ class Maxwellian(KineticBackground):
         vths = self.vth(*args[: -self.vdim])
 
         # take care of correct broadcasting, assuming args come from phase space meshgrid
-        if np.ndim(args[0]) > 3:
+        if xp.ndim(args[0]) > 3:
             # move eta axes to the back
-            arg_t = np.moveaxis(args[0], 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
+            arg_t = xp.moveaxis(args[0], 0, -1)
+            arg_t = xp.moveaxis(arg_t, 0, -1)
+            arg_t = xp.moveaxis(arg_t, 0, -1)
 
             # broadcast
             res_broad = res + 0.0 * arg_t
 
             # move eta axes to the front
-            res = np.moveaxis(res_broad, -1, 0)
-            res = np.moveaxis(res, -1, 0)
-            res = np.moveaxis(res, -1, 0)
+            res = xp.moveaxis(res_broad, -1, 0)
+            res = xp.moveaxis(res, -1, 0)
+            res = xp.moveaxis(res, -1, 0)
 
         # Multiply result with gaussian in v's
         for i, v in enumerate(args[-self.vdim :]):
             # correct broadcasting
-            if np.ndim(args[0]) > 3:
+            if xp.ndim(args[0]) > 3:
                 u_broad = us[i] + 0.0 * arg_t
-                u = np.moveaxis(u_broad, -1, 0)
-                u = np.moveaxis(u, -1, 0)
-                u = np.moveaxis(u, -1, 0)
+                u = xp.moveaxis(u_broad, -1, 0)
+                u = xp.moveaxis(u, -1, 0)
+                u = xp.moveaxis(u, -1, 0)
 
                 vth_broad = vths[i] + 0.0 * arg_t
-                vth = np.moveaxis(vth_broad, -1, 0)
-                vth = np.moveaxis(vth, -1, 0)
-                vth = np.moveaxis(vth, -1, 0)
+                vth = xp.moveaxis(vth_broad, -1, 0)
+                vth = xp.moveaxis(vth, -1, 0)
+                vth = xp.moveaxis(vth, -1, 0)
             else:
                 u = us[i]
                 vth = vths[i]
@@ -502,9 +502,9 @@ class Maxwellian(KineticBackground):
         """
 
         # collect arguments
-        assert isinstance(eta1, np.ndarray)
-        assert isinstance(eta2, np.ndarray)
-        assert isinstance(eta3, np.ndarray)
+        assert isinstance(eta1, xp.ndarray)
+        assert isinstance(eta2, xp.ndarray)
+        assert isinstance(eta3, xp.ndarray)
         assert eta1.shape == eta2.shape == eta3.shape
 
         params = self.maxw_params[name]
@@ -514,7 +514,7 @@ class Maxwellian(KineticBackground):
         # flat evaluation for markers
         if eta1.ndim == 1:
             etas = [
-                np.concatenate(
+                xp.concatenate(
                     (eta1[:, None], eta2[:, None], eta3[:, None]),
                     axis=1,
                 ),
