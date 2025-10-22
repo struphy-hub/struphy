@@ -473,7 +473,7 @@ class QNAdiabatic(Propagator):
             "info": False,
             "verbose": False,
             "recycle": True,
-            "stab_fac": 0.0,
+            "stab_fac": 1e-10,
         }
         if default:
             dct = descend_options_dict(dct, [])
@@ -691,7 +691,7 @@ class QNAdiabatic(Propagator):
     def __call__(self, dt):
         self._call_kinetic_step(dt)
         self._update_phi_mean()
-        self._call_potential_step(dt)
+        # self._call_potential_step(dt)
         self._update_lambda()
     
     def _call_kinetic_step(self, dt):
@@ -732,8 +732,16 @@ class QNAdiabatic(Propagator):
         # x = np.linspace(0, 1, 200)
         # test = SplineFunction("test", "H1", self._accum_mat._derham, self._lambd)
         # res = test(x, x, x)
+        # test_accum = SplineFunction("test", "H1", self._accum_mat._derham, self._accum_vec_kin.vectors[0])
+        # res_accum = test_accum(x, x, x)
+        # plt.figure(figsize=(14,6))
+        # plt.suptitle("In kinetic substep in Propagator")
+        # plt.subplot(1, 2, 1)
+        # plt.plot(x, res_accum[:, 0, 0])
+        # plt.title("Accumulated spline function")
+        # plt.subplot(1, 2, 2)
+        # plt.title("Lambda spline function")
         # plt.plot(x, res[:, 0, 0])
-        # plt.title("Lambda spline function in kinetic step in Propagator")
         # plt.show()
 
         # Push V x B
@@ -763,6 +771,23 @@ class QNAdiabatic(Propagator):
 
         # Invert A
         self._solver_accum.dot(self._accum_vec_correc.vectors[0], out=self._v_correction_vec)
+
+        # from struphy.feec.psydac_derham import SplineFunction
+        # import matplotlib.pyplot as plt
+        # x = np.linspace(0, 1, 200)
+        # test = SplineFunction("test", "H1", self._accum_mat._derham, self._v_correction_vec)
+        # res = test(x, x, x)
+        # test_accum = SplineFunction("test", "H1", self._accum_mat._derham, self._accum_vec_correc.vectors[0])
+        # res_accum = test_accum(x, x, x)
+        # plt.figure(figsize=(14,6))
+        # plt.suptitle("Corrector in kinetic substep in Propagator")
+        # plt.subplot(1, 2, 1)
+        # plt.plot(x, res_accum[:, 0, 0])
+        # plt.title("Accumulated spline function")
+        # plt.subplot(1, 2, 2)
+        # plt.title("Correction spline function")
+        # plt.plot(x, res[:, 0, 0])
+        # plt.show()
 
         # Do correction step
         self._push_v_x_correc(dt)
