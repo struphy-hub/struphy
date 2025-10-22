@@ -960,17 +960,17 @@ class MHDequilibrium(FluidEquilibriumWithB):
         # poloidal plane grid
         fig = plt.figure(figsize=(13, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
-            xp = x[:, :, int(n * jump)].squeeze()
+            xpp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = xp.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xpp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
             else:
-                pc1 = xp
+                pc1 = xpp
                 pc2 = yp
                 l1 = "x"
                 l2 = "y"
@@ -1013,17 +1013,17 @@ class MHDequilibrium(FluidEquilibriumWithB):
         fig = plt.figure(figsize=(13, 2 * 6.5))
         ax = fig.add_subplot()
         for m in range(2):
-            xp = xt[:, m, :].squeeze()
+            xpp = xt[:, m, :].squeeze()
             yp = yt[:, m, :].squeeze()
             zp = zt[:, m, :].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                tc1 = xp
+                tc1 = xpp
                 tc2 = yp
                 l1 = "x"
                 l2 = "y"
             else:
-                tc1 = xp
+                tc1 = xpp
                 tc2 = zp
                 l1 = "x"
                 l2 = "z"
@@ -1060,17 +1060,17 @@ class MHDequilibrium(FluidEquilibriumWithB):
         # Jacobian determinant
         fig = plt.figure(figsize=(13, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
-            xp = x[:, :, int(n * jump)].squeeze()
+            xpp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = xp.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xpp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
             else:
-                pc1 = xp
+                pc1 = xpp
                 pc2 = yp
                 l1 = "x"
                 l2 = "y"
@@ -1090,17 +1090,17 @@ class MHDequilibrium(FluidEquilibriumWithB):
         # pressure
         fig = plt.figure(figsize=(15, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
-            xp = x[:, :, int(n * jump)].squeeze()
+            xpp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = xp.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xpp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
             else:
-                pc1 = xp
+                pc1 = xpp
                 pc2 = yp
                 l1 = "x"
                 l2 = "y"
@@ -1120,17 +1120,17 @@ class MHDequilibrium(FluidEquilibriumWithB):
         # density
         fig = plt.figure(figsize=(15, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
-            xp = x[:, :, int(n * jump)].squeeze()
+            xpp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = xp.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xpp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
             else:
-                pc1 = xp
+                pc1 = xpp
                 pc2 = yp
                 l1 = "x"
                 l2 = "y"
@@ -1150,17 +1150,17 @@ class MHDequilibrium(FluidEquilibriumWithB):
         # magnetic field strength
         fig = plt.figure(figsize=(15, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
-            xp = x[:, :, int(n * jump)].squeeze()
+            xpp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = xp.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xpp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
             else:
-                pc1 = xp
+                pc1 = xpp
                 pc2 = yp
                 l1 = "x"
                 l2 = "y"
@@ -1180,17 +1180,17 @@ class MHDequilibrium(FluidEquilibriumWithB):
         # current density
         fig = plt.figure(figsize=(15, xp.ceil(n_planes / 2) * 6.5))
         for n in range(n_planes):
-            xp = x[:, :, int(n * jump)].squeeze()
+            xpp = x[:, :, int(n * jump)].squeeze()
             yp = y[:, :, int(n * jump)].squeeze()
             zp = z[:, :, int(n * jump)].squeeze()
 
             if self.domain.__class__.__name__ in torus_mappings:
-                pc1 = xp.sqrt(xp**2 + yp**2)
+                pc1 = xp.sqrt(xpp**2 + yp**2)
                 pc2 = zp
                 l1 = "R"
                 l2 = "Z"
             else:
-                pc1 = xp
+                pc1 = xpp
                 pc2 = yp
                 l1 = "x"
                 l2 = "y"
