@@ -327,50 +327,85 @@ class EfieldWeights(Propagator):
 
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
+    class Variables:
+        def __init__(self):
+            self._e: FEECVariable = None
+            self._ions: PICVariable = None
 
-        return dct
+        @property
+        def e(self) -> FEECVariable:
+            return self._e
 
-    def __init__(
-        self,
-        e: BlockVector,
-        particles: Particles6D,
-        *,
-        alpha: float = 1.0,
-        kappa: float = 1.0,
-        f0: Maxwellian = None,
-        solver=options(default=True)["solver"],
-    ):
-        super().__init__(e, particles)
+        @e.setter
+        def e(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hcurl"
+            self._e = new
 
-        if f0 is None:
-            f0 = Maxwellian3D()
-        assert isinstance(f0, Maxwellian3D)
+        @property
+        def ions(self) -> PICVariable:
+            return self._ions
 
-        self._alpha = alpha
-        self._kappa = kappa
-        self._f0 = f0
-        assert self._f0.maxw_params["vth1"] == self._f0.maxw_params["vth2"] == self._f0.maxw_params["vth3"]
-        self._vth = self._f0.maxw_params["vth1"]
+        @ions.setter
+        def ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space in ("Particles6D", "DeltaFParticles6D")
+            self._ions = new
 
-        self._info = solver["info"]
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        alpha: float = 1.0
+        kappa: float = 1.0
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+
+        def __post_init__(self):
+            # checks
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._alpha = self.options.alpha
+        self._kappa = self.options.kappa
+
+        backgrounds = self.variables.ions.backgrounds
+        # use single Maxwellian
+        if isinstance(backgrounds, list):
+            self._f0 = backgrounds[0]
+        else:
+            self._f0 = backgrounds
+        assert isinstance(self._f0, Maxwellian3D), "The background distribution function must be a uniform Maxwellian!"
+        self._vth = self._f0.maxw_params["vth1"][0]
+
+        self._info = self.options.solver_params.info
 
         # Initialize Accumulator object
+        e = self.variables.e.spline.vector
+        particles = self.variables.ions.particles
+
         self._accum = Accumulator(
             particles,
             "Hcurl",
@@ -395,10 +430,10 @@ class EfieldWeights(Propagator):
         # ================================
 
         # Preconditioner
-        if solver["type"][1] == None:
+        if self.options.precond == None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(self.mass_ops.M1)
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -409,11 +444,9 @@ class EfieldWeights(Propagator):
         self._schur_solver = SchurSolver(
             _A,
             _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
+            self.options.solver,
+            precond=pc,
+            solver_params=self.options.solver_params,
         )
 
         # Instantiate particle pusher
@@ -436,14 +469,17 @@ class EfieldWeights(Propagator):
         )
 
     def __call__(self, dt):
+        en = self.variables.e.spline.vector
+        particles = self.variables.ions.particles
+
         # evaluate f0 and accumulate
         self._f0_values[:] = self._f0(
-            self.particles[0].markers[:, 0],
-            self.particles[0].markers[:, 1],
-            self.particles[0].markers[:, 2],
-            self.particles[0].markers[:, 3],
-            self.particles[0].markers[:, 4],
-            self.particles[0].markers[:, 5],
+            particles.markers[:, 0],
+            particles.markers[:, 1],
+            particles.markers[:, 2],
+            particles.markers[:, 3],
+            particles.markers[:, 4],
+            particles.markers[:, 5],
         )
 
         self._accum(self._f0_values)
@@ -459,25 +495,25 @@ class EfieldWeights(Propagator):
 
         # new e-field (no tmps created here)
         self._e_tmp, info = self._schur_solver(
-            xn=self.feec_vars[0],
+            xn=en,
             Byn=self._e_scale,
             dt=dt,
             out=self._e_tmp,
         )
 
         # Store old weights
-        self._old_weights[~self.particles[0].holes] = self.particles[0].markers_wo_holes[:, 6]
+        self._old_weights[~particles.holes] = particles.markers_wo_holes[:, 6]
 
         # Compute (e^{n+1} + e^n) (no tmps created here)
         self._e_sum *= 0.0
-        self._e_sum += self.feec_vars[0]
+        self._e_sum += en
         self._e_sum += self._e_tmp
 
         # Update weights
         self._pusher(dt)
 
         # write new coeffs into self.variables
-        (max_de,) = self.feec_vars_update(self._e_tmp)
+        max_de = self.update_feec_variables(e=self._e_tmp)
 
         # Print out max differences for weights and e-field
         if self._info:
@@ -486,8 +522,7 @@ class EfieldWeights(Propagator):
             print("Maxdiff    e1   for StepEfieldWeights:", max_de)
             max_diff = xp.max(
                 xp.abs(
-                    self._old_weights[~self.particles[0].holes]
-                    - self.particles[0].markers[~self.particles[0].holes, 6],
+                    self._old_weights[~particles.holes] - particles.markers[~particles.holes, 6],
                 ),
             )
             print("Maxdiff weights for StepEfieldWeights:", max_diff)
