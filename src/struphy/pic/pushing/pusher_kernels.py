@@ -3035,7 +3035,7 @@ def push_v_sph_pressure(
     h1, h2, h3 : float
         Kernel width in respective dimension.
 
-    gravity: np.ndarray
+    gravity: xp.ndarray
         Constant gravitational force as 3-vector.
     """
     # allocate arrays
@@ -3266,7 +3266,7 @@ def push_v_sph_pressure_ideal_gas(
     h1, h2, h3 : float
         Kernel width in respective dimension.
 
-    gravity: np.ndarray
+    gravity: xp.ndarray
         Constant gravitational force as 3-vector.
     """
     # allocate arrays
@@ -3498,7 +3498,7 @@ def push_v_viscosity(
     h1, h2, h3 : float
         Kernel width in respective dimension.
 
-    gravity: np.ndarray
+    gravity: xp.ndarray
         Constant gravitational force as 3-vector.
     """
     # allocate arrays

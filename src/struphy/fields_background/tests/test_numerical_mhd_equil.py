@@ -1,7 +1,7 @@
 import pytest
 
 from struphy.fields_background.base import FluidEquilibrium, LogicalMHDequilibrium
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 @pytest.mark.parametrize(
@@ -50,53 +50,53 @@ def test_transformations(mapping, mhd_equil):
     num_equil = NumEqTest(domain, proxy)
 
     # compare values:
-    eta1 = np.random.rand(4)
-    eta2 = np.random.rand(5)
-    eta3 = np.random.rand(6)
+    eta1 = xp.random.rand(4)
+    eta2 = xp.random.rand(5)
+    eta3 = xp.random.rand(6)
 
-    assert np.allclose(ana_equil.absB0(eta1, eta2, eta3), num_equil.absB0(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.absB0(eta1, eta2, eta3), num_equil.absB0(eta1, eta2, eta3))
 
-    assert np.allclose(ana_equil.bv(eta1, eta2, eta3)[0], num_equil.bv(eta1, eta2, eta3)[0])
-    assert np.allclose(ana_equil.bv(eta1, eta2, eta3)[1], num_equil.bv(eta1, eta2, eta3)[1])
-    assert np.allclose(ana_equil.bv(eta1, eta2, eta3)[2], num_equil.bv(eta1, eta2, eta3)[2])
+    assert xp.allclose(ana_equil.bv(eta1, eta2, eta3)[0], num_equil.bv(eta1, eta2, eta3)[0])
+    assert xp.allclose(ana_equil.bv(eta1, eta2, eta3)[1], num_equil.bv(eta1, eta2, eta3)[1])
+    assert xp.allclose(ana_equil.bv(eta1, eta2, eta3)[2], num_equil.bv(eta1, eta2, eta3)[2])
 
-    assert np.allclose(ana_equil.b1_1(eta1, eta2, eta3), num_equil.b1_1(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.b1_2(eta1, eta2, eta3), num_equil.b1_2(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.b1_3(eta1, eta2, eta3), num_equil.b1_3(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.b1_1(eta1, eta2, eta3), num_equil.b1_1(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.b1_2(eta1, eta2, eta3), num_equil.b1_2(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.b1_3(eta1, eta2, eta3), num_equil.b1_3(eta1, eta2, eta3))
 
-    assert np.allclose(ana_equil.b2_1(eta1, eta2, eta3), num_equil.b2_1(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.b2_2(eta1, eta2, eta3), num_equil.b2_2(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.b2_3(eta1, eta2, eta3), num_equil.b2_3(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.b2_1(eta1, eta2, eta3), num_equil.b2_1(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.b2_2(eta1, eta2, eta3), num_equil.b2_2(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.b2_3(eta1, eta2, eta3), num_equil.b2_3(eta1, eta2, eta3))
 
-    assert np.allclose(ana_equil.unit_bv(eta1, eta2, eta3)[0], num_equil.unit_bv(eta1, eta2, eta3)[0])
-    assert np.allclose(ana_equil.unit_bv(eta1, eta2, eta3)[1], num_equil.unit_bv(eta1, eta2, eta3)[1])
-    assert np.allclose(ana_equil.unit_bv(eta1, eta2, eta3)[2], num_equil.unit_bv(eta1, eta2, eta3)[2])
+    assert xp.allclose(ana_equil.unit_bv(eta1, eta2, eta3)[0], num_equil.unit_bv(eta1, eta2, eta3)[0])
+    assert xp.allclose(ana_equil.unit_bv(eta1, eta2, eta3)[1], num_equil.unit_bv(eta1, eta2, eta3)[1])
+    assert xp.allclose(ana_equil.unit_bv(eta1, eta2, eta3)[2], num_equil.unit_bv(eta1, eta2, eta3)[2])
 
-    assert np.allclose(ana_equil.unit_b1_1(eta1, eta2, eta3), num_equil.unit_b1_1(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.unit_b1_2(eta1, eta2, eta3), num_equil.unit_b1_2(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.unit_b1_3(eta1, eta2, eta3), num_equil.unit_b1_3(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.unit_b1_1(eta1, eta2, eta3), num_equil.unit_b1_1(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.unit_b1_2(eta1, eta2, eta3), num_equil.unit_b1_2(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.unit_b1_3(eta1, eta2, eta3), num_equil.unit_b1_3(eta1, eta2, eta3))
 
-    assert np.allclose(ana_equil.unit_b2_1(eta1, eta2, eta3), num_equil.unit_b2_1(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.unit_b2_2(eta1, eta2, eta3), num_equil.unit_b2_2(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.unit_b2_3(eta1, eta2, eta3), num_equil.unit_b2_3(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.unit_b2_1(eta1, eta2, eta3), num_equil.unit_b2_1(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.unit_b2_2(eta1, eta2, eta3), num_equil.unit_b2_2(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.unit_b2_3(eta1, eta2, eta3), num_equil.unit_b2_3(eta1, eta2, eta3))
 
-    assert np.allclose(ana_equil.jv(eta1, eta2, eta3)[0], num_equil.jv(eta1, eta2, eta3)[0])
-    assert np.allclose(ana_equil.jv(eta1, eta2, eta3)[1], num_equil.jv(eta1, eta2, eta3)[1])
-    assert np.allclose(ana_equil.jv(eta1, eta2, eta3)[2], num_equil.jv(eta1, eta2, eta3)[2])
+    assert xp.allclose(ana_equil.jv(eta1, eta2, eta3)[0], num_equil.jv(eta1, eta2, eta3)[0])
+    assert xp.allclose(ana_equil.jv(eta1, eta2, eta3)[1], num_equil.jv(eta1, eta2, eta3)[1])
+    assert xp.allclose(ana_equil.jv(eta1, eta2, eta3)[2], num_equil.jv(eta1, eta2, eta3)[2])
 
-    assert np.allclose(ana_equil.j1_1(eta1, eta2, eta3), num_equil.j1_1(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.j1_2(eta1, eta2, eta3), num_equil.j1_2(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.j1_3(eta1, eta2, eta3), num_equil.j1_3(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.j1_1(eta1, eta2, eta3), num_equil.j1_1(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.j1_2(eta1, eta2, eta3), num_equil.j1_2(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.j1_3(eta1, eta2, eta3), num_equil.j1_3(eta1, eta2, eta3))
 
-    assert np.allclose(ana_equil.j2_1(eta1, eta2, eta3), num_equil.j2_1(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.j2_2(eta1, eta2, eta3), num_equil.j2_2(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.j2_3(eta1, eta2, eta3), num_equil.j2_3(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.j2_1(eta1, eta2, eta3), num_equil.j2_1(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.j2_2(eta1, eta2, eta3), num_equil.j2_2(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.j2_3(eta1, eta2, eta3), num_equil.j2_3(eta1, eta2, eta3))
 
-    assert np.allclose(ana_equil.p0(eta1, eta2, eta3), num_equil.p0(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.p3(eta1, eta2, eta3), num_equil.p3(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.p0(eta1, eta2, eta3), num_equil.p0(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.p3(eta1, eta2, eta3), num_equil.p3(eta1, eta2, eta3))
 
-    assert np.allclose(ana_equil.n0(eta1, eta2, eta3), num_equil.n0(eta1, eta2, eta3))
-    assert np.allclose(ana_equil.n3(eta1, eta2, eta3), num_equil.n3(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.n0(eta1, eta2, eta3), num_equil.n0(eta1, eta2, eta3))
+    assert xp.allclose(ana_equil.n3(eta1, eta2, eta3), num_equil.n3(eta1, eta2, eta3))
 
 
 class NumEqTest(LogicalMHDequilibrium):

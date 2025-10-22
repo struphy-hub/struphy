@@ -8,7 +8,7 @@ Modules to compute L2-errors in 1d.
 
 import scipy.sparse as spa
 
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 # ======= error in V0 ====================
@@ -48,7 +48,7 @@ def l2_error_V0(spline_space, mapping, coeff, fun):
     mat_f = fun(pts)
 
     # assembly
-    error = np.zeros(Nel, dtype=float)
+    error = xp.zeros(Nel, dtype=float)
 
     for ie in range(Nel):
         for q in range(n_quad):
@@ -59,7 +59,7 @@ def l2_error_V0(spline_space, mapping, coeff, fun):
 
             error[ie] += wts[ie, q] * (bi - mat_f[ie, q]) ** 2
 
-    return np.sqrt(error.sum())
+    return xp.sqrt(error.sum())
 
 
 # ======= error in V1 ====================
@@ -99,7 +99,7 @@ def l2_error_V1(spline_space, mapping, coeff, fun):
     mat_f = fun(pts)
 
     # assembly
-    error = np.zeros(Nel, dtype=float)
+    error = xp.zeros(Nel, dtype=float)
 
     for ie in range(Nel):
         for q in range(n_quad):
@@ -110,4 +110,4 @@ def l2_error_V1(spline_space, mapping, coeff, fun):
 
             error[ie] += wts[ie, q] * (bi - mat_f[ie, q]) ** 2
 
-    return np.sqrt(error.sum())
+    return xp.sqrt(error.sum())

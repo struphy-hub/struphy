@@ -10,7 +10,7 @@ import scipy.sparse as spa
 
 import struphy.bsplines.bsplines as bsp
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d, kron_lusolve_3d, kron_matvec_2d, kron_matvec_3d
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 # ======================= 1d ====================================
@@ -156,15 +156,15 @@ class Projectors_global_1d:
         self.n_quad = n_quad
 
         # Gauss - Legendre quadrature points and weights in (-1, 1)
-        self.pts_loc = np.polynomial.legendre.leggauss(self.n_quad)[0]
-        self.wts_loc = np.polynomial.legendre.leggauss(self.n_quad)[1]
+        self.pts_loc = xp.polynomial.legendre.leggauss(self.n_quad)[0]
+        self.wts_loc = xp.polynomial.legendre.leggauss(self.n_quad)[1]
 
         # set interpolation points (Greville points)
         self.x_int = spline_space.greville.copy()
 
         # set number of sub-intervals per integration interval between Greville points and integration boundaries
-        self.subs = np.ones(spline_space.NbaseD, dtype=int)
-        self.x_his = np.array([self.x_int[0]])
+        self.subs = xp.ones(spline_space.NbaseD, dtype=int)
+        self.x_his = xp.array([self.x_int[0]])
 
         for i in range(spline_space.NbaseD):
             for br in spline_space.el_b:
@@ -181,16 +181,16 @@ class Projectors_global_1d:
                 # compute subs and x_his
                 if (br > xl + 1e-10) and (br < xr - 1e-10):
                     self.subs[i] += 1
-                    self.x_his = np.append(self.x_his, br)
+                    self.x_his = xp.append(self.x_his, br)
                 elif br >= xr - 1e-10:
-                    self.x_his = np.append(self.x_his, xr)
+                    self.x_his = xp.append(self.x_his, xr)
                     break
 
         if spline_space.spl_kind == True and spline_space.p % 2 == 0:
-            self.x_his = np.append(self.x_his, spline_space.el_b[-1] + self.x_his[0])
+            self.x_his = xp.append(self.x_his, spline_space.el_b[-1] + self.x_his[0])
 
         # cumulative number of sub-intervals for conversion local interval --> global interval
-        self.subs_cum = np.append(0, np.cumsum(self.subs - 1)[:-1])
+        self.subs_cum = xp.append(0, xp.cumsum(self.subs - 1)[:-1])
 
         # quadrature points and weights
         self.pts, self.wts = bsp.quadrature_grid(self.x_his, self.pts_loc, self.wts_loc)
@@ -200,31 +200,31 @@ class Projectors_global_1d:
         self.x_hisG = self.x_int
         if spline_space.spl_kind == True:
             if spline_space.p % 2 == 0:
-                self.x_hisG = np.append(self.x_hisG, spline_space.el_b[-1] + self.x_hisG[0])
+                self.x_hisG = xp.append(self.x_hisG, spline_space.el_b[-1] + self.x_hisG[0])
             else:
-                self.x_hisG = np.append(self.x_hisG, spline_space.el_b[-1])
+                self.x_hisG = xp.append(self.x_hisG, spline_space.el_b[-1])
 
         self.ptsG, self.wtsG = bsp.quadrature_grid(self.x_hisG, self.pts_loc, self.wts_loc)
         self.ptsG = self.ptsG % spline_space.el_b[-1]
 
         # Knot span indices at interpolation points in format (greville, 0)
-        self.span_x_int_N = np.zeros(self.x_int[:, None].shape, dtype=int)
-        self.span_x_int_D = np.zeros(self.x_int[:, None].shape, dtype=int)
+        self.span_x_int_N = xp.zeros(self.x_int[:, None].shape, dtype=int)
+        self.span_x_int_D = xp.zeros(self.x_int[:, None].shape, dtype=int)
         for i in range(self.x_int.shape[0]):
             self.span_x_int_N[i, 0] = bsp.find_span(self.space.T, self.space.p, self.x_int[i])
             self.span_x_int_D[i, 0] = bsp.find_span(self.space.t, self.space.p - 1, self.x_int[i])
 
         # Knot span indices at quadrature points between x_int in format (i, iq)
-        self.span_ptsG_N = np.zeros(self.ptsG.shape, dtype=int)
-        self.span_ptsG_D = np.zeros(self.ptsG.shape, dtype=int)
+        self.span_ptsG_N = xp.zeros(self.ptsG.shape, dtype=int)
+        self.span_ptsG_D = xp.zeros(self.ptsG.shape, dtype=int)
         for i in range(self.ptsG.shape[0]):
             for iq in range(self.ptsG.shape[1]):
                 self.span_ptsG_N[i, iq] = bsp.find_span(self.space.T, self.space.p, self.ptsG[i, iq])
                 self.span_ptsG_D[i, iq] = bsp.find_span(self.space.t, self.space.p - 1, self.ptsG[i, iq])
 
         # Values of p + 1 non-zero basis functions at Greville points in format (greville, 0, basis function)
-        self.basis_x_int_N = np.zeros((*self.x_int[:, None].shape, self.space.p + 1), dtype=float)
-        self.basis_x_int_D = np.zeros((*self.x_int[:, None].shape, self.space.p), dtype=float)
+        self.basis_x_int_N = xp.zeros((*self.x_int[:, None].shape, self.space.p + 1), dtype=float)
+        self.basis_x_int_D = xp.zeros((*self.x_int[:, None].shape, self.space.p), dtype=float)
 
         N_temp = bsp.basis_ders_on_quad_grid(self.space.T, self.space.p, self.x_int[:, None], 0, normalize=False)
         D_temp = bsp.basis_ders_on_quad_grid(self.space.t, self.space.p - 1, self.x_int[:, None], 0, normalize=True)
@@ -236,8 +236,8 @@ class Projectors_global_1d:
                 self.basis_x_int_D[i, 0, b] = D_temp[i, b, 0, 0]
 
         # Values of p + 1 non-zero basis functions at quadrature points points between x_int in format (i, iq, basis function)
-        self.basis_ptsG_N = np.zeros((*self.ptsG.shape, self.space.p + 1), dtype=float)
-        self.basis_ptsG_D = np.zeros((*self.ptsG.shape, self.space.p), dtype=float)
+        self.basis_ptsG_N = xp.zeros((*self.ptsG.shape, self.space.p + 1), dtype=float)
+        self.basis_ptsG_D = xp.zeros((*self.ptsG.shape, self.space.p), dtype=float)
 
         N_temp = bsp.basis_ders_on_quad_grid(self.space.T, self.space.p, self.ptsG, 0, normalize=False)
         D_temp = bsp.basis_ders_on_quad_grid(self.space.t, self.space.p - 1, self.ptsG, 0, normalize=True)
@@ -250,7 +250,7 @@ class Projectors_global_1d:
                     self.basis_ptsG_D[i, iq, b] = D_temp[i, b, 0, iq]
 
         # quadrature matrix for performing integrations as matrix-vector products
-        self.Q = np.zeros((spline_space.NbaseD, self.wts.shape[0] * self.n_quad), dtype=float)
+        self.Q = xp.zeros((spline_space.NbaseD, self.wts.shape[0] * self.n_quad), dtype=float)
 
         for i in range(spline_space.NbaseD):
             for j in range(self.subs[i]):
@@ -260,7 +260,7 @@ class Projectors_global_1d:
         self.Q = spa.csr_matrix(self.Q)
 
         # quadrature matrix for performing integrations as matrix-vector products, ignoring subs (less accurate integration for even degree)
-        self.QG = np.zeros((spline_space.NbaseD, self.wtsG.shape[0] * self.n_quad), dtype=float)
+        self.QG = xp.zeros((spline_space.NbaseD, self.wtsG.shape[0] * self.n_quad), dtype=float)
 
         for i in range(spline_space.NbaseD):
             self.QG[i, self.n_quad * i : self.n_quad * (i + 1)] = self.wtsG[i]
@@ -399,17 +399,17 @@ class Projectors_global_1d:
         dofs_1_i(D_j*D_k).
         """
 
-        dofs_0_NN = np.empty((space.NbaseN, space.NbaseN, space.NbaseN), dtype=float)
-        dofs_0_DN = np.empty((space.NbaseN, space.NbaseD, space.NbaseN), dtype=float)
-        dofs_0_DD = np.empty((space.NbaseN, space.NbaseD, space.NbaseD), dtype=float)
+        dofs_0_NN = xp.empty((space.NbaseN, space.NbaseN, space.NbaseN), dtype=float)
+        dofs_0_DN = xp.empty((space.NbaseN, space.NbaseD, space.NbaseN), dtype=float)
+        dofs_0_DD = xp.empty((space.NbaseN, space.NbaseD, space.NbaseD), dtype=float)
 
-        dofs_1_NN = np.empty((space.NbaseD, space.NbaseN, space.NbaseN), dtype=float)
-        dofs_1_DN = np.empty((space.NbaseD, space.NbaseD, space.NbaseN), dtype=float)
-        dofs_1_DD = np.empty((space.NbaseD, space.NbaseD, space.NbaseD), dtype=float)
+        dofs_1_NN = xp.empty((space.NbaseD, space.NbaseN, space.NbaseN), dtype=float)
+        dofs_1_DN = xp.empty((space.NbaseD, space.NbaseD, space.NbaseN), dtype=float)
+        dofs_1_DD = xp.empty((space.NbaseD, space.NbaseD, space.NbaseD), dtype=float)
 
         # ========= dofs_0_NN and dofs_1_NN ==============
-        cj = np.zeros(space.NbaseN, dtype=float)
-        ck = np.zeros(space.NbaseN, dtype=float)
+        cj = xp.zeros(space.NbaseN, dtype=float)
+        ck = xp.zeros(space.NbaseN, dtype=float)
 
         for j in range(space.NbaseN):
             for k in range(space.NbaseN):
@@ -426,8 +426,8 @@ class Projectors_global_1d:
                 dofs_1_NN[:, j, k] = self.dofs_1(N_jN_k)
 
         # ========= dofs_0_DN and dofs_1_DN ==============
-        cj = np.zeros(space.NbaseD, dtype=float)
-        ck = np.zeros(space.NbaseN, dtype=float)
+        cj = xp.zeros(space.NbaseD, dtype=float)
+        ck = xp.zeros(space.NbaseN, dtype=float)
 
         for j in range(space.NbaseD):
             for k in range(space.NbaseN):
@@ -444,8 +444,8 @@ class Projectors_global_1d:
                 dofs_1_DN[:, j, k] = self.dofs_1(D_jN_k)
 
         # ========= dofs_0_DD and dofs_1_DD =============
-        cj = np.zeros(space.NbaseD, dtype=float)
-        ck = np.zeros(space.NbaseD, dtype=float)
+        cj = xp.zeros(space.NbaseD, dtype=float)
+        ck = xp.zeros(space.NbaseD, dtype=float)
 
         for j in range(space.NbaseD):
             for k in range(space.NbaseD):
@@ -461,109 +461,109 @@ class Projectors_global_1d:
                 dofs_0_DD[:, j, k] = self.dofs_0(D_jD_k)
                 dofs_1_DD[:, j, k] = self.dofs_1(D_jD_k)
 
-        dofs_0_ND = np.transpose(dofs_0_DN, (0, 2, 1))
-        dofs_1_ND = np.transpose(dofs_1_DN, (0, 2, 1))
+        dofs_0_ND = xp.transpose(dofs_0_DN, (0, 2, 1))
+        dofs_1_ND = xp.transpose(dofs_1_DN, (0, 2, 1))
 
         # find non-zero entries
-        dofs_0_NN_indices = np.nonzero(dofs_0_NN)
-        dofs_0_DN_indices = np.nonzero(dofs_0_DN)
-        dofs_0_ND_indices = np.nonzero(dofs_0_ND)
-        dofs_0_DD_indices = np.nonzero(dofs_0_DD)
+        dofs_0_NN_indices = xp.nonzero(dofs_0_NN)
+        dofs_0_DN_indices = xp.nonzero(dofs_0_DN)
+        dofs_0_ND_indices = xp.nonzero(dofs_0_ND)
+        dofs_0_DD_indices = xp.nonzero(dofs_0_DD)
 
-        dofs_1_NN_indices = np.nonzero(dofs_1_NN)
-        dofs_1_DN_indices = np.nonzero(dofs_1_DN)
-        dofs_1_ND_indices = np.nonzero(dofs_1_ND)
-        dofs_1_DD_indices = np.nonzero(dofs_1_DD)
+        dofs_1_NN_indices = xp.nonzero(dofs_1_NN)
+        dofs_1_DN_indices = xp.nonzero(dofs_1_DN)
+        dofs_1_ND_indices = xp.nonzero(dofs_1_ND)
+        dofs_1_DD_indices = xp.nonzero(dofs_1_DD)
 
-        dofs_0_NN_i_red = np.empty(dofs_0_NN_indices[0].size, dtype=int)
-        dofs_0_DN_i_red = np.empty(dofs_0_DN_indices[0].size, dtype=int)
-        dofs_0_ND_i_red = np.empty(dofs_0_ND_indices[0].size, dtype=int)
-        dofs_0_DD_i_red = np.empty(dofs_0_DD_indices[0].size, dtype=int)
+        dofs_0_NN_i_red = xp.empty(dofs_0_NN_indices[0].size, dtype=int)
+        dofs_0_DN_i_red = xp.empty(dofs_0_DN_indices[0].size, dtype=int)
+        dofs_0_ND_i_red = xp.empty(dofs_0_ND_indices[0].size, dtype=int)
+        dofs_0_DD_i_red = xp.empty(dofs_0_DD_indices[0].size, dtype=int)
 
-        dofs_1_NN_i_red = np.empty(dofs_1_NN_indices[0].size, dtype=int)
-        dofs_1_DN_i_red = np.empty(dofs_1_DN_indices[0].size, dtype=int)
-        dofs_1_ND_i_red = np.empty(dofs_1_ND_indices[0].size, dtype=int)
-        dofs_1_DD_i_red = np.empty(dofs_1_DD_indices[0].size, dtype=int)
+        dofs_1_NN_i_red = xp.empty(dofs_1_NN_indices[0].size, dtype=int)
+        dofs_1_DN_i_red = xp.empty(dofs_1_DN_indices[0].size, dtype=int)
+        dofs_1_ND_i_red = xp.empty(dofs_1_ND_indices[0].size, dtype=int)
+        dofs_1_DD_i_red = xp.empty(dofs_1_DD_indices[0].size, dtype=int)
 
         # ================================
         nv = space.NbaseN * dofs_0_NN_indices[1] + dofs_0_NN_indices[2]
-        un = np.unique(nv)
+        un = xp.unique(nv)
 
         for i in range(dofs_0_NN_indices[0].size):
-            dofs_0_NN_i_red[i] = np.nonzero(un == nv[i])[0]
+            dofs_0_NN_i_red[i] = xp.nonzero(un == nv[i])[0]
 
         # ================================
         nv = space.NbaseN * dofs_0_DN_indices[1] + dofs_0_DN_indices[2]
-        un = np.unique(nv)
+        un = xp.unique(nv)
 
         for i in range(dofs_0_DN_indices[0].size):
-            dofs_0_DN_i_red[i] = np.nonzero(un == nv[i])[0]
+            dofs_0_DN_i_red[i] = xp.nonzero(un == nv[i])[0]
 
         # ================================
         nv = space.NbaseD * dofs_0_ND_indices[1] + dofs_0_ND_indices[2]
-        un = np.unique(nv)
+        un = xp.unique(nv)
 
         for i in range(dofs_0_ND_indices[0].size):
-            dofs_0_ND_i_red[i] = np.nonzero(un == nv[i])[0]
+            dofs_0_ND_i_red[i] = xp.nonzero(un == nv[i])[0]
 
         # ================================
         nv = space.NbaseD * dofs_0_DD_indices[1] + dofs_0_DD_indices[2]
-        un = np.unique(nv)
+        un = xp.unique(nv)
 
         for i in range(dofs_0_DD_indices[0].size):
-            dofs_0_DD_i_red[i] = np.nonzero(un == nv[i])[0]
+            dofs_0_DD_i_red[i] = xp.nonzero(un == nv[i])[0]
 
         # ================================
         nv = space.NbaseN * dofs_1_NN_indices[1] + dofs_1_NN_indices[2]
-        un = np.unique(nv)
+        un = xp.unique(nv)
 
         for i in range(dofs_1_NN_indices[0].size):
-            dofs_1_NN_i_red[i] = np.nonzero(un == nv[i])[0]
+            dofs_1_NN_i_red[i] = xp.nonzero(un == nv[i])[0]
 
         # ================================
         nv = space.NbaseN * dofs_1_DN_indices[1] + dofs_1_DN_indices[2]
-        un = np.unique(nv)
+        un = xp.unique(nv)
 
         for i in range(dofs_1_DN_indices[0].size):
-            dofs_1_DN_i_red[i] = np.nonzero(un == nv[i])[0]
+            dofs_1_DN_i_red[i] = xp.nonzero(un == nv[i])[0]
 
         # ================================
         nv = space.NbaseD * dofs_1_ND_indices[1] + dofs_1_ND_indices[2]
-        un = np.unique(nv)
+        un = xp.unique(nv)
 
         for i in range(dofs_1_ND_indices[0].size):
-            dofs_1_ND_i_red[i] = np.nonzero(un == nv[i])[0]
+            dofs_1_ND_i_red[i] = xp.nonzero(un == nv[i])[0]
 
         # ================================
         nv = space.NbaseD * dofs_1_DD_indices[1] + dofs_1_DD_indices[2]
-        un = np.unique(nv)
+        un = xp.unique(nv)
 
         for i in range(dofs_1_DD_indices[0].size):
-            dofs_1_DD_i_red[i] = np.nonzero(un == nv[i])[0]
+            dofs_1_DD_i_red[i] = xp.nonzero(un == nv[i])[0]
 
-        dofs_0_NN_indices = np.vstack(
+        dofs_0_NN_indices = xp.vstack(
             (dofs_0_NN_indices[0], dofs_0_NN_indices[1], dofs_0_NN_indices[2], dofs_0_NN_i_red)
         )
-        dofs_0_DN_indices = np.vstack(
+        dofs_0_DN_indices = xp.vstack(
             (dofs_0_DN_indices[0], dofs_0_DN_indices[1], dofs_0_DN_indices[2], dofs_0_DN_i_red)
         )
-        dofs_0_ND_indices = np.vstack(
+        dofs_0_ND_indices = xp.vstack(
             (dofs_0_ND_indices[0], dofs_0_ND_indices[1], dofs_0_ND_indices[2], dofs_0_ND_i_red)
         )
-        dofs_0_DD_indices = np.vstack(
+        dofs_0_DD_indices = xp.vstack(
             (dofs_0_DD_indices[0], dofs_0_DD_indices[1], dofs_0_DD_indices[2], dofs_0_DD_i_red)
         )
 
-        dofs_1_NN_indices = np.vstack(
+        dofs_1_NN_indices = xp.vstack(
             (dofs_1_NN_indices[0], dofs_1_NN_indices[1], dofs_1_NN_indices[2], dofs_1_NN_i_red)
         )
-        dofs_1_DN_indices = np.vstack(
+        dofs_1_DN_indices = xp.vstack(
             (dofs_1_DN_indices[0], dofs_1_DN_indices[1], dofs_1_DN_indices[2], dofs_1_DN_i_red)
         )
-        dofs_1_ND_indices = np.vstack(
+        dofs_1_ND_indices = xp.vstack(
             (dofs_1_ND_indices[0], dofs_1_ND_indices[1], dofs_1_ND_indices[2], dofs_1_ND_i_red)
         )
-        dofs_1_DD_indices = np.vstack(
+        dofs_1_DD_indices = xp.vstack(
             (dofs_1_DD_indices[0], dofs_1_DD_indices[1], dofs_1_DD_indices[2], dofs_1_DD_i_red)
         )
 
@@ -642,8 +642,8 @@ class Projectors_tensor_2d:
 
         pts_PI = self.pts_PI[comp]
 
-        pts1, pts2 = np.meshgrid(pts_PI[0], pts_PI[1], indexing="ij")
-        # pts1, pts2 = np.meshgrid(pts_PI[0], pts_PI[1], indexing='ij', sparse=True) # numpy >1.7
+        pts1, pts2 = xp.meshgrid(pts_PI[0], pts_PI[1], indexing="ij")
+        # pts1, pts2 = xp.meshgrid(pts_PI[0], pts_PI[1], indexing='ij', sparse=True) # numpy >1.7
 
         return fun(pts1, pts2)
 
@@ -906,8 +906,8 @@ class Projectors_tensor_3d:
 
         pts_PI = self.pts_PI[comp]
 
-        pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing="ij")
-        # pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij', sparse=True) # numpy >1.7
+        pts1, pts2, pts3 = xp.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing="ij")
+        # pts1, pts2, pts3 = xp.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing='ij', sparse=True) # numpy >1.7
 
         return fun(pts1, pts2, pts3)
 
@@ -939,25 +939,25 @@ class Projectors_tensor_3d:
     #        rhs = mat_f
     #
     #    elif comp=='11':
-    #        rhs = np.empty( (self.d1, self.n2, self.n3) )
+    #        rhs = xp.empty( (self.d1, self.n2, self.n3) )
     #
     #        ker_glob.kernel_int_3d_eta1(self.subs1, self.subs_cum1, self.wts1,
     #                                    mat_f.reshape(self.ne1, self.nq1, self.n2, self.n3), rhs
     #                                    )
     #    elif comp=='12':
-    #        rhs = np.empty( (self.n1, self.d2, self.n3) )
+    #        rhs = xp.empty( (self.n1, self.d2, self.n3) )
     #
     #        ker_glob.kernel_int_3d_eta2(self.subs2, self.subs_cum2, self.wts2,
     #                                    mat_f.reshape(self.n1, self.ne2, self.nq2, self.n3), rhs
     #                                    )
     #    elif comp=='13':
-    #        rhs = np.empty( (self.n1, self.n2, self.d3) )
+    #        rhs = xp.empty( (self.n1, self.n2, self.d3) )
     #
     #        ker_glob.kernel_int_3d_eta3(self.subs3, self.subs_cum3, self.wts3,
     #                                    mat_f.reshape(self.n1, self.n2, self.ne3, self.nq3), rhs
     #                                    )
     #    elif comp=='21':
-    #        rhs = np.empty( (self.n1, self.d2, self.d3) )
+    #        rhs = xp.empty( (self.n1, self.d2, self.d3) )
     #
     #        ker_glob.kernel_int_3d_eta2_eta3(self.subs2, self.subs3,
     #                                         self.subs_cum2, self.subs_cum3,
@@ -965,7 +965,7 @@ class Projectors_tensor_3d:
     #              mat_f.reshape(self.n1, self.ne2, self.nq2, self.ne3, self.nq3), rhs
     #                                             )
     #    elif comp=='22':
-    #        rhs = np.empty( (self.d1, self.n2, self.d3) )
+    #        rhs = xp.empty( (self.d1, self.n2, self.d3) )
     #
     #        ker_glob.kernel_int_3d_eta1_eta3(self.subs1, self.subs3,
     #                                         self.subs_cum1, self.subs_cum3,
@@ -973,7 +973,7 @@ class Projectors_tensor_3d:
     #              mat_f.reshape(self.ne1, self.nq1, self.n2, self.ne3, self.nq3), rhs
     #                                             )
     #    elif comp=='23':
-    #        rhs = np.empty( (self.d1, self.d2, self.n3) )
+    #        rhs = xp.empty( (self.d1, self.d2, self.n3) )
     #
     #        ker_glob.kernel_int_3d_eta1_eta2(self.subs1, self.subs2,
     #                                         self.subs_cum1, self.subs_cum2,
@@ -981,7 +981,7 @@ class Projectors_tensor_3d:
     #              mat_f.reshape(self.ne1, self.nq1, self.ne2, self.nq2, self.n3), rhs
     #                                             )
     #    elif comp=='3':
-    #        rhs = np.empty( (self.d1, self.d2, self.d3) )
+    #        rhs = xp.empty( (self.d1, self.d2, self.d3) )
     #
     #        ker_glob.kernel_int_3d_eta1_eta2_eta3(self.subs1, self.subs2, self.subs3,
     #                                              self.subs_cum1, self.subs_cum2, self.subs_cum3,
@@ -1025,7 +1025,7 @@ class Projectors_tensor_3d:
     #
     #    elif comp=='11':
     #        assert mat_dofs.shape == (self.d1, self.n2, self.n3)
-    #        rhs = np.empty( (self.ne1, self.nq1, self.n2, self.n3) )
+    #        rhs = xp.empty( (self.ne1, self.nq1, self.n2, self.n3) )
     #
     #        ker_glob.kernel_int_3d_eta1_transpose(self.subs1, self.subs_cum1, self.wts1,
     #                                              mat_dofs, rhs)
@@ -1034,7 +1034,7 @@ class Projectors_tensor_3d:
     #
     #    elif comp=='12':
     #        assert mat_dofs.shape == (self.n1, self.d2, self.n3)
-    #        rhs = np.empty( (self.n1, self.ne2, self.nq2, self.n3) )
+    #        rhs = xp.empty( (self.n1, self.ne2, self.nq2, self.n3) )
     #
     #        ker_glob.kernel_int_3d_eta2_transpose(self.subs2, self.subs_cum2, self.wts2,
     #                                              mat_dofs, rhs)
@@ -1043,7 +1043,7 @@ class Projectors_tensor_3d:
     #
     #    elif comp=='13':
     #        assert mat_dofs.shape == (self.n1, self.n2, self.d3)
-    #        rhs = np.empty( (self.n1, self.n2, self.ne3, self.nq3) )
+    #        rhs = xp.empty( (self.n1, self.n2, self.ne3, self.nq3) )
     #
     #        ker_glob.kernel_int_3d_eta3_transpose(self.subs3, self.subs_cum3, self.wts3,
     #                                              mat_dofs, rhs)
@@ -1052,7 +1052,7 @@ class Projectors_tensor_3d:
     #
     #    elif comp=='21':
     #        assert mat_dofs.shape == (self.n1, self.d2, self.d3)
-    #        rhs = np.empty( (self.n1, self.ne2, self.nq2, self.ne3, self.nq3) )
+    #        rhs = xp.empty( (self.n1, self.ne2, self.nq2, self.ne3, self.nq3) )
     #
     #        ker_glob.kernel_int_3d_eta2_eta3_transpose(self.subs2, self.subs3,
     #                                         self.subs_cum2, self.subs_cum3,
@@ -1062,7 +1062,7 @@ class Projectors_tensor_3d:
     #
     #    elif comp=='22':
     #        assert mat_dofs.shape == (self.d1, self.n2, self.d3)
-    #        rhs = np.empty( (self.ne1, self.nq1, self.n2, self.ne3, self.nq3) )
+    #        rhs = xp.empty( (self.ne1, self.nq1, self.n2, self.ne3, self.nq3) )
     #
     #        ker_glob.kernel_int_3d_eta1_eta3_transpose(self.subs1, self.subs3,
     #                                         self.subs_cum1, self.subs_cum3,
@@ -1072,7 +1072,7 @@ class Projectors_tensor_3d:
     #
     #    elif comp=='23':
     #        assert mat_dofs.shape == (self.d1, self.d2, self.n3)
-    #        rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.n3) )
+    #        rhs = xp.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.n3) )
     #
     #        ker_glob.kernel_int_3d_eta1_eta2_transpose(self.subs1, self.subs2,
     #                                         self.subs_cum1, self.subs_cum2,
@@ -1082,7 +1082,7 @@ class Projectors_tensor_3d:
     #
     #    elif comp=='3':
     #        assert mat_dofs.shape == (self.d1, self.d2, self.d3)
-    #        rhs = np.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.ne3, self.nq3) )
+    #        rhs = xp.empty( (self.ne1, self.nq1, self.ne2, self.nq2, self.ne3, self.nq3) )
     #
     #        ker_glob.kernel_int_3d_eta1_eta2_eta3_transpose(self.subs1, self.subs2, self.subs3,
     #                                              self.subs_cum1, self.subs_cum2, self.subs_cum3,
@@ -1595,26 +1595,26 @@ class ProjectorsGlobal3D:
 
         else:
             if tensor_space.n_tor == 0:
-                x_i3 = np.array([0.0])
-                x_q3 = np.array([0.0])
-                x_q3G = np.array([0.0])
+                x_i3 = xp.array([0.0])
+                x_q3 = xp.array([0.0])
+                x_q3G = xp.array([0.0])
 
             else:
                 if tensor_space.basis_tor == "r":
                     if tensor_space.n_tor > 0:
-                        x_i3 = np.array([1.0, 0.25 / tensor_space.n_tor])
-                        x_q3 = np.array([1.0, 0.25 / tensor_space.n_tor])
-                        x_q3G = np.array([1.0, 0.25 / tensor_space.n_tor])
+                        x_i3 = xp.array([1.0, 0.25 / tensor_space.n_tor])
+                        x_q3 = xp.array([1.0, 0.25 / tensor_space.n_tor])
+                        x_q3G = xp.array([1.0, 0.25 / tensor_space.n_tor])
 
                     else:
-                        x_i3 = np.array([1.0, 0.75 / (-tensor_space.n_tor)])
-                        x_q3 = np.array([1.0, 0.75 / (-tensor_space.n_tor)])
-                        x_q3G = np.array([1.0, 0.75 / (-tensor_space.n_tor)])
+                        x_i3 = xp.array([1.0, 0.75 / (-tensor_space.n_tor)])
+                        x_q3 = xp.array([1.0, 0.75 / (-tensor_space.n_tor)])
+                        x_q3G = xp.array([1.0, 0.75 / (-tensor_space.n_tor)])
 
                 else:
-                    x_i3 = np.array([0.0])
-                    x_q3 = np.array([0.0])
-                    x_q3G = np.array([0.0])
+                    x_i3 = xp.array([0.0])
+                    x_q3 = xp.array([0.0])
+                    x_q3G = xp.array([0.0])
 
             self.Q3 = spa.identity(tensor_space.NbaseN[2], format="csr")
             self.Q3G = spa.identity(tensor_space.NbaseN[2], format="csr")
@@ -1756,11 +1756,11 @@ class ProjectorsGlobal3D:
         pts_PI = self.getpts_for_PI(comp, with_subs)
 
         # array of evaluated function
-        mat_f = np.empty((pts_PI[0].size, pts_PI[1].size, pts_PI[2].size), dtype=float)
+        mat_f = xp.empty((pts_PI[0].size, pts_PI[1].size, pts_PI[2].size), dtype=float)
 
         # create a meshgrid and evaluate function on point set
         if eval_kind == "meshgrid":
-            pts1, pts2, pts3 = np.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing="ij")
+            pts1, pts2, pts3 = xp.meshgrid(pts_PI[0], pts_PI[1], pts_PI[2], indexing="ij")
             mat_f[:, :, :] = fun(pts1, pts2, pts3)
 
         # tensor-product evaluation is done by input function
@@ -1783,13 +1783,13 @@ class ProjectorsGlobal3D:
     #    n2 = self.pts_PI_0[1].size
     #
     #    # apply (I0_22) to each column
-    #    self.S0 = np.zeros(((n1 - 2)*n2, 3), dtype=float)
+    #    self.S0 = xp.zeros(((n1 - 2)*n2, 3), dtype=float)
     #
     #    for i in range(3):
     #        self.S0[:, i] = kron_lusolve_2d(self.I0_22_LUs, self.I0_21[:, i].toarray().reshape(n1 - 2, n2)).flatten()
     #
     #    # 3 x 3 matrix
-    #    self.S0 = np.linalg.inv(self.I0_11.toarray() - self.I0_12.toarray().dot(self.S0))
+    #    self.S0 = xp.linalg.inv(self.I0_11.toarray() - self.I0_12.toarray().dot(self.S0))
     #
     #
     # ======================================
@@ -1814,7 +1814,7 @@ class ProjectorsGlobal3D:
     #        # solve for tensor-product coefficients
     #        out2  = out2 - kron_lusolve_2d(self.I0_22_LUs, self.I0_21.dot(self.S0.dot(rhs1)).reshape(n1 - 2, n2)) + kron_lusolve_2d(self.I0_22_LUs, self.I0_21.dot(self.S0.dot(self.I0_12.dot(out2.flatten()))).reshape(n1 - 2, n2))
     #
-    #    return np.concatenate((out1, out2.flatten()))
+    #    return xp.concatenate((out1, out2.flatten()))
 
     # ======================================
 
@@ -1857,7 +1857,7 @@ class ProjectorsGlobal3D:
             coeffs1 = self.I0_tor_LU.solve(self.I1_pol_0_LU.solve(dofs_11).T).T
             coeffs2 = self.H0_tor_LU.solve(self.I0_pol_0_LU.solve(dofs_12).T).T
 
-        return np.concatenate((coeffs1.flatten(), coeffs2.flatten()))
+        return xp.concatenate((coeffs1.flatten(), coeffs2.flatten()))
 
     # ======================================
     def solve_V2(self, dofs_2, include_bc):
@@ -1885,7 +1885,7 @@ class ProjectorsGlobal3D:
             coeffs1 = self.H0_tor_LU.solve(self.I2_pol_0_LU.solve(dofs_21).T).T
             coeffs2 = self.I0_tor_LU.solve(self.I3_pol_0_LU.solve(dofs_22).T).T
 
-        return np.concatenate((coeffs1.flatten(), coeffs2.flatten()))
+        return xp.concatenate((coeffs1.flatten(), coeffs2.flatten()))
 
     # ======================================
     def solve_V3(self, dofs_3, include_bc):
@@ -1947,7 +1947,7 @@ class ProjectorsGlobal3D:
             rhs1 = self.I1_pol_0_T_LU.solve(self.I0_tor_T_LU.solve(rhs1.T).T)
             rhs2 = self.I0_pol_0_T_LU.solve(self.H0_tor_T_LU.solve(rhs2.T).T)
 
-        return np.concatenate((rhs1.flatten(), rhs2.flatten()))
+        return xp.concatenate((rhs1.flatten(), rhs2.flatten()))
 
     # ======================================
     def apply_IinvT_V2(self, rhs, include_bc=False):
@@ -1977,7 +1977,7 @@ class ProjectorsGlobal3D:
             rhs1 = self.I2_pol_0_T_LU.solve(self.H0_tor_T_LU.solve(rhs1.T).T)
             rhs2 = self.I3_pol_0_T_LU.solve(self.I0_tor_T_LU.solve(rhs2.T).T)
 
-        return np.concatenate((rhs1.flatten(), rhs2.flatten()))
+        return xp.concatenate((rhs1.flatten(), rhs2.flatten()))
 
     # ======================================
     def apply_IinvT_V3(self, rhs, include_bc=False):
@@ -2042,9 +2042,9 @@ class ProjectorsGlobal3D:
 
         # apply extraction operator for dofs
         if include_bc:
-            dofs = self.P1.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
+            dofs = self.P1.dot(xp.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
         else:
-            dofs = self.P1_0.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
+            dofs = self.P1_0.dot(xp.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
 
         return dofs
 
@@ -2075,9 +2075,9 @@ class ProjectorsGlobal3D:
 
         # apply extraction operator for dofs
         if include_bc:
-            dofs = self.P2.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
+            dofs = self.P2.dot(xp.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
         else:
-            dofs = self.P2_0.dot(np.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
+            dofs = self.P2_0.dot(xp.concatenate((dofs_1.flatten(), dofs_2.flatten(), dofs_3.flatten())))
 
         return dofs
 
@@ -2122,18 +2122,18 @@ class ProjectorsGlobal3D:
     def assemble_approx_inv(self, tol):
         if self.approx_Ik_0_inv == False or (self.approx_Ik_0_inv == True and self.approx_Ik_0_tol != tol):
             # poloidal plane
-            I0_pol_0_inv_approx = np.linalg.inv(self.I0_pol_0.toarray())
-            I1_pol_0_inv_approx = np.linalg.inv(self.I1_pol_0.toarray())
-            I2_pol_0_inv_approx = np.linalg.inv(self.I2_pol_0.toarray())
-            I3_pol_0_inv_approx = np.linalg.inv(self.I3_pol_0.toarray())
-            I0_pol_inv_approx = np.linalg.inv(self.I0_pol.toarray())
+            I0_pol_0_inv_approx = xp.linalg.inv(self.I0_pol_0.toarray())
+            I1_pol_0_inv_approx = xp.linalg.inv(self.I1_pol_0.toarray())
+            I2_pol_0_inv_approx = xp.linalg.inv(self.I2_pol_0.toarray())
+            I3_pol_0_inv_approx = xp.linalg.inv(self.I3_pol_0.toarray())
+            I0_pol_inv_approx = xp.linalg.inv(self.I0_pol.toarray())
 
             if tol > 1e-14:
-                I0_pol_0_inv_approx[np.abs(I0_pol_0_inv_approx) < tol] = 0.0
-                I1_pol_0_inv_approx[np.abs(I1_pol_0_inv_approx) < tol] = 0.0
-                I2_pol_0_inv_approx[np.abs(I2_pol_0_inv_approx) < tol] = 0.0
-                I3_pol_0_inv_approx[np.abs(I3_pol_0_inv_approx) < tol] = 0.0
-                I0_pol_inv_approx[np.abs(I0_pol_inv_approx) < tol] = 0.0
+                I0_pol_0_inv_approx[xp.abs(I0_pol_0_inv_approx) < tol] = 0.0
+                I1_pol_0_inv_approx[xp.abs(I1_pol_0_inv_approx) < tol] = 0.0
+                I2_pol_0_inv_approx[xp.abs(I2_pol_0_inv_approx) < tol] = 0.0
+                I3_pol_0_inv_approx[xp.abs(I3_pol_0_inv_approx) < tol] = 0.0
+                I0_pol_inv_approx[xp.abs(I0_pol_inv_approx) < tol] = 0.0
 
             I0_pol_0_inv_approx = spa.csr_matrix(I0_pol_0_inv_approx)
             I1_pol_0_inv_approx = spa.csr_matrix(I1_pol_0_inv_approx)
@@ -2142,12 +2142,12 @@ class ProjectorsGlobal3D:
             I0_pol_inv_approx = spa.csr_matrix(I0_pol_inv_approx)
 
             # toroidal direction
-            I_inv_tor_approx = np.linalg.inv(self.I_tor.toarray())
-            H_inv_tor_approx = np.linalg.inv(self.H_tor.toarray())
+            I_inv_tor_approx = xp.linalg.inv(self.I_tor.toarray())
+            H_inv_tor_approx = xp.linalg.inv(self.H_tor.toarray())
 
             if tol > 1e-14:
-                I_inv_tor_approx[np.abs(I_inv_tor_approx) < tol] = 0.0
-                H_inv_tor_approx[np.abs(H_inv_tor_approx) < tol] = 0.0
+                I_inv_tor_approx[xp.abs(I_inv_tor_approx) < tol] = 0.0
+                H_inv_tor_approx[xp.abs(H_inv_tor_approx) < tol] = 0.0
 
             I_inv_tor_approx = spa.csr_matrix(I_inv_tor_approx)
             H_inv_tor_approx = spa.csr_matrix(H_inv_tor_approx)
