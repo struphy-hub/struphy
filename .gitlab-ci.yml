@@ -533,6 +533,30 @@ inspect_repo:
 #         struphy params LinearVlasovAmpereOneSpecies --check-file $file
 #       done
 
+test_cupy:
+  tags: [nvidia-cc80]
+  image: gitlab-registry.mpcdf.mpg.de/mpcdf/ci-module-image/nvhpcsdk_24-openmpi_5_0:2025
+  stage: test
+  extends:
+    - .rules_startup
+  before_script:
+    - module avail
+    - module list
+    - module purge
+    - module load nvhpcsdk/24 openmpi/5.0 python-waterboa/2024.06 gcc/13
+  script:
+    - ls
+    - nvidia-smi
+    # Install cupy
+    - python3 -m pip install --user cupy-cuda12x
+    - python3 -c "import cupy as cp"
+    - python3 -m pip install cunumpy
+    # Test numpy backend
+    - python3 src/struphy/utils/cupy_vs_numpy.py
+    # Test cupy backend
+    - export ARRAY_BACKEND=cupy
+    - python3 src/struphy/utils/cupy_vs_numpy.py
+
 install_tests:
   stage: test
   extends:

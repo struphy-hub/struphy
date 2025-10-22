@@ -48,6 +48,7 @@ def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
 def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from time import time
 
+    import cunumpy as xp
     from psydac.ddm.mpi import MockComm
     from psydac.ddm.mpi import mpi as MPI
 
@@ -61,7 +62,6 @@ def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d import kernel_step_ph_full
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-    from struphy.utils.arrays import xp
 
     if isinstance(MPI.COMM_WORLD, MockComm):
         mpi_comm = None

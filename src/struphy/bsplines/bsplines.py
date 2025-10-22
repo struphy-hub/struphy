@@ -16,7 +16,7 @@ References
 
 """
 
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 __all__ = [
     "find_span",

@@ -1,3 +1,4 @@
+import cunumpy as xp
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
@@ -6,7 +7,6 @@ from struphy.models.base import StruphyModel
 from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-from struphy.utils.arrays import xp
 
 rank = MPI.COMM_WORLD.Get_rank()
 

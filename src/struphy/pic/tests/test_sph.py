@@ -1,4 +1,4 @@
-import numpy as np
+import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
 from mpi4py import MPI 
@@ -9,7 +9,6 @@ from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
 from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-from struphy.utils.arrays import xp
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])

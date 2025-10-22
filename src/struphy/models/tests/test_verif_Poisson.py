@@ -1,5 +1,6 @@
 import os
 
+import cunumpy as xp
 from matplotlib import pyplot as plt
 from psydac.ddm.mpi import mpi as MPI
 
@@ -18,7 +19,6 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.topology import grids
-from struphy.utils.arrays import xp
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 

@@ -1,3 +1,4 @@
+import cunumpy as xp
 from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
@@ -9,7 +10,6 @@ from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.polar.basic import PolarVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-from struphy.utils.arrays import xp
 
 rank = MPI.COMM_WORLD.Get_rank()
 

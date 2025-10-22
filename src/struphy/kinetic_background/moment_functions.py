@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 "Analytical moment functions."
 
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class ITPA_density:

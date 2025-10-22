@@ -3,13 +3,12 @@
 
 from dataclasses import dataclass
 
-import numpy as np
+import cunumpy as xp
 import scipy
 import scipy.special
 
 from struphy.initial.base import Perturbation
 from struphy.io.options import GivenInBasis, NoiseDirections, check_option
-from struphy.utils.arrays import xp
 
 from struphy.utils.arrays import xp as np
 

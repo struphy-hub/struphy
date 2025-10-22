@@ -1,9 +1,8 @@
 import ctypes
 import os
 
+import cunumpy as xp
 import h5py
-
-from struphy.utils.arrays import xp
 
 
 class DataContainer:

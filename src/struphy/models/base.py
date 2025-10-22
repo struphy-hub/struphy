@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 from functools import reduce
 from textwrap import indent
 
+import cunumpy as xp
 import yaml
 from line_profiler import profile
 from psydac.ddm.mpi import MockMPI
@@ -35,7 +36,6 @@ from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 from struphy.topology.grids import TensorProductGrid
-from struphy.utils.arrays import xp
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml, read_state
 

@@ -1,5 +1,6 @@
 import os
 
+import cunumpy as xp
 import pytest
 from psydac.ddm.mpi import mpi as MPI
 
@@ -11,7 +12,6 @@ from struphy.initial import perturbations
 from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
 from struphy.kinetic_background import maxwellians
 from struphy.topology import grids
-from struphy.utils.arrays import xp
 
 test_folder = os.path.join(os.getcwd(), "verification_tests")
 

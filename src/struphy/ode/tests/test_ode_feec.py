@@ -20,6 +20,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
     """Solve dy/dt = omega*y for different feec variables y and with all available solvers
     from the ButcherTableau."""
 
+    import cunumpy as xp
     from matplotlib import pyplot as plt
     from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
@@ -28,7 +29,6 @@ def test_exp_growth(spaces, algo, show_plots=False):
     from struphy.feec.psydac_derham import Derham
     from struphy.ode.solvers import ODEsolverFEEC
     from struphy.ode.utils import ButcherTableau
-    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

@@ -14,6 +14,7 @@ except ModuleNotFoundError:
         x = None
 
 
+import cunumpy as xp
 from line_profiler import profile
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
@@ -53,7 +54,6 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.utils import utils
-from struphy.utils.arrays import xp
 from struphy.utils.clone_config import CloneConfig
 from struphy.pic.pushing import eval_kernels_gc
 

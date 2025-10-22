@@ -3,12 +3,11 @@
 from abc import ABCMeta, abstractmethod
 from typing import Callable
 
-import numpy as np
+import cunumpy as xp
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
 from struphy.initial.base import Perturbation
-from struphy.utils.arrays import xp
 
 
 class KineticBackground(metaclass=ABCMeta):

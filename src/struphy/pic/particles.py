@@ -1,6 +1,6 @@
 import copy
 
-import numpy as np
+import cunumpy as xp
 
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
@@ -12,7 +12,6 @@ from struphy.kinetic_background import maxwellians
 from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
-from struphy.utils.arrays import xp
 
 
 class Particles6D(Particles):

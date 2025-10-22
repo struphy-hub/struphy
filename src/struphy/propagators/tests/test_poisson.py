@@ -1,3 +1,4 @@
+import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
 from psydac.ddm.mpi import mpi as MPI
@@ -22,7 +23,6 @@ from struphy.pic.utilities import (
 )
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion, Poisson
-from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 comm = MPI.COMM_WORLD

@@ -35,13 +35,13 @@ import pytest
 def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     """Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`."""
 
+    import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

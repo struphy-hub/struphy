@@ -9,11 +9,11 @@ import pytest
 def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
     """Test field background initialization of "LogicalConst" with multiple fields in params."""
 
+    import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.io.options import FieldsBackground
-    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -64,6 +64,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
 
     import inspect
 
+    import cunumpy as xp
     from matplotlib import pyplot as plt
     from psydac.ddm.mpi import mpi as MPI
 
@@ -72,7 +73,6 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
     from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
     from struphy.geometry import domains
     from struphy.io.options import FieldsBackground
-    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1083,13 +1083,13 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
 def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     """Test field perturbation with ModesSin + ModesCos on top of of "LogicalConst" with multiple fields in params."""
 
+    import cunumpy as xp
     from matplotlib import pyplot as plt
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.initial.perturbations import ModesCos, ModesSin
     from struphy.io.options import FieldsBackground
-    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -1312,12 +1312,12 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
 def test_noise_init(Nel, p, spl_kind, space, direction):
     """Only tests 1d noise ('e1', 'e2', 'e3') !!"""
 
+    import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
     from struphy.initial.perturbations import Noise
-    from struphy.utils.arrays import xp
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

@@ -17,9 +17,8 @@ import pickle
 # Import the profiling configuration class and context manager
 from functools import lru_cache
 
+import cunumpy as xp
 from psydac.ddm.mpi import mpi as MPI
-
-from struphy.utils.arrays import xp
 
 
 @lru_cache(maxsize=None)  # Cache the import result to avoid repeated imports
