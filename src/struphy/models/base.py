@@ -563,7 +563,8 @@ class StruphyModel(metaclass=ABCMeta):
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
-                value_array /= self.pointer[species].Np
+                n_mks_tot = xp.array([variable.particles.Np])
+                value_array /= n_mks_tot
 
             # Update the scalar value
             if value_array.ndim == 0:
