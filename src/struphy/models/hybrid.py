@@ -6,6 +6,7 @@ from struphy.models.base import StruphyModel
 from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
+from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
 from struphy.polar.basic import PolarVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
 from struphy.utils.pyccel import Pyccelkernel
@@ -72,182 +73,109 @@ class LinearMHDVlasovCC(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
 
-        dct["em_fields"]["b_field"] = "Hdiv"
-        dct["fluid"]["mhd"] = {"density": "L2", "velocity": "Hdiv", "pressure": "L2"}
-        dct["kinetic"]["energetic_ions"] = "Particles6D"
-        return dct
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.b_field = FEECVariable(space="Hdiv")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "mhd"
+    class MHD(FluidSpecies):
+        def __init__(self):
+            self.density = FEECVariable(space="L2")
+            self.velocity = FEECVariable(space="Hdiv")
+            self.pressure = FEECVariable(space="L2")
+            self.init_variables()
 
-    @staticmethod
-    def velocity_scale():
+    class EnergeticIons(ParticleSpecies):
+        def __init__(self):
+            self.var = PICVariable(space="Particles6D")
+            self.init_variables()
+
+    ## propagators
+
+    class Propagators:
+        def __init__(self):
+            self.couple_dens = propagators_fields.CurrentCoupling6DDensity()
+            self.shear_alf = propagators_fields.ShearAlfven()
+            self.couple_curr = propagators_coupling.CurrentCoupling6DCurrent()
+            self.push_eta = propagators_markers.PushEta()
+            self.push_vxb = propagators_markers.PushVxB()
+            self.mag_sonic = propagators_fields.Magnetosonic()
+
+    ## abstract methods
+
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+        self.mhd = self.MHD()
+        self.energetic_ions = self.EnergeticIons()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
+
+        # 3. assign variables to propagators
+        self.propagators.couple_dens.variables.u = self.mhd.velocity
+
+        self.propagators.shear_alf.variables.u = self.mhd.velocity
+        self.propagators.shear_alf.variables.b = self.em_fields.b_field
+
+        self.propagators.couple_curr.variables.ions = self.energetic_ions.var
+        self.propagators.couple_curr.variables.u = self.mhd.velocity
+
+        self.propagators.push_eta.variables.var = self.energetic_ions.var
+        self.propagators.push_vxb.variables.ions = self.energetic_ions.var
+
+        self.propagators.mag_sonic.variables.n = self.mhd.density
+        self.propagators.mag_sonic.variables.u = self.mhd.velocity
+        self.propagators.mag_sonic.variables.p = self.mhd.pressure
+
+        # define scalars for update_scalar_quantities
+        self.add_scalar("en_U", compute="from_field")
+        self.add_scalar("en_p", compute="from_field")
+        self.add_scalar("en_B", compute="from_field")
+        self.add_scalar("en_f", compute="from_particles", variable=self.energetic_ions.var)
+        self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f"])
+        self.add_scalar("n_lost_particles", compute="from_particles", variable=self.energetic_ions.var)
+
+    @property
+    def bulk_species(self):
+        return self.mhd
+
+    @property
+    def velocity_scale(self):
         return "alfvén"
 
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_fields.CurrentCoupling6DDensity: ["mhd_velocity"],
-            propagators_fields.ShearAlfven: ["mhd_velocity", "b_field"],
-            propagators_coupling.CurrentCoupling6DCurrent: ["energetic_ions", "mhd_velocity"],
-            propagators_markers.PushEta: ["energetic_ions"],
-            propagators_markers.PushVxB: ["energetic_ions"],
-            propagators_fields.Magnetosonic: ["mhd_density", "mhd_velocity", "mhd_pressure"],
-        }
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["fluid", "mhd"],
-            key="u_space",
-            option="Hdiv",
-            dct=dct,
-        )
-        return dct
-
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from struphy.polar.basic import PolarVector
-
-        # prelim
-        e_ions_params = self.kinetic["energetic_ions"]["params"]
-
-        # extract necessary parameters
-        u_space = params["fluid"]["mhd"]["options"]["u_space"]
-        params_alfven = params["fluid"]["mhd"]["options"]["ShearAlfven"]
-        params_sonic = params["fluid"]["mhd"]["options"]["Magnetosonic"]
-        params_eta = params["kinetic"]["energetic_ions"]["options"]["PushEta"]
-        params_vxb = params["kinetic"]["energetic_ions"]["options"]["PushVxB"]
-        params_density = params["fluid"]["mhd"]["options"]["CurrentCoupling6DDensity"]
-        params_current = params["kinetic"]["energetic_ions"]["options"]["CurrentCoupling6DCurrent"]
-
-        # compute coupling parameters
-        Ab = params["fluid"]["mhd"]["phys_params"]["A"]
-        Ah = params["kinetic"]["energetic_ions"]["phys_params"]["A"]
-        epsilon = self.equation_params["energetic_ions"]["epsilon"]
-
-        if abs(epsilon - 1) < 1e-6:
-            epsilon = 1.0
-
-        self._Ab = Ab
-        self._Ah = Ah
-
-        # add control variate to mass_ops object
-        if self.pointer["energetic_ions"].control_variate:
-            self.mass_ops.weights["f0"] = self.pointer["energetic_ions"].f0
-
-        # project background magnetic field (2-form) and background pressure (3-form)
-        self._b_eq = self.derham.P["2"](
-            [
-                self.equil.b2_1,
-                self.equil.b2_2,
-                self.equil.b2_3,
-            ]
-        )
-        self._p_eq = self.derham.P["3"](self.equil.p3)
-        self._ones = self._p_eq.space.zeros()
-
+    def allocate_helpers(self):
+        self._ones = self.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
 
-        # set keyword arguments for propagators
-        if params_density["turn_off"]:
-            self._kwargs[propagators_fields.CurrentCoupling6DDensity] = None
-        else:
-            self._kwargs[propagators_fields.CurrentCoupling6DDensity] = {
-                "particles": self.pointer["energetic_ions"],
-                "u_space": u_space,
-                "b_eq": self._b_eq,
-                "b_tilde": self.pointer["b_field"],
-                "Ab": Ab,
-                "Ah": Ah,
-                "epsilon": epsilon,
-                "solver": params_density["solver"],
-                "filter": params_density["filter"],
-                "boundary_cut": params_density["boundary_cut"],
-            }
-
-        if params_alfven["turn_off"]:
-            self._kwargs[propagators_fields.ShearAlfven] = None
-        else:
-            self._kwargs[propagators_fields.ShearAlfven] = {
-                "u_space": u_space,
-                "solver": params_alfven["solver"],
-            }
-
-        if params_current["turn_off"]:
-            self._kwargs[propagators_coupling.CurrentCoupling6DCurrent] = None
-        else:
-            self._kwargs[propagators_coupling.CurrentCoupling6DCurrent] = {
-                "u_space": u_space,
-                "b_eq": self._b_eq,
-                "b_tilde": self.pointer["b_field"],
-                "Ab": Ab,
-                "Ah": Ah,
-                "epsilon": epsilon,
-                "solver": params_current["solver"],
-                "filter": params_current["filter"],
-                "boundary_cut": params_current["boundary_cut"],
-            }
-
-        self._kwargs[propagators_markers.PushEta] = {
-            "algo": params_eta["algo"],
-        }
-
-        self._kwargs[propagators_markers.PushVxB] = {
-            "algo": params_vxb["algo"],
-            "kappa": 1.0 / epsilon,
-            "b2": self.pointer["b_field"],
-            "b2_add": self._b_eq,
-        }
-
-        if params_sonic["turn_off"]:
-            self._kwargs[propagators_fields.Magnetosonic] = None
-        else:
-            self._kwargs[propagators_fields.Magnetosonic] = {
-                "u_space": u_space,
-                "b": self.pointer["b_field"],
-                "solver": params_sonic["solver"],
-            }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation:
-        self.add_scalar("en_U", compute="from_field")
-        self.add_scalar("en_p", compute="from_field")
-        self.add_scalar("en_B", compute="from_field")
-        self.add_scalar("en_f", compute="from_particles", species="energetic_ions")
-        self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f"])
-        self.add_scalar("n_lost_particles", compute="from_particles", species="energetic_ions")
-
-        # temporary vectors for scalar quantities:
         self._tmp = xp.empty(1, dtype=float)
         self._n_lost_particles = xp.empty(1, dtype=float)
 
+        # add control variate to mass_ops object
+        if self.energetic_ions.var.particles.control_variate:
+            self.mass_ops.weights["f0"] = self.energetic_ions.var.particles.f0
+
+        self._Ah = self.energetic_ions.mass_number
+        self._Ab = self.mhd.mass_number
+
     def update_scalar_quantities(self):
         # perturbed fields
-        en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_velocity"], self.pointer["mhd_velocity"])
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
-        en_p = self.pointer["mhd_pressure"].inner(self._ones) / (5 / 3 - 1)
+        u = self.mhd.velocity.spline.vector
+        p = self.mhd.pressure.spline.vector
+        b = self.em_fields.b_field.spline.vector
+        particles = self.energetic_ions.var.particles
+
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(u, u)
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(b, b)
+        en_p = p.inner(self._ones) / (5 / 3 - 1)
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
@@ -257,12 +185,10 @@ class LinearMHDVlasovCC(StruphyModel):
         self._tmp[0] = (
             self._Ah
             / self._Ab
-            * self.pointer["energetic_ions"]
-            .markers_wo_holes[:, 6]
-            .dot(
-                self.pointer["energetic_ions"].markers_wo_holes[:, 3] ** 2
-                + self.pointer["energetic_ions"].markers_wo_holes[:, 4] ** 2
-                + self.pointer["energetic_ions"].markers_wo_holes[:, 5] ** 2,
+            * particles.markers_wo_holes[:, 6].dot(
+                particles.markers_wo_holes[:, 3] ** 2
+                + particles.markers_wo_holes[:, 4] ** 2
+                + particles.markers_wo_holes[:, 5] ** 2,
             )
             / (2)
         )
@@ -271,15 +197,46 @@ class LinearMHDVlasovCC(StruphyModel):
         self.update_scalar("en_tot", en_U + en_B + en_p + self._tmp[0])
 
         # Print number of lost ions
-        self._n_lost_particles[0] = self.pointer["energetic_ions"].n_lost_markers
+        self._n_lost_particles[0] = particles.n_lost_markers
         self.update_scalar("n_lost_particles", self._n_lost_particles[0])
 
-        if self.rank_world == 0:
+        if rank == 0:
             print(
                 "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
+                self._n_lost_particles[0] / particles.Np * 100,
                 "%",
             )
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "mag_sonic.Options" in line:
+                    new_file += [
+                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n"
+                    ]
+                elif "couple_dens.Options" in line:
+                    new_file += [
+                        "model.propagators.couple_dens.options = model.propagators.couple_dens.Options(energetic_ions=model.energetic_ions.var,\n"
+                    ]
+                    new_file += [
+                        "                                                                              b_tilde=model.em_fields.b_field)\n"
+                    ]
+                elif "couple_curr.Options" in line:
+                    new_file += [
+                        "model.propagators.couple_curr.options = model.propagators.couple_curr.Options(b_tilde=model.em_fields.b_field)\n"
+                    ]
+                elif "set_save_data" in line:
+                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
+                    new_file += ["model.energetic_ions.set_save_data(binning_plots=(binplot,))\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
 
 class LinearMHDVlasovPC(StruphyModel):
@@ -901,199 +858,175 @@ class ColdPlasmaVlasov(StruphyModel):
     6. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
 
-        dct["em_fields"]["e_field"] = "Hcurl"
-        dct["em_fields"]["b_field"] = "Hdiv"
-        dct["fluid"]["cold_electrons"] = {"j": "Hcurl"}
-        dct["kinetic"]["hot_electrons"] = "Particles6D"
-        return dct
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.e_field = FEECVariable(space="Hcurl")
+            self.b_field = FEECVariable(space="Hdiv")
+            self.phi = FEECVariable(space="H1")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "cold_electrons"
+    class ThermalElectrons(FluidSpecies):
+        def __init__(self):
+            self.current = FEECVariable(space="Hcurl")
+            self.init_variables()
 
-    @staticmethod
-    def velocity_scale():
-        return "light"
+    class HotElectrons(ParticleSpecies):
+        def __init__(self):
+            self.var = PICVariable(space="Particles6D")
+            self.init_variables()
 
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_fields.Maxwell: ["e_field", "b_field"],
-            propagators_fields.OhmCold: ["cold_electrons_j", "e_field"],
-            propagators_fields.JxBCold: ["cold_electrons_j"],
-            propagators_markers.PushEta: ["hot_electrons"],
-            propagators_markers.PushVxB: ["hot_electrons"],
-            propagators_coupling.VlasovAmpere: ["e_field", "hot_electrons"],
-        }
+    ## propagators
 
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+    class Propagators:
+        def __init__(self):
+            self.maxwell = propagators_fields.Maxwell()
+            self.ohm = propagators_fields.OhmCold()
+            self.jxb = propagators_fields.JxBCold()
+            self.push_eta = propagators_markers.PushEta()
+            self.push_vxb = propagators_markers.PushVxB()
+            self.coupling_va = propagators_coupling.VlasovAmpere()
 
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["em_fields"],
-            option=propagators_fields.ImplicitDiffusion,
-            dct=dct,
-        )
-        return dct
+    ## abstract methods
 
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
+    def __init__(self):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
-        # Get rank and size
-        self._rank = self.rank_world
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+        self.thermal_elec = self.ThermalElectrons()
+        self.hot_elec = self.HotElectrons()
 
-        # prelim
-        hot_params = params["kinetic"]["hot_electrons"]
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators()
 
-        # model parameters
-        self._alpha = xp.abs(
-            self.equation_params["cold_electrons"]["alpha"],
-        )
-        self._epsilon_cold = self.equation_params["cold_electrons"]["epsilon"]
-        self._epsilon_hot = self.equation_params["hot_electrons"]["epsilon"]
+        # 3. assign variables to propagators
+        self.propagators.maxwell.variables.e = self.em_fields.e_field
+        self.propagators.maxwell.variables.b = self.em_fields.b_field
 
-        self._nu = hot_params["phys_params"]["Z"] / params["fluid"]["cold_electrons"]["phys_params"]["Z"]
+        self.propagators.ohm.variables.j = self.thermal_elec.current
+        self.propagators.ohm.variables.e = self.em_fields.e_field
 
-        # Initialize background magnetic field from MHD equilibrium
-        self._b_background = self.derham.P["2"](
-            [
-                self.equil.b2_1,
-                self.equil.b2_2,
-                self.equil.b2_3,
-            ]
-        )
+        self.propagators.jxb.variables.j = self.thermal_elec.current
 
-        # propagator parameters
-        params_maxwell = params["em_fields"]["options"]["Maxwell"]["solver"]
-        params_ohmcold = params["fluid"]["cold_electrons"]["options"]["OhmCold"]["solver"]
-        params_jxbcold = params["fluid"]["cold_electrons"]["options"]["JxBCold"]["solver"]
-        algo_eta = params["kinetic"]["hot_electrons"]["options"]["PushEta"]["algo"]
-        algo_vxb = params["kinetic"]["hot_electrons"]["options"]["PushVxB"]["algo"]
-        params_coupling = params["em_fields"]["options"]["VlasovAmpere"]["solver"]
-        self._poisson_params = params["em_fields"]["options"]["ImplicitDiffusion"]["solver"]
+        self.propagators.push_eta.variables.var = self.hot_elec.var
+        self.propagators.push_vxb.variables.ions = self.hot_elec.var
 
-        # set keyword arguments for propagators
-        self._kwargs[propagators_fields.Maxwell] = {"solver": params_maxwell}
+        self.propagators.coupling_va.variables.e = self.em_fields.e_field
+        self.propagators.coupling_va.variables.ions = self.hot_elec.var
 
-        self._kwargs[propagators_fields.OhmCold] = {
-            "alpha": self._alpha,
-            "epsilon": self._epsilon_cold,
-            "solver": params_ohmcold,
-        }
-
-        self._kwargs[propagators_fields.JxBCold] = {
-            "epsilon": self._epsilon_cold,
-            "solver": params_jxbcold,
-        }
-
-        self._kwargs[propagators_markers.PushEta] = {"algo": algo_eta}
-
-        self._kwargs[propagators_markers.PushVxB] = {
-            "algo": algo_vxb,
-            "kappa": 1.0 / self._epsilon_hot,
-            "b2": self.pointer["b_field"],
-            "b2_add": self._b_background,
-        }
-
-        self._kwargs[propagators_coupling.VlasovAmpere] = {
-            "c1": self._alpha**2 / self._epsilon_hot,
-            "c2": 1.0 / self._epsilon_hot,
-            "solver": params_coupling,
-        }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation
+        # define scalars for update_scalar_quantities
         self.add_scalar("en_E")
         self.add_scalar("en_B")
         self.add_scalar("en_J")
-        self.add_scalar("en_f", compute="from_particles", species="hot_electrons")
+        self.add_scalar("en_f", compute="from_particles", variable=self.hot_elec.var)
         self.add_scalar("en_tot")
 
-        # temporaries
+        # initial Poisson (not a propagator used in time stepping)
+        self.initial_poisson = propagators_fields.Poisson()
+        self.initial_poisson.variables.phi = self.em_fields.phi
+
+    @property
+    def bulk_species(self):
+        return self.thermal_elec
+
+    @property
+    def velocity_scale(self):
+        return "light"
+
+    def allocate_helpers(self):
         self._tmp = xp.empty(1, dtype=float)
 
-    def initialize_from_params(self):
-        """:meta private:"""
-        from psydac.linalg.stencil import StencilVector
+    def update_scalar_quantities(self):
+        # e*M1*e/2
+        e = self.em_fields.e_field.spline.vector
+        en_E = 0.5 * self.mass_ops.M1.dot_inner(e, e)
+        self.update_scalar("en_E", en_E)
 
-        from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+        # alpha^2 / 2 / N * sum_p w_p v_p^2
+        particles = self.hot_elec.var.particles
+        alpha = self.hot_elec.equation_params.alpha
+        self._tmp[0] = (
+            alpha**2
+            / (2 * particles.Np)
+            * xp.dot(
+                particles.markers_wo_holes[:, 3] ** 2
+                + particles.markers_wo_holes[:, 4] ** 2
+                + particles.markers_wo_holes[:, 5] ** 2,
+                particles.markers_wo_holes[:, 6],
+            )
+        )
+        self.update_scalar("en_f", self._tmp[0])
 
-        # Initialize fields and particles
-        super().initialize_from_params()
+        # en_tot = en_w + en_e
+        self.update_scalar("en_tot", en_E + self._tmp[0])
 
-        # Accumulate charge density
+    def allocate_propagators(self):
+        """Solve initial Poisson equation.
+
+        :meta private:
+        """
+
+        # initialize fields and particles
+        super().allocate_propagators()
+
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nINITIAL POISSON SOLVE:")
+
+        # use control variate method
+        particles = self.hot_elec.var.particles
+        particles.update_weights()
+
+        # sanity check
+        # self.pointer['species1'].show_distribution_function(
+        #     [True] + [False]*5, [xp.linspace(0, 1, 32)])
+
+        # accumulate charge density
         charge_accum = AccumulatorVector(
-            self.pointer["hot_electrons"],
+            particles,
             "H1",
-            Pyccelkernel(accum_kernels.vlasov_maxwell_poisson),
+            Pyccelkernel(accum_kernels.charge_density_0form),
             self.mass_ops,
             self.domain.args_domain,
         )
-        charge_accum()
 
-        # Locally subtract mean charge for solvability with periodic bc
-        if xp.all(charge_accum.vectors[0].space.periods):
-            charge_accum._vectors[0][:] -= xp.mean(
-                charge_accum.vectors[0].toarray()[charge_accum.vectors[0].toarray() != 0],
-            )
+        # another sanity check: compute FE coeffs of density
+        # charge_accum.show_accumulated_spline_field(self.mass_ops)
 
-        # Instantiate Poisson solver
-        _phi = StencilVector(self.derham.Vh["0"])
-        poisson_solver = propagators_fields.ImplicitDiffusion(
-            _phi,
-            sigma_1=0,
-            rho=self._nu * self._alpha**2 / self._epsilon_cold * charge_accum.vectors[0],
-            x0=self._nu * self._alpha**2 / self._epsilon_cold * charge_accum.vectors[0],
-            solver=self._poisson_params,
-        )
+        alpha = self.hot_elec.equation_params.alpha
+        epsilon = self.hot_elec.equation_params.epsilon
+
+        self.initial_poisson.options.rho = charge_accum
+        self.initial_poisson.options.rho_coeffs = alpha**2 / epsilon
+        self.initial_poisson.allocate()
 
         # Solve with dt=1. and compute electric field
-        poisson_solver(1.0)
-        self.derham.grad.dot(-_phi, out=self.pointer["e_field"])
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("\nSolving initial Poisson problem...")
+        self.initial_poisson(1.0)
 
-    def update_scalar_quantities(self):
-        en_E = 0.5 * self.mass_ops.M1.dot_inner(self.pointer["e_field"], self.pointer["e_field"])
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
-        en_J = (
-            0.5
-            * self._alpha**2
-            * self.mass_ops.M1ninv.dot_inner(self.pointer["cold_electrons_j"], self.pointer["cold_electrons_j"])
-        )
-        self.update_scalar("en_E", en_E)
-        self.update_scalar("en_B", en_B)
-        self.update_scalar("en_J", en_J)
+        phi = self.initial_poisson.variables.phi.spline.vector
+        self.derham.grad.dot(-phi, out=self.em_fields.e_field.spline.vector)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print("Done.")
 
-        # nu alpha^2 eps_h / eps_c / 2 / N * sum_p w_p v_p^2
-        self._tmp[0] = (
-            self._nu
-            * self._alpha**2
-            * self._epsilon_hot
-            / self._epsilon_cold
-            / (2 * self.pointer["hot_electrons"].Np)
-            * xp.dot(
-                self.pointer["hot_electrons"].markers_wo_holes[:, 3] ** 2
-                + self.pointer["hot_electrons"].markers_wo_holes[:, 4] ** 2
-                + self.pointer["hot_electrons"].markers_wo_holes[:, 5] ** 2,
-                self.pointer["hot_electrons"].markers_wo_holes[:, 6],
-            )
-        )
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "coupling_va.Options" in line:
+                    new_file += [line]
+                    new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
+                elif "set_save_data" in line:
+                    new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
+                    new_file += ["model.hot_elec.set_save_data(binning_plots=(binplot,))\n"]
+                else:
+                    new_file += [line]
 
-        self.update_scalar("en_f", self._tmp[0])
-
-        # en_tot = en_E + en_B + en_J + en_w
-        self.update_scalar("en_tot", en_E + en_B + en_J + self._tmp[0])
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)

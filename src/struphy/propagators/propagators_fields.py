@@ -1686,65 +1686,70 @@ class CurrentCoupling6DDensity(Propagator):
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point).
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pbicgstab", "MassMatrixPreconditioner"),
-                ("bicgstab", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        dct["filter"] = {
-            "use_filter": None,
-            "modes": (1),
-            "repeat": 1,
-            "alpha": 0.5,
-        }
-        dct["boundary_cut"] = {
-            "e1": 0.0,
-            "e2": 0.0,
-            "e3": 0.0,
-        }
-        dct["turn_off"] = False
-        if default:
-            dct = descend_options_dict(dct, [])
+    class Variables:
+        def __init__(self):
+            self._u: FEECVariable = None
 
-        return dct
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
 
-    def __init__(
-        self,
-        u: BlockVector,
-        *,
-        particles: Particles6D,
-        u_space: str,
-        b_eq: BlockVector | PolarVector,
-        b_tilde: BlockVector | PolarVector,
-        Ab: int = 1,
-        Ah: int = 1,
-        epsilon: float = 1.0,
-        solver: dict = options(default=True)["solver"],
-        filter: dict = options(default=True)["filter"],
-        boundary_cut: dict = options(default=True)["boundary_cut"],
-    ):
-        super().__init__(u)
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hcurl", "Hdiv", "H1vec")
+            self._u = new
 
-        # assert parameters and expose some quantities to self
-        if u_space == "H1vec":
-            self._space_key_int = 0
-        else:
-            self._space_key_int = int(
-                self.derham.space_to_form[u_space],
-            )
+    def __init__(self):
+        self.variables = self.Variables()
 
-        self._particles = particles
-        self._b_eq = b_eq
-        self._b_tilde = b_tilde
+    @dataclass
+    class Options:
+        # propagator options
+        energetic_ions: PICVariable = None
+        b_tilde: FEECVariable = None
+        u_space: OptsVecSpace = "Hdiv"
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        filter_params: FilterParameters = None
+        boundary_cut: tuple = (0.0, 0.0, 0.0)
+
+        def __post_init__(self):
+            # checks
+            check_option(self.u_space, OptsVecSpace)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+            assert self.energetic_ions.space == "Particles6D"
+            assert self.b_tilde.space == "Hdiv"
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
+
+        particles = self.options.energetic_ions.particles
+        u = self.variables.u.spline.vector
+        self._b_eq = self.projected_equil.b2
+        self._b_tilde = self.options.b_tilde.spline.vector
 
         # if self._particles.control_variate:
 
@@ -1773,52 +1778,57 @@ class CurrentCoupling6DDensity(Propagator):
         #     self._mat31 = xp.zeros_like(self._nh0_at_quad)
         #     self._mat32 = xp.zeros_like(self._nh0_at_quad)
 
-        self._type = solver["type"][0]
-        self._tol = solver["tol"]
-        self._maxiter = solver["maxiter"]
-        self._info = solver["info"]
-        self._verbose = solver["verbose"]
+        self._type = self.options.solver
+        self._tol = self.options.solver_params.tol
+        self._maxiter = self.options.solver_params.maxiter
+        self._info = self.options.solver_params.info
+        self._verbose = self.options.solver_params.verbose
+        self._recycle = self.options.solver_params.recycle
+
+        Ah = self.options.energetic_ions.species.mass_number
+        Ab = self.variables.u.species.mass_number
+        epsilon = self.options.energetic_ions.species.equation_params.epsilon
 
         self._coupling_const = Ah / Ab / epsilon
 
-        self._boundary_cut_e1 = boundary_cut["e1"]
+        self._boundary_cut_e1 = self.options.boundary_cut[0]
 
         # load accumulator
         self._accumulator = Accumulator(
             particles,
-            u_space,
+            self.options.u_space,
             Pyccelkernel(accum_kernels.cc_lin_mhd_6d_1),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,
             symmetry="asym",
-            filter_params=filter,
+            filter_params=self.options.filter_params,
         )
 
         # transposed extraction operator PolarVector --> BlockVector (identity map in case of no polar splines)
         self._E2T = self.derham.extraction_ops["2"].transpose()
 
         # mass matrix in system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
-        u_id = self.derham.space_to_form[u_space]
+        u_id = self.derham.space_to_form[self.options.u_space]
         self._M = getattr(self.mass_ops, "M" + u_id + "n")
 
         # preconditioner
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(self._M)
 
         # linear solver
         self._solver = inverse(
             self._M,
-            solver["type"][0],
+            self.options.solver,
             pc=pc,
-            x0=self.feec_vars[0],
+            x0=self.variables.u.spline.vector,
             tol=self._tol,
             maxiter=self._maxiter,
             verbose=self._verbose,
-            recycle=solver["recycle"],
+            recycle=self._recycle,
         )
 
         # temporary vectors to avoid memory allocation
@@ -1830,7 +1840,7 @@ class CurrentCoupling6DDensity(Propagator):
 
     def __call__(self, dt):
         # pointer to old coefficients
-        un = self.feec_vars[0]
+        un = self.variables.u.spline.vector
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
@@ -1893,7 +1903,7 @@ class CurrentCoupling6DDensity(Propagator):
         info = self._solver._info
 
         # write new coeffs into Propagator.variables
-        max_du = self.feec_vars_update(un1)
+        max_du = self.update_feec_variables(u=un1)
 
         if self._info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for CurrentCoupling6DDensity:", info["success"])
