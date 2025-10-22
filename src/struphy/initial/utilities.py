@@ -4,7 +4,7 @@ import h5py
 
 from struphy.fields_background.equils import set_defaults
 from struphy.io.output_handling import DataContainer
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 class InitFromOutput:
@@ -98,6 +98,6 @@ class Noise:
         self._amp = amp
 
     def __call__(self, x, y, z):
-        val = self._amp * np.random.rand(*x.shape).squeeze()
+        val = self._amp * xp.random.rand(*x.shape).squeeze()
 
         return val

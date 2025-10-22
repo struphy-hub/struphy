@@ -127,11 +127,11 @@ class AccumFilter:
                     comp._data,
                     axis,
                     self.form_int,
-                    np.array(self.derham.Nel),
-                    np.array(self.derham.spl_kind),
-                    np.array(self.derham.p),
-                    np.array(starts),
-                    np.array(ends),
+                    xp.array(self.derham.Nel),
+                    xp.array(self.derham.spl_kind),
+                    xp.array(self.derham.p),
+                    xp.array(starts),
+                    xp.array(ends),
                     alpha=alpha,
                 )
 
@@ -150,19 +150,19 @@ class AccumFilter:
         """
 
         tor_Nel = self.derham.Nel[2]
-        modes = np.asarray(modes, dtype=int)
+        modes = xp.asarray(modes, dtype=int)
 
-        assert tor_Nel >= 2 * int(np.max(modes)), "Nel[2] must be at least 2*max(modes)"
+        assert tor_Nel >= 2 * int(xp.max(modes)), "Nel[2] must be at least 2*max(modes)"
         assert self.derham.domain_decomposition.nprocs[2] == 1, "No domain decomposition along toroidal direction"
 
-        pn = np.asarray(self.derham.p, dtype=int)
-        ir = np.empty(3, dtype=int)
+        pn = xp.asarray(self.derham.p, dtype=int)
+        ir = xp.empty(3, dtype=int)
 
         # rfft output length
         if (tor_Nel % 2) == 0:
-            vec_temp = np.zeros(int(tor_Nel / 2) + 1, dtype=complex)
+            vec_temp = xp.zeros(int(tor_Nel / 2) + 1, dtype=complex)
         else:
-            vec_temp = np.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
+            vec_temp = xp.zeros(int((tor_Nel - 1) / 2) + 1, dtype=complex)
 
         for axis, comp, starts, ends in self._yield_dir_components(vec):
             for i in range(3):

@@ -4,7 +4,7 @@ from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk
 from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
 from vtkmodules.vtkCommonDataModel import vtkUnstructuredGrid
 
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 
 def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec, s_range, u_range, v_range, periodic):
@@ -81,43 +81,43 @@ def gen_vtk_points(gvec, s_range, u_range, v_range, point_data, cell_data):
 
     pt_idx = 0
     vtk_points = vtk.vtkPoints()
-    suv_points = np.zeros((s_range.shape[0], u_range.shape[0], v_range.shape[0], 3))
-    xyz_points = np.zeros((s_range.shape[0], u_range.shape[0], v_range.shape[0], 3))
-    point_indices = np.zeros((s_range.shape[0], u_range.shape[0], v_range.shape[0]), dtype=np.int_)
+    suv_points = xp.zeros((s_range.shape[0], u_range.shape[0], v_range.shape[0], 3))
+    xyz_points = xp.zeros((s_range.shape[0], u_range.shape[0], v_range.shape[0], 3))
+    point_indices = xp.zeros((s_range.shape[0], u_range.shape[0], v_range.shape[0]), dtype=xp.int_)
 
     # Add metadata to grid.
     num_pts = s_range.shape[0] * u_range.shape[0] * v_range.shape[0]
-    point_data["s"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["u"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["v"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["x"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["y"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["z"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["theta"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["zeta"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["Point ID"] = np.zeros(num_pts, dtype=np.int_)
-    point_data["pressure"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["phi"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["chi"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["iota"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["q"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["det"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["det/(2pi)^2"] = np.zeros(num_pts, dtype=np.float_)
-    point_data["A"] = np.zeros((num_pts, 3), dtype=np.float_)
-    point_data["A_vec"] = np.zeros((num_pts, 3), dtype=np.float_)
-    point_data["A_1"] = np.zeros((num_pts, 3), dtype=np.float_)
-    point_data["A_2"] = np.zeros((num_pts, 3), dtype=np.float_)
-    point_data["B"] = np.zeros((num_pts, 3), dtype=np.float_)
-    point_data["B_vec"] = np.zeros((num_pts, 3), dtype=np.float_)
-    point_data["B_1"] = np.zeros((num_pts, 3), dtype=np.float_)
-    point_data["B_2"] = np.zeros((num_pts, 3), dtype=np.float_)
+    point_data["s"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["u"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["v"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["x"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["y"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["z"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["theta"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["zeta"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["Point ID"] = xp.zeros(num_pts, dtype=xp.int_)
+    point_data["pressure"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["phi"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["chi"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["iota"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["q"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["det"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["det/(2pi)^2"] = xp.zeros(num_pts, dtype=xp.float_)
+    point_data["A"] = xp.zeros((num_pts, 3), dtype=xp.float_)
+    point_data["A_vec"] = xp.zeros((num_pts, 3), dtype=xp.float_)
+    point_data["A_1"] = xp.zeros((num_pts, 3), dtype=xp.float_)
+    point_data["A_2"] = xp.zeros((num_pts, 3), dtype=xp.float_)
+    point_data["B"] = xp.zeros((num_pts, 3), dtype=xp.float_)
+    point_data["B_vec"] = xp.zeros((num_pts, 3), dtype=xp.float_)
+    point_data["B_1"] = xp.zeros((num_pts, 3), dtype=xp.float_)
+    point_data["B_2"] = xp.zeros((num_pts, 3), dtype=xp.float_)
 
     # pbar = tqdm(total=num_pts)
     for s_idx, s in enumerate(s_range):
         for u_idx, u in enumerate(u_range):
             for v_idx, v in enumerate(v_range):
                 point = gvec.f(s, u, v)
-                suv_points[s_idx, u_idx, v_idx, :] = np.array([s, u, v])
+                suv_points[s_idx, u_idx, v_idx, :] = xp.array([s, u, v])
                 xyz_points[s_idx, u_idx, v_idx, :] = point
                 point_indices[s_idx, u_idx, v_idx] = pt_idx
                 vtk_points.InsertPoint(pt_idx, point)
@@ -149,10 +149,10 @@ def gen_vtk_points(gvec, s_range, u_range, v_range, point_data, cell_data):
                 pt_idx += 1
 
     # pbar.close()
-    point_data["theta"] = 2 * np.pi * point_data["u"]
-    point_data["zeta"] = 2 * np.pi * point_data["v"]
+    point_data["theta"] = 2 * xp.pi * point_data["u"]
+    point_data["zeta"] = 2 * xp.pi * point_data["v"]
     point_data["q"] = 1 / point_data["iota"]
-    point_data["det/(2pi)^2"] = point_data["det"] / (2 * np.pi) ** 2
+    point_data["det/(2pi)^2"] = point_data["det"] / (2 * xp.pi) ** 2
 
     return vtk_points, suv_points, xyz_points, point_indices
 
@@ -312,4 +312,4 @@ def connect_cell(s_range, u_range, v_range, point_indices, ugrid, point_data, ce
                     cell_data["Cell ID"].append(cell_idx)
                     cell_idx += 1
 
-    cell_data["Cell ID"] = np.array(cell_data["Cell ID"], dtype=np.int_)
+    cell_data["Cell ID"] = xp.array(cell_data["Cell ID"], dtype=xp.int_)
