@@ -1503,6 +1503,7 @@ class CurrentCoupling5DGradB(Propagator):
             tol=self.options.solver_params.tol,
             maxiter=self.options.solver_params.maxiter,
             verbose=self.options.solver_params.verbose,
+            recycle=self.options.solver_params.recycle,
         )
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
@@ -1770,6 +1771,8 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # calculate u^{n+1}
                 u_new += ku * dt * self.options.butcher.b[stage]
+
+                u_new.update_ghost_regions()
 
                 if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                     print("Stage: ", stage)

@@ -1776,6 +1776,9 @@ class Particles(metaclass=ABCMeta):
         else:
             assert self.domain is not None, "A domain is needed to initialize weights."
 
+            if np.size(self.markers_wo_holes_and_ghost) == 0:
+                return
+
             # set initial condition
             if bckgr_params is not None:
                 self._bckgr_params = bckgr_params
@@ -1832,6 +1835,9 @@ class Particles(metaclass=ABCMeta):
         according to the algorithm in :ref:`control_var`.
         The background :attr:`~struphy.pic.base.Particles.f0` is used for this.
         """
+
+        if np.size(self.markers_wo_holes_and_ghost) == 0:
+            return
 
         if self.type == "sph":
             f0 = self.f0.n0(self.positions)

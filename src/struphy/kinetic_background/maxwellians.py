@@ -245,14 +245,23 @@ class GyroMaxwellian2D(Maxwellian):
         -------
         """
 
-        assert eta1.ndim == 1
-        assert eta2.ndim == 1
-        assert eta3.ndim == 1
-        assert len(v) == 2
+        # collect arguments
+        assert isinstance(eta1, np.ndarray)
+        assert isinstance(eta2, np.ndarray)
+        assert isinstance(eta3, np.ndarray)
+        assert isinstance(v[0], np.ndarray)
+        assert isinstance(v[1], np.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape == v[0].shape == v[1].shape
+        assert eta1.ndim == 1, 'Input arguments must be a marker array.'
 
-        # call equilibrium
-        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
-        absB0 = self.equil.absB0(etas)
+        etas = [
+            np.concatenate(
+                (eta1[:, None], eta2[:, None], eta3[:, None]),
+                axis=1,
+            ),
+        ]
+
+        absB0 = self.equil.absB0(*etas)
 
         # J = v_perp/B
         jacobian_det = v[1] / absB0
@@ -378,11 +387,22 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
         r"""TODO"""
+        # collect arguments
+        assert isinstance(eta1, np.ndarray)
+        assert isinstance(eta2, np.ndarray)
+        assert isinstance(eta3, np.ndarray)
+        assert isinstance(energy, np.ndarray)
+        assert eta1.shape == eta2.shape == eta3.shape == energy.shape
+        assert eta1.ndim == 1, 'Input arguments must be a marker array.'
 
-        assert eta1.ndim == 1
-        assert eta2.ndim == 1
-        assert eta3.ndim == 1
-        assert energy.ndim == 1
+        etas = [
+            np.concatenate(
+                (eta1[:, None], eta2[:, None], eta3[:, None]),
+                axis=1,
+            ),
+        ]
+
+        absB0 = self.equil.absB0(*etas)
 
         # call equilibrium
         etas = (np.vstack((eta1, eta2, eta3)).T).copy()
