@@ -46,7 +46,7 @@ class Particles6D(Particles):
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
         self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
-        print(kwargs.keys())
+
         super().__init__(**kwargs)
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian
