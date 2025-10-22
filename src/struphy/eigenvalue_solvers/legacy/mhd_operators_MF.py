@@ -1,9 +1,9 @@
+import cunumpy as xp
 import scipy.sparse as spa
 
 from struphy.eigenvalue_solvers.projectors_global import Projectors_tensor_3d
 from struphy.eigenvalue_solvers.spline_space import Tensor_spline_space
 from struphy.linear_algebra.linalg_kron import kron_matvec_3d, kron_solve_3d
-from struphy.utils.arrays import xp
 
 
 # =================================================================================================

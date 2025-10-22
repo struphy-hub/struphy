@@ -1,9 +1,8 @@
+import cunumpy as xp
 from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.basic import Vector, VectorSpace
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
-
-from struphy.utils.arrays import xp
 
 
 class PolarDerhamSpace(VectorSpace):

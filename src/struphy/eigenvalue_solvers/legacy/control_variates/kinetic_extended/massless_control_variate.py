@@ -1,8 +1,7 @@
+import cunumpy as xp
 import hylife.utilitis_FEEC.basics.kernels_3d as ker
 import hylife.utilitis_FEEC.control_variates.massless_kernels_control_variate as ker_cv
 import scipy.sparse as spa
-
-from struphy.utils.arrays import xp
 
 
 def bv_pre(u, uvalue, tensor_space_FEM, p, Nel, idnx, idny, idnz):

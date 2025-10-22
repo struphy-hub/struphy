@@ -1,3 +1,4 @@
+import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
 from psydac.ddm.mpi import mpi as MPI
@@ -11,7 +12,6 @@ from struphy.linear_algebra.solver import SolverParameters
 from struphy.models.variables import FEECVariable
 from struphy.propagators.base import Propagator
 from struphy.propagators.propagators_fields import ImplicitDiffusion
-from struphy.utils.arrays import xp
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()

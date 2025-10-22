@@ -1,10 +1,9 @@
 # from tqdm import tqdm
+import cunumpy as xp
 import vtkmodules.all as vtk
 from vtkmodules.util.numpy_support import numpy_to_vtk as np2vtk
 from vtkmodules.util.numpy_support import vtk_to_numpy as vtk2np
 from vtkmodules.vtkCommonDataModel import vtkUnstructuredGrid
-
-from struphy.utils.arrays import xp
 
 
 def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec, s_range, u_range, v_range, periodic):

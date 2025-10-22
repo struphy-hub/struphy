@@ -1,12 +1,12 @@
 "Analytic dispersion relations."
 
+import cunumpy as xp
 from numpy.polynomial import Polynomial
 from scipy.optimize import fsolve
 
 from struphy.dispersion_relations.base import ContinuousSpectra1D, DispersionRelations1D
 from struphy.dispersion_relations.utilities import Zplasma
 from struphy.fields_background.equils import set_defaults
-from struphy.utils.arrays import xp
 
 
 class Maxwell1D(DispersionRelations1D):
