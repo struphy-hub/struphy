@@ -2,6 +2,7 @@ import os
 import pickle
 import shutil
 
+import cunumpy as xp
 import h5py
 import numpy as np
 import yaml
@@ -9,7 +10,6 @@ import yaml
 import struphy.post_processing.orbits.orbits_tools as orbits_pproc
 import struphy.post_processing.post_processing_tools as pproc
 from struphy.io.setup import import_parameters_py
-from struphy.utils.arrays import xp
 
 
 def main(

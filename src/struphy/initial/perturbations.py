@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 
+import cunumpy as xp
 import scipy
 import scipy.special
 

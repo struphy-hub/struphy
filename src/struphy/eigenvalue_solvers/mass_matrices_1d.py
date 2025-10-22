@@ -2,10 +2,10 @@
 #
 # Copyright 2020 Florian Holderied
 
+import cunumpy as xp
 import scipy.sparse as spa
 
 import struphy.bsplines.bsplines as bsp
-from struphy.utils.arrays import xp
 
 
 # ======= mass matrices in 1D ====================

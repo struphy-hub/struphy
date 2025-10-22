@@ -2,10 +2,10 @@
 #
 # Copyright 2020 Florian Holderied (florian.holderied@ipp.mpg.de)
 
+import cunumpy as xp
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_3d as ker
-from struphy.utils.arrays import xp
 
 
 # ================ mass matrix in V0 ===========================

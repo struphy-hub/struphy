@@ -1,3 +1,4 @@
+import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
 from psydac.ddm.mpi import MockComm

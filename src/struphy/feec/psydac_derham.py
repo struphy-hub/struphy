@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import importlib.metadata
 
+import cunumpy as xp
 import psydac.core.bsplines as bsp
 from psydac.ddm.cart import DomainDecomposition
 from psydac.ddm.mpi import MockComm, MockMPI
@@ -33,7 +34,6 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
-from struphy.utils.arrays import xp
 
 
 class Derham:

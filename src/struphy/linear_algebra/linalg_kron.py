@@ -13,10 +13,9 @@ COMMENT: the reshape of a matrix can be viewed as ravel+reshape.
                                     [r_M11, rM12, ... , r_MNO]]
 """
 
+import cunumpy as xp
 from scipy.linalg import solve_circulant
 from scipy.sparse.linalg import splu
-
-from struphy.utils.arrays import xp
 
 
 def kron_matvec_2d(kmat, vec2d):

@@ -2,6 +2,7 @@ import os
 import pickle
 from pathlib import Path
 
+import cunumpy as xp
 import h5py
 import yaml
 from matplotlib import pyplot as plt
@@ -11,7 +12,6 @@ from scipy.special import jv, yn
 
 import struphy
 from struphy.post_processing import pproc_struphy
-from struphy.utils.arrays import xp
 
 
 def VlasovAmpereOneSpecies_weakLandau(

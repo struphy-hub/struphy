@@ -7,6 +7,7 @@ from typing import Literal, get_args
 import copy
 from line_profiler import profile
 
+import cunumpy as xp
 import scipy as sc
 from line_profiler import profile
 from matplotlib import pyplot as plt
@@ -69,7 +70,6 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
-from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 

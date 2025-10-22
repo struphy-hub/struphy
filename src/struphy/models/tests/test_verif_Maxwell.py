@@ -1,5 +1,6 @@
 import os
 
+import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
 from scipy.special import jv, yn
@@ -20,7 +21,6 @@ from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Fie
 from struphy.kinetic_background import maxwellians
 from struphy.models.toy import Maxwell
 from struphy.topology import grids
-from struphy.utils.arrays import xp
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 

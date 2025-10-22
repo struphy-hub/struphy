@@ -105,7 +105,7 @@ class PushEta(Propagator):
         # define algorithm
         butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp
+        import cunumpy as xp
 
         butcher._a = xp.diag(butcher.a, k=-1)
         butcher._a = xp.array(list(butcher.a) + [0.0])
@@ -162,7 +162,7 @@ class PushVxB(Propagator):
         @ions.setter
         def ions(self, new):
             assert isinstance(new, PICVariable | SPHVariable)
-            assert new.space in ("Particles6D", "ParticlesSPH")
+            assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
             self._ions = new
             
     def __init__(self):
@@ -292,7 +292,7 @@ class PushVinEfield(Propagator):
         @var.setter
         def var(self, new):
             assert isinstance(new, PICVariable | SPHVariable)
-            assert new.space in ("Particles6D", "ParticlesSPH")
+            assert new.space in ("Particles6D", "DeltaFParticles6D", "ParticlesSPH")
             self._var = new
 
     def __init__(self):
@@ -842,7 +842,7 @@ class PushGuidingCenterBxEstar(Propagator):
             else:
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
-            from struphy.utils.arrays import xp
+            import cunumpy as xp
 
             butcher._a = xp.diag(butcher.a, k=-1)
             butcher._a = xp.array(list(butcher.a) + [0.0])
@@ -1287,7 +1287,7 @@ class PushGuidingCenterParallel(Propagator):
             else:
                 butcher = self.options.butcher
             # temp fix due to refactoring of ButcherTableau:
-            from struphy.utils.arrays import xp
+            import cunumpy as xp
 
             butcher._a = xp.diag(butcher.a, k=-1)
             butcher._a = xp.array(list(butcher.a) + [0.0])
@@ -1429,7 +1429,7 @@ class PushDeterministicDiffusion(Propagator):
         # choose algorithm
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp
+        import cunumpy as xp
 
         self._butcher._a = xp.diag(self._butcher.a, k=-1)
         self._butcher._a = xp.array(list(self._butcher.a) + [0.0])
@@ -1563,7 +1563,7 @@ class PushRandomDiffusion(Propagator):
 
         self._butcher = self.options.butcher
         # temp fix due to refactoring of ButcherTableau:
-        from struphy.utils.arrays import xp
+        import cunumpy as xp
 
         self._butcher._a = xp.diag(self._butcher.a, k=-1)
         self._butcher._a = xp.array(list(self._butcher.a) + [0.0])

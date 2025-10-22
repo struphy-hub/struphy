@@ -1,4 +1,4 @@
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 # ============================= 2D polar splines (C1) ===================================

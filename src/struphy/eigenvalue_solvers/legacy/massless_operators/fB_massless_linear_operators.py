@@ -1,11 +1,11 @@
 import time
 
+import cunumpy as xp
 import scipy.sparse as spa
 
 import struphy.feec.massless_operators.fB_bb_kernel as bb_kernel
 import struphy.feec.massless_operators.fB_bv_kernel as bv_kernel
 import struphy.feec.massless_operators.fB_vv_kernel as vv_kernel
-from struphy.utils.arrays import xp
 
 
 class Massless_linear_operators:

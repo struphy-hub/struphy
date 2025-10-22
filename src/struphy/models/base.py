@@ -9,6 +9,7 @@ import yaml
 import struphy
 from line_profiler import profile
 
+import cunumpy as xp
 import yaml
 from line_profiler import profile
 from mpi4py import MPI

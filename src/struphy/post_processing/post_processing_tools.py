@@ -2,6 +2,7 @@ import os
 import pickle
 import shutil
 
+import cunumpy as xp
 import h5py
 import numpy as np
 import yaml

@@ -1,5 +1,6 @@
 import os
 
+import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
@@ -19,7 +20,6 @@ from struphy.pic.utilities import (
     WeightsParameters,
 )
 from struphy.topology import grids
-from struphy.utils.arrays import xp
 
 test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
 

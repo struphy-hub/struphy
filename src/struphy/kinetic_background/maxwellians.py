@@ -2,6 +2,8 @@
 
 from typing import Callable
 
+import cunumpy as xp
+
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
 from struphy.initial.base import Perturbation
