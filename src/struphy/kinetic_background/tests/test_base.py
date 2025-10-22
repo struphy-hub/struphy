@@ -1,10 +1,10 @@
 def test_kinetic_background_magics(show_plot=False):
     """Test the magic commands __sum__, __mul__ and __sub__
     of the Maxwellian base class."""
+    import cunumpy as xp
     import matplotlib.pyplot as plt
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
-    from struphy.utils.arrays import xp
 
     Nel = [32, 1, 1]
     e1 = xp.linspace(0.0, 1.0, Nel[0])

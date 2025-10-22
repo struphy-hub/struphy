@@ -1,5 +1,6 @@
 from time import time
 
+import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
 from psydac.ddm.mpi import mpi as MPI
@@ -10,7 +11,6 @@ from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
 from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
-from struphy.utils.arrays import xp
 
 
 @pytest.mark.parametrize("ppb", [8, 12])

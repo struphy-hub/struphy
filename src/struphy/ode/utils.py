@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal, get_args
 
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 OptsButcher = Literal[
     "rk4",

@@ -1,3 +1,4 @@
+import cunumpy as xp
 from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.ddm.cart import CartDecomposition, DomainDecomposition
 from psydac.fem.tensor import TensorFemSpace
@@ -11,7 +12,6 @@ from scipy.linalg import solve_circulant
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
-from struphy.utils.arrays import xp
 
 
 class MassMatrixPreconditioner(LinearOperator):

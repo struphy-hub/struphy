@@ -1,3 +1,4 @@
+import cunumpy as xp
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.models.base import StruphyModel
@@ -6,7 +7,6 @@ from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Var
 from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
 from struphy.polar.basic import PolarVector
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
-from struphy.utils.arrays import xp
 from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()

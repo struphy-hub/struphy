@@ -2,6 +2,8 @@
 
 import copy
 
+import cunumpy as xp
+
 from struphy.fields_background.base import AxisymmMHDequilibrium
 from struphy.fields_background.equils import EQDSKequilibrium
 from struphy.geometry.base import (
@@ -12,7 +14,6 @@ from struphy.geometry.base import (
     interp_mapping,
 )
 from struphy.geometry.utilities import field_line_tracing
-from struphy.utils.arrays import xp
 
 
 class Tokamak(PoloidalSplineTorus):
