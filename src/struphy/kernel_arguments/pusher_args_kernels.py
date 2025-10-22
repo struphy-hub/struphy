@@ -1,5 +1,5 @@
 # from numpy import copy
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class MarkerArguments:

@@ -43,7 +43,8 @@
 - 2-form --> vector : (a_1, a_2, a_3) =          (a^2_1, a^2_2, a^2_3) / |det(DF)|
 """
 
-from struphy.utils.arrays import array_backend, xp
+import cunumpy as np
+from cunumpy.xp import array_backend
 
 if array_backend.backend == "cupy":
     from cupy import empty, shape, sqrt, zeros

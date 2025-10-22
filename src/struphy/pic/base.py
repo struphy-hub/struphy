@@ -2643,7 +2643,7 @@ class Particles(metaclass=ABCMeta):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
         and then assigne the particles to boxes."""
 
-        from struphy.utils.arrays import array_backend
+        from cunumpy.xp import array_backend
 
         if array_backend.backend == "numpy":
             bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))

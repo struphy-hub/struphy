@@ -1,6 +1,6 @@
 from typing import Any, Callable
 
-from struphy.utils.arrays import xp
+import cunumpy as xp
 
 
 class Pyccelkernel:

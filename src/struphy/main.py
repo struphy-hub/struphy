@@ -254,7 +254,7 @@ def run(
                 absB0 = model.equil.absB0(*grids_log)
                 pointData["absB0"] = absB0
 
-        from struphy.utils.arrays import array_backend
+        from cunumpy.xp import array_backend
 
         print("calling gridToVTK")
         if array_backend.backend == "numpy":
