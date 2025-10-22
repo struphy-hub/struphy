@@ -44,7 +44,7 @@
 """
 
 from struphy.utils.arrays import array_backend
-from struphy.utils.arrays import xp as np
+from struphy.utils.arrays import xp
 
 if array_backend.backend == "cupy":
     from cupy import empty, shape, sqrt, zeros

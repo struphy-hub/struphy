@@ -2424,7 +2424,7 @@ class Particles(metaclass=ABCMeta):
             n_particles = self._markers_shape[0]
             n_mkr = int(n_particles / n_box_in) + 1
             n_cols = round(
-                float(n_mkr) * (1 + 1 / float(np.sqrt(n_mkr)) + self._box_bufsize),
+                float(n_mkr) * (1 + 1 / float(xp.sqrt(n_mkr)) + self._box_bufsize),
             )
 
             # cartesian boxes

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import importlib.metadata
-
+import numpy as np
 import psydac.core.bsplines as bsp
 from psydac.ddm.cart import DomainDecomposition
 from psydac.ddm.mpi import MockComm, MockMPI
@@ -2785,12 +2785,12 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             union_breaks = space_1d.breaks[:-1]
 
         # Make union of Greville and break points
-        # tmp = set(np.round(space_1d.histopolation_grid, decimals=14)).union(
-        #     np.round(union_breaks, decimals=14),
+        # tmp = set(xp.round(space_1d.histopolation_grid, decimals=14)).union(
+        #     xp.round(union_breaks, decimals=14),
         # )
         # tmp = list(tmp)
         # tmp.sort()
-        # tmp_a = np.array(tmp)
+        # tmp_a = xp.array(tmp)
 
         tmp = set(xp.round(space_1d.histopolation_grid, decimals=14).tolist()).union(
             xp.round(union_breaks, decimals=14).tolist()
@@ -2822,8 +2822,6 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
         if n_quad is None:
             # products of basis functions are integrated exactly
             n_quad = space_1d.degree + 1
-
-        import numpy as np
 
         pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 

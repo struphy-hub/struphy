@@ -261,10 +261,10 @@ def run(
             gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
         else:
             # cupy
-            grids_phy_cpu = [g.get() if isinstance(g, np.ndarray) else g for g in grids_phy]
+            grids_phy_cpu = [g.get() if isinstance(g, xp.ndarray) else g for g in grids_phy]
 
             # Convert pointData values to NumPy
-            pointData_cpu = {k: (v.get() if isinstance(v, np.ndarray) else v) for k, v in pointData.items()}
+            pointData_cpu = {k: (v.get() if isinstance(v, xp.ndarray) else v) for k, v in pointData.items()}
 
             # Now call gridToVTK safely
             gridToVTK(os.path.join(path_out, "geometry"), *grids_phy_cpu, pointData=pointData_cpu)
@@ -287,7 +287,7 @@ def run(
             data.add_data({key_time: val})
             data.add_data({key_time_restart: val})
         else:
-            val_cpu = val.get()#  if isinstance(val, np.ndarray) else val
+            val_cpu = val.get()#  if isinstance(val, xp.ndarray) else val
 
             # Then assign
             print(f"{val_cpu = } {type(val_cpu) = }")

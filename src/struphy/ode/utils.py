@@ -78,7 +78,7 @@ class ButcherTableau:
         for l, st in enumerate(a):
             assert len(st) == l + 1
 
-            self._a[l + 1, : l + 1] = np.array(st)
+            self._a[l + 1, : l + 1] = xp.array(st)
 
         self._conv_rate = conv_rate
 
