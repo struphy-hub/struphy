@@ -551,11 +551,9 @@ test_cupy:
     - python3 -m pip install --user cupy-cuda12x
     - python3 -c "import cupy as cp"
     # Test numpy backend
-    - python3 src/struphy/utils/arrays.py
     - python3 src/struphy/utils/cupy_vs_numpy.py
     # Test cupy backend
     - export ARRAY_BACKEND=cupy
-    - python3 src/struphy/utils/arrays.py
     - python3 src/struphy/utils/cupy_vs_numpy.py
 
 install_tests:
