@@ -1029,7 +1029,7 @@ class CurrentCoupling6DCurrent(Propagator):
             kernel = Pyccelkernel(pusher_kernels.push_bxu_H1vec)
         else:
             raise ValueError(
-                f'{self.options.u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                f'{self.options.u_space =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
             )
 
         # instantiate Pusher
@@ -1333,7 +1333,7 @@ class CurrentCoupling5DCurlb(Propagator):
             pusher_kernel = pusher_kernels_gc.push_gc_cc_J1_H1vec
         else:
             raise ValueError(
-                f'{self.options.u_space  = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                f'{self.options.u_space  =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
             )
 
         args_pusher_kernel = (
@@ -1623,7 +1623,7 @@ class CurrentCoupling5DGradB(Propagator):
                 self._pusher_kernel = pusher_kernels_gc.push_gc_cc_J2_stage_H1vec
             else:
                 raise ValueError(
-                    f'{self.options.u_space  = } not valid, choose from "Hdiv" or "H1vec.',
+                    f'{self.options.u_space  =} not valid, choose from "Hdiv" or "H1vec.',
                 )
 
             # temp fix due to refactoring of ButcherTableau:
@@ -1970,7 +1970,7 @@ class CurrentCoupling5DGradB(Propagator):
                 sum_u_diff_loc = xp.sum((u_diff.toarray() ** 2))
 
                 sum_H_diff_loc = xp.sum(
-                    (markers[~holes, :3] - markers[~holes, first_init_idx : first_init_idx + 3]) ** 2
+                    (markers[~holes, :3] - markers[~holes, first_init_idx : first_init_idx + 3]) ** 2,
                 )
 
                 buffer_array = xp.array([sum_u_diff_loc])
@@ -2064,7 +2064,7 @@ class CurrentCoupling5DGradB(Propagator):
                 )
 
                 sum_H_diff_loc = xp.sum(
-                    xp.abs(markers[~holes, 0:3] - markers[~holes, first_free_idx : first_free_idx + 3])
+                    xp.abs(markers[~holes, 0:3] - markers[~holes, first_free_idx : first_free_idx + 3]),
                 )
 
                 if particles.mpi_comm is not None:
@@ -2146,7 +2146,7 @@ class CurrentCoupling5DGradB(Propagator):
                 if iter_num == self.options.dg_solver_params.maxiter:
                     if self.options.dg_solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
                         print(
-                            f"{iter_num = }, maxiter={self.options.dg_solver_params.maxiter} reached! diff: {diff}, e_diff: {e_diff}",
+                            f"{iter_num =}, maxiter={self.options.dg_solver_params.maxiter} reached! diff: {diff}, e_diff: {e_diff}",
                         )
                     if particles.mpi_comm is not None:
                         particles.mpi_comm.Barrier()

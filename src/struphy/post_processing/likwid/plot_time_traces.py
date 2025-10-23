@@ -55,7 +55,7 @@ def plot_time_vs_duration(
 
     plt.figure(figsize=(10, 6))
     for path in paths:
-        print(f"{path = }")
+        print(f"{path =}")
         with open(path, "rb") as file:
             profiling_data = pickle.load(file)
 
@@ -205,7 +205,7 @@ def plot_gantt_chart_plotly(
                             Start=start_times[i],
                             Finish=end_times[i],
                             Duration=durations[i],
-                        )
+                        ),
                     )
 
     if len(bars) == 0:
@@ -227,7 +227,7 @@ def plot_gantt_chart_plotly(
                 name=bar["Rank"],
                 marker_color=rank_color_map[bar["Rank"]],
                 hovertemplate=f"Rank: {bar['Rank']}<br>Start: {bar['Start']:.3f}s<br>Duration: {bar['Duration']:.3f}s",
-            )
+            ),
         )
 
     fig.update_layout(

@@ -219,7 +219,8 @@ class Particles6D(Particles):
 
         # send particles to the guiding center positions
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = self.markers[
-            ~self.holes, slice_gc
+            ~self.holes,
+            slice_gc,
         ]
         if self.mpi_comm is not None:
             self.mpi_sort_markers(alpha=1)

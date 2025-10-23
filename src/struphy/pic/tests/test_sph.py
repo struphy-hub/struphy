@@ -105,10 +105,10 @@ def test_sph_evaluation_1d(
     exact_eval = fun_exact(ee1, ee2, ee3)
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
-    if comm.Get_rank() == 0:
-        print(f"\n{boxes_per_dim = }")
-        print(f"{kernel = }, {derivative =}")
-        print(f"{bc_x = }, {eval_pts = }, {tesselation = }, {err_max_norm = }")
+    if rank == 0:
+        print(f"\n{boxes_per_dim =}")
+        print(f"{kernel =}, {derivative =}")
+        print(f"{bc_x =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
             plt.figure(figsize=(12, 8))
             plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
@@ -224,10 +224,10 @@ def test_sph_evaluation_2d(
     exact_eval = fun_exact(ee1, ee2, ee3)
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
-    if comm.Get_rank() == 0:
-        print(f"\n{boxes_per_dim = }")
-        print(f"{kernel = }, {derivative =}")
-        print(f"{bc_x = }, {bc_y = }, {eval_pts = }, {tesselation = }, {err_max_norm = }")
+    if rank == 0:
+        print(f"\n{boxes_per_dim =}")
+        print(f"{kernel =}, {derivative =}")
+        print(f"{bc_x =}, {bc_y =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
             plt.figure(figsize=(12, 24))
             plt.subplot(2, 1, 1)
@@ -338,29 +338,29 @@ def test_sph_evaluation_3d(
     exact_eval = fun_exact(ee1, ee2, ee3)
     err_max_norm = xp.max(xp.abs(all_eval - exact_eval))
 
-    if comm.Get_rank() == 0:
-        print(f"\n{boxes_per_dim = }")
-        print(f"{kernel = }, {derivative =}")
-        print(f"{bc_x = }, {bc_y = }, {bc_z = }, {eval_pts = }, {tesselation = }, {err_max_norm = }")
+    if rank == 0:
+        print(f"\n{boxes_per_dim =}")
+        print(f"{kernel =}, {derivative =}")
+        print(f"{bc_x =}, {bc_y =}, {bc_z =}, {eval_pts =}, {tesselation =}, {err_max_norm =}")
         if show_plot:
-            print(f"\n{fun_exact(ee1, ee2, ee3)[5, 5, 5] = }")
-            print(f"{ee1[5, 5, 5] = }, {ee2[5, 5, 5] = }, {ee3[5, 5, 5] = }")
-            print(f"{all_eval[5, 5, 5] = }")
+            print(f"\n{fun_exact(ee1, ee2, ee3)[5, 5, 5] =}")
+            print(f"{ee1[5, 5, 5] =}, {ee2[5, 5, 5] =}, {ee3[5, 5, 5] =}")
+            print(f"{all_eval[5, 5, 5] =}")
 
-            print(f"\n{ee1[4, 4, 4] = }, {ee2[4, 4, 4] = }, {ee3[4, 4, 4] = }")
-            print(f"{all_eval[4, 4, 4] = }")
+            print(f"\n{ee1[4, 4, 4] =}, {ee2[4, 4, 4] =}, {ee3[4, 4, 4] =}")
+            print(f"{all_eval[4, 4, 4] =}")
 
-            print(f"\n{ee1[3, 3, 3] = }, {ee2[3, 3, 3] = }, {ee3[3, 3, 3] = }")
-            print(f"{all_eval[3, 3, 3] = }")
+            print(f"\n{ee1[3, 3, 3] =}, {ee2[3, 3, 3] =}, {ee3[3, 3, 3] =}")
+            print(f"{all_eval[3, 3, 3] =}")
 
-            print(f"\n{ee1[2, 2, 2] = }, {ee2[2, 2, 2] = }, {ee3[2, 2, 2] = }")
-            print(f"{all_eval[2, 2, 2] = }")
+            print(f"\n{ee1[2, 2, 2] =}, {ee2[2, 2, 2] =}, {ee3[2, 2, 2] =}")
+            print(f"{all_eval[2, 2, 2] =}")
 
-            print(f"\n{ee1[1, 1, 1] = }, {ee2[1, 1, 1] = }, {ee3[1, 1, 1] = }")
-            print(f"{all_eval[1, 1, 1] = }")
+            print(f"\n{ee1[1, 1, 1] =}, {ee2[1, 1, 1] =}, {ee3[1, 1, 1] =}")
+            print(f"{all_eval[1, 1, 1] =}")
 
-            print(f"\n{ee1[0, 0, 0] = }, {ee2[0, 0, 0] = }, {ee3[0, 0, 0] = }")
-            print(f"{all_eval[0, 0, 0] = }")
+            print(f"\n{ee1[0, 0, 0] =}, {ee2[0, 0, 0] =}, {ee3[0, 0, 0] =}")
+            print(f"{all_eval[0, 0, 0] =}")
             # plt.figure(figsize=(12, 24))
             # plt.subplot(2, 1, 1)
             # plt.pcolor(ee1[0, :, :], ee2[0, :, :], fun_exact(ee1, ee2, ee3)[0, :, :])
@@ -458,12 +458,12 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
             plt.figure()
             plt.plot(ee1.squeeze(), exact_eval.squeeze(), label="exact")
             plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
-            plt.title(f"{Np = }, {ppb = }")
+            plt.title(f"{Np =}, {ppb =}")
             # plt.savefig(f"fun_{Np}_{ppb}.png")
 
         diff = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
         err_vec += [diff]
-        print(f"{Np = }, {ppb = }, {diff = }")
+        print(f"{Np =}, {ppb =}, {diff =}")
 
     if tesselation:
         fit = xp.polyfit(xp.log(ppbs), xp.log(err_vec), 1)
@@ -480,8 +480,8 @@ def test_evaluation_SPH_Np_convergence_1d(boxes_per_dim, bc_x, eval_pts, tessela
         plt.show()
         # plt.savefig(f"Convergence_SPH_{tesselation=}")
 
-    if comm.Get_rank() == 0:
-        print(f"\n{bc_x = }, {eval_pts = }, {tesselation = }, {fit[0] = }")
+    if rank == 0:
+        print(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
 
     if tesselation:
         assert fit[0] < 2e-3
@@ -569,13 +569,13 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
             plt.figure()
             plt.plot(ee1.squeeze(), exact_eval.squeeze(), label="exact")
             plt.plot(ee1.squeeze(), all_eval.squeeze(), "--.", label="eval_sph")
-            plt.title(f"{h1 = }")
+            plt.title(f"{h1 =}")
             # plt.savefig(f"fun_{h1}.png")
 
         # error in max-norm
         diff = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
 
-        print(f"{h1 = }, {diff = }")
+        print(f"{h1 =}, {diff =}")
 
         if tesselation and h1 < 0.256:
             assert diff < 0.036
@@ -595,8 +595,8 @@ def test_evaluation_SPH_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, tesselat
         plt.show()
         # plt.savefig("Convergence_SPH")
 
-    if comm.Get_rank() == 0:
-        print(f"\n{bc_x = }, {eval_pts = }, {tesselation = }, {fit[0] = }")
+    if rank == 0:
+        print(f"\n{bc_x =}, {eval_pts =}, {tesselation =}, {fit[0] =}")
 
     if not tesselation:
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
@@ -686,8 +686,8 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
             diff = xp.max(xp.abs(all_eval - exact_eval)) / xp.max(xp.abs(exact_eval))
             err_vec[-1] += [diff]
 
-            if comm.Get_rank() == 0:
-                print(f"{Np = }, {ppb = }, {diff = }")
+            if rank == 0:
+                print(f"{Np =}, {ppb =}, {diff =}")
                 # if show_plot:
                 #     plt.figure()
                 #     plt.plot(ee1.squeeze(), fun_exact(ee1, ee2, ee3).squeeze(), label="exact")
@@ -724,8 +724,8 @@ def test_evaluation_mc_Np_and_h_convergence_1d(boxes_per_dim, bc_x, eval_pts, te
 
         plt.show()
 
-    if comm.Get_rank() == 0:
-        print(f"\n{tesselation = }, {bc_x = }, {err_min = }")
+    if rank == 0:
+        print(f"\n{tesselation =}, {bc_x =}, {err_min =}")
 
     if tesselation:
         if bc_x == "periodic":
@@ -843,15 +843,15 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         if tesselation:
             assert diff < 0.06
 
-        if comm.Get_rank() == 0:
-            print(f"{Np = }, {ppb = }, {diff = }")
+        if rank == 0:
+            print(f"{Np =}, {ppb =}, {diff =}")
             if show_plot:
                 fig, ax = plt.subplots()
                 d = ax.pcolor(ee1.squeeze(), ee2.squeeze(), all_eval.squeeze(), label="eval_sph", vmin=1.0, vmax=2.0)
                 fig.colorbar(d, ax=ax, label="2d_SPH")
                 ax.set_xlabel("ee1")
                 ax.set_ylabel("ee2")
-                ax.set_title(f"{Np}_{ppb = }")
+                ax.set_title(f"{Np}_{ppb =}")
                 # fig.savefig(f"2d_sph_{Np}_{ppb}.png")
 
     if tesselation:
@@ -869,8 +869,8 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         plt.show()
         # plt.savefig(f"Convergence_SPH_{tesselation=}")
 
-    if comm.Get_rank() == 0:
-        print(f"\n{bc_x = }, {tesselation = }, {fit[0] = }")
+    if rank == 0:
+        print(f"\n{bc_x =}, {tesselation =}, {fit[0] =}")
 
     if not tesselation:
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate

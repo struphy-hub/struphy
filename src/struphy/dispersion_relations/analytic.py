@@ -261,7 +261,15 @@ class FluidSlabITG(DispersionRelations1D):
 
     def __init__(self, vstar=10.0, vi=1.0, Z=1.0, kz=1.0, gamma=5 / 3):
         super().__init__(
-            "wave 1", "wave 2", "wave 3", velocity_scale="thermal", vstar=vstar, vi=vi, Z=Z, kz=kz, gamma=gamma
+            "wave 1",
+            "wave 2",
+            "wave 3",
+            velocity_scale="thermal",
+            vstar=vstar,
+            vi=vi,
+            Z=Z,
+            kz=kz,
+            gamma=gamma,
         )
 
     def __call__(self, k):
@@ -1018,7 +1026,7 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
 
         # slow sound continuum
         specs["slow_sound"] = xp.sqrt(
-            gamma * p(x) * F(x, m, n) ** 2 / (rho(x) * (gamma * p(x) + By(x) ** 2 + Bz(x) ** 2))
+            gamma * p(x) * F(x, m, n) ** 2 / (rho(x) * (gamma * p(x) + By(x) ** 2 + Bz(x) ** 2)),
         )
 
         return specs
@@ -1125,7 +1133,7 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
 
         # slow sound continuum
         specs["slow_sound"] = xp.sqrt(
-            gamma * p(r) * F(r, m, n) ** 2 / (rho(r) * (gamma * p(r) + Bt(r) ** 2 + Bz(r) ** 2))
+            gamma * p(r) * F(r, m, n) ** 2 / (rho(r) * (gamma * p(r) + Bt(r) ** 2 + Bz(r) ** 2)),
         )
 
         return specs

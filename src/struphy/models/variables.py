@@ -82,7 +82,7 @@ class Variable(metaclass=ABCMeta):
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added background '{background.__class__.__name__}' with:"
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added background '{background.__class__.__name__}' with:",
             )
             for k, v in background.__dict__.items():
                 print(f"  {k}: {v}")
@@ -120,7 +120,7 @@ class FEECVariable(Variable):
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:"
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:",
             )
             for k, v in perturbation.__dict__.items():
                 print(f"  {k}: {v}")
@@ -175,7 +175,7 @@ class PICVariable(Variable):
         self._initial_condition = init
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added initial condition '{init.__class__.__name__}' with:"
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added initial condition '{init.__class__.__name__}' with:",
             )
             for k, v in init.__dict__.items():
                 print(f"  {k}: {v}")

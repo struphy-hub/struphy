@@ -135,7 +135,7 @@ class LinOpWithTransp(LinearOperator):
                     itterables = []
                     for i in range(ndim[h]):
                         itterables.append(
-                            range(allstarts[currentrank][i + npredim], allends[currentrank][i + npredim] + 1)
+                            range(allstarts[currentrank][i + npredim], allends[currentrank][i + npredim] + 1),
                         )
                     # We iterate over all the entries that belong to rank number currentrank
                     for i in itertools.product(*itterables):
@@ -292,7 +292,7 @@ class LinOpWithTransp(LinearOperator):
                 return sparse.csr_matrix((all_data, (all_rows, all_cols)), shape=(numrows, numcols)).todia()
             else:
                 raise Exception(
-                    "The selected sparse matrix format must be one of the following : csr, csc, bsr, lil, dok,  coo or dia."
+                    "The selected sparse matrix format must be one of the following : csr, csc, bsr, lil, dok,  coo or dia.",
                 )
 
 

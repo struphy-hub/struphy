@@ -74,7 +74,8 @@ def test_flattening(nx, ny, nz, algo):
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(
-    "spl_kind", [[False, False, True], [False, True, False], [True, False, True], [True, True, False]]
+    "spl_kind",
+    [[False, False, True], [False, True, False], [True, False, True], [True, True, False]],
 )
 @pytest.mark.parametrize(
     "mapping",

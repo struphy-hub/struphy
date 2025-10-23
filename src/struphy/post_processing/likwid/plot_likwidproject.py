@@ -818,7 +818,7 @@ def load_projects(data_paths, procs_per_clone="any"):
             )
             if (procs_per_clone != "any") and (procs_per_clone != project.procs_per_clone):
                 print(
-                    f"Incorrect number of procs_per_clone: {project.procs_per_clone = } {procs_per_clone = }",
+                    f"Incorrect number of procs_per_clone: {project.procs_per_clone =} {procs_per_clone =}",
                 )
                 continue
             project.read_project()

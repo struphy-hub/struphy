@@ -211,18 +211,18 @@ class LinearMHDVlasovCC(StruphyModel):
             for line in f:
                 if "mag_sonic.Options" in line:
                     new_file += [
-                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n"
+                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n",
                     ]
                 elif "couple_dens.Options" in line:
                     new_file += [
-                        "model.propagators.couple_dens.options = model.propagators.couple_dens.Options(energetic_ions=model.energetic_ions.var,\n"
+                        "model.propagators.couple_dens.options = model.propagators.couple_dens.Options(energetic_ions=model.energetic_ions.var,\n",
                     ]
                     new_file += [
-                        "                                                                              b_tilde=model.em_fields.b_field)\n"
+                        "                                                                              b_tilde=model.em_fields.b_field)\n",
                     ]
                 elif "couple_curr.Options" in line:
                     new_file += [
-                        "model.propagators.couple_curr.options = model.propagators.couple_curr.Options(b_tilde=model.em_fields.b_field)\n"
+                        "model.propagators.couple_curr.options = model.propagators.couple_curr.Options(b_tilde=model.em_fields.b_field)\n",
                     ]
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
@@ -390,7 +390,7 @@ class LinearMHDVlasovPC(StruphyModel):
                 self.equil.b2_1,
                 self.equil.b2_2,
                 self.equil.b2_3,
-            ]
+            ],
         )
         self._p_eq = self.derham.P["3"](self.equil.p3)
         self._ones = self._p_eq.space.zeros()
@@ -759,44 +759,44 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 if "shearalfen_cc5d.Options" in line:
                     new_file += [
                         """model.propagators.shearalfen_cc5d.options = model.propagators.shearalfen_cc5d.Options(
-                        energetic_ions = model.energetic_ions.var,)\n"""
+                        energetic_ions = model.energetic_ions.var,)\n""",
                     ]
 
                 elif "magnetosonic.Options" in line:
                     new_file += [
                         """model.propagators.magnetosonic.options = model.propagators.magnetosonic.Options(
-                        b_field=model.em_fields.b_field,)\n"""
+                        b_field=model.em_fields.b_field,)\n""",
                     ]
 
                 elif "cc5d_density.Options" in line:
                     new_file += [
                         """model.propagators.cc5d_density.options = model.propagators.cc5d_density.Options(
                         energetic_ions = model.energetic_ions.var,
-                        b_tilde = model.em_fields.b_field,)\n"""
+                        b_tilde = model.em_fields.b_field,)\n""",
                     ]
 
                 elif "cc5d_curlb.Options" in line:
                     new_file += [
                         """model.propagators.cc5d_curlb.options = model.propagators.cc5d_curlb.Options(
-                        b_tilde = model.em_fields.b_field,)\n"""
+                        b_tilde = model.em_fields.b_field,)\n""",
                     ]
 
                 elif "cc5d_gradb.Options" in line:
                     new_file += [
                         """model.propagators.cc5d_gradb.options = model.propagators.cc5d_gradb.Options(
-                        b_tilde = model.em_fields.b_field,)\n"""
+                        b_tilde = model.em_fields.b_field,)\n""",
                     ]
 
                 elif "push_bxe.Options" in line:
                     new_file += [
                         """model.propagators.push_bxe.options = model.propagators.push_bxe.Options(
-                        b_tilde = model.em_fields.b_field,)\n"""
+                        b_tilde = model.em_fields.b_field,)\n""",
                     ]
 
                 elif "push_parallel.Options" in line:
                     new_file += [
                         """model.propagators.push_parallel.options = model.propagators.push_parallel.Options(
-                        b_tilde = model.em_fields.b_field,)\n"""
+                        b_tilde = model.em_fields.b_field,)\n""",
                     ]
 
                 else:
