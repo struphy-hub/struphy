@@ -873,88 +873,107 @@ class CurrentCoupling6DCurrent(Propagator):
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        dct["filter"] = {
-            "use_filter": None,
-            "modes": (1),
-            "repeat": 1,
-            "alpha": 0.5,
-        }
-        dct["boundary_cut"] = {
-            "e1": 0.0,
-            "e2": 0.0,
-            "e3": 0.0,
-        }
-        dct["turn_off"] = False
+    class Variables:
+        def __init__(self):
+            self._ions: PICVariable = None
+            self._u: FEECVariable = None
 
-        if default:
-            dct = descend_options_dict(dct, [])
+        @property
+        def ions(self) -> PICVariable:
+            return self._ions
 
-        return dct
+        @ions.setter
+        def ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space in ("Particles6D")
+            self._ions = new
 
-    def __init__(
-        self,
-        particles: Particles6D,
-        u: BlockVector,
-        *,
-        u_space: str,
-        b_eq: BlockVector | PolarVector,
-        b_tilde: BlockVector | PolarVector,
-        Ab: int = 1,
-        Ah: int = 1,
-        epsilon: float = 1.0,
-        solver: dict = options(default=True)["solver"],
-        filter: dict = options(default=True)["filter"],
-        boundary_cut: dict = options(default=True)["boundary_cut"],
-    ):
-        super().__init__(particles, u)
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
 
-        if u_space == "H1vec":
-            self._space_key_int = 0
-        else:
-            self._space_key_int = int(
-                self.derham.space_to_form[u_space],
-            )
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hcurl", "Hdiv", "H1vec")
+            self._u = new
 
-        self._b_eq = b_eq
-        self._b_tilde = b_tilde
+    def __init__(self):
+        self.variables = self.Variables()
 
-        self._info = solver["info"]
+    @dataclass
+    class Options:
+        # propagator options
+        b_tilde: FEECVariable = None
+        u_space: OptsVecSpace = "Hdiv"
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        filter_params: FilterParameters = None
+        boundary_cut: tuple = (0.0, 0.0, 0.0)
+
+        def __post_init__(self):
+            # checks
+            check_option(self.u_space, OptsVecSpace)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+            assert self.b_tilde.space == "Hdiv"
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
+
+        particles = self.variables.ions.particles
+        u = self.variables.u.spline.vector
+        self._b_eq = self.projected_equil.b2
+        self._b_tilde = self.options.b_tilde.spline.vector
+
+        self._info = self.options.solver_params.info
 
         if self.derham.comm is None:
             self._rank = 0
         else:
             self._rank = self.derham.comm.Get_rank()
 
+        Ah = self.variables.ions.species.mass_number
+        Ab = self.variables.u.species.mass_number
+        epsilon = self.variables.ions.species.equation_params.epsilon
+
         self._coupling_mat = Ah / Ab / epsilon**2
         self._coupling_vec = Ah / Ab / epsilon
         self._scale_push = 1.0 / epsilon
 
-        self._boundary_cut_e1 = boundary_cut["e1"]
+        self._boundary_cut_e1 = self.options.boundary_cut[0]
 
         # load accumulator
         self._accumulator = Accumulator(
             particles,
-            u_space,
+            self.options.u_space,
             Pyccelkernel(accum_kernels.cc_lin_mhd_6d_2),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
             symmetry="symm",
-            filter_params=filter,
+            filter_params=self.options.filter_params,
         )
 
         # if self.particles[0].control_variate:
@@ -993,7 +1012,7 @@ class CurrentCoupling6DCurrent(Propagator):
         #     self._vec3 = xp.zeros_like(self._nuh0_at_quad[0])
 
         # FEM spaces and basis extraction operators for u and b
-        u_id = self.derham.space_to_form[u_space]
+        u_id = self.derham.space_to_form[self.options.u_space]
         self._EuT = self.derham.extraction_ops[u_id].transpose()
         self._EbT = self.derham.extraction_ops["2"].transpose()
 
@@ -1007,15 +1026,15 @@ class CurrentCoupling6DCurrent(Propagator):
         self._u_avg2 = self._EuT.codomain.zeros()
 
         # load particle pusher kernel
-        if u_space == "Hcurl":
+        if self.options.u_space == "Hcurl":
             kernel = Pyccelkernel(pusher_kernels.push_bxu_Hcurl)
-        elif u_space == "Hdiv":
+        elif self.options.u_space == "Hdiv":
             kernel = Pyccelkernel(pusher_kernels.push_bxu_Hdiv)
-        elif u_space == "H1vec":
+        elif self.options.u_space == "H1vec":
             kernel = Pyccelkernel(pusher_kernels.push_bxu_H1vec)
         else:
             raise ValueError(
-                f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                f'{self.options.u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
             )
 
         # instantiate Pusher
@@ -1042,10 +1061,10 @@ class CurrentCoupling6DCurrent(Propagator):
         _A = getattr(self.mass_ops, "M" + u_id + "n")
 
         # preconditioner
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(_A)
 
         _BC = -1 / 4 * self._accumulator.operators[0]
@@ -1053,17 +1072,15 @@ class CurrentCoupling6DCurrent(Propagator):
         self._schur_solver = SchurSolver(
             _A,
             _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-            recycle=solver["recycle"],
+            self.options.solver,
+            precond=pc,
+            solver_params=self.options.solver_params,
         )
 
     def __call__(self, dt):
         # pointer to old coefficients
-        un = self.feec_vars[0]
+        particles = self.variables.ions.particles
+        un = self.variables.u.spline.vector
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
@@ -1133,11 +1150,11 @@ class CurrentCoupling6DCurrent(Propagator):
         self._pusher(self._scale_push * dt)
 
         # write new coeffs into Propagator.variables
-        max_du = self.feec_vars_update(un1)
+        max_du = self.update_feec_variables(u=un1)
 
         # update weights in case of control variate
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if particles.control_variate:
+            particles.update_weights()
 
         if self._info and self._rank == 0:
             print("Status     for CurrentCoupling6DCurrent:", info["success"])
