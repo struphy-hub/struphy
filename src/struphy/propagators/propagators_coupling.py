@@ -640,7 +640,7 @@ class PressureCoupling6D(Propagator):
         # call operatros
         id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
         _A = getattr(self.mass_ops, id_M)
-        self._X =getattr(self.basis_ops, id_X)
+        self._X = getattr(self.basis_ops, id_X)
         self._XT = self._X.transpose()
         grad = self.derham.grad
         gradT = grad.transpose()
@@ -663,7 +663,7 @@ class PressureCoupling6D(Propagator):
         # define Accumulator and arguments
         self._ACC = Accumulator(
             self.variables.energetic_ions.particles,
-            "Hcurl", #TODO:check
+            "Hcurl",  # TODO:check
             accum_ker,
             self.mass_ops,
             self.domain.args_domain,
@@ -730,7 +730,9 @@ class PressureCoupling6D(Propagator):
         gradT = grad.transpose()
 
         # acuumulate MAT and VEC
-        self._ACC(self.options.ep_scale,)
+        self._ACC(
+            self.options.ep_scale,
+        )
 
         # update GT_VEC
         for i in range(3):
@@ -739,11 +741,7 @@ class PressureCoupling6D(Propagator):
         self._BV = self._XT.dot(self._GT_VEC) * (-1 / 2)
 
         # update u (no tmps created here)
-        un1, info = self._schur_solver(
-            un, 
-            self._BV, 
-            dt, 
-            out=self.u_temp)
+        un1, info = self._schur_solver(un, self._BV, dt, out=self.u_temp)
 
         _u = un.copy(out=self.u_temp2)
         _u += un1
@@ -790,7 +788,6 @@ class PressureCoupling6D(Propagator):
         """
 
         def __init__(self, derham, MAT, transposed=False):
-
             self._derham = derham
             self._grad = derham.grad
             self._gradT = derham.grad.transpose()

@@ -363,7 +363,15 @@ class LinearMHDVlasovPC(StruphyModel):
         self.add_scalar("en_p")
         self.add_scalar("en_B")
         self.add_scalar("en_f", compute="from_particles", variable=self.energetic_ions.var)
-        self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f",])
+        self.add_scalar(
+            "en_tot",
+            summands=[
+                "en_U",
+                "en_p",
+                "en_B",
+                "en_f",
+            ],
+        )
 
     @property
     def bulk_species(self):
@@ -408,11 +416,11 @@ class LinearMHDVlasovPC(StruphyModel):
 
         self._en_f[0] = (
             particles.markers[~particles.holes, 6].dot(
-                particles.markers[~particles.holes, 3]**2 + 
-                particles.markers[~particles.holes, 4]**2 + 
-                particles.markers[~particles.holes, 5]**2
+                particles.markers[~particles.holes, 3] ** 2
+                + particles.markers[~particles.holes, 4] ** 2
+                + particles.markers[~particles.holes, 5] ** 2
             )
-            / 2.
+            / 2.0
             * Ah
             / Ab
         )
@@ -443,7 +451,6 @@ class LinearMHDVlasovPC(StruphyModel):
                 n_lost_markers / particles.Np * 100,
                 "% \n",
             )
-
 
     ## default parameters
     def generate_default_parameter_file(self, path=None, prompt=True):

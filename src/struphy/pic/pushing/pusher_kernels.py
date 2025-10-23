@@ -1614,6 +1614,7 @@ def push_bxu_Hdiv_pauli(
 
     # -- removed omp: #$ omp end parallel
 
+
 @stack_array(
     "dfm",
     "dfinv",

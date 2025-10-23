@@ -491,7 +491,6 @@ class PushEtaPC(Propagator):
         )
 
     def __call__(self, dt):
-
         self._u_tilde.update_ghost_regions()
 
         self._pusher(dt)
