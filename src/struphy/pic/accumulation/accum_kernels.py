@@ -1163,9 +1163,7 @@ def pc_lin_mhd_6d_full(
     vec1_3: "float[:,:,:]",
     vec2_3: "float[:,:,:]",
     vec3_3: "float[:,:,:]",
-    scale_mat: "float",
-    scale_vec: "float",
-    boundary_cut: "float",
+    ep_scale: "float",
 ):
     r"""Accumulates into V1 with the filling functions
 
@@ -1209,10 +1207,6 @@ def pc_lin_mhd_6d_full(
         if markers[ip, 0] == -1.0:
             continue
 
-        # boundary cut
-        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1.0 - boundary_cut:
-            continue
-
         # marker positions
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
@@ -1243,8 +1237,8 @@ def pc_lin_mhd_6d_full(
 
         weight = markers[ip, 8]
 
-        filling_m[:, :] = weight * tmp1 / Np * scale_mat
-        filling_v[:] = weight * tmp_v / Np * scale_vec
+        filling_m[:, :] = weight * tmp1 / Np * ep_scale
+        filling_v[:] = weight * tmp_v / Np * ep_scale
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_v1_pressure_full(
@@ -1362,9 +1356,7 @@ def pc_lin_mhd_6d(
     vec1_3: "float[:,:,:]",
     vec2_3: "float[:,:,:]",
     vec3_3: "float[:,:,:]",
-    scale_mat: "float",
-    scale_vec: "float",
-    boundary_cut: "float",
+    ep_scale: "float",
 ):
     r"""Accumulates into V1 with the filling functions
 
@@ -1407,10 +1399,6 @@ def pc_lin_mhd_6d(
         if markers[ip, 0] == -1.0:
             continue
 
-        # boundary cut
-        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1.0 - boundary_cut:
-            continue
-
         # marker positions
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
@@ -1441,8 +1429,8 @@ def pc_lin_mhd_6d(
         linalg_kernels.matrix_matrix(df_inv, df_inv_t, tmp1)
         linalg_kernels.matrix_vector(df_inv, v, tmp_v)
 
-        filling_m[:, :] = weight * tmp1 * scale_mat
-        filling_v[:] = weight * tmp_v * scale_vec
+        filling_m[:, :] = weight * tmp1 * ep_scale
+        filling_v[:] = weight * tmp_v * ep_scale
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_v1_pressure(
