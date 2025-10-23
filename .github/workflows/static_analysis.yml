@@ -28,7 +28,7 @@ jobs:
           ./cloc --version
           ./cloc $(git ls-files)
 
-  check-formatting:
+  struphy lint all:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -85,8 +85,8 @@ jobs:
       - name: Code formatting with isort
         run: |
           pip install isort
-          # isort --check src/
-          # isort --check doc/tutorials/
+          isort --check src/
+          isort --check doc/tutorials/
 
   # mypy:
   #   runs-on: ubuntu-latest
