@@ -640,16 +640,16 @@ quickstart_tests:
     - !reference [.scripts, install_on_push]
     - !reference [.scripts, quickstart_tests]
 
-# tutorial_tests:
-#   stage: test
-#   extends:
-#     - .rules_mr_to_devel
-#     - .image_gitlab_mpcdf_struphy
-#     - .before_script_load_modules
-#     - .variables_push
-#   script:
-#     - !reference [.scripts, install_on_push]
-#     - !reference [.scripts, tutorial_tests]
+tutorial_tests:
+  stage: test
+  extends:
+    - .rules_mr_to_devel
+    - .image_gitlab_mpcdf_struphy
+    - .before_script_load_modules
+    - .variables_push
+  script:
+    - !reference [.scripts, install_on_push]
+    - !reference [.scripts, tutorial_tests]
 
 pages_tests:
   stage: test
