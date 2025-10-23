@@ -195,34 +195,84 @@ def uvright(
                     for q2 in range(nq2):
                         for q3 in range(nq3):
                             dft[0, 0] = DFI_11[
-                                ie1, ie2, ie3, q1, q2, q3
+                                ie1,
+                                ie2,
+                                ie3,
+                                q1,
+                                q2,
+                                q3,
                             ]  # mappings_analytical.df_inv(pts1[ie1, q1], pts2[ie2,q2], pts3[ie3,q3], kind_map, params_map, components[0, 0])
                             dft[0, 1] = DFI_21[
-                                ie1, ie2, ie3, q1, q2, q3
+                                ie1,
+                                ie2,
+                                ie3,
+                                q1,
+                                q2,
+                                q3,
                             ]  # mappings_analytical.df_inv(pts1[ie1, q1], pts2[ie2,q2], pts3[ie3,q3], kind_map, params_map, components[0, 1])
                             dft[0, 2] = DFI_31[
-                                ie1, ie2, ie3, q1, q2, q3
+                                ie1,
+                                ie2,
+                                ie3,
+                                q1,
+                                q2,
+                                q3,
                             ]  # mappings_analytical.df_inv(pts1[ie1, q1], pts2[ie2,q2], pts3[ie3,q3], kind_map, params_map, components[0, 2])
                             dft[1, 0] = DFI_12[
-                                ie1, ie2, ie3, q1, q2, q3
+                                ie1,
+                                ie2,
+                                ie3,
+                                q1,
+                                q2,
+                                q3,
                             ]  # mappings_analytical.df_inv(pts1[ie1, q1], pts2[ie2,q2], pts3[ie3,q3], kind_map, params_map, components[1, 0])
                             dft[1, 1] = DFI_22[
-                                ie1, ie2, ie3, q1, q2, q3
+                                ie1,
+                                ie2,
+                                ie3,
+                                q1,
+                                q2,
+                                q3,
                             ]  # mappings_analytical.df_inv(pts1[ie1, q1], pts2[ie2,q2], pts3[ie3,q3], kind_map, params_map, components[1, 1])
                             dft[1, 2] = DFI_32[
-                                ie1, ie2, ie3, q1, q2, q3
+                                ie1,
+                                ie2,
+                                ie3,
+                                q1,
+                                q2,
+                                q3,
                             ]  # mappings_analytical.df_inv(pts1[ie1, q1], pts2[ie2,q2], pts3[ie3,q3], kind_map, params_map, components[1, 2])
                             dft[2, 0] = DFI_13[
-                                ie1, ie2, ie3, q1, q2, q3
+                                ie1,
+                                ie2,
+                                ie3,
+                                q1,
+                                q2,
+                                q3,
                             ]  # mappings_analytical.df_inv(pts1[ie1, q1], pts2[ie2,q2], pts3[ie3,q3], kind_map, params_map, components[2, 0])
                             dft[2, 1] = DFI_23[
-                                ie1, ie2, ie3, q1, q2, q3
+                                ie1,
+                                ie2,
+                                ie3,
+                                q1,
+                                q2,
+                                q3,
                             ]  # mappings_analytical.df_inv(pts1[ie1, q1], pts2[ie2,q2], pts3[ie3,q3], kind_map, params_map, components[2, 1])
                             dft[2, 2] = DFI_33[
-                                ie1, ie2, ie3, q1, q2, q3
+                                ie1,
+                                ie2,
+                                ie3,
+                                q1,
+                                q2,
+                                q3,
                             ]  # mappings_analytical.df_inv(pts1[ie1, q1], pts2[ie2,q2], pts3[ie3,q3], kind_map, params_map, components[2, 2])
                             detdet = df_det[
-                                ie1, ie2, ie3, q1, q2, q3
+                                ie1,
+                                ie2,
+                                ie3,
+                                q1,
+                                q2,
+                                q3,
                             ]  # mappings_analytical.det_df(pts1[ie1, q1], pts2[ie2,q2], pts3[ie3,q3], kind_map, params_map)
                             Jeq[0] = Jeqx[ie1, ie2, ie3, q1, q2, q3]
                             Jeq[1] = Jeqy[ie1, ie2, ie3, q1, q2, q3]
@@ -705,19 +755,67 @@ def vv(
         bd3[:] = b3[pd3, :pn3] * d3[:]
 
         vel[0] = eva.evaluation_kernel(
-            pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, NbaseD[0], NbaseN[1], NbaseN[2], bb1
+            pd1,
+            pn2,
+            pn3,
+            bd1,
+            bn2,
+            bn3,
+            span1 - 1,
+            span2,
+            span3,
+            NbaseD[0],
+            NbaseN[1],
+            NbaseN[2],
+            bb1,
         )
         vel[1] = eva.evaluation_kernel(
-            pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, NbaseN[0], NbaseD[1], NbaseN[2], bb2
+            pn1,
+            pd2,
+            pn3,
+            bn1,
+            bd2,
+            bn3,
+            span1,
+            span2 - 1,
+            span3,
+            NbaseN[0],
+            NbaseD[1],
+            NbaseN[2],
+            bb2,
         )
         vel[2] = eva.evaluation_kernel(
-            pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, NbaseN[0], NbaseN[1], NbaseD[2], bb3
+            pn1,
+            pn2,
+            pd3,
+            bn1,
+            bn2,
+            bd3,
+            span1,
+            span2,
+            span3 - 1,
+            NbaseN[0],
+            NbaseN[1],
+            NbaseD[2],
+            bb3,
         )
 
         U_value = exp(
             -eva.evaluation_kernel(
-                pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, NbaseN[0], NbaseN[1], NbaseN[2], u
-            )
+                pn1,
+                pn2,
+                pn3,
+                bn1,
+                bn2,
+                bn3,
+                span1,
+                span2,
+                span3,
+                NbaseN[0],
+                NbaseN[1],
+                NbaseN[2],
+                u,
+            ),
         )
 
         # ========= mapping evaluation =============

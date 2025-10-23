@@ -137,10 +137,12 @@ class projectors_local_1d:
         self.x_int = xp.zeros((n_lambda_int, self.n_int), dtype=float)  # interpolation points for each coeff.
 
         self.int_global_N = xp.zeros(
-            (n_lambda_int, self.n_int_locbf_N), dtype=int
+            (n_lambda_int, self.n_int_locbf_N),
+            dtype=int,
         )  # global indices of non-vanishing N bf
         self.int_global_D = xp.zeros(
-            (n_lambda_int, self.n_int_locbf_D), dtype=int
+            (n_lambda_int, self.n_int_locbf_D),
+            dtype=int,
         )  # global indices of non-vanishing D bf
 
         self.int_loccof_N = xp.zeros((n_lambda_int, self.n_int_locbf_N), dtype=int)  # index of non-vanishing coeff. (N)
@@ -423,7 +425,9 @@ class projectors_local_1d:
 
             # quadrature points and weights
             self.pts, self.wts = bsp.quadrature_grid(
-                xp.append(xp.unique(self.x_his.flatten() % 1.0), 1.0), self.pts_loc, self.wts_loc
+                xp.append(xp.unique(self.x_his.flatten() % 1.0), 1.0),
+                self.pts_loc,
+                self.wts_loc,
             )
 
     # quasi interpolation
@@ -1075,7 +1079,9 @@ class projectors_local_3d:
 
                 # quadrature points and weights
                 self.pts[a], self.wts[a] = bsp.quadrature_grid(
-                    xp.unique(self.x_his[a].flatten()), self.pts_loc[a], self.wts_loc[a]
+                    xp.unique(self.x_his[a].flatten()),
+                    self.pts_loc[a],
+                    self.wts_loc[a],
                 )
 
             else:
@@ -1105,7 +1111,9 @@ class projectors_local_3d:
 
                 # quadrature points and weights
                 self.pts[a], self.wts[a] = bsp.quadrature_grid(
-                    xp.append(xp.unique(self.x_his[a].flatten() % 1.0), 1.0), self.pts_loc[a], self.wts_loc[a]
+                    xp.append(xp.unique(self.x_his[a].flatten() % 1.0), 1.0),
+                    self.pts_loc[a],
+                    self.wts_loc[a],
                 )
 
     # projector on space V0 (interpolation)
@@ -1427,7 +1435,11 @@ class projectors_local_3d:
             self.wts[1],
             self.wts[2],
             mat_f.reshape(
-                x_int1.size, self.pts[1].shape[0], self.pts[1].shape[1], self.pts[2].shape[0], self.pts[2].shape[1]
+                x_int1.size,
+                self.pts[1].shape[0],
+                self.pts[1].shape[1],
+                self.pts[2].shape[0],
+                self.pts[2].shape[1],
             ),
             lambdas1,
         )
@@ -1478,7 +1490,11 @@ class projectors_local_3d:
             self.wts[0],
             self.wts[2],
             mat_f.reshape(
-                self.pts[0].shape[0], self.pts[0].shape[1], x_int2.size, self.pts[2].shape[0], self.pts[2].shape[1]
+                self.pts[0].shape[0],
+                self.pts[0].shape[1],
+                x_int2.size,
+                self.pts[2].shape[0],
+                self.pts[2].shape[1],
             ),
             lambdas2,
         )
@@ -1529,7 +1545,11 @@ class projectors_local_3d:
             self.wts[0],
             self.wts[1],
             mat_f.reshape(
-                self.pts[0].shape[0], self.pts[0].shape[1], self.pts[1].shape[0], self.pts[1].shape[1], x_int3.size
+                self.pts[0].shape[0],
+                self.pts[0].shape[1],
+                self.pts[1].shape[0],
+                self.pts[1].shape[1],
+                x_int3.size,
             ),
             lambdas3,
         )
@@ -1560,7 +1580,8 @@ class projectors_local_3d:
 
         # evaluation of function at quadrature points
         mat_f = xp.empty(
-            (self.pts[0].flatten().size, self.pts[1].flatten().size, self.pts[2].flatten().size), dtype=float
+            (self.pts[0].flatten().size, self.pts[1].flatten().size, self.pts[2].flatten().size),
+            dtype=float,
         )
 
         # external function call if a callable is passed
@@ -1568,7 +1589,10 @@ class projectors_local_3d:
             # create a meshgrid and evaluate function on point set
             if eval_kind == "meshgrid":
                 pts1, pts2, pts3 = xp.meshgrid(
-                    self.pts[0].flatten(), self.pts[1].flatten(), self.pts[2].flatten(), indexing="ij"
+                    self.pts[0].flatten(),
+                    self.pts[1].flatten(),
+                    self.pts[2].flatten(),
+                    indexing="ij",
                 )
                 mat_f[:, :, :] = fun(pts1, pts2, pts3)
 
@@ -1582,7 +1606,9 @@ class projectors_local_3d:
                     for i2 in range(self.pts[1].size):
                         for i3 in range(self.pts[2].size):
                             mat_f[i1, i2, i3] = fun(
-                                self.pts[0].flatten()[i1], self.pts[1].flatten()[i2], self.pts[2].flatten()[i3]
+                                self.pts[0].flatten()[i1],
+                                self.pts[1].flatten()[i2],
+                                self.pts[2].flatten()[i3],
                             )
 
         # internal function call

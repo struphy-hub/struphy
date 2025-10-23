@@ -223,7 +223,7 @@ class PushVxB(Propagator):
         elif self.options.algo == "implicit":
             kernel = pusher_kernels.push_vxb_implicit
         else:
-            raise ValueError(f"{self.options.algo = } not supported.")
+            raise ValueError(f"{self.options.algo =} not supported.")
 
         # instantiate Pusher
         args_kernel = (
@@ -434,7 +434,7 @@ class PushEtaPC(Propagator):
                 kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_H1vec)
             else:
                 raise ValueError(
-                    f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                    f'{u_space =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
                 )
         else:
             if u_space == "Hcurl":
@@ -445,7 +445,7 @@ class PushEtaPC(Propagator):
                 kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_H1vec_full)
             else:
                 raise ValueError(
-                    f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                    f'{u_space =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
                 )
 
         args_kernel = (

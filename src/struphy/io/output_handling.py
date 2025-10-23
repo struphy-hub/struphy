@@ -54,7 +54,7 @@ class DataContainer:
             dataset_keys = []
 
             self._file.visit(
-                lambda key: dataset_keys.append(key) if isinstance(self._file[key], h5py.Dataset) else None
+                lambda key: dataset_keys.append(key) if isinstance(self._file[key], h5py.Dataset) else None,
             )
 
             for key in dataset_keys:
@@ -110,7 +110,11 @@ class DataContainer:
                     self._file[key][0] = val[0]
                 else:
                     self._file.create_dataset(
-                        key, (1,) + val.shape, maxshape=(None,) + val.shape, dtype=val.dtype, chunks=True
+                        key,
+                        (1,) + val.shape,
+                        maxshape=(None,) + val.shape,
+                        dtype=val.dtype,
+                        chunks=True,
                     )
                     self._file[key][0] = val
 

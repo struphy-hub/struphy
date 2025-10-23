@@ -397,7 +397,7 @@ class Maxwellian(KineticBackground):
         """
 
         if isinstance(v, xp.ndarray) and isinstance(u, xp.ndarray):
-            assert v.shape == u.shape, f"{v.shape = } but {u.shape = }"
+            assert v.shape == u.shape, f"{v.shape =} but {u.shape =}"
 
         if not polar:
             out = 1.0 / vth * 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-((v - u) ** 2) / (2.0 * vth**2))
@@ -436,9 +436,9 @@ class Maxwellian(KineticBackground):
         # Check that all args have the same shape
         shape0 = xp.shape(args[0])
         for i, arg in enumerate(args):
-            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) = }, but must be {shape0 = }."
+            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) =}, but must be {shape0 =}."
             assert xp.ndim(arg) == 1 or xp.ndim(arg) == 3 + self.vdim, (
-                f"{xp.ndim(arg) = } not allowed for Maxwellian evaluation."
+                f"{xp.ndim(arg) =} not allowed for Maxwellian evaluation."
             )  # flat or meshgrid evaluation
 
         # Get result evaluated at eta's
