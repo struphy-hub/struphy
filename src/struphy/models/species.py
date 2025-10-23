@@ -1,15 +1,10 @@
 import warnings
 from abc import ABCMeta, abstractmethod
-from copy import deepcopy
-from dataclasses import dataclass
-from typing import Callable
 
-import numpy as np
-from mpi4py import MPI
+import cunumpy as xp
+from psydac.ddm.mpi import mpi as MPI
 
-from struphy.fields_background.base import FluidEquilibrium
 from struphy.io.options import Units
-from struphy.kinetic_background.base import KineticBackground
 from struphy.models.variables import Variable
 from struphy.physics.physics import ConstantsOfNature
 from struphy.pic.utilities import (
@@ -87,7 +82,7 @@ class Species(metaclass=ABCMeta):
             con = ConstantsOfNature()
 
             # relevant frequencies
-            om_p = np.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
+            om_p = xp.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
             om_c = Z * con.e * units.B / (A * con.mH)
 
             # compute equation parameters
@@ -144,8 +139,6 @@ class FieldSpecies(Species):
 
 class FluidSpecies(Species):
     """Single fluid species in 3d configuration space."""
-
-    pass
 
 
 class ParticleSpecies(Species):
@@ -220,5 +213,3 @@ class ParticleSpecies(Species):
 
 class DiagnosticSpecies(Species):
     """Diagnostic species (fields) without mass and charge."""
-
-    pass

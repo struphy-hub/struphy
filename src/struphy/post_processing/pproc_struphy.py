@@ -2,8 +2,8 @@ import os
 import pickle
 import shutil
 
+import cunumpy as xp
 import h5py
-import numpy as np
 import yaml
 
 import struphy.post_processing.orbits.orbits_tools as orbits_pproc
@@ -64,7 +64,7 @@ def main(
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
 
     # save time grid at which post-processing data is created
-    np.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+    xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
     if "feec" in file.keys():
         exist_fields = True

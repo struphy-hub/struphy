@@ -3,9 +3,9 @@
 from dataclasses import dataclass
 from typing import Literal
 
-import numpy as np
+import cunumpy as xp
 from line_profiler import profile
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
@@ -29,6 +29,7 @@ from struphy.pic.pushing import pusher_kernels, pusher_kernels_gc
 from struphy.pic.pushing.pusher import Pusher
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class VlasovAmpere(Propagator):
@@ -145,7 +146,7 @@ class VlasovAmpere(Propagator):
         self._info = self.options.solver_params.info
 
         # get accumulation kernel
-        accum_kernel = accum_kernels.vlasov_maxwell
+        accum_kernel = Pyccelkernel(accum_kernels.vlasov_maxwell)
 
         # Initialize Accumulator object
         particles = self.variables.ions.particles
@@ -200,7 +201,7 @@ class VlasovAmpere(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_v_with_efield,
+            Pyccelkernel(pusher_kernels.push_v_with_efield),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
@@ -251,14 +252,14 @@ class VlasovAmpere(Propagator):
             print("Maxdiff e1  for VlasovMaxwell:", max_de)
             particles = self.variables.ions.particles
             buffer_idx = particles.bufferindex
-            max_diff = np.max(
-                np.abs(
-                    np.sqrt(
+            max_diff = xp.max(
+                xp.abs(
+                    xp.sqrt(
                         particles.markers_wo_holes[:, 3] ** 2
                         + particles.markers_wo_holes[:, 4] ** 2
                         + particles.markers_wo_holes[:, 5] ** 2,
                     )
-                    - np.sqrt(
+                    - xp.sqrt(
                         particles.markers_wo_holes[:, buffer_idx + 3] ** 2
                         + particles.markers_wo_holes[:, buffer_idx + 4] ** 2
                         + particles.markers_wo_holes[:, buffer_idx + 5] ** 2,
@@ -325,54 +326,89 @@ class EfieldWeights(Propagator):
 
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        if default:
-            dct = descend_options_dict(dct, [])
+    class Variables:
+        def __init__(self):
+            self._e: FEECVariable = None
+            self._ions: PICVariable = None
 
-        return dct
+        @property
+        def e(self) -> FEECVariable:
+            return self._e
 
-    def __init__(
-        self,
-        e: BlockVector,
-        particles: Particles6D,
-        *,
-        alpha: float = 1.0,
-        kappa: float = 1.0,
-        f0: Maxwellian = None,
-        solver=options(default=True)["solver"],
-    ):
-        super().__init__(e, particles)
+        @e.setter
+        def e(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space == "Hcurl"
+            self._e = new
 
-        if f0 is None:
-            f0 = Maxwellian3D()
-        assert isinstance(f0, Maxwellian3D)
+        @property
+        def ions(self) -> PICVariable:
+            return self._ions
 
-        self._alpha = alpha
-        self._kappa = kappa
-        self._f0 = f0
-        assert self._f0.maxw_params["vth1"] == self._f0.maxw_params["vth2"] == self._f0.maxw_params["vth3"]
-        self._vth = self._f0.maxw_params["vth1"]
+        @ions.setter
+        def ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space in ("Particles6D", "DeltaFParticles6D")
+            self._ions = new
 
-        self._info = solver["info"]
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        alpha: float = 1.0
+        kappa: float = 1.0
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+
+        def __post_init__(self):
+            # checks
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._alpha = self.options.alpha
+        self._kappa = self.options.kappa
+
+        backgrounds = self.variables.ions.backgrounds
+        # use single Maxwellian
+        if isinstance(backgrounds, list):
+            self._f0 = backgrounds[0]
+        else:
+            self._f0 = backgrounds
+        assert isinstance(self._f0, Maxwellian3D), "The background distribution function must be a uniform Maxwellian!"
+        self._vth = self._f0.maxw_params["vth1"][0]
+
+        self._info = self.options.solver_params.info
 
         # Initialize Accumulator object
+        e = self.variables.e.spline.vector
+        particles = self.variables.ions.particles
+
         self._accum = Accumulator(
             particles,
             "Hcurl",
-            accum_kernels.linear_vlasov_ampere,
+            Pyccelkernel(accum_kernels.linear_vlasov_ampere),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -385,18 +421,18 @@ class EfieldWeights(Propagator):
         self._e_sum = e.space.zeros()
 
         # marker storage
-        self._f0_values = np.zeros(particles.markers.shape[0], dtype=float)
-        self._old_weights = np.empty(particles.markers.shape[0], dtype=float)
+        self._f0_values = xp.zeros(particles.markers.shape[0], dtype=float)
+        self._old_weights = xp.empty(particles.markers.shape[0], dtype=float)
 
         # ================================
         # ========= Schur Solver =========
         # ================================
 
         # Preconditioner
-        if solver["type"][1] == None:
+        if self.options.precond == None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(self.mass_ops.M1)
 
         # Define block matrix [[A B], [C I]] (without time step size dt in the diagonals)
@@ -407,11 +443,9 @@ class EfieldWeights(Propagator):
         self._schur_solver = SchurSolver(
             _A,
             _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
+            self.options.solver,
+            precond=pc,
+            solver_params=self.options.solver_params,
         )
 
         # Instantiate particle pusher
@@ -427,21 +461,24 @@ class EfieldWeights(Propagator):
 
         self._pusher = Pusher(
             particles,
-            pusher_kernels.push_weights_with_efield_lin_va,
+            Pyccelkernel(pusher_kernels.push_weights_with_efield_lin_va),
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
         )
 
     def __call__(self, dt):
+        en = self.variables.e.spline.vector
+        particles = self.variables.ions.particles
+
         # evaluate f0 and accumulate
         self._f0_values[:] = self._f0(
-            self.particles[0].markers[:, 0],
-            self.particles[0].markers[:, 1],
-            self.particles[0].markers[:, 2],
-            self.particles[0].markers[:, 3],
-            self.particles[0].markers[:, 4],
-            self.particles[0].markers[:, 5],
+            particles.markers[:, 0],
+            particles.markers[:, 1],
+            particles.markers[:, 2],
+            particles.markers[:, 3],
+            particles.markers[:, 4],
+            particles.markers[:, 5],
         )
 
         self._accum(self._f0_values)
@@ -457,35 +494,34 @@ class EfieldWeights(Propagator):
 
         # new e-field (no tmps created here)
         self._e_tmp, info = self._schur_solver(
-            xn=self.feec_vars[0],
+            xn=en,
             Byn=self._e_scale,
             dt=dt,
             out=self._e_tmp,
         )
 
         # Store old weights
-        self._old_weights[~self.particles[0].holes] = self.particles[0].markers_wo_holes[:, 6]
+        self._old_weights[~particles.holes] = particles.markers_wo_holes[:, 6]
 
         # Compute (e^{n+1} + e^n) (no tmps created here)
         self._e_sum *= 0.0
-        self._e_sum += self.feec_vars[0]
+        self._e_sum += en
         self._e_sum += self._e_tmp
 
         # Update weights
         self._pusher(dt)
 
         # write new coeffs into self.variables
-        (max_de,) = self.feec_vars_update(self._e_tmp)
+        max_de = self.update_feec_variables(e=self._e_tmp)
 
         # Print out max differences for weights and e-field
         if self._info:
             print("Status          for StepEfieldWeights:", info["success"])
             print("Iterations      for StepEfieldWeights:", info["niter"])
             print("Maxdiff    e1   for StepEfieldWeights:", max_de)
-            max_diff = np.max(
-                np.abs(
-                    self._old_weights[~self.particles[0].holes]
-                    - self.particles[0].markers[~self.particles[0].holes, 6],
+            max_diff = xp.max(
+                xp.abs(
+                    self._old_weights[~particles.holes] - particles.markers[~particles.holes, 6],
                 ),
             )
             print("Maxdiff weights for StepEfieldWeights:", max_diff)
@@ -566,7 +602,10 @@ class PressureCoupling6D(Propagator):
         self._GT = self.derham.grad.transpose()
 
         self._info = solver["info"]
-        self._rank = self.derham.comm.Get_rank()
+        if self.derham.comm is None:
+            self._rank = 0
+        else:
+            self._rank = self.derham.comm.Get_rank()
 
         assert u_space in {"Hcurl", "Hdiv", "H1vec"}
 
@@ -596,11 +635,11 @@ class PressureCoupling6D(Propagator):
 
         # Call the accumulation and Pusher class
         if use_perp_model:
-            accum_ker = accum_kernels.pc_lin_mhd_6d
-            pusher_ker = pusher_kernels.push_pc_GXu
+            accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d)
+            pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu)
         else:
-            accum_ker = accum_kernels.pc_lin_mhd_6d_full
-            pusher_ker = pusher_kernels.push_pc_GXu_full
+            accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d_full)
+            pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu_full)
 
         self._coupling_mat = coupling_params["Ah"] / coupling_params["Ab"]
         self._coupling_vec = coupling_params["Ah"] / coupling_params["Ab"]
@@ -829,84 +868,107 @@ class CurrentCoupling6DCurrent(Propagator):
     :ref:`time_discret`: Crank-Nicolson (implicit mid-point). System size reduction via :class:`~struphy.linear_algebra.schur_solver.SchurSolver`.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        dct["filter"] = {
-            "use_filter": None,
-            "modes": (1),
-            "repeat": 1,
-            "alpha": 0.5,
-        }
-        dct["boundary_cut"] = {
-            "e1": 0.0,
-            "e2": 0.0,
-            "e3": 0.0,
-        }
-        dct["turn_off"] = False
+    class Variables:
+        def __init__(self):
+            self._ions: PICVariable = None
+            self._u: FEECVariable = None
 
-        if default:
-            dct = descend_options_dict(dct, [])
+        @property
+        def ions(self) -> PICVariable:
+            return self._ions
 
-        return dct
+        @ions.setter
+        def ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space in ("Particles6D")
+            self._ions = new
 
-    def __init__(
-        self,
-        particles: Particles6D,
-        u: BlockVector,
-        *,
-        u_space: str,
-        b_eq: BlockVector | PolarVector,
-        b_tilde: BlockVector | PolarVector,
-        Ab: int = 1,
-        Ah: int = 1,
-        epsilon: float = 1.0,
-        solver: dict = options(default=True)["solver"],
-        filter: dict = options(default=True)["filter"],
-        boundary_cut: dict = options(default=True)["boundary_cut"],
-    ):
-        super().__init__(particles, u)
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
 
-        if u_space == "H1vec":
-            self._space_key_int = 0
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hcurl", "Hdiv", "H1vec")
+            self._u = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # propagator options
+        b_tilde: FEECVariable = None
+        u_space: OptsVecSpace = "Hdiv"
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        filter_params: FilterParameters = None
+        boundary_cut: tuple = (0.0, 0.0, 0.0)
+
+        def __post_init__(self):
+            # checks
+            check_option(self.u_space, OptsVecSpace)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+            assert self.b_tilde.space == "Hdiv"
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._space_key_int = int(self.derham.space_to_form[self.options.u_space])
+
+        particles = self.variables.ions.particles
+        u = self.variables.u.spline.vector
+        self._b_eq = self.projected_equil.b2
+        self._b_tilde = self.options.b_tilde.spline.vector
+
+        self._info = self.options.solver_params.info
+
+        if self.derham.comm is None:
+            self._rank = 0
         else:
-            self._space_key_int = int(
-                self.derham.space_to_form[u_space],
-            )
+            self._rank = self.derham.comm.Get_rank()
 
-        self._b_eq = b_eq
-        self._b_tilde = b_tilde
-
-        self._info = solver["info"]
-        self._rank = self.derham.comm.Get_rank()
+        Ah = self.variables.ions.species.mass_number
+        Ab = self.variables.u.species.mass_number
+        epsilon = self.variables.ions.species.equation_params.epsilon
 
         self._coupling_mat = Ah / Ab / epsilon**2
         self._coupling_vec = Ah / Ab / epsilon
         self._scale_push = 1.0 / epsilon
 
-        self._boundary_cut_e1 = boundary_cut["e1"]
+        self._boundary_cut_e1 = self.options.boundary_cut[0]
 
         # load accumulator
         self._accumulator = Accumulator(
             particles,
-            u_space,
-            accum_kernels.cc_lin_mhd_6d_2,
+            self.options.u_space,
+            Pyccelkernel(accum_kernels.cc_lin_mhd_6d_2),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
             symmetry="symm",
-            filter_params=filter,
+            filter_params=self.options.filter_params,
         )
 
         # if self.particles[0].control_variate:
@@ -935,17 +997,17 @@ class CurrentCoupling6DCurrent(Propagator):
         #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
 
         #     # memory allocation for magnetic field at quadrature points
-        #     self._b_quad1 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._b_quad2 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._b_quad3 = np.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad1 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad2 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._b_quad3 = xp.zeros_like(self._nuh0_at_quad[0])
 
         #     # memory allocation for (self._b_quad x self._nuh0_at_quad) * self._coupling_vec
-        #     self._vec1 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._vec2 = np.zeros_like(self._nuh0_at_quad[0])
-        #     self._vec3 = np.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec1 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec2 = xp.zeros_like(self._nuh0_at_quad[0])
+        #     self._vec3 = xp.zeros_like(self._nuh0_at_quad[0])
 
         # FEM spaces and basis extraction operators for u and b
-        u_id = self.derham.space_to_form[u_space]
+        u_id = self.derham.space_to_form[self.options.u_space]
         self._EuT = self.derham.extraction_ops[u_id].transpose()
         self._EbT = self.derham.extraction_ops["2"].transpose()
 
@@ -959,15 +1021,15 @@ class CurrentCoupling6DCurrent(Propagator):
         self._u_avg2 = self._EuT.codomain.zeros()
 
         # load particle pusher kernel
-        if u_space == "Hcurl":
-            kernel = pusher_kernels.push_bxu_Hcurl
-        elif u_space == "Hdiv":
-            kernel = pusher_kernels.push_bxu_Hdiv
-        elif u_space == "H1vec":
-            kernel = pusher_kernels.push_bxu_H1vec
+        if self.options.u_space == "Hcurl":
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_Hcurl)
+        elif self.options.u_space == "Hdiv":
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_Hdiv)
+        elif self.options.u_space == "H1vec":
+            kernel = Pyccelkernel(pusher_kernels.push_bxu_H1vec)
         else:
             raise ValueError(
-                f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                f'{self.options.u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
             )
 
         # instantiate Pusher
@@ -994,10 +1056,10 @@ class CurrentCoupling6DCurrent(Propagator):
         _A = getattr(self.mass_ops, "M" + u_id + "n")
 
         # preconditioner
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
+            pc_class = getattr(preconditioner, self.options.precond)
             pc = pc_class(_A)
 
         _BC = -1 / 4 * self._accumulator.operators[0]
@@ -1005,17 +1067,15 @@ class CurrentCoupling6DCurrent(Propagator):
         self._schur_solver = SchurSolver(
             _A,
             _BC,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-            recycle=solver["recycle"],
+            self.options.solver,
+            precond=pc,
+            solver_params=self.options.solver_params,
         )
 
     def __call__(self, dt):
         # pointer to old coefficients
-        un = self.feec_vars[0]
+        particles = self.variables.ions.particles
+        un = self.variables.u.spline.vector
 
         # sum up total magnetic field b_full1 = b_eq + b_tilde (in-place)
         self._b_eq.copy(out=self._b_full1)
@@ -1085,11 +1145,11 @@ class CurrentCoupling6DCurrent(Propagator):
         self._pusher(self._scale_push * dt)
 
         # write new coeffs into Propagator.variables
-        max_du = self.feec_vars_update(un1)
+        max_du = self.update_feec_variables(u=un1)
 
         # update weights in case of control variate
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if particles.control_variate:
+            particles.update_weights()
 
         if self._info and self._rank == 0:
             print("Status     for CurrentCoupling6DCurrent:", info["success"])
@@ -1241,7 +1301,7 @@ class CurrentCoupling5DCurlb(Propagator):
         self._ACC = Accumulator(
             self.variables.energetic_ions.particles,
             self.options.u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_curlb,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_curlb),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -1266,11 +1326,11 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # define Pusher
         if self.options.u_space == "Hcurl":
-            pusher_kernel = pusher_kernels_gc.push_gc_cc_J1_Hcurl
+            pusher_kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_Hcurl)
         elif self.options.u_space == "Hdiv":
-            pusher_kernel = pusher_kernels_gc.push_gc_cc_J1_Hdiv
+            pusher_kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_Hdiv)
         elif self.options.u_space == "H1vec":
-            pusher_kernel = pusher_kernels_gc.push_gc_cc_J1_H1vec
+            pusher_kernel = Pyccelkernel(pusher_kernels_gc.push_gc_cc_J1_H1vec)
         else:
             raise ValueError(
                 f'{self.options.u_space  = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
@@ -1531,7 +1591,7 @@ class CurrentCoupling5DGradB(Propagator):
             self._ACC = Accumulator(
                 self.variables.energetic_ions.particles,
                 self.options.u_space,
-                accum_kernels_gc.cc_lin_mhd_5d_gradB,
+                Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_gradB),
                 self.mass_ops,
                 self.domain.args_domain,
                 add_vector=True,
@@ -1571,8 +1631,8 @@ class CurrentCoupling5DGradB(Propagator):
             butcher = self.options.butcher
             import numpy as np
 
-            butcher._a = np.diag(butcher.a, k=-1)
-            butcher._a = np.array(list(butcher.a) + [0.0])
+            butcher._a = xp.diag(butcher.a, k=-1)
+            butcher._a = xp.array(list(butcher.a) + [0.0])
 
             self._args_pusher_kernel = (
                 self.domain.args_domain,
@@ -1817,10 +1877,10 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_old
             particles.save_magnetic_energy(PB_b)
-            en_fB_old = np.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+            en_fB_old = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
             en_fB_old /= n_mks_tot
 
-            buffer_array = np.array([en_fB_old])
+            buffer_array = xp.array([en_fB_old])
 
             if particles.mpi_comm is not None:
                 particles.mpi_comm.Allreduce(
@@ -1863,10 +1923,10 @@ class CurrentCoupling5DGradB(Propagator):
 
             # save en_fB_new
             particles.save_magnetic_energy(PB_b)
-            en_fB_new = np.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+            en_fB_new = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
             en_fB_new /= n_mks_tot
 
-            buffer_array = np.array([en_fB_new])
+            buffer_array = xp.array([en_fB_new])
 
             if particles.mpi_comm is not None:
                 particles.mpi_comm.Allreduce(
@@ -1910,13 +1970,13 @@ class CurrentCoupling5DGradB(Propagator):
                 markers[~holes, first_free_idx : first_free_idx + 3] = markers[~holes, 0:3]
 
                 # calculate denominator ||z^{n+1, k} - z^n||^2
-                sum_u_diff_loc = np.sum((u_diff.toarray() ** 2))
+                sum_u_diff_loc = xp.sum((u_diff.toarray() ** 2))
 
-                sum_H_diff_loc = np.sum(
+                sum_H_diff_loc = xp.sum(
                     (markers[~holes, :3] - markers[~holes, first_init_idx : first_init_idx + 3]) ** 2
                 )
 
-                buffer_array = np.array([sum_u_diff_loc])
+                buffer_array = xp.array([sum_u_diff_loc])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(
@@ -1927,7 +1987,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 denominator = buffer_array[0]
 
-                buffer_array = np.array([sum_H_diff_loc])
+                buffer_array = xp.array([sum_H_diff_loc])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(
@@ -1954,11 +2014,11 @@ class CurrentCoupling5DGradB(Propagator):
                     *self._args_accum_kernel_en_fB_mid,
                     first_free_idx + 3,
                 )
-                en_fB_mid = np.sum(markers[~holes, first_free_idx + 3].dot(markers[~holes, 5])) * self.options.ep_scale
+                en_fB_mid = xp.sum(markers[~holes, first_free_idx + 3].dot(markers[~holes, 5])) * self.options.ep_scale
 
                 en_fB_mid /= n_mks_tot
 
-                buffer_array = np.array([en_fB_mid])
+                buffer_array = xp.array([en_fB_mid])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(
@@ -2006,8 +2066,8 @@ class CurrentCoupling5DGradB(Propagator):
                     alpha,
                 )
 
-                sum_H_diff_loc = np.sum(
-                    np.abs(markers[~holes, 0:3] - markers[~holes, first_free_idx : first_free_idx + 3])
+                sum_H_diff_loc = xp.sum(
+                    xp.abs(markers[~holes, 0:3] - markers[~holes, first_free_idx : first_free_idx + 3])
                 )
 
                 if particles.mpi_comm is not None:
@@ -2015,10 +2075,10 @@ class CurrentCoupling5DGradB(Propagator):
 
                 # update en_fB_new
                 particles.save_magnetic_energy(PB_b)
-                en_fB_new = np.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
+                en_fB_new = xp.sum(markers[~holes, 8].dot(markers[~holes, 5])) * self.options.ep_scale
                 en_fB_new /= n_mks_tot
 
-                buffer_array = np.array([en_fB_new])
+                buffer_array = xp.array([en_fB_new])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(
@@ -2037,12 +2097,12 @@ class CurrentCoupling5DGradB(Propagator):
                 en_fB_new = buffer_array[0]
 
                 # calculate total energy difference
-                e_diff = np.abs(en_U_new + en_fB_new - en_tot_old)
+                e_diff = xp.abs(en_U_new + en_fB_new - en_tot_old)
 
                 # calculate ||z^{n+1, k} - z^{n+1, k-1||
-                sum_u_diff_loc = np.sum(np.abs(u_new.toarray() - u_old.toarray()))
+                sum_u_diff_loc = xp.sum(xp.abs(u_new.toarray() - u_old.toarray()))
 
-                buffer_array = np.array([sum_u_diff_loc])
+                buffer_array = xp.array([sum_u_diff_loc])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(
@@ -2053,7 +2113,7 @@ class CurrentCoupling5DGradB(Propagator):
 
                 diff = buffer_array[0]
 
-                buffer_array = np.array([sum_H_diff_loc])
+                buffer_array = xp.array([sum_H_diff_loc])
 
                 if particles.mpi_comm is not None:
                     particles.mpi_comm.Allreduce(

@@ -1,4 +1,4 @@
-import numpy as np
+import cunumpy as xp
 import scipy.sparse as spa
 
 from struphy.eigenvalue_solvers.projectors_global import Projectors_tensor_3d
@@ -107,9 +107,9 @@ class projectors_dot_x:
         self.pts1_D_2 = self.space.spaces[1].projectors.D_pts
         self.pts1_D_3 = self.space.spaces[2].projectors.D_pts
 
-        # assert np.allclose(self.N_1.toarray(), self.pts0_N_1.toarray(), atol=1e-14)
-        # assert np.allclose(self.N_2.toarray(), self.pts0_N_2.toarray(), atol=1e-14)
-        # assert np.allclose(self.N_3.toarray(), self.pts0_N_3.toarray(), atol=1e-14)
+        # assert xp.allclose(self.N_1.toarray(), self.pts0_N_1.toarray(), atol=1e-14)
+        # assert xp.allclose(self.N_2.toarray(), self.pts0_N_2.toarray(), atol=1e-14)
+        # assert xp.allclose(self.N_3.toarray(), self.pts0_N_3.toarray(), atol=1e-14)
 
         # ===== call equilibrium_mhd values at the projection points =====
         # projection points
@@ -210,11 +210,11 @@ class projectors_dot_x:
         # # Operator A
         # if self.basis_u == 1:
         #     self.A = spa.linalg.LinearOperator((self.dim_1, self.dim_1), matvec = lambda x : (self.M1.dot(self.W1_dot(x)) + self.transpose_W1_dot(self.M1.dot(x))) / 2 )
-        #     self.A_mat = spa.csc_matrix(self.A.dot(np.identity(self.dim_1)))
+        #     self.A_mat = spa.csc_matrix(self.A.dot(xp.identity(self.dim_1)))
 
         # elif self.basis_u == 2:
         #     self.A = spa.linalg.LinearOperator((self.dim_2, self.dim_2), matvec = lambda x : (self.M2.dot(self.Q2_dot(x)) + self.transpose_Q2_dot(self.M2.dot(x))) / 2 )
-        #     self.A_mat = spa.csc_matrix(self.A.dot(np.identity(self.dim_2)))
+        #     self.A_mat = spa.csc_matrix(self.A.dot(xp.identity(self.dim_2)))
 
         # self.A_inv = spa.linalg.inv(self.A_mat)
 
@@ -228,12 +228,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^2}
 
         Notes
@@ -320,7 +320,7 @@ class projectors_dot_x:
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("23", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ==================================================================
     def transpose_Q1_dot(self, x):
@@ -329,12 +329,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^1}
 
         Notes
@@ -403,7 +403,7 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ===================================================================
     def W1_dot(self, x):
@@ -412,12 +412,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^1}
 
         Notes
@@ -482,7 +482,7 @@ class projectors_dot_x:
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("13", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ===================================================================
     def transpose_W1_dot(self, x):
@@ -491,12 +491,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^1}
 
         Notes
@@ -545,7 +545,7 @@ class projectors_dot_x:
         res_2 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_2_c)
         res_3 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_3_c)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def U1_dot(self, x):
@@ -554,12 +554,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^2}
 
         Notes
@@ -645,7 +645,7 @@ class projectors_dot_x:
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("23", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def transpose_U1_dot(self, x):
@@ -654,12 +654,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^1}
 
         Notes
@@ -728,7 +728,7 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def P1_dot(self, x):
@@ -737,12 +737,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^1}
 
         Notes
@@ -831,7 +831,7 @@ class projectors_dot_x:
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("13", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def transpose_P1_dot(self, x):
@@ -840,12 +840,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^2}
 
         Notes
@@ -914,7 +914,7 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def S1_dot(self, x):
@@ -923,12 +923,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^2}
 
         Notes
@@ -1015,7 +1015,7 @@ class projectors_dot_x:
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("23", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def transpose_S1_dot(self, x):
@@ -1024,12 +1024,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^1}
 
         Notes
@@ -1098,7 +1098,7 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ===================================================================
     def S10_dot(self, x):
@@ -1107,12 +1107,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^1}
 
         Notes
@@ -1178,7 +1178,7 @@ class projectors_dot_x:
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("13", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ===================================================================
     def transpose_S10_dot(self, x):
@@ -1187,12 +1187,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^1}
 
         Notes
@@ -1241,7 +1241,7 @@ class projectors_dot_x:
         res_2 = kron_matvec_3d([self.pts0_N_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_2_c)
         res_3 = kron_matvec_3d([self.pts0_N_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_3_c)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # =================================================================
     def K1_dot(self, x):
@@ -1250,12 +1250,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^3}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^3}
 
         Notes
@@ -1307,7 +1307,7 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^3}
 
         Returns
@@ -1350,12 +1350,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^0}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^0}
 
         Notes
@@ -1406,7 +1406,7 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^0}
 
         Returns
@@ -1449,12 +1449,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^1}
 
         Notes
@@ -1543,7 +1543,7 @@ class projectors_dot_x:
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("13", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # =================================================================
     def transpose_T1_dot(self, x):
@@ -1552,12 +1552,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^1}
 
         Notes
@@ -1626,7 +1626,7 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # =================================================================
     def X1_dot(self, x):
@@ -1635,13 +1635,13 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^1}
 
         Returns
         ----------
             res : list
-                3 np.arrays of dim R^{N^0}
+                3 xp.arrays of dim R^{N^0}
 
         Notes
         -----
@@ -1718,12 +1718,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^0 x 3}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^1}
 
         Notes
@@ -1738,9 +1738,9 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^0 * 3}
         # assert len(x) == self.space.Ntot_0form * 3
-        # x_loc_1 = self.space.extract_0(np.split(x,3)[0])
-        # x_loc_2 = self.space.extract_0(np.split(x,3)[1])
-        # x_loc_3 = self.space.extract_0(np.split(x,3)[2])
+        # x_loc_1 = self.space.extract_0(xp.split(x,3)[0])
+        # x_loc_2 = self.space.extract_0(xp.split(x,3)[1])
+        # x_loc_3 = self.space.extract_0(xp.split(x,3)[2])
         # x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
         x_loc_1 = self.space.extract_0(x[0])
@@ -1794,7 +1794,7 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     ########################################
     ########## 2-form formulation ##########
@@ -1806,12 +1806,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^2}
 
         Notes
@@ -1882,7 +1882,7 @@ class projectors_dot_x:
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("23", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def transpose_Q2_dot(self, x):
@@ -1891,12 +1891,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^2}
 
         Notes
@@ -1946,7 +1946,7 @@ class projectors_dot_x:
         res_2 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_2_c)
         res_3 = kron_matvec_3d([self.pts1_D_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_3_c)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def T2_dot(self, x):
@@ -1955,12 +1955,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^1}
 
         Notes
@@ -2049,7 +2049,7 @@ class projectors_dot_x:
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("13", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def transpose_T2_dot(self, x):
@@ -2058,12 +2058,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^2}
 
         Notes
@@ -2132,7 +2132,7 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def P2_dot(self, x):
@@ -2141,12 +2141,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^2}
 
         Notes
@@ -2235,7 +2235,7 @@ class projectors_dot_x:
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("23", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def transpose_P2_dot(self, x):
@@ -2244,12 +2244,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^2}
 
         Notes
@@ -2317,7 +2317,7 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def S2_dot(self, x):
@@ -2326,12 +2326,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^2}
 
         Notes
@@ -2402,7 +2402,7 @@ class projectors_dot_x:
         # xi3 : histo(xi1)-histo(xi2)-inter(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("23", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def transpose_S2_dot(self, x):
@@ -2411,12 +2411,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^2}
 
         Notes
@@ -2466,7 +2466,7 @@ class projectors_dot_x:
         res_2 = kron_matvec_3d([self.pts1_D_1.T, self.pts0_N_2.T, self.pts1_D_3.T], mat_f_2_c)
         res_3 = kron_matvec_3d([self.pts1_D_1.T, self.pts1_D_2.T, self.pts0_N_3.T], mat_f_3_c)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def K2_dot(self, x):
@@ -2475,12 +2475,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^3}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^3}
 
         Notes
@@ -2532,7 +2532,7 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^3}
 
         Returns
@@ -2575,13 +2575,13 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^2}
 
         Returns
         ----------
             res : list
-                3 np.arrays of dim R^{N^0}
+                3 xp.arrays of dim R^{N^0}
 
         Notes
         -----
@@ -2658,12 +2658,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^0 x 3}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^2}
 
         Notes
@@ -2678,9 +2678,9 @@ class projectors_dot_x:
         # x dim check
         # x should be R{N^0 * 3}
         # assert len(x) == self.space.Ntot_0form * 3
-        # x_loc_1 = self.space.extract_0(np.split(x,3)[0])
-        # x_loc_2 = self.space.extract_0(np.split(x,3)[1])
-        # x_loc_3 = self.space.extract_0(np.split(x,3)[2])
+        # x_loc_1 = self.space.extract_0(xp.split(x,3)[0])
+        # x_loc_2 = self.space.extract_0(xp.split(x,3)[1])
+        # x_loc_3 = self.space.extract_0(xp.split(x,3)[2])
         # x_loc = list((x_loc_1, x_loc_2, x_loc_3))
 
         x_loc_1 = self.space.extract_0(x[0])
@@ -2734,7 +2734,7 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def Z20_dot(self, x):
@@ -2743,12 +2743,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^1}
 
         Notes
@@ -2835,7 +2835,7 @@ class projectors_dot_x:
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("13", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def transpose_Z20_dot(self, x):
@@ -2844,12 +2844,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^1}
 
         Notes
@@ -2918,7 +2918,7 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def Y20_dot(self, x):
@@ -2927,12 +2927,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^0}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^3}
 
         Notes
@@ -2984,12 +2984,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^3}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^0}
 
         Notes
@@ -3027,12 +3027,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R^{N^2}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R^{N^1}
 
         Notes
@@ -3119,7 +3119,7 @@ class projectors_dot_x:
         # xi3 : inter(xi1)-inter(xi2)-histo(xi3)-polation.
         res_3 = self.space.projectors.PI_mat("13", DOF_3)
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
 
     # ====================================================================
     def transpose_S20_dot(self, x):
@@ -3128,12 +3128,12 @@ class projectors_dot_x:
 
         Parameters
         ----------
-            x : np.array
+            x : xp.array
                 dim R{N^1}
 
         Returns
         ----------
-            res : np.array
+            res : xp.array
                 dim R{N^2}
 
         Notes
@@ -3202,4 +3202,4 @@ class projectors_dot_x:
         res_2 = res_12 + res_22 + res_32
         res_3 = res_13 + res_23 + res_33
 
-        return np.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))
+        return xp.concatenate((res_1.flatten(), res_2.flatten(), res_3.flatten()))

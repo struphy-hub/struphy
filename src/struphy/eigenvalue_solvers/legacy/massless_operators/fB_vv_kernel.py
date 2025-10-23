@@ -1,4 +1,4 @@
-import numpy as np
+import cunumpy as xp
 from numpy import empty, exp, floor, zeros
 
 import struphy.bsplines.bsplines_kernels as bsp

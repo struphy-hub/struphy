@@ -2,7 +2,7 @@
 
 from typing import Callable
 
-import numpy as np
+import cunumpy as xp
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
@@ -246,16 +246,16 @@ class GyroMaxwellian2D(Maxwellian):
         """
 
         # collect arguments
-        assert isinstance(eta1, np.ndarray)
-        assert isinstance(eta2, np.ndarray)
-        assert isinstance(eta3, np.ndarray)
-        assert isinstance(v[0], np.ndarray)
-        assert isinstance(v[1], np.ndarray)
+        assert isinstance(eta1, xp.ndarray)
+        assert isinstance(eta2, xp.ndarray)
+        assert isinstance(eta3, xp.ndarray)
+        assert isinstance(v[0], xp.ndarray)
+        assert isinstance(v[1], xp.ndarray)
         assert eta1.shape == eta2.shape == eta3.shape == v[0].shape == v[1].shape
         assert eta1.ndim == 1, 'Input arguments must be a marker array.'
 
         etas = [
-            np.concatenate(
+            xp.concatenate(
                 (eta1[:, None], eta2[:, None], eta3[:, None]),
                 axis=1,
             ),
@@ -388,15 +388,15 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
     def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
         r"""TODO"""
         # collect arguments
-        assert isinstance(eta1, np.ndarray)
-        assert isinstance(eta2, np.ndarray)
-        assert isinstance(eta3, np.ndarray)
-        assert isinstance(energy, np.ndarray)
+        assert isinstance(eta1, xp.ndarray)
+        assert isinstance(eta2, xp.ndarray)
+        assert isinstance(eta3, xp.ndarray)
+        assert isinstance(energy, xp.ndarray)
         assert eta1.shape == eta2.shape == eta3.shape == energy.shape
         assert eta1.ndim == 1, 'Input arguments must be a marker array.'
 
         etas = [
-            np.concatenate(
+            xp.concatenate(
                 (eta1[:, None], eta2[:, None], eta3[:, None]),
                 axis=1,
             ),
@@ -404,11 +404,7 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
 
         absB0 = self.equil.absB0(*etas)
 
-        # call equilibrium
-        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
-        absB0 = self.equil.absB0(etas)
-
-        return np.sqrt(energy) * 2.0 * np.sqrt(2.0) / absB0
+        return xp.sqrt(energy) * 2.0 * xp.sqrt(2.0) / absB0
 
     @property
     def volume_form(self) -> bool:
@@ -454,13 +450,13 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         rc_squared = (psic - self.equil.psi_range[0]) / (self.equil.psi_range[1] - self.equil.psi_range[0])
 
         # sorting out indices of negative rc²
-        neg_index = np.logical_not(rc_squared >= 0)
+        neg_index = xp.logical_not(rc_squared >= 0)
 
         # make them positive
         rc_squared[neg_index] *= -1
 
         # calculate rc
-        rc = np.sqrt(rc_squared)
+        rc = xp.sqrt(rc_squared)
         rc[neg_index] *= -1
 
         return rc

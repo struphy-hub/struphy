@@ -3,7 +3,7 @@ import os
 from types import ModuleType
 
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.io.options import EnvironmentOptions
@@ -21,29 +21,25 @@ for name, obj in inspect.getmembers(toy):
 if rank == 0:
     print(f"\n{toy_models = }")
 
-fluid_models = [
-    "LinearMHD",
-    "EulerSPH",
-    "LinearExtendedMHDuniform",
-    "ColdPlasma",
-    "HasegawaWakatani",
-]
-# for name, obj in inspect.getmembers(fluid):
-#     if inspect.isclass(obj) and "models.fluid" in obj.__module__:
-#         fluid_models += [name]
+fluid_models = []
+for name, obj in inspect.getmembers(fluid):
+    if inspect.isclass(obj) and "models.fluid" in obj.__module__:
+        fluid_models += [name]
 if rank == 0:
     print(f"\n{fluid_models = }")
 
-kinetic_models = [
-    "VlasovAmpereOneSpecies",
-]
-# for name, obj in inspect.getmembers(kinetic):
-#     if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
-#         kinetic_models += [name]
+kinetic_models = []
+for name, obj in inspect.getmembers(kinetic):
+    if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
+        kinetic_models += [name]
 if rank == 0:
     print(f"\n{kinetic_models = }")
 
-hybrid_models = ["LinearMHDDriftkineticCC"]
+hybrid_models = [
+    "LinearMHDDriftkineticCC",
+    "LinearMHDVlasovCC",
+    "ColdPlasmaVlasov",
+]
 # for name, obj in inspect.getmembers(hybrid):
 #     if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
 #         hybrid_models += [name]

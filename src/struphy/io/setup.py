@@ -5,12 +5,11 @@ import shutil
 import sys
 from types import ModuleType
 
-import yaml
-from mpi4py import MPI
+import cunumpy as xp
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.geometry.base import Domain
-from struphy.geometry.domains import Cuboid
-from struphy.io.options import DerhamOptions, Time, Units
+from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 
 
