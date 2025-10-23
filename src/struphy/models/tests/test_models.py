@@ -19,21 +19,21 @@ for name, obj in inspect.getmembers(toy):
     if inspect.isclass(obj) and "models.toy" in obj.__module__:
         toy_models += [name]
 if rank == 0:
-    print(f"\n{toy_models = }")
+    print(f"\n{toy_models =}")
 
 fluid_models = []
 for name, obj in inspect.getmembers(fluid):
     if inspect.isclass(obj) and "models.fluid" in obj.__module__:
         fluid_models += [name]
 if rank == 0:
-    print(f"\n{fluid_models = }")
+    print(f"\n{fluid_models =}")
 
 kinetic_models = []
 for name, obj in inspect.getmembers(kinetic):
     if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
         kinetic_models += [name]
 if rank == 0:
-    print(f"\n{kinetic_models = }")
+    print(f"\n{kinetic_models =}")
 
 hybrid_models = [
     "LinearMHDDriftkineticCC",
@@ -44,7 +44,7 @@ hybrid_models = [
 #     if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
 #         hybrid_models += [name]
 if rank == 0:
-    print(f"\n{hybrid_models = }")
+    print(f"\n{hybrid_models =}")
 
 
 # folder for test simulations
@@ -58,7 +58,7 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
 
     # exceptions
     if model_name == "TwoFluidQuasiNeutralToy" and MPI.COMM_WORLD.Get_size() > 1:
-        print(f"WARNING: Model {model_name} cannot be tested for {MPI.COMM_WORLD.Get_size() = }")
+        print(f"WARNING: Model {model_name} cannot be tested for {MPI.COMM_WORLD.Get_size() =}")
         return
 
     if module is None:

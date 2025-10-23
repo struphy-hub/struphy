@@ -157,7 +157,7 @@ class LinearMHD(StruphyModel):
             for line in f:
                 if "mag_sonic.Options" in line:
                     new_file += [
-                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n"
+                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n",
                     ]
                 else:
                     new_file += [line]
@@ -332,7 +332,7 @@ class LinearExtendedMHDuniform(StruphyModel):
             for line in f:
                 if "hall.Options" in line:
                     new_file += [
-                        "model.propagators.hall.options = model.propagators.hall.Options(epsilon_from=model.mhd)\n"
+                        "model.propagators.hall.options = model.propagators.hall.Options(epsilon_from=model.mhd)\n",
                     ]
                 else:
                     new_file += [line]
@@ -652,25 +652,25 @@ class ViscoResistiveMHD(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full',\n"
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full',\n",
                     ]
                     new_file += [
-                        "                                                                              s=model.mhd.entropy)\n"
+                        "                                                                              s=model.mhd.entropy)\n",
                     ]
                 elif "variat_ent.Options" in line:
                     new_file += [
-                        "model.propagators.variat_ent.options = model.propagators.variat_ent.Options(model='full',\n"
+                        "model.propagators.variat_ent.options = model.propagators.variat_ent.Options(model='full',\n",
                     ]
                     new_file += [
-                        "                                                                            rho=model.mhd.density)\n"
+                        "                                                                            rho=model.mhd.density)\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(rho=model.mhd.density)\n"
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(rho=model.mhd.density)\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(rho=model.mhd.density)\n"
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(rho=model.mhd.density)\n",
                     ]
                 elif "entropy.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
@@ -842,21 +842,21 @@ class ViscousFluid(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full',\n"
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full',\n",
                     ]
                     new_file += [
-                        "                                                                              s=model.fluid.entropy)\n"
+                        "                                                                              s=model.fluid.entropy)\n",
                     ]
                 elif "variat_ent.Options" in line:
                     new_file += [
-                        "model.propagators.variat_ent.options = model.propagators.variat_ent.Options(model='full',\n"
+                        "model.propagators.variat_ent.options = model.propagators.variat_ent.Options(model='full',\n",
                     ]
                     new_file += [
-                        "                                                                            rho=model.fluid.density)\n"
+                        "                                                                            rho=model.fluid.density)\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(rho=model.fluid.density)\n"
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(rho=model.fluid.density)\n",
                     ]
                 elif "entropy.add_background" in line:
                     new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
@@ -1042,18 +1042,18 @@ class ViscoResistiveMHD_with_p(StruphyModel):
             for line in f:
                 if "variat_pb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(div_u=model.diagnostics.div_u,\n"
+                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(div_u=model.diagnostics.div_u,\n",
                     ]
                     new_file += [
-                        "                                                                          u2=model.diagnostics.u2)\n"
+                        "                                                                          u2=model.diagnostics.u2)\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(rho=model.mhd.density)\n"
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(rho=model.mhd.density)\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(rho=model.mhd.density)\n"
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(rho=model.mhd.density)\n",
                     ]
                 elif "pressure.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
@@ -1255,40 +1255,40 @@ class ViscoResistiveLinearMHD(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='linear')\n"
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='linear')\n",
                     ]
                 elif "variat_pb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='linear',\n"
+                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='linear',\n",
                     ]
                     new_file += [
-                        "                                                                          div_u=model.diagnostics.div_u,\n"
+                        "                                                                          div_u=model.diagnostics.div_u,\n",
                     ]
                     new_file += [
-                        "                                                                          u2=model.diagnostics.u2,\n"
+                        "                                                                          u2=model.diagnostics.u2,\n",
                     ]
                     new_file += [
-                        "                                                                          pt3=model.diagnostics.pt3,\n"
+                        "                                                                          pt3=model.diagnostics.pt3,\n",
                     ]
                     new_file += [
-                        "                                                                          bt2=model.diagnostics.bt2)\n"
+                        "                                                                          bt2=model.diagnostics.bt2)\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='linear_p',\n"
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='linear_p',\n",
                     ]
                     new_file += [
-                        "                                                                                    rho=model.mhd.density)\n"
+                        "                                                                                    rho=model.mhd.density)\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='linear_p',\n"
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='linear_p',\n",
                     ]
                     new_file += [
-                        "                                                                                  rho=model.mhd.density,\n"
+                        "                                                                                  rho=model.mhd.density,\n",
                     ]
                     new_file += [
-                        "                                                                                  pt3=model.diagnostics.pt3)\n"
+                        "                                                                                  pt3=model.diagnostics.pt3)\n",
                     ]
                 elif "pressure.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
@@ -1493,31 +1493,31 @@ class ViscoResistiveDeltafMHD(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='deltaf')\n"
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='deltaf')\n",
                     ]
                 elif "variat_pb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='deltaf',\n"
+                        "model.propagators.variat_pb.options = model.propagators.variat_pb.Options(model='deltaf',\n",
                     ]
                     new_file += [
-                        "                                                                          pt3=model.diagnostics.pt3,\n"
+                        "                                                                          pt3=model.diagnostics.pt3,\n",
                     ]
                     new_file += [
-                        "                                                                          bt2=model.diagnostics.bt2)\n"
+                        "                                                                          bt2=model.diagnostics.bt2)\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_p',\n"
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_p',\n",
                     ]
                     new_file += [
-                        "                                                                                    rho=model.mhd.density)\n"
+                        "                                                                                    rho=model.mhd.density)\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_p',\n"
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_p',\n",
                     ]
                     new_file += [
-                        "                                                                                  rho=model.mhd.density)\n"
+                        "                                                                                  rho=model.mhd.density)\n",
                     ]
                 elif "pressure.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
@@ -1705,25 +1705,25 @@ class ViscoResistiveMHD_with_q(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full_q')\n"
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full_q')\n",
                     ]
                 elif "variat_qb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='full_q')\n"
+                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='full_q')\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_q',\n"
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='full_q',\n",
                     ]
                     new_file += [
-                        "                                                                                    rho=model.mhd.density)\n"
+                        "                                                                                    rho=model.mhd.density)\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_q',\n"
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='full_q',\n",
                     ]
                     new_file += [
-                        "                                                                                  rho=model.mhd.density)\n"
+                        "                                                                                  rho=model.mhd.density)\n",
                     ]
                 elif "sqrt_p.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
@@ -1909,43 +1909,43 @@ class ViscoResistiveLinearMHD_with_q(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='linear_q')\n"
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='linear_q')\n",
                     ]
                 elif "variat_qb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='linear_q',\n"
+                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='linear_q',\n",
                     ]
                     new_file += [
-                        "                                                                          div_u=model.diagnostics.div_u,\n"
+                        "                                                                          div_u=model.diagnostics.div_u,\n",
                     ]
                     new_file += [
-                        "                                                                          u2=model.diagnostics.u2,\n"
+                        "                                                                          u2=model.diagnostics.u2,\n",
                     ]
                     new_file += [
-                        "                                                                          qt3=model.diagnostics.qt3,\n"
+                        "                                                                          qt3=model.diagnostics.qt3,\n",
                     ]
                     new_file += [
-                        "                                                                          bt2=model.diagnostics.bt2)\n"
+                        "                                                                          bt2=model.diagnostics.bt2)\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='linear_q',\n"
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='linear_q',\n",
                     ]
                     new_file += [
-                        "                                                                                    rho=model.mhd.density,\n"
+                        "                                                                                    rho=model.mhd.density,\n",
                     ]
                     new_file += [
-                        "                                                                                    pt3=model.diagnostics.qt3)\n"
+                        "                                                                                    pt3=model.diagnostics.qt3)\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='linear_q',\n"
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='linear_q',\n",
                     ]
                     new_file += [
-                        "                                                                                  rho=model.mhd.density,\n"
+                        "                                                                                  rho=model.mhd.density,\n",
                     ]
                     new_file += [
-                        "                                                                                  pt3=model.diagnostics.qt3)\n"
+                        "                                                                                  pt3=model.diagnostics.qt3)\n",
                     ]
                 elif "sqrt_p.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
@@ -2134,43 +2134,43 @@ class ViscoResistiveDeltafMHD_with_q(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='deltaf_q')\n"
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='deltaf_q')\n",
                     ]
                 elif "variat_qb.Options" in line:
                     new_file += [
-                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='deltaf_q',\n"
+                        "model.propagators.variat_qb.options = model.propagators.variat_qb.Options(model='deltaf_q',\n",
                     ]
                     new_file += [
-                        "                                                                          div_u=model.diagnostics.div_u,\n"
+                        "                                                                          div_u=model.diagnostics.div_u,\n",
                     ]
                     new_file += [
-                        "                                                                          u2=model.diagnostics.u2,\n"
+                        "                                                                          u2=model.diagnostics.u2,\n",
                     ]
                     new_file += [
-                        "                                                                          qt3=model.diagnostics.qt3,\n"
+                        "                                                                          qt3=model.diagnostics.qt3,\n",
                     ]
                     new_file += [
-                        "                                                                          bt2=model.diagnostics.bt2)\n"
+                        "                                                                          bt2=model.diagnostics.bt2)\n",
                     ]
                 elif "variat_viscous.Options" in line:
                     new_file += [
-                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='deltaf_q',\n"
+                        "model.propagators.variat_viscous.options = model.propagators.variat_viscous.Options(model='deltaf_q',\n",
                     ]
                     new_file += [
-                        "                                                                                    rho=model.mhd.density,\n"
+                        "                                                                                    rho=model.mhd.density,\n",
                     ]
                     new_file += [
-                        "                                                                                    pt3=model.diagnostics.qt3)\n"
+                        "                                                                                    pt3=model.diagnostics.qt3)\n",
                     ]
                 elif "variat_resist.Options" in line:
                     new_file += [
-                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='deltaf_q',\n"
+                        "model.propagators.variat_resist.options = model.propagators.variat_resist.Options(model='deltaf_q',\n",
                     ]
                     new_file += [
-                        "                                                                                  rho=model.mhd.density,\n"
+                        "                                                                                  rho=model.mhd.density,\n",
                     ]
                     new_file += [
-                        "                                                                                  pt3=model.diagnostics.qt3)\n"
+                        "                                                                                  pt3=model.diagnostics.qt3)\n",
                     ]
                 elif "sqrt_p.add_background" in line:
                     new_file += ["model.mhd.density.add_background(FieldsBackground())\n"]
@@ -2280,7 +2280,7 @@ class EulerSPH(StruphyModel):
         particles = self.euler_fluid.var.particles
         valid_markers = particles.markers_wo_holes_and_ghost
         en_kin = valid_markers[:, 6].dot(
-            valid_markers[:, 3] ** 2 + valid_markers[:, 4] ** 2 + valid_markers[:, 5] ** 2
+            valid_markers[:, 3] ** 2 + valid_markers[:, 4] ** 2 + valid_markers[:, 5] ** 2,
         ) / (2.0 * particles.Np)
         self.update_scalar("en_kin", en_kin)
 
@@ -2425,7 +2425,7 @@ class HasegawaWakatani(StruphyModel):
             for line in f:
                 if "hw.Options" in line:
                     new_file += [
-                        "model.propagators.hw.options = model.propagators.hw.Options(phi=model.em_fields.phi)\n"
+                        "model.propagators.hw.options = model.propagators.hw.Options(phi=model.em_fields.phi)\n",
                     ]
                 elif "vorticity.add_background" in line:
                     new_file += ["model.plasma.density.add_background(FieldsBackground())\n"]

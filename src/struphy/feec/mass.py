@@ -449,7 +449,7 @@ class WeightedMassOperators:
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
                     self.weights[self.selected_weight].a1_3,
-                ]
+                ],
             )
 
             tmp_b2 = self.derham.curl.dot(a_eq)
@@ -555,7 +555,7 @@ class WeightedMassOperators:
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
                     self.weights[self.selected_weight].a1_3,
-                ]
+                ],
             )
 
             tmp_b2 = self.derham.curl.dot(a_eq)
@@ -918,7 +918,11 @@ class WeightedMassOperators:
                         for n in range(3):
                             fun[-1] += [
                                 lambda e1, e2, e3, m=m, n=n: self._matrix_operate(e1, e2, e3, *weights_rank2)[
-                                    :, :, :, m, n
+                                    :,
+                                    :,
+                                    :,
+                                    m,
+                                    n,
                                 ],
                             ]
                 # Scalar operations second
@@ -945,14 +949,14 @@ class WeightedMassOperators:
                     fun = [
                         [
                             lambda e1, e2, e3: 1.0 / weights_rank0[0](e1, e2, e3),
-                        ]
+                        ],
                     ]
 
                 for f2, op in zip(weights_rank0[1:], operations[1:]):
                     fun = [
                         [
                             lambda e1, e2, e3, f=fun[0][0], op=op, f2=f2: self._operate(f, f2, op, e1, e2, e3),
-                        ]
+                        ],
                     ]
 
         V_id = self.derham.space_to_form[V_id]
@@ -1626,7 +1630,7 @@ class WeightedMassOperatorsOldForTesting:
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
                     self.weights[self.selected_weight].a1_3,
-                ]
+                ],
             )
 
             tmp_b2 = self.derham.curl.dot(a_eq)
@@ -1740,7 +1744,7 @@ class WeightedMassOperatorsOldForTesting:
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
                     self.weights[self.selected_weight].a1_3,
-                ]
+                ],
             )
 
             tmp_b2 = self.derham.curl.dot(a_eq)
@@ -1861,7 +1865,11 @@ class WeightedMassOperatorsOldForTesting:
                 for n in range(3):
                     fun[-1] += [
                         lambda e1, e2, e3, m=m, n=n: (self.DFinv(e1, e2, e3) @ self.D @ self.DFinv(e1, e2, e3))[
-                            :, :, :, m, n
+                            :,
+                            :,
+                            :,
+                            m,
+                            n,
                         ]
                         * self.sqrt_g(
                             e1,
@@ -1898,7 +1906,7 @@ class WeightedMassOperatorsOldForTesting:
                         e3,
                     )
                     * self.sqrt_g(e1, e2, e3),
-                ]
+                ],
             ]
 
             self._M0ad = self._assemble_weighted_mass(
@@ -2359,7 +2367,8 @@ class WeightedMassOperator(LinOpWithTransp):
                             pts = [
                                 quad_grid[nquad].points.flatten()
                                 for quad_grid, nquad in zip(
-                                    self.derham.get_quad_grids(wspace, nquads=self.nquads), self.nquads
+                                    self.derham.get_quad_grids(wspace, nquads=self.nquads),
+                                    self.nquads,
                                 )
                             ]
 
@@ -2473,7 +2482,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 getattr(
                     mass_kernels,
                     "kernel_" + str(self._V.ldim) + "d_mat",
-                )
+                ),
             )
 
     @property
@@ -2779,7 +2788,8 @@ class WeightedMassOperator(LinOpWithTransp):
                 codomain_spans = [
                     quad_grid[nquad].spans
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads), self.nquads
+                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads),
+                        self.nquads,
                     )
                 ]
 
@@ -2792,7 +2802,8 @@ class WeightedMassOperator(LinOpWithTransp):
                 pts = [
                     quad_grid[nquad].points.flatten()
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads), self.nquads
+                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads),
+                        self.nquads,
                     )
                 ]
                 wts = [
@@ -2807,7 +2818,8 @@ class WeightedMassOperator(LinOpWithTransp):
                 codomain_basis = [
                     quad_grid[nquad].basis
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads), self.nquads
+                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads),
+                        self.nquads,
                     )
                 ]
 
@@ -2850,7 +2862,8 @@ class WeightedMassOperator(LinOpWithTransp):
                     domain_basis = [
                         quad_grid[nquad].basis
                         for quad_grid, nquad in zip(
-                            self.derham.get_quad_grids(domain_space, nquads=self.nquads), self.nquads
+                            self.derham.get_quad_grids(domain_space, nquads=self.nquads),
+                            self.nquads,
                         )
                     ]
 
@@ -3036,7 +3049,8 @@ class WeightedMassOperator(LinOpWithTransp):
                             [
                                 q_grid[nquad].points.size
                                 for q_grid, nquad in zip(
-                                    self.derham.get_quad_grids(space, nquads=self.nquads), self.nquads
+                                    self.derham.get_quad_grids(space, nquads=self.nquads),
+                                    self.nquads,
                                 )
                             ],
                             dtype=float,
@@ -3150,14 +3164,14 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
             getattr(
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_matrixfree",
-            )
+            ),
         )
 
         self._diag_kernel = Pyccelkernel(
             getattr(
                 mass_kernels,
                 "kernel_" + str(self._V.ldim) + "d_diag",
-            )
+            ),
         )
 
         shape = tuple(e - s + 1 for s, e in zip(V.coeff_space.starts, V.coeff_space.ends))
@@ -3245,7 +3259,11 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
     def transpose(self, conjugate=False):
         return StencilMatrixFreeMassOperator(
-            self._derham, self._codomain, self._domain, self._weights, nquads=self._nquads
+            self._derham,
+            self._codomain,
+            self._domain,
+            self._weights,
+            nquads=self._nquads,
         )
 
     @property

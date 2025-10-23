@@ -2594,7 +2594,7 @@ class ImplicitDiffusion(Propagator):
         if xp.abs(self.options.sigma_1) < 1e-14:
             self.options.sigma_1 = 1e-14
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"Stabilizing Poisson solve with {self.options.sigma_1 = }")
+                print(f"Stabilizing Poisson solve with {self.options.sigma_1 =}")
 
         # model parameters
         self._sigma_1 = self.options.sigma_1
@@ -2617,7 +2617,7 @@ class ImplicitDiffusion(Propagator):
             elif isinstance(rho, Callable):
                 rhs = L2Projector("H1", self.mass_ops).get_dofs(rho, apply_bc=True)
             else:
-                raise TypeError(f"{type(rho) = } is not accepted.")
+                raise TypeError(f"{type(rho) =} is not accepted.")
 
             return rhs
 
@@ -3029,7 +3029,7 @@ class VariationalMomentumAdvection(Propagator):
 
         if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):
             print(
-                f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }",
+                f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err =} \n {tol**2 =}",
             )
 
         self.update_feec_variables(u=un1)
@@ -3075,7 +3075,7 @@ class VariationalMomentumAdvection(Propagator):
 
         if it == self.options.nonlin_solver.maxiter - 1 or xp.isnan(err):
             print(
-                f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err = } \n {tol**2 = }",
+                f"!!!WARNING: Maximum iteration in VariationalMomentumAdvection reached - not converged \n {err =} \n {tol**2 =}",
             )
 
         self.update_feec_variables(u=un1)
@@ -3427,7 +3427,7 @@ class VariationalDensityEvolve(Propagator):
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             print(
-                f"!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err = } \n {tol**2 = }",
+                f"!!!Warning: Maximum iteration in VariationalDensityEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
         self._tmp_un_diff = un1 - un
@@ -3605,11 +3605,15 @@ class VariationalDensityEvolve(Propagator):
     def _compute_init_linear_form(self):
         if abs(self._gamma - 5 / 3) < 1e-3:
             self._energy_evaluator.evaluate_exact_de_drho_grid(
-                self.projected_equil.n3, self.projected_equil.s3_monoatomic, out=self._init_dener_drho
+                self.projected_equil.n3,
+                self.projected_equil.s3_monoatomic,
+                out=self._init_dener_drho,
             )
         elif abs(self._gamma - 7 / 5) < 1e-3:
             self._energy_evaluator.evaluate_exact_de_drho_grid(
-                self.projected_equil.n3, self.projected_equil.s3_diatomic, out=self._init_dener_drho
+                self.projected_equil.n3,
+                self.projected_equil.s3_diatomic,
+                out=self._init_dener_drho,
             )
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
@@ -3890,7 +3894,7 @@ class VariationalEntropyEvolve(Propagator):
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             print(
-                f"!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err = } \n {tol**2 = }",
+                f"!!!Warning: Maximum iteration in VariationalEntropyEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
         self._tmp_sn_diff = sn1 - sn
         self._tmp_un_diff = un1 - un
@@ -4024,11 +4028,15 @@ class VariationalEntropyEvolve(Propagator):
     def _compute_init_linear_form(self):
         if abs(self._gamma - 5 / 3) < 1e-3:
             self._energy_evaluator.evaluate_exact_de_ds_grid(
-                self.projected_equil.n3, self.projected_equil.s3_monoatomic, out=self._init_dener_ds
+                self.projected_equil.n3,
+                self.projected_equil.s3_monoatomic,
+                out=self._init_dener_ds,
             )
         elif abs(self._gamma - 7 / 5) < 1e-3:
             self._energy_evaluator.evaluate_exact_de_ds_grid(
-                self.projected_equil.n3, self.projected_equil.s3_diatomic, out=self._init_dener_ds
+                self.projected_equil.n3,
+                self.projected_equil.s3_diatomic,
+                out=self._init_dener_ds,
             )
         else:
             raise ValueError("Gamma should be 7/5 or 5/3 for if you want to linearize")
@@ -4310,7 +4318,7 @@ class VariationalMagFieldEvolve(Propagator):
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             print(
-                f"!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err = } \n {tol**2 = }",
+                f"!!!Warning: Maximum iteration in VariationalMagFieldEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
         self._tmp_un_diff = un1 - un
@@ -4813,7 +4821,7 @@ class VariationalPBEvolve(Propagator):
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             print(
-                f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err = } \n {tol**2 = }",
+                f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
         self._tmp_un_diff = un1 - un
@@ -5404,7 +5412,7 @@ class VariationalQBEvolve(Propagator):
 
         if it == self._nonlin_solver.maxiter - 1 or xp.isnan(err):
             print(
-                f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err = } \n {tol**2 = }",
+                f"!!!Warning: Maximum iteration in VariationalPBEvolve reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
         self._tmp_un_diff = un1 - un
@@ -5996,7 +6004,7 @@ class VariationalViscosity(Propagator):
 
         if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
-                f"!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err = } \n {tol**2 = }",
+                f"!!!Warning: Maximum iteration in VariationalViscosity reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
         self.update_feec_variables(s=sn1, u=un1)
@@ -6760,7 +6768,7 @@ class VariationalResistivity(Propagator):
 
         if it == self._nonlin_solver["maxiter"] - 1 or xp.isnan(err):
             print(
-                f"!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err = } \n {tol**2 = }",
+                f"!!!Warning: Maximum iteration in VariationalResistivity reached - not converged:\n {err =} \n {tol**2 =}",
             )
 
         self.update_feec_variables(s=sn1, b=bn1)
@@ -7222,7 +7230,7 @@ class TimeDependentSource(Propagator):
             def hfun(t):
                 return xp.sin(self.options.omega * t)
         else:
-            raise NotImplementedError(f"{self.options.hfun = } not implemented.")
+            raise NotImplementedError(f"{self.options.hfun =} not implemented.")
 
         self._hfun = hfun
         self._c0 = self.variables.source.spline.vector.copy()
@@ -7557,7 +7565,7 @@ class HasegawaWakatani(Propagator):
         if self.options.c_fun == "const":
             c_fun = lambda e1, e2, e3: 0.0 + 0.0 * e1
         else:
-            raise NotImplementedError(f"{self.options.c_fun = } is not available.")
+            raise NotImplementedError(f"{self.options.c_fun =} is not available.")
 
         # expose equation parameters
         self._kappa = self.options.kappa
@@ -7939,16 +7947,32 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # pullback callable
             funx = TransformedPformComponent(
-                forceterm_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
+                forceterm_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=0,
+                domain=self.domain,
             )
             funy = TransformedPformComponent(
-                forceterm_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
+                forceterm_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=1,
+                domain=self.domain,
             )
             fun_electronsx = TransformedPformComponent(
-                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
+                forcetermelectrons_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=0,
+                domain=self.domain,
             )
             fun_electronsy = TransformedPformComponent(
-                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
+                forcetermelectrons_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=1,
+                domain=self.domain,
             )
             l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
             self._F1 = l2_proj([funx, funy, _forceterm_logical])
@@ -7983,22 +8007,46 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # pullback callable
             fun_pb_1 = TransformedPformComponent(
-                forceterm_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
+                forceterm_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=0,
+                domain=self.domain,
             )
             fun_pb_2 = TransformedPformComponent(
-                forceterm_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
+                forceterm_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=1,
+                domain=self.domain,
             )
             fun_pb_3 = TransformedPformComponent(
-                forceterm_class, given_in_basis="physical", out_form="2", comp=2, domain=self.domain
+                forceterm_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=2,
+                domain=self.domain,
             )
             fun_electrons_pb_1 = TransformedPformComponent(
-                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
+                forcetermelectrons_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=0,
+                domain=self.domain,
             )
             fun_electrons_pb_2 = TransformedPformComponent(
-                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
+                forcetermelectrons_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=1,
+                domain=self.domain,
             )
             fun_electrons_pb_3 = TransformedPformComponent(
-                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=2, domain=self.domain
+                forcetermelectrons_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=2,
+                domain=self.domain,
             )
             if self._lifting:
                 l2_proj = L2Projector(space_id="Hdiv", mass_ops=self._mass_opsv0)
@@ -8104,22 +8152,46 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # pullback callable
             fun_pb_1 = TransformedPformComponent(
-                forceterm_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
+                forceterm_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=0,
+                domain=self.domain,
             )
             fun_pb_2 = TransformedPformComponent(
-                forceterm_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
+                forceterm_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=1,
+                domain=self.domain,
             )
             fun_pb_3 = TransformedPformComponent(
-                forceterm_class, given_in_basis="physical", out_form="2", comp=2, domain=self.domain
+                forceterm_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=2,
+                domain=self.domain,
             )
             fun_electrons_pb_1 = TransformedPformComponent(
-                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=0, domain=self.domain
+                forcetermelectrons_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=0,
+                domain=self.domain,
             )
             fun_electrons_pb_2 = TransformedPformComponent(
-                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=1, domain=self.domain
+                forcetermelectrons_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=1,
+                domain=self.domain,
             )
             fun_electrons_pb_3 = TransformedPformComponent(
-                forcetermelectrons_class, given_in_basis="physical", out_form="2", comp=2, domain=self.domain
+                forcetermelectrons_class,
+                given_in_basis="physical",
+                out_form="2",
+                comp=2,
+                domain=self.domain,
             )
             if self._lifting:
                 l2_proj = L2Projector(space_id="Hdiv", mass_ops=self._mass_opsv0)
@@ -8200,7 +8272,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 self._S21 = None
                 if self.derhamv0.with_local_projectors:
                     self._S21 = BasisProjectionOperatorLocal(
-                        self.derhamv0._Ploc["1"], self.derhamv0.Vh_fem["2"], fun, transposed=False
+                        self.derhamv0._Ploc["1"],
+                        self.derhamv0.Vh_fem["2"],
+                        fun,
+                        transposed=False,
                     )
 
                 if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -8310,7 +8385,10 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 self._S21 = None
                 if self.derham.with_local_projectors:
                     self._S21 = BasisProjectionOperatorLocal(
-                        self.derham._Ploc["1"], self.derham.Vh_fem["2"], fun, transposed=False
+                        self.derham._Ploc["1"],
+                        self.derham.Vh_fem["2"],
+                        fun,
+                        transposed=False,
                     )
 
                 if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -8603,14 +8681,18 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 self._solver_UzawaNumpy.F = _Fnp
                 if self._lifting:
                     un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(
-                        u0.vector, ue0.vector, phinfeec
+                        u0.vector,
+                        ue0.vector,
+                        phinfeec,
                     )
 
                     un += u_prime.vector.toarray()
                     uen += ue_prime.vector.toarray()
                 else:
                     un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(
-                        unfeec, uenfeec, phinfeec
+                        unfeec,
+                        uenfeec,
+                        phinfeec,
                     )
 
                 dimlist = [[shp - 2 * pi for shp, pi in zip(unfeec[i][:].shape, self.derham.p)] for i in range(3)]
