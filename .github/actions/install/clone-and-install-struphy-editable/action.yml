@@ -3,19 +3,10 @@ name: "Clone and install struphy"
 runs:
   using: composite
   steps:
-    # TODO: Remove cloning of struphy repo
-    # Temporary until we moved Struphy to Github
-    - name: Clone struphy
-      shell: bash
-      run: |
-        git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git
-        cd struphy/
-        git checkout run-318-tests-with-oversubscribe
 
     - name: Install struphy
       shell: bash
       run: |
-        cd struphy/
         pip install --upgrade pip
         pip uninstall -y gvec
         pip install -e ".[dev]"
