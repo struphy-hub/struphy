@@ -9,6 +9,6 @@ runs:
       run: |
         pip install --upgrade pip
         pip uninstall -y gvec
-        pip install ".[phys]"
+        pip install ".[phys,mpi]"
         pip list
         struphy -h
