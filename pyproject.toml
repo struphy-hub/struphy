@@ -145,7 +145,6 @@ combine_as_imports = true
 
 [tool.pylint]
 max-line-length = 120
-quote-style = "single"
 
 [tool.ruff]
 line-length = 120
