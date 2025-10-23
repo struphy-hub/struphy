@@ -12,6 +12,7 @@ runs:
         brew install openblas
         brew install lapack
         brew install open-mpi
+        brew install pkgconf
         brew install libomp
         brew install git
         brew install pandoc
