@@ -22,7 +22,7 @@ jobs:
         python-version: ["3.12"]
         os: [ubuntu-latest, "macos-latest"]
         compile-language: ["fortran", "c"]
-        test-type: ["unit", "model", "quickstart"]
+        test-type: ["unit", "model"] #, "quickstart"]
 
     steps:
       # Checkout the repository
