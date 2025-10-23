@@ -487,57 +487,6 @@ def linear_vlasov_ampere(
     # -- removed omp: #$ omp end parallel
 
 
-def vlasov_maxwell_poisson(
-    args_markers: "MarkerArguments",
-    args_derham: "DerhamArguments",
-    args_domain: "DomainArguments",
-    vec: "float[:,:,:]",
-):
-    r"""
-    Accumulates the charge density in V0
-
-    .. math::
-
-        \rho_p^\mu = w_p \,.
-
-    Parameters
-    ----------
-
-    Note
-    ----
-        The above parameter list contains only the model specific input arguments.
-    """
-
-    markers = args_markers.markers
-    Np = args_markers.Np
-
-    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
-    # -- removed omp: #$ omp for reduction ( + :vec)
-    for ip in range(shape(markers)[0]):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-
-        # filling = w_p
-        filling = markers[ip, 6] / Np
-
-        particle_to_mat_kernels.vec_fill_b_v0(
-            args_derham,
-            eta1,
-            eta2,
-            eta3,
-            vec,
-            filling,
-        )
-
-    # -- removed omp: #$ omp end parallel
-
-
 @stack_array("dfm", "df_inv", "df_inv_t", "g_inv", "v", "df_inv_times_v", "filling_m", "filling_v")
 def vlasov_maxwell(
     args_markers: "MarkerArguments",
