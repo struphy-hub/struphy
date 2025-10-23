@@ -75,18 +75,18 @@ jobs:
   #         # black --check src/
   #         # black --check tutorials/
 
-  # isort:
-  #   runs-on: ubuntu-latest
-  #   continue-on-error: true
-  #   steps:
-  #     - name: Checkout the code
-  #       uses: actions/checkout@v4
+  isort:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
 
-  #     - name: Code formatting with isort
-  #       run: |
-  #         pip install isort
-  #         # isort --check src/
-  #         # isort --check tutorials/
+      - name: Code formatting with isort
+        run: |
+          pip install isort
+          # isort --check src/
+          # isort --check doc/tutorials/
 
   # mypy:
   #   runs-on: ubuntu-latest
