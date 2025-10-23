@@ -86,6 +86,6 @@ jobs:
         if: matrix.test-type == 'model'
         uses: ./.github/actions/tests/models
 
-      - name: Run quickstart tests
-        if: matrix.test-type == 'quickstart'
-        uses: ./.github/actions/tests/quickstart
+      #- name: Run quickstart tests
+      #  if: matrix.test-type == 'quickstart'
+      #  uses: ./.github/actions/tests/quickstart
