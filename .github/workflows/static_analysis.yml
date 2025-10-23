@@ -112,17 +112,16 @@ jobs:
   #         pip install prospector
   #         prospector src/ || true
 
-  # ruff:
-  #   runs-on: ubuntu-latest
-  #   continue-on-error: true
-  #   steps:
-  #     - name: Checkout the code
-  #       uses: actions/checkout@v4
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
 
-  #     - name: Linting with ruff
-  #       run: |
-  #         pip install ruff
-  #         ruff check src/ || true
+      - name: Linting with ruff
+        run: |
+          pip install ruff
+          ruff check --select I src/**/*.py
 
   # pylint:
   #   runs-on: ubuntu-latest
