@@ -22,6 +22,7 @@ from struphy.fields_background.equils import set_defaults
 from struphy.io.options import (
     OptsKernel,
     OptsMPIsort,
+    OptsVecSpace,
     check_option,
 )
 from struphy.io.setup import descend_options_dict
@@ -400,85 +401,106 @@ class PushEtaPC(Propagator):
     * ``heun3`` (3rd order)
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["use_perp_model"] = [True, False]
+    class Variables:
+        def __init__(self):
+            self._var: PICVariable | SPHVariable = None
 
-        if default:
-            dct = descend_options_dict(dct, [])
+        @property
+        def var(self) -> PICVariable | SPHVariable:
+            return self._var
 
-        return dct
+        @var.setter
+        def var(self, new):
+            assert isinstance(new, PICVariable | SPHVariable)
+            self._var = new
 
-    def __init__(
-        self,
-        particles: Particles,
-        *,
-        u: BlockVector | PolarVector,
-        use_perp_model: bool = options(default=True)["use_perp_model"],
-        u_space: str,
-    ):
-        super().__init__(particles)
+    def __init__(self):
+        self.variables = self.Variables()
 
-        assert isinstance(u, (BlockVector, PolarVector))
+    @dataclass
+    class Options:
+        butcher: ButcherTableau = None
+        use_perp_model: bool = True
+        u_tilde: FEECVariable = None
+        u_space: OptsVecSpace = "Hdiv"
 
-        self._u = u
+        def __post_init__(self):
+            # checks
+            check_option(self.u_space, OptsVecSpace)
+            assert isinstance(self.u_tilde, FEECVariable)
 
-        # call Pusher class
-        if use_perp_model:
-            if u_space == "Hcurl":
-                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hcurl)
-            elif u_space == "Hdiv":
-                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hdiv)
-            elif u_space == "H1vec":
-                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_H1vec)
-            else:
-                raise ValueError(
-                    f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
-                )
+            # defaults
+            if self.butcher is None:
+                self.butcher = ButcherTableau()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        self._u_tilde = self.options.u_tilde.spline.vector
+
+        # get kernell:
+        if self.options.u_space == "Hcurl":
+            kernel = Pyccelkernel(pusher_kernels.push_pc_eta_stage_Hcurl)
+        elif self.options.u_space == "Hdiv":
+            kernel = Pyccelkernel(pusher_kernels.push_pc_eta_stage_Hdiv)
+        elif self.options.u_space == "H1vec":
+            kernel = Pyccelkernel(pusher_kernels.push_pc_eta_stage_H1vec)
         else:
-            if u_space == "Hcurl":
-                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hcurl_full)
-            elif u_space == "Hdiv":
-                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hdiv_full)
-            elif u_space == "H1vec":
-                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_H1vec_full)
-            else:
-                raise ValueError(
-                    f'{u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
-                )
+            raise ValueError(
+                f'{self.options.u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+            )
+
+        # define algorithm
+        butcher = self.options.butcher
+        # temp fix due to refactoring of ButcherTableau:
+        import cunumpy as xp
+
+        butcher._a = xp.diag(butcher.a, k=-1)
+        butcher._a = xp.array(list(butcher.a) + [0.0])
 
         args_kernel = (
             self.derham.args_derham,
-            self._u[0]._data,
-            self._u[1]._data,
-            self._u[2]._data,
+            self._u_tilde[0]._data,
+            self._u_tilde[1]._data,
+            self._u_tilde[2]._data,
+            self.options.use_perp_model,
+            butcher.a,
+            butcher.b,
+            butcher.c,
         )
 
         self._pusher = Pusher(
-            particles,
+            self.variables.var.particles,
             kernel,
             args_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
-            n_stages=4,
+            n_stages=butcher.n_stages,
             mpi_sort="each",
         )
 
     def __call__(self, dt):
-        # check if ghost regions are synchronized
-        if not self._u[0].ghost_regions_in_sync:
-            self._u[0].update_ghost_regions()
-        if not self._u[1].ghost_regions_in_sync:
-            self._u[1].update_ghost_regions()
-        if not self._u[2].ghost_regions_in_sync:
-            self._u[2].update_ghost_regions()
+        self._u_tilde.update_ghost_regions()
 
         self._pusher(dt)
 
         # update_weights
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if self.variables.var.particles.control_variate:
+            self.variables.var.particles.update_weights()
 
 
 class PushGuidingCenterBxEstar(Propagator):

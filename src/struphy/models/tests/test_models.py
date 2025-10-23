@@ -35,14 +35,10 @@ for name, obj in inspect.getmembers(kinetic):
 if rank == 0:
     print(f"\n{kinetic_models = }")
 
-hybrid_models = [
-    "LinearMHDDriftkineticCC",
-    "LinearMHDVlasovCC",
-    "ColdPlasmaVlasov",
-]
-# for name, obj in inspect.getmembers(hybrid):
-#     if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
-#         hybrid_models += [name]
+hybrid_models = []
+for name, obj in inspect.getmembers(hybrid):
+    if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
+        hybrid_models += [name]
 if rank == 0:
     print(f"\n{hybrid_models = }")
 

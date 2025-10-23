@@ -301,208 +301,191 @@ class LinearMHDVlasovPC(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    @staticmethod
-    def species():
-        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+    ## species
+    class EnergeticIons(ParticleSpecies):
+        def __init__(self):
+            self.var = PICVariable(space="Particles6D")
+            self.init_variables()
 
-        dct["em_fields"]["b_field"] = "Hdiv"
-        dct["fluid"]["mhd"] = {
-            "density": "L2",
-            "velocity": "Hdiv",
-            "pressure": "L2",
-        }
-        dct["kinetic"]["energetic_ions"] = "Particles6D"
-        return dct
+    class EMFields(FieldSpecies):
+        def __init__(self):
+            self.b_field = FEECVariable(space="Hdiv")
+            self.init_variables()
 
-    @staticmethod
-    def bulk_species():
-        return "mhd"
+    class MHD(FluidSpecies):
+        def __init__(self):
+            self.density = FEECVariable(space="L2")
+            self.pressure = FEECVariable(space="L2")
+            self.velocity = FEECVariable(space="Hdiv")
+            self.init_variables()
 
-    @staticmethod
-    def velocity_scale():
+    ## propagators
+
+    class Propagators:
+        def __init__(self, turn_off: tuple[str, ...] = (None,)):
+            if not "PushEtaPC" in turn_off:
+                self.push_eta_pc = propagators_markers.PushEtaPC()
+            if not "PushVxB" in turn_off:
+                self.push_vxb = propagators_markers.PushVxB()
+            if not "PressureCoupling6D" in turn_off:
+                self.pc6d = propagators_coupling.PressureCoupling6D()
+            if not "ShearAlfven" in turn_off:
+                self.shearalfven = propagators_fields.ShearAlfven()
+            if not "Magnetosonic" in turn_off:
+                self.magnetosonic = propagators_fields.Magnetosonic()
+
+    def __init__(self, turn_off: tuple[str, ...] = (None,)):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        # 1. instantiate all species
+        self.em_fields = self.EMFields()
+        self.mhd = self.MHD()
+        self.energetic_ions = self.EnergeticIons()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators(turn_off)
+
+        # 3. assign variables to propagators
+        if not "ShearAlfven" in turn_off:
+            self.propagators.shearalfven.variables.u = self.mhd.velocity
+            self.propagators.shearalfven.variables.b = self.em_fields.b_field
+        if not "Magnetosonic" in turn_off:
+            self.propagators.magnetosonic.variables.n = self.mhd.density
+            self.propagators.magnetosonic.variables.u = self.mhd.velocity
+            self.propagators.magnetosonic.variables.p = self.mhd.pressure
+        if not "PressureCoupling6D" in turn_off:
+            self.propagators.pc6d.variables.u = self.mhd.velocity
+            self.propagators.pc6d.variables.energetic_ions = self.energetic_ions.var
+        if not "PushEtaPC" in turn_off:
+            self.propagators.push_eta_pc.variables.var = self.energetic_ions.var
+        if not "PushVxB" in turn_off:
+            self.propagators.push_vxb.variables.ions = self.energetic_ions.var
+
+        # define scalars for update_scalar_quantities
+        self.add_scalar("en_U")
+        self.add_scalar("en_p")
+        self.add_scalar("en_B")
+        self.add_scalar("en_f", compute="from_particles", variable=self.energetic_ions.var)
+        self.add_scalar(
+            "en_tot",
+            summands=[
+                "en_U",
+                "en_p",
+                "en_B",
+                "en_f",
+            ],
+        )
+
+    @property
+    def bulk_species(self):
+        return self.mhd
+
+    @property
+    def velocity_scale(self):
         return "alfvén"
 
-    @staticmethod
-    def propagators_dct():
-        return {
-            propagators_markers.PushEtaPC: ["energetic_ions"],
-            propagators_markers.PushVxB: ["energetic_ions"],
-            propagators_coupling.PressureCoupling6D: ["energetic_ions", "mhd_velocity"],
-            propagators_fields.ShearAlfven: ["mhd_velocity", "b_field"],
-            propagators_fields.Magnetosonic: ["mhd_density", "mhd_velocity", "mhd_pressure"],
-        }
-
-    __em_fields__ = species()["em_fields"]
-    __fluid_species__ = species()["fluid"]
-    __kinetic_species__ = species()["kinetic"]
-    __bulk_species__ = bulk_species()
-    __velocity_scale__ = velocity_scale()
-    __propagators__ = [prop.__name__ for prop in propagators_dct()]
-
-    # add special options
-    @classmethod
-    def options(cls):
-        dct = super().options()
-        cls.add_option(
-            species=["fluid", "mhd"],
-            key="u_space",
-            option="Hdiv",
-            dct=dct,
-        )
-        return dct
-
-    def __init__(self, params, comm, clone_config=None):
-        # initialize base class
-        super().__init__(params, comm=comm, clone_config=clone_config)
-
-        from struphy.polar.basic import PolarVector
-
-        # extract necessary parameters
-        u_space = params["fluid"]["mhd"]["options"]["u_space"]
-        params_alfven = params["fluid"]["mhd"]["options"]["ShearAlfven"]
-        params_sonic = params["fluid"]["mhd"]["options"]["Magnetosonic"]
-        params_vxb = params["kinetic"]["energetic_ions"]["options"]["PushVxB"]
-        params_pressure = params["kinetic"]["energetic_ions"]["options"]["PressureCoupling6D"]
-
-        # use perp model
-        assert (
-            params["kinetic"]["energetic_ions"]["options"]["PressureCoupling6D"]["use_perp_model"]
-            == params["kinetic"]["energetic_ions"]["options"]["PressureCoupling6D"]["use_perp_model"]
-        )
-        use_perp_model = params["kinetic"]["energetic_ions"]["options"]["PressureCoupling6D"]["use_perp_model"]
-
-        # compute coupling parameters
-        Ab = params["fluid"]["mhd"]["phys_params"]["A"]
-        Ah = params["kinetic"]["energetic_ions"]["phys_params"]["A"]
-        epsilon = self.equation_params["energetic_ions"]["epsilon"]
-
-        if abs(epsilon - 1) < 1e-6:
-            epsilon = 1.0
-
-        self._coupling_params = {}
-        self._coupling_params["Ab"] = Ab
-        self._coupling_params["Ah"] = Ah
-        self._coupling_params["epsilon"] = epsilon
-
-        # add control variate to mass_ops object
-        if self.pointer["energetic_ions"].control_variate:
-            self.mass_ops.weights["f0"] = self.pointer["energetic_ions"].f0
-
-        # Project magnetic field
-        self._b_eq = self.derham.P["2"](
-            [
-                self.equil.b2_1,
-                self.equil.b2_2,
-                self.equil.b2_3,
-            ]
-        )
-        self._p_eq = self.derham.P["3"](self.equil.p3)
-        self._ones = self._p_eq.space.zeros()
-
+    def allocate_helpers(self):
+        self._ones = self.projected_equil.p3.space.zeros()
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
             self._ones[:] = 1.0
 
-        # set keyword arguments for propagators
-        self._kwargs[propagators_markers.PushEtaPC] = {
-            "u": self.pointer["mhd_velocity"],
-            "use_perp_model": use_perp_model,
-            "u_space": u_space,
-        }
-
-        self._kwargs[propagators_markers.PushVxB] = {
-            "algo": params_vxb["algo"],
-            "kappa": epsilon,
-            "b2": self.pointer["b_field"],
-            "b2_add": self._b_eq,
-        }
-
-        if params_pressure["turn_off"]:
-            self._kwargs[propagators_coupling.PressureCoupling6D] = None
-        else:
-            self._kwargs[propagators_coupling.PressureCoupling6D] = {
-                "use_perp_model": use_perp_model,
-                "u_space": u_space,
-                "solver": params_pressure["solver"],
-                "coupling_params": self._coupling_params,
-                "filter": params_pressure["filter"],
-                "boundary_cut": params_pressure["boundary_cut"],
-            }
-
-        if params_alfven["turn_off"]:
-            self._kwargs[propagators_fields.ShearAlfven] = None
-        else:
-            self._kwargs[propagators_fields.ShearAlfven] = {
-                "u_space": u_space,
-                "solver": params_alfven["solver"],
-            }
-
-        if params_sonic["turn_off"]:
-            self._kwargs[propagators_fields.Magnetosonic] = None
-        else:
-            self._kwargs[propagators_fields.Magnetosonic] = {
-                "b": self.pointer["b_field"],
-                "u_space": u_space,
-                "solver": params_sonic["solver"],
-            }
-
-        # Initialize propagators used in splitting substeps
-        self.init_propagators()
-
-        # Scalar variables to be saved during simulation:
-        self.add_scalar("en_U", compute="from_field")
-        self.add_scalar("en_p", compute="from_field")
-        self.add_scalar("en_B", compute="from_field")
-        self.add_scalar("en_f", compute="from_particles", species="energetic_ions")
-        self.add_scalar("en_tot", summands=["en_U", "en_p", "en_B", "en_f"])
-        self.add_scalar("n_lost_particles", compute="from_particles", species="energetic_ions")
-
-        # temporary vectors for scalar quantities
-        self._tmp_u = self.derham.Vh["2"].zeros()
-        self._tmp_b1 = self.derham.Vh["2"].zeros()
-        self._tmp = xp.empty(1, dtype=float)
+        self._en_f = xp.empty(1, dtype=float)
         self._n_lost_particles = xp.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
+        # scaling factor
+        Ab = self.mhd.mass_number
+        Ah = self.energetic_ions.var.species.mass_number
+
         # perturbed fields
-        if "Hdiv" == "Hdiv":
-            en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.pointer["mhd_velocity"], self.pointer["mhd_velocity"])
-        else:
-            en_U = 0.5 * self.mass_ops.Mvn.dot_inner(self.pointer["mhd_velocity"], self.pointer["mhd_velocity"])
-        en_B = 0.5 * self.mass_ops.M2.dot_inner(self.pointer["b_field"], self.pointer["b_field"])
-        en_p = self.pointer["mhd_pressure"].inner(self._ones) / (5 / 3 - 1)
+        en_U = 0.5 * self.mass_ops.M2n.dot_inner(
+            self.mhd.velocity.spline.vector,
+            self.mhd.velocity.spline.vector,
+        )
+        en_B = 0.5 * self.mass_ops.M2.dot_inner(
+            self.em_fields.b_field.spline.vector,
+            self.em_fields.b_field.spline.vector,
+        )
+        en_p = self.mhd.pressure.spline.vector.inner(self._ones) / (5 / 3 - 1)
 
         self.update_scalar("en_U", en_U)
         self.update_scalar("en_B", en_B)
         self.update_scalar("en_p", en_p)
 
-        # particles
-        self._tmp[0] = (
-            self._coupling_params["Ah"]
-            / self._coupling_params["Ab"]
-            * self.pointer["energetic_ions"]
-            .markers_wo_holes[:, 6]
-            .dot(
-                self.pointer["energetic_ions"].markers_wo_holes[:, 3] ** 2
-                + self.pointer["energetic_ions"].markers_wo_holes[:, 4] ** 2
-                + self.pointer["energetic_ions"].markers_wo_holes[:, 5] ** 2,
+        # particles' energy
+        particles = self.energetic_ions.var.particles
+
+        self._en_f[0] = (
+            particles.markers[~particles.holes, 6].dot(
+                particles.markers[~particles.holes, 3] ** 2
+                + particles.markers[~particles.holes, 4] ** 2
+                + particles.markers[~particles.holes, 5] ** 2
             )
-            / (2.0)
+            / 2.0
+            * Ah
+            / Ab
         )
 
-        self.update_scalar("en_f", self._tmp[0])
-        self.update_scalar("en_tot", en_U + en_B + en_p + self._tmp[0])
+        self.update_scalar("en_f", self._en_f[0])
+        self.update_scalar("en_tot")
 
-        # Print number of lost ions
-        self._n_lost_particles[0] = self.pointer["energetic_ions"].n_lost_markers
-        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
-        if self.rank_world == 0:
-            print(
-                "ratio of lost particles: ",
-                self._n_lost_particles[0] / self.pointer["energetic_ions"].Np * 100,
-                "%",
+        # print number of lost particles
+        n_lost_markers = xp.array(particles.n_lost_markers)
+
+        if self.derham.comm is not None:
+            self.derham.comm.Allreduce(
+                MPI.IN_PLACE,
+                n_lost_markers,
+                op=MPI.SUM,
             )
+
+        if self.clone_config is not None:
+            self.clone_config.inter_comm.Allreduce(
+                MPI.IN_PLACE,
+                n_lost_markers,
+                op=MPI.SUM,
+            )
+
+        if rank == 0:
+            print(
+                "Lost particle ratio: ",
+                n_lost_markers / particles.Np * 100,
+                "% \n",
+            )
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "magnetosonic.Options" in line:
+                    new_file += [
+                        """model.propagators.magnetosonic.options = model.propagators.magnetosonic.Options(
+                        b_field=model.em_fields.b_field,)\n"""
+                    ]
+
+                elif "push_eta_pc.Options" in line:
+                    new_file += [
+                        """model.propagators.push_eta_pc.options = model.propagators.push_eta_pc.Options(
+                        u_tilde = model.mhd.velocity,)\n"""
+                    ]
+
+                elif "push_vxb.Options" in line:
+                    new_file += [
+                        """model.propagators.push_vxb.options = model.propagators.push_vxb.Options(
+                        b2_var = model.em_fields.b_field,)\n"""
+                    ]
+
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
 
 
 class LinearMHDDriftkineticCC(StruphyModel):
