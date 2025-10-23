@@ -1,0 +1,16 @@
+name: "Run model tests"
+
+runs:
+  using: composite
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        struphy compile --status
+        struphy test LinearMHD
+        struphy test toy
+        struphy test models --mpi 1
+        struphy test models --mpi 2
+        struphy test models --mpi 3
+        struphy test models --mpi 4
+        struphy test verification --mpi 4

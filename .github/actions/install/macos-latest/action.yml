@@ -1,0 +1,26 @@
+name: "Install MacOS prereqs"
+
+runs:
+  using: composite
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        brew update
+        brew install python3
+        brew install gcc
+        brew install openblas
+        brew install lapack
+        brew install open-mpi
+        brew install libomp
+        brew install git
+        brew install pandoc
+        brew install cmake
+        brew link --overwrite cmake
+        cmake --version 
+        make -v
+        system_profiler SPHardwareDataType
+        export FC=`which gfortran` # for gvec
+        export CC=`which gcc` # for gvec
+        export CXX=`which g++` # for gvec
+        brew install netcdf-fortran
