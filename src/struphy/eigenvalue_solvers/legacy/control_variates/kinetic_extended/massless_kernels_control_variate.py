@@ -27,6 +27,7 @@ def uvpre(
     bn3: "float[:,:,:,:]",
 ):
     from numpy import empty, exp, zeros
+
     # -- removed omp: #$ omp parallel
     # -- removed omp: #$ omp do private (ie1, ie2, ie3, q1, q2, q3, il1, il2, il3, value)
 

@@ -1,28 +1,33 @@
-## Version 2.4.5
+## Struphy 2.5.0
 
 ### Headlines
 
-* Enable `pyccel 2.0` (https://github.com/pyccel/pyccel) !678
-* New interface to `gvec` Python API (https://gitlab.mpcdf.mpg.de/gvec-group/gvec) !705 and !723
+* Base install and run without `mpi4py` !775
+* Addition of a solver for saddle point problems based on the Uzawa algorithm !624
+* New convergence tests for SPH density evaluation: all unit tests are done for the available SPH boundary conditions `periodic`, `mirror` (-> Neumann) and `fixed` (-> Dirichlet) !724 
+* Integration of [RatGUI](https://rat-gui.com/) for magnetic coil fields !576
 
 ### Other user news
 
-* Rename `Particles` parameter `eps -> bufsize` for more clarity !690
-* Particle simulations: save weights together with orbits !690
-* Add `mpi_dims_mask` for mesh-less simulations !690
-* Added `gravity` and `thermodynamics` (isothermal or polytropic) options to `PushVinSPHpressure` !690
-* Add options `gaussian_xy` and `step_function_x` to the `ConstanVelocity` fluid background !690
-* Allow for running `struphy run` without specifying the model if `model: MODEL` is specified in the params !708
-* Remove the `-d` flag from `struphy pproc`, now just run `struphy pproc sim_1 sim_2 ...` !709
-* New variational MHD model with $q = \sqrt{p}$ as a variable !697
+* Verification of model `Maxwell` with analytic solution of coaxial cable !733
+* Improved auto-sampling of markers (-> importance sampling) !735
+* Add `struphy params MODEL --check-file FILE` and the model name in the params file !707
+* Store `Domain` and `Equilibrium` input paramaters unchanged !745
 
 ### Developer news
 
-* New methods in `Particles`: `n_mks_on_each_proc`, `n_mks_on_clone`, `n_mks_on_each_clone` and `n_mks_global`; they refer to valid markers (not holes or ghosts) !690
-* The CI pipeline no longer runs on every push, only on pushes to branches which currently have a MR with devel or master !719
+* Refactor console module !711
+* Use `MarkerArguments` in `accum_kernels` !635
+* Format all source files !737
+* Code profiling: Improvements of the time traces !713
+* Expose documentation and lint reports as artifacts in each MR !747
+* Added `ssort` to the linters !762 
+* Added a `Pyccelkernel` class with a __call__ method !759
+* Added an `xp` module: this helps with importing `numpy`/`cupy` depending on the environment variable `ARRAY_BACKEND` !768
 
 ### Bug fixes
 
-* Print user warning and temrinate MPI when out-of-bounds error occurs due to load imbalance in particles comm !690
-* Do NOT duplicate marker IDs when working with clones !690
-* Enable running `cprofile` without a grid !690
+* Allow float evaluation in GVEC equilibrium !729
+* Remove cyclic dependencies between folders !736
+* Post-processing of multiple output folders fixed !744
+* Remove deepcopy from `DESCunit` !772
