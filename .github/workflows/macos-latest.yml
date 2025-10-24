@@ -1,8 +1,20 @@
-name: macos-latest
-on: push
+# name: MacOS
+# on:
+#   push:
+#     branches:
+#       - main
+#       - devel
+#   pull_request:
+#     branches:
+#       - main
+#       - devel
 
-jobs:
-  macos-latest-build:
-    uses: ./.github/workflows/main.yml
-    with:
-      os: macos-latest
+# # concurrency:
+# #   group: ${{ github.ref }}
+# #   cancel-in-progress: true
+
+# jobs:
+#   macos-latest-build:
+#     uses: ./.github/workflows/testing.yml
+#     with:
+#       os: macos-latest

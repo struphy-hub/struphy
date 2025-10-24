@@ -1,4 +1,4 @@
-from numpy import abs, empty, log, pi, shape, sign, sqrt, zeros
+from numpy import abs, empty, log, mod, pi, shape, sign, sqrt, zeros
 from pyccel.decorators import stack_array
 
 import struphy.bsplines.bsplines_kernels as bsplines_kernels
@@ -14,7 +14,7 @@ from struphy.bsplines.evaluation_kernels_3d import (
     eval_vectorfield_spline_mpi,
     get_spans,
 )
-from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments, MarkerArguments
 
 
 def eval_magnetic_moment_5d(
@@ -331,6 +331,71 @@ def eval_magnetic_energy(
     # -- removed omp: #$ omp end parallel
 
 
+@stack_array("dfm", "eta")
+def eval_magnetic_energy_PBb(
+    markers: "float[:,:]",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    first_diagnostics_idx: int,
+    abs_B0: "float[:,:,:]",
+    PBb: "float[:,:,:]",
+):
+    r"""
+    Evaluate :math:`mu_p |B(\boldsymbol \eta_p)_\parallel|` for each marker.
+    The result is stored at markers[:, first_diagnostics_idx].
+    """
+    eta = empty(3, dtype=float)
+
+    dfm = empty((3, 3), dtype=float)
+
+    # get number of markers
+    n_markers = shape(markers)[0]
+
+    for ip in range(n_markers):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        eta[:] = mod(markers[ip, 0:3], 1.0)
+
+        weight = markers[ip, 7]
+        dweight = markers[ip, 5]
+
+        mu = markers[ip, first_diagnostics_idx + 1]
+
+        # spline evaluation
+        span1, span2, span3 = get_spans(eta[0], eta[1], eta[2], args_derham)
+
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta[0],
+            eta[1],
+            eta[2],
+            args_domain,
+            dfm,
+        )
+
+        # abs_B0; 0form
+        abs_B = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            abs_B0,
+        )
+
+        # PBb; 0form
+        PB_b = eval_0form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            PBb,
+        )
+
+        markers[ip, first_diagnostics_idx] = mu * (abs_B + PB_b)
+
+
 @stack_array("v", "dfm", "b2", "norm_b_cart", "temp", "v_perp", "Larmor_r")
 def eval_guiding_center_from_6d(
     markers: "float[:,:]",
@@ -441,189 +506,101 @@ def eval_guiding_center_from_6d(
         markers[ip, first_diagnostics_idx + 2] = z - Larmor_r[2]
 
 
-@stack_array("grad_PB", "tmp")
-def accum_gradI_const(
-    markers: "float[:,:]",
-    Np: "int",
+@stack_array("dfm", "df_t", "g", "g_inv", "gradB, grad_PB_b", "tmp", "eta_mid", "eta_diff")
+def eval_gradB_ediff(
+    args_markers: "MarkerArguments",
+    args_domain: "DomainArguments",
     args_derham: "DerhamArguments",
-    grad_PB1: "float[:,:,:]",
-    grad_PB2: "float[:,:,:]",
-    grad_PB3: "float[:,:,:]",
-    scale: "float",
+    gradB1: "float[:,:,:]",
+    gradB2: "float[:,:,:]",
+    gradB3: "float[:,:,:]",
+    grad_PB_b1: "float[:,:,:]",
+    grad_PB_b2: "float[:,:,:]",
+    grad_PB_b3: "float[:,:,:]",
+    idx: int,
 ):
     r"""TODO"""
+
+    # allocate metric coeffs
+    dfm = empty((3, 3), dtype=float)
+    df_t = empty((3, 3), dtype=float)
+    g = empty((3, 3), dtype=float)
+    g_inv = empty((3, 3), dtype=float)
+
     # allocate for magnetic field evaluation
-    grad_PB = empty(3, dtype=float)
+    gradB = empty(3, dtype=float)
+    grad_PB_b = empty(3, dtype=float)
     tmp = empty(3, dtype=float)
+    eta_mid = empty(3, dtype=float)
+    eta_diff = empty(3, dtype=float)
 
-    # allocate for filling
-    res = zeros(1, dtype=float)
+    # get marker arguments
+    markers = args_markers.markers
+    n_markers = args_markers.n_markers
+    mu_idx = args_markers.mu_idx
+    first_init_idx = args_markers.first_init_idx
+    first_free_idx = args_markers.first_free_idx
 
-    # get number of markers
-    n_markers_loc = shape(markers)[0]
-
-    for ip in range(n_markers_loc):
+    for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
             continue
 
-        # marker positions
-        eta1 = markers[ip, 0]  # mid
-        eta2 = markers[ip, 1]  # mid
-        eta3 = markers[ip, 2]  # mid
+        # marker positions, mid point
+        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
+        eta_mid[:] = mod(eta_mid[:], 1.0)
+
+        eta_diff = markers[ip, 0:3] - markers[ip, first_init_idx : first_init_idx + 3]
 
         # marker weight and velocity
         weight = markers[ip, 5]
-        mu = markers[ip, 9]
+        mu = markers[ip, mu_idx]
 
         # b-field evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+        span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
+        # print(span1, span2, span3)
 
-        # grad_PB; 1form
+        # evaluate Jacobian, result in dfm
+        evaluation_kernels.df(
+            eta_mid[0],
+            eta_mid[1],
+            eta_mid[2],
+            args_domain,
+            dfm,
+        )
+
+        linalg_kernels.transpose(dfm, df_t)
+        linalg_kernels.matrix_matrix(df_t, dfm, g)
+        linalg_kernels.matrix_inv(g, g_inv)
+
+        # gradB; 1form
         eval_1form_spline_mpi(
             span1,
             span2,
             span3,
             args_derham,
-            grad_PB1,
-            grad_PB2,
-            grad_PB3,
-            grad_PB,
+            gradB1,
+            gradB2,
+            gradB3,
+            gradB,
         )
 
-        tmp[:] = markers[ip, 15:18]
-        res += linalg_kernels.scalar_dot(tmp, grad_PB) * weight * mu * scale
-
-    return res / Np
-
-
-def accum_en_fB(
-    markers: "float[:,:]",
-    Np: "int",
-    args_derham: "DerhamArguments",
-    PB: "float[:,:,:]",
-):
-    r"""TODO"""
-
-    # allocate for filling
-    res = zeros(1, dtype=float)
-
-    # get number of markers
-    n_markers_loc = shape(markers)[0]
-
-    for ip in range(n_markers_loc):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        # marker positions
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-
-        # marker weight and velocity
-        mu = markers[ip, 9]
-        weight = markers[ip, 5]
-
-        # b-field evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
-        B0 = eval_0form_spline_mpi(
+        # grad_PB_b; 1form
+        eval_1form_spline_mpi(
             span1,
             span2,
             span3,
             args_derham,
-            PB,
+            grad_PB_b1,
+            grad_PB_b2,
+            grad_PB_b3,
+            grad_PB_b,
         )
 
-        res += abs(B0) * mu * weight
+        tmp = gradB + grad_PB_b
 
-    return res / Np
-
-
-@stack_array("e", "e_diff")
-def check_eta_diff(markers: "float[:,:]"):
-    r"""TODO"""
-    # marker position e
-    e = empty(3, dtype=float)
-    e_diff = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers_loc = shape(markers)[0]
-
-    for ip in range(n_markers_loc):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        e[:] = markers[ip, 0:3]
-        e_diff[:] = e[:] - markers[ip, 9:12]
-
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.0
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.0
-
-        markers[ip, 15:18] = e_diff[:]
-
-
-@stack_array("e", "e_diff")
-def check_eta_diff2(markers: "float[:,:]"):
-    r"""TODO"""
-    # marker position e
-    e = empty(3, dtype=float)
-    e_diff = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers_loc = shape(markers)[0]
-
-    for ip in range(n_markers_loc):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        e[:] = markers[ip, 0:3]
-        e_diff[:] = e[:] - markers[ip, 12:15]
-
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_diff[axis] -= 1.0
-            elif e_diff[axis] < -0.5:
-                e_diff[axis] += 1.0
-
-        markers[ip, 15:18] = e_diff[:]
-
-
-@stack_array("e", "e_diff", "e_mid")
-def check_eta_mid(markers: "float[:,:]"):
-    r"""TODO"""
-    # marker position e
-    e = empty(3, dtype=float)
-    e_diff = empty(3, dtype=float)
-    e_mid = empty(3, dtype=float)
-
-    # get number of markers
-    n_markers_loc = shape(markers)[0]
-
-    for ip in range(n_markers_loc):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        e[:] = markers[ip, 0:3]
-        markers[ip, 12:15] = e[:]
-
-        e_diff[:] = e[:] - markers[ip, 9:12]
-        e_mid[:] = (e[:] + markers[ip, 9:12]) / 2.0
-
-        for axis in range(3):
-            if e_diff[axis] > 0.5:
-                e_mid[axis] += 0.5
-            elif e_diff[axis] < -0.5:
-                e_mid[axis] += 0.5
-
-        markers[ip, 0:3] = e_mid[:]
+        markers[ip, idx] = linalg_kernels.scalar_dot(eta_diff, tmp)
+        markers[ip, idx] *= mu
 
 
 @stack_array("dfm", "dfinv", "dfinv_t", "v", "a_form", "dfta_form")

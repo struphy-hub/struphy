@@ -61,19 +61,20 @@ def save_state(state, libpath=STRUPHY_LIBPATH):
 
 def print_all_attr(obj):
     """Print all object's attributes that do not start with "_" to screen."""
-    from struphy.utils.arrays import xp as np
+    import cunumpy as xp
 
     for k in dir(obj):
         if k[0] != "_":
             v = getattr(obj, k)
-            if isinstance(v, np.ndarray):
+            if isinstance(v, xp.ndarray):
                 v = f"{type(getattr(obj, k))} of shape {v.shape}"
             if "proj_" in k or "quad_grid_" in k:
                 v = "(arrays not displayed)"
             print(k.ljust(26), v)
 
 
-def dict_to_yaml(dictionary, output):
+def dict_to_yaml(dictionary: dict, output: str):
+    """Write dictionary to file and save in output."""
     with open(output, "w") as file:
         yaml.dump(
             dictionary,
@@ -110,15 +111,15 @@ def refresh_models():
     list_fluid = []
     fluid_string = ""
     for name, obj in inspect.getmembers(fluid):
-        if inspect.isclass(obj):
-            if name not in {"StruphyModel", "Propagator"}:
-                list_fluid += [name]
-                fluid_string += '"' + name + '"\n'
+        if inspect.isclass(obj) and obj.__module__ == fluid.__name__:
+            # if name not in {"StruphyModel", "Propagator"}:
+            list_fluid += [name]
+            fluid_string += '"' + name + '"\n'
 
     list_kinetic = []
     kinetic_string = ""
     for name, obj in inspect.getmembers(kinetic):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == kinetic.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_kinetic += [name]
                 kinetic_string += '"' + name + '"\n'
@@ -126,7 +127,7 @@ def refresh_models():
     list_hybrid = []
     hybrid_string = ""
     for name, obj in inspect.getmembers(hybrid):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == hybrid.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_hybrid += [name]
                 hybrid_string += '"' + name + '"\n'
@@ -134,7 +135,7 @@ def refresh_models():
     list_toy = []
     toy_string = ""
     for name, obj in inspect.getmembers(toy):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == toy.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_toy += [name]
                 toy_string += '"' + name + '"\n'

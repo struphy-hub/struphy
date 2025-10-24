@@ -1,14 +1,14 @@
 "Base classes for kinetic backgrounds."
 
-import copy
 from abc import ABCMeta, abstractmethod
+from typing import Callable
 
-from struphy.fields_background.base import FluidEquilibrium
+import numpy as np
+
+from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
-from struphy.initial import perturbations
+from struphy.initial.base import Perturbation
 from struphy.initial.utilities import Noise
-from struphy.kinetic_background import moment_functions
-from struphy.utils.arrays import xp as np
 
 
 class KineticBackground(metaclass=ABCMeta):
@@ -46,8 +46,8 @@ class KineticBackground(metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def volume_form(self):
-        """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian)."""
+    def volume_form(self) -> bool:
+        """True if the background is represented as a volume form (thus including the velocity Jacobian)."""
         pass
 
     @abstractmethod
@@ -106,7 +106,7 @@ class KineticBackground(metaclass=ABCMeta):
 
         Returns
         -------
-        f0 : np.ndarray
+        f0 : xp.ndarray
             The evaluated background.
         """
         pass
@@ -121,12 +121,12 @@ class KineticBackground(metaclass=ABCMeta):
         return ScalarMultiplyKineticBackground(self, a)
 
     def __div__(self, a):
-        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
         assert a != 0, "Cannot divide by zero!"
         return ScalarMultiplyKineticBackground(self, 1 / a)
 
     def __rdiv__(self, a):
-        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
         assert a != 0, "Cannot divide by zero!"
         return ScalarMultiplyKineticBackground(self, 1 / a)
 
@@ -144,6 +144,10 @@ class SumKineticBackground(KineticBackground):
 
         self._f1 = f1
         self._f2 = f2
+
+        if hasattr(f1, "_equil"):
+            assert f1.equil is f2.equil
+            self._equil = f1.equil
 
     @property
     def coords(self):
@@ -164,6 +168,13 @@ class SumKineticBackground(KineticBackground):
     def volume_form(self):
         """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian)."""
         return self._f1.volume_form
+
+    @property
+    def equil(self) -> FluidEquilibriumWithB:
+        """Fluid background with B-field."""
+        if not hasattr(self, "_equil"):
+            self._equil = None
+        return self._equil
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """Jacobian determinant of the velocity coordinate transformation."""
@@ -198,8 +209,10 @@ class SumKineticBackground(KineticBackground):
 
         n1 = self._f1.n(*etas)
         n2 = self._f2.n(*etas)
+        u1s = self._f1.u(*etas)
+        u2s = self._f2.u(*etas)
 
-        return [(n1 * u1 + n2 * u2) / (n1 + n2) for u1, u2 in zip(self._f1.u(*etas), self._f2.u(*etas))]
+        return [(n1 * u1 + n2 * u2) / (n1 + n2) for u1, u2 in zip(u1s, u2s)]
 
     def __call__(self, *args):
         """Evaluates the background distribution function f0(etas, v1, ..., vn).
@@ -221,7 +234,7 @@ class SumKineticBackground(KineticBackground):
 
         Returns
         -------
-        f0 : np.ndarray
+        f0 : xp.ndarray
             The evaluated background.
         """
         return self._f1(*args) + self._f2(*args)
@@ -230,7 +243,7 @@ class SumKineticBackground(KineticBackground):
 class ScalarMultiplyKineticBackground(KineticBackground):
     def __init__(self, f0, a):
         assert isinstance(f0, KineticBackground)
-        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, np.int64)
+        assert isinstance(a, float) or isinstance(a, int) or isinstance(a, xp.int64)
 
         self._f = f0
         self._a = a
@@ -307,7 +320,7 @@ class ScalarMultiplyKineticBackground(KineticBackground):
 
         Returns
         -------
-        f0 : np.ndarray
+        f0 : xp.ndarray
             The evaluated background.
         """
         return self._a * self._f(*args)
@@ -328,40 +341,6 @@ class Maxwellian(KineticBackground):
     and the thermal velocities :math:`v_{\mathrm{th},i}(\boldsymbol{\eta})`.
     """
 
-    def __init__(
-        self,
-        maxw_params: dict = None,
-        pert_params: dict = None,
-        equil: FluidEquilibrium = None,
-    ):
-        # Set background parameters
-        if maxw_params is None:
-            maxw_params = {}
-        assert isinstance(maxw_params, dict)
-        self._maxw_params = set_defaults(
-            maxw_params,
-            self.default_maxw_params(),
-        )
-
-        # check if fluid background is needed
-        for key, val in self.maxw_params.items():
-            if val == "fluid_background":
-                assert equil is not None
-
-        # parameters for perturbation
-        if pert_params is None:
-            pert_params = {}
-        assert isinstance(pert_params, dict)
-        self._pert_params = pert_params
-
-        # Fluid equilibrium
-        self._equil = equil
-
-    @classmethod
-    def default_maxw_params(cls):
-        """Default parameters dictionary defining constant moments of the Maxwellian."""
-        pass
-
     @abstractmethod
     def vth(self, *etas):
         """Thermal velocities (0-forms).
@@ -378,21 +357,18 @@ class Maxwellian(KineticBackground):
         pass
 
     @property
-    def maxw_params(self):
-        """Parameters dictionary defining constant moments of the Maxwellian."""
-        return self._maxw_params
+    @abstractmethod
+    def maxw_params(self) -> dict:
+        """Parameters dictionary defining moments of the Maxwellian."""
 
-    @property
-    def pert_params(self):
-        """Parameters dictionary defining the perturbations."""
-        return self._pert_params
+    def check_maxw_params(self):
+        for k, v in self.maxw_params.items():
+            assert isinstance(k, str)
+            assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
+            assert len(v) == 2
 
-    @property
-    def equil(self):
-        """One of :mod:`~struphy.fields_background.equils`
-        in case that moments are to be set in that way, None otherwise.
-        """
-        return self._equil
+            assert isinstance(v[0], (float, int, Callable))
+            assert isinstance(v[1], Perturbation) or v[1] is None
 
     @classmethod
     def gaussian(self, v, u=0.0, vth=1.0, polar=False, volume_form=False):
@@ -420,14 +396,14 @@ class Maxwellian(KineticBackground):
         An array of size(v).
         """
 
-        if isinstance(v, np.ndarray) and isinstance(u, np.ndarray):
+        if isinstance(v, xp.ndarray) and isinstance(u, xp.ndarray):
             assert v.shape == u.shape, f"{v.shape = } but {u.shape = }"
 
         if not polar:
-            out = 1.0 / vth * 1.0 / np.sqrt(2.0 * np.pi) * np.exp(-((v - u) ** 2) / (2.0 * vth**2))
+            out = 1.0 / vth * 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-((v - u) ** 2) / (2.0 * vth**2))
         else:
-            assert np.all(v >= 0.0)
-            out = 1.0 / vth**2 * np.exp(-((v - u) ** 2) / (2.0 * vth**2))
+            assert xp.all(v >= 0.0)
+            out = 1.0 / vth**2 * xp.exp(-((v - u) ** 2) / (2.0 * vth**2))
             if volume_form:
                 out *= v
 
@@ -453,16 +429,16 @@ class Maxwellian(KineticBackground):
 
         Returns
         -------
-        f : np.ndarray
+        f : xp.ndarray
             The evaluated Maxwellian.
         """
 
         # Check that all args have the same shape
-        shape0 = np.shape(args[0])
+        shape0 = xp.shape(args[0])
         for i, arg in enumerate(args):
-            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
-            assert np.ndim(arg) == 1 or np.ndim(arg) == 3 + self.vdim, (
-                f"{np.ndim(arg) = } not allowed for Maxwellian evaluation."
+            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) = }, but must be {shape0 = }."
+            assert xp.ndim(arg) == 1 or xp.ndim(arg) == 3 + self.vdim, (
+                f"{xp.ndim(arg) = } not allowed for Maxwellian evaluation."
             )  # flat or meshgrid evaluation
 
         # Get result evaluated at eta's
@@ -471,33 +447,33 @@ class Maxwellian(KineticBackground):
         vths = self.vth(*args[: -self.vdim])
 
         # take care of correct broadcasting, assuming args come from phase space meshgrid
-        if np.ndim(args[0]) > 3:
+        if xp.ndim(args[0]) > 3:
             # move eta axes to the back
-            arg_t = np.moveaxis(args[0], 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
+            arg_t = xp.moveaxis(args[0], 0, -1)
+            arg_t = xp.moveaxis(arg_t, 0, -1)
+            arg_t = xp.moveaxis(arg_t, 0, -1)
 
             # broadcast
             res_broad = res + 0.0 * arg_t
 
             # move eta axes to the front
-            res = np.moveaxis(res_broad, -1, 0)
-            res = np.moveaxis(res, -1, 0)
-            res = np.moveaxis(res, -1, 0)
+            res = xp.moveaxis(res_broad, -1, 0)
+            res = xp.moveaxis(res, -1, 0)
+            res = xp.moveaxis(res, -1, 0)
 
         # Multiply result with gaussian in v's
         for i, v in enumerate(args[-self.vdim :]):
             # correct broadcasting
-            if np.ndim(args[0]) > 3:
+            if xp.ndim(args[0]) > 3:
                 u_broad = us[i] + 0.0 * arg_t
-                u = np.moveaxis(u_broad, -1, 0)
-                u = np.moveaxis(u, -1, 0)
-                u = np.moveaxis(u, -1, 0)
+                u = xp.moveaxis(u_broad, -1, 0)
+                u = xp.moveaxis(u, -1, 0)
+                u = xp.moveaxis(u, -1, 0)
 
                 vth_broad = vths[i] + 0.0 * arg_t
-                vth = np.moveaxis(vth_broad, -1, 0)
-                vth = np.moveaxis(vth, -1, 0)
-                vth = np.moveaxis(vth, -1, 0)
+                vth = xp.moveaxis(vth_broad, -1, 0)
+                vth = xp.moveaxis(vth, -1, 0)
+                vth = xp.moveaxis(vth, -1, 0)
             else:
                 u = us[i]
                 vth = vths[i]
@@ -506,7 +482,7 @@ class Maxwellian(KineticBackground):
 
         return res
 
-    def _evaluate_moment(self, eta1, eta2, eta3, *, name="n"):
+    def _evaluate_moment(self, eta1, eta2, eta3, *, name: str = "n", add_perturbation: bool = None):
         """Scalar moment evaluation as background + perturbation.
 
         Parameters
@@ -516,6 +492,12 @@ class Maxwellian(KineticBackground):
 
         name : str
             Which moment to evaluate (see varaible "dct" below).
+            
+        add_perturbation : bool | None
+            Whether to add the perturbation defined in maxw_params. If None, is taken from self.add_perturbation.
+
+        add_perturbation : bool | None
+            Whether to add the perturbation defined in maxw_params. If None, is taken from self.add_perturbation.
 
         Returns
         -------
@@ -523,15 +505,19 @@ class Maxwellian(KineticBackground):
         """
 
         # collect arguments
-        assert isinstance(eta1, np.ndarray)
-        assert isinstance(eta2, np.ndarray)
-        assert isinstance(eta3, np.ndarray)
+        assert isinstance(eta1, xp.ndarray)
+        assert isinstance(eta2, xp.ndarray)
+        assert isinstance(eta3, xp.ndarray)
         assert eta1.shape == eta2.shape == eta3.shape
+
+        params = self.maxw_params[name]
+        assert isinstance(params, tuple)
+        assert len(params) == 2
 
         # flat evaluation for markers
         if eta1.ndim == 1:
             etas = [
-                np.concatenate(
+                xp.concatenate(
                     (eta1[:, None], eta2[:, None], eta3[:, None]),
                     axis=1,
                 ),
@@ -564,232 +550,49 @@ class Maxwellian(KineticBackground):
         else:
             out = 0.0 * etas[0]
 
-        # correspondence name -> equilibrium attribute
-        dct = {
-            "n": "n0",
-            "u1": "u_cart_1",
-            "u2": "u_cart_2",
-            "u3": "u_cart_3",
-            "vth1": "vth0",
-            "vth2": "vth0",
-            "vth3": "vth0",
-            "u_para": "u_para0",
-            "u_perp": None,
-            "vth_para": "vth0",
-            "vth_perp": "vth0",
-        }
-
-        # fluid background
-        if self.maxw_params[name] == "fluid_background":
-            if dct[name] is not None:
-                out += getattr(self.equil, dct[name])(*etas)
-                if name in ("n") or "vth" in name:
-                    assert np.all(out > 0.0), f"{name} must be positive!"
-            else:
-                print(f'Moment evaluation with "fluid_background" not implemented for {name}.')
-
-        # when using moment functions, see test https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/kinetic_background/tests/test_maxwellians.py?ref_type=heads#L1760
-        elif isinstance(self.maxw_params[name], dict):
-            mom_funcs = copy.deepcopy(self.maxw_params[name])
-            for typ, params in mom_funcs.items():
-                assert params["given_in_basis"] == "0", "Moment functions must be passed as 0-forms to Maxwellians."
-                params.pop("given_in_basis")
-                nfun = getattr(moment_functions, typ)(**params)
-                if eta1.ndim == 1:
-                    out += nfun(eta1, eta2, eta3)
-                else:
-                    out += nfun(*etas)
-
-        # constant background
+        # evaluate background
+        background = params[0]
+        if isinstance(background, (float, int)):
+            out += background
         else:
+            assert callable(background)
+            # if eta1.ndim == 1:
+            #     out += background(eta1, eta2, eta3)
+            # else:
+            out += background(*etas)
+
+        # add perturbation
+        if add_perturbation is None:
+            add_perturbation = self.add_perturbation
+        
+        perturbation = params[1]
+        if perturbation is not None and add_perturbation:
+            assert isinstance(perturbation, Perturbation)
             if eta1.ndim == 1:
-                out += self.maxw_params[name]
+                out += perturbation(eta1, eta2, eta3)
             else:
-                out += self.maxw_params[name]
-
-        # add possible perturbations
-        if name in self.pert_params:
-            pp_copy = copy.deepcopy(self.pert_params)
-            for pert, params in pp_copy[name].items():
-                if pert == "Noise":
-                    noise = Noise(**params)
-                    if eta1.ndim == 1:
-                        out += noise(eta1, eta2, eta3)
-                    else:
-                        out += noise(*etas)
-                else:
-                    assert params["given_in_basis"] == "0", (
-                        "Moment perturbations must be passed as 0-forms to Maxwellians."
-                    )
-                    params.pop("given_in_basis")
-
-                    perturbation = getattr(perturbations, pert)(
-                        **params,
-                    )
-
-                    if eta1.ndim == 1:
-                        out += perturbation(eta1, eta2, eta3)
-                    else:
-                        out += perturbation(*etas)
+                out += perturbation(*etas)
 
         return out
-
-
-class CanonicalMaxwellian(metaclass=ABCMeta):
-    r"""Base class for a canonical Maxwellian distribution function.
-    It is defined by three constants of motion in the axissymmetric toroidal system:
-
-    - Shifted canonical toroidal momentum
-
-    .. math::
-
-        \psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B),
-
-    - Energy
-
-    .. math::
-
-        \epsilon = \frac{1}{2}m_sv_\parallel² + \mu B,
-
-    - Magnetic moment
-
-    .. math::
-
-        \mu = \frac{m_s v_\perp²}{2B},
-
-    where :math:`\psi` is the poloidal magnetic flux function, :math:`F=F(\psi)` is the poloidal current function and :math:`\mathcal{H}` is the Heaviside function.
-
-    With the three constants of motion, a canonical Maxwellian distribution function is defined as
-
-    .. math::
-
-        F(\psi_c, \epsilon, \mu) = \frac{n(\psi_c)}{(2\pi)^{3/2}v_\text{th}³(\psi_c)} \text{exp}\left[ - \frac{\epsilon}{v_\text{th}²(\psi_c)}\right].
-
-    """
+    
+    @property
+    def add_perturbation(self) -> bool:
+        if not hasattr(self, "_add_perturbation"):
+            self._add_perturbation = True
+        return self._add_perturbation
+    
+    @add_perturbation.setter
+    def add_perturbation(self, new):
+        assert isinstance(new, bool)
+        self._add_perturbation = new
 
     @property
-    @abstractmethod
-    def coords(self):
-        """Coordinates of the distribution."""
-        pass
+    def add_perturbation(self) -> bool:
+        if not hasattr(self, "_add_perturbation"):
+            self._add_perturbation = True
+        return self._add_perturbation
 
-    @abstractmethod
-    def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
-        """Jacobian determinant of the velocity coordinate transformation."""
-        pass
-
-    @abstractmethod
-    def n(self, psic):
-        """Number density (0-form).
-
-        Parameters
-        ----------
-        psic : numpy.arrays
-            Shifted canonical toroidal momentum.
-
-        Returns
-        -------
-        A numpy.array with the density evaluated at evaluation points (same shape as etas).
-        """
-        pass
-
-    @abstractmethod
-    def vth(self, psic):
-        """Thermal velocities (0-forms).
-
-        Parameters
-        ----------
-        psic : numpy.arrays
-            Shifted canonical toroidal momentum.
-
-        Returns
-        -------
-        A numpy.array with the thermal velocity evaluated at evaluation points (one dimension more than etas).
-        The additional dimension is in the first index.
-        """
-        pass
-
-    def gaussian(self, e, vth=1.0):
-        """3-dim. normal distribution, to which array-valued thermal velocities can be passed.
-
-        Parameters
-        ----------
-        e : float | array-like
-            Energy.
-
-        vth : float | array-like
-            Thermal velocity evaluated at psic.
-
-        Returns
-        -------
-        An array of size(e).
-        """
-
-        if isinstance(vth, np.ndarray):
-            assert e.shape == vth.shape, f"{e.shape = } but {vth.shape = }"
-
-        return 2.0 * np.sqrt(e / np.pi) / vth**3 * np.exp(-e / vth**2)
-
-    def __call__(self, *args):
-        """Evaluates the canonical Maxwellian distribution function.
-
-        There are two use-cases for this function in the code:
-
-        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
-        2. Evaluating the function on a meshgrid (in phase space).
-
-        Hence all arguments must always have
-
-        1. the same shape
-        2. either ndim = 1 or ndim = 3.
-
-        Parameters
-        ----------
-        *args : array_like
-            Position-velocity arguments in the order energy, magnetic moment, canonical toroidal momentum.
-
-        Returns
-        -------
-        f : np.ndarray
-            The evaluated Maxwellian.
-        """
-
-        # Check that all args have the same shape
-        shape0 = np.shape(args[0])
-        for i, arg in enumerate(args):
-            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
-            assert np.ndim(arg) == 1 or np.ndim(arg) == 3, (
-                f"{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation."
-            )  # flat or meshgrid evaluation
-
-        # Get result evaluated with each particles' psic
-        res = self.n(args[2])
-        vths = self.vth(args[2])
-
-        # take care of correct broadcasting, assuming args come from phase space meshgrid
-        if np.ndim(args[0]) == 3:
-            # move eta axes to the back
-            arg_t = np.moveaxis(args[0], 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
-
-            # broadcast
-            res_broad = res + 0.0 * arg_t
-
-            # move eta axes to the front
-            res = np.moveaxis(res_broad, -1, 0)
-            res = np.moveaxis(res, -1, 0)
-            res = np.moveaxis(res, -1, 0)
-
-        # Multiply result with gaussian in energy
-        if np.ndim(args[0]) == 3:
-            vth_broad = vths + 0.0 * arg_t
-            vth = np.moveaxis(vth_broad, -1, 0)
-            vth = np.moveaxis(vth, -1, 0)
-            vth = np.moveaxis(vth, -1, 0)
-        else:
-            vth = vths
-
-        res *= self.gaussian(args[0], vth=vth)
-
-        return res
+    @add_perturbation.setter
+    def add_perturbation(self, new):
+        assert isinstance(new, bool)
+        self._add_perturbation = new

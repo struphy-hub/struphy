@@ -1,9 +1,9 @@
+import cunumpy as xp
 from numpy import empty, exp, floor, zeros
 
 import struphy.bsplines.bsplines_kernels as bsp
 import struphy.geometry.mappings_kernels as mapping_fast
 import struphy.linear_algebra.linalg_kernels as linalg
-from struphy.utils.arrays import xp as np
 
 
 # ==========================================================================================

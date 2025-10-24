@@ -1,16 +1,13 @@
 "Accelerated particle pushing."
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from mpi4py import MPI
-else:
-    from psydac.ddm.mpi import mpi as MPI
+import numpy as np
+from line_profiler import profile
+from mpi4py.MPI import IN_PLACE, SUM
+from line_profiler import profile
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
-from struphy.utils.arrays import xp as np
 from struphy.utils.pyccel import Pyccelkernel
 
 
@@ -138,7 +135,7 @@ class Pusher:
             comps = ker_args[2]
 
             # check marker array column number
-            assert isinstance(comps, np.ndarray)
+            assert isinstance(comps, xp.ndarray)
             assert column_nr + comps.size < particles.n_cols, (
                 f"{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!"
             )
@@ -150,7 +147,7 @@ class Pusher:
             comps = ker_args[3]
 
             # check marker array column number
-            assert isinstance(comps, np.ndarray)
+            assert isinstance(comps, xp.ndarray)
             assert column_nr + comps.size < particles.n_cols, (
                 f"{column_nr + comps.size} not smaller than {particles.n_cols = }; not enough columns in marker array !!"
             )
@@ -158,7 +155,7 @@ class Pusher:
         self._init_kernels = init_kernels
         self._eval_kernels = eval_kernels
 
-        self._residuals = np.zeros(self.particles.markers.shape[0])
+        self._residuals = xp.zeros(self.particles.markers.shape[0])
         self._converged_loc = self._residuals == 1.0
         self._not_converged_loc = self._residuals == 0.0
 
@@ -167,6 +164,7 @@ class Pusher:
         else:
             self._box_comm = False
 
+    @profile
     def __call__(self, dt: float):
         """
         Applies the chosen pusher kernel by a time step dt,
@@ -212,7 +210,7 @@ class Pusher:
             add_args = ker_args[3]
 
             ker(
-                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+                xp.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
                 column_nr,
                 comps,
                 self.particles.args_markers,
@@ -227,7 +225,7 @@ class Pusher:
         # start stages (e.g. n_stages=4 for RK4)
         for stage in range(self.n_stages):
             # start iteration (maxiter=1 for explicit schemes)
-            n_not_converged = np.empty(1, dtype=int)
+            n_not_converged = xp.empty(1, dtype=int)
             n_not_converged[0] = self.particles.n_mks_loc
             k = 0
 
@@ -301,12 +299,12 @@ class Pusher:
                 # compute number of non-converged particles (maxiter=1 for explicit schemes)
                 if self.maxiter > 1:
                     self._residuals[:] = markers[:, residual_idx]
-                    max_res = np.max(self._residuals)
+                    max_res = xp.max(self._residuals)
                     if max_res < 0.0:
                         max_res = None
                     self._converged_loc[:] = self._residuals < self._tol
                     self._not_converged_loc[:] = ~self._converged_loc
-                    n_not_converged[0] = np.count_nonzero(
+                    n_not_converged[0] = xp.count_nonzero(
                         self._not_converged_loc,
                     )
 
