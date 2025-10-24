@@ -6,4 +6,13 @@ runs:
     - name: Run unit tests
       shell: bash
       run: |
+        struphy compile --status
+        struphy --refresh-models
         struphy test unit
+
+    - name: Run unit tests with MPI
+      shell: bash
+      run: |
+        struphy compile --status
+        struphy --refresh-models
+        struphy test unit --mpi 2
