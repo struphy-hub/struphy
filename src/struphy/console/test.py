@@ -19,7 +19,7 @@ def struphy_test(
         Test identifier: "unit", "models", "fluid", "kinetic", "hybrid", "toy", "verification" or a model name.
 
     mpi : int
-        Number of MPI processes used in tests (must be >1, default=2).
+        Number of MPI processes used in tests (default=1).
 
     with_desc : bool
         Whether to include DESC equilibrium in unit tests (mem consuming).

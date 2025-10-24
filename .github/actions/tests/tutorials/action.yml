@@ -1,0 +1,12 @@
+name: "Run tutorial tests"
+
+runs:
+  using: composite
+  steps:
+    - name: Run turorial tests
+      shell: bash
+      run: |
+        pwd
+        ls -1a
+        which python
+        jupyter nbconvert --to notebook --execute tutorials/*.ipynb
