@@ -69,6 +69,9 @@ mpi = [
 ]
 doc = [
     "struphy[phys]",
+    "jupyter",
+    "nbconvert",
+    "ipykernel",
     "sphinx",
     "sphinx-design",
     "lxml_html_clean",
@@ -129,7 +132,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 ]
 struphy = [
     "compile_struphy.mk",
-    "psydac-2.4.5.dev0-py3-none-any.whl",
+    "psydac-2.5.0.dev0-py3-none-any.whl",
 ]
 
 [tool.autopep8]
@@ -141,14 +144,13 @@ ignore = [
 [tool.isort]
 profile = "black"
 line_length = 120
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-combine_as_imports = true
+# multi_line_output = 3
+# include_trailing_comma = true
+# force_grid_wrap = 0
+# combine_as_imports = true
 
 [tool.pylint]
 max-line-length = 120
-quote-style = "single"
 
 [tool.ruff]
 line-length = 120

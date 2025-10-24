@@ -1,0 +1,17 @@
+name: "Run quickstart"
+
+runs:
+  using: composite
+  steps:
+    - name: Run quickstart
+      shell: bash
+      run: |
+        struphy -p
+        struphy -h
+        struphy params VlasovAmpereOneSpecies 
+        ls -1a
+        mv params_VlasovAmpereOneSpecies.py test.py
+        python3 test.py
+        ls sim_1/
+        mpirun -n 2 python3 test.py
+        LINE_PROFILE=1 mpirun -n 2 python3 test.py
