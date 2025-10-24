@@ -22,7 +22,7 @@ runs:
         brew link --overwrite cmake
         cmake --version 
         make -v
-        system_profiler SPHardwareDataType
+        # system_profiler SPHardwareDataType
         # Update environment variables
         echo "FC=$(which gfortran)" >> $GITHUB_ENV # for gvec
         echo "CC=$(which gcc)" >> $GITHUB_ENV # for gvec
