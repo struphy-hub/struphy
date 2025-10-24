@@ -1,5 +1,13 @@
 name: MacOS
-on: push
+on:
+  push:
+    branches:
+      - main
+      - devel
+  pull_request:
+    branches:
+      - main
+      - devel
 
 concurrency:
   group: ${{ github.ref }}
@@ -7,6 +15,6 @@ concurrency:
 
 jobs:
   macos-latest-build:
-    uses: ./.github/workflows/main.yml
+    uses: ./.github/workflows/testing.yml
     with:
       os: macos-latest
