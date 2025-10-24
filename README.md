@@ -1,4 +1,6 @@
-![Struphy header](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/struphy_header_with_subs.png)
+<h1 align="center">
+<img src="https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/struphy_header_with_subs.png">
+</h1><br>
 
 [![Ubuntu latest](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml)
 [![MacOS latest](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml)

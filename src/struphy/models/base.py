@@ -44,6 +44,9 @@ class StruphyModel(metaclass=ABCMeta):
     """
     Base class for all Struphy models.
 
+    <p><span
+class="math inline"><em>x</em><sup>2</sup> + <em>y</em><sup>2</sup> = <em>z</em><sup>2</sup></span></p>
+
     Note
     ----
     All Struphy models are subclasses of ``StruphyModel`` and should be added to ``struphy/models/``
