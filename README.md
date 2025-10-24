@@ -5,11 +5,11 @@
 [![Ubuntu latest](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml)
 [![MacOS latest](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml)
 [![isort and ruff](https://github.com/struphy-hub/struphy/actions/workflows/static_analysis.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/static_analysis.yml)
-![PyPI](https://img.shields.io/pypi/v/struphy?label=PyPI)
+[![PyPI](https://img.shields.io/pypi/v/struphy?label=PyPI)](https://pypi.org/project/struphy/)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/struphy.svg?label=PyPI%20downloads)](
 https://pypi.org/project/struphy/)
-![Release](https://img.shields.io/github/v/release/struphy-hub/struphy?label=Release)
-![License](https://img.shields.io/badge/License-MIT-violet)
+[![Release](https://img.shields.io/github/v/release/struphy-hub/struphy?label=Release)](https://github.com/struphy-hub/struphy/releases)
+[![License](https://img.shields.io/badge/License-MIT-violet)](https://github.com/struphy-hub/struphy/blob/devel/LICENSE)
 
 # Welcome!
 
