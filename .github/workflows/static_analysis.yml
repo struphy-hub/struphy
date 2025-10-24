@@ -1,4 +1,4 @@
-name: Static analysis
+name: isort & ruff
 
 on:
   push:
