@@ -56,7 +56,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
     elif mapping[0] == "Colella":
@@ -71,7 +71,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
         if show_plots:
@@ -89,7 +89,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
         if show_plots:
@@ -106,7 +106,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
         dirichlet_bc = [(False, False)] * 3
 
     dirichlet_bc = tuple(dirichlet_bc)
-    print(f"{dirichlet_bc = }")
+    print(f"{dirichlet_bc =}")
 
     # derham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
@@ -124,7 +124,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     # test calling the diagonal method
     aaa = mass_mats.M0.matrix.diagonal()
     bbb = mass_mats.M1.matrix.diagonal()
-    print(f"{aaa = }, {bbb[0, 0] = }, {bbb[0, 1] = }")
+    print(f"{aaa =}, {bbb[0, 0] =}, {bbb[0, 1] =}")
 
     # compare to old STRUPHY
     bc_old = [[None, None], [None, None], [None, None]]
@@ -220,7 +220,11 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     # Change order of input in callable
     rM1ninvswitch_psy = mass_mats.create_weighted_mass(
-        "Hcurl", "Hcurl", weights=["sqrt_g", "1/eq_n0", "Ginv"], name="M1ninv", assemble=True
+        "Hcurl",
+        "Hcurl",
+        weights=["sqrt_g", "1/eq_n0", "Ginv"],
+        name="M1ninv",
+        assemble=True,
     ).dot(x1_psy, apply_bc=True)
 
     rot_B = RotationMatrix(
@@ -229,7 +233,11 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
         mass_mats.weights[mass_mats.selected_weight].b2_3,
     )
     rM1Bninvswitch_psy = mass_mats.create_weighted_mass(
-        "Hcurl", "Hcurl", weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"], name="M1Bninv", assemble=True
+        "Hcurl",
+        "Hcurl",
+        weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"],
+        name="M1Bninv",
+        assemble=True,
     ).dot(x1_psy, apply_bc=True)
 
     # Test matrix free operators
@@ -255,7 +263,11 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     # Change order of input in callable
     rM1ninvswitch_fre = mass_mats_free.create_weighted_mass(
-        "Hcurl", "Hcurl", weights=["sqrt_g", "1/eq_n0", "Ginv"], name="M1ninvswitch", assemble=True
+        "Hcurl",
+        "Hcurl",
+        weights=["sqrt_g", "1/eq_n0", "Ginv"],
+        name="M1ninvswitch",
+        assemble=True,
     ).dot(x1_psy, apply_bc=True)
     rot_B = RotationMatrix(
         mass_mats_free.weights[mass_mats_free.selected_weight].b2_1,
@@ -264,7 +276,11 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     )
 
     rM1Bninvswitch_fre = mass_mats_free.create_weighted_mass(
-        "Hcurl", "Hcurl", weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"], name="M1Bninvswitch", assemble=True
+        "Hcurl",
+        "Hcurl",
+        weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"],
+        name="M1Bninvswitch",
+        assemble=True,
     ).dot(x1_psy, apply_bc=True)
 
     # compare output arrays
@@ -420,7 +436,7 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
             "n2": 4.0,
             "na": 0.0,
             "beta": 0.1,
-        }
+        },
     )
 
     if show_plots:
@@ -440,7 +456,14 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     # derham object
     derham = Derham(
-        Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc, with_projectors=False, polar_ck=1, domain=domain
+        Nel,
+        p,
+        spl_kind,
+        comm=mpi_comm,
+        dirichlet_bc=dirichlet_bc,
+        with_projectors=False,
+        polar_ck=1,
+        domain=domain,
     )
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
@@ -619,7 +642,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
     elif mapping[0] == "Colella":
@@ -634,7 +657,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
         if show_plots:
@@ -652,7 +675,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
         if show_plots:
@@ -926,7 +949,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
             "n2": 4.0,
             "na": 0.0,
             "beta": 0.1,
-        }
+        },
     )
 
     if show_plots:
@@ -946,7 +969,14 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
 
     # derham object
     derham = Derham(
-        Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc, with_projectors=False, polar_ck=1, domain=domain
+        Nel,
+        p,
+        spl_kind,
+        comm=mpi_comm,
+        dirichlet_bc=dirichlet_bc,
+        with_projectors=False,
+        polar_ck=1,
+        domain=domain,
     )
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))

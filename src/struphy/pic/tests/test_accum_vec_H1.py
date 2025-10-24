@@ -6,7 +6,8 @@ from struphy.utils.pyccel import Pyccelkernel
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(
-    "spl_kind", [[False, False, True], [False, True, True], [True, False, True], [True, True, True]]
+    "spl_kind",
+    [[False, False, True], [False, True, True], [True, False, True], [True, True, True]],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -156,7 +157,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     if clone_config is not None:
         clone_config.sub_comm.Allreduce(MPI.IN_PLACE, _sum_within_clone, op=MPI.SUM)
 
-    print(f"rank {mpi_rank}: {_sum_within_clone = }, {_sqrtg = }")
+    print(f"rank {mpi_rank}: {_sum_within_clone =}, {_sqrtg =}")
 
     # Check within clone
     assert xp.isclose(_sum_within_clone, _sqrtg)
@@ -169,7 +170,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         mpi_comm.Allreduce(MPI.IN_PLACE, _sum_between_clones, op=MPI.SUM)
         clone_config.inter_comm.Allreduce(MPI.IN_PLACE, _sqrtg, op=MPI.SUM)
 
-    print(f"rank {mpi_rank}: {_sum_between_clones = }, {_sqrtg = }")
+    print(f"rank {mpi_rank}: {_sum_between_clones =}, {_sqrtg =}")
 
     # Check within clone
     assert xp.isclose(_sum_between_clones, _sqrtg)

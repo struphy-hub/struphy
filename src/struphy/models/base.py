@@ -181,7 +181,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         if grid is None or derham_opts is None:
             if MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"\n{grid = }, {derham_opts = }: no Derham object set up.")
+                print(f"\n{grid =}, {derham_opts =}: no Derham object set up.")
             self._derham = None
         else:
             self._derham = setup_derham(
@@ -479,7 +479,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         assert isinstance(name, str), "name must be a string"
         if compute == "from_particles":
-            assert isinstance(variable, (PICVariable, SPHVariable)), f"Variable is needed when {compute = }"
+            assert isinstance(variable, (PICVariable, SPHVariable)), f"Variable is needed when {compute =}"
 
         if not hasattr(self, "_scalar_quantities"):
             self._scalar_quantities = {}
@@ -1156,7 +1156,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         print(
             'Options are given under the keyword "options" for each species dict. \
-Available options stand in lists as dict values.\nThe first entry of a list denotes the default value.'
+Available options stand in lists as dict values.\nThe first entry of a list denotes the default value.',
         )
 
         tab = "    "
@@ -1461,14 +1461,14 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
              grid=grid,\n\
              derham_opts=derham_opts,\n\
              verbose=verbose,\n\
-             )"
+             )",
         )
 
         file.close()
 
         print(
             f"\nDefault parameter file for '{self.__class__.__name__}' has been created in the cwd ({path}).\n\
-You can now launch a simulation with 'python params_{self.__class__.__name__}.py'"
+You can now launch a simulation with 'python params_{self.__class__.__name__}.py'",
         )
 
         return path

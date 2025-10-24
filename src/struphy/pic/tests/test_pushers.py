@@ -6,7 +6,8 @@ from struphy.utils.pyccel import Pyccelkernel
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+    "spl_kind",
+    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -141,7 +142,8 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+    "spl_kind",
+    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -287,7 +289,8 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+    "spl_kind",
+    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -433,7 +436,8 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+    "spl_kind",
+    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -579,7 +583,8 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+    "spl_kind",
+    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -727,7 +732,8 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
 @pytest.mark.parametrize(
-    "spl_kind", [[False, True, True], [True, False, True], [False, False, True], [True, True, True]]
+    "spl_kind",
+    [[False, True, True], [True, False, True], [False, False, True], [True, True, True]],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -880,7 +886,11 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
 if __name__ == "__main__":
     test_push_vxb_analytic(
-        [8, 9, 5], [4, 2, 3], [False, True, True], ["Colella", {"Lx": 2.0, "Ly": 2.0, "alpha": 0.1, "Lz": 4.0}], False
+        [8, 9, 5],
+        [4, 2, 3],
+        [False, True, True],
+        ["Colella", {"Lx": 2.0, "Ly": 2.0, "alpha": 0.1, "Lz": 4.0}],
+        False,
     )
     # test_push_bxu_Hdiv([8, 9, 5], [4, 2, 3], [False, True, True], ['Colella', {
     #     'Lx': 2., 'Ly': 2., 'alpha': 0.1, 'Lz': 4.}], False)

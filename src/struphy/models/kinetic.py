@@ -485,7 +485,7 @@ class VlasovMaxwellOneSpecies(StruphyModel):
                     new_file += ["model.initial_poisson.options = model.initial_poisson.Options()\n"]
                 elif "push_vxb.Options" in line:
                     new_file += [
-                        "model.propagators.push_vxb.options = model.propagators.push_vxb.Options(b2_var=model.em_fields.b_field)\n"
+                        "model.propagators.push_vxb.options = model.propagators.push_vxb.Options(b2_var=model.em_fields.b_field)\n",
                     ]
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
@@ -1087,11 +1087,11 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
                     new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
                 elif "push_gc_bxe.Options" in line:
                     new_file += [
-                        "model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi)\n"
+                        "model.propagators.push_gc_bxe.options = model.propagators.push_gc_bxe.Options(phi=model.em_fields.phi)\n",
                     ]
                 elif "push_gc_para.Options" in line:
                     new_file += [
-                        "model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi)\n"
+                        "model.propagators.push_gc_para.options = model.propagators.push_gc_para.Options(phi=model.em_fields.phi)\n",
                     ]
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]

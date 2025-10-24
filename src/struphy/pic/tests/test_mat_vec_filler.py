@@ -70,8 +70,11 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         for j in range(3):
             mat["v1"][-1] += [
                 StencilMatrix(
-                    DR.Vh["1"].spaces[i], DR.Vh["1"].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True
-                )._data
+                    DR.Vh["1"].spaces[i],
+                    DR.Vh["1"].spaces[j],
+                    backend=PSYDAC_BACKEND_GPYCCEL,
+                    precompiled=True,
+                )._data,
             ]
 
     vec["v1"] = []
@@ -84,8 +87,11 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         for j in range(3):
             mat["v2"][-1] += [
                 StencilMatrix(
-                    DR.Vh["2"].spaces[i], DR.Vh["2"].spaces[j], backend=PSYDAC_BACKEND_GPYCCEL, precompiled=True
-                )._data
+                    DR.Vh["2"].spaces[i],
+                    DR.Vh["2"].spaces[j],
+                    backend=PSYDAC_BACKEND_GPYCCEL,
+                    precompiled=True,
+                )._data,
             ]
 
     vec["v2"] = []
@@ -213,7 +219,13 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
                     for n, ij in enumerate(ind_pairs):
                         assert_mat(
-                            args[n], rows, cols, basis[space][ij[0]], basis[space][ij[1]], rank, verbose=False
+                            args[n],
+                            rows,
+                            cols,
+                            basis[space][ij[0]],
+                            basis[space][ij[1]],
+                            rank,
+                            verbose=False,
                         )  # assertion test of mat
                     if mv == "m_v":
                         for i in range(3):
@@ -230,7 +242,13 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
 
                     for n, ij in enumerate(ind_pairs):
                         assert_mat(
-                            args[n], rows, cols, basis[space][ij[0]], basis[space][ij[1]], rank, verbose=False
+                            args[n],
+                            rows,
+                            cols,
+                            basis[space][ij[0]],
+                            basis[space][ij[1]],
+                            rank,
+                            verbose=False,
                         )  # assertion test of mat
                     if mv == "m_v":
                         for i in range(3):
