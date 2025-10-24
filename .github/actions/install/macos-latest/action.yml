@@ -22,7 +22,8 @@ runs:
         cmake --version 
         make -v
         system_profiler SPHardwareDataType
-        export FC=`which gfortran` # for gvec
-        export CC=`which gcc` # for gvec
-        export CXX=`which g++` # for gvec
+        # Update environment variables
+        echo "FC=$(which gfortran)" >> $GITHUB_ENV # for gvec
+        echo "CC=$(which gcc)" >> $GITHUB_ENV # for gvec
+        echo "CXX=$(which g++)" >> $GITHUB_ENV # for gvec
         brew install netcdf-fortran
