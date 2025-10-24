@@ -1,7 +1,5 @@
-[![Testing](https://github.com/struphy-hub/struphy/actions/workflows/static_analysis.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/static_analysis.yml)
 [![Ubuntu latest](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml)
 [![MacOS latest](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml)
-
 ![PyPI](https://img.shields.io/pypi/v/struphy?label=pypi%20package)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/struphy.svg?label=PyPI%20downloads)](
 https://pypi.org/project/struphy/)
