@@ -28,7 +28,7 @@ jobs:
           ./cloc --version
           ./cloc $(git ls-files)
 
-  struphy lint all:
+  struphy_lint_all:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
