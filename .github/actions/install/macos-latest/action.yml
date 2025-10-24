@@ -23,9 +23,9 @@ runs:
         cmake --version 
         make -v
         system_profiler SPHardwareDataType
-        which gfortran
-        which gcc
-        which g++
+        which gfortran || echo "could not find gfortran"
+        which gcc || echo "could not find gcc"
+        which g++ || echo "could not find g++"
         # Update environment variables
         echo "FC=$(which gfortran)" >> $GITHUB_ENV # for gvec
         echo "CC=$(which gcc)" >> $GITHUB_ENV # for gvec
