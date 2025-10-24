@@ -159,8 +159,8 @@ def test_weak_Landau(do_plot: bool = False):
 
         # assert
         rel_error = xp.abs(gamma_num - gamma) / xp.abs(gamma)
-        assert rel_error < 0.22, f"Assertion for weak Landau damping failed: {gamma_num = } vs. {gamma = }."
-        print(f"Assertion for weak Landau damping passed ({rel_error = }).")
+        assert rel_error < 0.22, f"Assertion for weak Landau damping failed: {gamma_num =} vs. {gamma =}."
+        print(f"Assertion for weak Landau damping passed ({rel_error =}).")
 
 
 if __name__ == "__main__":

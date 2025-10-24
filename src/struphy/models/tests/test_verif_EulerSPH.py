@@ -133,7 +133,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
             plot_ct = 0
             for i in range(0, Nt + 1):
                 if i % interval == 0:
-                    print(f"{i = }")
+                    print(f"{i =}")
                     plot_ct += 1
                     ax = plt.gca()
 
@@ -150,14 +150,14 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
                     plt.xlabel("x")
                     plt.ylabel(r"$\rho$")
 
-                    plt.title(f"standing sound wave ($c_s = 1$) for {nx = } and {ppb = }")
+                    plt.title(f"standing sound wave ($c_s = 1$) for {nx =} and {ppb =}")
                 if plot_ct == 11:
                     break
 
             plt.show()
 
         error = xp.max(xp.abs(n_sph[0] - n_sph[-1]))
-        print(f"SPH sound wave {error = }.")
+        print(f"SPH sound wave {error =}.")
         assert error < 6e-4
         print("Assertion passed.")
 

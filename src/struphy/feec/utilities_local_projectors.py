@@ -592,10 +592,10 @@ def build_translation_list_for_non_zero_spline_indices(
 
     for h in range(3):
         translation_indices_B_or_D_splines[h]["B"][Basis_functions_indices_B[h]] = xp.arange(
-            len(Basis_functions_indices_B[h])
+            len(Basis_functions_indices_B[h]),
         )
         translation_indices_B_or_D_splines[h]["D"][Basis_functions_indices_D[h]] = xp.arange(
-            len(Basis_functions_indices_D[h])
+            len(Basis_functions_indices_D[h]),
         )
 
         if sp_id in {"Hcurl", "Hdiv", "H1vec"}:
@@ -610,7 +610,11 @@ def build_translation_list_for_non_zero_spline_indices(
 
 
 def evaluate_relevant_splines_at_relevant_points(
-    localpts, Bspaces_1d, Dspaces_1d, Basis_functions_indices_B, Basis_functions_indices_D
+    localpts,
+    Bspaces_1d,
+    Dspaces_1d,
+    Basis_functions_indices_B,
+    Basis_functions_indices_D,
 ):
     """This function evaluates all the B and D-splines that produce non-zeros in the BasisProjectionOperatorLocal's rows that belong to the current MPI rank over all the local evaluation points.
     They are store as float arrays in a dictionary of lists.
@@ -693,7 +697,15 @@ def evaluate_relevant_splines_at_relevant_points(
 
 
 def determine_non_zero_rows_for_each_spline(
-    Basis_functions_indices_B, Basis_functions_indices_D, starts, ends, p, B_nbasis, D_nbasis, periodic, IoH
+    Basis_functions_indices_B,
+    Basis_functions_indices_D,
+    starts,
+    ends,
+    p,
+    B_nbasis,
+    D_nbasis,
+    periodic,
+    IoH,
 ):
     """This function determines for which rows (amongst those belonging to the current MPI rank) of the BasisProjectionOperatorLocal each B and D spline, of relevance for the current MPI rank, produces
     non-zero entries and annotates this regions of non-zeros by saving the rows at which each region starts and ends.
@@ -792,7 +804,8 @@ def determine_non_zero_rows_for_each_spline(
 
 
 def get_splines_that_are_relevant_for_at_least_one_block(
-    Basis_function_indices_agreggated_B, Basis_function_indices_agreggated_D
+    Basis_function_indices_agreggated_B,
+    Basis_function_indices_agreggated_D,
 ):
     """This function builds one list with all the B-spline indices (and another one for the D-splines) that are required for at least one block of the FE coefficients
     the current MPI rank needs to build its share of the BasisProjectionOperatorLocal.

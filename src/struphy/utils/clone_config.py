@@ -230,7 +230,7 @@ class CloneConfig:
                     if marker_key in self.params["kinetic"][species_name]["markers"].keys():
                         params_value = self.params["kinetic"][species_name]["markers"][marker_key]
                         if params_value is not None:
-                            assert sum_value == params_value, f"{sum_value = } and {params_value = }"
+                            assert sum_value == params_value, f"{sum_value =} and {params_value =}"
                     sum_row += f"| {str(sum_value):30} "
 
             # Print the final message

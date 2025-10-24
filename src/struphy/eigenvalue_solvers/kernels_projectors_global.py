@@ -24,7 +24,13 @@ def kernel_int_2d(nq1: "int", nq2: "int", w1: "float[:]", w2: "float[:]", mat_f:
 
 # ========= kernel for integration in 3d ==================
 def kernel_int_3d(
-    nq1: "int", nq2: "int", nq3: "int", w1: "float[:]", w2: "float[:]", w3: "float[:]", mat_f: "float[:,:,:]"
+    nq1: "int",
+    nq2: "int",
+    nq3: "int",
+    w1: "float[:]",
+    w2: "float[:]",
+    w3: "float[:]",
+    mat_f: "float[:,:,:]",
 ) -> "float":
     f_loc = 0.0
 
@@ -47,7 +53,11 @@ def kernel_int_3d(
 
 # ========= kernel for integration along eta1 direction, reducing to a 2d array  ============================
 def kernel_int_2d_eta1(
-    subs1: "int[:]", subs_cum1: "int[:]", w1: "float[:,:]", mat_f: "float[:,:,:]", f_int: "float[:,:]"
+    subs1: "int[:]",
+    subs_cum1: "int[:]",
+    w1: "float[:,:]",
+    mat_f: "float[:,:,:]",
+    f_int: "float[:,:]",
 ):
     n1, n2 = shape(f_int)
 
@@ -66,7 +76,11 @@ def kernel_int_2d_eta1(
 
 # ========= kernel for integration along eta2 direction, reducing to a 2d array  ============================
 def kernel_int_2d_eta2(
-    subs2: "int[:]", subs_cum2: "int[:]", w2: "float[:,:]", mat_f: "float[:,:,:]", f_int: "float[:,:]"
+    subs2: "int[:]",
+    subs_cum2: "int[:]",
+    w2: "float[:,:]",
+    mat_f: "float[:,:,:]",
+    f_int: "float[:,:]",
 ):
     n1, n2 = shape(f_int)
 
@@ -167,7 +181,11 @@ def kernel_int_2d_eta1_eta2_old(w1: "float[:,:]", w2: "float[:,:]", mat_f: "floa
 
 # ========= kernel for integration along eta1 direction, reducing to a 3d array  ============================
 def kernel_int_3d_eta1(
-    subs1: "int[:]", subs_cum1: "int[:]", w1: "float[:,:]", mat_f: "float[:,:,:,:]", f_int: "float[:,:,:]"
+    subs1: "int[:]",
+    subs_cum1: "int[:]",
+    w1: "float[:,:]",
+    mat_f: "float[:,:,:,:]",
+    f_int: "float[:,:,:]",
 ):
     n1, n2, n3 = shape(f_int)
 
@@ -186,7 +204,11 @@ def kernel_int_3d_eta1(
 
 
 def kernel_int_3d_eta1_transpose(
-    subs1: "int[:]", subs_cum1: "int[:]", w1: "float[:,:]", f_int: "float[:,:,:]", mat_f: "float[:,:,:,:]"
+    subs1: "int[:]",
+    subs_cum1: "int[:]",
+    w1: "float[:,:]",
+    f_int: "float[:,:,:]",
+    mat_f: "float[:,:,:,:]",
 ):
     n1, n2, n3 = shape(f_int)
 
@@ -205,7 +227,11 @@ def kernel_int_3d_eta1_transpose(
 
 # ========= kernel for integration along eta2 direction, reducing to a 3d array  ============================
 def kernel_int_3d_eta2(
-    subs2: "int[:]", subs_cum2: "int[:]", w2: "float[:,:]", mat_f: "float[:,:,:,:]", f_int: "float[:,:,:]"
+    subs2: "int[:]",
+    subs_cum2: "int[:]",
+    w2: "float[:,:]",
+    mat_f: "float[:,:,:,:]",
+    f_int: "float[:,:,:]",
 ):
     n1, n2, n3 = shape(f_int)
 
@@ -224,7 +250,11 @@ def kernel_int_3d_eta2(
 
 
 def kernel_int_3d_eta2_transpose(
-    subs2: "int[:]", subs_cum2: "int[:]", w2: "float[:,:]", f_int: "float[:,:,:]", mat_f: "float[:,:,:,:]"
+    subs2: "int[:]",
+    subs_cum2: "int[:]",
+    w2: "float[:,:]",
+    f_int: "float[:,:,:]",
+    mat_f: "float[:,:,:,:]",
 ):
     n1, n2, n3 = shape(f_int)
 
@@ -243,7 +273,11 @@ def kernel_int_3d_eta2_transpose(
 
 # ========= kernel for integration along eta3 direction, reducing to a 3d array  ============================
 def kernel_int_3d_eta3(
-    subs3: "int[:]", subs_cum3: "int[:]", w3: "float[:,:]", mat_f: "float[:,:,:,:]", f_int: "float[:,:,:]"
+    subs3: "int[:]",
+    subs_cum3: "int[:]",
+    w3: "float[:,:]",
+    mat_f: "float[:,:,:,:]",
+    f_int: "float[:,:,:]",
 ):
     n1, n2, n3 = shape(f_int)
 
@@ -262,7 +296,11 @@ def kernel_int_3d_eta3(
 
 
 def kernel_int_3d_eta3_transpose(
-    subs3: "int[:]", subs_cum3: "int[:]", w3: "float[:,:]", f_int: "float[:,:,:]", mat_f: "float[:,:,:,:]"
+    subs3: "int[:]",
+    subs_cum3: "int[:]",
+    w3: "float[:,:]",
+    f_int: "float[:,:,:]",
+    mat_f: "float[:,:,:,:]",
 ):
     n1, n2, n3 = shape(f_int)
 
@@ -655,7 +693,11 @@ def kernel_int_3d_eta1_eta2_eta3_transpose(
 
 # ========= kernel for integration in eta1-eta2-eta3 cell, reducing to a 3d array  =======================
 def kernel_int_3d_eta1_eta2_eta3_old(
-    w1: "float[:,:]", w2: "float[:,:]", w3: "float[:,:]", mat_f: "float[:,:,:,:,:,:]", f_int: "float[:,:,:]"
+    w1: "float[:,:]",
+    w2: "float[:,:]",
+    w3: "float[:,:]",
+    mat_f: "float[:,:,:,:,:,:]",
+    f_int: "float[:,:,:]",
 ):
     ne1, nq1, ne2, nq2, ne3, nq3 = shape(mat_f)
 
