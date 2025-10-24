@@ -22,7 +22,7 @@ jobs:
         python-version: ["3.12"]
         os: ["ubuntu-latest"] #, "macos-latest"]
         compile-language: ["fortran", "c"]
-        test-type: ["unit", "model", "quickstart"]
+        test-type: ["unit", "unit-mpi", "model", "model-mpi", "quickstart", "tutorials"]
 
     steps:
       # Checkout the repository
@@ -93,3 +93,7 @@ jobs:
       - name: Run quickstart tests
         if: matrix.test-type == 'quickstart'
         uses: ./.github/actions/tests/quickstart
+
+      - name: Run tutorials
+        if: matrix.test-type == 'tutorials'
+        uses: ./.github/actions/tests/tutorials
