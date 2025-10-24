@@ -6,6 +6,9 @@ runs:
     - name: Install dependencies
       shell: bash
       run: |
+        set -euo pipefail
+        # ensure Homebrew bin is first
+        export PATH="/opt/homebrew/bin:$PATH"
         brew update
         # brew install python3
         brew install gcc
