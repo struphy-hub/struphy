@@ -20,7 +20,7 @@ keywords = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    ]
+]
 dependencies = [
     'numpy',
     'pyccel>=2.0',
@@ -41,8 +41,8 @@ file = "LICENSE"
 
 [project.optional-dependencies]
 phys = [
-    'gvec>=1.1.0',
-    'desc-opt',
+    "gvec<=1.1.0, >=1.1.0",
+    "desc-opt<=0.14.2",
 ]
 dev = [
     "notebook",
@@ -66,17 +66,17 @@ mpi = [
 ]
 doc = [
     "struphy[phys]",
-    "sphinx",
-    "sphinx-design",
-    "lxml_html_clean",
-    "sphinxcontrib-napoleon",
-    "pydata-sphinx-theme",
-    "nbsphinx",
-    "m2r2",
-    "myst-parser",
-    "mistune",
-    "docutils",
-    "ipyparallel",
+    "sphinx<=8.1.3",
+    "sphinx-design<=0.6.1",
+    "lxml_html_clean<=0.4.2",
+    "sphinxcontrib-napoleon<=0.7",
+    "pydata-sphinx-theme<=0.16.1",
+    "nbsphinx<=0.9.7",
+    "m2r2<=0.3.4",
+    "myst-parser<=4.0.1",
+    "mistune<=0.8.4",
+    "docutils<=0.21.2",
+    "ipyparallel<=9.0.1",
 ]
 likwid = [
     "struphy[dev]",
@@ -87,7 +87,6 @@ all = [
     "struphy[dev]",
     "struphy[mpi]",
     "struphy[doc]",
-    "struphy[likwid]",
 ]
 
 [project.urls]
