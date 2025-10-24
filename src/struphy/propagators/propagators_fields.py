@@ -2359,7 +2359,7 @@ class CurrentCoupling5DDensity(Propagator):
         b_tilde: FEECVariable = None
         ep_scale: float = 1.0
         u_space: OptsVecSpace = "Hdiv"
-        solver: OptsSymmSolver = "pcg"
+        solver: OptsGenSolver = "pbicgstab"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
@@ -2367,7 +2367,7 @@ class CurrentCoupling5DDensity(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.u_space, OptsVecSpace)
-            check_option(self.solver, OptsSymmSolver)
+            check_option(self.solver, OptsGenSolver)
             check_option(self.precond, OptsMassPrecond)
             assert isinstance(self.energetic_ions, PICVariable)
             assert self.energetic_ions.space == "Particles5D"

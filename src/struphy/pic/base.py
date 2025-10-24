@@ -1787,7 +1787,7 @@ class Particles(metaclass=ABCMeta):
         else:
             assert self.domain is not None, "A domain is needed to initialize weights."
 
-            if np.size(self.markers_wo_holes_and_ghost) == 0:
+            if xp.size(self.markers_wo_holes_and_ghost) == 0:
                 return
 
             # set initial condition
@@ -1847,7 +1847,7 @@ class Particles(metaclass=ABCMeta):
         The background :attr:`~struphy.pic.base.Particles.f0` is used for this.
         """
 
-        if np.size(self.markers_wo_holes_and_ghost) == 0:
+        if xp.size(self.markers_wo_holes_and_ghost) == 0:
             return
 
         if self.type == "sph":

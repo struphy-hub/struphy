@@ -671,10 +671,10 @@ class CanonicalMaxwellian(KineticBackground):
         An array of size(e).
         """
 
-        if isinstance(vth, np.ndarray):
+        if isinstance(vth, xp.ndarray):
             assert e.shape == vth.shape, f"{e.shape = } but {vth.shape = }"
 
-        out = 2.0 * np.sqrt(e / np.pi) / vth**3 * np.exp(-e / vth**2)
+        out = 2.0 * xp.sqrt(e / xp.pi) / vth**3 * xp.exp(-e / vth**2)
 
         return out
 
@@ -698,16 +698,16 @@ class CanonicalMaxwellian(KineticBackground):
 
         Returns
         -------
-        f : np.ndarray
+        f : xp.ndarray
             The evaluated Maxwellian.
         """
 
         # Check that all args have the same shape
-        shape0 = np.shape(args[0])
+        shape0 = xp.shape(args[0])
         for i, arg in enumerate(args):
-            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
-            assert np.ndim(arg) == 1 or np.ndim(arg) == 3, (
-                f"{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation."
+            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) = }, but must be {shape0 = }."
+            assert xp.ndim(arg) == 1 or xp.ndim(arg) == 3, (
+                f"{xp.ndim(arg) = } not allowed for canonical Maxwellian evaluation."
             )  # flat or meshgrid evaluation
 
         # Get result evaluated at eta's
@@ -716,27 +716,27 @@ class CanonicalMaxwellian(KineticBackground):
         vths = self.vth(psic)
 
         # take care of correct broadcasting, assuming args come from constants of motion meshgrid
-        if np.ndim(args[0]) == 3:
+        if xp.ndim(args[0]) == 3:
             # move eta axes to the back
-            arg_t = np.moveaxis(args[0], 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
-            arg_t = np.moveaxis(arg_t, 0, -1)
+            arg_t = xp.moveaxis(args[0], 0, -1)
+            arg_t = xp.moveaxis(arg_t, 0, -1)
+            arg_t = xp.moveaxis(arg_t, 0, -1)
 
             # broadcast
             res_broad = res + 0.0 * arg_t
 
             # move eta axes to the front
-            res = np.moveaxis(res_broad, -1, 0)
-            res = np.moveaxis(res, -1, 0)
-            res = np.moveaxis(res, -1, 0)
+            res = xp.moveaxis(res_broad, -1, 0)
+            res = xp.moveaxis(res, -1, 0)
+            res = xp.moveaxis(res, -1, 0)
 
         # Multiply result with gaussian in energy
         # correct broadcasting
-        if np.ndim(args[0]) == 3:
+        if xp.ndim(args[0]) == 3:
             vth_broad = vths + 0.0 * arg_t
-            vth = np.moveaxis(vth_broad, -1, 0)
-            vth = np.moveaxis(vth, -1, 0)
-            vth = np.moveaxis(vth, -1, 0)
+            vth = xp.moveaxis(vth_broad, -1, 0)
+            vth = xp.moveaxis(vth, -1, 0)
+            vth = xp.moveaxis(vth, -1, 0)
         else:
             vth = vths
 
@@ -765,7 +765,7 @@ class CanonicalMaxwellian(KineticBackground):
         """
 
         # collect arguments
-        assert isinstance(psic, np.ndarray)
+        assert isinstance(psic, xp.ndarray)
 
         params = self.maxw_params[name]
         assert isinstance(params, tuple)
