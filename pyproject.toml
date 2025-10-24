@@ -66,6 +66,9 @@ dev = [
 ]
 doc = [
     "struphy[phys]",
+    "jupyter",
+    "nbconvert",
+    "ipykernel",
     "sphinx",
     "sphinx-design",
     "lxml_html_clean",
