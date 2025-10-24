@@ -35,6 +35,7 @@ dependencies = [
     'argcomplete',
     'pytest',
     'pytest-mpi',
+    'pytest-testmon',
     'line_profiler',
 ]
 
