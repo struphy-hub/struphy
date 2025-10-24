@@ -72,6 +72,10 @@ jobs:
       # Clone struphy-ci-testing
       - name: Install struphy
         uses: ./.github/actions/install/clone-and-install-struphy
+        env:
+          FC: ${{ env.FC }}
+          CC: ${{ env.CC }}
+          CXX: ${{ env.CXX }}
 
       # Compile
       - name: Compile kernels
