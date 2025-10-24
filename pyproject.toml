@@ -25,7 +25,7 @@ dependencies = [
     'numpy',
     'cunumpy',
     'pyccel>=2.0',
-    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
+    'psydac @ git+https://github.com/struphy-hub/psydac-for-struphy.git@devel-tiny',
     'scipy',
     'h5py',
     'matplotlib',
