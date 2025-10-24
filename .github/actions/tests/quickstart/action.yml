@@ -8,7 +8,7 @@ runs:
       run: |
         struphy -p
         struphy -h
-        struphy params VlasovAmpereOneSpecies -y
+        struphy params VlasovAmpereOneSpecies 
         ls -1a
         mv params_VlasovAmpereOneSpecies.py test.py
         python3 test.py
