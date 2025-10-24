@@ -1,4 +1,4 @@
-name: macos-latest
+name: Mac OS
 on: push
 
 jobs:

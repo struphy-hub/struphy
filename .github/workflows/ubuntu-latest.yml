@@ -1,4 +1,4 @@
-name: ubuntu-latest
+name: Ubuntu
 on: push
 
 jobs:
