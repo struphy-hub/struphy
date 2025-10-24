@@ -1352,14 +1352,38 @@ class QuasiNeutralAdiabatic(StruphyModel):
             "H1",
             self.mass_ops,
         )
+        self._N_vec = projector.get_dofs(fun = lambda x,y,z: 1. + 0.*x)
+
+        # Create spline function for n
+        projector = L2Projector(
+            "H1",
+            self.mass_ops_3D_x,
+        )
         self._n_vec = projector.get_dofs(fun = lambda x,y,z: 1. + 0.*x)
 
         self._kwargs[propagators_coupling.QNAdiabatic] = {
             "derham_3D_x": self.derham_3D_x,
             "mass_ops_3D_x": self.mass_ops_3D_x,
             "b2": self._b_background,
-            "n_vec": self._n_vec,
+            "n_vec": self._N_vec,
         }
+
+        self._accum_C0 = AccumulatorVector(
+            self.pointer["species1"],
+            "H1",
+            accum_kernels.QN_adiabatic_accum_C0,
+            self.mass_ops_3D_x,
+            self.domain.args_domain,
+        )
+        self._c0_vec = self._accum_C0.vectors[0].copy()
+
+        self._accum_C1 = AccumulatorVector(
+            self.pointer["species1"],
+            "H1",
+            accum_kernels.QN_adiabatic_accum_C1,
+            self.mass_ops_3D_x,
+            self.domain.args_domain,
+        )
 
         # Initialize Propagators
         self.init_propagators()
@@ -1372,8 +1396,8 @@ class QuasiNeutralAdiabatic(StruphyModel):
         )
         self.add_scalar("en_pot")
         self.add_scalar("en_tot", summands=["en_kin", "en_pot"])
-        self.add_scalar("Casimir_0")
-        self.add_scalar("Casimir_1")
+        self.add_scalar("C0")
+        self.add_scalar("C1")
 
     def initialize_from_params(self):
         # initialize fields and particles
@@ -1422,7 +1446,7 @@ class QuasiNeutralAdiabatic(StruphyModel):
 
         # subtract N_vec
         _phi_temp = _accum_charge.vectors[0].copy()
-        _phi_temp -= self._n_vec
+        _phi_temp -= self._N_vec
 
         # Invert M0
         _solver_M0.dot(_phi_temp, out=_phi_mean)
@@ -1510,6 +1534,25 @@ class QuasiNeutralAdiabatic(StruphyModel):
             self.pointer["phi"],
         )
         self.update_scalar("en_pot", en_pot)
+
+        # Norm of C0
+        self._accum_C0()
+        self._c0_vec *= 0.0
+        self._c0_vec += self._accum_C0.vectors[0]
+        self._c0_vec -= self._n_vec
+        C0 = 0.5 * self.mass_ops_3D_x.M0.dot_inner(
+            self._c0_vec,
+            self._c0_vec,
+        )
+        self.update_scalar("C0", C0)
+
+        # Norm of C1
+        self._accum_C1()
+        C1 = 0.5 * self.mass_ops_3D_x.M0.dot_inner(
+            self._accum_C1.vectors[0],
+            self._accum_C1.vectors[0],
+        )
+        self.update_scalar("C1", C1)
 
         # Total energy
         self.update_scalar("en_tot")

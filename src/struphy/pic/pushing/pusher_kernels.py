@@ -584,17 +584,6 @@ def push_v_x_correc_QN_adiabatic(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
-    print()
-    print()
-    print()
-    print()
-    print()
-    print()
-    print()
-    print()
-    print("correction")
-    print("markers", markers[:10, :6])
-    print()
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -629,9 +618,6 @@ def push_v_x_correc_QN_adiabatic(
             args_derham,
             v_correc,
         )
-        if ip <= 10:
-            print("correc_val", correc_val)
-            print()
 
         markers[ip, 3] += correc_val
 

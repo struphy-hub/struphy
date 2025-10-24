@@ -473,7 +473,7 @@ class QNAdiabatic(Propagator):
             "info": False,
             "verbose": False,
             "recycle": True,
-            "stab_fac": 1e-10,
+            "stab_fac": 1e-14,
         }
         if default:
             dct = descend_options_dict(dct, [])
@@ -689,9 +689,9 @@ class QNAdiabatic(Propagator):
         )
 
     def __call__(self, dt):
-        self._call_kinetic_step(dt)
+        # self._call_kinetic_step(dt)
         self._update_phi_mean()
-        # self._call_potential_step(dt)
+        self._call_potential_step(dt)
         self._update_lambda()
     
     def _call_kinetic_step(self, dt):

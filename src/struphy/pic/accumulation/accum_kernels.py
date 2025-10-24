@@ -74,6 +74,99 @@ def charge_density_0form(
     # -- removed omp: #$ omp end parallel
 
 
+def QN_adiabatic_accum_C0(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec: "float[:,:,:]",
+):
+    r""" TODO """
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    for ip in range(shape(markers)[0]):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # Call get_spans to fill args_derham.bn
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        args_derham.bn2[:] = 1.0
+        args_derham.bn3[:] = 1.0
+
+        # filling = w_p / N
+        filling = markers[ip, 6] / Np
+
+        particle_to_mat_kernels.vec_fill_v0(
+            args_derham,
+            span1,
+            span2,
+            span3,
+            vec,
+            filling,
+        )
+
+
+def QN_adiabatic_accum_C1(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec: "float[:,:,:]",
+):
+    r""" TODO """
+    left = zeros(args_derham.pn[0], dtype=float)
+    right = zeros(args_derham.pn[0], dtype=float)
+    der = zeros((2, args_derham.pn[0] + 1), dtype=float)
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    for ip in range(shape(markers)[0]):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
+
+        bsplines_kernels.basis_funs_all_ders(
+            args_derham.tn1,
+            args_derham.pn[0],
+            eta1,
+            int(span1),
+            left,
+            right,
+            1,
+            der,
+        )
+
+        args_derham.bn1[:] = der[1, :]
+        args_derham.bn2[:] = 1.0
+        args_derham.bn3[:] = 1.0
+
+        # filling = w_p / N * v_x
+        filling = markers[ip, 6] * markers[ip, 3] / Np
+
+        particle_to_mat_kernels.vec_fill_v0(
+            args_derham,
+            span1,
+            span2,
+            span3,
+            vec,
+            filling,
+        )
+
+
 def x_stiffness_mat_v0(
     args_markers: "MarkerArguments",
     args_derham: "DerhamArguments",
@@ -88,7 +181,7 @@ def x_stiffness_mat_v0(
     """
     left = zeros(args_derham.pn[0], dtype=float)
     right = zeros(args_derham.pn[0], dtype=float)
-    der = zeros(args_derham.pn[0] + 1, dtype=float)
+    der = zeros((2, args_derham.pn[0] + 1), dtype=float)
 
     markers = args_markers.markers
     Np = args_markers.Np
@@ -108,17 +201,18 @@ def x_stiffness_mat_v0(
 
         span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
 
-        bsplines_kernels.basis_funs_1st_der(
+        bsplines_kernels.basis_funs_all_ders(
             args_derham.tn1,
             args_derham.pn[0],
             eta1,
             int(span1),
             left,
             right,
+            1,
             der,
         )
 
-        args_derham.bn1[:] = der[:]
+        args_derham.bn1[:] = der[1, :]
         args_derham.bn2[:] = 1.0
         args_derham.bn3[:] = 1.0
 
