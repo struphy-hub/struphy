@@ -173,7 +173,7 @@ def power_spectrum_2d(
             # print(f"{intersec = }")
             # print(f"{[omega[intersec[n]] for n in range(fit_branches)]}")
             assert len(intersec) == fit_branches, (
-                f"Number of found branches {len(intersec)} is not {fit_branches = }! \
+                f"Number of found branches {len(intersec)} is not {fit_branches =}! \
                 Try to lower 'noise_level' or increase 'extr_order'."
             )
             k_fit += [k]
@@ -184,7 +184,7 @@ def power_spectrum_2d(
         coeffs = []
         for m, om in omega_fit.items():
             coeffs += [xp.polyfit(k_fit, om, deg=fit_degree[n])]
-        print(f"\nFitted {coeffs = }")
+        print(f"\nFitted {coeffs =}")
 
     if do_plot:
         _, ax = plt.subplots(1, 1, figsize=(10, 10))

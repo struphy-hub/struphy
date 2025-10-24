@@ -124,14 +124,14 @@ def test_poisson_1d(do_plot=False):
                 plt.subplot(5, 2, 2 * c + 1)
                 plt.plot(x, phi_h, label="phi")
                 plt.plot(x, phi_e, "r--", label="exact")
-                plt.title(f"phi at {t = }")
+                plt.title(f"phi at {t =}")
                 plt.ylim(-amp / (l * 2 * xp.pi / Lx) ** 2, amp / (l * 2 * xp.pi / Lx) ** 2)
                 plt.legend()
 
                 plt.subplot(5, 2, 2 * c + 2)
                 plt.plot(x, source[t][0][:, 0, 0], label="rhs")
                 plt.plot(x, rhs_exact(x, 0, 0, t), "r--", label="exact")
-                plt.title(f"source at {t = }")
+                plt.title(f"source at {t =}")
                 plt.ylim(-amp, amp)
                 plt.legend()
 
@@ -140,7 +140,7 @@ def test_poisson_1d(do_plot=False):
                     break
 
         plt.show()
-        print(f"{err = }")
+        print(f"{err =}")
         assert err < 0.0057
 
 

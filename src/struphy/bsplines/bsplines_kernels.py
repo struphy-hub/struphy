@@ -83,7 +83,13 @@ def find_span(t: "Final[float[:]]", p: "int", eta: "float") -> "int":
 
 @pure
 def basis_funs(
-    t: "Final[float[:]]", p: "int", eta: "float", span: "int", left: "float[:]", right: "float[:]", values: "float[:]"
+    t: "Final[float[:]]",
+    p: "int",
+    eta: "float",
+    span: "int",
+    left: "float[:]",
+    right: "float[:]",
+    values: "float[:]",
 ):
     """
     Parameters
@@ -595,7 +601,13 @@ def basis_funs_and_der(
 @pure
 @stack_array("values_b")
 def basis_funs_1st_der(
-    t: "Final[float[:]]", p: "int", eta: "float", span: "int", left: "float[:]", right: "float[:]", values: "float[:]"
+    t: "Final[float[:]]",
+    p: "int",
+    eta: "float",
+    span: "int",
+    left: "float[:]",
+    right: "float[:]",
+    values: "float[:]",
 ):
     """
     Parameters

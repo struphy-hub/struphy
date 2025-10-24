@@ -157,7 +157,7 @@ if __name__ == "__main__":
 
     # parse arguments
     parser = argparse.ArgumentParser(
-        description="Looks for eigenmodes in a given MHD eigenspectrum in a certain poloidal mode number range and plots the continuous shear Alfvén and slow sound spectra (frequency versus radial-like coordinate)."
+        description="Looks for eigenmodes in a given MHD eigenspectrum in a certain poloidal mode number range and plots the continuous shear Alfvén and slow sound spectra (frequency versus radial-like coordinate).",
     )
 
     parser.add_argument("m_l_alfvén", type=int, help="lower bound of poloidal mode number range for Alfvénic modes")
@@ -252,7 +252,12 @@ if __name__ == "__main__":
     fem_1d_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], dirichlet_bc[1])
 
     fem_2d = Tensor_spline_space(
-        [fem_1d_1, fem_1d_2], polar_ck, domain.cx[:, :, 0], domain.cy[:, :, 0], n_tor=n_tor, basis_tor="i"
+        [fem_1d_1, fem_1d_2],
+        polar_ck,
+        domain.cx[:, :, 0],
+        domain.cy[:, :, 0],
+        n_tor=n_tor,
+        basis_tor="i",
     )
 
     # load and analyze spectrum
