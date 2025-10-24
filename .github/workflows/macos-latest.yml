@@ -1,0 +1,8 @@
+name: macos-latest
+on: push
+
+jobs:
+  macos-latest-build:
+    uses: ./.github/workflows/main.yml
+    with:
+      os: macos-latest
