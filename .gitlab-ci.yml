@@ -1074,7 +1074,7 @@ pages:
     - apt show pandoc
     - apt show graphviz
     - echo $CI_COMMIT_MESSAGE
-    - pip install .[doc]
+    - pip install .[all]
   script:
     - !reference [.scripts, inspect_struphy]
     - !reference [.scripts, compile]
