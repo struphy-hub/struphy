@@ -14,6 +14,9 @@ rank = MPI.COMM_WORLD.Get_rank()
 class Maxwell(StruphyModel):
     r"""Maxwell's equations in vacuum.
 
+    <p><span
+class="math inline"><em>x</em><sup>2</sup> + <em>y</em><sup>2</sup> = <em>z</em><sup>2</sup></span></p>
+
     :ref:`normalization`:
 
     .. math::
