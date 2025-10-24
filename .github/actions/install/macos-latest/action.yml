@@ -17,6 +17,7 @@ runs:
         brew install git
         brew install pandoc
         brew install hdf5
+        brew install netcdf-fortran
         brew install cmake
         brew link --overwrite cmake
         cmake --version 
@@ -26,4 +27,7 @@ runs:
         echo "FC=$(which gfortran)" >> $GITHUB_ENV # for gvec
         echo "CC=$(which gcc)" >> $GITHUB_ENV # for gvec
         echo "CXX=$(which g++)" >> $GITHUB_ENV # for gvec
-        brew install netcdf-fortran
+        echo "----------------"
+        which gfortran
+        which gcc
+        which g++
