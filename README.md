@@ -1,4 +1,5 @@
-![Struphy header](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/struphy_header_with_subs.png)
+[![Testing](https://github.com/struphy-hub/struphy/actions/workflows/testing.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/testing.yml)
+![PyPI](https://img.shields.io/pypi/v/struphy?label=pypi%20package)
 
 # Welcome!
 
