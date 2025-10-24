@@ -1,6 +1,8 @@
+from typing import get_args
+
 import pytest
 
-from struphy.ode.utils import ButcherTableau
+from struphy.ode.utils import OptsButcher
 
 
 @pytest.mark.parametrize(
@@ -13,11 +15,12 @@ from struphy.ode.utils import ButcherTableau
         ("1", "0", "2"),
     ],
 )
-@pytest.mark.parametrize("algo", ButcherTableau.available_methods())
+@pytest.mark.parametrize("algo", get_args(OptsButcher))
 def test_exp_growth(spaces, algo, show_plots=False):
     """Solve dy/dt = omega*y for different feec variables y and with all available solvers
     from the ButcherTableau."""
 
+    import cunumpy as xp
     from matplotlib import pyplot as plt
     from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
@@ -25,7 +28,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
 
     from struphy.feec.psydac_derham import Derham
     from struphy.ode.solvers import ODEsolverFEEC
-    from struphy.utils.arrays import xp as np
+    from struphy.ode.utils import ButcherTableau
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -37,7 +40,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
 
     c0 = 1.2
     omega = 2.3
-    y_exact = lambda t: c0 * np.exp(omega * t)
+    y_exact = lambda t: c0 * xp.exp(omega * t)
 
     vector_field = {}
     for i, space in enumerate(spaces):
@@ -98,9 +101,10 @@ def test_exp_growth(spaces, algo, show_plots=False):
         vector_field[var] = f
 
     print(f"{vector_field = }")
-    print(f"{algo = }")
+    butcher = ButcherTableau(algo=algo)
+    print(f"{butcher = }")
 
-    solver = ODEsolverFEEC(vector_field, algo=algo)
+    solver = ODEsolverFEEC(vector_field, butcher=butcher)
 
     hs = [0.1]
     n_hs = 6
@@ -113,7 +117,7 @@ def test_exp_growth(spaces, algo, show_plots=False):
     errors = {}
     for i, h in enumerate(hs):
         errors[h] = {}
-        time = np.linspace(0, Tend, int(Tend / h) + 1)
+        time = xp.linspace(0, Tend, int(Tend / h) + 1)
         print(f"{h = }, {time.size = }")
         yvec = y_exact(time)
         ymax = {}
@@ -125,16 +129,16 @@ def test_exp_growth(spaces, algo, show_plots=False):
                 for b in var.blocks:
                     b[:] = c0
             var.update_ghost_regions()
-            ymax[var] = c0 * np.ones_like(time)
+            ymax[var] = c0 * xp.ones_like(time)
         for n in range(time.size - 1):
             tn = h * n
             solver(tn, h)
             for var in vector_field:
-                ymax[var][n + 1] = np.max(var.toarray())
+                ymax[var][n + 1] = xp.max(var.toarray())
 
         # checks
         for var in vector_field:
-            errors[h][var] = h * np.sum(np.abs(yvec - ymax[var])) / (h * np.sum(np.abs(yvec)))
+            errors[h][var] = h * xp.sum(xp.abs(yvec - ymax[var])) / (h * xp.sum(xp.abs(yvec)))
             print(f"{errors[h][var] = }")
             assert errors[h][var] < 0.31
 
@@ -157,9 +161,9 @@ def test_exp_growth(spaces, algo, show_plots=False):
             h_vec += [h]
             err_vec += [dct[var]]
 
-        m, _ = np.polyfit(np.log(h_vec), np.log(err_vec), deg=1)
+        m, _ = xp.polyfit(xp.log(h_vec), xp.log(err_vec), deg=1)
         print(f"{spaces[j]}-space, fitted convergence rate = {m} for {algo = } with {solver.butcher.conv_rate = }")
-        assert np.abs(m - solver.butcher.conv_rate) < 0.1
+        assert xp.abs(m - solver.butcher.conv_rate) < 0.1
         print(f"Convergence check passed on {rank = }.")
 
         if rank == 0:

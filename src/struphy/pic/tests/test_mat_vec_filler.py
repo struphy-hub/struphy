@@ -1,6 +1,5 @@
+import cunumpy as xp
 import pytest
-
-from struphy.utils.arrays import xp as np
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
@@ -33,12 +32,12 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         print(f"\nNel={Nel}, p={p}, spl_kind={spl_kind}\n")
 
     # DR attributes
-    pn = np.array(DR.p)
+    pn = xp.array(DR.p)
     tn1, tn2, tn3 = DR.Vh_fem["0"].knots
 
     starts1 = {}
 
-    starts1["v0"] = np.array(DR.Vh["0"].starts)
+    starts1["v0"] = xp.array(DR.Vh["0"].starts)
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
@@ -94,14 +93,14 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         vec["v2"] += [StencilVector(DR.Vh["2"].spaces[i])._data]
 
     # Some filling for testing
-    fill_mat = np.reshape(np.arange(9, dtype=float), (3, 3)) + 1.0
-    fill_vec = np.arange(3, dtype=float) + 1.0
+    fill_mat = xp.reshape(xp.arange(9, dtype=float), (3, 3)) + 1.0
+    fill_vec = xp.arange(3, dtype=float) + 1.0
 
     # Random points in domain of process (VERY IMPORTANT to be in the right domain, otherwise NON-TRACKED errors occur in filler_kernels !!)
     dom = DR.domain_array[rank]
-    eta1s = np.random.rand(n_markers) * (dom[1] - dom[0]) + dom[0]
-    eta2s = np.random.rand(n_markers) * (dom[4] - dom[3]) + dom[3]
-    eta3s = np.random.rand(n_markers) * (dom[7] - dom[6]) + dom[6]
+    eta1s = xp.random.rand(n_markers) * (dom[1] - dom[0]) + dom[0]
+    eta2s = xp.random.rand(n_markers) * (dom[4] - dom[3]) + dom[3]
+    eta3s = xp.random.rand(n_markers) * (dom[7] - dom[6]) + dom[6]
 
     for eta1, eta2, eta3 in zip(eta1s, eta2s, eta3s):
         comm.Barrier()
@@ -118,13 +117,13 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         span3 = bsp.find_span(tn3, DR.p[2], eta3)
 
         # non-zero spline values at eta
-        bn1 = np.empty(DR.p[0] + 1, dtype=float)
-        bn2 = np.empty(DR.p[1] + 1, dtype=float)
-        bn3 = np.empty(DR.p[2] + 1, dtype=float)
+        bn1 = xp.empty(DR.p[0] + 1, dtype=float)
+        bn2 = xp.empty(DR.p[1] + 1, dtype=float)
+        bn3 = xp.empty(DR.p[2] + 1, dtype=float)
 
-        bd1 = np.empty(DR.p[0], dtype=float)
-        bd2 = np.empty(DR.p[1], dtype=float)
-        bd3 = np.empty(DR.p[2], dtype=float)
+        bd1 = xp.empty(DR.p[0], dtype=float)
+        bd2 = xp.empty(DR.p[1], dtype=float)
+        bd3 = xp.empty(DR.p[2], dtype=float)
 
         bsp.b_d_splines_slim(tn1, DR.p[0], eta1, span1, bn1, bd1)
         bsp.b_d_splines_slim(tn2, DR.p[1], eta2, span2, bn2, bd2)
@@ -136,9 +135,9 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         ie3 = span3 - pn[2]
 
         # global indices of non-vanishing B- and D-splines (no modulo)
-        glob_n1 = np.arange(ie1, ie1 + pn[0] + 1)
-        glob_n2 = np.arange(ie2, ie2 + pn[1] + 1)
-        glob_n3 = np.arange(ie3, ie3 + pn[2] + 1)
+        glob_n1 = xp.arange(ie1, ie1 + pn[0] + 1)
+        glob_n2 = xp.arange(ie2, ie2 + pn[1] + 1)
+        glob_n3 = xp.arange(ie3, ie3 + pn[2] + 1)
 
         glob_d1 = glob_n1[:-1]
         glob_d2 = glob_n2[:-1]
@@ -164,10 +163,10 @@ def test_particle_to_mat_kernels(Nel, p, spl_kind, n_markers=1):
         # local column indices in _data of non-vanishing B- and D-splines, as sets for comparison
         cols = [{}, {}, {}]
         for n in range(3):
-            cols[n]["NN"] = set(np.arange(2 * pn[n] + 1))
-            cols[n]["ND"] = set(np.arange(2 * pn[n]))
-            cols[n]["DN"] = set(np.arange(1, 2 * pn[n] + 1))
-            cols[n]["DD"] = set(np.arange(1, 2 * pn[n]))
+            cols[n]["NN"] = set(xp.arange(2 * pn[n] + 1))
+            cols[n]["ND"] = set(xp.arange(2 * pn[n]))
+            cols[n]["DN"] = set(xp.arange(1, 2 * pn[n] + 1))
+            cols[n]["DD"] = set(xp.arange(1, 2 * pn[n]))
 
         # testing vector-valued spaces
         spaces_vector = ["v1", "v2"]
@@ -337,23 +336,23 @@ def assert_mat(mat, rows, cols, row_str, col_str, rank, verbose=False):
     """
     assert len(mat.shape) == 6
     # assert non NaN
-    assert ~np.isnan(mat).any()
+    assert ~xp.isnan(mat).any()
 
     atol = 1e-14
 
     if verbose:
         print(f"\n({row_str}) ({col_str})")
-        print(f"rank {rank} | ind_row1: {set(np.where(mat > atol)[0])}")
-        print(f"rank {rank} | ind_row2: {set(np.where(mat > atol)[1])}")
-        print(f"rank {rank} | ind_row3: {set(np.where(mat > atol)[2])}")
-        print(f"rank {rank} | ind_col1: {set(np.where(mat > atol)[3])}")
-        print(f"rank {rank} | ind_col2: {set(np.where(mat > atol)[4])}")
-        print(f"rank {rank} | ind_col3: {set(np.where(mat > atol)[5])}")
+        print(f"rank {rank} | ind_row1: {set(xp.where(mat > atol)[0])}")
+        print(f"rank {rank} | ind_row2: {set(xp.where(mat > atol)[1])}")
+        print(f"rank {rank} | ind_row3: {set(xp.where(mat > atol)[2])}")
+        print(f"rank {rank} | ind_col1: {set(xp.where(mat > atol)[3])}")
+        print(f"rank {rank} | ind_col2: {set(xp.where(mat > atol)[4])}")
+        print(f"rank {rank} | ind_col3: {set(xp.where(mat > atol)[5])}")
 
     # check if correct indices are non-zero
     for n, (r, c) in enumerate(zip(row_str, col_str)):
-        assert set(np.where(mat > atol)[n]) == rows[n][r]
-        assert set(np.where(mat > atol)[n + 3]) == cols[n][r + c]
+        assert set(xp.where(mat > atol)[n]) == rows[n][r]
+        assert set(xp.where(mat > atol)[n + 3]) == cols[n][r + c]
 
     # Set matrix back to zero
     mat[:, :] = 0.0
@@ -384,19 +383,19 @@ def assert_vec(vec, rows, row_str, rank, verbose=False):
     """
     assert len(vec.shape) == 3
     # assert non Nan
-    assert ~np.isnan(vec).any()
+    assert ~xp.isnan(vec).any()
 
     atol = 1e-14
 
     if verbose:
         print(f"\n({row_str})")
-        print(f"rank {rank} | ind_row1: {set(np.where(vec > atol)[0])}")
-        print(f"rank {rank} | ind_row2: {set(np.where(vec > atol)[1])}")
-        print(f"rank {rank} | ind_row3: {set(np.where(vec > atol)[2])}")
+        print(f"rank {rank} | ind_row1: {set(xp.where(vec > atol)[0])}")
+        print(f"rank {rank} | ind_row2: {set(xp.where(vec > atol)[1])}")
+        print(f"rank {rank} | ind_row3: {set(xp.where(vec > atol)[2])}")
 
     # check if correct indices are non-zero
     for n, r in enumerate(row_str):
-        assert set(np.where(vec > atol)[n]) == rows[n][r]
+        assert set(xp.where(vec > atol)[n]) == rows[n][r]
 
     # Set vector back to zero
     vec[:] = 0.0

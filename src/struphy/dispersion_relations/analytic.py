@@ -1,12 +1,12 @@
 "Analytic dispersion relations."
 
+import cunumpy as xp
 from numpy.polynomial import Polynomial
 from scipy.optimize import fsolve
 
 from struphy.dispersion_relations.base import ContinuousSpectra1D, DispersionRelations1D
 from struphy.dispersion_relations.utilities import Zplasma
 from struphy.fields_background.equils import set_defaults
-from struphy.utils.arrays import xp as np
 
 
 class Maxwell1D(DispersionRelations1D):
@@ -108,18 +108,18 @@ class MHDhomogenSlab(DispersionRelations1D):
         Bsquare = self.params["B0x"] ** 2 + self.params["B0y"] ** 2 + self.params["B0z"] ** 2
 
         # Alfvén velocity and speed of sound
-        vA = np.sqrt(Bsquare / self.params["n0"])
+        vA = xp.sqrt(Bsquare / self.params["n0"])
 
-        cS = np.sqrt(self.params["gamma"] * self.params["p0"] / self.params["n0"])
+        cS = xp.sqrt(self.params["gamma"] * self.params["p0"] / self.params["n0"])
 
         # shear Alfvén branch
-        self._branches["shear Alfvén"] = vA * k * self.params["B0z"] / np.sqrt(Bsquare)
+        self._branches["shear Alfvén"] = vA * k * self.params["B0z"] / xp.sqrt(Bsquare)
 
         # slow/fast magnetosonic branch
         delta = (4 * self.params["B0z"] ** 2 * cS**2 * vA**2) / ((cS**2 + vA**2) ** 2 * Bsquare)
 
-        self._branches["slow magnetosonic"] = np.sqrt(1 / 2 * k**2 * (cS**2 + vA**2) * (1 - np.sqrt(1 - delta)))
-        self._branches["fast magnetosonic"] = np.sqrt(1 / 2 * k**2 * (cS**2 + vA**2) * (1 + np.sqrt(1 - delta)))
+        self._branches["slow magnetosonic"] = xp.sqrt(1 / 2 * k**2 * (cS**2 + vA**2) * (1 - xp.sqrt(1 - delta)))
+        self._branches["fast magnetosonic"] = xp.sqrt(1 / 2 * k**2 * (cS**2 + vA**2) * (1 + xp.sqrt(1 - delta)))
 
         return self.branches
 
@@ -186,14 +186,14 @@ class ExtendedMHDhomogenSlab(DispersionRelations1D):
 
         Bsquare = self.params["B0x"] ** 2 + self.params["B0y"] ** 2 + self.params["B0z"] ** 2
 
-        cos_theta = self.params["B0z"] / np.sqrt(Bsquare)
+        cos_theta = self.params["B0z"] / xp.sqrt(Bsquare)
 
         # Alfvén velocity, speed of sound and cyclotron frequency
-        vA = np.sqrt(Bsquare / self.params["n0"])
+        vA = xp.sqrt(Bsquare / self.params["n0"])
 
-        cS = np.sqrt(self.params["gamma"] * self.params["p0"] / self.params["n0"])
+        cS = xp.sqrt(self.params["gamma"] * self.params["p0"] / self.params["n0"])
 
-        Omega_i = np.sqrt(Bsquare) / self.params["eps"]
+        Omega_i = xp.sqrt(Bsquare) / self.params["eps"]
 
         # auxiliary functions
         def omega_0(k):
@@ -218,7 +218,7 @@ class ExtendedMHDhomogenSlab(DispersionRelations1D):
             )
 
         # solve
-        out = np.zeros((k.size, 4), dtype=complex)
+        out = xp.zeros((k.size, 4), dtype=complex)
         for i, ki in enumerate(k):
             p0 = Polynomial([-(omega_0(ki) ** 2), 1.0])
             p1 = Polynomial([d(ki), c(ki), b(ki), 1.0])
@@ -302,7 +302,7 @@ class FluidSlabITG(DispersionRelations1D):
             return -4.0 * p**3 - 27.0 * q(k) ** 2
 
         # solve
-        out = np.zeros((k.size, 3), dtype=complex)
+        out = xp.zeros((k.size, 3), dtype=complex)
         for i, ki in enumerate(k):
             poly = Polynomial([q(ki), p, 0.0, 1.0])
             out[i] = poly.roots()
@@ -342,17 +342,17 @@ class ColdPlasma1D(DispersionRelations1D):
         # One complex array for each branch
         tmps = []
         for n in range(self.nbranches):
-            tmps += [np.zeros_like(kvec, dtype=complex)]
+            tmps += [xp.zeros_like(kvec, dtype=complex)]
 
         ########### Model specific part ##############################
 
         # angle between k and magnetic field
         if self.params["B0z"] == 0:
-            theta = np.pi / 2
+            theta = xp.pi / 2
         else:
-            theta = np.arctan(np.sqrt(self.params["B0x"] ** 2 + self.params["B0y"] ** 2) / self.params["B0z"])
+            theta = xp.arctan(xp.sqrt(self.params["B0x"] ** 2 + self.params["B0y"] ** 2) / self.params["B0z"])
         print(theta)
-        cos2 = np.cos(theta) ** 2
+        cos2 = xp.cos(theta) ** 2
 
         neq = self.params["n0"]
 
@@ -393,10 +393,10 @@ class ColdPlasma1D(DispersionRelations1D):
             e = eps6
 
             # determinant in polynomial form
-            det = np.polynomial.Polynomial([a, b, c, d, e])
+            det = xp.polynomial.Polynomial([a, b, c, d, e])
 
             # solutions
-            sol = np.sqrt(np.abs(det.roots()))
+            sol = xp.sqrt(xp.abs(det.roots()))
             # Ion-cyclotron branch
             tmps[0][n] = sol[0]
             # Electron-cyclotron branch
@@ -489,7 +489,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
         ee = 1.602176634e-19
 
         # calculate coupling parameter alpha_c from bulk number density and mass number
-        self._kappa = ee * np.sqrt(mu * self.params["Ab"] * self.params["nb"] * 1e20 / mp)
+        self._kappa = ee * xp.sqrt(mu * self.params["Ab"] * self.params["nb"] * 1e20 / mp)
 
     def __call__(self, k, method="newton", tol=1e-10, max_it=100):
         """
@@ -518,7 +518,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
         # One complex array for each branch
         tmps = []
         for _ in range(self.nbranches):
-            tmps += [np.zeros_like(k, dtype=complex)]
+            tmps += [xp.zeros_like(k, dtype=complex)]
 
         ########### Model specific part ##############################
 
@@ -532,8 +532,8 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
                 wR = [self.params["B0"] * ki, 0.0]
                 wL = [self.params["B0"] * ki, 0.0]
             else:
-                wR = [np.real(tmps[0][i - 1]), np.imag(tmps[0][i - 1])]
-                wL = [np.real(tmps[1][i - 1]), np.imag(tmps[1][i - 1])]
+                wR = [xp.real(tmps[0][i - 1]), xp.imag(tmps[0][i - 1])]
+                wL = [xp.real(tmps[1][i - 1]), xp.imag(tmps[1][i - 1])]
 
             # apply solver
             if method == "newton":
@@ -542,13 +542,13 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
 
                 Dr, Di = self.D_RL(wR, ki, +1)
 
-                while np.abs(Dr + Di * 1j) > tol or counter == max_it:
+                while xp.abs(Dr + Di * 1j) > tol or counter == max_it:
                     # derivative
                     Drp, Dip = self.D_RL(wR, ki, +1, 1)
 
                     # update
-                    wR[0] = wR[0] - np.real((Dr + Di * 1j) / (Drp + Dip * 1j))
-                    wR[1] = wR[1] - np.imag((Dr + Di * 1j) / (Drp + Dip * 1j))
+                    wR[0] = wR[0] - xp.real((Dr + Di * 1j) / (Drp + Dip * 1j))
+                    wR[1] = wR[1] - xp.imag((Dr + Di * 1j) / (Drp + Dip * 1j))
 
                     Dr, Di = self.D_RL(wR, ki, +1)
                     counter += 1
@@ -558,13 +558,13 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
 
                 Dr, Di = self.D_RL(wL, ki, -1)
 
-                while np.abs(Dr + Di * 1j) > tol or counter == max_it:
+                while xp.abs(Dr + Di * 1j) > tol or counter == max_it:
                     # derivative
                     Drp, Dip = self.D_RL(wL, ki, -1, 1)
 
                     # update
-                    wL[0] = wL[0] - np.real((Dr + Di * 1j) / (Drp + Dip * 1j))
-                    wL[1] = wL[1] - np.imag((Dr + Di * 1j) / (Drp + Dip * 1j))
+                    wL[0] = wL[0] - xp.real((Dr + Di * 1j) / (Drp + Dip * 1j))
+                    wL[1] = wL[1] - xp.imag((Dr + Di * 1j) / (Drp + Dip * 1j))
 
                     Dr, Di = self.D_RL(wL, ki, -1)
                     counter += 1
@@ -651,7 +651,7 @@ class CurrentCoupling6DParallel(DispersionRelations1D):
                 * (Zplasma(xi, 0) + (w - k * v0) * Zplasma(xi, 1) * xip)
             )
 
-        return np.real(out), np.imag(out)
+        return xp.real(out), xp.imag(out)
 
 
 class PressureCouplingFull6DParallel(DispersionRelations1D):
@@ -723,7 +723,7 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         # One complex array for each branch
         tmps = []
         for n in range(self.nbranches):
-            tmps += [np.zeros_like(k, dtype=complex)]
+            tmps += [xp.zeros_like(k, dtype=complex)]
 
         ########### Model specific part ##############################
 
@@ -735,9 +735,9 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
                 wL = [1 * ki, 0.0]  # TODO: use vA
                 wS = [1 * ki, 0.0]  # TODO: use cS
             else:
-                wR = [np.real(tmps[0][i - 1]), np.imag(tmps[0][i - 1])]
-                wL = [np.real(tmps[1][i - 1]), np.imag(tmps[1][i - 1])]
-                wS = [np.real(tmps[2][i - 1]), np.imag(tmps[2][i - 1])]
+                wR = [xp.real(tmps[0][i - 1]), xp.imag(tmps[0][i - 1])]
+                wL = [xp.real(tmps[1][i - 1]), xp.imag(tmps[1][i - 1])]
+                wS = [xp.real(tmps[2][i - 1]), xp.imag(tmps[2][i - 1])]
 
             # R/L shear Alfvén wave
             sol_R = fsolve(self.D_RL, x0=wR, args=(ki, +1), xtol=tol)
@@ -796,8 +796,8 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         vperp = 1.0  # TODO
         vth = 1.0
 
-        vA = np.sqrt((self.params["B0x"] ** 2 + self.params["B0y"] ** 2 + self.params["B0z"] ** 2) / self.params["n0"])
-        # cS = np.sqrt(self.params['beta']*vA)
+        vA = xp.sqrt((self.params["B0x"] ** 2 + self.params["B0y"] ** 2 + self.params["B0z"] ** 2) / self.params["n0"])
+        # cS = xp.sqrt(self.params['beta']*vA)
         cS = 1.0
 
         a0 = u0 / vpara  # TODO
@@ -840,7 +840,7 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
                 )
             )
 
-        return np.real(c1), np.imag(c1)
+        return xp.real(c1), xp.imag(c1)
 
     def D_sonic(self, w, k):
         r"""
@@ -873,8 +873,8 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
         vperp = 1.0  # TODO
         vth = 1.0
 
-        vA = np.sqrt((self.params["B0x"] ** 2 + self.params["B0y"] ** 2 + self.params["B0z"] ** 2) / self.params["n0"])
-        # cS = np.sqrt(self.params['beta']*vA)
+        vA = xp.sqrt((self.params["B0x"] ** 2 + self.params["B0y"] ** 2 + self.params["B0z"] ** 2) / self.params["n0"])
+        # cS = xp.sqrt(self.params['beta']*vA)
         cS = 1.0
 
         a0 = u0 / vpara  # TODO
@@ -885,7 +885,7 @@ class PressureCouplingFull6DParallel(DispersionRelations1D):
 
         c1 = w**2 - k**2 * cS**2 + 2 * w * k * nu * vpara * x4
 
-        return np.real(c1), np.imag(c1)
+        return xp.real(c1), xp.imag(c1)
 
     # private methods:
     # ----------------
@@ -1014,10 +1014,10 @@ class MhdContinousSpectraShearedSlab(ContinuousSpectra1D):
         specs = {}
 
         # shear Alfvén continuum
-        specs["shear_Alfvén"] = np.sqrt(F(x, m, n) ** 2 / rho(x))
+        specs["shear_Alfvén"] = xp.sqrt(F(x, m, n) ** 2 / rho(x))
 
         # slow sound continuum
-        specs["slow_sound"] = np.sqrt(
+        specs["slow_sound"] = xp.sqrt(
             gamma * p(x) * F(x, m, n) ** 2 / (rho(x) * (gamma * p(x) + By(x) ** 2 + Bz(x) ** 2))
         )
 
@@ -1121,10 +1121,10 @@ class MhdContinousSpectraCylinder(ContinuousSpectra1D):
         specs = {}
 
         # shear Alfvén continuum
-        specs["shear_Alfvén"] = np.sqrt(F(r, m, n) ** 2 / rho(r))
+        specs["shear_Alfvén"] = xp.sqrt(F(r, m, n) ** 2 / rho(r))
 
         # slow sound continuum
-        specs["slow_sound"] = np.sqrt(
+        specs["slow_sound"] = xp.sqrt(
             gamma * p(r) * F(r, m, n) ** 2 / (rho(r) * (gamma * p(r) + Bt(r) ** 2 + Bz(r) ** 2))
         )
 
