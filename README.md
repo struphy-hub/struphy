@@ -1,3 +1,5 @@
+![Struphy header](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/struphy_header_with_subs.png)
+
 [![Ubuntu latest](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml)
 [![MacOS latest](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml)
 [![isort and ruff](https://github.com/struphy-hub/struphy/actions/workflows/static_analysis.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/static_analysis.yml)
