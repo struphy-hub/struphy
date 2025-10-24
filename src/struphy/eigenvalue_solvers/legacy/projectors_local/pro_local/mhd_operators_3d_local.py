@@ -505,7 +505,9 @@ class projectors_local_mhd:
 
                 # quadrature points and weights
                 self.pts[a], self.wts[a] = bsp.quadrature_grid(
-                    xp.unique(self.x_his[a].flatten()), self.pts_loc[a], self.wts_loc[a]
+                    xp.unique(self.x_his[a].flatten()),
+                    self.pts_loc[a],
+                    self.wts_loc[a],
                 )
 
             else:
@@ -535,7 +537,9 @@ class projectors_local_mhd:
 
                 # quadrature points and weights
                 self.pts[a], self.wts[a] = bsp.quadrature_grid(
-                    xp.append(xp.unique(self.x_his[a].flatten() % 1.0), 1.0), self.pts_loc[a], self.wts_loc[a]
+                    xp.append(xp.unique(self.x_his[a].flatten() % 1.0), 1.0),
+                    self.pts_loc[a],
+                    self.wts_loc[a],
                 )
 
         # evaluate N basis functions at interpolation and quadrature points
@@ -556,7 +560,9 @@ class projectors_local_mhd:
 
         self.basisD_his = [
             bsp.collocation_matrix(T[1:-1], p - 1, pts.flatten(), bc, normalize=True).reshape(
-                pts[:, 0].size, pts[0, :].size, NbaseD
+                pts[:, 0].size,
+                pts[0, :].size,
+                NbaseD,
             )
             for T, p, pts, bc, NbaseD in zip(self.T, self.p, self.pts, self.bc, self.NbaseD)
         ]
@@ -802,7 +808,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_his_nvcof_N[1],
                 self.n_his_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -827,7 +833,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_N[0],
                 self.n_int_nvcof_N[1],
                 self.n_his_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -852,7 +858,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_N[0],
                 self.n_his_nvcof_N[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -1111,7 +1117,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_his_nvcof_D[1],
                 self.n_his_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -1136,7 +1142,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_D[0],
                 self.n_int_nvcof_N[1],
                 self.n_his_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -1161,7 +1167,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_D[0],
                 self.n_his_nvcof_D[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -1292,7 +1298,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_int_nvcof_N[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
 
         # row indices
@@ -1735,7 +1741,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_N[0],
                 self.n_int_nvcof_N[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -1759,7 +1765,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_N[0],
                 self.n_int_nvcof_N[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -1784,7 +1790,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_his_nvcof_N[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -1808,7 +1814,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_his_nvcof_N[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -1833,7 +1839,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_int_nvcof_N[1],
                 self.n_his_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -1857,7 +1863,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_int_nvcof_N[1],
                 self.n_his_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -2268,7 +2274,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_N[0],
                 self.n_int_nvcof_D[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -2292,7 +2298,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_N[0],
                 self.n_int_nvcof_N[1],
                 self.n_int_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -2317,7 +2323,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_D[0],
                 self.n_his_nvcof_N[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -2341,7 +2347,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_his_nvcof_N[1],
                 self.n_int_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -2366,7 +2372,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_D[0],
                 self.n_int_nvcof_N[1],
                 self.n_his_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -2390,7 +2396,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_int_nvcof_D[1],
                 self.n_his_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -2801,7 +2807,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_D[0],
                 self.n_int_nvcof_N[1],
                 self.n_int_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -2825,7 +2831,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_D[0],
                 self.n_int_nvcof_D[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -2850,7 +2856,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_his_nvcof_D[1],
                 self.n_int_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -2874,7 +2880,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_D[0],
                 self.n_his_nvcof_D[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -2899,7 +2905,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_int_nvcof_D[1],
                 self.n_his_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -2923,7 +2929,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_D[0],
                 self.n_int_nvcof_N[1],
                 self.n_his_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -3182,7 +3188,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_his_nvcof_N[1],
                 self.n_his_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -3207,7 +3213,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_N[0],
                 self.n_int_nvcof_N[1],
                 self.n_his_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -3232,7 +3238,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_N[0],
                 self.n_his_nvcof_N[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -3491,7 +3497,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_his_nvcof_D[1],
                 self.n_his_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -3516,7 +3522,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_D[0],
                 self.n_int_nvcof_N[1],
                 self.n_his_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -3541,7 +3547,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_D[0],
                 self.n_his_nvcof_D[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -3664,7 +3670,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_D[0],
                 self.n_his_nvcof_D[1],
                 self.n_his_nvcof_D[2],
-            )
+            ),
         )
 
         # row indices
@@ -3927,7 +3933,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_his_nvcof_N[1],
                 self.n_his_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -3952,7 +3958,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_N[0],
                 self.n_int_nvcof_N[1],
                 self.n_his_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -3977,7 +3983,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_N[0],
                 self.n_his_nvcof_N[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -4212,7 +4218,7 @@ class projectors_local_mhd:
                 self.n_int_nvcof_N[0],
                 self.n_his_nvcof_D[1],
                 self.n_his_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -4237,7 +4243,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_D[0],
                 self.n_int_nvcof_N[1],
                 self.n_his_nvcof_D[2],
-            )
+            ),
         )
         row = self.NbaseN[1] * self.NbaseD[2] * indices[0] + self.NbaseD[2] * indices[1] + indices[2]
 
@@ -4262,7 +4268,7 @@ class projectors_local_mhd:
                 self.n_his_nvcof_D[0],
                 self.n_his_nvcof_D[1],
                 self.n_int_nvcof_N[2],
-            )
+            ),
         )
         row = self.NbaseD[1] * self.NbaseN[2] * indices[0] + self.NbaseN[2] * indices[1] + indices[2]
 
@@ -4323,7 +4329,15 @@ class term_curl_beq:
     """
 
     def __init__(
-        self, tensor_space, mapping, kind_map=None, params_map=None, tensor_space_F=None, cx=None, cy=None, cz=None
+        self,
+        tensor_space,
+        mapping,
+        kind_map=None,
+        params_map=None,
+        tensor_space_F=None,
+        cx=None,
+        cy=None,
+        cz=None,
     ):
         self.p = tensor_space.p  # spline degrees
         self.Nel = tensor_space.Nel  # number of elements
@@ -4357,13 +4371,16 @@ class term_curl_beq:
 
         # ============= evaluation of background magnetic field at quadrature points =========
         self.mat_curl_beq_1 = xp.empty(
-            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float
+            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]),
+            dtype=float,
         )
         self.mat_curl_beq_2 = xp.empty(
-            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float
+            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]),
+            dtype=float,
         )
         self.mat_curl_beq_3 = xp.empty(
-            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float
+            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]),
+            dtype=float,
         )
 
         if mapping == 0:
@@ -4455,13 +4472,16 @@ class term_curl_beq:
 
         # ====================== perturbed magnetic field at quadrature points ==========
         self.B1 = xp.empty(
-            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float
+            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]),
+            dtype=float,
         )
         self.B2 = xp.empty(
-            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float
+            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]),
+            dtype=float,
         )
         self.B3 = xp.empty(
-            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]), dtype=float
+            (self.Nel[0], self.Nel[1], self.Nel[2], self.n_quad[0], self.n_quad[1], self.n_quad[2]),
+            dtype=float,
         )
 
         # ========================== inner products =====================================

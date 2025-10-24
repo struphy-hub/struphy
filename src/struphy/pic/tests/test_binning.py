@@ -631,8 +631,8 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
                     "given_in_basis": "0",
                     "ls": [l_n1],
                     "amps": [amp_n1],
-                }
-            }
+                },
+            },
         },
         "Maxwellian3D_2": {
             "n": {
@@ -640,8 +640,8 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
                     "given_in_basis": "0",
                     "ls": [l_n2],
                     "amps": [amp_n2],
-                }
-            }
+                },
+            },
         },
     }
     pert_1 = perturbations.ModesCos(ls=(l_n1,), amps=(amp_n1,))
@@ -814,8 +814,8 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
                 "given_in_basis": "0",
                 "ls": [l_n],
                 "amps": [amp_n],
-            }
-        }
+            },
+        },
     }
     pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
     background = Maxwellian3D(n=(1.0, pert))
@@ -891,7 +891,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
                     "given_in_basis": "0",
                     "ls": [l_n1],
                     "amps": [amp_n1],
-                }
+                },
             },
         },
         "Maxwellian3D_2": {
@@ -901,7 +901,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
                     "given_in_basis": "0",
                     "ls": [l_n2],
                     "amps": [amp_n2],
-                }
+                },
             },
         },
     }

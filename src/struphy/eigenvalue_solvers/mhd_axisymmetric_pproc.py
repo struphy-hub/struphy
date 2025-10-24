@@ -21,7 +21,10 @@ def main():
     )
 
     parser.add_argument(
-        "--input-abs", type=str, metavar="DIR", help="directory with eigenspectrum (.npy) file, absolute path"
+        "--input-abs",
+        type=str,
+        metavar="DIR",
+        help="directory with eigenspectrum (.npy) file, absolute path",
     )
 
     parser.add_argument("lower", type=float, help="lower range of squared eigenfrequency")
