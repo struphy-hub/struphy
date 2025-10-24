@@ -5,13 +5,13 @@ import argparse
 import os
 import subprocess
 
+import cunumpy as xp
 import h5py
 import yaml
 
 import struphy
 import struphy.utils.utils as utils
 from struphy.diagnostics.diagn_tools import plot_distr_fun, plot_scalars, plots_videos_2d
-from struphy.utils.arrays import xp as np
 
 
 def main():
@@ -301,7 +301,7 @@ def main():
                 bckgr_fun = getattr(maxwellians, default_bckgr_type)()
 
             # Get values of background shifts in velocity space
-            positions = [np.array([grid_slices["e" + str(k)]]) for k in range(1, 4)]
+            positions = [xp.array([grid_slices["e" + str(k)]]) for k in range(1, 4)]
             u = bckgr_fun.u(*positions)
             eval_params = {"u" + str(k + 1): u[k][0] for k in range(3)}
 
@@ -315,7 +315,7 @@ def main():
             # Plot the distribution function
             if "plot_distr" in actions:
                 # Get index of where to plot in time
-                time_idx = np.argmin(np.abs(time - saved_time))
+                time_idx = xp.argmin(xp.abs(time - saved_time))
 
                 plot_distr_fun(
                     path=os.path.join(
