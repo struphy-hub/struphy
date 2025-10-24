@@ -56,7 +56,7 @@ jobs:
         uses: ./.github/actions/install/ubuntu-latest
 
       - name: Install struphy
-        uses: ./.github/actions/install/clone-and-install-struphy-editable
+        uses: ./.github/actions/install/install-struphy-editable
 
       - name: Lint the repo
         run: |
