@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import numpy as np
+import cunumpy as xp
 from scipy.fft import irfft, rfft
 
 from struphy.feec.psydac_derham import Derham
