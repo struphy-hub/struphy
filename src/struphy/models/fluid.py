@@ -2389,9 +2389,6 @@ class HasegawaWakatani(StruphyModel):
         self._rho: StencilVector = self.derham.Vh["0"].zeros()
         self.update_rho()
 
-    def update_scalar_quantities(self):
-        pass
-
     def update_rho(self):
         omega = self.plasma.vorticity.spline.vector
         self._rho = self.mass_ops.M0.dot(omega, out=self._rho)
