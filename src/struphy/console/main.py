@@ -16,7 +16,7 @@ import yaml
 
 # struphy path
 import struphy
-import struphy.utils.utils as utils
+from struphy.utils import utils
 
 libpath = struphy.__path__[0]
 __version__ = importlib.metadata.version("struphy")
@@ -61,17 +61,18 @@ def struphy():
     batch_files = get_batch_files(b_path)
 
     # Load the models and messages
+    model_message = "All models are listed on https://struphy.pages.mpcdf.de/struphy/sections/models.html"
     list_models = []
-    model_message = fluid_message = kinetic_message = hybrid_message = toy_message = ""
-    try:
-        with open(os.path.join(libpath, "models", "models_list"), "rb") as fp:
-            list_models = pickle.load(fp)
-        with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
-            model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
-                fp,
-            )
-    except:
-        print("run: struphy --refresh-models")
+    ml_path = os.path.join(libpath, "models", "models_list")
+    if not os.path.isfile(ml_path):
+        utils.refresh_models()
+
+    with open(ml_path, "rb") as fp:
+        list_models = pickle.load(fp)
+    with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
+        model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
+            fp,
+        )
 
     # 0. basic options
     add_parser_basic_options(parser, i_path, o_path, b_path)
@@ -227,7 +228,7 @@ def struphy():
 
 def get_params_files(i_path):
     if os.path.exists(i_path) and os.path.isdir(i_path):
-        params_files = recursive_get_files(i_path)
+        params_files = recursive_get_files(i_path, contains=(".yml", ".yaml", ".py"))
     else:
         print("Path to input files missing! Set it with `struphy --set-i PATH`")
         params_files = []
@@ -683,14 +684,14 @@ def add_parser_params(subparsers, list_models, model_message):
         "params",
         formatter_class=lambda prog: argparse.RawTextHelpFormatter(
             prog,
-            max_help_position=30,
+            max_help_position=35,
         ),
         help="create default parameter file for a model, or show model's options",
-        description="Creates a default parameter file for a specific model, or shows a model's options.",
+        description="Create default parameter file (.py) for a specific model.",
     )
 
     parser_params.add_argument(
-        "model",
+        "model_name",
         type=str,
         choices=list_models,
         metavar="MODEL",
@@ -698,18 +699,11 @@ def add_parser_params(subparsers, list_models, model_message):
     )
 
     parser_params.add_argument(
-        "-f",
-        "--file",
+        "-p",
+        "--params-path",
         type=str,
-        metavar="FILE",
-        help="name of the parameter file (.yml) to be created in the current I/O path (default=params_<model>.yml)",
-    )
-
-    parser_params.add_argument(
-        "-o",
-        "--options",
-        help="show model options",
-        action="store_true",
+        metavar="PATH",
+        help="Absolute path to the parameter file (default is getcwd()/params_MODEL.py)",
     )
 
     parser_params.add_argument(
@@ -722,7 +716,7 @@ def add_parser_params(subparsers, list_models, model_message):
     parser_params.add_argument(
         "-y",
         "--yes",
-        help="Say yes on prompt to overwrite .yml FILE",
+        help="Say yes on prompt to overwrite PATH",
         action="store_true",
     )
 
@@ -940,26 +934,27 @@ def add_parser_test(subparsers, list_models):
         parser_test.add_argument(
             "group",
             type=str,
-            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["toy"],
+            choices=list_models
+            + ["models"]
+            + ["unit"]
+            + ["fluid"]
+            + ["kinetic"]
+            + ["hybrid"]
+            + ["toy"]
+            + ["verification"],
             metavar="GROUP",
             help='can be either:\na) a model name \
                                     \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
-                                    \nc) "unit" for performing unit tests',
+                                    \nc) "verification" for running all verification tests \
+                                    \nd) "unit" for performing unit tests',
         )
 
         parser_test.add_argument(
             "--mpi",
             type=int,
             metavar="N",
-            help="set number of MPI processes used in tests (default=1))",
+            help="set number of MPI processes used in tests (default=2))",
             default=1,
-        )
-
-        parser_test.add_argument(
-            "-f",
-            "--fast",
-            help="test model(s) just in slab geometry (Cuboid)",
-            action="store_true",
         )
 
         parser_test.add_argument(
@@ -969,23 +964,9 @@ def add_parser_test(subparsers, list_models):
         )
 
         parser_test.add_argument(
-            "-T",
-            "--Tend",
-            type=float,
-            help="if GROUP=a), simulation end time in units of the model (default=0.015 with dt=0.005), data is only saved at TEND if set",
-            default=None,
-        )
-
-        parser_test.add_argument(
             "-v",
             "--vrbose",
             help="print output of testing on screen",
-            action="store_true",
-        )
-
-        parser_test.add_argument(
-            "--verification",
-            help="perform verification runs specified in io/inp/verification/",
             action="store_true",
         )
 
