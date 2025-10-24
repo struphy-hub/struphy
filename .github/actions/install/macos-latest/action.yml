@@ -22,12 +22,13 @@ runs:
         brew link --overwrite cmake
         cmake --version 
         make -v
-        # system_profiler SPHardwareDataType
+        system_profiler SPHardwareDataType
+        which gfortran
+        which gcc
+        which g++
         # Update environment variables
         echo "FC=$(which gfortran)" >> $GITHUB_ENV # for gvec
         echo "CC=$(which gcc)" >> $GITHUB_ENV # for gvec
         echo "CXX=$(which g++)" >> $GITHUB_ENV # for gvec
         echo "----------------"
-        which gfortran
-        which gcc
-        which g++
+        
