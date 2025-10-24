@@ -1759,7 +1759,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             units["p"] = 1.0
             units["n"] = 1e20
             warnings.warn(
-                f"{units = }, no rescaling performed in EQDSK output.",
+                f"{units =}, no rescaling performed in EQDSK output.",
             )
 
         self._units = units
@@ -2133,7 +2133,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
             with pytest.raises(SystemExit) as exc:
                 print("Simulation aborted, gvec must be installed (pip install gvec)!")
                 sys.exit(1)
-            print(f"{exc.value.code = }")
+            print(f"{exc.value.code =}")
 
         import gvec
 
@@ -2148,7 +2148,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
             units["p"] = 1.0
             units["n"] = 1e20
             warnings.warn(
-                f"{units = }, no rescaling performed in GVEC output.",
+                f"{units =}, no rescaling performed in GVEC output.",
             )
 
         self._units = units
@@ -2428,7 +2428,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
             units["p"] = 1.0
             units["n"] = 1e20
             warnings.warn(
-                f"{units = }, no rescaling performed in DESC output.",
+                f"{units =}, no rescaling performed in DESC output.",
             )
 
         self._units = units
@@ -2880,23 +2880,23 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         if verbose:
             # import sys
-            print(f"\n{nfp = }")
-            print(f"{self.eq.axis = }")
-            print(f"{rho.size = }")
-            print(f"{theta.size = }")
-            print(f"{zeta.size = }")
-            print(f"{grid_3d.num_rho = }")
-            print(f"{grid_3d.num_theta = }")
-            print(f"{grid_3d.num_zeta = }")
+            print(f"\n{nfp =}")
+            print(f"{self.eq.axis =}")
+            print(f"{rho.size =}")
+            print(f"{theta.size =}")
+            print(f"{zeta.size =}")
+            print(f"{grid_3d.num_rho =}")
+            print(f"{grid_3d.num_theta =}")
+            print(f"{grid_3d.num_zeta =}")
             # print(f'\n{grid_3d.nodes[:, 0] = }')
             # print(f'\n{grid_3d.nodes[:, 1] = }')
             # print(f'\n{grid_3d.nodes[:, 2] = }')
-            print(f"\n{rho = }")
-            print(f"{rho1 = }")
-            print(f"\n{theta = }")
-            print(f"{theta1 = }")
-            print(f"\n{zeta = }")
-            print(f"{zeta1 = }")
+            print(f"\n{rho =}")
+            print(f"{rho1 =}")
+            print(f"\n{theta =}")
+            print(f"{theta1 =}")
+            print(f"\n{zeta =}")
+            print(f"{zeta1 =}")
 
         # make c-contiguous
         out = xp.ascontiguousarray(out)

@@ -224,7 +224,7 @@ class PushVxB(Propagator):
         elif self.options.algo == "implicit":
             kernel = pusher_kernels.push_vxb_implicit
         else:
-            raise ValueError(f"{self.options.algo = } not supported.")
+            raise ValueError(f"{self.options.algo =} not supported.")
 
         # instantiate Pusher
         args_kernel = (
@@ -429,48 +429,29 @@ class PushEtaPC(Propagator):
             check_option(self.u_space, OptsVecSpace)
             assert isinstance(self.u_tilde, FEECVariable)
 
-            # defaults
-            if self.butcher is None:
-                self.butcher = ButcherTableau()
-
-    @property
-    def options(self) -> Options:
-        if not hasattr(self, "_options"):
-            self._options = self.Options()
-        return self._options
-
-    @options.setter
-    def options(self, new):
-        assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
-        self._options = new
-
-    @profile
-    def allocate(self):
-        self._u_tilde = self.options.u_tilde.spline.vector
-
-        # get kernell:
-        if self.options.u_space == "Hcurl":
-            kernel = Pyccelkernel(pusher_kernels.push_pc_eta_stage_Hcurl)
-        elif self.options.u_space == "Hdiv":
-            kernel = Pyccelkernel(pusher_kernels.push_pc_eta_stage_Hdiv)
-        elif self.options.u_space == "H1vec":
-            kernel = Pyccelkernel(pusher_kernels.push_pc_eta_stage_H1vec)
+        # call Pusher class
+        if use_perp_model:
+            if u_space == "Hcurl":
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hcurl)
+            elif u_space == "Hdiv":
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hdiv)
+            elif u_space == "H1vec":
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_H1vec)
+            else:
+                raise ValueError(
+                    f'{u_space =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                )
         else:
-            raise ValueError(
-                f'{self.options.u_space = } not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
-            )
-
-        # define algorithm
-        butcher = self.options.butcher
-        # temp fix due to refactoring of ButcherTableau:
-        import cunumpy as xp
-
-        butcher._a = xp.diag(butcher.a, k=-1)
-        butcher._a = xp.array(list(butcher.a) + [0.0])
+            if u_space == "Hcurl":
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hcurl_full)
+            elif u_space == "Hdiv":
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_Hdiv_full)
+            elif u_space == "H1vec":
+                kernel = Pyccelkernel(pusher_kernels.push_pc_eta_rk4_H1vec_full)
+            else:
+                raise ValueError(
+                    f'{u_space =} not valid, choose from "Hcurl", "Hdiv" or "H1vec.',
+                )
 
         args_kernel = (
             self.derham.args_derham,

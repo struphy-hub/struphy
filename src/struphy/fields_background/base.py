@@ -783,19 +783,28 @@ class MHDequilibrium(FluidEquilibriumWithB):
     def curl_unit_b1(self, *etas, squeeze_out=False):
         """1-form components of curl of unit magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
         return self.domain.pull(
-            self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind="1", squeeze_out=squeeze_out
+            self.curl_unit_b_cart(*etas, squeeze_out=False)[0],
+            *etas,
+            kind="1",
+            squeeze_out=squeeze_out,
         )
 
     def curl_unit_b2(self, *etas, squeeze_out=False):
         """2-form components of curl of unit magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
         return self.domain.pull(
-            self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind="2", squeeze_out=squeeze_out
+            self.curl_unit_b_cart(*etas, squeeze_out=False)[0],
+            *etas,
+            kind="2",
+            squeeze_out=squeeze_out,
         )
 
     def curl_unit_bv(self, *etas, squeeze_out=False):
         """Contra-variant components of curl of unit magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
         return self.domain.pull(
-            self.curl_unit_b_cart(*etas, squeeze_out=False)[0], *etas, kind="v", squeeze_out=squeeze_out
+            self.curl_unit_b_cart(*etas, squeeze_out=False)[0],
+            *etas,
+            kind="v",
+            squeeze_out=squeeze_out,
         )
 
     def curl_unit_b_cart(self, *etas, squeeze_out=False):

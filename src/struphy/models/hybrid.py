@@ -215,18 +215,18 @@ class LinearMHDVlasovCC(StruphyModel):
             for line in f:
                 if "mag_sonic.Options" in line:
                     new_file += [
-                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n"
+                        "model.propagators.mag_sonic.options = model.propagators.mag_sonic.Options(b_field=model.em_fields.b_field)\n",
                     ]
                 elif "couple_dens.Options" in line:
                     new_file += [
-                        "model.propagators.couple_dens.options = model.propagators.couple_dens.Options(energetic_ions=model.energetic_ions.var,\n"
+                        "model.propagators.couple_dens.options = model.propagators.couple_dens.Options(energetic_ions=model.energetic_ions.var,\n",
                     ]
                     new_file += [
-                        "                                                                              b_tilde=model.em_fields.b_field)\n"
+                        "                                                                              b_tilde=model.em_fields.b_field)\n",
                     ]
                 elif "couple_curr.Options" in line:
                     new_file += [
-                        "model.propagators.couple_curr.options = model.propagators.couple_curr.Options(b_tilde=model.em_fields.b_field)\n"
+                        "model.propagators.couple_curr.options = model.propagators.couple_curr.Options(b_tilde=model.em_fields.b_field)\n",
                     ]
                 elif "set_save_data" in line:
                     new_file += ["\nbinplot = BinningPlot(slice='e1', n_bins=128, ranges=(0.0, 1.0))\n"]
@@ -385,8 +385,83 @@ class LinearMHDVlasovPC(StruphyModel):
     def velocity_scale(self):
         return "alfvén"
 
-    def allocate_helpers(self):
-        self._ones = self.projected_equil.p3.space.zeros()
+    @staticmethod
+    def propagators_dct():
+        return {
+            propagators_markers.PushEtaPC: ["energetic_ions"],
+            propagators_markers.PushVxB: ["energetic_ions"],
+            propagators_coupling.PressureCoupling6D: ["energetic_ions", "mhd_velocity"],
+            propagators_fields.ShearAlfven: ["mhd_velocity", "b_field"],
+            propagators_fields.Magnetosonic: ["mhd_density", "mhd_velocity", "mhd_pressure"],
+        }
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["fluid", "mhd"],
+            key="u_space",
+            option="Hdiv",
+            dct=dct,
+        )
+        return dct
+
+    def __init__(self, params, comm, clone_config=None):
+        # initialize base class
+        super().__init__(params, comm=comm, clone_config=clone_config)
+
+        from struphy.polar.basic import PolarVector
+
+        # extract necessary parameters
+        u_space = params["fluid"]["mhd"]["options"]["u_space"]
+        params_alfven = params["fluid"]["mhd"]["options"]["ShearAlfven"]
+        params_sonic = params["fluid"]["mhd"]["options"]["Magnetosonic"]
+        params_vxb = params["kinetic"]["energetic_ions"]["options"]["PushVxB"]
+        params_pressure = params["kinetic"]["energetic_ions"]["options"]["PressureCoupling6D"]
+
+        # use perp model
+        assert (
+            params["kinetic"]["energetic_ions"]["options"]["PressureCoupling6D"]["use_perp_model"]
+            == params["kinetic"]["energetic_ions"]["options"]["PressureCoupling6D"]["use_perp_model"]
+        )
+        use_perp_model = params["kinetic"]["energetic_ions"]["options"]["PressureCoupling6D"]["use_perp_model"]
+
+        # compute coupling parameters
+        Ab = params["fluid"]["mhd"]["phys_params"]["A"]
+        Ah = params["kinetic"]["energetic_ions"]["phys_params"]["A"]
+        epsilon = self.equation_params["energetic_ions"]["epsilon"]
+
+        if abs(epsilon - 1) < 1e-6:
+            epsilon = 1.0
+
+        self._coupling_params = {}
+        self._coupling_params["Ab"] = Ab
+        self._coupling_params["Ah"] = Ah
+        self._coupling_params["epsilon"] = epsilon
+
+        # add control variate to mass_ops object
+        if self.pointer["energetic_ions"].control_variate:
+            self.mass_ops.weights["f0"] = self.pointer["energetic_ions"].f0
+
+        # Project magnetic field
+        self._b_eq = self.derham.P["2"](
+            [
+                self.equil.b2_1,
+                self.equil.b2_2,
+                self.equil.b2_3,
+            ],
+        )
+        self._p_eq = self.derham.P["3"](self.equil.p3)
+        self._ones = self._p_eq.space.zeros()
+
         if isinstance(self._ones, PolarVector):
             self._ones.tp[:] = 1.0
         else:
@@ -422,7 +497,7 @@ class LinearMHDVlasovPC(StruphyModel):
             particles.markers[~particles.holes, 6].dot(
                 particles.markers[~particles.holes, 3] ** 2
                 + particles.markers[~particles.holes, 4] ** 2
-                + particles.markers[~particles.holes, 5] ** 2
+                + particles.markers[~particles.holes, 5] ** 2,
             )
             / 2.0
             * Ah
@@ -465,19 +540,19 @@ class LinearMHDVlasovPC(StruphyModel):
                 if "magnetosonic.Options" in line:
                     new_file += [
                         """model.propagators.magnetosonic.options = model.propagators.magnetosonic.Options(
-                        b_field=model.em_fields.b_field,)\n"""
+                        b_field=model.em_fields.b_field,)\n""",
                     ]
 
                 elif "push_eta_pc.Options" in line:
                     new_file += [
                         """model.propagators.push_eta_pc.options = model.propagators.push_eta_pc.Options(
-                        u_tilde = model.mhd.velocity,)\n"""
+                        u_tilde = model.mhd.velocity,)\n""",
                     ]
 
                 elif "push_vxb.Options" in line:
                     new_file += [
                         """model.propagators.push_vxb.options = model.propagators.push_vxb.Options(
-                        b2_var = model.em_fields.b_field,)\n"""
+                        b2_var = model.em_fields.b_field,)\n""",
                     ]
 
                 else:
@@ -746,44 +821,44 @@ class LinearMHDDriftkineticCC(StruphyModel):
                 if "shearalfen_cc5d.Options" in line:
                     new_file += [
                         """model.propagators.shearalfen_cc5d.options = model.propagators.shearalfen_cc5d.Options(
-                        energetic_ions = model.energetic_ions.var,)\n"""
+                        energetic_ions = model.energetic_ions.var,)\n""",
                     ]
 
                 elif "magnetosonic.Options" in line:
                     new_file += [
                         """model.propagators.magnetosonic.options = model.propagators.magnetosonic.Options(
-                        b_field=model.em_fields.b_field,)\n"""
+                        b_field=model.em_fields.b_field,)\n""",
                     ]
 
                 elif "cc5d_density.Options" in line:
                     new_file += [
                         """model.propagators.cc5d_density.options = model.propagators.cc5d_density.Options(
                         energetic_ions = model.energetic_ions.var,
-                        b_tilde = model.em_fields.b_field,)\n"""
+                        b_tilde = model.em_fields.b_field,)\n""",
                     ]
 
                 elif "cc5d_curlb.Options" in line:
                     new_file += [
                         """model.propagators.cc5d_curlb.options = model.propagators.cc5d_curlb.Options(
-                        b_tilde = model.em_fields.b_field,)\n"""
+                        b_tilde = model.em_fields.b_field,)\n""",
                     ]
 
                 elif "cc5d_gradb.Options" in line:
                     new_file += [
                         """model.propagators.cc5d_gradb.options = model.propagators.cc5d_gradb.Options(
-                        b_tilde = model.em_fields.b_field,)\n"""
+                        b_tilde = model.em_fields.b_field,)\n""",
                     ]
 
                 elif "push_bxe.Options" in line:
                     new_file += [
                         """model.propagators.push_bxe.options = model.propagators.push_bxe.Options(
-                        b_tilde = model.em_fields.b_field,)\n"""
+                        b_tilde = model.em_fields.b_field,)\n""",
                     ]
 
                 elif "push_parallel.Options" in line:
                     new_file += [
                         """model.propagators.push_parallel.options = model.propagators.push_parallel.Options(
-                        b_tilde = model.em_fields.b_field,)\n"""
+                        b_tilde = model.em_fields.b_field,)\n""",
                     ]
 
                 else:

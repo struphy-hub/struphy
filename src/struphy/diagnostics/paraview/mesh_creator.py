@@ -37,7 +37,12 @@ def make_ugrid_and_write_vtu(filename: str, writer, vtk_dir, gvec, s_range, u_ra
     point_data = {}
     cell_data = {}
     vtk_points, suv_points, xyz_points, point_indices = gen_vtk_points(
-        gvec, s_range, u_range, v_range, point_data, cell_data
+        gvec,
+        s_range,
+        u_range,
+        v_range,
+        point_data,
+        cell_data,
     )
     print("vtk_points.GetNumberOfPoints()", vtk_points.GetNumberOfPoints(), flush=True)
 

@@ -47,11 +47,11 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plo
 
     for dom_type, dom_class in zip(dom_types, dom_classes):
         print("#" * 80)
-        print(f"Testing {dom_class = }")
+        print(f"Testing {dom_class =}")
         print("#" * 80)
 
         if "DESC" in dom_type and not with_desc:
-            print(f"Attention: {with_desc = }, DESC not tested here !!")
+            print(f"Attention: {with_desc =}, DESC not tested here !!")
             continue
 
         domain = dom_class()
@@ -103,7 +103,7 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plo
                 err = [xp.max(xp.abs(exact(ee1, ee2, ee3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
                 f_plot = field_vals[0]
 
-            print(f"{sp_id = }, {xp.max(err) = }")
+            print(f"{sp_id =}, {xp.max(err) =}")
             if sp_id in ("H1", "H1vec"):
                 assert xp.max(err) < 0.004
             else:
@@ -233,7 +233,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         line_for_rate_p0 = [Ne ** (-rate_p0) * errors[sp_id][0] / Nels[0] ** (-rate_p0) for Ne in Nels]
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors[sp_id]), deg=1)
-        print(f"{sp_id = }, fitted convergence rate = {-m}, degree = {pi}")
+        print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
         if sp_id in ("H1", "H1vec"):
             assert -m > (pi + 1 - 0.05)
         else:
@@ -247,7 +247,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             plt.loglog(Nels, line_for_rate_p0, "k--")
             plt.text(Nels[-2], line_for_rate_p1[-2], f"1/Nel^{rate_p1}")
             plt.text(Nels[-2], line_for_rate_p0[-2], f"1/Nel^{rate_p0}")
-            plt.title(f"{sp_id = }, degree = {pi}")
+            plt.title(f"{sp_id =}, degree = {pi}")
             plt.xlabel("Nel")
 
     if do_plot and rank == 0:
