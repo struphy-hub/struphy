@@ -551,119 +551,133 @@ class PressureCoupling6D(Propagator):
         \begin{bmatrix} {\mathbb M^n}(u^{n+1} + u^n) \\ \bar W (V^{n+1} + V^{n} \end{bmatrix} \,.
     """
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["use_perp_model"] = [True, False]
-        dct["solver"] = {
-            "type": [
-                ("pcg", "MassMatrixPreconditioner"),
-                ("cg", None),
-            ],
-            "tol": 1.0e-8,
-            "maxiter": 3000,
-            "info": False,
-            "verbose": False,
-            "recycle": True,
-        }
-        dct["filter"] = {
-            "use_filter": None,
-            "modes": (1),
-            "repeat": 1,
-            "alpha": 0.5,
-        }
-        dct["boundary_cut"] = {
-            "e1": 0.0,
-            "e2": 0.0,
-            "e3": 0.0,
-        }
-        dct["turn_off"] = False
+    class Variables:
+        def __init__(self):
+            self._u: FEECVariable = None
+            self._energetic_ions: PICVariable = None
 
-        if default:
-            dct = descend_options_dict(dct, [])
+        @property
+        def u(self) -> FEECVariable:
+            return self._u
 
-        return dct
+        @u.setter
+        def u(self, new):
+            assert isinstance(new, FEECVariable)
+            assert new.space in ("Hcurl", "Hdiv", "H1vec")
+            self._u = new
 
-    def __init__(
-        self,
-        particles: Particles5D,
-        u: BlockVector | PolarVector,
-        *,
-        use_perp_model: bool = options(default=True)["use_perp_model"],
-        u_space: str,
-        solver: dict = options(default=True)["solver"],
-        coupling_params: dict,
-        filter: dict = options(default=True)["filter"],
-        boundary_cut: dict = options(default=True)["boundary_cut"],
-    ):
-        super().__init__(particles, u)
+        @property
+        def energetic_ions(self) -> PICVariable:
+            return self._energetic_ions
 
-        self._G = self.derham.grad
-        self._GT = self.derham.grad.transpose()
+        @energetic_ions.setter
+        def energetic_ions(self, new):
+            assert isinstance(new, PICVariable)
+            assert new.space == "Particles6D"
+            self._energetic_ions = new
 
-        self._info = solver["info"]
-        if self.derham.comm is None:
-            self._rank = 0
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # propagator options
+        ep_scale: float = 1.0
+        u_space: OptsVecSpace = "Hdiv"
+        solver: OptsSymmSolver = "pcg"
+        precond: OptsMassPrecond = "MassMatrixPreconditioner"
+        solver_params: SolverParameters = None
+        filter_params: FilterParameters = None
+        use_perp_model: bool = True
+
+        def __post_init__(self):
+            # checks
+            check_option(self.u_space, OptsVecSpace)
+            check_option(self.solver, OptsSymmSolver)
+            check_option(self.precond, OptsMassPrecond)
+            assert isinstance(self.ep_scale, float)
+            assert isinstance(self.use_perp_model, bool)
+
+            # defaults
+            if self.solver_params is None:
+                self.solver_params = SolverParameters()
+
+            if self.filter_params is None:
+                self.filter_params = FilterParameters()
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+
+    @profile
+    def allocate(self):
+        if self.options.u_space == "H1vec":
+            self._u_form_int = 0
         else:
-            self._rank = self.derham.comm.Get_rank()
+            self._u_form_int = int(self.derham.space_to_form[self.options.u_space])
 
-        assert u_space in {"Hcurl", "Hdiv", "H1vec"}
-
-        if u_space == "Hcurl":
+        if self.options.u_space == "Hcurl":
             id_Mn = "M1n"
             id_X = "X1"
-        elif u_space == "Hdiv":
+        elif self.options.u_space == "Hdiv":
             id_Mn = "M2n"
             id_X = "X2"
-        elif u_space == "H1vec":
+        elif self.options.u_space == "H1vec":
             id_Mn = "Mvn"
             id_X = "Xv"
 
-        if u_space == "H1vec":
-            self._space_key_int = 0
-        else:
-            self._space_key_int = int(
-                self.derham.space_to_form[u_space],
-            )
+        # call operatros
+        id_M = "M" + self.derham.space_to_form[self.options.u_space] + "n"
+        _A = getattr(self.mass_ops, id_M)
+        self._X = getattr(self.basis_ops, id_X)
+        self._XT = self._X.transpose()
+        grad = self.derham.grad
+        gradT = grad.transpose()
 
         # Preconditioner
-        if solver["type"][1] is None:
+        if self.options.precond is None:
             pc = None
         else:
-            pc_class = getattr(preconditioner, solver["type"][1])
-            pc = pc_class(getattr(self.mass_ops, id_Mn))
+            pc_class = getattr(preconditioner, self.options.precond)
+            pc = pc_class(getattr(self.mass_ops, id_M))
 
         # Call the accumulation and Pusher class
-        if use_perp_model:
+        if self.options.use_perp_model:
             accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d)
             pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu)
         else:
             accum_ker = Pyccelkernel(accum_kernels.pc_lin_mhd_6d_full)
             pusher_ker = Pyccelkernel(pusher_kernels.push_pc_GXu_full)
 
-        self._coupling_mat = coupling_params["Ah"] / coupling_params["Ab"]
-        self._coupling_vec = coupling_params["Ah"] / coupling_params["Ab"]
-        self._scale_push = 1
-
-        self._boundary_cut_e1 = boundary_cut["e1"]
-
+        # define Accumulator and arguments
         self._ACC = Accumulator(
-            particles,
-            "Hcurl",
+            self.variables.energetic_ions.particles,
+            "Hcurl",  # TODO:check
             accum_ker,
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
             symmetry="pressure",
-            filter_params=filter,
+            filter_params=self.options.filter_params,
         )
 
-        self._tmp_g1 = self._G.codomain.zeros()
-        self._tmp_g2 = self._G.codomain.zeros()
-        self._tmp_g3 = self._G.codomain.zeros()
+        self._tmp_g1 = grad.codomain.zeros()
+        self._tmp_g2 = grad.codomain.zeros()
+        self._tmp_g3 = grad.codomain.zeros()
 
         # instantiate Pusher
-        args_kernel = (
+        args_pusher_kernel = (
             self.derham.args_derham,
             self._tmp_g1[0]._data,
             self._tmp_g1[1]._data,
@@ -674,38 +688,20 @@ class PressureCoupling6D(Propagator):
             self._tmp_g3[0]._data,
             self._tmp_g3[1]._data,
             self._tmp_g3[2]._data,
-            self._boundary_cut_e1,
         )
 
         self._pusher = Pusher(
-            particles,
+            self.variables.energetic_ions.particles,
             pusher_ker,
-            args_kernel,
+            args_pusher_kernel,
             self.domain.args_domain,
             alpha_in_kernel=1.0,
         )
 
-        # Define operators
-        self._A = getattr(self.mass_ops, id_Mn)
-        self._X = getattr(self.basis_ops, id_X)
-        self._XT = self._X.transpose()
-
-        # Instantiate schur solver with dummy BC
-        self._schur_solver = SchurSolver(
-            self._A,
-            self._XT @ self._X,
-            solver["type"][0],
-            pc=pc,
-            tol=solver["tol"],
-            maxiter=solver["maxiter"],
-            verbose=solver["verbose"],
-            recycle=solver["recycle"],
-        )
-
-        self.u_temp = u.space.zeros()
-        self.u_temp2 = u.space.zeros()
+        self.u_temp = self.variables.u.spline.vector.space.zeros()
+        self.u_temp2 = self.variables.u.spline.vector.space.zeros()
         self._tmp = self._X.codomain.zeros()
-        self._BV = u.space.zeros()
+        self._BV = self.variables.u.spline.vector.space.zeros()
 
         self._MAT = [
             [self._ACC.operators[0], self._ACC.operators[1], self._ACC.operators[2]],
@@ -715,20 +711,32 @@ class PressureCoupling6D(Propagator):
 
         self._GT_VEC = BlockVector(self.derham.Vh["v"])
 
+        _BC = -1 / 4 * self._XT @ self.GT_MAT_G(self.derham, self._MAT) @ self._X
+
+        self._schur_solver = SchurSolver(
+            _A,
+            _BC,
+            self.options.solver,
+            precond=pc,
+            solver_params=self.options.solver_params,
+        )
+
     def __call__(self, dt):
-        # current u
-        un = self.feec_vars[0]
-        un.update_ghost_regions()
+        # current FE coeffs
+        un = self.variables.u.spline.vector
+
+        # operators
+        grad = self.derham.grad
+        gradT = grad.transpose()
 
         # acuumulate MAT and VEC
-        self._ACC(self._coupling_mat, self._coupling_vec, self._boundary_cut_e1)
+        self._ACC(
+            self.options.ep_scale,
+        )
 
         # update GT_VEC
         for i in range(3):
-            self._GT_VEC[i] = self._GT.dot(self._ACC.vectors[i])
-
-        # define BC and B dot V of the Schur block matrix [[A, B], [C, I]]
-        self._schur_solver.BC = -1 / 4 * self._XT @ self.GT_MAT_G(self.derham, self._MAT) @ self._X
+            self._GT_VEC[i] = gradT.dot(self._ACC.vectors[i])
 
         self._BV = self._XT.dot(self._GT_VEC) * (-1 / 2)
 
@@ -741,9 +749,9 @@ class PressureCoupling6D(Propagator):
         # calculate GXu
         Xu = self._X.dot(_u, out=self._tmp)
 
-        GXu_1 = self._G.dot(Xu[0], out=self._tmp_g1)
-        GXu_2 = self._G.dot(Xu[1], out=self._tmp_g2)
-        GXu_3 = self._G.dot(Xu[2], out=self._tmp_g3)
+        GXu_1 = grad.dot(Xu[0], out=self._tmp_g1)
+        GXu_2 = grad.dot(Xu[1], out=self._tmp_g2)
+        GXu_3 = grad.dot(Xu[2], out=self._tmp_g3)
 
         GXu_1.update_ghost_regions()
         GXu_2.update_ghost_regions()
@@ -753,16 +761,16 @@ class PressureCoupling6D(Propagator):
         self._pusher(dt)
 
         # write new coeffs into Propagator.variables
-        (max_du,) = self.feec_vars_update(un1)
+        diffs = self.update_feec_variables(u=un1)
 
         # update weights in case of control variate
-        if self.particles[0].control_variate:
-            self.particles[0].update_weights()
+        if self.variables.energetic_ions.species.weights_params.control_variate:
+            self.variables.energetic_ions.particles.update_weights()
 
-        if self._info and self._rank == 0:
+        if self.options.solver_params.info and MPI.COMM_WORLD.Get_rank() == 0:
             print("Status     for StepPressurecoupling:", info["success"])
             print("Iterations for StepPressurecoupling:", info["niter"])
-            print("Maxdiff u1 for StepPressurecoupling:", max_du)
+            print("Maxdiff u1 for StepPressurecoupling:", diffs["u"])
             print()
 
     class GT_MAT_G(LinOpWithTransp):
@@ -781,8 +789,8 @@ class PressureCoupling6D(Propagator):
 
         def __init__(self, derham, MAT, transposed=False):
             self._derham = derham
-            self._G = derham.grad
-            self._GT = derham.grad.transpose()
+            self._grad = derham.grad
+            self._gradT = derham.grad.transpose()
 
             self._domain = derham.Vh["v"]
             self._codomain = derham.Vh["v"]
@@ -836,9 +844,9 @@ class PressureCoupling6D(Propagator):
 
             for i in range(3):
                 for j in range(3):
-                    self._temp += self._MAT[i][j].dot(self._G.dot(v[j]))
+                    self._temp += self._MAT[i][j].dot(self._grad.dot(v[j]))
 
-                self._vector[i] = self._GT.dot(self._temp)
+                self._vector[i] = self._gradT.dot(self._temp)
                 self._temp *= 0.0
 
             self._vector.update_ghost_regions()
