@@ -1,4 +1,4 @@
-name: Mac OS
+name: MacOS
 on: push
 
 jobs:
