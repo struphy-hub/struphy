@@ -418,7 +418,7 @@ class LinearMHDVlasovPC(StruphyModel):
             particles.markers[~particles.holes, 6].dot(
                 particles.markers[~particles.holes, 3] ** 2
                 + particles.markers[~particles.holes, 4] ** 2
-                + particles.markers[~particles.holes, 5] ** 2
+                + particles.markers[~particles.holes, 5] ** 2,
             )
             / 2.0
             * Ah
@@ -461,19 +461,19 @@ class LinearMHDVlasovPC(StruphyModel):
                 if "magnetosonic.Options" in line:
                     new_file += [
                         """model.propagators.magnetosonic.options = model.propagators.magnetosonic.Options(
-                        b_field=model.em_fields.b_field,)\n"""
+                        b_field=model.em_fields.b_field,)\n""",
                     ]
 
                 elif "push_eta_pc.Options" in line:
                     new_file += [
                         """model.propagators.push_eta_pc.options = model.propagators.push_eta_pc.Options(
-                        u_tilde = model.mhd.velocity,)\n"""
+                        u_tilde = model.mhd.velocity,)\n""",
                     ]
 
                 elif "push_vxb.Options" in line:
                     new_file += [
                         """model.propagators.push_vxb.options = model.propagators.push_vxb.Options(
-                        b2_var = model.em_fields.b_field,)\n"""
+                        b2_var = model.em_fields.b_field,)\n""",
                     ]
 
                 else:
