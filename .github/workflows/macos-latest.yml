@@ -1,6 +1,10 @@
 name: MacOS
 on: push
 
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   macos-latest-build:
     uses: ./.github/workflows/main.yml
