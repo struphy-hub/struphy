@@ -1,5 +1,6 @@
 [![Testing](https://github.com/struphy-hub/struphy/actions/workflows/testing.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/testing.yml)
 ![PyPI](https://img.shields.io/pypi/v/struphy?label=pypi%20package)
+<img src="https://m3-markdown-badges.vercel.app/stars/4/1/struphy-hub/struphy">
 
 # Welcome!
 
