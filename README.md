@@ -1,5 +1,6 @@
 [![Testing](https://github.com/struphy-hub/struphy/actions/workflows/testing.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/testing.yml)
 ![PyPI](https://img.shields.io/pypi/v/struphy?label=pypi%20package)
+![Release](https://img.shields.io/github/v/release/struphy-hub/struphy)
 ![License](https://img.shields.io/badge/License-MIT-violet)
 
 # Welcome!
