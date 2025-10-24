@@ -3,7 +3,6 @@ import inspect
 import pytest
 
 
-# @pytest.mark.mpi(min_size=2)
 # @pytest.mark.parametrize('combine_comps', [('f0', 'f1'), ('f0', 'f3'), ('f1', 'f2'), ('fvec', 'f3'), ('f1', 'fvec', 'f0')])
 @pytest.mark.parametrize("Nel", [[16, 16, 16]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
@@ -20,13 +19,14 @@ import pytest
 def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False):
     """Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py."""
 
-    import numpy as np
     from matplotlib import pyplot as plt
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
+    from struphy.geometry.base import Domain
     from struphy.initial import perturbations
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -34,6 +34,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     # Domain
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
+    assert isinstance(domain, Domain)
 
     # Derham
     derham = Derham(Nel, p, spl_kind, comm=comm)
@@ -60,7 +61,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     ls = [0, 0]
     pfuns = ["sin", "sin"]
 
-    pmap = domain.params_map
+    pmap = domain.params
     if isinstance(domain, domains.Cuboid):
         Lx = pmap["r1"] - pmap["l1"]
         Ly = pmap["r2"] - pmap["l2"]
@@ -78,7 +79,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
         if inspect.isclass(val):
             print(key, val)
 
-            if "Modes" not in key:
+            if key not in ("ModesCos", "ModesSin", "TorusModesCos", "TorusModesSin"):
                 continue
 
             # skip impossible combinations
@@ -307,12 +308,9 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
 
 if __name__ == "__main__":
-    # mapping = ['Colella', {'Lx': 4., 'Ly': 5., 'alpha': .07, 'Lz': 6.}]
+    mapping = ["Colella", {"Lx": 4.0, "Ly": 5.0, "alpha": 0.07, "Lz": 6.0}]
     # mapping = ['HollowCylinder', {'a1': 0.1}]
     # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 5., 'l3': 0., 'r3': 6.}]
-    # test_init_modes([16, 16, 16], [2, 3, 4], [False, True, True],
-    #                 mapping,
-    #                 combine_comps=None,
-    #                 do_plot=False)
-    mapping = ["HollowTorus", {"tor_period": 1}]
-    test_init_modes([16, 14, 14], [2, 3, 4], [False, True, True], mapping, combine_comps=None, do_plot=True)
+    test_init_modes([16, 16, 16], [2, 3, 4], [False, True, True], mapping, combine_comps=None, do_plot=False)
+    # mapping = ["HollowTorus", {"tor_period": 1}]
+    # test_init_modes([16, 14, 14], [2, 3, 4], [False, True, True], mapping, combine_comps=None, do_plot=True)

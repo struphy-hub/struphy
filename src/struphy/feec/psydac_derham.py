@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 import importlib.metadata
 
-import numpy as np
 import psydac.core.bsplines as bsp
-from mpi4py import MPI
-from mpi4py.MPI import Intracomm
 from psydac.ddm.cart import DomainDecomposition
+from psydac.ddm.mpi import MockComm, MockMPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.feec.derivatives import Curl_3D, Divergence_3D, Gradient_3D
 from psydac.feec.global_projectors import Projector_H1, Projector_H1vec, Projector_Hcurl, Projector_Hdiv, Projector_L2
 from psydac.fem.grid import FemAssemblyGrid
@@ -27,10 +26,11 @@ from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations, utilities
-from struphy.pic.pushing.pusher_args_kernels import DerhamArguments
+from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+from struphy.utils.arrays import xp as np
 
 
 class Derham:
@@ -93,7 +93,7 @@ class Derham:
         dirichlet_bc: list | tuple = None,
         nquads: list | tuple = None,
         nq_pr: list | tuple = None,
-        comm: Intracomm = None,
+        comm=None,
         mpi_dims_mask: list = None,
         with_projectors: bool = True,
         polar_ck: int = -1,
@@ -381,8 +381,6 @@ class Derham:
         ]
 
         # distribute info on domain decomposition
-        self._domain_decomposition = self._Vh["0"].cart.domain_decomposition
-
         self._domain_array = self._get_domain_array()
         self._breaks_loc = [
             self.breaks[k][self.domain_decomposition.starts[k] : self.domain_decomposition.ends[k] + 2]
@@ -390,7 +388,7 @@ class Derham:
         ]
 
         self._index_array = self._get_index_array(
-            self._domain_decomposition,
+            self.domain_decomposition,
         )
         self._index_array_N = self._get_index_array(self._Vh["0"].cart)
         self._index_array_D = self._get_index_array(self._Vh["3"].cart)
@@ -562,6 +560,11 @@ class Derham:
     def nq_pr(self):
         """List of number of Gauss-Legendre quadrature points in histopolation (default = p + 1) in each direction."""
         return self._nq_pr
+
+    @property
+    def with_local_projectors(self):
+        """True if local projectors are to be used instead of the default global ones."""
+        return self._with_local_projectors
 
     @property
     def comm(self):
@@ -739,7 +742,7 @@ class Derham:
     @property
     def P(self):
         """Dictionary holding global commuting projectors."""
-        if self._with_local_projectors == True:
+        if self.with_local_projectors:
             return self._Ploc
         else:
             return self._P
@@ -792,7 +795,7 @@ class Derham:
         Nel: tuple | list,
         p: tuple | list,
         spl_kind: tuple | list,
-        comm: Intracomm = None,
+        comm=None,
         mpi_dims_mask: tuple | list = None,
     ):
         """Discretize the Derahm complex. Allows for the use of tiny-psydac.
@@ -820,12 +823,13 @@ class Derham:
 
         if "dev" in psydac_ver:
             # use tiny-psydac version
-            ddm = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
+            self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
+
             _derham = self._discretize_derham(
                 Nel=Nel,
                 p=p,
                 spl_kind=spl_kind,
-                ddm=ddm,
+                ddm=self.domain_decomposition,
             )
         else:
             from psydac.api.discretization import discretize
@@ -1118,7 +1122,7 @@ class Derham:
             dom_arr_loc[3 * n + 2] = el_end - el_sta + 1
 
         # distribute
-        if self.comm is not None:
+        if not isinstance(self.comm, (MockComm, type(None))):
             self.comm.Allgather(dom_arr_loc, dom_arr)
         else:
             dom_arr[:] = dom_arr_loc
@@ -1143,7 +1147,7 @@ class Derham:
         """
 
         # MPI info
-        if self.comm is not None:
+        if not isinstance(self.comm, (MockComm, type(None))):
             nproc = self.comm.Get_size()
         else:
             nproc = 1
@@ -1164,7 +1168,7 @@ class Derham:
             ind_arr_loc[2 * n + 1] = end
 
         # distribute
-        if self.comm is not None:
+        if not isinstance(self.comm, (MockComm, type(None))):
             self.comm.Allgather(ind_arr_loc, ind_arr)
         else:
             ind_arr[:] = ind_arr_loc
@@ -1649,6 +1653,9 @@ class SplineFunction:
 
         self._vector *= 0.0
 
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"Initializing {self.name} ...")
+
         # add background to initial vector
         if self.bckgr_params is not None:
             for _type in self.bckgr_params:
@@ -1709,6 +1716,9 @@ class SplineFunction:
         # add perturbations to coefficient vector
         if self.pert_params is not None:
             for _type in self.pert_params:
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    print(f"Adding perturbation {_type} ...")
+
                 _params = self.pert_params[_type].copy()
 
                 # special case of white noise in logical space for different components
@@ -2623,7 +2633,16 @@ def transform_perturbation(
         pert_params.pop("given_in_basis")
         for component, base in enumerate(bases):
             if base is None:
-                fun_basis += ["v"]  # TODO: this should be set to the non-zero components value
+                # Look ahead to find the next non-None base, assuming len of bases is 3
+                next_base = None
+                if bases[0] is not None:
+                    next_base = bases[0]
+                elif bases[1] is not None:
+                    next_base = bases[1]
+                elif bases[2] is not None:
+                    next_base = bases[2]
+                # If no non-None base found later, default to "physical"
+                fun_basis += [next_base if next_base is not None else "physical"]
                 fun_tmp += [None]
             else:
                 # which transform is to be used: physical, '1', '2' or 'v'

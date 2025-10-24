@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.4.5"
+version = "2.5.0"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -22,17 +22,16 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "numpy<=2.2.5",
+    "numpy<=2.2.6",
     "pyccel<=2.0.1, >=2.0",
-    "mpi4py<=4.1.0",
     "scipy<=1.15.3",
-    "h5py<=3.13.0",
-    "matplotlib<=3.10.3",
-    "pyyaml<=6.0.2",
-    "vtk<=9.5.0",
+    "h5py<=3.14.0",
+    "matplotlib<=3.10.5",
+    "pyyaml<=6.0.3",
+    "vtk<=9.5.2",
     "tqdm<=4.67.1",
     "argcomplete<=3.6.2",
-    "pytest<=8.4.1",
+    "pytest<=8.4.2",
     "pytest-mpi<=0.6",
 ]
 
@@ -41,27 +40,34 @@ file = "LICENSE"
 
 [project.optional-dependencies]
 phys = [
-    "gvec<=1.1.0, >=1.1.0",
-    "desc-opt<=0.14.2",
+    "gvec<=1.2.0, >=1.1.0",
+    "desc-opt<=0.15.0",
 ]
 dev = [
-    "notebook<=7.4.3",
+    "notebook<=7.4.7",
     "autopep8<=2.3.2",
     "isort<=6.0.1",
     "flake8<=7.3.0",
-    "pylint<=3.3.7",
+    "pylint<=3.3.8",
+    "ssort<=0.15.0",
     "add-trailing-comma<=3.2.0",
-    "ruff<=0.12.1, >=0.9.1",
-    "pre-commit<=4.2.0",
+    "ruff<=0.13.2, >=0.9.1",
+    "pre-commit<=4.3.0",
     "nbstripout<=0.8.1",
     "tabulate<=0.9.0",
     "tomli-w<=1.2.0",
+    "kaleido<=1.1.0",
+    "pandas<=2.3.3",
+    "plotly<=6.3.0",
+]
+mpi = [
+    "mpi4py<=4.1.1",
 ]
 doc = [
     "struphy[phys]",
     "sphinx<=8.1.3",
     "sphinx-design<=0.6.1",
-    "lxml_html_clean<=0.4.2",
+    "lxml_html_clean<=0.4.3",
     "sphinxcontrib-napoleon<=0.7",
     "pydata-sphinx-theme<=0.16.1",
     "nbsphinx<=0.9.7",
@@ -69,18 +75,16 @@ doc = [
     "myst-parser<=4.0.1",
     "mistune<=0.8.4",
     "docutils<=0.21.2",
-    "ipyparallel<=9.0.1",
+    "ipyparallel<=9.0.2",
 ]
 likwid = [
     "struphy[dev]",
-    "kaleido",
     "pylikwid",
-    "pandas<=2.3.0",
-    "plotly<=6.0.1",
 ]
 all = [
     "struphy[phys]",
     "struphy[dev]",
+    "struphy[mpi]",
     "struphy[doc]",
 ]
 
@@ -120,7 +124,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 ]
 struphy = [
     "compile_struphy.mk",
-    "psydac-2.4.5.dev0-py3-none-any.whl",
+    "psydac-2.5.0.dev0-py3-none-any.whl",
 ]
 
 [tool.autopep8]

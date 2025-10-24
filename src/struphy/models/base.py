@@ -3,9 +3,8 @@ import operator
 from abc import ABCMeta, abstractmethod
 from functools import reduce
 
-import numpy as np
 import yaml
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -20,6 +19,7 @@ from struphy.fields_background.projected_equils import (
 from struphy.io.setup import setup_derham, setup_domain_and_equil
 from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
+from struphy.utils.arrays import xp as np
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
 
@@ -92,7 +92,7 @@ class StruphyModel(metaclass=ABCMeta):
             units=self.units,
         )
 
-        if comm.Get_rank() == 0 and self.verbose:
+        if self.rank_world == 0 and self.verbose:
             print("\nTIME:")
             print(
                 f"time step:".ljust(25),
@@ -112,12 +112,12 @@ class StruphyModel(metaclass=ABCMeta):
 
             print("\nDOMAIN:")
             print(f"type:".ljust(25), self.domain.__class__.__name__)
-            for key, val in self.domain.params_map.items():
+            for key, val in self.domain.params.items():
                 if key not in {"cx", "cy", "cz"}:
                     print((key + ":").ljust(25), val)
 
-            print("\nFIELDS BACKGROUND:")
-            if "fields_background" in params:
+            print("\nFLUID BACKGROUND:")
+            if "fluid_background" in params:
                 print("type:".ljust(25), self.equil.__class__.__name__)
                 for key, val in self.equil.params.items():
                     print((key + ":").ljust(25), val)
@@ -555,14 +555,14 @@ class StruphyModel(metaclass=ABCMeta):
             value_array = np.array([value], dtype=np.float64)
 
             # Perform MPI operations based on the compute flags
-            if "sum_world" in compute_operations:
+            if "sum_world" in compute_operations and self.comm_world is not None:
                 self.comm_world.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
 
-            if "sum_within_clone" in compute_operations:
+            if "sum_within_clone" in compute_operations and self.derham.comm is not None:
                 self.derham.comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
@@ -718,7 +718,7 @@ class StruphyModel(metaclass=ABCMeta):
                     self._n_markers_saved = n_markers
 
                 assert self._n_markers_saved <= obj.Np, (
-                    f"The number of markers for which data should be stored (={n_markers}) murst be <= than the total number of markers (={obj.Np})"
+                    f"The number of markers for which data should be stored (={self._n_markers_saved}) murst be <= than the total number of markers (={obj.Np})"
                 )
                 if self._n_markers_saved > 0:
                     val["kinetic_data"]["markers"] = np.zeros(
@@ -957,7 +957,8 @@ class StruphyModel(metaclass=ABCMeta):
                             print("No perturbation.")
 
                     obj.draw_markers(sort=True, verbose=self.verbose)
-                    obj.mpi_sort_markers(do_test=True)
+                    if self.comm_world is not None:
+                        obj.mpi_sort_markers(do_test=True)
 
                     if not val["params"]["markers"]["loading"] == "restart":
                         if obj.coords == "vpara_mu":
@@ -1017,7 +1018,8 @@ class StruphyModel(metaclass=ABCMeta):
                 obj._markers[:, :] = data.file["restart/" + key][-1, :, :]
 
                 # important: sets holes attribute of markers!
-                obj.mpi_sort_markers(do_test=True)
+                if self.comm_world is not None:
+                    obj.mpi_sort_markers(do_test=True)
 
     def initialize_data_output(self, data, size):
         """
@@ -1325,7 +1327,7 @@ class StruphyModel(metaclass=ABCMeta):
         )
 
         # print to screen
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+        if verbose and rank == 0:
             print("\nUNITS:")
             print(
                 f"Unit of length:".ljust(25),
@@ -1381,7 +1383,7 @@ class StruphyModel(metaclass=ABCMeta):
                 equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
                 equation_params[species]["kappa"] = om_p * units["t"]
 
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                if verbose and rank == 0:
                     print("\nNORMALIZATION PARAMETERS:")
                     print("- " + species + ":")
                     for key, val in equation_params[species].items():
@@ -1400,7 +1402,7 @@ class StruphyModel(metaclass=ABCMeta):
                 equation_params[species]["epsilon"] = 1.0 / (om_c * units["t"])
                 equation_params[species]["kappa"] = om_p * units["t"]
 
-                if verbose and MPI.COMM_WORLD.Get_rank() == 0:
+                if verbose and rank == 0:
                     if "fluid" not in params:
                         print("\nNORMALIZATION PARAMETERS:")
                     print("- " + species + ":")
@@ -1850,7 +1852,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                     domain_decomp = (domain_array, nprocs)
 
                 kinetic_class = getattr(particles, val["space"])
-
+                # print(f"{kinetic_class = }")
                 val["obj"] = kinetic_class(
                     comm_world=self.comm_world,
                     clone_config=self.clone_config,
@@ -2164,7 +2166,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
                 if val["space"] != "ParticlesSPH" and tmp.coords == "constants_of_motion":
                     # call parameters
-                    a1 = self.domain.params_map["a1"]
+                    a1 = self.domain.params["a1"]
                     r = eta1mg * (1 - a1) + a1
                     psi = self.equil.psi_r(r)
 

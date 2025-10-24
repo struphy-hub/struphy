@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[5, 6, 7]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, True]])
@@ -13,8 +12,7 @@ import pytest
 def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Compare Struphy mass matrices to Struphy-legacy mass matrices."""
 
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -23,6 +21,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     from struphy.feec.utilities import RotationMatrix, compare_arrays, create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
     from struphy.geometry import domains
+    from struphy.utils.arrays import xp as np
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -365,7 +364,6 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     print(f"Rank {mpi_rank} | All tests passed!")
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 12, 6]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
@@ -377,8 +375,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     """Compare Struphy polar mass matrices to Struphy-legacy polar mass matrices."""
 
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
@@ -388,6 +385,7 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     from struphy.fields_background.equils import ScrewPinch
     from struphy.geometry import domains
     from struphy.polar.basic import PolarVector
+    from struphy.utils.arrays import xp as np
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -560,7 +558,6 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     print(f"Rank {mpi_rank} | All tests passed!")
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 12, 6]])
 @pytest.mark.parametrize("p", [[2, 3, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
@@ -575,8 +572,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
 
     import time
 
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.solvers import inverse
 
     from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
@@ -585,6 +581,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.fields_background.equils import ScrewPinch, ShearedSlab
     from struphy.geometry import domains
+    from struphy.utils.arrays import xp as np
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -866,7 +863,6 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
     print(f"Rank {mpi_rank} | All tests passed!")
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 6]])
 @pytest.mark.parametrize("p", [[2, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
@@ -881,8 +877,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
 
     import time
 
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.solvers import inverse
 
     from struphy.feec.mass import WeightedMassOperators
@@ -892,6 +887,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
     from struphy.fields_background.equils import ScrewPinch
     from struphy.geometry import domains
     from struphy.polar.basic import PolarVector
+    from struphy.utils.arrays import xp as np
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()

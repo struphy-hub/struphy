@@ -1,13 +1,13 @@
 import time
 import timeit
 
-import numpy as np
 import scipy.sparse as spa
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 import struphy.geometry.mappings_3d as mapping3d
 import struphy.geometry.mappings_3d_fast as mapping_fast
 import struphy.linear_algebra.linalg_kernels as linalg
+from struphy.utils.arrays import xp as np
 
 
 class Temp_arrays:
@@ -679,7 +679,7 @@ class Temp_arrays:
                                 # evaluate Jacobian matrix
                                 mapping_fast.df_all(
                                     DOMAIN.kind_map,
-                                    DOMAIN.params_map,
+                                    DOMAIN.params,
                                     DOMAIN.T[0],
                                     DOMAIN.T[1],
                                     DOMAIN.T[2],
@@ -768,7 +768,7 @@ class Temp_arrays:
                                         TENSOR_SPACE_FEM.pts[2][ie3, q3],
                                         1,
                                         DOMAIN.kind_map,
-                                        DOMAIN.params_map,
+                                        DOMAIN.params,
                                         DOMAIN.T[0],
                                         DOMAIN.T[1],
                                         DOMAIN.T[2],
@@ -784,7 +784,7 @@ class Temp_arrays:
                                         TENSOR_SPACE_FEM.pts[2][ie3, q3],
                                         2,
                                         DOMAIN.kind_map,
-                                        DOMAIN.params_map,
+                                        DOMAIN.params,
                                         DOMAIN.T[0],
                                         DOMAIN.T[1],
                                         DOMAIN.T[2],
@@ -800,7 +800,7 @@ class Temp_arrays:
                                         TENSOR_SPACE_FEM.pts[2][ie3, q3],
                                         3,
                                         DOMAIN.kind_map,
-                                        DOMAIN.params_map,
+                                        DOMAIN.params,
                                         DOMAIN.T[0],
                                         DOMAIN.T[1],
                                         DOMAIN.T[2],

@@ -6,8 +6,9 @@
 Modules to compute inner products in 1d.
 """
 
-import numpy as np
 import scipy.sparse as spa
+
+from struphy.utils.arrays import xp as np
 
 
 # ======= inner product in V0 ====================

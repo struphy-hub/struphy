@@ -1,14 +1,17 @@
 import os
+import pickle
+from pathlib import Path
 
 import h5py
-import numpy as np
 import yaml
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
+from scipy.special import jv, yn
 
 import struphy
 from struphy.post_processing import pproc_struphy
+from struphy.utils.arrays import xp as np
 
 
 def VlasovAmpereOneSpecies_weakLandau(
@@ -152,8 +155,9 @@ def LinearVlasovAmpereOneSpecies_weakLandau(
         plt.plot(t_maxima[:5], maxima[:5], "r")
         plt.plot(t_maxima[:5], maxima[:5], "or", markersize=10)
         plt.ylim([-10, -4])
-
         plt.show()
+
+        # plt.show()
 
     # assert
     rel_error = np.abs(gamma_num - gamma) / np.abs(gamma)
@@ -232,8 +236,134 @@ def IsothermalEulerSPH_soundwave(
     assert error < 1.3e-3
 
 
+def Maxwell_coaxial(
+    path_out: str,
+    rank: int,
+    show_plots: bool = False,
+):
+    """Verification test for coaxial cable with Maxwell equations. Comparison w.r.t analytic solution.
+
+    Solutions taken from TUM master thesis of Alicia Robles Pérez:
+    "Development of a Geometric Particle-in-Cell Method for Cylindrical Coordinate Systems", 2024
+
+    Parameters
+    ----------
+    path_out : str
+        Simulation output folder (absolute path).
+
+    rank : int
+        MPI rank.
+
+    show_plots: bool
+        Whether to show plots."""
+
+    if rank == 0:
+        pproc_struphy.main(path_out, physical=True)
+    MPI.COMM_WORLD.Barrier()
+
+    def B_z(X, Y, Z, m, t):
+        """Magnetic field in z direction of coaxial cabel"""
+        r = (X**2 + Y**2) ** 0.5
+        theta = np.arctan2(Y, X)
+        return (jv(m, r) - 0.28 * yn(m, r)) * np.cos(m * theta - t)
+
+    def E_r(X, Y, Z, m, t):
+        """Electrical field in radial direction of coaxial cabel"""
+        r = (X**2 + Y**2) ** 0.5
+        theta = np.arctan2(Y, X)
+        return -m / r * (jv(m, r) - 0.28 * yn(m, r)) * np.cos(m * theta - t)
+
+    def E_theta(X, Y, Z, m, t):
+        """Electrical field in azimuthal direction of coaxial cabel"""
+        r = (X**2 + Y**2) ** 0.5
+        theta = np.arctan2(Y, X)
+        return ((m / r * jv(m, r) - jv(m + 1, r)) - 0.28 * (m / r * yn(m, r) - yn(m + 1, r))) * np.sin(m * theta - t)
+
+    def to_E_r(X, Y, E_x, E_y):
+        r = (X**2 + Y**2) ** 0.5
+        theta = np.arctan2(Y, X)
+        return np.cos(theta) * E_x + np.sin(theta) * E_y
+
+    def to_E_theta(X, Y, E_x, E_y):
+        r = (X**2 + Y**2) ** 0.5
+        theta = np.arctan2(Y, X)
+        return -np.sin(theta) * E_x + np.cos(theta) * E_y
+
+    # get parameters
+    with open(os.path.join(path_out, "parameters.yml")) as f:
+        params = yaml.load(f, Loader=yaml.FullLoader)
+    dt = params["time"]["dt"]
+    algo = params["time"]["split_algo"]
+    Nel = params["grid"]["Nel"][0]
+    modes = params["em_fields"]["perturbation"]["e_field"]["CoaxialWaveguideElectric_r"]["m"]
+
+    pproc_path = os.path.join(path_out, "post_processing/")
+    em_fields_path = os.path.join(pproc_path, "fields_data/em_fields/")
+    t_grid = np.load(os.path.join(pproc_path, "t_grid.npy"))
+    grids_phy = pickle.loads(Path(os.path.join(pproc_path, "fields_data/grids_phy.bin")).read_bytes())
+    b_field_phy = pickle.loads(Path(os.path.join(em_fields_path, "b_field_phy.bin")).read_bytes())
+    e_field_phy = pickle.loads(Path(os.path.join(em_fields_path, "e_field_phy.bin")).read_bytes())
+
+    X = grids_phy[0][:, :, 0]
+    Y = grids_phy[1][:, :, 0]
+
+    # plot
+    if show_plots and rank == 0:
+        vmin = E_theta(X, Y, grids_phy[0], modes, 0).min()
+        vmax = E_theta(X, Y, grids_phy[0], modes, 0).max()
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+        plot_exac = ax1.contourf(
+            X, Y, E_theta(X, Y, grids_phy[0], modes, t_grid[-1]), cmap="plasma", levels=100, vmin=vmin, vmax=vmax
+        )
+        ax2.contourf(
+            X,
+            Y,
+            to_E_theta(X, Y, e_field_phy[t_grid[-1]][0][:, :, 0], e_field_phy[t_grid[-1]][1][:, :, 0]),
+            cmap="plasma",
+            levels=100,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        fig.colorbar(plot_exac, ax=[ax1, ax2], orientation="vertical", shrink=0.9)
+        ax1.set_xlabel("Exact")
+        ax2.set_xlabel("Numerical")
+        fig.suptitle(f"Exact and Simulated $E_\\theta$ Field {dt=}, {algo=}, {Nel=}", fontsize=14)
+        plt.show()
+
+    # assert
+    Ex_tend = e_field_phy[t_grid[-1]][0][:, :, 0]
+    Ey_tend = e_field_phy[t_grid[-1]][1][:, :, 0]
+    Er_exact = E_r(X, Y, grids_phy[0], modes, t_grid[-1])
+    Etheta_exact = E_theta(X, Y, grids_phy[0], modes, t_grid[-1])
+    Bz_tend = b_field_phy[t_grid[-1]][2][:, :, 0]
+    Bz_exact = B_z(X, Y, grids_phy[0], modes, t_grid[-1])
+
+    error_Er = np.max(np.abs((to_E_r(X, Y, Ex_tend, Ey_tend) - Er_exact)))
+    error_Etheta = np.max(np.abs((to_E_theta(X, Y, Ex_tend, Ey_tend) - Etheta_exact)))
+    error_Bz = np.max(np.abs((Bz_tend - Bz_exact)))
+
+    rel_err_Er = error_Er / np.max(np.abs(Er_exact))
+    rel_err_Etheta = error_Etheta / np.max(np.abs(Etheta_exact))
+    rel_err_Bz = error_Bz / np.max(np.abs(Bz_exact))
+
+    print(f"{rel_err_Er = }")
+    print(f"{rel_err_Etheta = }")
+    print(f"{rel_err_Bz = }")
+
+    assert rel_err_Bz < 0.0021, f"{rank = }: Assertion for magnetic field Maxwell failed: {rel_err_Bz = }"
+    print(f"{rank = }: Assertion for magnetic field Maxwell passed ({rel_err_Bz = }).")
+    assert rel_err_Etheta < 0.0021, (
+        f"{rank = }: Assertion for electric (E_theta) field Maxwell failed: {rel_err_Etheta = }"
+    )
+    print(f"{rank = }: Assertion for electric field Maxwell passed ({rel_err_Etheta = }).")
+    assert rel_err_Er < 0.0021, f"{rank = }: Assertion for electric (E_r) field Maxwell failed: {rel_err_Er = }"
+    print(f"{rank = }: Assertion for electric field Maxwell passed ({rel_err_Er = }).")
+
+
 if __name__ == "__main__":
     libpath = struphy.__path__[0]
-    model_name = "LinearVlasovAmpereOneSpecies"
+    # model_name = "LinearVlasovAmpereOneSpecies"
+    model_name = "Maxwell"
     path_out = os.path.join(libpath, "io", "out", "verification", model_name, "1")
-    LinearVlasovAmpereOneSpecies_weakLandau(path_out, 0, show_plot=True)
+    # LinearVlasovAmpereOneSpecies_weakLandau(path_out, 0, show_plots=True)
+    Maxwell_coaxial(path_out, 0, show_plots=True)

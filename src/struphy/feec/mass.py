@@ -1,8 +1,7 @@
 import inspect
 
-import numpy as np
-from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.ddm.mpi import mpi as MPI
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
@@ -15,6 +14,8 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities import RotationMatrix
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class WeightedMassOperators:
@@ -423,7 +424,7 @@ class WeightedMassOperators:
         return self._MvJ
 
     @property
-    def M2B(self):
+    def M2B_div0(self):
         r"""
         Mass matrix
 
@@ -440,7 +441,7 @@ class WeightedMassOperators:
         where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
         """
 
-        if not hasattr(self, "_M2B"):
+        if not hasattr(self, "_M2B_div0"):
             a_eq = self.derham.P["1"](
                 [
                     self.weights[self.selected_weight].a1_1,
@@ -481,6 +482,41 @@ class WeightedMassOperators:
                 b02funx,
                 b02funy,
                 b02funz,
+            )
+
+            self._M2B_div0 = self.create_weighted_mass(
+                "Hdiv",
+                "Hdiv",
+                weights=[rot_B, "1/sqrt_g"],
+                name="M2B_div0",
+                assemble=True,
+            )
+
+        return self._M2B_div0
+
+    @property
+    def M2B(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal R^J_{\alpha, \nu} := \epsilon_{\alpha \beta \nu}\, B^2_{\textnormal{eq}, \beta}\,,\qquad s.t. \qquad \mathcal R^J \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
+        """
+
+        if not hasattr(self, "_M2B"):
+            rot_B = RotationMatrix(
+                self.weights[self.selected_weight].b2_1,
+                self.weights[self.selected_weight].b2_2,
+                self.weights[self.selected_weight].b2_3,
             )
 
             self._M2B = self.create_weighted_mass(
@@ -1473,7 +1509,7 @@ class WeightedMassOperatorsOldForTesting:
         return self._MvJ
 
     @property
-    def M2B(self):
+    def M2B_div0(self):
         r"""
         Mass matrix
 
@@ -1490,7 +1526,7 @@ class WeightedMassOperatorsOldForTesting:
         where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
         """
 
-        if not hasattr(self, "_M2B"):
+        if not hasattr(self, "_M2B_div0"):
             a_eq = self.derham.P["1"](
                 [
                     self.weights[self.selected_weight].a1_1,
@@ -1541,6 +1577,41 @@ class WeightedMassOperatorsOldForTesting:
                     fun[-1] += [
                         lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3),
                     ]
+
+            self._M2B_div0 = self._assemble_weighted_mass(fun, "Hdiv", "Hdiv", name="M2B_div0")
+
+        return self._M2B_div0
+
+    @property
+    def M2B(self):
+        r"""
+        Mass matrix
+
+        .. math::
+
+            \mathbb M^{2,B}_{(\mu,ijk), (\nu,mno)} = \int \vec{\Lambda}^2_{\mu,ijk}\, \mathcal R^J\, \vec{\Lambda}^2_{\nu, mno} \, \frac{1}{\sqrt g}\,  \textnormal d \boldsymbol\eta.
+
+        with the rotation matrix
+
+        .. math::
+
+            \mathcal R^J_{\alpha, \nu} := \epsilon_{\alpha \beta \nu}\, B^2_{\textnormal{eq}, \beta}\,,\qquad s.t. \qquad \mathcal R^J \vec v = \vec B^2_{\textnormal{eq}} \times \vec v\,,
+
+        where :math:`\epsilon_{\alpha \beta \nu}` stands for the Levi-Civita tensor and :math:`B^2_{\textnormal{eq}, \beta}` is the :math:`\beta`-component of the MHD equilibrium magnetic field (2-form).
+        """
+
+        if not hasattr(self, "_M2B"):
+            rot_B = RotationMatrix(
+                self.weights[self.selected_weight].b2_1,
+                self.weights[self.selected_weight].b2_2,
+                self.weights[self.selected_weight].b2_3,
+            )
+
+            fun = []
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [lambda e1, e2, e3, m=m, n=n: rot_B(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3)]
 
             self._M2B = self._assemble_weighted_mass(
                 fun,
@@ -2304,9 +2375,11 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # load assembly kernel
         if not self._matrix_free:
-            self._assembly_kernel = getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_mat",
+            self._assembly_kernel = Pyccelkernel(
+                getattr(
+                    mass_kernels,
+                    "kernel_" + str(self._V.ldim) + "d_mat",
+                )
             )
 
     @property
@@ -2884,7 +2957,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 assert isinstance(out, (list, tuple))
 
         # load assembly kernel
-        kernel = getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval")
+        kernel = Pyccelkernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
@@ -2979,14 +3052,18 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         self._nquads = nquads
 
         self._dtype = V.coeff_space.dtype
-        self._dot_kernel = getattr(
-            mass_kernels,
-            "kernel_" + str(self._V.ldim) + "d_matrixfree",
+        self._dot_kernel = Pyccelkernel(
+            getattr(
+                mass_kernels,
+                "kernel_" + str(self._V.ldim) + "d_matrixfree",
+            )
         )
 
-        self._diag_kernel = getattr(
-            mass_kernels,
-            "kernel_" + str(self._V.ldim) + "d_diag",
+        self._diag_kernel = Pyccelkernel(
+            getattr(
+                mass_kernels,
+                "kernel_" + str(self._V.ldim) + "d_diag",
+            )
         )
 
         shape = tuple(e - s + 1 for s, e in zip(V.coeff_space.starts, V.coeff_space.ends))

@@ -54,8 +54,8 @@ def main(
     import os
     import time
 
-    import numpy as np
-    from mpi4py import MPI
+    from psydac.ddm.mpi import MockMPI
+    from psydac.ddm.mpi import mpi as MPI
     from pyevtk.hl import gridToVTK
 
     from struphy.feec.psydac_derham import SplineFunction
@@ -65,21 +65,29 @@ def main(
     from struphy.models import fluid, hybrid, kinetic, toy
     from struphy.models.base import StruphyModel
     from struphy.profiling.profiling import ProfileManager
+    from struphy.utils.arrays import xp as np
     from struphy.utils.clone_config import CloneConfig
 
     if sort_step:
         from struphy.pic.base import Particles
 
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    size = comm.Get_size()
+    if isinstance(MPI, MockMPI):
+        comm = None
+        rank = 0
+        size = 1
+        Barrier = lambda: None
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        size = comm.Get_size()
+        Barrier = comm.Barrier
 
     if rank == 0:
         print("")
-    comm.Barrier()
+    Barrier()
 
     # synchronize MPI processes to set same start time of simulation for all processes
-    comm.Barrier()
+    Barrier()
     start_simulation = time.time()
 
     # loading of simulation parameters, creating output folder and printing information to screen
@@ -92,6 +100,7 @@ def main(
         save_step=save_step,
         mpi_rank=rank,
         mpi_size=size,
+        use_mpi=not comm is None,
         num_clones=num_clones,
         verbose=verbose,
     )
@@ -117,7 +126,8 @@ def main(
             # between the clones : inter_comm
             clone_config = CloneConfig(comm=comm, params=params, num_clones=num_clones)
             clone_config.print_clone_config()
-            clone_config.print_particle_config()
+            if "kinetic" in params:
+                clone_config.print_particle_config()
 
     # instantiate Struphy model (will allocate model objects and associated memory)
     StruphyModel.verbose = verbose
@@ -213,7 +223,7 @@ def main(
     # time loop
     run_time_now = 0.0
     while True:
-        comm.Barrier()
+        Barrier()
 
         # stop time loop?
         break_cond_1 = time_state["value"][0] >= time_params["Tend"]
@@ -313,7 +323,7 @@ def main(
     with open(path_out + "/meta.txt", "a") as f:
         # f.write('wall-clock time [min]:'.ljust(30) + str((end_simulation - start_simulation)/60.) + '\n')
         f.write(f"{rank} {'wall-clock time[min]: '.ljust(30)}{(end_simulation - start_simulation) / 60}\n")
-    comm.Barrier()
+    Barrier()
     if rank == 0:
         print("Struphy run finished.")
 
@@ -462,7 +472,7 @@ if __name__ == "__main__":
     config.simulation_label = ""
     pylikwid_markerinit()
     with ProfileManager.profile_region("main"):
-        # solve the model
+        # Call main
         main(
             args.model,
             args.input,

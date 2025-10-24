@@ -1,17 +1,16 @@
 import inspect
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.projectors import L2Projector
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
+from struphy.utils.arrays import xp as np
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[16, 32, 1]])
 @pytest.mark.parametrize("p", [[2, 1, 1], [3, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True]])
@@ -35,7 +34,7 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plo
     dom_types = []
     dom_classes = []
     for key, val in inspect.getmembers(domains):
-        if inspect.isclass(val) and key != "Domain" and "AxisymmMHDequilibrium" not in key:
+        if inspect.isclass(val) and val.__module__ == domains.__name__ and "AxisymmMHDequilibrium" not in key:
             dom_types += [key]
             dom_classes += [val]
 
@@ -116,7 +115,6 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plo
                 plt.show()
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("direction", [0, 1, 2])
 @pytest.mark.parametrize("pi", [1, 2])
 @pytest.mark.parametrize("spl_kindi", [True, False])

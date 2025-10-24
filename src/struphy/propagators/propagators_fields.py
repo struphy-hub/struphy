@@ -3,19 +3,30 @@
 from collections.abc import Callable
 from copy import deepcopy
 
-import numpy as np
-from mpi4py import MPI
+import scipy as sc
+from matplotlib import pyplot as plt
 from numpy import zeros
-from psydac.linalg.basic import IdentityOperator, ZeroOperator
+from psydac.api.essential_bc import apply_essential_bc_stencil
+from psydac.ddm.mpi import mpi as MPI
+from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
 from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
 from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilVector
 
 import struphy.feec.utilities as util
+from struphy.examples.restelli2018 import callables
 from struphy.feec import preconditioner
-from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProjectionOperatorLocal, CoordinateProjector
-from struphy.feec.mass import WeightedMassOperator
-from struphy.feec.psydac_derham import SplineFunction
+from struphy.feec.basis_projection_ops import (
+    BasisProjectionOperator,
+    BasisProjectionOperatorLocal,
+    BasisProjectionOperators,
+    CoordinateProjector,
+)
+from struphy.feec.linear_operators import BoundaryOperator
+from struphy.feec.mass import WeightedMassOperator, WeightedMassOperators
+from struphy.feec.preconditioner import MassMatrixPreconditioner
+from struphy.feec.projectors import L2Projector
+from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.feec.variational_utilities import (
     BracketOperator,
     H1vecMassMatrix_density,
@@ -23,9 +34,12 @@ from struphy.feec.variational_utilities import (
     KineticEnergyEvaluator,
 )
 from struphy.fields_background.equils import set_defaults
+from struphy.geometry.utilities import TransformedPformComponent
+from struphy.initial import perturbations
 from struphy.io.setup import descend_options_dict
 from struphy.kinetic_background.base import Maxwellian
 from struphy.kinetic_background.maxwellians import GyroMaxwellian2D, Maxwellian3D
+from struphy.linear_algebra.saddle_point import SaddlePointSolver
 from struphy.linear_algebra.schur_solver import SchurSolver
 from struphy.ode.solvers import ODEsolverFEEC
 from struphy.ode.utils import ButcherTableau
@@ -35,6 +49,8 @@ from struphy.pic.base import Particles
 from struphy.pic.particles import Particles5D, Particles6D
 from struphy.polar.basic import PolarVector
 from struphy.propagators.base import Propagator
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class Maxwell(Propagator):
@@ -1491,7 +1507,7 @@ class CurrentCoupling6DDensity(Propagator):
         self._accumulator = Accumulator(
             particles,
             u_space,
-            accum_kernels.cc_lin_mhd_6d_1,
+            Pyccelkernel(accum_kernels.cc_lin_mhd_6d_1),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,
@@ -1709,7 +1725,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._ACC = Accumulator(
             particles,
             u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_M,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_M),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -1960,7 +1976,7 @@ class MagnetosonicCurrentCoupling5D(Propagator):
         self._ACC = Accumulator(
             particles,
             u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_M,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_M),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=True,
@@ -2305,7 +2321,7 @@ class CurrentCoupling5DDensity(Propagator):
         self._accumulator = Accumulator(
             particles,
             u_space,
-            accum_kernels_gc.cc_lin_mhd_5d_D,
+            Pyccelkernel(accum_kernels_gc.cc_lin_mhd_5d_D),
             self.mass_ops,
             self.domain.args_domain,
             add_vector=False,
@@ -7377,3 +7393,907 @@ class HasegawaWakatani(Propagator):
 
         # solve with RK
         self._ode_solver(0.0, dt)
+
+
+class TwoFluidQuasiNeutralFull(Propagator):
+    r""":ref:`FEEC <gempic>` discretization of the following equations:
+    find :math:`\mathbf u \in H(\textnormal{div})`, :math:`\mathbf u_e \in H(\textnormal{div})` and  :math:`\mathbf \phi \in L^2` such that
+
+    .. math::
+
+        \int_{\Omega} \partial_t  \mathbf{u}\cdot \mathbf{v} \, \textrm d\mathbf{x} &=  \int_{\Omega}  \phi \nabla \! \cdot \! \mathbf{v} \, \textrm d\mathbf{x}  + \int_{\Omega}  \mathbf{u}\! \times \! \mathbf{B}_0 \cdot \mathbf{v} \, \textrm d\mathbf{x} + \nu \int_{\Omega} \nabla \mathbf{u}\! : \! \nabla \mathbf{v} \, \textrm d\mathbf{x} + \int_{\Omega} f \mathbf{v} \, \textrm d\mathbf{x} \qquad \forall \, \mathbf{v} \in H(\textrm{div}) \,.
+        \\[2mm]
+        0 &= - \int_{\Omega} \phi \nabla \! \cdot \! \mathbf{v_e} \, \textrm d\mathbf{x} - \int_{\Omega} \mathbf{u_e} \! \times \! \mathbf{B}_0 \cdot \mathbf{v_e} \, \textrm d\mathbf{x}  + \nu_e \int_{\Omega} \nabla \mathbf{u_e}  \!: \! \nabla \mathbf{v_e} \, \textrm d\mathbf{x} + \int_{\Omega} f_e \mathbf{v_e} \, \textrm d\mathbf{x} \qquad \forall \ \mathbf{v_e} \in H(\textrm{div}) \,.
+        \\[2mm]
+        0 &= \int_{\Omega} \psi \nabla \cdot (\mathbf{u}-\mathbf{u_e}) \, \textrm d\mathbf{x} \qquad \forall \, \psi \in L^2 \,.
+
+    :ref:`time_discret`: fully implicit.
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["solver"] = {
+            "type": [
+                ("gmres", None),
+            ],
+            "tol": 1.0e-8,
+            "maxiter": 3000,
+            "info": False,
+            "verbose": False,
+            "recycle": True,
+        }
+        dct["nu"] = 1.0
+        dct["nu_e"] = 0.01
+        dct["override_eq_params"] = [False, {"epsilon": 1.0}]
+        dct["eps_norm"] = 1.0
+        dct["a"] = 1.0
+        dct["R0"] = 1.0
+        dct["B0"] = 10.0
+        dct["Bp"] = 12.5
+        dct["alpha"] = 0.1
+        dct["beta"] = 1.0
+        dct["stab_sigma"] = 0.00001
+        dct["variant"] = "GMRES"
+        dct["method_to_solve"] = "DirectNPInverse"
+        dct["preconditioner"] = False
+        dct["spectralanalysis"] = False
+        dct["lifting"] = False
+        dct["dimension"] = "2D"
+        dct["1D_dt"] = 0.001
+        if default:
+            dct = descend_options_dict(dct, [])
+
+        return dct
+
+    def __init__(
+        self,
+        u: BlockVector,
+        ue: BlockVector,
+        phi: BlockVector,
+        *,
+        nu: float = options(default=True)["nu"],
+        nu_e: float = options(default=True)["nu_e"],
+        eps_norm: float = options(default=True)["eps_norm"],
+        solver: dict = options(default=True)["solver"],
+        a: float = options(default=True)["a"],
+        R0: float = options(default=True)["R0"],
+        B0: float = options(default=True)["B0"],
+        Bp: float = options(default=True)["Bp"],
+        alpha: float = options(default=True)["alpha"],
+        beta: float = options(default=True)["beta"],
+        stab_sigma: float = options(default=True)["stab_sigma"],
+        variant: str = options(default=True)["variant"],
+        method_to_solve: str = options(default=True)["method_to_solve"],
+        preconditioner: bool = options(default=True)["preconditioner"],
+        spectralanalysis: bool = options(default=True)["spectralanalysis"],
+        lifting: bool = options(default=False)["lifting"],
+        dimension: str = options(default=True)["dimension"],
+        D1_dt: float = options(default=True)["1D_dt"],
+    ):
+        super().__init__(u, ue, phi)
+
+        self._info = solver["info"]
+        if self.derham.comm is not None:
+            self._rank = self.derham.comm.Get_rank()
+        else:
+            self._rank = 0
+
+        self._nu = nu
+        self._nu_e = nu_e
+        self._eps_norm = eps_norm
+        self._a = a
+        self._R0 = R0
+        self._B0 = B0
+        self._Bp = Bp
+        self._alpha = alpha
+        self._beta = beta
+        self._stab_sigma = stab_sigma
+        self._variant = variant
+        self._method_to_solve = method_to_solve
+        self._preconditioner = preconditioner
+        self._dimension = dimension
+        self._spectralanalysis = spectralanalysis
+        self._lifting = lifting
+
+        # Lifting for nontrivial boundary conditions
+        # derham had boundary conditions in eta1 direction, the following is in space Hdiv_0
+        if self._lifting:
+            self.derhamv0 = Derham(
+                self.derham.Nel,
+                self.derham.p,
+                self.derham.spl_kind,
+                domain=self.domain,
+                dirichlet_bc=[[True, True], [False, False], [False, False]],
+            )
+
+            self._mass_opsv0 = WeightedMassOperators(
+                self.derhamv0,
+                self.domain,
+                verbose=solver["verbose"],
+                eq_mhd=self.mass_ops.weights["eq_mhd"],
+            )
+            self._basis_opsv0 = BasisProjectionOperators(
+                self.derhamv0,
+                self.domain,
+                verbose=solver["verbose"],
+                eq_mhd=self.basis_ops.weights["eq_mhd"],
+            )
+        else:
+            self.derhamnumpy = Derham(
+                self.derham.Nel,
+                self.derham.p,
+                self.derham.spl_kind,
+                domain=self.domain,
+                # dirichlet_bc=self.derham.dirichlet_bc,
+                # nquads = self.derham._nquads,
+                # nq_pr = self.derham._nq_pr,
+                # comm = MPI.COMM_SELF, # self.derham._comm,
+                # polar_ck= self.derham._polar_ck,
+                # local_projectors=self.derham.with_local_projectors
+            )
+
+        # get forceterms for according dimension
+        if self._dimension in ["2D", "1D"]:
+            ### Manufactured solution ###
+            _forceterm_logical = lambda e1, e2, e3: 0 * e1
+            _funx = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Ions",
+                comp="0",
+                b0=self._B0,
+                nu=self._nu,
+                dimension=self._dimension,
+                stab_sigma=self._stab_sigma,
+                eps=self._eps_norm,
+                dt=D1_dt,
+            )
+            _funy = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Ions",
+                comp="1",
+                b0=self._B0,
+                nu=self._nu,
+                dimension=self._dimension,
+                stab_sigma=self._stab_sigma,
+                eps=self._eps_norm,
+                dt=D1_dt,
+            )
+            _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Electrons",
+                comp="0",
+                b0=self._B0,
+                nu_e=self._nu_e,
+                dimension=self._dimension,
+                stab_sigma=self._stab_sigma,
+                eps=self._eps_norm,
+                dt=D1_dt,
+            )
+            _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Electrons",
+                comp="1",
+                b0=self._B0,
+                nu_e=self._nu_e,
+                dimension=self._dimension,
+                stab_sigma=self._stab_sigma,
+                eps=self._eps_norm,
+                dt=D1_dt,
+            )
+
+            # get callable(s) for specified init type
+            forceterm_class = [_funx, _funy, _forceterm_logical]
+            forcetermelectrons_class = [_funelectronsx, _funelectronsy, _forceterm_logical]
+
+            # pullback callable
+            funx = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+            )
+            funy = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            )
+            fun_electronsx = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+            )
+            fun_electronsy = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            )
+            l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
+            self._F1 = l2_proj([funx, funy, _forceterm_logical])
+            self._F2 = l2_proj([fun_electronsx, fun_electronsy, _forceterm_logical])
+
+        elif self._dimension == "Restelli":
+            ### Restelli ###
+
+            _forceterm_logical = lambda e1, e2, e3: 0 * e1
+            _fun = getattr(callables, "RestelliForcingTerm")(
+                B0=self._B0,
+                nu=self._nu,
+                a=self._a,
+                Bp=self._Bp,
+                alpha=self._alpha,
+                beta=self._beta,
+                eps=self._eps_norm,
+            )
+            _funelectrons = getattr(callables, "RestelliForcingTerm")(
+                B0=self._B0,
+                nu=self._nu_e,
+                a=self._a,
+                Bp=self._Bp,
+                alpha=self._alpha,
+                beta=self._beta,
+                eps=self._eps_norm,
+            )
+
+            # get callable(s) for specified init type
+            forceterm_class = [_forceterm_logical, _forceterm_logical, _fun]
+            forcetermelectrons_class = [_forceterm_logical, _forceterm_logical, _funelectrons]
+
+            # pullback callable
+            fun_pb_1 = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+            )
+            fun_pb_2 = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            )
+            fun_pb_3 = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+            )
+            fun_electrons_pb_1 = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+            )
+            fun_electrons_pb_2 = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            )
+            fun_electrons_pb_3 = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+            )
+            if self._lifting:
+                l2_proj = L2Projector(space_id="Hdiv", mass_ops=self._mass_opsv0)
+            else:
+                l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
+            self._F1 = l2_proj([fun_pb_1, fun_pb_2, fun_pb_3], apply_bc=self._lifting)
+            self._F2 = l2_proj([fun_electrons_pb_1, fun_electrons_pb_2, fun_electrons_pb_3], apply_bc=self._lifting)
+
+            ### End Restelli ###
+
+        elif self._dimension == "Tokamak":
+            ### Tokamak geometry curl-free manufactured solution ###
+
+            _forceterm_logical = lambda e1, e2, e3: 0 * e1
+            _funx = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Ions",
+                comp="0",
+                b0=self._B0,
+                nu=self._nu,
+                dimension=self._dimension,
+                stab_sigma=self._stab_sigma,
+                eps=self._eps_norm,
+                dt=D1_dt,
+                a=self._a,
+                Bp=self._Bp,
+                alpha=self._alpha,
+                beta=self._beta,
+            )
+            _funy = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Ions",
+                comp="1",
+                b0=self._B0,
+                nu=self._nu,
+                dimension=self._dimension,
+                stab_sigma=self._stab_sigma,
+                eps=self._eps_norm,
+                dt=D1_dt,
+                a=self._a,
+                Bp=self._Bp,
+                alpha=self._alpha,
+                beta=self._beta,
+            )
+            _funz = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Ions",
+                comp="2",
+                b0=self._B0,
+                nu=self._nu,
+                dimension=self._dimension,
+                stab_sigma=self._stab_sigma,
+                eps=self._eps_norm,
+                dt=D1_dt,
+                a=self._a,
+                Bp=self._Bp,
+                alpha=self._alpha,
+                beta=self._beta,
+            )
+            _funelectronsx = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Electrons",
+                comp="0",
+                b0=self._B0,
+                nu_e=self._nu_e,
+                dimension=self._dimension,
+                stab_sigma=self._stab_sigma,
+                eps=self._eps_norm,
+                dt=D1_dt,
+                a=self._a,
+                Bp=self._Bp,
+                alpha=self._alpha,
+                beta=self._beta,
+            )
+            _funelectronsy = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Electrons",
+                comp="1",
+                b0=self._B0,
+                nu_e=self._nu_e,
+                dimension=self._dimension,
+                stab_sigma=self._stab_sigma,
+                eps=self._eps_norm,
+                dt=D1_dt,
+                a=self._a,
+                Bp=self._Bp,
+                alpha=self._alpha,
+                beta=self._beta,
+            )
+            _funelectronsz = getattr(callables, "ManufacturedSolutionForceterm")(
+                species="Electrons",
+                comp="2",
+                b0=self._B0,
+                nu_e=self._nu_e,
+                dimension=self._dimension,
+                stab_sigma=self._stab_sigma,
+                eps=self._eps_norm,
+                dt=D1_dt,
+                a=self._a,
+                Bp=self._Bp,
+                alpha=self._alpha,
+                beta=self._beta,
+            )
+
+            # get callable(s) for specified init type
+            forceterm_class = [_funx, _funy, _funz]
+            forcetermelectrons_class = [_funelectronsx, _funelectronsy, _funelectronsz]
+
+            # pullback callable
+            fun_pb_1 = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+            )
+            fun_pb_2 = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            )
+            fun_pb_3 = TransformedPformComponent(
+                forceterm_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+            )
+            fun_electrons_pb_1 = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=0, domain=self.domain
+            )
+            fun_electrons_pb_2 = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=1, domain=self.domain
+            )
+            fun_electrons_pb_3 = TransformedPformComponent(
+                forcetermelectrons_class, fun_basis="physical", out_form="2", comp=2, domain=self.domain
+            )
+            if self._lifting:
+                l2_proj = L2Projector(space_id="Hdiv", mass_ops=self._mass_opsv0)
+            else:
+                l2_proj = L2Projector(space_id="Hdiv", mass_ops=self.mass_ops)
+            self._F1 = l2_proj([fun_pb_1, fun_pb_2, fun_pb_3], apply_bc=self._lifting)
+            self._F2 = l2_proj([fun_electrons_pb_1, fun_electrons_pb_2, fun_electrons_pb_3], apply_bc=self._lifting)
+
+            ### End Tokamak geometry manufactured solution ###
+
+        if self._variant == "GMRES":
+            if self._lifting:
+                self._M2 = getattr(self._mass_opsv0, "M2")
+                self._M3 = getattr(self._mass_opsv0, "M3")
+                self._M2B = -getattr(self._mass_opsv0, "M2B")
+                self._div = self.derhamv0.div
+                self._curl = self.derhamv0.curl
+                self._S21 = self._basis_opsv0.S21
+            else:
+                self._M2 = getattr(self.mass_ops, "M2")
+                self._M3 = getattr(self.mass_ops, "M3")
+                self._M2B = -getattr(self.mass_ops, "M2B")
+                self._div = self.derham.div
+                self._curl = self.derham.curl
+                self._S21 = self.basis_ops.S21
+
+            # Define block matrix [[A BT], [B 0]] (without time step size dt in the diagonals)
+            _A11 = (
+                self._M2
+                - self._M2B / self._eps_norm
+                + self._nu
+                * (self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21)
+            )
+            _A12 = None
+            _A21 = _A12
+            _A22 = (
+                -self._stab_sigma * IdentityOperator(_A11.domain)
+                + self._M2B / self._eps_norm
+                + self._nu_e
+                * (self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21)
+            )
+            _B1 = -self._M3 @ self._div
+            _B2 = self._M3 @ self._div
+
+            if _A12 is not None:
+                assert _A11.codomain == _A12.codomain
+            if _A21 is not None:
+                assert _A22.codomain == _A21.codomain
+            assert _B1.codomain == _B2.codomain
+            if _A12 is not None:
+                assert _A11.domain == _A12.domain == _B1.domain
+            if _A21 is not None:
+                assert _A21.domain == _A22.domain == _B2.domain
+            assert _A22.domain == _B2.domain
+            assert _A11.domain == _B1.domain
+
+            self._block_domainA = BlockVectorSpace(_A11.domain, _A22.domain)
+            self._block_codomainA = self._block_domainA
+            self._block_domainB = self._block_domainA
+            self._block_codomainB = _B2.codomain
+            _blocksA = [[_A11, _A12], [_A21, _A22]]
+            _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
+            _blocksB = [[_B1, _B2]]
+            _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
+            _F = BlockVector(self._block_domainA, blocks=[self._F1, self._F2])  # missing M2/dt *un-1
+
+        elif self._variant == "Uzawa":
+            # Numpy
+            if self._lifting:
+                fun = []
+                for m in range(3):
+                    fun += [[]]
+                    for n in range(3):
+                        fun[-1] += [
+                            lambda e1, e2, e3, m=m, n=n: self._basis_opsv0.G(e1, e2, e3)[:, :, :, m, n]
+                            / self._basis_opsv0.sqrt_g(e1, e2, e3),
+                        ]
+                self._S21 = None
+                if self.derhamv0.with_local_projectors:
+                    self._S21 = BasisProjectionOperatorLocal(
+                        self.derhamv0._Ploc["1"], self.derhamv0.Vh_fem["2"], fun, transposed=False
+                    )
+
+                if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                    Vbc = self._mass_opsv0.M2._V_boundary_op.toarray_struphy()
+                    Wbc = self._mass_opsv0.M2._W_boundary_op.toarray_struphy()
+                    M2_mat = self._mass_opsv0.M2._mat.toarray()
+                    self._M2np = Wbc @ M2_mat @ Vbc.T
+                    Vbc = self._mass_opsv0.M3._V_boundary_op.toarray_struphy()
+                    Wbc = self._mass_opsv0.M3._W_boundary_op.toarray_struphy()
+                    M3_mat = self._mass_opsv0.M3._mat.toarray()
+                    self._M3np = Wbc @ M3_mat @ Vbc.T
+                    if isinstance(self.derhamv0.div, ComposedLinearOperator):
+                        for mult in self.derhamv0.div.multiplicants:
+                            if isinstance(mult, BlockLinearOperator):
+                                if hasattr(self, "_Dnp"):
+                                    self._Dnp = self._Dnp @ mult.toarray()
+                                else:
+                                    self._Dnp = mult.toarray()
+                                # print(f"{type(mult.toarray())=}")   #with_pads = True
+                            elif isinstance(mult, BoundaryOperator):
+                                if hasattr(self, "_Dnp"):
+                                    self._Dnp = self._Dnp @ mult.T.toarray_struphy()
+                                else:
+                                    self._Dnp = mult.toarray_struphy()
+                    elif isinstance(self.derhamv0.div, BlockLinearOperator):
+                        self._Dnp = self.derhamv0.div.toarray()
+                    if isinstance(self.derhamv0.curl, ComposedLinearOperator):
+                        for mult in self.derhamv0.curl.multiplicants:
+                            if isinstance(mult, BlockLinearOperator):
+                                if hasattr(self, "_Cnp"):
+                                    self._Cnp = self._Cnp @ mult.toarray()
+                                else:
+                                    self._Cnp = mult.toarray()
+                            elif isinstance(mult, BoundaryOperator):
+                                if hasattr(self, "_Cnp"):
+                                    self._Cnp = self._Cnp @ mult.T.toarray_struphy()
+                                else:
+                                    self._Cnp = mult.toarray_struphy()
+                    elif isinstance(self.derhamv0.curl, BlockLinearOperator):
+                        self._Dnp = self.derhamv0.curl.toarray()
+
+                    if self._S21 is not None:
+                        self._Hodgenp = self._S21.toarray
+                    else:
+                        self._Hodgenp = self._basis_opsv0.S21.toarray_struphy()  # self.basis_ops.S21.toarray
+                    Vbc = self._mass_opsv0.M2B._V_boundary_op.toarray_struphy()
+                    Wbc = self._mass_opsv0.M2B._W_boundary_op.toarray_struphy()
+                    M2B_mat = -self._mass_opsv0.M2B._mat.toarray()  # - sign because of the definition of M2B
+                    self._M2Bnp = Wbc @ M2B_mat @ Vbc.T
+                elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                    Vbc = self._mass_opsv0.M2._V_boundary_op.toarray_struphy(is_sparse=True)
+                    Wbc = self._mass_opsv0.M2._W_boundary_op.toarray_struphy(is_sparse=True)
+                    M2_mat = self._mass_opsv0.M2._mat.tosparse()
+                    self._M2np = Wbc @ M2_mat @ Vbc.T
+                    Vbc = self._mass_opsv0.M3._V_boundary_op.toarray_struphy(is_sparse=True)
+                    Wbc = self._mass_opsv0.M3._W_boundary_op.toarray_struphy(is_sparse=True)
+                    M3_mat = self._mass_opsv0.M3._mat.tosparse()
+                    self._M3np = Wbc @ M3_mat @ Vbc.T
+                    if self._S21 is not None:
+                        self._Hodgenp = self._S21.tosparse
+                    else:
+                        self._Hodgenp = self._basis_opsv0.S21.toarray_struphy(is_sparse=True)
+                    Vbc = self._mass_opsv0.M2B._V_boundary_op.toarray_struphy(is_sparse=True)
+                    Wbc = self._mass_opsv0.M2B._W_boundary_op.toarray_struphy(is_sparse=True)
+                    M2B_mat = self._mass_opsv0.M2B._mat.tosparse()
+                    self._M2Bnp = -Wbc @ M2B_mat @ Vbc.T  # - sign because of the definition of M2B
+
+                    if isinstance(self.derhamv0.div, ComposedLinearOperator):
+                        for mult in self.derhamv0.div.multiplicants:
+                            if isinstance(mult, BlockLinearOperator):
+                                if hasattr(self, "_Dnp"):
+                                    self._Dnp = self._Dnp @ mult.tosparse()
+                                else:
+                                    self._Dnp = mult.tosparse()
+                            elif isinstance(mult, BoundaryOperator):
+                                if hasattr(self, "_Dnp"):
+                                    self._Dnp = self._Dnp @ mult.toarray_struphy(is_sparse=True)
+                                else:
+                                    self._Dnp = mult.toarray_struphy(is_sparse=True)
+                    elif isinstance(self.derhamv0.div, BlockLinearOperator):
+                        self._Dnp = self.derhamv0.div.tosparse()
+
+                    if isinstance(self.derhamv0.curl, ComposedLinearOperator):
+                        for mult in self.derhamv0.curl.multiplicants:
+                            if isinstance(mult, BlockLinearOperator):
+                                if hasattr(self, "_Cnp"):
+                                    self._Cnp = self._Cnp @ mult.tosparse()
+                                else:
+                                    self._Cnp = mult.tosparse()
+                            elif isinstance(mult, BoundaryOperator):
+                                if hasattr(self, "_Cnp"):
+                                    self._Cnp = self._Cnp @ mult.toarray_struphy(is_sparse=True)
+                                else:
+                                    self._Cnp = mult.toarray_struphy(is_sparse=True)
+                    elif isinstance(self.derhamv0.curl, BlockLinearOperator):
+                        self._Dnp = self.derhamv0.curl.tosparse()
+
+            else:  # no lifting, use original Derham
+                fun = []
+                for m in range(3):
+                    fun += [[]]
+                    for n in range(3):
+                        fun[-1] += [
+                            lambda e1, e2, e3, m=m, n=n: self.basis_ops.G(e1, e2, e3)[:, :, :, m, n]
+                            / self.basis_ops.sqrt_g(e1, e2, e3),
+                        ]
+                self._S21 = None
+                if self.derham.with_local_projectors:
+                    self._S21 = BasisProjectionOperatorLocal(
+                        self.derham._Ploc["1"], self.derham.Vh_fem["2"], fun, transposed=False
+                    )
+
+                if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                    Vbc = self.mass_ops.M2._V_boundary_op.toarray_struphy()
+                    Wbc = self.mass_ops.M2._W_boundary_op.toarray_struphy()
+                    M2_mat = self.mass_ops.M2._mat.toarray()
+                    self._M2np = Wbc @ M2_mat @ Vbc.T
+                    Vbc = self.mass_ops.M3._V_boundary_op.toarray_struphy()
+                    Wbc = self.mass_ops.M3._W_boundary_op.toarray_struphy()
+                    M3_mat = self.mass_ops.M3._mat.toarray()
+                    self._M3np = Wbc @ M3_mat @ Vbc.T
+                    self._Dnp = self.derhamnumpy.div.toarray()
+                    self._Cnp = self.derhamnumpy.curl.toarray()
+
+                    if self._S21 is not None:
+                        self._Hodgenp = self._S21.toarray
+                    else:
+                        self._Hodgenp = self.basis_ops.S21.toarray_struphy()
+                    Vbc = self.mass_ops.M2B._V_boundary_op.toarray_struphy()
+                    Wbc = self.mass_ops.M2B._W_boundary_op.toarray_struphy()
+                    M2B_mat = -self.mass_ops.M2B._mat.toarray()
+                    self._M2Bnp = Wbc @ M2B_mat @ Vbc.T
+                elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                    self._M2np = self.mass_ops.M2.tosparse
+                    self._M3np = self.mass_ops.M3.tosparse
+                    if self._S21 is not None:
+                        self._Hodgenp = self._S21.tosparse
+                    else:
+                        self._Hodgenp = self.basis_ops.S21.toarray_struphy(is_sparse=True)
+                    self._M2Bnp = -self.mass_ops.M2B.tosparse
+
+                    self._Dnp = self.derhamnumpy.div.tosparse()
+                    self._Cnp = self.derhamnumpy.curl.tosparse()
+
+            self._A11np_notimedependency = (
+                self._nu
+                * (
+                    self._Dnp.T @ self._M3np @ self._Dnp
+                    + 1.0 * self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                )
+                - 1.0 * self._M2Bnp / self._eps_norm
+            )
+            A11np = self._M2np + self._A11np_notimedependency
+
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                A11np += self._stab_sigma * np.identity(A11np.shape[0])
+                self.A22np = (
+                    self._stab_sigma * np.identity(A11np.shape[0])
+                    + self._nu_e
+                    * (
+                        self._Dnp.T @ self._M3np @ self._Dnp
+                        + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                    )
+                    + self._M2Bnp / self._eps_norm
+                )
+                self._A22prenp = (
+                    np.identity(self.A22np.shape[0]) * self._stab_sigma
+                )  # + self._nu_e * (self._Dnp.T @ self._M3np @ self._Dnp)
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                A11np += self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
+                self.A22np = (
+                    self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
+                    + self._nu_e
+                    * (
+                        self._Dnp.T @ self._M3np @ self._Dnp
+                        + self._Hodgenp.T @ self._Cnp.T @ self._M2np @ self._Cnp @ self._Hodgenp
+                    )
+                    + self._M2Bnp / self._eps_norm
+                )
+                self._A22prenp = self._stab_sigma * sc.sparse.eye(self.A22np.shape[0], format="csr")
+
+            B1np = -self._M3np @ self._Dnp
+            B2np = self._M3np @ self._Dnp
+            self._B1np = B1np
+            self._B2np = B2np
+            self._F1np = self._F1.toarray()
+            self._F2np = self._F2.toarray()
+            _Anp = [A11np, self.A22np]
+            _Bnp = [B1np, B2np]
+            _Fnp = [self._F1np, self._F2np]
+            self._A11prenp_notimedependency = self._nu * (self._Dnp.T @ self._M3np @ self._Dnp)
+            _A11prenp = self._M2np + self._A11prenp_notimedependency
+            _Anppre = [_A11prenp, self._A22prenp]
+
+        if self._variant == "GMRES":
+            self._solver_GMRES = SaddlePointSolver(
+                A=_A,
+                B=_B,
+                F=_F,
+                solver_name=solver["type"][0],
+                tol=solver["tol"],
+                max_iter=solver["maxiter"],
+                verbose=solver["verbose"],
+                pc=None,
+            )
+            # Allocate memory for call
+            self._untemp = u.space.zeros()
+
+        elif self._variant == "Uzawa":
+            self._solver_UzawaNumpy = SaddlePointSolver(
+                Apre=_Anppre,
+                A=_Anp,
+                B=_Bnp,
+                F=_Fnp,
+                method_to_solve=self._method_to_solve,
+                preconditioner=self._preconditioner,
+                spectralanalysis=spectralanalysis,
+                tol=solver["tol"],
+                max_iter=solver["maxiter"],
+                verbose=solver["verbose"],
+            )
+
+    def __call__(self, dt):
+        # current variables
+        unfeec = self.feec_vars[0]
+        uenfeec = self.feec_vars[1]
+        phinfeec = self.feec_vars[2]
+
+        if self._variant == "GMRES":
+            if self._lifting:
+                phinfeeccopy = self.derhamv0.create_spline_function("phi", space_id="L2")
+                phinfeeccopy.vector = phinfeec
+                # unfeec in space Hdiv, u0 in space Hdiv_0
+                unfeeccopy = self.derhamv0.create_spline_function("u", space_id="Hdiv")
+                u0 = self.derhamv0.create_spline_function("u", space_id="Hdiv")
+                u_prime = self.derhamv0.create_spline_function("u", space_id="Hdiv")
+                u0.vector = uenfeec
+                unfeeccopy.vector = uenfeec
+                apply_essential_bc_stencil(u0.vector[0], axis=0, ext=-1, order=0)
+                apply_essential_bc_stencil(u0.vector[0], axis=0, ext=1, order=0)
+                u_prime.vector = unfeeccopy.vector - u0.vector
+
+                uenfeeccopy = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue0 = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue_prime = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue0.vector = uenfeec
+                uenfeeccopy.vector = uenfeec
+                apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=-1, order=0)
+                apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=1, order=0)
+                ue_prime.vector = uenfeeccopy.vector - ue0.vector
+
+            _A11 = (
+                self._M2 / dt
+                - self._M2B / self._eps_norm
+                + self._nu
+                * (self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21)
+            )
+            _A12 = None
+            _A21 = _A12
+            _A22 = (
+                self._nu_e
+                * (self._div.T @ self._M3 @ self._div + self._S21.T @ self._curl.T @ self._M2 @ self._curl @ self._S21)
+                + self._M2B / self._eps_norm
+                - self._stab_sigma * IdentityOperator(_A11.domain)
+            )
+
+            if self._lifting:
+                _A11prime = -self._M2B / self._eps_norm + self._nu * (
+                    self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
+                    + self._basis_opsv0.S21.T
+                    @ self.derhamv0.curl.T
+                    @ self._M2
+                    @ self.derhamv0.curl
+                    @ self._basis_opsv0.S21
+                )
+                _A22prime = (
+                    self._nu_e
+                    * (
+                        self.derhamv0.div.T @ self._M3 @ self.derhamv0.div
+                        + self._basis_opsv0.S21.T
+                        @ self.derhamv0.curl.T
+                        @ self._M2
+                        @ self.derhamv0.curl
+                        @ self._basis_opsv0.S21
+                    )
+                    + self._M2B / self._eps_norm
+                    - self._stab_sigma * IdentityOperator(_A11.domain)
+                )
+            _B1 = -self._M3 @ self._div
+            _B2 = self._M3 @ self._div
+
+            if _A12 is not None:
+                assert _A11.codomain == _A12.codomain
+            if _A21 is not None:
+                assert _A22.codomain == _A21.codomain
+            assert _B1.codomain == _B2.codomain
+            if _A12 is not None:
+                assert _A11.domain == _A12.domain == _B1.domain
+            if _A21 is not None:
+                assert _A21.domain == _A22.domain == _B2.domain
+            assert _A22.domain == _B2.domain
+            assert _A11.domain == _B1.domain
+
+            _blocksA = [[_A11, _A12], [_A21, _A22]]
+            _A = BlockLinearOperator(self._block_domainA, self._block_codomainA, blocks=_blocksA)
+            _blocksB = [[_B1, _B2]]
+            _B = BlockLinearOperator(self._block_domainB, self._block_codomainB, blocks=_blocksB)
+            if self._lifting:
+                _blocksF = [
+                    self._M2.dot(self._F1) + self._M2.dot(u0.vector) / dt - _A11prime.dot(u_prime.vector),
+                    self._M2.dot(self._F2) - _A22prime.dot(ue_prime.vector),
+                ]
+            else:
+                _blocksF = [
+                    self._M2.dot(self._F1) + self._M2.dot(unfeec) / dt,
+                    self._M2.dot(self._F2),
+                ]
+            _F = BlockVector(self._block_domainA, blocks=_blocksF)
+
+            # Imported solver
+            self._solver_GMRES.A = _A
+            self._solver_GMRES.B = _B
+            self._solver_GMRES.F = _F
+
+            if self._lifting:
+                (
+                    _sol1,
+                    _sol2,
+                    info,
+                ) = self._solver_GMRES(u0.vector, ue0.vector, phinfeec)
+                un = _sol1[0] + u_prime.vector
+                uen = _sol1[1] + ue_prime.vector
+                phin = _sol2
+            else:
+                (
+                    _sol1,
+                    _sol2,
+                    info,
+                ) = self._solver_GMRES(unfeec, uenfeec, phinfeec)
+                un = _sol1[0]
+                uen = _sol1[1]
+                phin = _sol2
+            # write new coeffs into self.feec_vars
+            max_du, max_due, max_dphi = self.feec_vars_update(un, uen, phin)
+
+        elif self._variant == "Uzawa":
+            # Numpy
+            A11np = self._M2np / dt + self._A11np_notimedependency
+            if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
+                A11np += self._stab_sigma * np.identity(A11np.shape[0])
+                _A22prenp = self._A22prenp
+                A22np = self.A22np
+            elif self._method_to_solve in ("SparseSolver", "ScipySparse"):
+                A11np += self._stab_sigma * sc.sparse.eye(A11np.shape[0], format="csr")
+                _A22prenp = self._A22prenp
+                A22np = self.A22np
+
+            # _Anp[1] and _Anppre[1] remain unchanged
+            _Anp = [A11np, A22np]
+            if self._preconditioner == True:
+                _A11prenp = self._M2np / dt  # + self._A11prenp_notimedependency
+                _Anppre = [_A11prenp, _A22prenp]
+
+            if self._lifting:
+                # unfeec in space Hdiv, u0 in space Hdiv_0
+                unfeeccopy = self.derhamv0.create_spline_function("u", space_id="Hdiv")
+                u0 = self.derhamv0.create_spline_function("u", space_id="Hdiv")
+                u_prime = self.derham.create_spline_function("u", space_id="Hdiv")
+                u0.vector = unfeec
+                unfeeccopy.vector = unfeec
+                apply_essential_bc_stencil(u0.vector[0], axis=0, ext=-1, order=0)
+                apply_essential_bc_stencil(u0.vector[0], axis=0, ext=1, order=0)
+                u_prime.vector = unfeeccopy.vector - u0.vector
+
+                uenfeeccopy = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue0 = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue_prime = self.derhamv0.create_spline_function("ue", space_id="Hdiv")
+                ue0.vector = uenfeec
+                uenfeeccopy.vector = uenfeec
+                apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=-1, order=0)
+                apply_essential_bc_stencil(ue0.vector[0], axis=0, ext=1, order=0)
+                ue_prime.vector = uenfeeccopy.vector - ue0.vector
+
+                _F1np = (
+                    self._M2np @ self._F1np
+                    + 1.0 / dt * self._M2np.dot(u0.vector.toarray())
+                    - self._A11np_notimedependency.dot(u_prime.vector.toarray())
+                )
+                _F2np = self._M2np @ self._F2np - self.A22np.dot(ue_prime.vector.toarray())
+                _Fnp = [_F1np, _F2np]
+            else:
+                _F1np = self._M2np @ self._F1np + 1.0 / dt * self._M2np.dot(unfeec.toarray())
+                _F2np = self._M2np @ self._F2np
+                _Fnp = [_F1np, _F2np]
+
+            if self.rank == 0:
+                if self._preconditioner == True:
+                    self._solver_UzawaNumpy.Apre = _Anppre
+                self._solver_UzawaNumpy.A = _Anp
+                self._solver_UzawaNumpy.F = _Fnp
+                if self._lifting:
+                    un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(
+                        u0.vector, ue0.vector, phinfeec
+                    )
+
+                    un += u_prime.vector.toarray()
+                    uen += ue_prime.vector.toarray()
+                else:
+                    un, uen, phin, info, residual_norms, spectralresult = self._solver_UzawaNumpy(
+                        unfeec, uenfeec, phinfeec
+                    )
+
+                dimlist = [[shp - 2 * pi for shp, pi in zip(unfeec[i][:].shape, self.derham.p)] for i in range(3)]
+                dimphi = [shp - 2 * pi for shp, pi in zip(phinfeec[:].shape, self.derham.p)]
+                u_temp = BlockVector(self.derham.Vh["2"])
+                ue_temp = BlockVector(self.derham.Vh["2"])
+                phi_temp = StencilVector(self.derham.Vh["3"])
+                test = 0
+                for i, bl in enumerate(u_temp.blocks):
+                    s = bl.starts
+                    e = bl.ends
+                    totaldim = dimlist[i][0] * dimlist[i][1] * dimlist[i][2]
+                    test += totaldim
+                    bl[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = un[
+                        i * totaldim : (i + 1) * totaldim
+                    ].reshape(*dimlist[i])
+
+                for i, bl in enumerate(ue_temp.blocks):
+                    s = bl.starts
+                    e = bl.ends
+                    totaldim = dimlist[i][0] * dimlist[i][1] * dimlist[i][2]
+                    bl[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = uen[
+                        i * totaldim : (i + 1) * totaldim
+                    ].reshape(*dimlist[i])
+
+                s = phi_temp.starts
+                e = phi_temp.ends
+                phi_temp[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = phin.reshape(*dimphi)
+            else:
+                print(f"TwoFluidQuasiNeutralFull is only running on one MPI.")
+
+            # write new coeffs into self.feec_vars
+            max_du, max_due, max_dphi = self.feec_vars_update(u_temp, ue_temp, phi_temp)
+
+        if self._info and self._rank == 0:
+            print("Status     for TwoFluidQuasiNeutralFull:", info["success"])
+            print("Iterations for TwoFluidQuasiNeutralFull:", info["niter"])
+            print("Maxdiff u for TwoFluidQuasiNeutralFull:", max_du)
+            print("Maxdiff u_e for TwoFluidQuasiNeutralFull:", max_due)
+            print("Maxdiff phi for TwoFluidQuasiNeutralFull:", max_dphi)
+            print()

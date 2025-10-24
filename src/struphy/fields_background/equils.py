@@ -1,14 +1,17 @@
 "Available fluid backgrounds:"
 
+import copy
 import importlib.util
 import os
 import sys
 import warnings
 from time import time
 
-import numpy as np
+from scipy.integrate import odeint, quad
+from scipy.interpolate import RectBivariateSpline, UnivariateSpline
+from scipy.optimize import fsolve, minimize
 
-from struphy.console.run import subp_run
+import struphy
 from struphy.fields_background.base import (
     AxisymmMHDequilibrium,
     CartesianFluidEquilibrium,
@@ -24,7 +27,9 @@ from struphy.fields_background.base import (
     NumericalFluidEquilibriumWithB,
     NumericalMHDequilibrium,
 )
-from struphy.utils.utils import read_state
+from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
+from struphy.utils.arrays import xp as np
+from struphy.utils.utils import read_state, subp_run
 
 
 class HomogenSlab(CartesianMHDequilibrium):
@@ -74,13 +79,8 @@ class HomogenSlab(CartesianMHDequilibrium):
         beta: float = 0.1,
         n0: float = 1.0,
     ):
-        self.set_params(
-            B0x=B0x,
-            B0y=B0y,
-            B0z=B0z,
-            beta=beta,
-            n0=n0,
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
     # ===============================================================
     #                  profiles on physical domain
@@ -207,17 +207,8 @@ class ShearedSlab(CartesianMHDequilibrium):
         na: float = 1.0,
         beta: float = 0.1,
     ):
-        self.set_params(
-            a=a,
-            R0=R0,
-            B0=B0,
-            q0=q0,
-            q1=q1,
-            n1=n1,
-            n2=n2,
-            na=na,
-            beta=beta,
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
     # ===============================================================
     #             profiles for a sheared slab geometry
@@ -428,29 +419,24 @@ class ShearFluid(CartesianMHDequilibrium):
             B0z  : 0. # magnetic field in z
     """
 
-    def __init__(self, **params):
-        params_default = {
-            "a": 1.0,
-            "b": 1.0,
-            "c": 1.0,
-            "z1": 0.25,
-            "z2": 0.75,
-            "delta": 0.06666666,
-            "na": 1.0,
-            "nb": 0.25,
-            "pa": 1.0,
-            "pb": 0.0,
-            "B0x": 1.0,
-            "B0y": 0.0,
-            "B0z": 0.0,
-        }
-
-        self._params = set_defaults(params, params_default)
-
-    @property
-    def params(self):
-        """Parameters dictionary."""
-        return self._params
+    def __init__(
+        self,
+        a: float = 1.0,
+        b: float = 1.0,
+        c: float = 1.0,
+        z1: float = 0.25,
+        z2: float = 0.75,
+        delta: float = 0.06666666,
+        na: float = 1.0,
+        nb: float = 0.25,
+        pa: float = 1.0,
+        pb: float = 0.0,
+        B0x: float = 1.0,
+        B0y: float = 0.0,
+        B0z: float = 0.0,
+    ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
     # ===============================================================
     #             profiles for a sheared slab geometry
@@ -645,18 +631,8 @@ class ScrewPinch(CartesianMHDequilibrium):
         p0: float = 1.0e-8,
         beta: float = 0.1,
     ):
-        self.set_params(
-            a=a,
-            R0=R0,
-            B0=B0,
-            q0=q0,
-            q1=q1,
-            n1=n1,
-            n2=n2,
-            na=na,
-            p0=p0,
-            beta=beta,
-        )
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
         # inverse cylindrical coordinate transformation (x, y, z) --> (r, theta, phi)
         self.r = lambda x, y, z: np.sqrt(x**2 + y**2)
@@ -936,31 +912,27 @@ class AdhocTorus(AxisymmMHDequilibrium):
             psi_nel : 50   # number of cells to be used for interpolation of poloidal flux function (only needed if q_kind=1)
     """
 
-    def __init__(self, **params):
-        from scipy.integrate import quad
-        from scipy.interpolate import UnivariateSpline
-
-        # parameters
-        params_default = {
-            "a": 1.0,
-            "R0": 3.0,
-            "B0": 2.0,
-            "q_kind": 0,
-            "q0": 1.71,
-            "q1": 1.87,
-            "n1": 2.0,
-            "n2": 1.0,
-            "na": 0.2,
-            "p_kind": 1,
-            "p0": 1.0,
-            "p1": 0.1,
-            "p2": 0.1,
-            "beta": 0.179,
-            "psi_k": 3,
-            "psi_nel": 50,
-        }
-
-        self._params = set_defaults(params, params_default)
+    def __init__(
+        self,
+        a: float = 1.0,
+        R0: float = 3.0,
+        B0: float = 2.0,
+        q_kind: int = 0,
+        q0: float = 1.71,
+        q1: float = 1.87,
+        n1: float = 2.0,
+        n2: float = 1.0,
+        na: float = 0.2,
+        p_kind: int = 1,
+        p0: float = 1.0,
+        p1: float = 0.1,
+        p2: float = 0.1,
+        beta: float = 0.179,
+        psi_k: int = 3,
+        psi_nel: int = 50,
+    ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
         # plasma boundary contour
         ths = np.linspace(0.0, 2 * np.pi, 201)
@@ -1017,11 +989,6 @@ class AdhocTorus(AxisymmMHDequilibrium):
                 s=0.0,
                 ext=3,
             )
-
-    @property
-    def params(self):
-        """Parameters dictionary."""
-        return self._params
 
     @property
     def boundary_pts_R(self):
@@ -1441,30 +1408,25 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             psi_nel : 50   # number of cells to be used for interpolation of poloidal flux functionq_kind=1)
     """
 
-    def __init__(self, **params):
-        from scipy.integrate import odeint
-        from scipy.interpolate import UnivariateSpline
-        from scipy.optimize import fsolve
-
-        # parameters
-        params_default = {
-            "a": 0.361925,
-            "R0": 1.0,
-            "B0": 1.0,
-            "q0": 0.6,
-            "q1": 2.5,
-            "q0p": 0.78,
-            "q1p": 5.00,
-            "n1": 2.0,
-            "n2": 1.0,
-            "na": 0.2,
-            "beta": 4.0,
-            "p1": 0.25,
-            "psi_k": 3,
-            "psi_nel": 50,
-        }
-
-        self._params = set_defaults(params, params_default)
+    def __init__(
+        self,
+        a: float = 0.361925,
+        R0: float = 1.0,
+        B0: float = 1.0,
+        q0: float = 0.6,
+        q1: float = 2.5,
+        q0p: float = 0.78,
+        q1p: float = 5.00,
+        n1: float = 2.0,
+        n2: float = 1.0,
+        na: float = 0.2,
+        beta: float = 4.0,
+        p1: float = 0.25,
+        psi_k: int = 3,
+        psi_nel: int = 50,
+    ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
         # plasma boundary contour
         ths = np.linspace(0.0, 2 * np.pi, 201)
@@ -1513,11 +1475,6 @@ class AdhocTorusQPsi(AxisymmMHDequilibrium):
             s=0.0,
             ext=3,
         )
-
-    @property
-    def params(self):
-        """Parameters dictionary describing the equilibrium."""
-        return self._params
 
     @property
     def boundary_pts_R(self):
@@ -1771,13 +1728,10 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         n1: float = 2.0,
         n2: float = 1.0,
         na: float = 0.2,
-        units=None,
+        units: dict = None,
     ):
-        from scipy.interpolate import RectBivariateSpline, UnivariateSpline
-        from scipy.optimize import minimize
-
-        import struphy
-        from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
         # default input file
         if file is None:
@@ -1798,23 +1752,10 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
 
         self._units = units
 
-        self.set_params(
-            rel_path=rel_path,
-            file=file,
-            data_type=data_type,
-            p_for_psi=p_for_psi,
-            psi_resolution=psi_resolution,
-            p_for_flux=p_for_flux,
-            flux_resolution=flux_resolution,
-            n1=n1,
-            n2=n2,
-            na=na,
-        )
-
         if self.params["rel_path"]:
-            _path = struphy.__path__[0] + "/fields_background/mhd_equil/eqdsk/data/" + self.params["file"]
+            _path = struphy.__path__[0] + "/fields_background/mhd_equil/eqdsk/data/" + file
         else:
-            _path = self.params["file"]
+            _path = file
 
         eqdsk = readeqdsk.Geqdsk()
         eqdsk.openFile(_path, data_type=self.params["data_type"])
@@ -1923,11 +1864,6 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
     def units(self):
         """All Struphy units."""
         return self._units
-
-    @property
-    def params(self):
-        """Parameters describing the equilibrium."""
-        return self._params
 
     @property
     def boundary_pts_R(self):
@@ -2154,7 +2090,29 @@ class GVECequilibrium(NumericalMHDequilibrium):
             p0 : 1.
     """
 
-    def __init__(self, units=None, **params):
+    def __init__(
+        self,
+        rel_path: bool = True,
+        # dat_file: str = "run_01/CIRCTOK_State_0000_00000000.dat",
+        # dat_file: str = "run_02/W7X_State_0000_00000000.dat",
+        dat_file: str = "run_03/NEO-SPITZER_State_0000_00003307.dat",
+        # param_file: str = "run_01/parameter.ini",
+        # param_file: str = "run_02/parameter-w7x.ini",
+        param_file: str = "run_03/parameter-fig8.ini",
+        use_boozer: bool = False,
+        use_nfp: bool = True,
+        rmin: float = 0.01,
+        Nel: tuple[int] = (16, 16, 16),
+        p: tuple[int] = (3, 3, 3),
+        density_profile: str = "pressure",
+        p0: float = 0.1,
+        n0: float = 0.2,
+        n1: float = 0.0,
+        units: dict = None,
+    ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
+
         # install if necessary
         gvec_spec = importlib.util.find_spec("gvec")
         if gvec_spec is None:
@@ -2166,9 +2124,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
             print(f"{exc.value.code = }")
 
         import gvec
-        from mpi4py import MPI
 
-        import struphy
         from struphy.geometry.domains import GVECunit
 
         # no rescaling if units are not provided
@@ -2184,27 +2140,6 @@ class GVECequilibrium(NumericalMHDequilibrium):
             )
 
         self._units = units
-
-        params_default = {
-            "rel_path": True,
-            # "dat_file": "run_01/CIRCTOK_State_0000_00000000.dat",
-            # "dat_file": "run_02/W7X_State_0000_00000000.dat",
-            "dat_file": "run_03/NEO-SPITZER_State_0000_00003307.dat",
-            # "param_file": "run_01/parameter.ini",
-            # "param_file": "run_02/parameter-w7x.ini",
-            "param_file": "run_03/parameter-fig8.ini",
-            "use_boozer": False,
-            "use_nfp": True,
-            "rmin": 0.01,
-            "Nel": (16, 16, 16),
-            "p": (3, 3, 3),
-            "density_profile": "pressure",
-            "p0": 0.1,
-            "n0": 0.2,
-            "n1": 0.0,
-        }
-
-        self._params = set_defaults(params, params_default)
 
         assert self.params["dat_file"][-4:] == ".dat"
         assert self.params["param_file"][-4:] == ".ini"
@@ -2225,8 +2160,8 @@ class GVECequilibrium(NumericalMHDequilibrium):
                 self.params["param_file"],
             )
         else:
-            dat_file = params["dat_file"]
-            param_file = params["param_file"]
+            dat_file = self.params["dat_file"]
+            param_file = self.params["param_file"]
 
         # gvec object
         self._state = gvec.State(param_file, dat_file)
@@ -2253,11 +2188,6 @@ class GVECequilibrium(NumericalMHDequilibrium):
     def units(self):
         """All Struphy units."""
         return self._units
-
-    @property
-    def params(self):
-        """Parameters describing the equilibrium."""
-        return self._params
 
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
@@ -2315,9 +2245,10 @@ class GVECequilibrium(NumericalMHDequilibrium):
         if not flat_eval:
             eta2 = etas[1]
             eta3 = etas[2]
-            if eta2.ndim == 3:
-                eta2 = eta2[0, :, 0]
-                eta3 = eta3[0, 0, :]
+            if isinstance(eta2, np.ndarray):
+                if eta2.ndim == 3:
+                    eta2 = eta2[0, :, 0]
+                    eta3 = eta3[0, 0, :]
             tmp, _1, _2 = np.meshgrid(ev.p.data, eta2, eta3, indexing="ij")
         else:
             tmp = ev.p.data
@@ -2375,6 +2306,10 @@ class GVECequilibrium(NumericalMHDequilibrium):
         # meshgrid evaluation
         else:
             assert len(etas) == 3
+            etas = list(etas)
+            for i, eta in enumerate(etas):
+                if isinstance(eta, (float, int)):
+                    etas[i] = np.array((eta,))
             assert etas[0].ndim == etas[1].ndim == etas[2].ndim
             if etas[0].ndim == 1:
                 eta1 = etas[0]
@@ -2409,8 +2344,6 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
     Parameters
     ----------
-    units : dict
-        All Struphy units. If None, no rescaling of EQDSK output is performed.
     eq_name : str
         Name of existing DESC equilibrium object (.h5 or binary).
     rel_path : bool
@@ -2425,6 +2358,8 @@ class DESCequilibrium(NumericalMHDequilibrium):
         Number of cells in each direction used for interpolation of the mapping (default: (16, 16, 16)).
     p : tuple[int]
         Spline degree in each direction used for interpolation of the mapping (default: (3, 3, 3)).
+    units : dict
+        All Struphy units. If None, no rescaling of EQDSK output is performed.
 
     T_kelvin : maximum of temperature in Kelvin (default: 100000).
 
@@ -2443,8 +2378,20 @@ class DESCequilibrium(NumericalMHDequilibrium):
             T_kelvin : 100000 # maximum temperature in Kelvin used to set density
     """
 
-    def __init__(self, units=None, **params):
-        import os
+    def __init__(
+        self,
+        eq_name: str = None,
+        rel_path: bool = False,
+        use_pest: bool = False,
+        use_nfp: bool = True,
+        rmin: float = 0.01,
+        Nel: tuple[int] = (16, 16, 50),
+        p: tuple[int] = (3, 3, 3),
+        T_kelvin: float = 100000.0,
+        units: dict = None,
+    ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
         t = time()
         # install if necessary
@@ -2458,13 +2405,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
         import desc
 
         print(f"DESC import: {time() - t} seconds")
-        from mpi4py import MPI
-
-        import struphy
         from struphy.geometry.domains import DESCunit
-
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
 
         # no rescaling if units are not provided
         if units is None:
@@ -2480,27 +2421,14 @@ class DESCequilibrium(NumericalMHDequilibrium):
 
         self._units = units
 
-        params_default = {
-            "eq_name": None,
-            "rel_path": False,
-            "use_pest": False,
-            "use_nfp": True,
-            "rmin": 0.01,
-            "Nel": (16, 16, 50),
-            "p": (3, 3, 3),
-            "T_kelvin": 100000,
-        }
-
-        self._params = set_defaults(params, params_default)
-
-        if self._params["rel_path"]:
+        if self.params["rel_path"]:
             eq_name = os.path.join(
                 struphy.__path__[0],
                 "fields_background/mhd_equil/desc",
-                self._params["eq_name"],
+                self.params["eq_name"],
             )
         else:
-            eq_name = self._params["eq_name"]
+            eq_name = self.params["eq_name"]
 
         t = time()
         # desc object
@@ -2510,11 +2438,11 @@ class DESCequilibrium(NumericalMHDequilibrium):
             self._eq = desc.io.load(eq_name)
 
         print(f"Eq. load: {time() - t} seconds")
-        self._rmin = params["rmin"]
-        self._use_nfp = params["use_nfp"]
+        self._rmin = self.params["rmin"]
+        self._use_nfp = self.params["use_nfp"]
 
         # straight field line coords
-        if self._params["use_pest"]:
+        if self.params["use_pest"]:
             raise ValueError(
                 "PEST coordinates not yet implemented in desc interface.",
             )
@@ -2558,11 +2486,6 @@ class DESCequilibrium(NumericalMHDequilibrium):
     def units(self):
         """All Struphy units."""
         return self._units
-
-    @property
-    def params(self):
-        """Parameters describing the equilibrium."""
-        return self._params
 
     def bv(self, *etas, squeeze_out=False):
         """Contra-variant (vector field) magnetic field on logical cube [0, 1]^3 in Tesla / meter."""
@@ -2975,23 +2898,18 @@ class ConstantVelocity(CartesianFluidEquilibrium):
 
     """
 
-    def __init__(self, **params):
-        params_default = {
-            "ux": 1.0,
-            "uy": 1.0,
-            "uz": 1.0,
-            "n": 1.0,
-            "n1": 0.0,
-            "density_profile": "affine",
-            "p0": 1.0,
-        }
-
-        self._params = set_defaults(params, params_default)
-
-    @property
-    def params(self):
-        """Parameters dictionary."""
-        return self._params
+    def __init__(
+        self,
+        ux: float = 0.0,
+        uy: float = 0.0,
+        uz: float = 0.0,
+        n: float = 1.0,
+        n1: float = 0.0,
+        density_profile: str = "affine",
+        p0: float = 1.0,
+    ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
     # equilibrium ion velocity
     def u_xyz(self, x, y, z):
@@ -3020,7 +2938,11 @@ class ConstantVelocity(CartesianFluidEquilibrium):
             return self.params["n"] * np.exp(-(x**2 + y**2) / self.params["p0"])
         elif self.params["density_profile"] == "step_function_x":
             out = 1e-8 + 0 * x
-            out[x < 0.0] = self.params["n"]
+            # mask_x = np.logical_and(x < .6, x > .4)
+            # mask_y = np.logical_and(y < .6, y > .4)
+            # mask = np.logical_and(mask_x, mask_y)
+            mask = x < -2.0
+            out[mask] = self.params["n"]
             return out
 
 
@@ -3066,15 +2988,17 @@ class HomogenSlabITG(CartesianFluidEquilibriumWithB):
             eps  : .1
     """
 
-    def __init__(self, **params):
-        params_default = {"B0z": 1.0, "Lx": 6.0, "p0": 1.0, "pmin": 0.1, "n0": 1.0, "eps": 0.1}
-
-        self._params = set_defaults(params, params_default)
-
-    @property
-    def params(self):
-        """Parameters dictionary."""
-        return self._params
+    def __init__(
+        self,
+        B0z: float = 1.0,
+        Lx: float = 6.0,
+        p0: float = 1.0,
+        pmin: float = 0.1,
+        n0: float = 1.0,
+        eps: float = 0.1,
+    ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
     # ===============================================================
     #                  profiles on physical domain
@@ -3120,6 +3044,149 @@ class HomogenSlabITG(CartesianFluidEquilibriumWithB):
         gradBz = 0 * x
 
         return gradBx, gradBy, gradBz
+
+
+class CircularTokamak(AxisymmMHDequilibrium):
+    r"""
+    Tokamak MHD equilibrium with circular concentric flux surfaces.
+
+    For a cylindrical coordinate system :math:`(R, \phi, Z)` with transformation formulae
+
+    .. math::
+
+        x &= R\cos(\phi)\,,     &&R = \sqrt{x^2 + y^2}\,,
+
+        y &= R\sin(\phi)\,,  &&\phi = \arctan(y/x)\,,
+
+        z &= Z\,,               &&Z = z\,,
+
+    the magnetic field is given by
+
+    .. math::
+
+        \mathbf B = \nabla\psi\times\nabla\phi+g\nabla\phi\,,
+
+    where :math:`g=g(R, Z)=B_0R_0=const.` is the toroidal field function, :math:`R_0` the major radius of the torus and :math:`B_0` the on-axis magnetic field. The flux  :math:`\psi=\psi(R, Z)` is given by
+
+    .. math::
+
+        \psi=a R_0 B_p \frac{(R-R_0)^2+Z^2}{2 a^2}\,
+
+    for the given constants.
+
+    The pressure profile and the number density profile are not specified
+
+    Units are those defined in the parameter file (:code:`struphy units -h`).
+
+    Parameters
+    ----------
+    a : float
+        Minor radius of torus (default: 1.).
+    R0 : float
+        Major radius of torus (default: 2.).
+    B0 : float
+        On-axis (r=0) toroidal magnetic field (default: 10.).
+    Bp : float
+        Poloidal magnetic field (default: 12.5).
+
+    Note
+    ----
+    In the parameter .yml, use the following in the section ``fluid_background``::
+
+        CircularTokamak :
+            a       : 1.   # minor radius
+            R0      : 2.   # major radius
+            B0      : 10.  # on-axis toroidal magnetic field
+            Bp      : 12.5 # poloidal magnetic field
+    """
+
+    def __init__(
+        self,
+        a: float = 1.0,
+        R0: float = 2.0,
+        B0: float = 10.0,
+        Bp: float = 12.5,
+    ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
+
+        self._psi0 = 0.0
+        self._psi1 = self.params["a"] * self.params["R0"] * self.params["Bp"] * 0.5
+
+    # ===============================================================
+    #           abstract properties
+    # ===============================================================
+
+    @property
+    def psi_range(self):
+        """Psi on-axis and at plasma boundary."""
+        return [self._psi0, self._psi1]
+
+    @property
+    def psi_axis_RZ(self):
+        """Location of magnetic axis in R-Z-coordinates."""
+        return [self.params["R0"], 0.0]
+
+    # ===============================================================
+    #           abstract methods
+    # ===============================================================
+
+    def psi(self, R, Z, dR=0, dZ=0):
+        """Poloidal flux function psi = psi(R, Z)."""
+
+        if dR == 0 and dZ == 0:
+            out = (
+                self.params["a"]
+                * self.params["R0"]
+                * self.params["Bp"]
+                * ((R - self.params["R0"]) ** 2 + Z**2)
+                / (2 * self.params["a"] ** 2)
+            )
+        else:
+            if dR == 1 and dZ == 0:
+                out = self.params["R0"] * self.params["Bp"] * (R - self.params["R0"]) / (self.params["a"])
+            elif dR == 0 and dZ == 1:
+                out = self.params["R0"] * self.params["Bp"] * (Z) / (self.params["a"])
+            elif dR == 2 and dZ == 0:
+                out = self.params["R0"] * self.params["Bp"] / (self.params["a"])
+            elif dR == 0 and dZ == 2:
+                out = self.params["R0"] * self.params["Bp"] / (self.params["a"])
+            elif dR == 1 and dZ == 1:
+                out = 0 * R + 0 * Z
+            else:
+                raise NotImplementedError(
+                    "Only combinations (dR=0, dZ=0), (dR=1, dZ=0), (dR=0, dZ=1), (dR=2, dZ=0), (dR=0, dZ=2) and (dR=1, dZ=1) possible!",
+                )
+
+        return -out
+
+    def g_tor(self, R, Z, dR=0, dZ=0):
+        """Toroidal field function g = g(R, Z)."""
+
+        if dR == 0 and dZ == 0:
+            out = self._params["B0"] * self._params["R0"]
+        elif dR == 1 and dZ == 0:
+            out = 0 * R
+        elif dR == 0 and dZ == 1:
+            out = 0 * Z
+        else:
+            raise NotImplementedError(
+                "Only combinations (dR=0, dZ=0), (dR=1, dZ=0) and (dR=0, dZ=1) possible!",
+            )
+
+        return -out
+
+    def p_xyz(self, x, y, z):
+        """Pressure p = p(x, y, z)."""
+        pp = 0.0 * x + 1.0
+
+        return pp
+
+    def n_xyz(self, x, y, z):
+        """Number density n = n(x, y, z)."""
+        nn = 0.0 * x + 1.0
+
+        return nn
 
 
 def set_defaults(params_in, params_default):
@@ -3186,15 +3253,9 @@ class CurrentSheet(CartesianMHDequilibrium):
 
     """
 
-    def __init__(self, **params):
-        params_default = {"delta": 0.1, "amp": 1.0}
-
-        self._params = set_defaults(params, params_default)
-
-    @property
-    def params(self):
-        """Parameters dictionary."""
-        return self._params
+    def __init__(self, delta: float = 0.1, amp: float = 1.0):
+        # use params setter
+        self.params = copy.deepcopy(locals())
 
     # ===============================================================
     #           profiles for a straight tokamak equilibrium

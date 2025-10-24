@@ -1,6 +1,5 @@
-import numpy as np
-from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
+from psydac.ddm.mpi import mpi as MPI
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
@@ -15,6 +14,8 @@ from struphy.feec.psydac_derham import get_pts_and_wts, get_span_and_basis
 from struphy.feec.utilities import RotationMatrix
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.linear_operators import PolarExtractionOperator
+from struphy.utils.arrays import xp as np
+from struphy.utils.pyccel import Pyccelkernel
 
 
 class BasisProjectionOperators:
@@ -513,9 +514,35 @@ class BasisProjectionOperators:
 
         .. math::
 
-            \mathcal{S}^{21}_{(\mu, ijk), (\nu, mno)} := \hat{\Pi}^1_{(\mu, ijk)} \left[\hat{p}_{\text{eq}} \frac{G_{\mu, \nu}}{\sqrt{g}} \Lambda^2_{(\nu, mno)} \right] \,.
+            \mathcal{S}^{21}_{(\mu, ijk), (\nu, mno)} := \hat{\Pi}^1_{(\mu, ijk)} \left[ \frac{G_{\mu, \nu}}{\sqrt{g}} \Lambda^2_{(\nu, mno)} \right] \,.
         """
         if not hasattr(self, "_S21"):
+            fun = []
+            for m in range(3):
+                fun += [[]]
+                for n in range(3):
+                    fun[-1] += [
+                        lambda e1, e2, e3, m=m, n=n: self.G(e1, e2, e3)[:, :, :, m, n] / self.sqrt_g(e1, e2, e3),
+                    ]
+
+            self._S21 = self.create_basis_op(
+                fun,
+                "Hdiv",
+                "Hcurl",
+                name="S21",
+            )
+
+        return self._S21
+
+    @property
+    def S21p(self):
+        r"""Basis projection operator
+
+        .. math::
+
+            \mathcal{S}^{21p}_{(\mu, ijk), (\nu, mno)} := \hat{\Pi}^1_{(\mu, ijk)} \left[ \frac{G_{\mu, \nu}}{\sqrt{g}} \Lambda^2_{(\nu, mno)} \right] \,.
+        """
+        if not hasattr(self, "_S21p"):
             fun = []
             for m in range(3):
                 fun += [[]]
@@ -530,14 +557,13 @@ class BasisProjectionOperators:
                         / self.sqrt_g(e1, e2, e3),
                     ]
 
-            self._S21 = self.create_basis_op(
+            self._S21p = self.create_basis_op(
                 fun,
                 "Hdiv",
                 "Hcurl",
-                name="S21",
+                name="S21p",
             )
-
-        return self._S21
+        return self._S21p
 
     @property
     def Uv(self):
@@ -868,7 +894,7 @@ class BasisProjectionOperators:
         V_form = self.derham.space_to_form[V_id]
         W_form = self.derham.space_to_form[W_id]
 
-        if self.derham._with_local_projectors == True:
+        if self.derham.with_local_projectors:
             out = BasisProjectionOperatorLocal(
                 self.derham.P[W_form],
                 self.derham.Vh_fem[V_form],
@@ -948,20 +974,17 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
 
     def __init__(
         self,
-        P,
-        V,
-        weights,
-        V_extraction_op=None,
-        V_boundary_op=None,
-        P_extraction_op=None,
-        P_boundary_op=None,
-        transposed=False,
+        P: CommutingProjectorLocal,
+        V: FemSpace,
+        weights: list,
+        V_extraction_op: PolarExtractionOperator | IdentityOperator = None,
+        V_boundary_op: BoundaryOperator | IdentityOperator = None,
+        P_extraction_op: PolarExtractionOperator | IdentityOperator = None,
+        P_boundary_op: BoundaryOperator | IdentityOperator = None,
+        transposed: bool = False,
     ):
         # only for M1 Mac users
         PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
-
-        assert isinstance(P, CommutingProjectorLocal)
-        assert isinstance(V, FemSpace)
 
         self._P = P
         self._V = V
@@ -2016,9 +2039,11 @@ class BasisProjectionOperator(LinOpWithTransp):
                         )
                         dofs_mat = self._dof_mat[i, j]
 
-                    kernel = getattr(
-                        basis_projection_kernels,
-                        "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
+                    kernel = Pyccelkernel(
+                        getattr(
+                            basis_projection_kernels,
+                            "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
+                        )
                     )
 
                     if rank == 0 and verbose:

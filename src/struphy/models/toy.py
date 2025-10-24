@@ -1,7 +1,6 @@
-import numpy as np
-
 from struphy.models.base import StruphyModel
 from struphy.propagators import propagators_coupling, propagators_fields, propagators_markers
+from struphy.utils.arrays import xp as np
 
 
 class Maxwell(StruphyModel):
@@ -142,8 +141,6 @@ class Vlasov(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # prelim
         ions_params = self.kinetic["ions"]["params"]
 
@@ -173,8 +170,6 @@ class Vlasov(StruphyModel):
         self.add_scalar("en_f", compute="from_particles", species="ions")
 
         # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
         self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
@@ -183,9 +178,6 @@ class Vlasov(StruphyModel):
             + self.pointer["ions"].markers_wo_holes[:, 4] ** 2
             + self.pointer["ions"].markers_wo_holes[:, 5] ** 2,
         ) / (2 * self.pointer["ions"].Np)
-
-        # self.derham.comm.Allreduce(
-        #     self._mpi_in_place, self._tmp, op=self._mpi_sum)
 
         self.update_scalar("en_f", self._tmp[0])
 
@@ -258,8 +250,6 @@ class GuidingCenter(StruphyModel):
         # initialize base class
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # prelim
         ions_params = self.kinetic["ions"]["params"]
         epsilon = self.equation_params["ions"]["epsilon"]
@@ -279,13 +269,12 @@ class GuidingCenter(StruphyModel):
         self.init_propagators()
 
         # Scalar variables to be saved during simulation
-        self.add_scalar("en_fv")
-        self.add_scalar("en_fB")
-        self.add_scalar("en_tot")
+        self.add_scalar("en_fv", compute="from_particles", species="ions")
+        self.add_scalar("en_fB", compute="from_particles", species="ions")
+        self.add_scalar("en_tot", compute="from_particles", species="ions")
+        self.add_scalar("n_lost_particles", compute="from_particles", species="ions")
 
         # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
         self._en_fv = np.empty(1, dtype=float)
         self._en_fB = np.empty(1, dtype=float)
         self._en_tot = np.empty(1, dtype=float)
@@ -310,32 +299,12 @@ class GuidingCenter(StruphyModel):
 
         self._en_fB[0] = self._en_tot[0] - self._en_fv[0]
 
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_fv,
-            op=self._mpi_sum,
-        )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_tot,
-            op=self._mpi_sum,
-        )
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._en_fB,
-            op=self._mpi_sum,
-        )
+        self._n_lost_particles[0] = self.pointer["ions"].n_lost_markers
 
         self.update_scalar("en_fv", self._en_fv[0])
         self.update_scalar("en_fB", self._en_fB[0])
         self.update_scalar("en_tot", self._en_tot[0])
-
-        self._n_lost_particles[0] = self.pointer["ions"].n_lost_markers
-        self.derham.comm.Allreduce(
-            self._mpi_in_place,
-            self._n_lost_particles,
-            op=self._mpi_sum,
-        )
+        self.update_scalar("n_lost_particles", self._n_lost_particles[0])
 
 
 class ShearAlfven(StruphyModel):
@@ -976,8 +945,6 @@ class DeterministicParticleDiffusion(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # prelim
         params = self.kinetic["species1"]["params"]
         algo = params["options"]["PushDeterministicDiffusion"]["algo"]
@@ -1002,8 +969,6 @@ class DeterministicParticleDiffusion(StruphyModel):
         self.add_scalar("en_f")
 
         # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
         self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
@@ -1064,8 +1029,6 @@ class RandomParticleDiffusion(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # prelim
         species1_params = self.kinetic["species1"]["params"]
         algo = species1_params["options"]["PushRandomDiffusion"]["algo"]
@@ -1090,8 +1053,6 @@ class RandomParticleDiffusion(StruphyModel):
         self.add_scalar("en_f")
 
         # MPI operations needed for scalar variables
-        self._mpi_sum = SUM
-        self._mpi_in_place = IN_PLACE
         self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
@@ -1151,8 +1112,6 @@ class PressureLessSPH(StruphyModel):
     def __init__(self, params, comm, clone_config=None):
         super().__init__(params, comm=comm, clone_config=clone_config)
 
-        from mpi4py.MPI import IN_PLACE, SUM
-
         # prelim
         p_fluid_params = self.kinetic["p_fluid"]["params"]
         algo_eta = params["kinetic"]["p_fluid"]["options"]["PushEta"]["algo"]
@@ -1177,3 +1136,155 @@ class PressureLessSPH(StruphyModel):
         ) / (2.0 * self.pointer["p_fluid"].Np)
 
         self.update_scalar("en_kin", en_kin)
+
+
+class TwoFluidQuasiNeutralToy(StruphyModel):
+    r"""Linearized, quasi-neutral two-fluid model with zero electron inertia.
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat u = \hat v_\textnormal{th}\,,\qquad  e\hat \phi = m \hat v_\textnormal{th}^2\,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        \frac{\partial \mathbf u}{\partial t} &= - \nabla \phi + \frac{\mathbf u \times \mathbf B_0}{\varepsilon} + \nu \Delta \mathbf u + \mathbf f\,,
+        \\[2mm]
+        0 &= \nabla \phi - \frac{\mathbf u_e \times \mathbf B_0}{\varepsilon} + \nu_e \Delta \mathbf u_e + \mathbf f_e \,,
+        \\[3mm]
+        \nabla & \cdot (\mathbf u - \mathbf u_e) = 0\,,
+
+    where :math:`\mathbf B_0` is a static magnetic field and :math:`\mathbf f, \mathbf f_e` are given forcing terms,
+    and with the normalization parameter
+
+    .. math::
+
+        \varepsilon = \frac{1}{\hat \Omega_\textnormal{c} \hat t} \,,\qquad \textnormal{with} \,,\qquad \hat \Omega_{\textnormal{c}} = \frac{(Ze) \hat B}{(A m_\textnormal{H})}\,,
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_fields.TwoFluidQuasiNeutralFull`
+
+    :ref:`Model info <add_model>`:
+
+    References
+    ----------
+    [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
+    in plasma physics, Journal of Computational Physics 2018.
+    """
+
+    @staticmethod
+    def species():
+        dct = {"em_fields": {}, "fluid": {}, "kinetic": {}}
+
+        dct["em_fields"]["potential"] = "L2"
+        dct["fluid"]["ions"] = {
+            "u": "Hdiv",
+        }
+        dct["fluid"]["electrons"] = {
+            "u": "Hdiv",
+        }
+        return dct
+
+    @staticmethod
+    def bulk_species():
+        return "ions"
+
+    @staticmethod
+    def velocity_scale():
+        return "thermal"
+
+    @staticmethod
+    def propagators_dct():
+        return {propagators_fields.TwoFluidQuasiNeutralFull: ["ions_u", "electrons_u", "potential"]}
+
+    __em_fields__ = species()["em_fields"]
+    __fluid_species__ = species()["fluid"]
+    __kinetic_species__ = species()["kinetic"]
+    __bulk_species__ = bulk_species()
+    __velocity_scale__ = velocity_scale()
+    __propagators__ = [prop.__name__ for prop in propagators_dct()]
+
+    # add special options
+    @classmethod
+    def options(cls):
+        dct = super().options()
+        cls.add_option(
+            species=["fluid", "electrons"],
+            option=propagators_fields.TwoFluidQuasiNeutralFull,
+            dct=dct,
+        )
+        return dct
+
+    def __init__(self, params, comm, clone_config=None):
+        super().__init__(params, comm=comm, clone_config=clone_config)
+
+        # get species paramaters
+        electrons_params = params["fluid"]["electrons"]
+
+        # Get coupling strength
+        if electrons_params["options"]["TwoFluidQuasiNeutralFull"]["override_eq_params"]:
+            self._epsilon = electrons_params["options"]["TwoFluidQuasiNeutralFull"]["eps_norm"]
+            print(
+                f"\n!!! Override equation parameters: {self._epsilon = }.",
+            )
+        else:
+            self._epsilon = self.equation_params["electrons"]["epsilon"]
+
+        # extract necessary parameters
+        stokes_solver = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["solver"]
+        stokes_nu = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu"]
+        stokes_nu_e = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["nu_e"]
+        stokes_a = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["a"]
+        stokes_R0 = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["R0"]
+        stokes_B0 = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["B0"]
+        stokes_Bp = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["Bp"]
+        stokes_alpha = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["alpha"]
+        stokes_beta = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["beta"]
+        stokes_sigma = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["stab_sigma"]
+        stokes_variant = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["variant"]
+        stokes_method_to_solve = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["method_to_solve"]
+        stokes_preconditioner = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["preconditioner"]
+        stokes_spectralanalysis = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"][
+            "spectralanalysis"
+        ]
+        stokes_lifting = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["lifting"]
+        stokes_dimension = params["fluid"]["electrons"]["options"]["TwoFluidQuasiNeutralFull"]["dimension"]
+        stokes_1D_dt = params["time"]["dt"]
+
+        # Check MPI size to ensure only one MPI process
+        if comm is not None and stokes_variant == "Uzawa":
+            if comm.Get_rank() == 0:
+                print(f"Error: TwoFluidQuasiNeutralToy only runs with one MPI process.")
+            return  # Early return to stop execution for multiple MPI processes
+
+        # set keyword arguments for propagators
+        self._kwargs[propagators_fields.TwoFluidQuasiNeutralFull] = {
+            "solver": stokes_solver,
+            "nu": stokes_nu,
+            "nu_e": stokes_nu_e,
+            "eps_norm": self._epsilon,
+            "a": stokes_a,
+            "R0": stokes_R0,
+            "B0": stokes_B0,
+            "Bp": stokes_Bp,
+            "alpha": stokes_alpha,
+            "beta": stokes_beta,
+            "stab_sigma": stokes_sigma,
+            "variant": stokes_variant,
+            "method_to_solve": stokes_method_to_solve,
+            "preconditioner": stokes_preconditioner,
+            "spectralanalysis": stokes_spectralanalysis,
+            "dimension": stokes_dimension,
+            "D1_dt": stokes_1D_dt,
+            "lifting": stokes_lifting,
+        }
+
+        # Initialize propagators used in splitting substeps
+        self.init_propagators()
+
+    def update_scalar_quantities(self):
+        pass

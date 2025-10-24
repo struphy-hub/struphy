@@ -1,10 +1,10 @@
 from inspect import signature
 
-import numpy as np
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.ode.utils import ButcherTableau
+from struphy.utils.arrays import xp as np
 
 
 class ODEsolverFEEC:

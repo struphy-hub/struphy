@@ -3,7 +3,6 @@ import pytest
 from struphy.ode.utils import ButcherTableau
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize(
     "spaces",
     [
@@ -19,14 +18,14 @@ def test_exp_growth(spaces, algo, show_plots=False):
     """Solve dy/dt = omega*y for different feec variables y and with all available solvers
     from the ButcherTableau."""
 
-    import numpy as np
     from matplotlib import pyplot as plt
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
     from struphy.feec.psydac_derham import Derham
     from struphy.ode.solvers import ODEsolverFEEC
+    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

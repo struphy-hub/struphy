@@ -6,12 +6,12 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     import os
     import pickle
 
-    import numpy as np
     import yaml
     from matplotlib import pyplot as plt
 
     import struphy.utils.utils as utils
     from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
+    from struphy.utils.arrays import xp as np
 
     # Read struphy state file
     state = utils.read_state()
@@ -94,7 +94,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
         dicts += [tmp2]
 
     # runtime of the main
-    runtime = dicts[0]["main.py:1(main)"]["cumtime"]
+    runtime = dicts[0]["main.py:1(<module>)"]["cumtime"]
 
     # loop over keys (should be same in each dict)
     d_saved = {}

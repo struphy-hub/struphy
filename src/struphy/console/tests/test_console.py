@@ -6,7 +6,7 @@ from unittest.mock import patch  # , MagicMock, mock_open
 
 import pytest
 
-# from mpi4py import MPI
+# from psydac.ddm.mpi import mpi as MPI
 import struphy
 import struphy as struphy_lib
 from struphy.console.compile import struphy_compile
@@ -64,7 +64,6 @@ def split_command(command):
         # ["run", "Maxwell", "--batch", "batch_cobra.sh"],
         ["run", "Maxwell", "--mpi", "4"],
         ["run", "Vlasov", "--restart"],
-        ["run", "Vlasov", "--debug"],
         # Test cases for 'compile' sub-command with options
         ["compile"],
         ["compile", "-y"],

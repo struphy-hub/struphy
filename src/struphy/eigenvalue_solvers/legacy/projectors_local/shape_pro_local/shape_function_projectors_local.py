@@ -5,12 +5,12 @@
 Classes for local projectors in 1D and 3D based on quasi-spline interpolation and histopolation.
 """
 
-import numpy as np
 import scipy.sparse as spa
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 import struphy.feec.bsplines as bsp
 import struphy.feec.projectors.shape_pro_local.shape_local_projector_kernel as ker_loc
+from struphy.utils.arrays import xp as np
 
 
 # ======================= 3d ====================================
@@ -654,7 +654,7 @@ class projectors_local_3d:
             self.NbaseD,
             particles_loc.shape[1],
             domain.kind_map,
-            domain.params_map,
+            domain.params,
             domain.T[0],
             domain.T[1],
             domain.T[2],
@@ -695,7 +695,7 @@ class projectors_local_3d:
                 self.related,
                 particles_loc.shape[1],
                 domain.kind_map,
-                domain.params_map,
+                domain.params,
                 domain.T[0],
                 domain.T[1],
                 domain.T[2],
@@ -742,7 +742,7 @@ class projectors_local_3d:
                 self.related,
                 particles_loc.shape[1],
                 domain.kind_map,
-                domain.params_map,
+                domain.params,
                 domain.T[0],
                 domain.T[1],
                 domain.T[2],
@@ -831,7 +831,7 @@ class projectors_local_3d:
                 self.related,
                 particles_loc.shape[1],
                 domain.kind_map,
-                domain.params_map,
+                domain.params,
                 domain.T[0],
                 domain.T[1],
                 domain.T[2],
@@ -909,7 +909,7 @@ class projectors_local_3d:
                 self.related,
                 particles_loc.shape[1],
                 domain.kind_map,
-                domain.params_map,
+                domain.params,
                 domain.T[0],
                 domain.T[1],
                 domain.T[2],
@@ -966,7 +966,7 @@ class projectors_local_3d:
                     self.related,
                     particles_loc.shape[1],
                     domain.kind_map,
-                    domain.params_map,
+                    domain.params,
                     domain.T[0],
                     domain.T[1],
                     domain.T[2],
@@ -1018,7 +1018,7 @@ class projectors_local_3d:
                     self.related,
                     particles_loc.shape[1],
                     domain.kind_map,
-                    domain.params_map,
+                    domain.params,
                     domain.T[0],
                     domain.T[1],
                     domain.T[2],
@@ -1070,7 +1070,7 @@ class projectors_local_3d:
                     self.related,
                     particles_loc.shape[1],
                     domain.kind_map,
-                    domain.params_map,
+                    domain.params,
                     domain.T[0],
                     domain.T[1],
                     domain.T[2],
@@ -1122,7 +1122,7 @@ class projectors_local_3d:
                     self.related,
                     particles_loc.shape[1],
                     domain.kind_map,
-                    domain.params_map,
+                    domain.params,
                     domain.T[0],
                     domain.T[1],
                     domain.T[2],

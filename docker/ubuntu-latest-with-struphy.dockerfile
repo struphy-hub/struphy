@@ -1,11 +1,12 @@
 # Here is how to build the image and upload it to the mpcdf gitlab registry:
 #
 # We suppose you are in the struphy repo directory. 
-# Start the docker engine and run "docker login" with the current token from https://struphy.pages.mpcdf.de/struphy/sections/install.html#user-install, then:
+# Start the docker engine and run "docker login" with the following token:
 #
+# TOKEN=gldt-CgMRBMtePbSwdWTxKw4Q; echo "$TOKEN" | docker login gitlab-registry.mpcdf.mpg.de -u gitlab+deploy-token-162 --password-stdin
 # docker info
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/<name> -f docker/<name>.dockerfile .
-# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/<name>
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy --provenance=false -f docker/ubuntu-latest-with-struphy.dockerfile .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu-latest-with-struphy
 
 FROM ubuntu:latest
 

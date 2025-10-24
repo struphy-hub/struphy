@@ -1,6 +1,6 @@
 import sys
 
-from struphy.console.run import subp_run
+from struphy.utils.utils import subp_run
 
 
 def struphy_compile(
@@ -209,7 +209,7 @@ def struphy_compile(
             flags += " --compiler-family=" + compiler
 
         if time_execution:
-            flags += " --time_execution"
+            flags += " --time-execution"
 
         # state
         if state["last_used_language"] not in (language, None):

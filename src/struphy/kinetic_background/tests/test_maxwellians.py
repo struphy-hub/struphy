@@ -9,9 +9,9 @@ def test_maxwellian_3d_uniform(Nel, show_plot=False):
     analytical computation.
     """
     import matplotlib.pyplot as plt
-    import numpy as np
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
+    from struphy.utils.arrays import xp as np
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])
@@ -89,9 +89,9 @@ def test_maxwellian_3d_perturbed(Nel, show_plot=False):
     """Tests the Maxwellian3D class for perturbations."""
 
     import matplotlib.pyplot as plt
-    import numpy as np
 
     from struphy.kinetic_background.maxwellians import Maxwellian3D
+    from struphy.utils.arrays import xp as np
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     v1 = np.linspace(-5.0, 5.0, 128)
@@ -285,12 +285,12 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
     import inspect
 
     import matplotlib.pyplot as plt
-    import numpy as np
 
     from struphy.fields_background import equils
     from struphy.geometry import domains
     from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
+    from struphy.utils.arrays import xp as np
 
     maxw_params_mhd = {
         "n": "fluid_background",
@@ -351,6 +351,10 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 )
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
+            elif "CircularTokamak" in key:
+                mhd_equil.domain = domains.HollowTorus(
+                    a1=1e-3, a2=mhd_equil.params["a"], R0=mhd_equil.params["R0"], tor_period=1
+                )
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
             elif "ShearedSlab" in key:
@@ -688,9 +692,9 @@ def test_maxwellian_2d_uniform(Nel, show_plot=False):
     analytical computation.
     """
     import matplotlib.pyplot as plt
-    import numpy as np
 
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+    from struphy.utils.arrays import xp as np
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])
@@ -777,9 +781,9 @@ def test_maxwellian_2d_perturbed(Nel, show_plot=False):
     """Tests the GyroMaxwellian2D class for perturbations."""
 
     import matplotlib.pyplot as plt
-    import numpy as np
 
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+    from struphy.utils.arrays import xp as np
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     v1 = np.linspace(-5.0, 5.0, 128)
@@ -1031,13 +1035,13 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
     import inspect
 
     import matplotlib.pyplot as plt
-    import numpy as np
 
     from struphy.fields_background import equils
     from struphy.fields_background.base import FluidEquilibriumWithB
     from struphy.geometry import domains
     from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import GyroMaxwellian2D
+    from struphy.utils.arrays import xp as np
 
     maxw_params_mhd = {
         "n": "fluid_background",
@@ -1093,6 +1097,10 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 )
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
+            elif "CircularTokamak" in key:
+                mhd_equil.domain = domains.HollowTorus(
+                    a1=1e-3, a2=mhd_equil.params["a"], R0=mhd_equil.params["R0"], tor_period=1
+                )
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
             elif "ShearedSlab" in key:
@@ -1428,11 +1436,11 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     analytical computation.
     """
     import matplotlib.pyplot as plt
-    import numpy as np
 
     from struphy.fields_background import equils
     from struphy.geometry import domains
     from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
+    from struphy.utils.arrays import xp as np
 
     e1 = np.linspace(0.0, 1.0, Nel[0])
     e2 = np.linspace(0.0, 1.0, Nel[1])
@@ -1476,7 +1484,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     energy = 1 / 2 * v_para**2 + mu * absB
 
     # shifted canonical toroidal momentum
-    a1 = mhd_equil.domain.params_map["a1"]
+    a1 = mhd_equil.domain.params["a1"]
     R0 = mhd_equil.params["R0"]
     B0 = mhd_equil.params["B0"]
 

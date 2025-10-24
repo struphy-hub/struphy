@@ -1,9 +1,9 @@
-import numpy as np
 import scipy.sparse as spa
 
 import struphy.feec.basics.kernels_3d as ker
 import struphy.feec.control_variates.kinetic_extended.fB_massless_kernels_control_variate as ker_cv
 import struphy.feec.control_variates.kinetic_extended.fnB_massless_cv_kernel_2 as ker_cv2
+from struphy.utils.arrays import xp as np
 
 
 def bv_right(
@@ -269,7 +269,7 @@ def vv_right(
             tensor_space_FEM.T[2],
             particles_loc,
             domain.kind_map,
-            domain.params_map,
+            domain.params,
             domain.T[0],
             domain.T[1],
             domain.T[2],
@@ -299,7 +299,7 @@ def vv_right(
             tensor_space_FEM.T[2],
             particles_loc,
             domain.kind_map,
-            domain.params_map,
+            domain.params,
             domain.T[0],
             domain.T[1],
             domain.T[2],
@@ -329,7 +329,7 @@ def vv_right(
             tensor_space_FEM.T[2],
             particles_loc,
             domain.kind_map,
-            domain.params_map,
+            domain.params,
             domain.T[0],
             domain.T[1],
             domain.T[2],
@@ -359,7 +359,7 @@ def vv_right(
             tensor_space_FEM.T[2],
             particles_loc,
             domain.kind_map,
-            domain.params_map,
+            domain.params,
             domain.T[0],
             domain.T[1],
             domain.T[2],
@@ -398,7 +398,7 @@ def quadrature_density(gather, domain):
         gather.n_quad,
         gather.gather_quadrature,
         domain.kind_map,
-        domain.params_map,
+        domain.params,
         domain.T[0],
         domain.T[1],
         domain.T[2],
@@ -432,7 +432,7 @@ def quadrature_grid(gather, domain):
         gather.Nel,
         gather.gather_grid,
         domain.kind_map,
-        domain.params_map,
+        domain.params,
         domain.T[0],
         domain.T[1],
         domain.T[2],

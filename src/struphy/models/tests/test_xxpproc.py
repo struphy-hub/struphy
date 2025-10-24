@@ -4,7 +4,7 @@ def test_pproc_codes(model: str = None, group: str = None):
     import inspect
     import os
 
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     import struphy
     from struphy.models import fluid, hybrid, kinetic, toy
@@ -16,25 +16,25 @@ def test_pproc_codes(model: str = None, group: str = None):
 
     list_fluid = []
     for name, obj in inspect.getmembers(fluid):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == fluid.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_fluid += [name]
 
     list_kinetic = []
     for name, obj in inspect.getmembers(kinetic):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == kinetic.__name__:
             if name not in {"StruphyModel", "KineticBackground", "Propagator"}:
                 list_kinetic += [name]
 
     list_hybrid = []
     for name, obj in inspect.getmembers(hybrid):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == hybrid.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_hybrid += [name]
 
     list_toy = []
     for name, obj in inspect.getmembers(toy):
-        if inspect.isclass(obj):
+        if inspect.isclass(obj) and obj.__module__ == toy.__name__:
             if name not in {"StruphyModel", "Propagator"}:
                 list_toy += [name]
 

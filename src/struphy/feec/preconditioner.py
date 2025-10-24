@@ -1,4 +1,3 @@
-import numpy as np
 from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.ddm.cart import CartDecomposition, DomainDecomposition
 from psydac.fem.tensor import TensorFemSpace
@@ -12,6 +11,7 @@ from scipy.linalg import solve_circulant
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
+from struphy.utils.arrays import xp as np
 
 
 class MassMatrixPreconditioner(LinearOperator):
@@ -911,7 +911,13 @@ class FFTSolver(BandedSolver):
             assert out.shape == rhs.shape
             assert out.dtype == rhs.dtype
 
-            out[:] = solve_circulant(self._column, rhs.T).T
+            try:
+                out[:] = solve_circulant(self._column, rhs.T).T
+            except np.linalg.LinAlgError:
+                eps = 1e-4
+                print(f"Stabilizing singular preconditioning FFTSolver with {eps = }:")
+                self._column[0] *= 1.0 + eps
+                out[:] = solve_circulant(self._column, rhs.T).T
 
         return out
 
