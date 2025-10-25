@@ -10,7 +10,7 @@ runs:
     #    struphy --refresh-models
     #    struphy test unit --mpi 2
 
-    - name: Run unit tests without MPI
+    - name: Uninstall MPI
       shell: bash
       run: |
         # struphy compile --status
@@ -18,14 +18,13 @@ runs:
         pip show mpi4py
         pip uninstall -y mpi4py
         pip list
+    
+    - name: Run unit tests without MPI
+      shell: bash
+      run: |
         struphy test unit
     
     - name: Run unit tests without MPI again
       shell: bash
       run: |
-        # struphy compile --status
-        # struphy --refresh-models
-        pip show mpi4py
-        pip uninstall -y mpi4py
-        pip list
         struphy test unit
