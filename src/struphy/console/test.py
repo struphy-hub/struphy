@@ -48,13 +48,13 @@ def struphy_test(
                 "pytest",
                 # "--testmon",
                 "--with-mpi",
-                f"{LIBPATH}/tests/unit/pic/",
+                f"{LIBPATH}/tests/unit/",
             ]
         else:
             cmd = [
                 "pytest",
                 "--testmon",
-                f"{LIBPATH}/tests/unit/pic/",
+                f"{LIBPATH}/tests/unit/",
             ]
 
         if with_desc:
