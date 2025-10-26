@@ -21,10 +21,14 @@ runs:
     
     - name: Run unit tests without MPI
       shell: bash
+      env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata
       run: |
         struphy test unit
     
     - name: Run unit tests without MPI again
       shell: bash
+      env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata
       run: |
         struphy test unit
