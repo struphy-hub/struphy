@@ -51,6 +51,8 @@ jobs:
           restore-keys: |
             testmon-${{ github.ref }}-
             testmon-${{ github.ref_name }}-
+            testmon-refs/heads/devel-
+            testmon-devel-
             testmon-
 
       - name: Check .testmondata
