@@ -51,6 +51,7 @@ def struphy_test(
                 # "-k",
                 # "not _models and not _tutorial and not pproc",
                 "--with-mpi",
+                f"{LIBPATH}/tests/unit/",
             ]
         else:
             cmd = [
@@ -59,6 +60,7 @@ def struphy_test(
                 f"--ignore={LIBPATH}/models/tests/",
                 # "-k",
                 # "not _models and not _tutorial and not pproc",
+                f"{LIBPATH}/tests/unit/",
             ]
 
         if with_desc:
@@ -68,7 +70,9 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        subp_run(cmd)
+        # Run in the current directory
+        cwd = os.getcwd()
+        subp_run(cmd, cwd=cwd)
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
         if mpi > 1:
@@ -78,12 +82,13 @@ def struphy_test(
                 "-n",
                 str(mpi),
                 "pytest",
-                "-k",
-                "_models",
+                # "-k",
+                # "_models",
                 "-m",
                 group,
                 "-s",
                 "--with-mpi",
+                f"{LIBPATH}/models/tests/test_models.py"
             ]
         else:
             cmd = [
@@ -101,7 +106,10 @@ def struphy_test(
             cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
-        subp_run(cmd)
+
+        # Run in the current directory
+        cwd = os.getcwd()
+        subp_run(cmd, cwd=cwd)
 
     elif "verification" in group:
         if mpi > 1:
@@ -134,7 +142,10 @@ def struphy_test(
             cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
-        subp_run(cmd)
+
+        # Run in the current directory
+        cwd = os.getcwd()
+        subp_run(cmd, cwd=cwd)
 
     else:
         cmd = [
