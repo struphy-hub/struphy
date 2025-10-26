@@ -43,7 +43,19 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+      
+      - uses: actions/cache@v4
+        with:
+          path: .testmondata
+          key: testmon-${{ github.sha }}
+          restore-keys: |
+            testmon-${{ github.ref }}-
+            testmon-${{ github.ref_name }}-
+            testmon-
 
+      - name: Check .testmondata
+        run: ls -la .testmondata
+        
       # Install prereqs
       # I don't think it's possible to use a single action for this because
       # we can't use ${inputs.os} in an if statement, so we have to use two different actions.
