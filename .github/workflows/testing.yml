@@ -54,7 +54,7 @@ jobs:
             testmon-
 
       - name: Check .testmondata
-        run: ls -la .testmondata
+        run: ls -la .testmondata || echo "No .testmondata"
         
       # Install prereqs
       # I don't think it's possible to use a single action for this because
