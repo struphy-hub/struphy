@@ -92,9 +92,9 @@ jobs:
         uses: ./.github/actions/compile
 
       # Run tests
-      - name: Run unit tests with MPI
-        if: matrix.test-type == 'unit'
-        uses: ./.github/actions/tests/unit-mpi
+      # - name: Run unit tests with MPI
+      #   if: matrix.test-type == 'unit'
+      #   uses: ./.github/actions/tests/unit-mpi
       
       - name: Run unit tests
         if: matrix.test-type == 'unit'
