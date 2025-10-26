@@ -107,3 +107,10 @@ jobs:
       - name: Run tutorials
         if: matrix.test-type == 'tutorials'
         uses: ./.github/actions/tests/tutorials
+      
+      # Upload .testmondata as cache for later tests
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .testmondata
+          key: testmon-${{ github.sha }}
