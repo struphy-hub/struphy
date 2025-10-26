@@ -134,6 +134,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 struphy = [
     "compile_struphy.mk",
     "psydac-2.5.0.dev0-py3-none-any.whl",
+    "conftest.py",
 ]
 
 [tool.autopep8]
@@ -183,3 +184,5 @@ markers = [
     "hybrid",
     "single",
 ]
+
+

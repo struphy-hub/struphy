@@ -66,7 +66,7 @@ def struphy_test(
 
         # Run in the current directory
         cwd = os.getcwd()
-        subp_run(cmd, cwd=cwd)
+        subp_run(cmd)
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
         if mpi > 1:
@@ -102,7 +102,7 @@ def struphy_test(
 
         # Run in the current directory
         cwd = os.getcwd()
-        subp_run(cmd, cwd=cwd)
+        subp_run(cmd)
 
     elif "verification" in group:
         if mpi > 1:
@@ -134,7 +134,7 @@ def struphy_test(
 
         # Run in the current directory
         cwd = os.getcwd()
-        subp_run(cmd, cwd=cwd)
+        subp_run(cmd)
 
     else:
         cmd = [
@@ -160,4 +160,4 @@ def struphy_test(
 
         # Run in the current directory
         cwd = os.getcwd()
-        subp_run(cmd, cwd=cwd)
+        subp_run(cmd)
