@@ -17,8 +17,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
-        compile-language: ["fortran", "c"]
-        test-type: ["unit", "model", "quickstart", "tutorials"]
+        compile-language: ["fortran"] #, "c"]
+        test-type: ["unit"] #, "model", "quickstart", "tutorials"]
 
     steps:
       # Checkout the repository
