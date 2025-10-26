@@ -88,7 +88,7 @@ def struphy_test(
                 group,
                 "-s",
                 "--with-mpi",
-                f"{LIBPATH}/models/tests/test_models.py"
+                f"{LIBPATH}/models/tests/test_models.py",
             ]
         else:
             cmd = [
