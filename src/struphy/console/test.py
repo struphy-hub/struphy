@@ -48,13 +48,13 @@ def struphy_test(
                 "pytest",
                 "--testmon",
                 "--with-mpi",
-                f"{LIBPATH}/tests/unit/",
+                f"{LIBPATH}/tests/unit/pic/",
             ]
         else:
             cmd = [
                 "pytest",
                 "--testmon",
-                f"{LIBPATH}/tests/unit/",
+                f"{LIBPATH}/tests/unit/pic/",
             ]
 
         if with_desc:
@@ -66,6 +66,7 @@ def struphy_test(
 
         # Run in the current directory
         cwd = os.getcwd()
+        print(f"{cwd = }")
         subp_run(cmd, cwd=cwd)
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
