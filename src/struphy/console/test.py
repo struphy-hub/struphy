@@ -47,9 +47,6 @@ def struphy_test(
                 str(mpi),
                 "pytest",
                 "--testmon",
-                f"--ignore={LIBPATH}/models/tests/",
-                # "-k",
-                # "not _models and not _tutorial and not pproc",
                 "--with-mpi",
                 f"{LIBPATH}/tests/unit/",
             ]
@@ -57,9 +54,6 @@ def struphy_test(
             cmd = [
                 "pytest",
                 "--testmon",
-                f"--ignore={LIBPATH}/models/tests/",
-                # "-k",
-                # "not _models and not _tutorial and not pproc",
                 f"{LIBPATH}/tests/unit/",
             ]
 
@@ -82,22 +76,21 @@ def struphy_test(
                 "-n",
                 str(mpi),
                 "pytest",
-                # "-k",
-                # "_models",
                 "-m",
                 group,
                 "-s",
+                "--testmon",
                 "--with-mpi",
-                f"{LIBPATH}/models/tests/test_models.py",
+                f"{LIBPATH}/tests/models/",
             ]
         else:
             cmd = [
                 "pytest",
-                "-k",
-                "_models",
                 "-m",
                 group,
                 "-s",
+                "--testmon",
+                f"{LIBPATH}/tests/models/",
             ]
 
         if vrbose:
@@ -119,19 +112,15 @@ def struphy_test(
                 "-n",
                 str(mpi),
                 "pytest",
-                # "-k",
-                # "_verif_",
                 "-s",
                 "--with-mpi",
                 "--testmon",
-                f"{LIBPATH}/models/tests/verification/",
+                f"{LIBPATH}/tests/verification/",
             ]
         else:
             cmd = [
                 "pytest",
-                # "-k",
-                # "_verif_",
-                # "-s",
+                "-s",
                 "--testmon",
                 f"{LIBPATH}/models/tests/verification/",
             ]
@@ -154,11 +143,10 @@ def struphy_test(
             "-n",
             str(mpi),
             "pytest",
-            "-k",
-            "_models",
             "-m",
             "single",
             "-s",
+            "--testmon",
             "--with-mpi",
             "--model-name",
             group,
