@@ -195,6 +195,7 @@ def subp_run(cmd, cwd="libpath", check=True):
         cwd = struphy.__path__[0]
 
     print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}")
+    print(f"Running in director: {cwd}")
     subprocess.run(cmd, cwd=cwd, check=check)
 
 

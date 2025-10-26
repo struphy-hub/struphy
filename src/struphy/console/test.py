@@ -1,5 +1,7 @@
 from struphy.utils.utils import subp_run
-
+import struphy
+import os
+LIBPATH = struphy.__path__[0]
 
 def struphy_test(
     group: str,
@@ -42,7 +44,7 @@ def struphy_test(
                 str(mpi),
                 "pytest",
                 "--testmon",
-                "--ignore=models/tests/",
+                f"--ignore={LIBPATH}/models/tests/",
                 # "-k",
                 # "not _models and not _tutorial and not pproc",
                 "--with-mpi",
@@ -51,7 +53,7 @@ def struphy_test(
             cmd = [
                 "pytest",
                 "--testmon",
-                "--ignore=models/tests/",
+                f"--ignore={LIBPATH}/models/tests/",
                 # "-k",
                 # "not _models and not _tutorial and not pproc",
             ]
@@ -106,17 +108,21 @@ def struphy_test(
                 "-n",
                 str(mpi),
                 "pytest",
-                "-k",
-                "_verif_",
+                # "-k",
+                # "_verif_",
                 "-s",
                 "--with-mpi",
+                "--testmon",
+                f"{LIBPATH}/models/tests/verification/",
             ]
         else:
             cmd = [
                 "pytest",
-                "-k",
-                "_verif_",
-                "-s",
+                # "-k",
+                # "_verif_",
+                # "-s",
+                "--testmon",
+                f"{LIBPATH}/models/tests/verification/",
             ]
 
         if vrbose:
@@ -149,4 +155,7 @@ def struphy_test(
             cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
-        subp_run(cmd)
+        
+        # Run in the current directory
+        cwd = os.getcwd()
+        subp_run(cmd, cwd = cwd)
