@@ -42,16 +42,16 @@ def struphy_test(
                 str(mpi),
                 "pytest",
                 "--testmon",
-                "-k",
-                "not _models and not _tutorial and not pproc",
+                # "-k",
+                # "not _models and not _tutorial and not pproc",
                 "--with-mpi",
             ]
         else:
             cmd = [
                 "pytest",
                 "--testmon",
-                "-k",
-                "not _models and not _tutorial and not pproc",
+                # "-k",
+                # "not _models and not _tutorial and not pproc",
             ]
 
         if with_desc:
