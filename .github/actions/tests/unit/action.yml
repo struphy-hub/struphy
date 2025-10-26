@@ -6,7 +6,7 @@ runs:
     - name: Run unit tests with MPI
       shell: bash
       env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata
+        TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-${{ matrix.test-type }}
       run: |
         struphy compile --status
         struphy --refresh-models
@@ -24,7 +24,7 @@ runs:
     - name: Run unit tests without MPI
       shell: bash
       env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata
+        TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-${{ matrix.test-type }}
       run: |
         struphy test unit
 

@@ -46,14 +46,14 @@ jobs:
       
       - uses: actions/cache@v4
         with:
-          path: .testmondata
-          key: testmon-${{ github.sha }}
+          path: .testmondata-${{ matrix.test-type }}
+          key: testmon-${{ matrix.test-type }}-${{ github.sha }}
           restore-keys: |
-            testmon-${{ github.ref }}-
-            testmon-${{ github.ref_name }}-
-            testmon-refs/heads/devel-
-            testmon-devel-
-            testmon-
+            testmon-${{ matrix.test-type }}-${{ github.ref }}-
+            testmon-${{ matrix.test-type }}-${{ github.ref_name }}-
+            testmon-${{ matrix.test-type }}-refs/heads/devel-
+            testmon-${{ matrix.test-type }}-devel-
+            testmon-${{ matrix.test-type }}-
 
       - name: Check .testmondata
         run: ls -la .testmondata || echo "No .testmondata"
@@ -112,5 +112,5 @@ jobs:
       - uses: actions/cache/save@v4
         if: always()
         with:
-          path: .testmondata
-          key: testmon-${{ github.sha }}
+          path: .testmondata-${{ matrix.test-type }}
+          key: testmon-${{ matrix.test-type }}-${{ github.sha }}
