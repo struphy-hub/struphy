@@ -7,8 +7,6 @@ runs:
     - name: Uninstall MPI
       shell: bash
       run: |
-        struphy compile --status
-        struphy --refresh-models
         pip show mpi4py
         pip uninstall -y mpi4py
         pip list
