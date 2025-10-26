@@ -8,8 +8,8 @@ import struphy.bsplines.bsplines_kernels as bsp
 import struphy.linear_algebra.linalg_kernels as linalg
 
 # import modules for mapping evaluation
-import struphy.pic.tests.test_pic_legacy_files.mappings_3d_fast as mapping_fast
-import struphy.pic.tests.test_pic_legacy_files.spline_evaluation_2d as eva2
+import struphy.tests.unit.pic.test_pic_legacy_files.mappings_3d_fast as mapping_fast
+import struphy.tests.unit.pic.test_pic_legacy_files.spline_evaluation_2d as eva2
 
 
 # ==========================================================================================================

@@ -28,8 +28,8 @@ The following mappings are implemented:
 
 from numpy import arcsin, arctan2, cos, empty, pi, shape, sin, sqrt
 
-import struphy.pic.tests.test_pic_legacy_files.spline_evaluation_2d as eva_2d
-import struphy.pic.tests.test_pic_legacy_files.spline_evaluation_3d as eva_3d
+import struphy.tests.unit.pic.test_pic_legacy_files.spline_evaluation_2d as eva_2d
+import struphy.tests.unit.pic.test_pic_legacy_files.spline_evaluation_3d as eva_3d
 
 
 # =======================================================================

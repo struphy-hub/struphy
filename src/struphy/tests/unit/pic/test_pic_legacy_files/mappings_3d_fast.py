@@ -9,9 +9,9 @@ Especially suited for PIC routines since it avoids computing the Jacobian matrix
 from numpy import cos, empty, pi, sin
 
 import struphy.bsplines.bsplines_kernels as bsp
-import struphy.pic.tests.test_pic_legacy_files.mappings_3d as mapping
-from struphy.pic.tests.test_pic_legacy_files.spline_evaluation_2d import evaluation_kernel_2d
-from struphy.pic.tests.test_pic_legacy_files.spline_evaluation_3d import evaluation_kernel_3d
+import struphy.tests.unit.pic.test_pic_legacy_files.mappings_3d as mapping
+from struphy.tests.unit.pic.test_pic_legacy_files.spline_evaluation_2d import evaluation_kernel_2d
+from struphy.tests.unit.pic.test_pic_legacy_files.spline_evaluation_3d import evaluation_kernel_3d
 
 
 # ==========================================================================

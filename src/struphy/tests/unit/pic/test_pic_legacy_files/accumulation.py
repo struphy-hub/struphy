@@ -12,11 +12,11 @@ import cunumpy as xp
 import scipy.sparse as spa
 from psydac.ddm.mpi import mpi as MPI
 
-import struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d as pic_ker_3d
+import struphy.tests.unit.pic.test_pic_legacy_files.accumulation_kernels_3d as pic_ker_3d
 
-# import struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_2d as pic_ker_2d
+# import struphy.tests.unit.pic.test_pic_legacy_files.accumulation_kernels_2d as pic_ker_2d
 
-# from struphy.pic.tests.test_pic_legacy_files.control_variate import TermsControlVariate
+# from struphy.tests.unit.pic.test_pic_legacy_files.control_variate import TermsControlVariate
 
 
 class Accumulator:
