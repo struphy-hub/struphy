@@ -1,7 +1,10 @@
-from struphy.utils.utils import subp_run
-import struphy
 import os
+
+import struphy
+from struphy.utils.utils import subp_run
+
 LIBPATH = struphy.__path__[0]
+
 
 def struphy_test(
     group: str,
@@ -155,7 +158,7 @@ def struphy_test(
             cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
-        
+
         # Run in the current directory
         cwd = os.getcwd()
-        subp_run(cmd, cwd = cwd)
+        subp_run(cmd, cwd=cwd)
