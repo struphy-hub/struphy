@@ -46,7 +46,7 @@ def struphy_test(
                 "-n",
                 str(mpi),
                 "pytest",
-                "--testmon",
+                # "--testmon",
                 "--with-mpi",
                 f"{LIBPATH}/tests/unit/pic/",
             ]
@@ -66,7 +66,6 @@ def struphy_test(
 
         # Run in the current directory
         cwd = os.getcwd()
-        print(f"{cwd = }")
         subp_run(cmd, cwd=cwd)
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
@@ -80,7 +79,7 @@ def struphy_test(
                 "-m",
                 group,
                 "-s",
-                "--testmon",
+                # "--testmon",
                 "--with-mpi",
                 f"{LIBPATH}/tests/models/",
             ]
@@ -114,8 +113,8 @@ def struphy_test(
                 str(mpi),
                 "pytest",
                 "-s",
+                # "--testmon",
                 "--with-mpi",
-                "--testmon",
                 f"{LIBPATH}/tests/verification/",
             ]
         else:
@@ -147,7 +146,7 @@ def struphy_test(
             "-m",
             "single",
             "-s",
-            "--testmon",
+            # "--testmon",
             "--with-mpi",
             "--model-name",
             group,
