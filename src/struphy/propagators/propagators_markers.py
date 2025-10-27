@@ -1777,6 +1777,7 @@ class PushVinSPHpressure(Propagator):
         self.variables.fluid.particles.put_particles_in_boxes()
         self._pusher(dt)
 
+
 class PushVinViscousPotential(Propagator):
     r"""For each marker :math:`p`, solves
 
