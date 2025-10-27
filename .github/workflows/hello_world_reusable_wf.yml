@@ -1,0 +1,13 @@
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+
+jobs:
+  hello_wolrd:
+    runs-on: ${{ inputs.os }}
+    steps:
+      - name: Say hello
+        run: echo "Hello world"
