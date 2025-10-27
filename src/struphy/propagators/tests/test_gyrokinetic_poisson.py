@@ -224,7 +224,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
             plt.xscale("log")
             plt.xlabel("Grid Spacing h")
             plt.ylabel("Error")
-            plt.title(f"Poisson solver")
+            plt.title("Poisson solver")
             plt.legend()
 
     if show_plot and rank == 0:
