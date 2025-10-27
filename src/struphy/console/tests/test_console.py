@@ -7,7 +7,6 @@ from unittest.mock import patch  # , MagicMock, mock_open
 import pytest
 
 # from psydac.ddm.mpi import mpi as MPI
-import struphy
 import struphy as struphy_lib
 from struphy.console.compile import struphy_compile
 from struphy.console.main import struphy
