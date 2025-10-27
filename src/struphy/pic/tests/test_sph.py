@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 from mpi4py import MPI 
 
 from struphy.fields_background.equils import ConstantVelocity
+from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
 from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
@@ -875,20 +876,29 @@ def test_sph_velocity_evaluation(
         ppb = 100
         loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
     else:
-        ppb = 10 
+        ppb = 1000 
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
-    background = ConstantVelocity(
-        ux=1.0,
-        uy=0.0,
-        uz=0.0,
-        n=1.5,
-        density_profile="constant",
-        velocity_profile="step_function_velocity_y",
-    )
+    # test velocity profile
+    Lx = dom_params["r1"] - dom_params["l1"]
+    
+    def u_xyz(x, y, z):
+        ux = np.cos(2*np.pi/Lx*x)
+        uy = 0.0*x
+        uz = 0.0*x
+        return (ux, uy, uz)
+
+    background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    # background = ConstantVelocity(
+    #     ux=1.0,
+    #     uy=0.0,
+    #     uz=0.0,
+    #     n=1.5,
+    #     density_profile="constant",
+    #     velocity_profile="step_function_velocity_y",
+    # )
     background.domain = domain
-
-
+    
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
 
     particles = ParticlesSPH(
@@ -910,7 +920,7 @@ def test_sph_velocity_evaluation(
     ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
 
     particles.draw_markers(sort=True, verbose=True)
-    particles.mpi_sort_markers()
+    # particles.mpi_sort_markers()
     particles.initialize_weights()
 
     h1 = 1 / boxes_per_dim[0]
@@ -938,7 +948,7 @@ def test_sph_velocity_evaluation(
     # comm.Allreduce(v2, all_velo2, op=MPI.SUM)
     # comm.Allreduce(v3, all_velo3, op=MPI.SUM)
     
-    v = particles.eval_velocity(
+    v1, v2, v3 = particles.eval_velocity(
         ee1,
         ee2,
         ee3,
@@ -948,19 +958,23 @@ def test_sph_velocity_evaluation(
         kernel_type=kernel,
         derivative=derivative,
     )
-    v_exact = background.u_xyz(ee1, ee2, ee3)
+    v1_e, v2_e, v3_e = background.u_xyz(ee1, ee2, ee3)
     
-    all_velo = []
-    for i in range(3):
-        v_tmp = np.zeros_like(v[i])
-        comm.Allreduce(v[i], v_tmp, op=MPI.SUM)
-        all_velo.append(v_tmp)
+    # all_velo = []
+    # for i in range(3):
+    #     v_tmp = np.zeros_like(v[i])
+    #     comm.Allreduce(v[i], v_tmp, op=MPI.SUM)
+    #     all_velo.append(v_tmp)
 
-    all_velo1, all_velo2, all_velo3 = all_velo
+    # all_velo1, all_velo2, all_velo3 = all_velo
+    all_velo1, all_velo2, all_velo3 = v1, v2, v3
+    
+    print(f"{v1_e.squeeze() = }")
+    print(f"{all_velo1.squeeze() = }")
 
-    err_ux = np.max(np.abs(all_velo1 - v_exact[0])) / max(np.max(np.abs(v_exact[0])), 1e-12)
-    err_uy = np.max(np.abs(all_velo2 - v_exact[1])) / max(np.max(np.abs(v_exact[1])), 1e-12)
-    err_uz = np.max(np.abs(all_velo3 - v_exact[2])) / max(np.max(np.abs(v_exact[2])), 1e-12)
+    err_ux = np.max(np.abs(all_velo1 - v1_e)) / max(np.max(np.abs(v1_e)), 1e-12)
+    err_uy = np.max(np.abs(all_velo2 - v2_e)) / max(np.max(np.abs(v2_e)), 1e-12)
+    err_uz = np.max(np.abs(all_velo3 - v3_e)) / max(np.max(np.abs(v3_e)), 1e-12)
 
     if comm.Get_rank() == 0:
         print(f"\n{boxes_per_dim = }")
@@ -970,7 +984,7 @@ def test_sph_velocity_evaluation(
 
         if show_plot:
             plt.figure(figsize=(12, 6))
-            plt.plot(ee1.squeeze(), v_exact[1].squeeze(), label="exact vx")
+            plt.plot(ee1.squeeze(), v1_e.squeeze(), label="exact vx")
             plt.plot(ee1.squeeze(), all_velo1.squeeze(), "--.", label="SPH vx")
             plt.xlabel("e1")
             plt.ylabel("Velocity (vx)")
@@ -988,8 +1002,8 @@ def test_sph_velocity_evaluation(
 
 if __name__ == "__main__":
     test_sph_velocity_evaluation(
-        (12, 12, 1),
-        "gaussian_2d",
+        (24, 1, 1),
+        "gaussian_1d",
         # "gaussian_1d",
         0,
         # "periodic",
