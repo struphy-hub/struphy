@@ -14,6 +14,7 @@ from struphy.feec.local_projectors_kernels import fill_matrix_column
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
 
+
 @pytest.mark.parametrize("Nel", [[14, 16, 18]])
 @pytest.mark.parametrize("p", [[5, 4, 3]])
 @pytest.mark.parametrize("spl_kind", [[True, False, False], [False, True, False], [False, False, True]])
