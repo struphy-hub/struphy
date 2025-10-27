@@ -682,6 +682,8 @@ def sph_mean_velocity_coeffs(
         markers[ip, column_nr] = weight / n_at_eta * velocities[0]
         markers[ip, column_nr + 1] = weight / n_at_eta * velocities[1]
         markers[ip, column_nr + 2] = weight / n_at_eta * velocities[2]
+        
+        # print(f"{ip = }, {weight = }, {n_at_eta = }, {velocities[0] = }")
 
 
 @stack_array("eta_k", "eta_n", "eta", "grad_H", "e_field")

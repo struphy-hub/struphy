@@ -3778,6 +3778,11 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
             fast=fast,
         )
         
+        print(f"{self.markers.shape = }")
+        print(f"{first_free_idx = }")
+        print(f"{self.markers[:, first_free_idx]}")
+        print(f"{v1.squeeze() = }")
+        
         v2 = self.eval_sph(
             eta1,
             eta2,
