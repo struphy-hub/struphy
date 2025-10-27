@@ -2,7 +2,14 @@ name: Deploy docs to GitHub Pages
 
 on:
   push:
-    branches: ["devel", "main"]
+    branches:
+      - main
+      - devel
+  # only for the PR:
+  pull_request:
+    branches:
+      - devel
+      
   workflow_dispatch:
 
 defaults:
