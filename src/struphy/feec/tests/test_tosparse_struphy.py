@@ -3,20 +3,21 @@ import time
 import pytest
 
 
-@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[12, 5, 2], [8, 12, 4], [5, 4, 12]])
 @pytest.mark.parametrize("p", [[3, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, False]])
 @pytest.mark.parametrize(
-    "mapping", [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]]
+    "mapping",
+    [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]],
 )
 def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     """
     TODO
     """
 
-    import numpy as np
-    from mpi4py import MPI
+    import cunumpy as xp
+    from psydac.ddm.mpi import MockComm
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
@@ -74,40 +75,67 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     M2arrad = M2.toarray_struphy(is_sparse=True, format="dia")
 
     v0_local = M0.dot(v0).toarray()
-    v0_global = M0.domain.zeros().toarray()
-    comm.Allreduce(v0_local, v0_global, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        v0_global = v0_local
+    else:
+        v0_global = M0.domain.zeros().toarray()
+        comm.Allreduce(v0_local, v0_global, op=MPI.SUM)
+
     v1_local = M1.dot(v1).toarray()
-    v1_global = M1.domain.zeros().toarray()
-    comm.Allreduce(v1_local, v1_global, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        v1_global = v1_local
+    else:
+        v1_global = M1.domain.zeros().toarray()
+        comm.Allreduce(v1_local, v1_global, op=MPI.SUM)
+
     v2_local = M2.dot(v2).toarray()
-    v2_global = M2.domain.zeros().toarray()
-    comm.Allreduce(v2_local, v2_global, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        v2_global = v2_local
+    else:
+        v2_global = M2.domain.zeros().toarray()
+        comm.Allreduce(v2_local, v2_global, op=MPI.SUM)
+
     v3_local = M3.dot(v3).toarray()
-    v3_global = M3.domain.zeros().toarray()
-    comm.Allreduce(v3_local, v3_global, op=MPI.SUM)
+    if isinstance(comm, MockComm):
+        v3_global = v3_local
+    else:
+        v3_global = M3.domain.zeros().toarray()
+        comm.Allreduce(v3_local, v3_global, op=MPI.SUM)
 
     # not in-place
-    assert np.allclose(v0_global, M0arr.dot(v0arr))
-    assert np.allclose(v1_global, M1arr.dot(v1arr))
-    assert np.allclose(v2_global, M2arr.dot(v2arr))
-    assert np.allclose(v3_global, M3arr.dot(v3arr))
-    assert np.allclose(v0_global, M0arrad.dot(v0arr))
-    assert np.allclose(v1_global, M1arrad.dot(v1arr))
-    assert np.allclose(v2_global, M2arrad.dot(v2arr))
+    assert xp.allclose(v0_global, M0arr.dot(v0arr))
+    assert xp.allclose(v1_global, M1arr.dot(v1arr))
+    assert xp.allclose(v2_global, M2arr.dot(v2arr))
+    assert xp.allclose(v3_global, M3arr.dot(v3arr))
+    assert xp.allclose(v0_global, M0arrad.dot(v0arr))
+    assert xp.allclose(v1_global, M1arrad.dot(v1arr))
+    assert xp.allclose(v2_global, M2arrad.dot(v2arr))
 
     print("test_tosparse_struphy passed!")
 
 
 if __name__ == "__main__":
     test_tosparse_struphy(
-        [32, 2, 2], [2, 1, 1], [True, True, True], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [32, 2, 2],
+        [2, 1, 1],
+        [True, True, True],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )
     test_tosparse_struphy(
-        [2, 32, 2], [1, 2, 1], [True, True, True], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [2, 32, 2],
+        [1, 2, 1],
+        [True, True, True],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )
     test_tosparse_struphy(
-        [2, 2, 32], [1, 1, 2], [True, True, True], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [2, 2, 32],
+        [1, 1, 2],
+        [True, True, True],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )
     test_tosparse_struphy(
-        [2, 2, 32], [1, 1, 2], [False, False, False], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [2, 2, 32],
+        [1, 1, 2],
+        [False, False, False],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )

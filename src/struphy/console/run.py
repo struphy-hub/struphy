@@ -210,7 +210,7 @@ def struphy_run(
             if likwid:
                 command = likwid_command + command + ["--likwid"]
 
-                print(f"Running with likwid with {likwid_repetitions = }")
+                print(f"Running with likwid with {likwid_repetitions =}")
                 f.write(f"# Launching likwid {likwid_repetitions} times with likwid-mpirun\n")
                 for i in range(likwid_repetitions):
                     f.write(f"\n\n# Run number {i + 1:03}\n")

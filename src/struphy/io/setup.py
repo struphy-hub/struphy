@@ -5,12 +5,11 @@ import shutil
 import sys
 from types import ModuleType
 
-import yaml
-from mpi4py import MPI
+import cunumpy as xp
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.geometry.base import Domain
-from struphy.geometry.domains import Cuboid
-from struphy.io.options import DerhamOptions, Time, Units
+from struphy.io.options import DerhamOptions
 from struphy.topology.grids import TensorProductGrid
 
 
@@ -234,35 +233,35 @@ def descend_options_dict(
             out = copy.deepcopy(d)
 
     if verbose:
-        print(f"{d = }")
-        print(f"{out = }")
-        print(f"{d_default = }")
-        print(f"{d_opts = }")
-        print(f"{keys = }")
-        print(f"{depth = }")
-        print(f"{pop_again = }")
+        print(f"{d =}")
+        print(f"{out =}")
+        print(f"{d_default =}")
+        print(f"{d_opts =}")
+        print(f"{keys =}")
+        print(f"{depth =}")
+        print(f"{pop_again =}")
 
     if verbose:
-        print(f"{d = }")
-        print(f"{out = }")
-        print(f"{d_default = }")
-        print(f"{d_opts = }")
-        print(f"{keys = }")
-        print(f"{depth = }")
-        print(f"{pop_again = }")
+        print(f"{d =}")
+        print(f"{out =}")
+        print(f"{d_default =}")
+        print(f"{d_opts =}")
+        print(f"{keys =}")
+        print(f"{depth =}")
+        print(f"{pop_again =}")
 
     count = 0
     for key, val in d.items():
         count += 1
 
         if verbose:
-            print(f"\n{keys = } | {key = }, {type(val) = }, {count = }\n")
+            print(f"\n{keys =} | {key =}, {type(val) =}, {count =}\n")
 
         if isinstance(val, list):
             # create default parameter dict "out"
 
             if verbose:
-                print(f"{val = }")
+                print(f"{val =}")
 
             if d_default is None:
                 if len(keys) == 0:
@@ -300,10 +299,10 @@ def descend_options_dict(
                 out += [out_sublist]
 
             if verbose:
-                print(f"{out = }")
+                print(f"{out =}")
 
             if verbose:
-                print(f"{out = }")
+                print(f"{out =}")
 
         # recurse if necessary
         elif isinstance(val, dict):

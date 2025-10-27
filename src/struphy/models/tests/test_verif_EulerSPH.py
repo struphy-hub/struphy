@@ -1,10 +1,10 @@
 import os
 
-import numpy as np
+import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.fields_background import equils
@@ -133,7 +133,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
             plot_ct = 0
             for i in range(0, Nt + 1):
                 if i % interval == 0:
-                    print(f"{i = }")
+                    print(f"{i =}")
                     plot_ct += 1
                     ax = plt.gca()
 
@@ -144,20 +144,20 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
                     plt.plot(x.squeeze(), n_sph[i, :, 0, 0], style, label=f"time={i * dt:4.2f}")
                     plt.xlim(0, 2.5)
                     plt.legend()
-                    ax.set_xticks(np.linspace(0, 2.5, nx + 1))
+                    ax.set_xticks(xp.linspace(0, 2.5, nx + 1))
                     ax.xaxis.set_major_formatter(FormatStrFormatter("%.2f"))
                     plt.grid(c="k")
                     plt.xlabel("x")
                     plt.ylabel(r"$\rho$")
 
-                    plt.title(f"standing sound wave ($c_s = 1$) for {nx = } and {ppb = }")
+                    plt.title(f"standing sound wave ($c_s = 1$) for {nx =} and {ppb =}")
                 if plot_ct == 11:
                     break
 
             plt.show()
 
-        error = np.max(np.abs(n_sph[0] - n_sph[-1]))
-        print(f"SPH sound wave {error = }.")
+        error = xp.max(xp.abs(n_sph[0] - n_sph[-1]))
+        print(f"SPH sound wave {error =}.")
         assert error < 6e-4
         print("Assertion passed.")
 

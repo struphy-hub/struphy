@@ -1,8 +1,8 @@
 import importlib.metadata
 import re
+import tomllib
 
 import tomli_w
-import tomllib
 
 
 def get_min_bound(entry):

@@ -714,13 +714,6 @@ def add_parser_params(subparsers, list_models, model_message):
     )
 
     parser_params.add_argument(
-        "--check-file",
-        type=str,
-        metavar="FILE",
-        help="check if the parameters in the .yml file are valid",
-    )
-
-    parser_params.add_argument(
         "-y",
         "--yes",
         help="Say yes on prompt to overwrite PATH",
@@ -960,8 +953,8 @@ def add_parser_test(subparsers, list_models):
             "--mpi",
             type=int,
             metavar="N",
-            help="set number of MPI processes used in tests (default=2))",
-            default=2,
+            help="set number of MPI processes used in tests (default=1))",
+            default=1,
         )
 
         parser_test.add_argument(

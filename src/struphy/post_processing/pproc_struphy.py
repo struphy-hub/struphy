@@ -2,8 +2,8 @@ import os
 import pickle
 import shutil
 
+import cunumpy as xp
 import h5py
-import numpy as np
 import yaml
 
 import struphy.post_processing.orbits.orbits_tools as orbits_pproc
@@ -64,7 +64,7 @@ def main(
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
 
     # save time grid at which post-processing data is created
-    np.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+    xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
     if "feec" in file.keys():
         exist_fields = True
@@ -96,12 +96,17 @@ def main(
         fields, t_grid = pproc.create_femfields(path, params_in, step=step)
 
         point_data, grids_log, grids_phy = pproc.eval_femfields(
-            params_in, fields, celldivide=[celldivide, celldivide, celldivide]
+            params_in,
+            fields,
+            celldivide=[celldivide, celldivide, celldivide],
         )
 
         if physical:
             point_data_phy, grids_log, grids_phy = pproc.eval_femfields(
-                params_in, fields, celldivide=[celldivide, celldivide, celldivide], physical=True
+                params_in,
+                fields,
+                celldivide=[celldivide, celldivide, celldivide],
+                physical=True,
             )
 
         # directory for field data
@@ -196,14 +201,19 @@ if __name__ == "__main__":
     libpath = struphy.__path__[0]
 
     parser = argparse.ArgumentParser(
-        description="Post-process data of finished Struphy runs to prepare for diagnostics."
+        description="Post-process data of finished Struphy runs to prepare for diagnostics.",
     )
 
     # paths of simulation folders
     parser.add_argument("dir", type=str, metavar="DIR", help="absolute path of simulation ouput folder to post-process")
 
     parser.add_argument(
-        "-s", "--step", type=int, metavar="N", help="do post-processing every N-th time step (default=1)", default=1
+        "-s",
+        "--step",
+        type=int,
+        metavar="N",
+        help="do post-processing every N-th time step (default=1)",
+        default=1,
     )
 
     parser.add_argument(
@@ -221,11 +231,15 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--guiding-center", help="compute guiding-center coordinates (only from Particles6D)", action="store_true"
+        "--guiding-center",
+        help="compute guiding-center coordinates (only from Particles6D)",
+        action="store_true",
     )
 
     parser.add_argument(
-        "--classify", help="classify guiding-center trajectories (passing, trapped or lost)", action="store_true"
+        "--classify",
+        help="classify guiding-center trajectories (passing, trapped or lost)",
+        action="store_true",
     )
 
     parser.add_argument("--no-vtk", help="whether vtk files creation should be skipped", action="store_true")

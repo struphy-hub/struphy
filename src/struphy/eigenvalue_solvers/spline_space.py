@@ -6,8 +6,8 @@
 Basic modules to create tensor-product finite element spaces of univariate B-splines.
 """
 
+import cunumpy as xp
 import matplotlib
-import numpy as np
 import scipy.sparse as spa
 
 matplotlib.rcParams.update({"font.size": 16})
@@ -49,19 +49,19 @@ class Spline_space_1d:
 
     Attributes
     ----------
-        el_b : np.array
+        el_b : xp.array
             Element boundaries, equally spaced.
 
         delta : float
             Uniform grid spacing
 
-        T : np.array
+        T : xp.array
             Knot vector of 0-space.
 
-        t : np.arrray
+        t : xp.arrray
             Knot vector of 1-space.
 
-        greville : np.array
+        greville : xp.array
             Greville points.
 
         NbaseN : int
@@ -70,22 +70,22 @@ class Spline_space_1d:
         NbaseD : int
             Dimension of 1-space.
 
-        indN : np.array
+        indN : xp.array
             Global indices of non-vanishing B-splines in each element in format (element, local basis function)
 
-        indD : np.array
+        indD : xp.array
             Global indices of non-vanishing M-splines in each element in format (element, local basis function)
 
-        pts : np.array
+        pts : xp.array
             Global GL quadrature points in format (element, local point).
 
-        wts : np.array
+        wts : xp.array
             Global GL quadrature weights in format (element, local point).
 
-        basisN : np.array
+        basisN : xp.array
             N-basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)
 
-        basisD : np.array
+        basisD : xp.array
             D-basis functions evaluated at quadrature points in format (element, local basis function, derivative, local point)
 
         E0 : csr_matrix
@@ -139,7 +139,7 @@ class Spline_space_1d:
         else:
             self.bc = bc
 
-        self.el_b = np.linspace(0.0, 1.0, Nel + 1)  # element boundaries
+        self.el_b = xp.linspace(0.0, 1.0, Nel + 1)  # element boundaries
         self.delta = 1 / self.Nel  # element length
 
         self.T = bsp.make_knots(self.el_b, self.p, self.spl_kind)  # spline knot vector for B-splines (N)
@@ -151,13 +151,13 @@ class Spline_space_1d:
         self.NbaseD = self.NbaseN - 1 + self.spl_kind  # total number of M-splines (D)
 
         # global indices of non-vanishing splines in each element in format (Nel, p + 1)
-        self.indN = (np.indices((self.Nel, self.p + 1 - 0))[1] + np.arange(self.Nel)[:, None]) % self.NbaseN
-        self.indD = (np.indices((self.Nel, self.p + 1 - 1))[1] + np.arange(self.Nel)[:, None]) % self.NbaseD
+        self.indN = (xp.indices((self.Nel, self.p + 1 - 0))[1] + xp.arange(self.Nel)[:, None]) % self.NbaseN
+        self.indD = (xp.indices((self.Nel, self.p + 1 - 1))[1] + xp.arange(self.Nel)[:, None]) % self.NbaseD
 
         self.n_quad = n_quad  # number of Gauss-Legendre points per grid cell (defined by break points)
 
-        self.pts_loc = np.polynomial.legendre.leggauss(self.n_quad)[0]  # Gauss-Legendre points  (GLQP) in (-1, 1)
-        self.wts_loc = np.polynomial.legendre.leggauss(self.n_quad)[1]  # Gauss-Legendre weights (GLQW) in (-1, 1)
+        self.pts_loc = xp.polynomial.legendre.leggauss(self.n_quad)[0]  # Gauss-Legendre points  (GLQP) in (-1, 1)
+        self.wts_loc = xp.polynomial.legendre.leggauss(self.n_quad)[1]  # Gauss-Legendre weights (GLQW) in (-1, 1)
 
         # global GLQP in format (element, local point) and total number of GLQP
         self.pts = bsp.quadrature_grid(self.el_b, self.pts_loc, self.wts_loc)[0]
@@ -177,8 +177,8 @@ class Spline_space_1d:
         d1 = self.NbaseD
 
         # boundary operators
-        self.B0 = np.identity(n1, dtype=float)
-        self.B1 = np.identity(d1, dtype=float)
+        self.B0 = xp.identity(n1, dtype=float)
+        self.B1 = xp.identity(d1, dtype=float)
 
         # extraction operators without boundary conditions
         self.E0 = spa.csr_matrix(self.B0.copy())
@@ -267,16 +267,16 @@ class Spline_space_1d:
             coeff = self.E0_0.T.dot(coeff)
 
         if isinstance(eta, float):
-            pts = np.array([eta])
-        elif isinstance(eta, np.ndarray):
+            pts = xp.array([eta])
+        elif isinstance(eta, xp.ndarray):
             pts = eta.flatten()
 
-        values = np.empty(pts.size, dtype=float)
+        values = xp.empty(pts.size, dtype=float)
         eva_1d.evaluate_vector(self.T, self.p, self.indN, coeff, pts, values, kind)
 
         if isinstance(eta, float):
             values = values[0]
-        elif isinstance(eta, np.ndarray):
+        elif isinstance(eta, xp.ndarray):
             values = values.reshape(eta.shape)
 
         return values
@@ -303,16 +303,16 @@ class Spline_space_1d:
         assert coeff.size == self.E1.shape[0]
 
         if isinstance(eta, float):
-            pts = np.array([eta])
-        elif isinstance(eta, np.ndarray):
+            pts = xp.array([eta])
+        elif isinstance(eta, xp.ndarray):
             pts = eta.flatten()
 
-        values = np.empty(pts.size, dtype=float)
+        values = xp.empty(pts.size, dtype=float)
         eva_1d.evaluate_vector(self.t, self.p - 1, self.indD, coeff, pts, values, 1)
 
         if isinstance(eta, float):
             values = values[0]
-        elif isinstance(eta, np.ndarray):
+        elif isinstance(eta, xp.ndarray):
             values = values.reshape(eta.shape)
 
         return values
@@ -331,12 +331,12 @@ class Spline_space_1d:
             which basis to plot. 'N', 'D' or 'dN' (optional, default='N')
         """
 
-        etaplot = np.linspace(0.0, 1.0, n_pts)
+        etaplot = xp.linspace(0.0, 1.0, n_pts)
 
         degree = self.p
 
         if which == "N":
-            coeff = np.zeros(self.NbaseN, dtype=float)
+            coeff = xp.zeros(self.NbaseN, dtype=float)
 
             for i in range(self.NbaseN):
                 coeff[:] = 0.0
@@ -344,7 +344,7 @@ class Spline_space_1d:
                 plt.plot(etaplot, self.evaluate_N(etaplot, coeff), label=str(i))
 
         elif which == "D":
-            coeff = np.zeros(self.NbaseD, dtype=float)
+            coeff = xp.zeros(self.NbaseD, dtype=float)
 
             for i in range(self.NbaseD):
                 coeff[:] = 0.0
@@ -354,7 +354,7 @@ class Spline_space_1d:
             degree = self.p - 1
 
         elif which == "dN":
-            coeff = np.zeros(self.NbaseN, dtype=float)
+            coeff = xp.zeros(self.NbaseN, dtype=float)
 
             for i in range(self.NbaseN):
                 coeff[:] = 0.0
@@ -369,8 +369,8 @@ class Spline_space_1d:
         else:
             bcs = "clamped"
 
-        (greville,) = plt.plot(self.greville, np.zeros(self.greville.shape), "ro", label="greville")
-        (breaks,) = plt.plot(self.el_b, np.zeros(self.el_b.shape), "k+", label="breaks")
+        (greville,) = plt.plot(self.greville, xp.zeros(self.greville.shape), "ro", label="greville")
+        (breaks,) = plt.plot(self.el_b, xp.zeros(self.el_b.shape), "k+", label="breaks")
         plt.title(which + f"$^{degree}$-splines, " + bcs + f", Nel={self.Nel}")
         plt.legend(handles=[greville, breaks])
 
@@ -554,8 +554,8 @@ class Tensor_spline_space:
                 self.M1_tor = spa.identity(1, format="csr")
 
             else:
-                self.M0_tor = spa.csr_matrix(np.identity(2) / 2)
-                self.M1_tor = spa.csr_matrix(np.identity(2) / 2)
+                self.M0_tor = spa.csr_matrix(xp.identity(2) / 2)
+                self.M1_tor = spa.csr_matrix(xp.identity(2) / 2)
 
         else:
             self.M0_tor = mass_1d.get_M(self.spaces[2], 0, 0)
@@ -712,27 +712,33 @@ class Tensor_spline_space:
         # extraction operators for 3D diagram: without boundary conditions
         self.E0 = spa.kron(self.E0_pol, self.E0_tor, format="csr")
         self.E1 = spa.bmat(
-            [[spa.kron(self.E1_pol, self.E0_tor), None], [None, spa.kron(self.E0_pol, self.E1_tor)]], format="csr"
+            [[spa.kron(self.E1_pol, self.E0_tor), None], [None, spa.kron(self.E0_pol, self.E1_tor)]],
+            format="csr",
         )
         self.E2 = spa.bmat(
-            [[spa.kron(self.E2_pol, self.E1_tor), None], [None, spa.kron(self.E3_pol, self.E0_tor)]], format="csr"
+            [[spa.kron(self.E2_pol, self.E1_tor), None], [None, spa.kron(self.E3_pol, self.E0_tor)]],
+            format="csr",
         )
         self.E3 = spa.kron(self.E3_pol, self.E1_tor, format="csr")
         self.Ev = spa.bmat(
-            [[spa.kron(self.Ev_pol, self.E0_tor), None], [None, spa.kron(self.E0_pol, self.E0_tor)]], format="csr"
+            [[spa.kron(self.Ev_pol, self.E0_tor), None], [None, spa.kron(self.E0_pol, self.E0_tor)]],
+            format="csr",
         )
 
         # boundary operators for 3D diagram
         self.B0 = spa.kron(self.B0_pol, self.B0_tor, format="csr")
         self.B1 = spa.bmat(
-            [[spa.kron(self.B1_pol, self.B0_tor), None], [None, spa.kron(self.B0_pol, self.B1_tor)]], format="csr"
+            [[spa.kron(self.B1_pol, self.B0_tor), None], [None, spa.kron(self.B0_pol, self.B1_tor)]],
+            format="csr",
         )
         self.B2 = spa.bmat(
-            [[spa.kron(self.B2_pol, self.B1_tor), None], [None, spa.kron(self.B3_pol, self.B0_tor)]], format="csr"
+            [[spa.kron(self.B2_pol, self.B1_tor), None], [None, spa.kron(self.B3_pol, self.B0_tor)]],
+            format="csr",
         )
         self.B3 = spa.kron(self.B3_pol, self.B1_tor, format="csr")
         self.Bv = spa.bmat(
-            [[spa.kron(self.Bv_pol, self.E0_tor), None], [None, spa.kron(Bv3, self.B0_tor)]], format="csr"
+            [[spa.kron(self.Bv_pol, self.E0_tor), None], [None, spa.kron(Bv3, self.B0_tor)]],
+            format="csr",
         )
 
         # extraction operators for 3D diagram: with boundary conditions
@@ -785,7 +791,7 @@ class Tensor_spline_space:
         out1 = mats[0][1].dot(mats[0][0].dot(x1).T).T
         out2 = mats[1][1].dot(mats[1][0].dot(x2).T).T
 
-        return np.concatenate((out1.flatten(), out2.flatten()))
+        return xp.concatenate((out1.flatten(), out2.flatten()))
 
     def apply_M2_ten(self, x, mats):
         """
@@ -797,7 +803,7 @@ class Tensor_spline_space:
         out1 = mats[0][1].dot(mats[0][0].dot(x1).T).T
         out2 = mats[1][1].dot(mats[1][0].dot(x2).T).T
 
-        return np.concatenate((out1.flatten(), out2.flatten()))
+        return xp.concatenate((out1.flatten(), out2.flatten()))
 
     def apply_M3_ten(self, x, mats):
         """
@@ -820,7 +826,7 @@ class Tensor_spline_space:
         out1 = mats[0][1].dot(mats[0][0].dot(x1).T).T
         out2 = mats[1][1].dot(mats[1][0].dot(x2).T).T
 
-        return np.concatenate((out1.flatten(), out2.flatten()))
+        return xp.concatenate((out1.flatten(), out2.flatten()))
 
     def apply_M0_0_ten(self, x, mats):
         """
@@ -841,13 +847,13 @@ class Tensor_spline_space:
         x1, x2 = self.reshape_pol_1(x)
 
         out1 = self.B0_tor.dot(
-            mats[0][1].dot(self.B0_tor.T.dot(self.B1_pol.dot(mats[0][0].dot(self.B1_pol.T.dot(x1))).T))
+            mats[0][1].dot(self.B0_tor.T.dot(self.B1_pol.dot(mats[0][0].dot(self.B1_pol.T.dot(x1))).T)),
         ).T
         out2 = self.B1_tor.dot(
-            mats[1][1].dot(self.B1_tor.T.dot(self.B0_pol.dot(mats[1][0].dot(self.B0_pol.T.dot(x2))).T))
+            mats[1][1].dot(self.B1_tor.T.dot(self.B0_pol.dot(mats[1][0].dot(self.B0_pol.T.dot(x2))).T)),
         ).T
 
-        return np.concatenate((out1.flatten(), out2.flatten()))
+        return xp.concatenate((out1.flatten(), out2.flatten()))
 
     def apply_M2_0_ten(self, x, mats):
         """
@@ -857,13 +863,13 @@ class Tensor_spline_space:
         x1, x2 = self.reshape_pol_2(x)
 
         out1 = self.B1_tor.dot(
-            mats[0][1].dot(self.B1_tor.T.dot(self.B2_pol.dot(mats[0][0].dot(self.B2_pol.T.dot(x1))).T))
+            mats[0][1].dot(self.B1_tor.T.dot(self.B2_pol.dot(mats[0][0].dot(self.B2_pol.T.dot(x1))).T)),
         ).T
         out2 = self.B0_tor.dot(
-            mats[1][1].dot(self.B0_tor.T.dot(self.B3_pol.dot(mats[1][0].dot(self.B3_pol.T.dot(x2))).T))
+            mats[1][1].dot(self.B0_tor.T.dot(self.B3_pol.dot(mats[1][0].dot(self.B3_pol.T.dot(x2))).T)),
         ).T
 
-        return np.concatenate((out1.flatten(), out2.flatten()))
+        return xp.concatenate((out1.flatten(), out2.flatten()))
 
     def apply_M3_0_ten(self, x, mats):
         """
@@ -886,7 +892,7 @@ class Tensor_spline_space:
         out1 = mats[0][1].dot(self.Bv_pol.dot(mats[0][0].dot(self.Bv_pol.T.dot(x1))).T).T
         out2 = self.B0_tor.dot(mats[1][1].dot(self.B0_tor.T.dot(mats[1][0].dot(x2).T))).T
 
-        return np.concatenate((out1.flatten(), out2.flatten()))
+        return xp.concatenate((out1.flatten(), out2.flatten()))
 
     def __assemble_M0(self, domain, as_tensor=False):
         """
@@ -928,10 +934,12 @@ class Tensor_spline_space:
             self.M1_pol_mat = mass_2d.get_M1(self, domain)
 
             matvec = lambda x: self.apply_M1_ten(
-                x, [[self.M1_pol_mat[0], self.M0_tor], [self.M1_pol_mat[1], self.M1_tor]]
+                x,
+                [[self.M1_pol_mat[0], self.M0_tor], [self.M1_pol_mat[1], self.M1_tor]],
             )
             matvec_0 = lambda x: self.apply_M1_0_ten(
-                x, [[self.M1_pol_mat[0], self.M0_tor], [self.M1_pol_mat[1], self.M1_tor]]
+                x,
+                [[self.M1_pol_mat[0], self.M0_tor], [self.M1_pol_mat[1], self.M1_tor]],
             )
 
         # 3D
@@ -939,7 +947,8 @@ class Tensor_spline_space:
             if self.dim == 2:
                 M11, M22 = mass_2d.get_M1(self, domain)
                 self.M1_mat = spa.bmat(
-                    [[spa.kron(M11, self.M0_tor), None], [None, spa.kron(M22, self.M1_tor)]], format="csr"
+                    [[spa.kron(M11, self.M0_tor), None], [None, spa.kron(M22, self.M1_tor)]],
+                    format="csr",
                 )
             else:
                 self.M1_mat = mass_3d.get_M1(self, domain)
@@ -963,10 +972,12 @@ class Tensor_spline_space:
             self.M2_pol_mat = mass_2d.get_M2(self, domain)
 
             matvec = lambda x: self.apply_M2_ten(
-                x, [[self.M2_pol_mat[0], self.M1_tor], [self.M2_pol_mat[1], self.M0_tor]]
+                x,
+                [[self.M2_pol_mat[0], self.M1_tor], [self.M2_pol_mat[1], self.M0_tor]],
             )
             matvec_0 = lambda x: self.apply_M2_0_ten(
-                x, [[self.M2_pol_mat[0], self.M1_tor], [self.M2_pol_mat[1], self.M0_tor]]
+                x,
+                [[self.M2_pol_mat[0], self.M1_tor], [self.M2_pol_mat[1], self.M0_tor]],
             )
 
         # 3D
@@ -974,7 +985,8 @@ class Tensor_spline_space:
             if self.dim == 2:
                 M11, M22 = mass_2d.get_M2(self, domain)
                 self.M2_mat = spa.bmat(
-                    [[spa.kron(M11, self.M1_tor), None], [None, spa.kron(M22, self.M0_tor)]], format="csr"
+                    [[spa.kron(M11, self.M1_tor), None], [None, spa.kron(M22, self.M0_tor)]],
+                    format="csr",
                 )
             else:
                 self.M2_mat = mass_3d.get_M2(self, domain)
@@ -1026,10 +1038,12 @@ class Tensor_spline_space:
             self.Mv_pol_mat = mass_2d.get_Mv(self, domain)
 
             matvec = lambda x: self.apply_Mv_ten(
-                x, [[self.Mv_pol_mat[0], self.M0_tor], [self.Mv_pol_mat[1], self.M0_tor]]
+                x,
+                [[self.Mv_pol_mat[0], self.M0_tor], [self.Mv_pol_mat[1], self.M0_tor]],
             )
             matvec_0 = lambda x: self.apply_Mv_0_ten(
-                x, [[self.Mv_pol_mat[0], self.M0_tor], [self.Mv_pol_mat[1], self.M0_tor]]
+                x,
+                [[self.Mv_pol_mat[0], self.M0_tor], [self.Mv_pol_mat[1], self.M0_tor]],
             )
 
         # 3D
@@ -1037,7 +1051,8 @@ class Tensor_spline_space:
             if self.dim == 2:
                 M11, M22 = mass_2d.get_Mv(self, domain)
                 self.Mv_mat = spa.bmat(
-                    [[spa.kron(M11, self.M0_tor), None], [None, spa.kron(M22, self.M0_tor)]], format="csr"
+                    [[spa.kron(M11, self.M0_tor), None], [None, spa.kron(M22, self.M0_tor)]],
+                    format="csr",
                 )
             else:
                 self.Mv_mat = mass_3d.get_Mv(self, domain)
@@ -1093,17 +1108,21 @@ class Tensor_spline_space:
 
         if c_size == self.E1.shape[0]:
             coeff1_pol_1 = coeff[: self.E1_pol.shape[0] * self.E0_tor.shape[0]].reshape(
-                self.E1_pol.shape[0], self.E0_tor.shape[0]
+                self.E1_pol.shape[0],
+                self.E0_tor.shape[0],
             )
             coeff1_pol_3 = coeff[self.E1_pol.shape[0] * self.E0_tor.shape[0] :].reshape(
-                self.E0_pol.shape[0], self.E1_tor.shape[0]
+                self.E0_pol.shape[0],
+                self.E1_tor.shape[0],
             )
         else:
             coeff1_pol_1 = coeff[: self.E1_pol_0.shape[0] * self.E0_tor_0.shape[0]].reshape(
-                self.E1_pol_0.shape[0], self.E0_tor_0.shape[0]
+                self.E1_pol_0.shape[0],
+                self.E0_tor_0.shape[0],
             )
             coeff1_pol_3 = coeff[self.E1_pol_0.shape[0] * self.E0_tor_0.shape[0] :].reshape(
-                self.E0_pol_0.shape[0], self.E1_tor_0.shape[0]
+                self.E0_pol_0.shape[0],
+                self.E1_tor_0.shape[0],
             )
 
         return coeff1_pol_1, coeff1_pol_3
@@ -1119,17 +1138,21 @@ class Tensor_spline_space:
 
         if c_size == self.E2.shape[0]:
             coeff2_pol_1 = coeff[: self.E2_pol.shape[0] * self.E1_tor.shape[0]].reshape(
-                self.E2_pol.shape[0], self.E1_tor.shape[0]
+                self.E2_pol.shape[0],
+                self.E1_tor.shape[0],
             )
             coeff2_pol_3 = coeff[self.E2_pol.shape[0] * self.E1_tor.shape[0] :].reshape(
-                self.E3_pol.shape[0], self.E0_tor.shape[0]
+                self.E3_pol.shape[0],
+                self.E0_tor.shape[0],
             )
         else:
             coeff2_pol_1 = coeff[: self.E2_pol_0.shape[0] * self.E1_tor_0.shape[0]].reshape(
-                self.E2_pol_0.shape[0], self.E1_tor_0.shape[0]
+                self.E2_pol_0.shape[0],
+                self.E1_tor_0.shape[0],
             )
             coeff2_pol_3 = coeff[self.E2_pol_0.shape[0] * self.E1_tor_0.shape[0] :].reshape(
-                self.E3_pol_0.shape[0], self.E0_tor_0.shape[0]
+                self.E3_pol_0.shape[0],
+                self.E0_tor_0.shape[0],
             )
 
         return coeff2_pol_1, coeff2_pol_3
@@ -1161,18 +1184,22 @@ class Tensor_spline_space:
 
         if c_size == self.Ev.shape[0]:
             coeffv_pol_1 = coeff[: self.Ev_pol.shape[0] * self.E0_tor.shape[0]].reshape(
-                self.Ev_pol.shape[0], self.E0_tor.shape[0]
+                self.Ev_pol.shape[0],
+                self.E0_tor.shape[0],
             )
             coeffv_pol_3 = coeff[self.Ev_pol.shape[0] * self.E0_tor.shape[0] :].reshape(
-                self.E0_pol.shape[0], self.E0_tor.shape[0]
+                self.E0_pol.shape[0],
+                self.E0_tor.shape[0],
             )
 
         else:
             coeffv_pol_1 = coeff[: self.Ev_pol_0.shape[0] * self.E0_tor.shape[0]].reshape(
-                self.Ev_pol_0.shape[0], self.E0_tor.shape[0]
+                self.Ev_pol_0.shape[0],
+                self.E0_tor.shape[0],
             )
             coeffv_pol_3 = coeff[self.Ev_pol_0.shape[0] * self.E0_tor.shape[0] :].reshape(
-                self.E0_pol.shape[0], self.E0_tor_0.shape[0]
+                self.E0_pol.shape[0],
+                self.E0_tor_0.shape[0],
             )
 
         return coeffv_pol_1, coeffv_pol_3
@@ -1228,7 +1255,7 @@ class Tensor_spline_space:
         else:
             coeff1 = self.E1_0.T.dot(coeff)
 
-        coeff1_1, coeff1_2, coeff1_3 = np.split(coeff1, [self.Ntot_1form_cum[0], self.Ntot_1form_cum[1]])
+        coeff1_1, coeff1_2, coeff1_3 = xp.split(coeff1, [self.Ntot_1form_cum[0], self.Ntot_1form_cum[1]])
 
         coeff1_1 = coeff1_1.reshape(self.Nbase_1form[0])
         coeff1_2 = coeff1_2.reshape(self.Nbase_1form[1])
@@ -1259,7 +1286,7 @@ class Tensor_spline_space:
         else:
             coeff2 = self.E2_0.T.dot(coeff)
 
-        coeff2_1, coeff2_2, coeff2_3 = np.split(coeff2, [self.Ntot_2form_cum[0], self.Ntot_2form_cum[1]])
+        coeff2_1, coeff2_2, coeff2_3 = xp.split(coeff2, [self.Ntot_2form_cum[0], self.Ntot_2form_cum[1]])
 
         coeff2_1 = coeff2_1.reshape(self.Nbase_2form[0])
         coeff2_2 = coeff2_2.reshape(self.Nbase_2form[1])
@@ -1304,7 +1331,7 @@ class Tensor_spline_space:
         else:
             coeffv = self.Ev_0.T.dot(coeff)
 
-        coeffv_1, coeffv_2, coeffv_3 = np.split(coeffv, [self.Ntot_0form, 2 * self.Ntot_0form])
+        coeffv_1, coeffv_2, coeffv_3 = xp.split(coeffv, [self.Ntot_0form, 2 * self.Ntot_0form])
 
         coeffv_1 = coeffv_1.reshape(self.Nbase_0form)
         coeffv_2 = coeffv_2.reshape(self.Nbase_0form)
@@ -1357,15 +1384,15 @@ class Tensor_spline_space:
         assert coeff.shape[:2] == (self.NbaseN[0], self.NbaseN[1])
 
         # get real and imaginary part
-        coeff_r = np.real(coeff)
-        coeff_i = np.imag(coeff)
+        coeff_r = xp.real(coeff)
+        coeff_i = xp.imag(coeff)
 
         # ------ evaluate FEM field at given points --------
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor-product evaluation
             if eta1.ndim == 1:
-                values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
-                values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_r_1 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_i_1 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
                 eva_2d.evaluate_tensor_product_2d(
                     self.T[0],
@@ -1395,8 +1422,8 @@ class Tensor_spline_space:
                 )
 
                 if self.n_tor != 0 and self.basis_tor == "r":
-                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
-                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_r_2 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_i_2 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
                     eva_2d.evaluate_tensor_product_2d(
                         self.T[0],
@@ -1427,8 +1454,8 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
-                values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_r_1 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_i_1 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
                 eva_2d.evaluate_matrix_2d(
                     self.T[0],
@@ -1458,8 +1485,8 @@ class Tensor_spline_space:
                 )
 
                 if self.n_tor != 0 and self.basis_tor == "r":
-                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
-                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_r_2 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_i_2 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
                     eva_2d.evaluate_matrix_2d(
                         self.T[0],
@@ -1490,15 +1517,15 @@ class Tensor_spline_space:
 
             # multiply with Fourier basis in third direction
             if self.n_tor == 0:
-                out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.ones(eta3.shape, dtype=float)
+                out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.ones(eta3.shape, dtype=float)
 
             else:
                 if self.basis_tor == "r":
-                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.cos(2 * np.pi * self.n_tor * eta3)
-                    out += (values_r_2 + 1j * values_i_2)[:, :, None] * np.sin(2 * np.pi * self.n_tor * eta3)
+                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.cos(2 * xp.pi * self.n_tor * eta3)
+                    out += (values_r_2 + 1j * values_i_2)[:, :, None] * xp.sin(2 * xp.pi * self.n_tor * eta3)
 
                 else:
-                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.exp(1j * 2 * np.pi * self.n_tor * eta3)
+                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.exp(1j * 2 * xp.pi * self.n_tor * eta3)
 
         # --------- evaluate FEM field at given point -------
         else:
@@ -1527,10 +1554,26 @@ class Tensor_spline_space:
 
             if self.n_tor != 0 and self.basis_tor == "r":
                 real_2 = eva_2d.evaluate_n_n(
-                    self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[:, :, 1], eta1, eta2
+                    self.T[0],
+                    self.T[1],
+                    self.p[0],
+                    self.p[1],
+                    self.indN[0],
+                    self.indN[1],
+                    coeff_r[:, :, 1],
+                    eta1,
+                    eta2,
                 )
                 imag_2 = eva_2d.evaluate_n_n(
-                    self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[:, :, 1], eta1, eta2
+                    self.T[0],
+                    self.T[1],
+                    self.p[0],
+                    self.p[1],
+                    self.indN[0],
+                    self.indN[1],
+                    coeff_i[:, :, 1],
+                    eta1,
+                    eta2,
                 )
 
             # multiply with Fourier basis in third direction if |n_tor| > 0
@@ -1539,17 +1582,17 @@ class Tensor_spline_space:
 
             else:
                 if self.basis_tor == "r":
-                    out = (real_1 + 1j * imag_1) * np.cos(2 * np.pi * self.n_tor * eta3)
-                    out += (real_2 + 1j * imag_2) * np.sin(2 * np.pi * self.n_tor * eta3)
+                    out = (real_1 + 1j * imag_1) * xp.cos(2 * xp.pi * self.n_tor * eta3)
+                    out += (real_2 + 1j * imag_2) * xp.sin(2 * xp.pi * self.n_tor * eta3)
 
                 else:
-                    out = (real_1 + 1j * imag_1) * np.exp(1j * 2 * np.pi * self.n_tor * eta3)
+                    out = (real_1 + 1j * imag_1) * xp.exp(1j * 2 * xp.pi * self.n_tor * eta3)
 
         # return real or imaginary part
         if part == "r":
-            out = np.real(out)
+            out = xp.real(out)
         else:
-            out = np.imag(out)
+            out = xp.imag(out)
 
         return out
 
@@ -1598,15 +1641,15 @@ class Tensor_spline_space:
         assert coeff.shape[:2] == (self.NbaseD[0], self.NbaseN[1])
 
         # get real and imaginary part
-        coeff_r = np.real(coeff)
-        coeff_i = np.imag(coeff)
+        coeff_r = xp.real(coeff)
+        coeff_i = xp.imag(coeff)
 
         # ------ evaluate FEM field at given points --------
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor-product evaluation
             if eta1.ndim == 1:
-                values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
-                values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_r_1 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_i_1 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
                 eva_2d.evaluate_tensor_product_2d(
                     self.t[0],
@@ -1636,8 +1679,8 @@ class Tensor_spline_space:
                 )
 
                 if self.n_tor != 0 and self.basis_tor == "r":
-                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
-                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_r_2 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_i_2 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
                     eva_2d.evaluate_tensor_product_2d(
                         self.t[0],
@@ -1668,8 +1711,8 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
-                values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_r_1 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_i_1 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
                 eva_2d.evaluate_matrix_2d(
                     self.t[0],
@@ -1699,8 +1742,8 @@ class Tensor_spline_space:
                 )
 
                 if self.n_tor != 0 and self.basis_tor == "r":
-                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
-                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_r_2 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_i_2 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
                     eva_2d.evaluate_matrix_2d(
                         self.t[0],
@@ -1731,15 +1774,15 @@ class Tensor_spline_space:
 
             # multiply with Fourier basis in third direction
             if self.n_tor == 0:
-                out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.ones(eta3.shape, dtype=float)
+                out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.ones(eta3.shape, dtype=float)
 
             else:
                 if self.basis_tor == "r":
-                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.cos(2 * np.pi * self.n_tor * eta3)
-                    out += (values_r_2 + 1j * values_i_2)[:, :, None] * np.sin(2 * np.pi * self.n_tor * eta3)
+                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.cos(2 * xp.pi * self.n_tor * eta3)
+                    out += (values_r_2 + 1j * values_i_2)[:, :, None] * xp.sin(2 * xp.pi * self.n_tor * eta3)
 
                 else:
-                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.exp(1j * 2 * np.pi * self.n_tor * eta3)
+                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.exp(1j * 2 * xp.pi * self.n_tor * eta3)
 
         # --------- evaluate FEM field at given point -------
         else:
@@ -1796,17 +1839,17 @@ class Tensor_spline_space:
 
             else:
                 if self.basis_tor == "r":
-                    out = (real_1 + 1j * imag_1) * np.cos(2 * np.pi * self.n_tor * eta3)
-                    out += (real_2 + 1j * imag_2) * np.sin(2 * np.pi * self.n_tor * eta3)
+                    out = (real_1 + 1j * imag_1) * xp.cos(2 * xp.pi * self.n_tor * eta3)
+                    out += (real_2 + 1j * imag_2) * xp.sin(2 * xp.pi * self.n_tor * eta3)
 
                 else:
-                    out = (real_1 + 1j * imag_1) * np.exp(1j * 2 * np.pi * self.n_tor * eta3)
+                    out = (real_1 + 1j * imag_1) * xp.exp(1j * 2 * xp.pi * self.n_tor * eta3)
 
         # return real or imaginary part
         if part == "r":
-            out = np.real(out)
+            out = xp.real(out)
         else:
-            out = np.imag(out)
+            out = xp.imag(out)
 
         return out
 
@@ -1855,15 +1898,15 @@ class Tensor_spline_space:
         assert coeff.shape[:2] == (self.NbaseN[0], self.NbaseD[1])
 
         # get real and imaginary part
-        coeff_r = np.real(coeff)
-        coeff_i = np.imag(coeff)
+        coeff_r = xp.real(coeff)
+        coeff_i = xp.imag(coeff)
 
         # ------ evaluate FEM field at given points --------
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor-product evaluation
             if eta1.ndim == 1:
-                values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
-                values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_r_1 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_i_1 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
                 eva_2d.evaluate_tensor_product_2d(
                     self.T[0],
@@ -1893,8 +1936,8 @@ class Tensor_spline_space:
                 )
 
                 if self.n_tor != 0 and self.basis_tor == "r":
-                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
-                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_r_2 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_i_2 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
                     eva_2d.evaluate_tensor_product_2d(
                         self.T[0],
@@ -1925,8 +1968,8 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
-                values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_r_1 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_i_1 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
                 eva_2d.evaluate_matrix_2d(
                     self.T[0],
@@ -1956,8 +1999,8 @@ class Tensor_spline_space:
                 )
 
                 if self.n_tor != 0 and self.basis_tor == "r":
-                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
-                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_r_2 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_i_2 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
                     eva_2d.evaluate_matrix_2d(
                         self.T[0],
@@ -1988,15 +2031,15 @@ class Tensor_spline_space:
 
             # multiply with Fourier basis in third direction
             if self.n_tor == 0:
-                out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.ones(eta3.shape, dtype=float)
+                out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.ones(eta3.shape, dtype=float)
 
             else:
                 if self.basis_tor == "r":
-                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.cos(2 * np.pi * self.n_tor * eta3)
-                    out += (values_r_2 + 1j * values_i_2)[:, :, None] * np.sin(2 * np.pi * self.n_tor * eta3)
+                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.cos(2 * xp.pi * self.n_tor * eta3)
+                    out += (values_r_2 + 1j * values_i_2)[:, :, None] * xp.sin(2 * xp.pi * self.n_tor * eta3)
 
                 else:
-                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.exp(1j * 2 * np.pi * self.n_tor * eta3)
+                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.exp(1j * 2 * xp.pi * self.n_tor * eta3)
 
         # --------- evaluate FEM field at given point -------
         else:
@@ -2053,17 +2096,17 @@ class Tensor_spline_space:
 
             else:
                 if self.basis_tor == "r":
-                    out = (real_1 + 1j * imag_1) * np.cos(2 * np.pi * self.n_tor * eta3)
-                    out += (real_2 + 1j * imag_2) * np.sin(2 * np.pi * self.n_tor * eta3)
+                    out = (real_1 + 1j * imag_1) * xp.cos(2 * xp.pi * self.n_tor * eta3)
+                    out += (real_2 + 1j * imag_2) * xp.sin(2 * xp.pi * self.n_tor * eta3)
 
                 else:
-                    out = (real_1 + 1j * imag_1) * np.exp(1j * 2 * np.pi * self.n_tor * eta3)
+                    out = (real_1 + 1j * imag_1) * xp.exp(1j * 2 * xp.pi * self.n_tor * eta3)
 
         # return real or imaginary part
         if part == "r":
-            out = np.real(out)
+            out = xp.real(out)
         else:
-            out = np.imag(out)
+            out = xp.imag(out)
 
         return out
 
@@ -2115,15 +2158,15 @@ class Tensor_spline_space:
         assert coeff.shape[:2] == (self.NbaseD[0], self.NbaseD[1])
 
         # get real and imaginary part
-        coeff_r = np.real(coeff)
-        coeff_i = np.imag(coeff)
+        coeff_r = xp.real(coeff)
+        coeff_i = xp.imag(coeff)
 
         # ------ evaluate FEM field at given points --------
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor-product evaluation
             if eta1.ndim == 1:
-                values_r_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
-                values_i_1 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_r_1 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                values_i_1 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
                 eva_2d.evaluate_tensor_product_2d(
                     self.t[0],
@@ -2153,8 +2196,8 @@ class Tensor_spline_space:
                 )
 
                 if self.n_tor != 0 and self.basis_tor == "r":
-                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
-                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_r_2 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
+                    values_i_2 = xp.empty((eta1.shape[0], eta2.shape[0]), dtype=float)
 
                     eva_2d.evaluate_tensor_product_2d(
                         self.t[0],
@@ -2185,8 +2228,8 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values_r_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
-                values_i_1 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_r_1 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                values_i_1 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
                 eva_2d.evaluate_matrix_2d(
                     self.t[0],
@@ -2216,8 +2259,8 @@ class Tensor_spline_space:
                 )
 
                 if self.n_tor != 0 and self.basis_tor == "r":
-                    values_r_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
-                    values_i_2 = np.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_r_2 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
+                    values_i_2 = xp.empty((eta1.shape[0], eta2.shape[1]), dtype=float)
 
                     eva_2d.evaluate_matrix_2d(
                         self.t[0],
@@ -2248,15 +2291,15 @@ class Tensor_spline_space:
 
             # multiply with Fourier basis in third direction
             if self.n_tor == 0:
-                out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.ones(eta3.shape, dtype=float)
+                out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.ones(eta3.shape, dtype=float)
 
             else:
                 if self.basis_tor == "r":
-                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.cos(2 * np.pi * self.n_tor * eta3)
-                    out += (values_r_2 + 1j * values_i_2)[:, :, None] * np.sin(2 * np.pi * self.n_tor * eta3)
+                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.cos(2 * xp.pi * self.n_tor * eta3)
+                    out += (values_r_2 + 1j * values_i_2)[:, :, None] * xp.sin(2 * xp.pi * self.n_tor * eta3)
 
                 else:
-                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * np.exp(1j * 2 * np.pi * self.n_tor * eta3)
+                    out = (values_r_1 + 1j * values_i_1)[:, :, None] * xp.exp(1j * 2 * xp.pi * self.n_tor * eta3)
 
         # --------- evaluate FEM field at given point -------
         else:
@@ -2313,17 +2356,17 @@ class Tensor_spline_space:
 
             else:
                 if self.basis_tor == "r":
-                    out = (real_1 + 1j * imag_1) * np.cos(2 * np.pi * self.n_tor * eta3)
-                    out += (real_2 + 1j * imag_2) * np.sin(2 * np.pi * self.n_tor * eta3)
+                    out = (real_1 + 1j * imag_1) * xp.cos(2 * xp.pi * self.n_tor * eta3)
+                    out += (real_2 + 1j * imag_2) * xp.sin(2 * xp.pi * self.n_tor * eta3)
 
                 else:
-                    out = (real_1 + 1j * imag_1) * np.exp(1j * 2 * np.pi * self.n_tor * eta3)
+                    out = (real_1 + 1j * imag_1) * xp.exp(1j * 2 * xp.pi * self.n_tor * eta3)
 
         # return real or imaginary part
         if part == "r":
-            out = np.real(out)
+            out = xp.real(out)
         else:
-            out = np.imag(out)
+            out = xp.imag(out)
 
         return out
 
@@ -2334,13 +2377,13 @@ class Tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double or np.ndarray
+        eta1 : double or xp.ndarray
             1st component of logical evaluation point
 
-        eta2 : double or np.ndarray
+        eta2 : double or xp.ndarray
             2nd component of logical evaluation point
 
-        eta3 : double or np.ndarray
+        eta3 : double or xp.ndarray
             3rd component of logical evaluation point
 
         coeff : array_like
@@ -2355,10 +2398,10 @@ class Tensor_spline_space:
         if coeff.ndim == 1:
             coeff = self.extract_0(coeff)
 
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor-product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+                values = xp.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(
                     self.T[0],
                     self.T[1],
@@ -2379,7 +2422,7 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                values = xp.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
                     eva_3d.evaluate_sparse(
@@ -2449,13 +2492,13 @@ class Tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double or np.ndarray
+        eta1 : double or xp.ndarray
             1st component of logical evaluation point
 
-        eta2 : double or np.ndarray
+        eta2 : double or xp.ndarray
             2nd component of logical evaluation point
 
-        eta3 : double or np.ndarray
+        eta3 : double or xp.ndarray
             3rd component of logical evaluation point
 
         coeff : array_like
@@ -2470,10 +2513,10 @@ class Tensor_spline_space:
         if coeff.ndim == 1:
             coeff = self.extract_1(coeff)[0]
 
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+                values = xp.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(
                     self.t[0],
                     self.T[1],
@@ -2494,7 +2537,7 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                values = xp.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
                     eva_3d.evaluate_sparse(
@@ -2563,13 +2606,13 @@ class Tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double or np.ndarray
+        eta1 : double or xp.ndarray
             1st component of logical evaluation point
 
-        eta2 : double or np.ndarray
+        eta2 : double or xp.ndarray
             2nd component of logical evaluation point
 
-        eta3 : double or np.ndarray
+        eta3 : double or xp.ndarray
             3rd component of logical evaluation point
 
         coeff : array_like
@@ -2584,10 +2627,10 @@ class Tensor_spline_space:
         if coeff.ndim == 1:
             coeff = self.extract_1(coeff)[1]
 
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+                values = xp.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(
                     self.T[0],
                     self.t[1],
@@ -2608,7 +2651,7 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                values = xp.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
                     eva_3d.evaluate_sparse(
@@ -2677,13 +2720,13 @@ class Tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double or np.ndarray
+        eta1 : double or xp.ndarray
             1st component of logical evaluation point
 
-        eta2 : double or np.ndarray
+        eta2 : double or xp.ndarray
             2nd component of logical evaluation point
 
-        eta3 : double or np.ndarray
+        eta3 : double or xp.ndarray
             3rd component of logical evaluation point
 
         coeff : array_like
@@ -2698,10 +2741,10 @@ class Tensor_spline_space:
         if coeff.ndim == 1:
             coeff = self.extract_1(coeff)[2]
 
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+                values = xp.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(
                     self.T[0],
                     self.T[1],
@@ -2722,7 +2765,7 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                values = xp.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
                     eva_3d.evaluate_sparse(
@@ -2791,13 +2834,13 @@ class Tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double or np.ndarray
+        eta1 : double or xp.ndarray
             1st component of logical evaluation point
 
-        eta2 : double or np.ndarray
+        eta2 : double or xp.ndarray
             2nd component of logical evaluation point
 
-        eta3 : double or np.ndarray
+        eta3 : double or xp.ndarray
             3rd component of logical evaluation point
 
         coeff : array_like
@@ -2812,10 +2855,10 @@ class Tensor_spline_space:
         if coeff.ndim == 1:
             coeff = self.extract_2(coeff)[0]
 
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+                values = xp.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(
                     self.T[0],
                     self.t[1],
@@ -2836,7 +2879,7 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                values = xp.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
                     eva_3d.evaluate_sparse(
@@ -2905,13 +2948,13 @@ class Tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double or np.ndarray
+        eta1 : double or xp.ndarray
             1st component of logical evaluation point
 
-        eta2 : double or np.ndarray
+        eta2 : double or xp.ndarray
             2nd component of logical evaluation point
 
-        eta3 : double or np.ndarray
+        eta3 : double or xp.ndarray
             3rd component of logical evaluation point
 
         coeff : array_like
@@ -2926,10 +2969,10 @@ class Tensor_spline_space:
         if coeff.ndim == 1:
             coeff = self.extract_2(coeff)[1]
 
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+                values = xp.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(
                     self.t[0],
                     self.T[1],
@@ -2950,7 +2993,7 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                values = xp.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
                     eva_3d.evaluate_sparse(
@@ -3019,13 +3062,13 @@ class Tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double or np.ndarray
+        eta1 : double or xp.ndarray
             1st component of logical evaluation point
 
-        eta2 : double or np.ndarray
+        eta2 : double or xp.ndarray
             2nd component of logical evaluation point
 
-        eta3 : double or np.ndarray
+        eta3 : double or xp.ndarray
             3rd component of logical evaluation point
 
         coeff : array_like
@@ -3040,10 +3083,10 @@ class Tensor_spline_space:
         if coeff.ndim == 1:
             coeff = self.extract_2(coeff)[2]
 
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+                values = xp.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(
                     self.t[0],
                     self.t[1],
@@ -3064,7 +3107,7 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                values = xp.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
                     eva_3d.evaluate_sparse(
@@ -3133,13 +3176,13 @@ class Tensor_spline_space:
 
         Parameters
         ----------
-        eta1 : double or np.ndarray
+        eta1 : double or xp.ndarray
             1st component of logical evaluation point
 
-        eta2 : double or np.ndarray
+        eta2 : double or xp.ndarray
             2nd component of logical evaluation point
 
-        eta3 : double or np.ndarray
+        eta3 : double or xp.ndarray
             3rd component of logical evaluation point
 
         coeff : array_like
@@ -3154,10 +3197,10 @@ class Tensor_spline_space:
         if coeff.ndim == 1:
             coeff = self.extract_3(coeff)
 
-        if isinstance(eta1, np.ndarray):
+        if isinstance(eta1, xp.ndarray):
             # tensor product evaluation
             if eta1.ndim == 1:
-                values = np.empty((eta1.size, eta2.size, eta3.size), dtype=float)
+                values = xp.empty((eta1.size, eta2.size, eta3.size), dtype=float)
                 eva_3d.evaluate_tensor_product(
                     self.t[0],
                     self.t[1],
@@ -3178,7 +3221,7 @@ class Tensor_spline_space:
 
             # matrix evaluation
             else:
-                values = np.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
+                values = xp.empty((eta1.shape[0], eta2.shape[1], eta3.shape[2]), dtype=float)
                 # `eta1` is a sparse meshgrid.
                 if max(eta1.shape) == eta1.size:
                     eva_3d.evaluate_sparse(

@@ -3,7 +3,7 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 
-import numpy as np
+import cunumpy as xp
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_projectors_global_mhd as ker
@@ -58,11 +58,11 @@ class MHDOperatorsCore:
         self.subs_cum = [space.projectors.subs_cum for space in self.space.spaces]
 
         # get 1D indices of non-vanishing values of expressions dofs_0(N), dofs_0(D), dofs_1(N) and dofs_1(D)
-        self.dofs_0_N_i = [list(np.nonzero(space.projectors.I.toarray())) for space in self.space.spaces]
-        self.dofs_1_D_i = [list(np.nonzero(space.projectors.H.toarray())) for space in self.space.spaces]
+        self.dofs_0_N_i = [list(xp.nonzero(space.projectors.I.toarray())) for space in self.space.spaces]
+        self.dofs_1_D_i = [list(xp.nonzero(space.projectors.H.toarray())) for space in self.space.spaces]
 
-        self.dofs_0_D_i = [list(np.nonzero(space.projectors.ID.toarray())) for space in self.space.spaces]
-        self.dofs_1_N_i = [list(np.nonzero(space.projectors.HN.toarray())) for space in self.space.spaces]
+        self.dofs_0_D_i = [list(xp.nonzero(space.projectors.ID.toarray())) for space in self.space.spaces]
+        self.dofs_1_N_i = [list(xp.nonzero(space.projectors.HN.toarray())) for space in self.space.spaces]
 
         for i in range(self.space.dim):
             for j in range(2):
@@ -116,9 +116,9 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_N_i[0][0],
@@ -130,8 +130,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_N[0],
                     self.basis_int_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_3_pts,
                     val,
                     row,
@@ -139,7 +139,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_12 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[0] // self.N3, self.space.Ntot_0form // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[0] // self.N3, self.space.Ntot_0form // self.N3),
                 )
                 EF_12.eliminate_zeros()
                 # ----------------------------------------------------
@@ -150,9 +151,9 @@ class MHDOperatorsCore:
                 B2_2_pts = B2_2_pts.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_N_i[0][0],
@@ -164,8 +165,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_N[0],
                     self.basis_int_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_2_pts,
                     val,
                     row,
@@ -173,7 +174,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_13 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[0] // self.N3, self.space.Ntot_0form // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[0] // self.N3, self.space.Ntot_0form // self.N3),
                 )
                 EF_13.eliminate_zeros()
                 # ----------------------------------------------------
@@ -184,9 +186,9 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0],
@@ -198,8 +200,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_N[0],
                     self.basis_his_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_3_pts,
                     val,
                     row,
@@ -207,7 +209,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_21 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[1] // self.N3, self.space.Ntot_0form // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[1] // self.N3, self.space.Ntot_0form // self.N3),
                 )
                 EF_21.eliminate_zeros()
                 # ----------------------------------------------------
@@ -218,9 +221,9 @@ class MHDOperatorsCore:
                 B2_1_pts = B2_1_pts.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0],
@@ -232,8 +235,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_N[0],
                     self.basis_his_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_1_pts,
                     val,
                     row,
@@ -241,7 +244,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_23 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[1] // self.N3, self.space.Ntot_0form // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[1] // self.N3, self.space.Ntot_0form // self.N3),
                 )
                 EF_23.eliminate_zeros()
                 # ----------------------------------------------------
@@ -251,9 +255,9 @@ class MHDOperatorsCore:
                 B2_2_pts = self.equilibrium.b2_2(self.eta_int[0], self.eta_int[1], 0.0)
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs0_2d(
                     self.dofs_0_N_i[0][0],
@@ -269,7 +273,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_31 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[2] // self.D3, self.space.Ntot_0form // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[2] // self.D3, self.space.Ntot_0form // self.N3),
                 )
                 EF_31.eliminate_zeros()
                 # ----------------------------------------------------
@@ -279,9 +284,9 @@ class MHDOperatorsCore:
                 B2_1_pts = self.equilibrium.b2_1(self.eta_int[0], self.eta_int[1], 0.0)
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs0_2d(
                     self.dofs_0_N_i[0][0],
@@ -297,7 +302,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_32 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[2] // self.D3, self.space.Ntot_0form // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[2] // self.D3, self.space.Ntot_0form // self.N3),
                 )
                 EF_32.eliminate_zeros()
                 # ----------------------------------------------------
@@ -309,14 +315,17 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs11(
@@ -332,8 +341,8 @@ class MHDOperatorsCore:
                     self.basis_his_N[0],
                     self.basis_int_N[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_3_pts,
                     val,
                     row,
@@ -350,14 +359,17 @@ class MHDOperatorsCore:
                 B2_2_pts = B2_2_pts.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs11(
@@ -373,8 +385,8 @@ class MHDOperatorsCore:
                     self.basis_his_N[0],
                     self.basis_int_N[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_2_pts,
                     val,
                     row,
@@ -391,14 +403,17 @@ class MHDOperatorsCore:
                 B2_3_pts = B2_3_pts.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs12(
@@ -414,8 +429,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_his_N[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_3_pts,
                     val,
                     row,
@@ -432,14 +447,17 @@ class MHDOperatorsCore:
                 B2_1_pts = B2_1_pts.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs12(
@@ -455,8 +473,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_his_N[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_1_pts,
                     val,
                     row,
@@ -473,14 +491,17 @@ class MHDOperatorsCore:
                 B2_2_pts = B2_2_pts.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs13(
@@ -496,8 +517,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_int_N[1],
                     self.basis_his_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_2_pts,
                     val,
                     row,
@@ -514,14 +535,17 @@ class MHDOperatorsCore:
                 B2_1_pts = B2_1_pts.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs13(
@@ -537,8 +561,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_int_N[1],
                     self.basis_his_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_1_pts,
                     val,
                     row,
@@ -561,9 +585,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_D_i[0][0],
@@ -575,8 +599,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_D[0],
                     self.basis_int_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_3_pts / det_dF,
                     val,
                     row,
@@ -584,7 +608,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_12 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[0] // self.N3, self.space.Ntot_2form[1] // self.D3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[0] // self.N3, self.space.Ntot_2form[1] // self.D3),
                 )
                 EF_12.eliminate_zeros()
                 # ----------------------------------------------------
@@ -599,9 +624,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_D_i[0][0],
@@ -613,8 +638,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_D[0],
                     self.basis_int_D[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_2_pts / det_dF,
                     val,
                     row,
@@ -622,7 +647,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_13 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[0] // self.N3, self.space.Ntot_2form[2] // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[0] // self.N3, self.space.Ntot_2form[2] // self.N3),
                 )
                 EF_13.eliminate_zeros()
                 # ----------------------------------------------------
@@ -637,9 +663,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0],
@@ -651,8 +677,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_N[0],
                     self.basis_his_D[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_3_pts / det_dF,
                     val,
                     row,
@@ -660,7 +686,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_21 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[1] // self.N3, self.space.Ntot_2form[0] // self.D3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[1] // self.N3, self.space.Ntot_2form[0] // self.D3),
                 )
                 EF_21.eliminate_zeros()
                 # ----------------------------------------------------
@@ -675,9 +702,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_D_i[0][0],
@@ -689,8 +716,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_D[0],
                     self.basis_his_D[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_1_pts / det_dF,
                     val,
                     row,
@@ -698,7 +725,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_23 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[1] // self.N3, self.space.Ntot_2form[2] // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[1] // self.N3, self.space.Ntot_2form[2] // self.N3),
                 )
                 EF_23.eliminate_zeros()
                 # ----------------------------------------------------
@@ -711,9 +739,9 @@ class MHDOperatorsCore:
                 det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], 0.0))
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size, dtype=int)
 
                 ker.rhs0_2d(
                     self.dofs_0_N_i[0][0],
@@ -729,7 +757,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_31 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[2] // self.D3, self.space.Ntot_2form[0] // self.D3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[2] // self.D3, self.space.Ntot_2form[0] // self.D3),
                 )
                 EF_31.eliminate_zeros()
                 # ----------------------------------------------------
@@ -742,9 +771,9 @@ class MHDOperatorsCore:
                 det_dF = abs(self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], 0.0))
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs0_2d(
                     self.dofs_0_D_i[0][0],
@@ -760,7 +789,8 @@ class MHDOperatorsCore:
                 )
 
                 EF_32 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_1form[2] // self.D3, self.space.Ntot_2form[1] // self.D3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_1form[2] // self.D3, self.space.Ntot_2form[1] // self.D3),
                 )
                 EF_32.eliminate_zeros()
                 # ----------------------------------------------------
@@ -773,19 +803,22 @@ class MHDOperatorsCore:
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
                 det_dF = abs(
-                    self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], self.eta_int[2])
+                    self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], self.eta_int[2]),
                 )
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_D_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_D_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_0_D_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs11(
@@ -801,8 +834,8 @@ class MHDOperatorsCore:
                     self.basis_his_D[0],
                     self.basis_int_N[1],
                     self.basis_int_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_3_pts / det_dF,
                     val,
                     row,
@@ -820,19 +853,22 @@ class MHDOperatorsCore:
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
                 det_dF = abs(
-                    self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], self.eta_int[2])
+                    self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_int[1], self.eta_int[2]),
                 )
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs11(
@@ -848,8 +884,8 @@ class MHDOperatorsCore:
                     self.basis_his_D[0],
                     self.basis_int_D[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_2_pts / det_dF,
                     val,
                     row,
@@ -867,19 +903,22 @@ class MHDOperatorsCore:
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
                 det_dF = abs(
-                    self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), self.eta_int[2])
+                    self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), self.eta_int[2]),
                 )
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_D_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_D_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_D_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_D_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs12(
@@ -895,8 +934,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_his_D[1],
                     self.basis_int_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_3_pts / det_dF,
                     val,
                     row,
@@ -914,19 +953,22 @@ class MHDOperatorsCore:
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
                 det_dF = abs(
-                    self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), self.eta_int[2])
+                    self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_his[1].flatten(), self.eta_int[2]),
                 )
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_0_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs12(
@@ -942,8 +984,8 @@ class MHDOperatorsCore:
                     self.basis_int_D[0],
                     self.basis_his_D[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_1_pts / det_dF,
                     val,
                     row,
@@ -961,19 +1003,22 @@ class MHDOperatorsCore:
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
                 det_dF = abs(
-                    self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], self.eta_his[2].flatten())
+                    self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], self.eta_his[2].flatten()),
                 )
                 det_dF = det_dF.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_0_D_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs13(
@@ -989,8 +1034,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_int_D[1],
                     self.basis_his_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     -B2_2_pts / det_dF,
                     val,
                     row,
@@ -1008,19 +1053,22 @@ class MHDOperatorsCore:
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
                 det_dF = abs(
-                    self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], self.eta_his[2].flatten())
+                    self.equilibrium.domain.jacobian_det(self.eta_int[0], self.eta_int[1], self.eta_his[2].flatten()),
                 )
                 det_dF = det_dF.reshape(self.nint[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_0_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs13(
@@ -1036,8 +1084,8 @@ class MHDOperatorsCore:
                     self.basis_int_D[0],
                     self.basis_int_N[1],
                     self.basis_his_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     B2_1_pts / det_dF,
                     val,
                     row,
@@ -1093,9 +1141,9 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0],
@@ -1107,8 +1155,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_N[0],
                     self.basis_his_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1116,7 +1164,8 @@ class MHDOperatorsCore:
                 )
 
                 F_11 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_2form[0] // self.D3, self.space.Ntot_0form // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_2form[0] // self.D3, self.space.Ntot_0form // self.N3),
                 )
                 F_11.eliminate_zeros()
                 # ------------------------------------------------------------
@@ -1133,9 +1182,9 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_N_i[0][0],
@@ -1147,8 +1196,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_N[0],
                     self.basis_int_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1156,7 +1205,8 @@ class MHDOperatorsCore:
                 )
 
                 F_22 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_2form[1] // self.D3, self.space.Ntot_0form // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_2form[1] // self.D3, self.space.Ntot_0form // self.N3),
                 )
                 F_22.eliminate_zeros()
                 # ------------------------------------------------------------
@@ -1173,9 +1223,9 @@ class MHDOperatorsCore:
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size, dtype=int)
 
                 ker.rhs2_2d(
                     self.dofs_1_N_i[0][0],
@@ -1190,8 +1240,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_his_N[0],
                     self.basis_his_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1199,7 +1249,8 @@ class MHDOperatorsCore:
                 )
 
                 F_33 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_2form[2] // self.N3, self.space.Ntot_0form // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_2form[2] // self.N3, self.space.Ntot_0form // self.N3),
                 )
                 F_33.eliminate_zeros()
                 # ------------------------------------------------------------
@@ -1213,20 +1264,25 @@ class MHDOperatorsCore:
                     EQ = self.equilibrium.p3(self.eta_int[0], self.eta_his[1].flatten(), self.eta_his[2].flatten())
                 else:
                     EQ = self.equilibrium.domain.jacobian_det(
-                        self.eta_int[0], self.eta_his[1].flatten(), self.eta_his[2].flatten()
+                        self.eta_int[0],
+                        self.eta_his[1].flatten(),
+                        self.eta_his[2].flatten(),
                     )
 
                 EQ = EQ.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs21(
@@ -1245,8 +1301,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_his_N[1],
                     self.basis_his_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1265,20 +1321,25 @@ class MHDOperatorsCore:
                     EQ = self.equilibrium.p3(self.eta_his[0].flatten(), self.eta_int[1], self.eta_his[2].flatten())
                 else:
                     EQ = self.equilibrium.domain.jacobian_det(
-                        self.eta_his[0].flatten(), self.eta_int[1], self.eta_his[2].flatten()
+                        self.eta_his[0].flatten(),
+                        self.eta_int[1],
+                        self.eta_his[2].flatten(),
                     )
 
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs22(
@@ -1297,8 +1358,8 @@ class MHDOperatorsCore:
                     self.basis_his_N[0],
                     self.basis_int_N[1],
                     self.basis_his_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1317,20 +1378,25 @@ class MHDOperatorsCore:
                     EQ = self.equilibrium.p3(self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_int[2])
                 else:
                     EQ = self.equilibrium.domain.jacobian_det(
-                        self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_int[2]
+                        self.eta_his[0].flatten(),
+                        self.eta_his[1].flatten(),
+                        self.eta_int[2],
                     )
 
                 EQ = EQ.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_1_N_i[0][0].size * self.dofs_1_N_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs23(
@@ -1349,8 +1415,8 @@ class MHDOperatorsCore:
                     self.basis_his_N[0],
                     self.basis_his_N[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ,
                     val,
                     row,
@@ -1377,9 +1443,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
 
                 ker.rhs12_2d(
                     self.dofs_0_N_i[0][0],
@@ -1391,8 +1457,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_int_N[0],
                     self.basis_his_D[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1400,7 +1466,8 @@ class MHDOperatorsCore:
                 )
 
                 F_11 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_2form[0] // self.D3, self.space.Ntot_2form[0] // self.D3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_2form[0] // self.D3, self.space.Ntot_2form[0] // self.D3),
                 )
                 F_11.eliminate_zeros()
                 # ------------------------------------------------------------
@@ -1419,9 +1486,9 @@ class MHDOperatorsCore:
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size, dtype=int)
 
                 ker.rhs11_2d(
                     self.dofs_1_D_i[0][0],
@@ -1433,8 +1500,8 @@ class MHDOperatorsCore:
                     self.wts[0],
                     self.basis_his_D[0],
                     self.basis_int_N[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1442,7 +1509,8 @@ class MHDOperatorsCore:
                 )
 
                 F_22 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_2form[1] // self.D3, self.space.Ntot_2form[1] // self.D3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_2form[1] // self.D3, self.space.Ntot_2form[1] // self.D3),
                 )
                 F_22.eliminate_zeros()
                 # ------------------------------------------------------------
@@ -1458,14 +1526,14 @@ class MHDOperatorsCore:
 
                 # evaluate Jacobian determinant at at interpolation and quadrature points
                 det_dF = abs(
-                    self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0.0)
+                    self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0.0),
                 )
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
 
                 # assemble sparse matrix
-                val = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
-                row = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
-                col = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                val = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
+                row = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+                col = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
 
                 ker.rhs2_2d(
                     self.dofs_1_D_i[0][0],
@@ -1480,8 +1548,8 @@ class MHDOperatorsCore:
                     self.wts[1],
                     self.basis_his_D[0],
                     self.basis_his_D[1],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1489,7 +1557,8 @@ class MHDOperatorsCore:
                 )
 
                 F_33 = spa.csr_matrix(
-                    (val, (row, col)), shape=(self.space.Ntot_2form[2] // self.N3, self.space.Ntot_2form[2] // self.N3)
+                    (val, (row, col)),
+                    shape=(self.space.Ntot_2form[2] // self.N3, self.space.Ntot_2form[2] // self.N3),
                 )
                 F_33.eliminate_zeros()
                 # ------------------------------------------------------------
@@ -1507,20 +1576,25 @@ class MHDOperatorsCore:
                 # evaluate Jacobian determinant at at interpolation and quadrature points
                 det_dF = abs(
                     self.equilibrium.domain.jacobian_det(
-                        self.eta_int[0], self.eta_his[1].flatten(), self.eta_his[2].flatten()
-                    )
+                        self.eta_int[0],
+                        self.eta_his[1].flatten(),
+                        self.eta_his[2].flatten(),
+                    ),
                 )
                 det_dF = det_dF.reshape(self.nint[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_0_N_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs21(
@@ -1539,8 +1613,8 @@ class MHDOperatorsCore:
                     self.basis_int_N[0],
                     self.basis_his_D[1],
                     self.basis_his_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1563,20 +1637,25 @@ class MHDOperatorsCore:
                 # evaluate Jacobian determinant at at interpolation and quadrature points
                 det_dF = abs(
                     self.equilibrium.domain.jacobian_det(
-                        self.eta_his[0].flatten(), self.eta_int[1], self.eta_his[2].flatten()
-                    )
+                        self.eta_his[0].flatten(),
+                        self.eta_int[1],
+                        self.eta_his[2].flatten(),
+                    ),
                 )
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nint[1], self.nhis[2], self.nq[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_0_N_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs22(
@@ -1595,8 +1674,8 @@ class MHDOperatorsCore:
                     self.basis_his_D[0],
                     self.basis_int_N[1],
                     self.basis_his_D[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1619,20 +1698,25 @@ class MHDOperatorsCore:
                 # evaluate Jacobian determinant at at interpolation and quadrature points
                 det_dF = abs(
                     self.equilibrium.domain.jacobian_det(
-                        self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_int[2]
-                    )
+                        self.eta_his[0].flatten(),
+                        self.eta_his[1].flatten(),
+                        self.eta_int[2],
+                    ),
                 )
                 det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nint[2])
 
                 # assemble sparse matrix
-                val = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=float
+                val = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=float,
                 )
-                row = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                row = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
-                col = np.empty(
-                    self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size, dtype=int
+                col = xp.empty(
+                    self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_0_N_i[2][0].size,
+                    dtype=int,
                 )
 
                 ker.rhs23(
@@ -1651,8 +1735,8 @@ class MHDOperatorsCore:
                     self.basis_his_D[0],
                     self.basis_his_D[1],
                     self.basis_int_N[2],
-                    np.array(self.space.NbaseN),
-                    np.array(self.space.NbaseD),
+                    xp.array(self.space.NbaseN),
+                    xp.array(self.space.NbaseD),
                     EQ / det_dF,
                     val,
                     row,
@@ -1691,14 +1775,14 @@ class MHDOperatorsCore:
 
             # evaluate Jacobian determinant at at interpolation and quadrature points
             det_dF = abs(
-                self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0.0)
+                self.equilibrium.domain.jacobian_det(self.eta_his[0].flatten(), self.eta_his[1].flatten(), 0.0),
             )
             det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1])
 
             # assemble sparse matrix
-            val = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
-            row = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
-            col = np.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+            val = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=float)
+            row = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
+            col = xp.empty(self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size, dtype=int)
 
             ker.rhs2_2d(
                 self.dofs_1_D_i[0][0],
@@ -1713,8 +1797,8 @@ class MHDOperatorsCore:
                 self.wts[1],
                 self.basis_his_D[0],
                 self.basis_his_D[1],
-                np.array(self.space.NbaseN),
-                np.array(self.space.NbaseD),
+                xp.array(self.space.NbaseN),
+                xp.array(self.space.NbaseD),
                 P3_pts / det_dF,
                 val,
                 row,
@@ -1722,7 +1806,8 @@ class MHDOperatorsCore:
             )
 
             PR = spa.csr_matrix(
-                (val, (row, col)), shape=(self.space.Ntot_3form // self.D3, self.space.Ntot_3form // self.D3)
+                (val, (row, col)),
+                shape=(self.space.Ntot_3form // self.D3, self.space.Ntot_3form // self.D3),
             )
             PR.eliminate_zeros()
             # -----------------------------------------------------
@@ -1731,7 +1816,9 @@ class MHDOperatorsCore:
             # --------------- ([his, his, his] of DDD) ------------
             # evaluate equilibrium pressure at quadrature points
             P3_pts = self.equilibrium.p3(
-                self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_his[2].flatten()
+                self.eta_his[0].flatten(),
+                self.eta_his[1].flatten(),
+                self.eta_his[2].flatten(),
             )
 
             P3_pts = P3_pts.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
@@ -1739,20 +1826,25 @@ class MHDOperatorsCore:
             # evaluate Jacobian determinant at at interpolation and quadrature points
             det_dF = abs(
                 self.equilibrium.domain.jacobian_det(
-                    self.eta_his[0].flatten(), self.eta_his[1].flatten(), self.eta_his[2].flatten()
-                )
+                    self.eta_his[0].flatten(),
+                    self.eta_his[1].flatten(),
+                    self.eta_his[2].flatten(),
+                ),
             )
             det_dF = det_dF.reshape(self.nhis[0], self.nq[0], self.nhis[1], self.nq[1], self.nhis[2], self.nq[2])
 
             # assemble sparse matrix
-            val = np.empty(
-                self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=float
+            val = xp.empty(
+                self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                dtype=float,
             )
-            row = np.empty(
-                self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
+            row = xp.empty(
+                self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                dtype=int,
             )
-            col = np.empty(
-                self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size, dtype=int
+            col = xp.empty(
+                self.dofs_1_D_i[0][0].size * self.dofs_1_D_i[1][0].size * self.dofs_1_D_i[2][0].size,
+                dtype=int,
             )
 
             ker.rhs3(
@@ -1774,8 +1866,8 @@ class MHDOperatorsCore:
                 self.basis_his_D[0],
                 self.basis_his_D[1],
                 self.basis_his_D[2],
-                np.array(self.space.NbaseN),
-                np.array(self.space.NbaseD),
+                xp.array(self.space.NbaseN),
+                xp.array(self.space.NbaseD),
                 P3_pts / det_dF,
                 val,
                 row,

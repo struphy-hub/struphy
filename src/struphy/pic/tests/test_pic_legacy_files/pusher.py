@@ -1,4 +1,4 @@
-import numpy as np
+import cunumpy as xp
 
 import struphy.pic.tests.test_pic_legacy_files.pusher_pos as push_pos
 import struphy.pic.tests.test_pic_legacy_files.pusher_vel_2d as push_vel_2d
