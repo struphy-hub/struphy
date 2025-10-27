@@ -60,10 +60,10 @@ jobs:
       #     sudo apt-get install -y texlive-full
       #     sudo apt-get install -y texlive texlive-latex-base texlive-latex-extra texlive-fonts-recommended texlive-science
 
-      - name: Check if pdflatex is available
-        run: |
-          which pdflatex
-          pdflatex --version
+      # - name: Check if pdflatex is available
+      #   run: |
+      #     which pdflatex
+      #     pdflatex --version
 
       - name: Install prerequisites (Ubuntu)
         uses: ./.github/actions/install/ubuntu-latest
