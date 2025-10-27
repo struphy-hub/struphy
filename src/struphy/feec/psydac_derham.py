@@ -1270,7 +1270,7 @@ class Derham:
 
         # if only one process: check if comp is neighbour in non-peridic directions, if this is not the case then return the rank as neighbour id
         if size == 1:
-            if (comp[not kinds] == 1).all():
+            if (comp[~kinds] == 1).all():
                 return rank
 
         # multiple processes
