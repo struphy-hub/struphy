@@ -169,7 +169,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                 plt.xlabel("x")
                                 plt.ylabel("y")
                             plt.colorbar()
-                            plt.title(f"exact function")
+                            plt.title("exact function")
                             ax = plt.gca()
                             ax.set_aspect("equal", adjustable="box")
 
@@ -198,7 +198,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                 plt.xlabel("x")
                                 plt.ylabel("z")
                             plt.colorbar()
-                            plt.title(f"exact function")
+                            plt.title("exact function")
                             ax = plt.gca()
                             ax.set_aspect("equal", adjustable="box")
 
