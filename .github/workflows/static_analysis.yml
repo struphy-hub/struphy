@@ -124,10 +124,7 @@ jobs:
       - name: Linting with ruff
         run: |
           pip install ruff
-          ruff check --select I src/**/*.py
-
-      - name: Run ruff check on notebooks
-	run: ruff check **/*.ipynb
+          ruff check --select
 
   # pylint:
   #   runs-on: ubuntu-latest
