@@ -1233,7 +1233,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         import yaml
 
-        import struphy
         import struphy.utils.utils as utils
 
         # Read struphy state file
