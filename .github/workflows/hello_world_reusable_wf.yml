@@ -6,8 +6,8 @@ on:
         type: string
 
 jobs:
-  hello_wolrd:
+  hello_world:
     runs-on: ${{ inputs.os }}
     steps:
       - name: Say hello
-        run: echo "Hello world"
+        run: echo "Hello world!"
