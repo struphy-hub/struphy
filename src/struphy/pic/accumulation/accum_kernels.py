@@ -367,7 +367,7 @@ def qn_adiabatic_v_correc(
         args_derham.bn3[:] = 1.0
 
         # old velocity times weights
-        filling = old_markers[ip, 4] * markers[ip, 6]
+        filling = old_markers[ip, 3] * markers[ip, 6]
         particle_to_mat_kernels.vec_fill_v0(
             args_derham,
             span1,
@@ -404,7 +404,7 @@ def qn_adiabatic_v_correc(
         args_derham.bn3[:] = 1.0
 
         # new velocity times weights
-        filling = markers[ip, 4] * markers[ip, 6]
+        filling = (-1.) * markers[ip, 3] * markers[ip, 6]
         particle_to_mat_kernels.vec_fill_v0(
             args_derham,
             span1,

@@ -689,9 +689,9 @@ class QNAdiabatic(Propagator):
         )
 
     def __call__(self, dt):
-        # self._call_kinetic_step(dt)
+        self._call_kinetic_step(dt)
         self._update_phi_mean()
-        self._call_potential_step(dt)
+        # self._call_potential_step(dt)
         self._update_lambda()
     
     def _call_kinetic_step(self, dt):
