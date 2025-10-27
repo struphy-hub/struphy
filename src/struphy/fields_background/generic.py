@@ -28,12 +28,12 @@ class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
             assert callable(u_xyz)
 
         if p_xyz is None:
-            p_xyz = lambda x, y, z: 0.0 * x
+            p_xyz = lambda x, y, z: 1.0 * x
         else:
             assert callable(p_xyz)
 
         if n_xyz is None:
-            n_xyz = lambda x, y, z: 0.0 * x
+            n_xyz = lambda x, y, z: 1.0 * x
         else:
             assert callable(n_xyz)
 
