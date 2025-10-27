@@ -4,25 +4,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 from mpi4py import MPI
 import re
-
-from struphy.bsplines.bsplines import basis_funs, find_span
-from struphy.bsplines.evaluation_kernels_1d import evaluation_kernel_1d
-from struphy.feec.basis_projection_ops import BasisProjectionOperators
-from struphy.feec.local_projectors_kernels import fill_matrix_column
 from struphy.feec.psydac_derham import Derham
-from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
 
 from psydac.linalg.solvers import inverse
-from struphy.feec import preconditioner
-from psydac.linalg.basic  import VectorSpace, Vector, LinearOperator
+from psydac.linalg.basic  import Vector
 from psydac.fem.projectors import knot_insertion_projection_operator
 from struphy.feec.linear_operators import LinOpWithTransp
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from struphy.feec.mass import WeightedMassOperators
-from struphy.geometry.domains import Tokamak, Cuboid, HollowCylinder
-from math import comb, log2
-import random
+from struphy.geometry.domains import Cuboid
+from math import comb
 from struphy.feec.utilities import create_equal_random_arrays
 
 def build_operator(expr: str, namespace: dict):
@@ -208,20 +200,16 @@ def get_b_spline_degree(V):
 
 class MultiGridSolver:
 
-    def __init__(self, sp_key, Nel, plist, spl_kind, N_levels, domain, expr: str, namespace: dict):
+    def __init__(self, derham, sp_key, N_levels, domain, expr: str, namespace: dict, max_iter_list, N_cycles, method='cg'):
         """
         
         Initialize the multigrid solver with the given parameters.
         Parameters
         ----------
+        derham : Derham
+            The Derham object representing the finest grid.
         sp_key : str
             Symbolic space key, e.g., "0", "1", "2", "3".
-        Nel : list of int
-            Number of elements in each direction.
-        plist : list of int
-            Spline polynomial degrees in each direction.
-        spl_kind : list of boolean
-            Type of spline periodicity in each direction, True for periodic, False for non-periodic.
         N_levels : int
             Number of multigrid levels.
         domain : struphy.geometry.base.Domain
@@ -257,16 +245,68 @@ class MultiGridSolver:
                     "M1": "WeightedMassOperators(derham, domain).M1",
                     "M2": "WeightedMassOperators(derham, domain).M2",
                 }
-            
+        max_iter_list : list
+            List of maximum iterations for each multigrid level. The first element corresponds to the finest level.
+        N_cycles : int
+            Number of multigrid cycles.
+        method : str
+            Solution method to use (e.g., 'cg' for conjugate gradient).
+
         """
         self.sp_key = sp_key
-        self.Nel = Nel
-        self.plist = plist
-        self.spl_kind = spl_kind
+        self.Nel = derham.Nel
+        self.plist = derham.p
+        self.spl_kind = derham._spl_kind
         self.N_levels = N_levels
         self.domain = domain
         self.expr = expr
         self.namespace = namespace
+        self.derham = derham
+        self.method = method
+        self.max_iter_list = max_iter_list
+        self.N_cycles = N_cycles
+
+        # get global communicator
+        self.comm = MPI.COMM_WORLD
+        self.derhamlist = []
+        self.A = []
+        
+        for level in range(self.N_levels):
+            if level == 0:
+                self.derhamlist.append(self.derham)
+            else:
+                self.derhamlist.append(Derham([self.Nel[0]//(2**level),self.Nel[1]//(2**level),self.Nel[2]], self.plist, self.spl_kind, comm=self.comm, local_projectors=False))
+            #It might look like we are not using derham but it is being used by updated_namespace 
+            #for rebounding the expressions in self.expr to the correct derham level.
+            derhamaux = self.derhamlist[level]
+
+            # 1. Create a local context for the eval. It maps string names
+            #    to the actual objects for the CURRENT level.
+            eval_context = {
+                "derham": derhamaux,
+                "domain": self.domain,
+                "WeightedMassOperators": WeightedMassOperators 
+            }
+
+            # 2. Build the namespace by evaluating each string from the template
+            #    within the context of the current level.
+            updated_namespace = {
+                key: eval(recipe_string, {}, eval_context)
+                for key, recipe_string in self.namespace.items()
+            }
+            
+            self.A.append(build_operator(self.expr, updated_namespace))
+            
+        #We get the inverse of the coarsest system matrix to solve directly the problem in the smaller space
+        self.A_inv = np.linalg.inv(self.A[-1].toarray())
+        
+        self.R = []
+        self.E = []
+        
+        for level in range(self.N_levels-1):
+            self.R.append(self.RestrictionOperator(self.derhamlist[level].Vh_fem[self.sp_key],self.derhamlist[level+1].Vh_fem[self.sp_key]))
+            self.E.append(self.R[level].transpose())
+            
         
     class RestrictionOperator(LinOpWithTransp):
         """
@@ -873,190 +913,88 @@ class MultiGridSolver:
                 
             return out
 
-    def solve(self, b_external):
-        # get global communicator
-        comm = MPI.COMM_WORLD
-        
-        derhamlist = []
-        A = []
-        
-        for level in range(self.N_levels):
-            derhamlist.append(Derham([self.Nel[0]//(2**level),self.Nel[1],self.Nel[2]], self.plist, self.spl_kind, comm=comm, local_projectors=False))
-            #It might look like we are not using derham but it is being used by updated_namespace 
-            #for rebounding the expressions in self.expr to the correct derham level.
-            derham = derhamlist[level]
-            
-            # 1. Create a local context for the eval. It maps string names
-            #    to the actual objects for the CURRENT level.
-            eval_context = {
-                "derham": derham,
-                "domain": self.domain,
-                "WeightedMassOperators": WeightedMassOperators 
-            }
 
-            # 2. Build the namespace by evaluating each string from the template
-            #    within the context of the current level.
-            updated_namespace = {
-                key: eval(recipe_string, {}, eval_context)
-                for key, recipe_string in self.namespace.items()
-            }
-            
-            A.append(build_operator(self.expr, updated_namespace))
+    def solve(self, b, verbose=False): 
+        max_iter = self.max_iter_list
+        N_cycles = self.N_cycles
         
+        #We define a list where to store the number of itteration it takes at each multigrid level
+        #Change N_levels for 1D case
+        Multigrid_itterations = np.zeros(self.N_levels, dtype=int)
+        converged = np.ones(self.N_levels, dtype=bool)
         
-        # I need to write the information of b into another vector 
-        #that belongs to the same space as A[0]
-        b = derhamlist[0].Vh_fem[self.sp_key].coeff_space.zeros()
-
-        fem_space = derhamlist[0].Vh_fem[self.sp_key]
-        symbolic_name = fem_space.symbolic_space
-
-        if(symbolic_name == 'H1' or symbolic_name == "L2"):
-            starts = np.array(fem_space.coeff_space.starts)
-            ends = np.array(fem_space.coeff_space.ends)
-            
-            for i0 in range(starts[0], ends[0]):
-                for i1 in range(starts[1], ends[1]):
-                    for i2 in range(starts[2], ends[2]):
-                        b[i0,i1,i2] = b_external[i0,i1,i2]
+        def V_cycle(l, r_l):
+            #Change for N_levels-1 for 1D case
+            if (l < self.N_levels-1):
+                solver_ini = inverse(self.A[l],self.method, maxiter= max_iter[l])
+                x_l = solver_ini.dot(r_l)
                 
-        else:
-            starts = np.array([vi.starts for vi in fem_space.coeff_space.spaces])
-            ends = np.array([vi.ends for vi in fem_space.coeff_space.spaces])
-            for h in range(3):
-                for i0 in range(starts[h][0], ends[h][0]):
-                    for i1 in range(starts[h][1], ends[h][1]):
-                        for i2 in range(starts[h][2], ends[h][2]):
-                            b[h][i0,i1,i2] = b_external[h][i0,i1,i2]
-        
-        #We get the inverse of the coarsest system matrix to solve directly the problem in the smaller space
-        A_inv = np.linalg.inv(A[-1].toarray())
-        
-        R = []
-        E = []
-        
-        for level in range(self.N_levels-1):
-            R.append(self.RestrictionOperator(derhamlist[level].Vh_fem[self.sp_key],derhamlist[level+1].Vh_fem[self.sp_key]))
-            E.append(R[level].transpose())
-            
-        method = 'cg'
-        
-        #800
-        max_iter_list = [14,14,14,18,12,10]
-        #40
-        N_cycles = 2
-        
-        def call_multigrid(max_iter, N_cycles):
-            #We define a list where to store the number of itteration it takes at each multigrid level
-            #Change N_levels for 1D case
-            Multigrid_itterations = np.zeros(self.N_levels, dtype=int)
-            converged = np.zeros(self.N_levels, dtype=bool)
-            
-            def V_cycle(l, r_l):
-                #Change for N_levels-1 for 1D case
-                if (l < self.N_levels-1):
-                    solver_ini = inverse(A[l],method, maxiter= max_iter[l])
-                    x_l = solver_ini.dot(r_l)
-                    
-                    #We count the number of itterations
-                    Multigrid_itterations[l] += solver_ini._info['niter']
-                    
-                    #We determine if the itterative solver converged in the maximum number of itterations
-                    converged[l] = solver_ini._info['success']
-                    if converged[l] == True:
-                        return x_l
-                    
-                    r_l = r_l - A[l].dot(x_l)
-                    
-                    r_l_plus_1 = R[l].dot(r_l)
-                    x_l_plus_1 = V_cycle(l+1, r_l_plus_1)
-                    #New
-                    #x_l_aux = E[l].dot(x_l_plus_1)
-                    #x_l = x_l + x_l_aux
-                    #r_l = r_l  - A[l].dot(x_l_aux)
-                    #solver_end = inverse(A[l].T,method, maxiter= max_iter, x0 =x_l)
-                    #x_l = solver_end.dot(r_l)
-                    #Multigrid_itterations[l] += solver_end._info['niter']
-                    ####
-                    #old
-                    x_l = x_l + E[l].dot(x_l_plus_1)
-                    ###
-                    
-                else:
-                    #Solve directly
-                    x_l = direct_solver(A_inv,r_l, derhamlist[l].Vh_fem[self.sp_key])  
-                return x_l 
-            
-            #N_cycles = 6
-            x_0 = derhamlist[0].Vh_fem[self.sp_key].coeff_space.zeros()
-            
-            #symbolic_space
-            # print(f"X_0 space = {derhamlist[0].Vh_fem[self.sp_key].symbolic_space}")
-            
-            # xh1_0 = derhamlist[0].Vh_fem['0'].coeff_space.zeros()
-            # xh1_1 = derhamlist[1].Vh_fem['0'].coeff_space.zeros()
-            # xh1_2 = derhamlist[2].Vh_fem['0'].coeff_space.zeros()
-            # xhcurl = derhamlist[0].Vh_fem['1'].coeff_space.zeros()
-            # xhdiv = derhamlist[0].Vh_fem['2'].coeff_space.zeros()
-            # xl2 = derhamlist[0].Vh_fem['3'].coeff_space.zeros()
-
-            # derham0 = derhamlist[0]
-            # derham1 =  derham0
-            # print(f'{derham0 = }')
-            # print(f'{derham1 = }')
-            
-            
-            
-            
-            # print(f'{xh1_0.space = }')
-            # print(f'{xh1_1.space = }')
-            # print(f'{xh1_2.space = }')
-            # #print(f'{vars(x_0) = }')
-            # print(f'{A[0].codomain = }')
-            # print(f'{A[1].codomain = }')
-            # print(f'{A[2].codomain = }')
-            
-            timei = time.time()
-            for cycle in range(N_cycles):
-                solver = inverse(A[0],method, maxiter= max_iter[0], x0 = x_0)
-                print(f"A[0].domain = {A[0].domain}")
-                print(f"{b.space = }")
-                print(f"{solver._domain._npts = }")
-                
-                x_0 = solver.dot(b)
-                
-                Multigrid_itterations[0] += solver._info['niter']
+                #We count the number of itterations
+                Multigrid_itterations[l] += solver_ini._info['niter']
                 
                 #We determine if the itterative solver converged in the maximum number of itterations
-                converged[0] = solver._info['success']
-                if converged[0] == True:
-                    print("Hello")
-                    x = x_0
-                    break
+                converged[l] = solver_ini._info['success']
+                if converged[l] == True:
+                    return x_l
                 
-                r_0 = b - A[0].dot(x_0)
-                r_1 = R[0].dot(r_0)
+                r_l = r_l - self.A[l].dot(x_l)
                 
-                x_0 = x_0 + E[0].dot(V_cycle(1,r_1))
+                r_l_plus_1 = self.R[l].dot(r_l)
+                x_l_plus_1 = V_cycle(l+1, r_l_plus_1)
+                #New
+                #x_l_aux = self.E[l].dot(x_l_plus_1)
+                #x_l = x_l + x_l_aux
+                #r_l = r_l  - self.A[l].dot(x_l_aux)
+                #solver_end = inverse(self.A[l].T,self.method, maxiter= max_iter, x0 =x_l)
+                #x_l = solver_end.dot(r_l)
+                #Multigrid_itterations[l] += solver_end._info['niter']
+                ####
+                #old
+                x_l = x_l + self.E[l].dot(x_l_plus_1)
+                ###
+                
+            else:
+                #Solve directly
+                x_l = direct_solver(self.A_inv,r_l, self.derhamlist[l].Vh_fem[self.sp_key])  
+            return x_l 
+        
+        timei = time.time()
+        for cycle in range(N_cycles):
+            if cycle == 0:
+                solver = inverse(self.A[0],self.method, maxiter= max_iter[0], tol=1e-8)
+            else:
+                solver = inverse(self.A[0],self.method, maxiter= max_iter[0], x0 = x_0, tol=1e-8)
+            x_0 = solver.dot(b)
+
+            Multigrid_itterations[0] += solver._info['niter']
             
-            if converged[0] == False:
-                solver = inverse(A[0],method,x0 = x_0, tol = 10**(-6))
-                x = solver.dot(b)
-                Multigrid_itterations[0] += solver._info['niter']
+            #We determine if the itterative solver converged in the maximum number of itterations
+            converged[0] = solver._info['success']
+            if converged[0] == True:
+                x = x_0
+                break
             
-            timef = time.time()
+            r_0 = b - self.A[0].dot(x_0)
+            r_1 = self.R[0].dot(r_0)
             
-            
-            
-            #We get the final error
-            Multigrid_error = solver._info['res_norm']
-            
-            Multigrid_time = timef- timei
-            
+            x_0 = x_0 + self.E[0].dot(V_cycle(1,r_1))
+        
+        if converged[0] == False:
+            solver = inverse(self.A[0],self.method,x0 = x_0, tol = 10**(-10))
+            x = solver.dot(b)
+            Multigrid_itterations[0] += solver._info['niter']
+        
+        timef = time.time()
+        
+        #We get the final error
+        Multigrid_error = solver._info['res_norm']
+        
+        Multigrid_time = timef- timei
+        
+        if verbose:
             print("################")
             print("################")
             print("################")
-            #print(f'{a1 = }')
             print(f'{max_iter = }')
             print(f'{N_cycles = }')
             print("################")
@@ -1064,24 +1002,34 @@ class MultiGridSolver:
             print(f'{Multigrid_itterations = }')
             print(f'{Multigrid_error = }')
             print(f'{Multigrid_time = }')
+            print(f'{converged = }')
             print("################")
-            print("################")   
-            
-        call_multigrid(max_iter_list, N_cycles) 
-        
-        
-        
-
-
+            print("################")  
+        return x 
+     
+       
+class MultiGridPoissonSolver(MultiGridSolver):
+    def __init__(self, derham: Derham, sp_key: str, N_levels: int, domain, max_iter_list: list, N_cycles: int, method: str = 'cg'):
+        expr = " grad.T @ M1 @ grad"
+        namespace = {"grad.T": "derham.grad.T",
+        "grad":   "derham.grad",
+        "M1":     "WeightedMassOperators(derham, domain).M1"}
+        super().__init__(derham, sp_key, N_levels, domain, expr, namespace, max_iter_list, N_cycles, method)
+    
+    
+    
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD
-    Nel = [32,1,1]
+    Nel = [16,16,1]
     sp_key = '0'
-    plist = [1,1,1]
+    plist = [2,2,1]
     spl_kind = [True,True,True]
-    N_levels = 2
+    N_levels = 3
     domain = Cuboid()
     derham = Derham([Nel[0],Nel[1],Nel[2]], plist, spl_kind, comm=comm, local_projectors=False)
+    max_iter = [10, 25, 25]
+    N_cycles = 5
+    method = 'cg'
     
     expr = " grad.T @ M1 @ grad"
     namespace = {"grad.T": "derham.grad.T",
@@ -1106,13 +1054,17 @@ if __name__ == "__main__":
 
     A = build_operator(expr, updated_namespace)
 
-    multigrid = MultiGridSolver( sp_key, Nel, plist, spl_kind, N_levels, domain, expr, namespace)
+    multigrid = MultiGridPoissonSolver(derham, sp_key, N_levels, domain, max_iter, N_cycles, method)
     
-    u_stararr, u_star = create_equal_random_arrays(derham.Vh_fem[sp_key], seed=45)
-    
-    
-    print(f"A_out =  {A.domain}")
-    
+    u_stararr, u_star = create_equal_random_arrays(derham.Vh_fem[sp_key], seed=8765)
     #We compute the rhs
     b = A.dot(u_star)
-    multigrid.solve(b)  
+    b_arr = b.toarray()
+    u = multigrid.solve(b, verbose=True) 
+    b_ans_arr = A.dot(u).toarray()
+    if np.allclose(b_ans_arr, b_arr, atol=1e-6):
+        print("The multigrid solver computed the correct solution.") 
+    else:
+        print("The multigrid solver did not compute the correct solution.") 
+        print(f"{b_ans_arr = }")
+        print(f"{b_arr = }")
