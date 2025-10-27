@@ -136,7 +136,6 @@ def test_equils(equil_domain_pair):
     Test field evaluations of all implemented MHD equilbria with default parameters.
     """
 
-    from struphy.fields_background import equils
     from struphy.fields_background.base import CartesianMHDequilibrium, NumericalMHDequilibrium
     from struphy.geometry import domains
 
