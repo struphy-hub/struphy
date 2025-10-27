@@ -6,4 +6,5 @@ runs:
     - name: Run unit tests with MPI
       shell: bash
       run: |
+        pip install mpi4py
         struphy test unit --mpi 2
