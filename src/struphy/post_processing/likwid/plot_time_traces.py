@@ -6,6 +6,7 @@ import cunumpy as xp
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.io as pio
+import plotly.graph_objects as go
 
 # pio.kaleido.scope.mathjax = None
 import struphy.post_processing.likwid.maxplotlylib as mply
@@ -17,19 +18,31 @@ def glob_to_regex(pat: str) -> str:
     return "^" + esc.replace(r"\*", ".*").replace(r"\?", ".") + "$"
 
 
+# def plot_region(region_name, groups_include=["*"], groups_skip=[]):
+#     # skips first
+#     for pat in groups_skip:
+#         rx = glob_to_regex(pat)
+#         if re.fullmatch(rx, region_name):
+#             return False
+
+#     # includes next
+#     for pat in groups_include:
+#         rx = glob_to_regex(pat)
+#         if re.fullmatch(rx, region_name):
+#             return True
+
+#     return False
+
+
 def plot_region(region_name, groups_include=["*"], groups_skip=[]):
-    # skips first
-    for pat in groups_skip:
-        rx = glob_to_regex(pat)
-        if re.fullmatch(rx, region_name):
+    from fnmatch import fnmatch
+
+    for pattern in groups_skip:
+        if fnmatch(region_name, pattern):
             return False
-
-    # includes next
-    for pat in groups_include:
-        rx = glob_to_regex(pat)
-        if re.fullmatch(rx, region_name):
+    for pattern in groups_include:
+        if fnmatch(region_name, pattern):
             return True
-
     return False
 
 
@@ -145,21 +158,6 @@ def plot_avg_duration_bar_chart(
     figure_path = os.path.join(output_path, "avg_duration_per_region.pdf")
     plt.savefig(figure_path)
     print(f"Saved average duration bar chart to: {figure_path}")
-
-
-import plotly.graph_objects as go
-
-
-def plot_region(region_name, groups_include=["*"], groups_skip=[]):
-    from fnmatch import fnmatch
-
-    for pattern in groups_skip:
-        if fnmatch(region_name, pattern):
-            return False
-    for pattern in groups_include:
-        if fnmatch(region_name, pattern):
-            return True
-    return False
 
 
 def plot_gantt_chart_plotly(
