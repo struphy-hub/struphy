@@ -168,6 +168,7 @@ ignore = [
     "F405",
     "D211",
     "D213",
+    "F841", # Ignore unused variables
 ]
 
 [tool.pytest.ini_options]
