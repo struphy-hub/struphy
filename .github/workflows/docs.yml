@@ -51,8 +51,8 @@ jobs:
 
       - name: Install pandoc
         run: |
-          apt-get update
-          apt-get install -y pandoc
+          sudo apt update -y
+          sudo apt install -y pandoc
 
       # - name: Install TeX Live with pdflatex
       #   run: |
