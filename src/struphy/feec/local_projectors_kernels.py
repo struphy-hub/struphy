@@ -63,7 +63,7 @@ def get_local_problem_size(periodic: "bool[:]", p: "int[:]", IoH: "bool[:]"):
 
     for h in range(3):
         # Interpolation
-        if IoH[h] == False:
+        if not IoH[h]:
             lenj[h] = 2 * p[h] - 1
         # Histopolation
         else:
@@ -734,7 +734,7 @@ def solve_local_main_loop_weighted(
             if counteri0 >= rows0[i00] and counteri0 <= rowe0[i00]:
                 compute0 = True
                 break
-        if compute0 == True:
+        if compute0:
             counteri1 = 0
             for i1 in range(args_solve.starts[1], args_solve.ends[1] + 1):
                 # This bool variable tell us if this row has a non-zero FE coefficient, based on the current basis function we are using on our projection
@@ -744,7 +744,7 @@ def solve_local_main_loop_weighted(
                     if counteri1 >= rows1[i11] and counteri1 <= rowe1[i11]:
                         compute1 = True
                         break
-                if compute1 == True:
+                if compute1:
                     counteri2 = 0
                     for i2 in range(args_solve.starts[2], args_solve.ends[2] + 1):
                         # This bool variable tell us if this row has a non-zero FE coefficient, based on the current basis function we are using on our projection
@@ -754,7 +754,7 @@ def solve_local_main_loop_weighted(
                             if counteri2 >= rows2[i22] and counteri2 <= rowe2[i22]:
                                 compute2 = True
                                 break
-                        if compute2 == True:
+                        if compute2:
                             L123 = 0.0
                             startj1, endj1 = select_quasi_points(
                                 i0,
@@ -850,7 +850,7 @@ def find_relative_col(col: int, row: int, Nbasis: int, periodic: bool):
         The relative column position of col with respect to the the current row of the StencilMatrix.
 
     """
-    if periodic == False:
+    if not periodic:
         relativecol = col - row
     # In the periodic case we must account for the possible looping of the basis functions when computing the relative row postion
     else:
@@ -944,7 +944,7 @@ def assemble_basis_projection_operator_local(
                 compute0 = True
                 break
         relativecol0 = find_relative_col(col[0], row0, VNbasis[0], periodic[0])
-        if relativecol0 >= -p[0] and relativecol0 <= p[0] and compute0 == True:
+        if relativecol0 >= -p[0] and relativecol0 <= p[0] and compute0:
             count1 = 0
             for row1 in range(starts[1], ends[1] + 1):
                 # This bool variable tell us if this row has a non-zero FE coefficient, based on the current basis function we are using on our projection
@@ -955,7 +955,7 @@ def assemble_basis_projection_operator_local(
                         compute1 = True
                         break
                 relativecol1 = find_relative_col(col[1], row1, VNbasis[1], periodic[1])
-                if relativecol1 >= -p[1] and relativecol1 <= p[1] and compute1 == True:
+                if relativecol1 >= -p[1] and relativecol1 <= p[1] and compute1:
                     count2 = 0
                     for row2 in range(starts[2], ends[2] + 1):
                         # This bool variable tell us if this row has a non-zero FE coefficient, based on the current basis function we are using on our projection
@@ -966,7 +966,7 @@ def assemble_basis_projection_operator_local(
                                 compute2 = True
                                 break
                         relativecol2 = find_relative_col(col[2], row2, VNbasis[2], periodic[2])
-                        if relativecol2 >= -p[2] and relativecol2 <= p[2] and compute2 == True:
+                        if relativecol2 >= -p[2] and relativecol2 <= p[2] and compute2:
                             mat[
                                 count0 + pds[0],
                                 count1 + pds[1],
@@ -1002,7 +1002,7 @@ def are_quadrature_points_zero(aux: "int[:]", p: int, basis: "float[:]"):
             if basis[in_start + ii] != 0.0:
                 all_zero = False
                 break
-        if all_zero == True:
+        if all_zero:
             aux[i] = 0
 
 
@@ -1085,33 +1085,33 @@ def get_rows(
             Array where we put a one if the current row could have a non-zero FE coefficient for the column given by col.
     """
     # Periodic boundary conditions
-    if periodic == True:
+    if periodic:
         # Histopolation
-        if IoH == True:
+        if IoH:
             # D-splines
-            if BoD == True:
+            if BoD:
                 get_rows_periodic(starts, ends, -p + 1, p, Nbasis, col, aux)
             # B-splines
-            if BoD == False:
+            if not BoD:
                 get_rows_periodic(starts, ends, -p + 1, p + 1, Nbasis, col, aux)
         # Interpolation
-        if IoH == False:
+        if not IoH:
             # D-splines
-            if BoD == True:
+            if BoD:
                 # Special case p = 1
                 if p == 1:
                     get_rows_periodic(starts, ends, -1, 1, Nbasis, col, aux)
                 if p != 1:
                     get_rows_periodic(starts, ends, -p + 1, p - 1, Nbasis, col, aux)
             # B-splines
-            if BoD == False:
+            if not BoD:
                 get_rows_periodic(starts, ends, -p + 1, p, Nbasis, col, aux)
     # Clamped boundary conditions
-    if periodic == False:
+    if not periodic:
         # Histopolation
-        if IoH == True:
+        if IoH:
             # D-splines
-            if BoD == True:
+            if BoD:
                 count = 0
                 for row in range(starts, ends + 1):
                     if row >= 0 and row <= (p - 2) and col >= 0 and col <= row + p - 1:
@@ -1124,7 +1124,7 @@ def get_rows(
                         aux[count] = 1
                     count += 1
             # B-splines
-            if BoD == False:
+            if not BoD:
                 count = 0
                 for row in range(starts, ends + 1):
                     if row >= 0 and row <= (p - 2) and col >= 0 and col <= (row + p):
@@ -1135,9 +1135,9 @@ def get_rows(
                         aux[count] = 1
                     count += 1
         # Interpolation
-        if IoH == False:
+        if not IoH:
             # D-splines
-            if BoD == True:
+            if BoD:
                 count = 0
                 for row in range(starts, ends + 1):
                     if row == 0 and col <= (p - 1):
@@ -1152,7 +1152,7 @@ def get_rows(
                         aux[count] = 1
                     count += 1
             # B-splines
-            if BoD == False:
+            if not BoD:
                 count = 0
                 for row in range(starts, ends + 1):
                     if row == 0 and col <= p:
