@@ -83,7 +83,6 @@ jobs:
 
       - name: Build Sphinx docs
         run: |
-          source env/bin/activate
           cd doc
           make html
 
