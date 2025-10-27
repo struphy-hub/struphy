@@ -7,23 +7,8 @@ name: "Clone and install struphy"
 runs:
   using: composite
   steps:
-    - name: Set up virtual environment "env"
-      shell: bash
-      run: |
-        python -m venv env
-        source env/bin/activate 
-        pip list
     - name: Install Struphy
       shell: bash
       run: |
-        which python3
-        source env/bin/activate 
-        which python3
         pip install --upgrade pip
         pip install ".[dev,doc]"
-    - name: Compile Struphy with default settings
-      shell: bash
-      run: |
-        source env/bin/activate 
-        pip show struphy
-        struphy compile

@@ -72,8 +72,14 @@ jobs:
           CC: ${{ env.CC }}
           CXX: ${{ env.CXX }}
 
-      - name: Install and compile Struphy (dev-doc)
+      - name: Install Struphy (dev-doc)
         uses: ./.github/actions/install/struphy-dev-doc
+
+      - name: Compile Struphy
+        shell: bash
+        run: |
+          struphy compile --status
+          struphy compile -y
 
       - name: Build Sphinx docs
         run: |
