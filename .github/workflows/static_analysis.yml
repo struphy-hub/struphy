@@ -124,7 +124,7 @@ jobs:
       - name: Linting with ruff
         run: |
           pip install ruff
-          ruff check --select
+          ruff check --select I
 
   # pylint:
   #   runs-on: ubuntu-latest
