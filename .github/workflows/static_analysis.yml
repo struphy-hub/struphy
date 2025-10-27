@@ -1,4 +1,4 @@
-name: isort & ruff
+# name: isort & ruff
 
 on:
   push:

@@ -1,4 +1,4 @@
-name: Deploy docs to GitHub Pages
+# name: Deploy docs to GitHub Pages
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
   pull_request:
     branches:
       - devel
-      
+
   workflow_dispatch:
 
 defaults:
