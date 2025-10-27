@@ -1,5 +1,9 @@
 name: "Clone and install struphy"
 
+defaults:
+  run:
+    shell: bash
+
 runs:
   using: composite
   steps:
@@ -9,7 +13,6 @@ runs:
         source env/bin/activate 
         pip list
     - name: Install Struphy
-      shell: bash
       run: |
         which python3
         source env/bin/activate 
@@ -17,7 +20,6 @@ runs:
         pip install --upgrade pip
         pip install ".[dev,doc]"
     - name: Compile Struphy with default settings
-      shell: bash
       run: |
         source env/bin/activate 
         pip show struphy
