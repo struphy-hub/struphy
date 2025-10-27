@@ -126,6 +126,9 @@ jobs:
           pip install ruff
           ruff check --select I src/**/*.py
 
+      - name: Run ruff check on notebooks
+	run: ruff check **/*.ipynb
+
   # pylint:
   #   runs-on: ubuntu-latest
   #   continue-on-error: true
