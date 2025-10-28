@@ -387,7 +387,7 @@ def plot_speedup(
 
     fig.update_layout(
         # xaxis_title='Job name',
-        xaxis_title=f"MPI tasks (#)",
+        xaxis_title="MPI tasks (#)",
         yaxis_title=re.sub(r"\[.*?\]", "[relative]", metric2),
         showlegend=True,
         xaxis_tickformat=".1f",
