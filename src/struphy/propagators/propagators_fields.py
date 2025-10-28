@@ -2189,7 +2189,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._bf = self.derham.create_spline_function("bf", "Hdiv")
 
         # Initialize BasisProjectionOperator
-        if self.derham._with_local_projectors == True:
+        if self.derham._with_local_projectors:
             self._TB = BasisProjectionOperatorLocal(
                 P1,
                 Vh,
@@ -8644,7 +8644,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # _Anp[1] and _Anppre[1] remain unchanged
             _Anp = [A11np, A22np]
-            if self._preconditioner == True:
+            if self._preconditioner:
                 _A11prenp = self._M2np / dt  # + self._A11prenp_notimedependency
                 _Anppre = [_A11prenp, _A22prenp]
 
@@ -8681,7 +8681,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 _Fnp = [_F1np, _F2np]
 
             if self.rank == 0:
-                if self._preconditioner == True:
+                if self._preconditioner:
                     self._solver_UzawaNumpy.Apre = _Anppre
                 self._solver_UzawaNumpy.A = _Anp
                 self._solver_UzawaNumpy.F = _Fnp
