@@ -107,7 +107,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             Cnp = derhamnumpy.curl.toarray()
             # Dnp = D.toarray()
             # Cnp = C.toarray()
-            if derham.with_local_projectors == True:
+            if derham.with_local_projectors:
                 S21np = S21.toarray
             else:
                 S21np = S21.toarray_struphy()
@@ -121,7 +121,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
             Cnp = derhamnumpy.curl.tosparse()
             # Dnp = D.tosparse()
             # Cnp = C.tosparse()
-            if derham.with_local_projectors == True:
+            if derham.with_local_projectors:
                 S21np = S21.tosparse
             else:
                 S21np = S21.toarray_struphy(is_sparse=True)
@@ -242,7 +242,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         TestA11dot = TestA11.dot(x1)
         compare_arrays(TestA11dot, TestA11composeddot, mpi_rank, atol=1e-5)
         # compare_arrays(TestA11dot, TestA11npdot, mpi_rank, atol=1e-5)
-        print(f"Comparison numpy to psydac succesfull.")
+        print("Comparison numpy to psydac succesfull.")
 
     M2pre = MassMatrixPreconditioner(mass_mats.M2)
 
@@ -270,7 +270,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         x_uzawa = {}
         x_uzawa[0] = x_u
         x_uzawa[1] = x_ue
-        if show_plots == True:
+        if show_plots:
             _plot_residual_norms(residual_norms)
     elif method_for_solving == "SaddlePointSolverGMRES":
         # Wrong initialization to check if changed
