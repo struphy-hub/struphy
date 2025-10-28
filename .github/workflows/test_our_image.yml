@@ -61,10 +61,10 @@ jobs:
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
       - name: Checkout repo
         uses: actions/checkout@v4
-      - name: Actovate pre-installed virtual environment
+      - name: Activate pre-installed virtual environment
         run: |
           ls / -a
-          source /env_c_/bin/activate
+          source /struphy_c_/bin/activate
           pip install -U pip
           pip list
           which python3
@@ -73,7 +73,7 @@ jobs:
           pip list
           which python3
           ls -a
-          source /env_c_/bin/activate
+          source /struphy_c_/bin/activate
           which python3
           pip install ".[test, dev, docs]"
 
