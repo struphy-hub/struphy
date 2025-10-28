@@ -29,20 +29,26 @@ jobs:
         password: ${{ secrets.GHCR_TOKEN }}
  
     steps:
-    #   - name: Checkout
-    #     uses: actions/checkout@v4
-      - name: Check for dockerenv file
-        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
-      - name: Inspect Image
-        shell: bash
-        run: |
-          pwd
-          ls
-          uname -a
-          python3 -m venv env
-          source env/bin/activate
-          pip install -U pip
-          pip list
+        - name: Inspect Image
+          run: |
+            pwd
+            ls
+            uname -a
+            python3 -m venv env
+            source env/bin/activate
+            pip install -U pip
+            pip list
+        - name: Checkout
+          uses: actions/checkout@v4
+        - name: Check for dockerenv file
+          run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+        - name: Install Struphy
+          run: |
+            ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+            pip list
+            pip install -U pip
+            pip install ".[test, dev, docs]" 
+
 
   with-struphy:
     runs-on: ubuntu-latest
@@ -60,9 +66,10 @@ jobs:
         shell: bash
         run: |
           pwd
-          ls
+          ls -a
           uname -a
-          source env_c_/bin/activate
+          ls /
+          ls ~
           struphy -h
           struphy compile
 
