@@ -1878,6 +1878,7 @@ class Particles(metaclass=ABCMeta):
         components: tuple[bool],
         bin_edges: tuple[np.ndarray],
         divide_by_jac: bool = True,
+        bin_vx: bool = False, 
     ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
         Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
@@ -1916,6 +1917,10 @@ class Particles(metaclass=ABCMeta):
         # compute weights of histogram:
         _weights0 = self.weights0
         _weights = self.weights
+        if bin_vx:
+            _weights0 *= self.velocities[:,0]
+            _weights *= self.velocities[:,0] 
+        
 
         if divide_by_jac:
             _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
@@ -1923,7 +1928,9 @@ class Particles(metaclass=ABCMeta):
 
             _weights0 /= self.domain.jacobian_det(self.positions, remove_outside=False)
             # _weights0 /= self.velocity_jacobian_det(*self.phasespace_coords.T)
-
+        
+            
+            
         f_slice = np.histogramdd(
             self.markers_wo_holes_and_ghost[:, slicing],
             bins=bin_edges,

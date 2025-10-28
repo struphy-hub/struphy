@@ -8,7 +8,7 @@ from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
 from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
-from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters, BinningPlot
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
@@ -868,7 +868,7 @@ def test_sph_velocity_evaluation(
 
     # DOMAIN object
     dom_type = "Cuboid"
-    dom_params = {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}
+    dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
     domain_class = getattr(domains, dom_type)
     domain = domain_class(**dom_params)
 
@@ -922,6 +922,28 @@ def test_sph_velocity_evaluation(
     particles.draw_markers(sort=True, verbose=True)
     # particles.mpi_sort_markers()
     particles.initialize_weights()
+    
+    v1_bins = np.linspace(0, 1.0, 200, endpoint=True)
+    dv = v1_bins[1] - v1_bins[0]
+
+    binned_res, r2 = particles.binning(
+        [True, False, False, False, False, False],
+        [v1_bins], bin_vx= True
+    )
+    
+    v1_plot = v1_bins[:-1] + dv / 2
+
+    #ana_res = 1.0 / np.sqrt(2.0 * np.pi) * np.exp(-(v1_plot**2) / 2.0)
+
+    if show_plot:
+        #plt.plot(v1_plot, ana_res, label="Analytical result")
+        plt.plot(v1_plot, binned_res, "r*", label="From binning")
+        plt.title(r"Full-$f$: Maxwellian in $v_1$-direction")
+        plt.xlabel(r"$v_1$")
+        plt.ylabel(r"$f(v_1)$")
+        plt.legend()
+        plt.show()
+        plt.savefig("Binning_v1.png")
 
     h1 = 1 / boxes_per_dim[0]
     h2 = 1 / boxes_per_dim[1]
@@ -991,6 +1013,7 @@ def test_sph_velocity_evaluation(
             plt.legend()
             plt.grid(True)
             plt.show()
+            plt.savefig("image_test.png")
 
     
     # if tesselation:
@@ -998,7 +1021,7 @@ def test_sph_velocity_evaluation(
     # else:
     #     assert err_ux < 0.05
 
-
+    
 
 if __name__ == "__main__":
     test_sph_velocity_evaluation(
