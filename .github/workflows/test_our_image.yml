@@ -31,6 +31,8 @@ jobs:
     steps:
     #   - name: Checkout
     #     uses: actions/checkout@v4
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
       - name: Inspect Image
         run: |
           ls
@@ -52,6 +54,8 @@ jobs:
     steps:
     #   - name: Checkout
     #     uses: actions/checkout@v4
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
       - name: Inspect Image
         run: |
           ls
