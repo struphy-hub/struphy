@@ -42,14 +42,14 @@ def struphy_test(
                 str(mpi),
                 "pytest",
                 "-k",
-                "not _models and not _tutorial and not pproc",
+                "not _models and not _tutorial and not pproc and not _verif_",
                 "--with-mpi",
             ]
         else:
             cmd = [
                 "pytest",
                 "-k",
-                "not _models and not _tutorial and not pproc",
+                "not _models and not _tutorial and not pproc and not _verif_",
             ]
 
         # now run parallel unit tests
