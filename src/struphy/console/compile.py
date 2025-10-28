@@ -78,8 +78,6 @@ def struphy_compile(
 
     # Read struphy state file
     state = utils.read_state()
-    
-    print(f"before {state = }")
 
     # collect kernels
     if "kernels" not in state:
@@ -105,8 +103,6 @@ def struphy_compile(
         utils.save_state(state)
     # source files
     sources = " ".join(state["kernels"])
-    
-    print(f"after {state = }")
 
     # actions
     if delete:
@@ -226,9 +222,6 @@ def struphy_compile(
             flags += " --time-execution"
 
         # state
-        print(f"inside else {state = }")
-        print(f"{yes = }")
-        
         if state["last_used_language"] not in (language, None):
             if yes:
                 yesno = "Y"
@@ -236,8 +229,6 @@ def struphy_compile(
                 yesno = input(
                     f"Kernels compiled in language {state['last_used_language']} exist, will be deleted, continue (Y/n)?",
                 )
-
-            print(f"{yesno = }")
 
             if yesno in ("", "Y", "y", "yes"):
                 cmd = [
@@ -255,16 +246,12 @@ def struphy_compile(
         state["last_used_omp_feec"] = flag_omp_feec
 
         utils.save_state(state)
-        
-        print(f"{state = }")
 
         # install psydac from wheel if not there
         source_install = False
         for req in importlib.metadata.distribution("struphy").requires:
             if "psydac" in req:
                 source_install = True
-
-        print(f"{source_install = }")
 
         struphy_ver = importlib.metadata.version("struphy")
 
