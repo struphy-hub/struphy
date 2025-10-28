@@ -167,10 +167,10 @@ def test_exp_growth(spaces, algo, show_plots=False):
         print(f"Convergence check passed on {rank =}.")
 
         if rank == 0:
-            plt.loglog(h_vec, h_vec, "--", label=f"h")
-            plt.loglog(h_vec, [h**2 for h in h_vec], "--", label=f"h^2")
-            plt.loglog(h_vec, [h**3 for h in h_vec], "--", label=f"h^3")
-            plt.loglog(h_vec, [h**4 for h in h_vec], "--", label=f"h^4")
+            plt.loglog(h_vec, h_vec, "--", label="h")
+            plt.loglog(h_vec, [h**2 for h in h_vec], "--", label="h^2")
+            plt.loglog(h_vec, [h**3 for h in h_vec], "--", label="h^3")
+            plt.loglog(h_vec, [h**4 for h in h_vec], "--", label="h^4")
             plt.loglog(h_vec, err_vec, "o-k", label=f"{spaces[j]}-space, {algo}")
     if rank == 0:
         plt.xlabel("log(h)")
