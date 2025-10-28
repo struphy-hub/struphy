@@ -1755,8 +1755,137 @@ class PushVinSPHpressure(Propagator):
         self.variables.fluid.particles.put_particles_in_boxes()
         self._pusher(dt)
 
+class PushVinViscousPotential2D(Propagator):
+    r"""For each marker :math:`p`, solves
 
-class PushVinViscousPotential(Propagator):
+    .. math::
+
+        \frac{\textnormal d \mathbf v_p(t)}{\textnormal d t} = \kappa_p \sum_{i=1}^N w_i \left( \frac{1}{\rho^{N,h}(\boldsymbol \eta_p)} + \frac{1}{\rho^{N,h}(\boldsymbol \eta_i)} \right) DF^{-\top}\nabla W_h(\boldsymbol \eta_p - \boldsymbol \eta_i) \,,
+
+    where :math:`DF^{-\top}` denotes the inverse transpose Jacobian, and with the smoothed density
+
+    .. math::
+
+        \rho^{N,h}(\boldsymbol \eta) = \frac 1N \sum_{j=1}^N w_j \, W_h(\boldsymbol \eta - \boldsymbol \eta_j)\,,
+
+    where :math:`W_h(\boldsymbol \eta)` is a smoothing kernel from :mod:`~struphy.pic.sph_smoothing_kernels`.
+    Time stepping:
+
+    * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
+    """
+
+    @staticmethod
+    def options(default=False):
+        dct = {}
+        dct["kernel_type"] = list(Particles.ker_dct())
+        dct["kernel_width"] = None
+        dct["algo"] = [
+            "forward_euler",
+        ]  # "heun2", "rk2", "heun3", "rk4"]
+        if default:
+            dct = descend_options_dict(dct, [])
+        return dct
+
+    def __init__(
+        self,
+        particles: ParticlesSPH,
+        *,
+        kernel_type: str = "gaussian_2d",
+        kernel_width: tuple = None,
+        algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
+    ):
+        # base class constructor call
+        super().__init__(particles)
+
+        # init kernel for evaluating density etc. before each time step.
+        init_kernel_1 = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
+        first_free_idx = particles.args_markers.first_free_idx
+        comps = (0, 1, 2)
+
+        init_kernel_2 = Pyccelkernel(eval_kernels_gc.sph_mean_velocity)
+        # first_free_idx = particles.args_markers.first_free_idx
+        # comps = (0, 1, 2)
+
+        init_kernel_3 = Pyccelkernel(eval_kernels_gc.sph_grad_mean_velocity)
+        comps_tensor = (0, 1, 2, 3, 4, 5, 6, 7, 8)
+
+        init_kernel_4 = Pyccelkernel(eval_kernels_gc.sph_viscosity_tensor)
+
+        boxes = particles.sorting_boxes.boxes
+        neighbours = particles.sorting_boxes.neighbours
+        holes = particles.holes
+        periodic = [bci == "periodic" for bci in particles.bc]
+        kernel_nr = particles.ker_dct()[kernel_type]
+
+        if kernel_width is None:
+            kernel_width = tuple([1 / ni for ni in self.particles[0].boxes_per_dim])
+        else:
+            assert all([hi <= 1 / ni for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)])
+
+        # init kernel
+        args_init = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *kernel_width,
+        )
+
+        self.add_init_kernel(
+            init_kernel_1,
+            first_free_idx,
+            comps,
+            args_init,
+        )
+
+        self.add_init_kernel(
+            init_kernel_2,
+            first_free_idx + 3,  # +3 so that the previous one is not overwritten
+            comps,
+            args_init,
+        )
+
+        self.add_init_kernel(
+            init_kernel_3,
+            first_free_idx + 6,  # +3 so that the previous one is not overwritten
+            comps_tensor,
+            args_init,
+        )
+
+        self.add_init_kernel(
+            init_kernel_4,
+            first_free_idx + 15,
+            comps_tensor,
+            args_init,
+        )
+
+        kernel = Pyccelkernel(pusher_kernels.push_v_viscosity)
+
+        args_kernel = (
+            boxes,
+            neighbours,
+            holes,
+            *periodic,
+            kernel_nr,
+            *kernel_width,
+        )
+
+        # the Pusher class wraps around all kernels
+        self._pusher = Pusher(
+            particles,
+            kernel,
+            args_kernel,
+            self.domain.args_domain,
+            alpha_in_kernel=0.0,
+            init_kernels=self.init_kernels,
+        )
+
+    def __call__(self, dt):
+        self.particles[0].put_particles_in_boxes()
+        self._pusher(dt)
+
+class PushVinViscousPotential3D(Propagator):
     r"""For each marker :math:`p`, solves
 
     .. math::
