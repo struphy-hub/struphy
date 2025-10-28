@@ -30,19 +30,15 @@ RUN apt install -y gfortran gcc \
 RUN apt install -y libopenmpi-dev openmpi-bin \
     && apt install -y libomp-dev libomp5 
 
-
 RUN apt install -y git \
     && apt install -y pandoc graphviz \
     && bash -c "source ~/.bashrc" 
 
-    # for gvec
+# for gvec
 RUN apt install -y g++ liblapack3 cmake cmake-curses-gui zlib1g-dev libnetcdf-dev libnetcdff-dev \
     && export FC=`which gfortran` \ 
     && export CC=`which gcc` \ 
     && export CXX=`which g++` 
-
-# Create a new working directory
-WORKDIR /install_struphy_here/
 
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
