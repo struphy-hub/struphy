@@ -197,10 +197,6 @@ def struphy():
     else:
         raise ValueError(f"Unknown command: {args.command}")
 
-    print(f"{module_path = }")
-    print(f"{func_name = }")
-    print(f"{args = }")
-
     # transform parser Namespace object to dictionary and remove "command" key
     kwargs = vars(args)
     for key in [
@@ -225,8 +221,8 @@ def struphy():
         kwargs.pop(key, None)
 
     # start sub-command function with all parameters of that function
-    for k, v in kwargs.items():
-        print(k, v)
+    # for k, v in kwargs.items():
+    #     print(k, v)
     func(**kwargs)
 
 
