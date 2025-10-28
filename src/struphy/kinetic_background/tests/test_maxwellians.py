@@ -294,7 +294,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 continue
 
             if "GVECequilibrium" in key:
-                print(f"Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
 
             mhd_equil = val()
             assert isinstance(mhd_equil, FluidEquilibrium)
@@ -496,7 +496,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                     plt.ylabel("y")
                 plt.axis("equal")
                 plt.colorbar()
-                plt.title(f"Maxwellian thermal velocity $v_t$, top view (e1-e3)")
+                plt.title("Maxwellian thermal velocity $v_t$, top view (e1-e3)")
                 plt.subplot(2, 5, 10)
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, :, 0], y[:, :, 0], vth_cart[:, :, 0], levels=levels)
@@ -508,7 +508,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                     plt.ylabel("z")
                 plt.axis("equal")
                 plt.colorbar()
-                plt.title(f"Maxwellian thermal velocity $v_t$, poloidal view (e1-e2)")
+                plt.title("Maxwellian thermal velocity $v_t$, poloidal view (e1-e2)")
 
                 plt.show()
 
@@ -678,7 +678,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                                 plt.ylabel("y")
                             plt.axis("equal")
                             plt.colorbar()
-                            plt.title(f"Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)")
+                            plt.title("Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)")
                             plt.subplot(2, 5, 10)
                             if "Slab" in key or "Pinch" in key:
                                 plt.contourf(x[:, :, 0], y[:, :, 0], vth_cart[:, :, 0], levels=levels)
@@ -690,7 +690,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                                 plt.ylabel("z")
                             plt.axis("equal")
                             plt.colorbar()
-                            plt.title(f"Maxwellian perturbed thermal velocity $v_t$, poloidal view (e1-e2)")
+                            plt.title("Maxwellian perturbed thermal velocity $v_t$, poloidal view (e1-e2)")
 
                             plt.show()
 
@@ -1090,7 +1090,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 continue
 
             if "GVECequilibrium" in key:
-                print(f"Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
 
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
@@ -1287,7 +1287,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                     plt.ylabel("y")
                 plt.axis("equal")
                 plt.colorbar()
-                plt.title(f"Maxwellian thermal velocity $v_t$, top view (e1-e3)")
+                plt.title("Maxwellian thermal velocity $v_t$, top view (e1-e3)")
                 plt.subplot(2, 4, 8)
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, :, 0], y[:, :, 0], vth_cart[:, :, 0], levels=levels)
@@ -1299,7 +1299,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                     plt.ylabel("z")
                 plt.axis("equal")
                 plt.colorbar()
-                plt.title(f"Maxwellian density $v_t$, poloidal view (e1-e2)")
+                plt.title("Maxwellian density $v_t$, poloidal view (e1-e2)")
 
                 plt.show()
 
@@ -1463,7 +1463,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                                 plt.ylabel("y")
                             plt.axis("equal")
                             plt.colorbar()
-                            plt.title(f"Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)")
+                            plt.title("Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)")
                             plt.subplot(2, 4, 8)
                             if "Slab" in key or "Pinch" in key:
                                 plt.contourf(x[:, :, 0], y[:, :, 0], vth_cart[:, :, 0], levels=levels)
@@ -1475,7 +1475,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                                 plt.ylabel("z")
                             plt.axis("equal")
                             plt.colorbar()
-                            plt.title(f"Maxwellian perturbed density $v_t$, poloidal view (e1-e2)")
+                            plt.title("Maxwellian perturbed density $v_t$, poloidal view (e1-e2)")
 
                             plt.show()
 
