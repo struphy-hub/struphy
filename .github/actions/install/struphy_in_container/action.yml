@@ -7,6 +7,7 @@ runs:
       id: git-branch-name
       uses: EthanSK/git-branch-name-action@v1
     - name: Echo the branch name
+      shell: bash
       run: echo "Branch name ${GIT_BRANCH_NAME}"
     - name: Install struphy
       shell: bash
