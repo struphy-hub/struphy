@@ -1,4 +1,4 @@
-name: PR - model tests in Container
+name: PR - unit tests in Container
 
 on:
   pull_request:
@@ -45,5 +45,5 @@ jobs:
           struphy compile --status
           struphy compile
 
-      - name: Run model tests
-        uses: ./.github/actions/tests/models
+      - name: Run unit tests
+        uses: ./.github/actions/tests/unit
