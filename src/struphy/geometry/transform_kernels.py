@@ -61,7 +61,13 @@ from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, Domain
 
 @stack_array("dfmat1", "dfmat2")
 def pull(
-    a: "float[:]", eta1: float, eta2: float, eta3: float, kind_fun: int, args_domain: "DomainArguments", out: "float[:]"
+    a: "float[:]",
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    kind_fun: int,
+    args_domain: "DomainArguments",
+    out: "float[:]",
 ):
     """
     Pull-back of a Cartesian scalar/vector field to a differential p-form.
@@ -121,7 +127,13 @@ def pull(
 
 @stack_array("dfmat1", "dfmat2", "dfmat3")
 def push(
-    a: "float[:]", eta1: float, eta2: float, eta3: float, kind_fun: int, args_domain: "DomainArguments", out: "float[:]"
+    a: "float[:]",
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    kind_fun: int,
+    args_domain: "DomainArguments",
+    out: "float[:]",
 ):
     """
     Pushforward of a differential p-forms to a Cartesian scalar/vector field.
@@ -179,7 +191,13 @@ def push(
 
 @stack_array("dfmat1", "dfmat2", "dfmat3", "vec1", "vec2")
 def tran(
-    a: "float[:]", eta1: float, eta2: float, eta3: float, kind_fun: int, args_domain: "DomainArguments", out: "float[:]"
+    a: "float[:]",
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    kind_fun: int,
+    args_domain: "DomainArguments",
+    out: "float[:]",
 ):
     """
     Transformations between differential p-forms and/or vector fields.
