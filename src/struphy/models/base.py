@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 from functools import reduce
 from textwrap import indent
 
+import numpy as np
 import cunumpy as xp
 import yaml
 from line_profiler import profile
@@ -523,10 +524,10 @@ class StruphyModel(metaclass=ABCMeta):
             # Ensure the value is a float if there are no summands
             if isinstance(value, float):
                 # Create a numpy array to hold the scalar value
-                value_array = xp.array([value])
+                value_array = np.array([value])
             else:
-                value_array = xp.asarray(value)
-            value_array = xp.array(value_array)
+                value_array = np.asarray(value)
+            value_array = np.array(value_array)
             # Perform MPI operations based on the compute flags
             if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
                 MPI.COMM_WORLD.Allreduce(
@@ -563,7 +564,7 @@ class StruphyModel(metaclass=ABCMeta):
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
-                n_mks_tot = xp.array([variable.particles.Np])
+                n_mks_tot = np.array([variable.particles.Np])
                 value_array /= n_mks_tot
 
             # Update the scalar value
