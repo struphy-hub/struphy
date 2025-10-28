@@ -1,8 +1,10 @@
 # name: Deploy docs to GitHub Pages
 
 on:
-  push:
-    branches: ["devel", "main"]
+  pull_request:
+    branches:
+      - main
+      - devel
   workflow_dispatch:
 
 defaults:
@@ -18,7 +20,7 @@ permissions:
 #   cancel-in-progress: false
 
 jobs:
-  hello-world:
+  with-reqs:
     runs-on: ubuntu-latest
     container:
       image: struphy/ubuntu-with-reqs 
@@ -32,4 +34,18 @@ jobs:
           source env/bin/activate
           pip install -U pip
           pip list
+
+  with-struphy:
+    runs-on: ubuntu-latest
+    container:
+      image: struphy/ubuntu-with-struphy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Inspect Image
+        run: |
+          ls
+          source env_c_/bin/activate
+          struphy -h
+          struphy compile
 
