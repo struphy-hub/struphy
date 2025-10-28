@@ -272,7 +272,7 @@ def struphy_compile(
                     )
                     sys.exit(1)
             else:
-                print(f"Psydac is not installed. To install it, please re-install struphy (e.g. pip install .)\n")
+                print("Psydac is not installed. To install it, please re-install struphy (e.g. pip install .)\n")
                 sys.exit(1)
 
         else:
