@@ -6,8 +6,8 @@
 # export CR_PAT=YOUR_TOKEN
 # echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
 # docker info
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest --provenance=false -f docker/opensuse-latest.dockerfile .
-# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest
+# docker build -t ghcr.io/struphy-hub/struphy/opensuse-with-reqs:latest --provenance=false -f docker/opensuse-latest.dockerfile .
+# docker push ghcr.io/struphy-hub/struphy/opensuse-with-reqs:latest
 
 FROM opensuse/tumbleweed:latest
 
@@ -42,9 +42,6 @@ RUN echo "Installing additional tools..." \
     && export CC=`which gcc` \ 
     && export CXX=`which g++` \
     && zypper clean --all
-
-# Create a new working directory
-WORKDIR /install_struphy_here/
 
 # Allow mpirun to run as root (for OpenMPI)
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
