@@ -35,19 +35,20 @@ jobs:
           uses: actions/checkout@v4
         - name: Create virtual environment
           run: |
+            which python3
             python3 -m venv env
             source env/bin/activate
-            pip install -U pip
-            pip list
             which python3
+            pip install -U pip
         - name: Install Struphy
           run: |
-            pip list
             which python3
-            ls -a
             source env/bin/activate
             which python3
             pip install ".[test, dev, docs]" 
+        # - name: Compile Struphy
+        #   run: |
+        #     which python3
 
   with-struphy:
     runs-on: ubuntu-latest
@@ -64,15 +65,13 @@ jobs:
       - name: Activate pre-installed virtual environment
         run: |
           ls / -a
-          source /struphy_c_/bin/activate
-          pip install -U pip
-          pip list
           which python3
+          source /struphy_c_/bin/activate
+          which python3
+          pip install -U pip
       - name: Install Struphy
         run: |
-          pip list
           which python3
-          ls -a
           source /struphy_c_/bin/activate
           which python3
           pip install ".[test, dev, docs]"
