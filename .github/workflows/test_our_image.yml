@@ -46,7 +46,7 @@ jobs:
             source env/bin/activate
             which python3
             ls 
-            cat src/struphy/concole/compile.py
+            cat src/struphy/console/compile.py
             pip install .[test,dev,docs]
             pip install .[dev]
         - name: Compile Struphy
