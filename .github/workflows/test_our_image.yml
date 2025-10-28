@@ -29,26 +29,25 @@ jobs:
         password: ${{ secrets.GHCR_TOKEN }}
  
     steps:
-        - name: Inspect Image
+        - name: Check for dockerenv file
+          run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+        - name: Checkout repo
+          uses: actions/checkout@v4
+        - name: Create virtual environment
           run: |
-            pwd
-            ls
-            uname -a
             python3 -m venv env
             source env/bin/activate
             pip install -U pip
             pip list
-        - name: Checkout
-          uses: actions/checkout@v4
-        - name: Check for dockerenv file
-          run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+            whch python3
         - name: Install Struphy
           run: |
-            (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
             pip list
-            pip install -U pip
+            which python3
+            ls -a
+            source env/bin/activate
+            which python3
             pip install ".[test, dev, docs]" 
-
 
   with-struphy:
     runs-on: ubuntu-latest
@@ -58,18 +57,23 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GHCR_TOKEN }}
     steps:
-    #   - name: Checkout
-    #     uses: actions/checkout@v4
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
-      - name: Inspect Image
-        shell: bash
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Actovate pre-installed virtual environment
         run: |
-          pwd
+          ls / -a
+          source /env_c_/bin/activate
+          pip install -U pip
+          pip list
+          whch python3
+      - name: Install Struphy
+        run: |
+          pip list
+          which python3
           ls -a
-          uname -a
-          ls /
-          ls ~
-          struphy -h
-          struphy compile
+          source /env_c_/bin/activate
+          which python3
+          pip install ".[test, dev, docs]"
 
