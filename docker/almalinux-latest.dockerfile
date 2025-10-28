@@ -1,12 +1,13 @@
-# Here is how to build the image and upload it to the mpcdf gitlab registry:
+# Here is how to build the image and upload it to the Github package registry:
 #
 # We suppose you are in the struphy repo directory. 
-# Start the docker engine and run "docker login" with the following token:
+# Start the docker engine and login to the Github package registry using a github personal acces token (classic):
 #
-# TOKEN=gldt-CgMRBMtePbSwdWTxKw4Q; echo "$TOKEN" | docker login gitlab-registry.mpcdf.mpg.de -u gitlab+deploy-token-162 --password-stdin
+# export CR_PAT=YOUR_TOKEN
+# echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
 # docker info
-# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest --provenance=false -f docker/almalinux-latest.dockerfile .
-# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/almalinux-latest
+# docker build -t ghcr.io/struphy-hub/struphy/almalinux-with-reqs:latest --provenance=false -f docker/almalinux-latest.dockerfile .
+# docker push ghcr.io/struphy-hub/struphy/almalinux-with-reqs:latest
 
 FROM almalinux:latest
 
@@ -41,9 +42,6 @@ RUN echo "Installing additional tools..." \
     && export FC=`which gfortran` \ 
     && export CC=`which gcc` \ 
     && export CXX=`which g++`
-
-# create new working dir
-WORKDIR /install_struphy_here/
 
 # allow mpirun as root
 ENV OMPI_ALLOW_RUN_AS_ROOT=1
