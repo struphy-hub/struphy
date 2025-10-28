@@ -1,9 +1,10 @@
-# Here is how to build the image and upload it to the mpcdf gitlab registry:
+# Here is how to build the image and upload it to the Github package registry:
 #
 # We suppose you are in the struphy repo directory. 
-# Start the docker engine and run "docker login" with the following token:
+# Start the docker engine and login to the Github package registry using a github personal acces token (classic):
 #
-# TOKEN=gldt-CgMRBMtePbSwdWTxKw4Q; echo "$TOKEN" | docker login gitlab-registry.mpcdf.mpg.de -u gitlab+deploy-token-162 --password-stdin
+# export CR_PAT=YOUR_TOKEN
+# echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
 # docker info
 # docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest --provenance=false -f docker/opensuse-latest.dockerfile .
 # docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest
