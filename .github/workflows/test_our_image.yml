@@ -44,7 +44,7 @@ jobs:
           run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
         - name: Install Struphy
           run: |
-            ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+            (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
             pip list
             pip install -U pip
             pip install ".[test, dev, docs]" 
