@@ -25,7 +25,7 @@ jobs:
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
       credentials:
-        username: ${{ github.actor }}
+        username: spossann
         password: ${{ secrets.GHCR_TOKEN }}
  
     steps:
@@ -46,7 +46,7 @@ jobs:
             which python3
             ls 
             pip install ".[phys,mpi,doc]"
-            struphy -p
+        # struphy -p
         - name: Compile Struphy
           run: |
             which python3
