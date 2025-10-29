@@ -19,7 +19,7 @@ permissions:
 #   cancel-in-progress: false
 
 jobs:
-  container-with-struphy:
+  unit-tests-in-container-with-struphy:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
@@ -45,25 +45,6 @@ jobs:
           struphy compile --status
           struphy compile
 
-      - name: Run unit tests with MPI
-        shell: bash
-        run: |
-          which python3
-          source /struphy_c_/env_c_/bin/activate
-          which python3
-          echo $FC
-          echo $CC
-          echo $CXX
-          export FC=`which gfortran` 
-          export CC=`which gcc`
-          export CXX=`which g++`  
-          echo $FC
-          echo $CC
-          echo $CXX
-          struphy compile --status
-          struphy --refresh-models
-          struphy test unit --mpi 2
-
       - name: Run unit tests
         shell: bash
         run: |
@@ -85,3 +66,25 @@ jobs:
           pip uninstall -y mpi4py
           pip list
           struphy test unit
+
+      - name: Run unit tests with MPI
+        shell: bash
+        run: |
+          which python3
+          source /struphy_c_/env_c_/bin/activate
+          which python3
+          echo $FC
+          echo $CC
+          echo $CXX
+          export FC=`which gfortran` 
+          export CC=`which gcc`
+          export CXX=`which g++`  
+          echo $FC
+          echo $CC
+          echo $CXX
+          pip install -U mpi4py
+          struphy compile --status
+          struphy --refresh-models
+          struphy test unit --mpi 2
+
+      

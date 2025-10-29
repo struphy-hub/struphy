@@ -19,7 +19,7 @@ permissions:
 #   cancel-in-progress: false
 
 jobs:
-  container-with-struphy:
+  model-tests-in-container-with-struphy:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
