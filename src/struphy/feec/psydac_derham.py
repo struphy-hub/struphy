@@ -1304,7 +1304,7 @@ class Derham:
             neigh_inds = xp.array(neigh_inds)
 
             # only use indices where information is present to find the neighbours rank
-            inds = xp.where(neigh_inds is not None)
+            inds = xp.where(xp.not_equal(neigh_inds, None))
 
             # find ranks (row index of domain_array) which agree in start/end indices
             index_temp = xp.squeeze(self.index_array[:, inds])
