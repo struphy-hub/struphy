@@ -20,6 +20,9 @@ def test_bsplines_span_and_basis(Nel, p, spl_kind):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays as cera
 
+
+
+
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
 

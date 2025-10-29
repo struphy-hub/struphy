@@ -103,6 +103,10 @@ class Derham:
         local_projectors: bool = False,
         domain: Domain = None,
     ):
+        
+
+
+        
         # number of elements, spline degrees and kind of splines in each direction (periodic vs. clamped)
         assert len(Nel) == 3
         assert len(p) == 3
