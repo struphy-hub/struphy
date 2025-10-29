@@ -103,7 +103,7 @@ def run(
     save_step = env.save_step
     sort_step = env.sort_step
     num_clones = env.num_clones
-    use_mpi = (not comm is None,)
+    use_mpi = (comm is not None,)
 
     meta = {}
     meta["platform"] = sysconfig.get_platform()
