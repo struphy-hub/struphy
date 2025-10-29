@@ -1777,6 +1777,7 @@ class PushVinSPHpressure(Propagator):
         self.variables.fluid.particles.put_particles_in_boxes()
         self._pusher(dt)
 
+
 class PushVinViscousPotential2D(Propagator):
     r"""For each marker :math:`p`, solves
 
@@ -1906,6 +1907,7 @@ class PushVinViscousPotential2D(Propagator):
     def __call__(self, dt):
         self.particles[0].put_particles_in_boxes()
         self._pusher(dt)
+
 
 class PushVinViscousPotential3D(Propagator):
     r"""For each marker :math:`p`, solves
