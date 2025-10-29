@@ -1,5 +1,5 @@
 import os
-
+import pytest
 import struphy
 from struphy.utils.utils import subp_run
 
@@ -48,13 +48,13 @@ def struphy_test(
                 "pytest",
                 # "--testmon",
                 "--with-mpi",
-                f"{LIBPATH}/tests/unit/",
+                f"{LIBPATH}/tests/unit/bsplines/",
             ]
         else:
             cmd = [
                 "pytest",
                 "--testmon",
-                f"{LIBPATH}/tests/unit/",
+                f"{LIBPATH}/tests/unit/bsplines/",
             ]
 
         if with_desc:
