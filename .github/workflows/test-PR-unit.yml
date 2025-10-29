@@ -45,6 +45,46 @@ jobs:
           struphy compile --status
           struphy compile
 
+      - name: run test_l2_projector
+        shell: bash
+        run: |
+          which python3
+          source /struphy_c_/env_c_/bin/activate
+          which python3
+          echo $FC
+          echo $CC
+          echo $CXX
+          export FC=`which gfortran` 
+          export CC=`which gcc`
+          export CXX=`which g++`  
+          echo $FC
+          echo $CC
+          echo $CXX
+          struphy compile --status
+          struphy --refresh-models
+          cd /struphy_c_
+          ls
+          python3 src/struphy/feec/tests/test_l2_projectors.py
+
+      - name: Run unit tests with MPI
+        shell: bash
+        run: |
+          which python3
+          source /struphy_c_/env_c_/bin/activate
+          which python3
+          echo $FC
+          echo $CC
+          echo $CXX
+          export FC=`which gfortran` 
+          export CC=`which gcc`
+          export CXX=`which g++`  
+          echo $FC
+          echo $CC
+          echo $CXX
+          struphy compile --status
+          struphy --refresh-models
+          struphy test unit --mpi 2
+
       - name: Run unit tests
         shell: bash
         run: |
@@ -66,25 +106,3 @@ jobs:
           pip uninstall -y mpi4py
           pip list
           struphy test unit
-
-      - name: Run unit tests with MPI
-        shell: bash
-        run: |
-          which python3
-          source /struphy_c_/env_c_/bin/activate
-          which python3
-          echo $FC
-          echo $CC
-          echo $CXX
-          export FC=`which gfortran` 
-          export CC=`which gcc`
-          export CXX=`which g++`  
-          echo $FC
-          echo $CC
-          echo $CXX
-          pip install -U mpi4py
-          struphy compile --status
-          struphy --refresh-models
-          struphy test unit --mpi 2
-
-      
