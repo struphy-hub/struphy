@@ -1274,7 +1274,7 @@ class Derham:
 
         # if only one process: check if comp is neighbour in non-peridic directions, if this is not the case then return the rank as neighbour id
         if size == 1:
-            if (comp[kinds == False] == 1).all():
+            if (comp[~kinds] == 1).all():
                 return rank
 
         # multiple processes
@@ -2059,7 +2059,7 @@ class SplineFunction:
                 )
 
             if self.derham.comm is not None:
-                if local == False:
+                if not local:
                     self.derham.comm.Allreduce(
                         MPI.IN_PLACE,
                         tmp,
@@ -2130,7 +2130,7 @@ class SplineFunction:
                     )
 
                 if self.derham.comm is not None:
-                    if local == False:
+                    if not local:
                         self.derham.comm.Allreduce(
                             MPI.IN_PLACE,
                             tmp,
