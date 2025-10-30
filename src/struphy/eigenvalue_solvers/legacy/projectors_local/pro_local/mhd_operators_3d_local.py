@@ -52,7 +52,7 @@ class projectors_local_mhd:
         self.coeff_h = [0, 0, 0]
 
         for a in range(3):
-            if self.bc[a]:
+            if self.bc[a] == True:
                 self.coeff_i[a] = xp.zeros((1, 2 * self.p[a] - 1), dtype=float)
                 self.coeff_h[a] = xp.zeros((1, 2 * self.p[a]), dtype=float)
 
@@ -186,7 +186,7 @@ class projectors_local_mhd:
         self.int_shift_N = [0, 0, 0]
 
         for a in range(3):
-            if not self.bc[a]:
+            if self.bc[a] == False:
                 # maximum number of non-vanishing coefficients
                 if self.p[a] == 1:
                     self.n_int_nvcof_D[a] = 2
@@ -405,7 +405,7 @@ class projectors_local_mhd:
         self.his_shift_N = [0, 0, 0]
 
         for a in range(3):
-            if not self.bc[a]:
+            if self.bc[a] == False:
                 # maximum number of non-vanishing coefficients
                 self.n_his_nvcof_D[a] = 3 * self.p[a] - 2
                 self.n_his_nvcof_N[a] = 3 * self.p[a] - 1

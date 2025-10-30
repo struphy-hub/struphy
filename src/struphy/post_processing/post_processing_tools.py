@@ -156,7 +156,7 @@ def create_femfields(
     # get fields names, space IDs and time grid from 0-th rank hdf5 file
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
     space_ids = {}
-    print("\nReading hdf5 data of following species:")
+    print(f"\nReading hdf5 data of following species:")
     for species, dset in file["feec"].items():
         space_ids[species] = {}
         print(f"{species}:")

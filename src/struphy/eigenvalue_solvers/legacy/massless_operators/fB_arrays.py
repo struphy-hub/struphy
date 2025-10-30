@@ -225,7 +225,7 @@ class Temp_arrays:
             dtype=float,
         )
         # when using delta f method, the values of current equilibrium at all quadrature points
-        if control:
+        if control == True:
             self.Jeqx = xp.empty(
                 (
                     self.Nel[0],
@@ -761,7 +761,7 @@ class Temp_arrays:
 
                                 self.df_det[ie1, ie2, ie3, q1, q2, q3] = det_number
 
-                                if control:
+                                if control == True:
                                     x1 = mapping3d.f(
                                         TENSOR_SPACE_FEM.pts[0][ie1, q1],
                                         TENSOR_SPACE_FEM.pts[1][ie2, q2],

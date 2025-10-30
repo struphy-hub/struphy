@@ -747,7 +747,7 @@ class HollowTorus(Domain):
 
         if sfl:
             assert pol_period == 1, (
-                "Piece-of-cake is only implemented for torus coordinates, not for straight field line coordinates!"
+                f"Piece-of-cake is only implemented for torus coordinates, not for straight field line coordinates!"
             )
 
         # periodicity in eta3-direction and pole at eta1=0

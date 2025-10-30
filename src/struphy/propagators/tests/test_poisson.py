@@ -267,7 +267,7 @@ def test_poisson_1d(
             plt.xscale("log")
             plt.xlabel("Grid Spacing h")
             plt.ylabel("Error")
-            plt.title("Poisson solver")
+            plt.title(f"Poisson solver")
             plt.legend()
 
     if show_plot and rank == 0:

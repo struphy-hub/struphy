@@ -1,13 +1,12 @@
-# Here is how to build the image and upload it to the Github package registry:
+# Here is how to build the image and upload it to the mpcdf gitlab registry:
 #
 # We suppose you are in the struphy repo directory. 
-# Start the docker engine and login to the Github package registry using a github personal acces token (classic):
+# Start the docker engine and run "docker login" with the following token:
 #
-# export CR_PAT=YOUR_TOKEN
-# echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
+# TOKEN=gldt-CgMRBMtePbSwdWTxKw4Q; echo "$TOKEN" | docker login gitlab-registry.mpcdf.mpg.de -u gitlab+deploy-token-162 --password-stdin
 # docker info
-# docker build -t ghcr.io/struphy-hub/struphy/opensuse-with-reqs:latest --provenance=false -f docker/opensuse-latest.dockerfile .
-# docker push ghcr.io/struphy-hub/struphy/opensuse-with-reqs:latest
+# docker build -t gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest --provenance=false -f docker/opensuse-latest.dockerfile .
+# docker push gitlab-registry.mpcdf.mpg.de/struphy/struphy/opensuse-latest
 
 FROM opensuse/tumbleweed:latest
 
@@ -42,6 +41,9 @@ RUN echo "Installing additional tools..." \
     && export CC=`which gcc` \ 
     && export CXX=`which g++` \
     && zypper clean --all
+
+# Create a new working directory
+WORKDIR /install_struphy_here/
 
 # Allow mpirun to run as root (for OpenMPI)
 ENV OMPI_ALLOW_RUN_AS_ROOT=1

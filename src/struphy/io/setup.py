@@ -152,12 +152,12 @@ def setup_derham(
 
     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
         print("\nDERHAM:")
-        print("number of elements:".ljust(25), Nel)
-        print("spline degrees:".ljust(25), p)
-        print("periodic bcs:".ljust(25), spl_kind)
-        print("hom. Dirichlet bc:".ljust(25), dirichlet_bc)
-        print("GL quad pts (L2):".ljust(25), nquads)
-        print("GL quad pts (hist):".ljust(25), nq_pr)
+        print(f"number of elements:".ljust(25), Nel)
+        print(f"spline degrees:".ljust(25), p)
+        print(f"periodic bcs:".ljust(25), spl_kind)
+        print(f"hom. Dirichlet bc:".ljust(25), dirichlet_bc)
+        print(f"GL quad pts (L2):".ljust(25), nquads)
+        print(f"GL quad pts (hist):".ljust(25), nq_pr)
         print(
             "MPI proc. per dir.:".ljust(25),
             derham.domain_decomposition.nprocs,

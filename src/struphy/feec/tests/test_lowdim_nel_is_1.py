@@ -277,7 +277,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     plt.subplot(2, 1, 2)
     plt.plot(e, div_f(e1, e2, e3), "o")
     plt.plot(e, field_df2_vals)
-    plt.title("div")
+    plt.title(f"div")
 
     plt.subplots_adjust(wspace=1.0, hspace=0.4)
 

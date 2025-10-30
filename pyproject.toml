@@ -25,7 +25,7 @@ dependencies = [
     'numpy',
     'cunumpy',
     'pyccel>=2.0',
-    'psydac @ git+https://github.com/struphy-hub/psydac-for-struphy.git@devel-tiny',
+    'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'scipy',
     'h5py',
     'matplotlib',
@@ -154,7 +154,6 @@ max-line-length = 120
 
 [tool.ruff]
 line-length = 120
-# exclude = ["__pyccel__"]
 
 [tool.ruff.lint]
 ignore = [
@@ -172,17 +171,6 @@ ignore = [
     "F405",
     "D211",
     "D213",
-    "F841", # Ignore unused variables
-]
-
-[tool.pytest.ini_options]
-markers = [
-    "models",
-    "toy",
-    "fluid",
-    "kinetic",
-    "hybrid",
-    "single",
 ]
 
 [tool.pytest.ini_options]

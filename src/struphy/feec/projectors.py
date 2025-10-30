@@ -1481,7 +1481,7 @@ class CommutingProjectorLocal:
         Builds 3D numpy array with the evaluation of the right-hand-side.
         """
         if self._space_key == "0":
-            if first_go:
+            if first_go == True:
                 pre_computed_dofs = [fun(*self._meshgrid)]
 
         elif self._space_key == "1" or self._space_key == "2":
@@ -1491,12 +1491,12 @@ class CommutingProjectorLocal:
             f_eval = []
 
             # If this is the first time this rank has to evaluate the weights degrees of freedom we declare the list where to store them.
-            if first_go:
+            if first_go == True:
                 pre_computed_dofs = []
 
             for h in range(3):
                 # Evaluation of the function to compute the h component
-                if first_go:
+                if first_go == True:
                     pre_computed_dofs.append(fun[h](*self._meshgrid[h]))
 
                 # Array into which we will write the Dofs.
@@ -1547,7 +1547,7 @@ class CommutingProjectorLocal:
         elif self._space_key == "3":
             f_eval = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts))
             # Evaluation of the function at all Gauss-Legendre quadrature points
-            if first_go:
+            if first_go == True:
                 pre_computed_dofs = [fun(*self._meshgrid)]
 
             get_dofs_local_3_form_weighted(
@@ -1578,7 +1578,7 @@ class CommutingProjectorLocal:
                     # We should do nothing here
                     self._do_nothing[h] = 1
 
-            if first_go:
+            if first_go == True:
                 f_eval = []
                 for h in range(3):
                     f_eval.append(fun[h](*self._meshgrid[h]))
@@ -1588,7 +1588,7 @@ class CommutingProjectorLocal:
                 "Uknown space. It must be either H1, Hcurl, Hdiv, L2 or H1vec.",
             )
 
-        if first_go:
+        if first_go == True:
             if self._space_key == "0":
                 return pre_computed_dofs[0], pre_computed_dofs
             elif self._space_key == "v":
@@ -1654,14 +1654,14 @@ class CommutingProjectorLocal:
         coeffs : psydac.linalg.basic.vector | xp.array 3D
             The FEM spline coefficients after projection.
         """
-        if not weighted:
+        if weighted == False:
             return self.solve(self.get_dofs(fun, dofs=dofs), out=out)
         else:
             # We set B_or_D and basis_indices as attributes of the projectors so we can easily access them in the get_rowstarts, get_rowends and get_values functions, where they are needed.
             self._B_or_D = B_or_D
             self._basis_indices = basis_indices
 
-            if first_go:
+            if first_go == True:
                 # rhs contains the evaluation over the degrees of freedom of the weights multiplied by the basis function
                 # rhs_weights contains the evaluation over the degrees of freedom of only the weights
                 rhs, rhs_weights = self.get_dofs_weighted(

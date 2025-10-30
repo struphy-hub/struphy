@@ -2,6 +2,8 @@ import importlib.metadata
 import re
 import tomllib
 
+import tomli_w
+
 
 def get_min_bound(entry):
     match = re.search(r"(>=|==|~=|>|>)\s*([\w\.\-]+)", entry)
@@ -40,11 +42,7 @@ def update_dependencies(dependencies):
         try:
             installed_version = importlib.metadata.version(package_name)
 
-            package_deps = {
-                "installed": installed_version,
-                "min": get_min_bound(entry),
-                "max": get_max_bound(entry),
-            }
+            package_deps = {"installed": installed_version, "min": get_min_bound(entry), "max": get_max_bound(entry)}
 
             if package_deps["installed"]:
                 dependencies[i] = generate_updated_entry(package_name, package_deps)
@@ -61,8 +59,6 @@ def update_dependencies(dependencies):
 
 def main():
     with open("pyproject.toml", "rb") as f:
-        import tomllib
-
         pyproject_data = tomllib.load(f)
 
     mandatory_dependencies = pyproject_data["project"]["dependencies"]
@@ -73,8 +69,6 @@ def main():
         update_dependencies(group_deps)
 
     with open("pyproject.toml", "wb") as f:
-        import tomli_w
-
         tomli_w.dump(pyproject_data, f)
 
 
