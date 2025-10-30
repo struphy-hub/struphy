@@ -203,7 +203,7 @@ def test_coaxial(do_plot: bool = False):
             r = (X**2 + Y**2) ** 0.5
             theta = xp.arctan2(Y, X)
             return ((m / r * jv(m, r) - jv(m + 1, r)) - 0.28 * (m / r * yn(m, r) - yn(m + 1, r))) * xp.sin(
-                m * theta - t
+                m * theta - t,
             )
 
         def to_E_r(X, Y, E_x, E_y):
@@ -222,7 +222,13 @@ def test_coaxial(do_plot: bool = False):
             vmax = E_theta(X, Y, grids_phy[0], modes, 0).max()
             fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
             plot_exac = ax1.contourf(
-                X, Y, E_theta(X, Y, grids_phy[0], modes, t_grid[-1]), cmap="plasma", levels=100, vmin=vmin, vmax=vmax
+                X,
+                Y,
+                E_theta(X, Y, grids_phy[0], modes, t_grid[-1]),
+                cmap="plasma",
+                levels=100,
+                vmin=vmin,
+                vmax=vmax,
             )
             ax2.contourf(
                 X,
@@ -256,12 +262,12 @@ def test_coaxial(do_plot: bool = False):
         rel_err_Bz = error_Bz / xp.max(xp.abs(Bz_exact))
 
         print("")
-        assert rel_err_Bz < 0.0021, f"Assertion for magnetic field Maxwell failed: {rel_err_Bz = }"
-        print(f"Assertion for magnetic field Maxwell passed ({rel_err_Bz = }).")
-        assert rel_err_Etheta < 0.0021, f"Assertion for electric (E_theta) field Maxwell failed: {rel_err_Etheta = }"
-        print(f"Assertion for electric field Maxwell passed ({rel_err_Etheta = }).")
-        assert rel_err_Er < 0.0021, f"Assertion for electric (E_r) field Maxwell failed: {rel_err_Er = }"
-        print(f"Assertion for electric field Maxwell passed ({rel_err_Er = }).")
+        assert rel_err_Bz < 0.0021, f"Assertion for magnetic field Maxwell failed: {rel_err_Bz =}"
+        print(f"Assertion for magnetic field Maxwell passed ({rel_err_Bz =}).")
+        assert rel_err_Etheta < 0.0021, f"Assertion for electric (E_theta) field Maxwell failed: {rel_err_Etheta =}"
+        print(f"Assertion for electric field Maxwell passed ({rel_err_Etheta =}).")
+        assert rel_err_Er < 0.0021, f"Assertion for electric (E_r) field Maxwell failed: {rel_err_Er =}"
+        print(f"Assertion for electric field Maxwell passed ({rel_err_Er =}).")
 
 
 if __name__ == "__main__":

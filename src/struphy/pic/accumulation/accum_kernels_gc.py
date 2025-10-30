@@ -240,7 +240,16 @@ def cc_lin_mhd_5d_D(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.mat_fill_v0vec_asym(
-                args_derham, span1, span2, span3, mat12, mat13, mat23, filling_m12, filling_m13, filling_m23
+                args_derham,
+                span1,
+                span2,
+                span3,
+                mat12,
+                mat13,
+                mat23,
+                filling_m12,
+                filling_m13,
+                filling_m23,
             )
 
         elif basis_u == 1:
@@ -257,7 +266,16 @@ def cc_lin_mhd_5d_D(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.mat_fill_v1_asym(
-                args_derham, span1, span2, span3, mat12, mat13, mat23, filling_m12, filling_m13, filling_m23
+                args_derham,
+                span1,
+                span2,
+                span3,
+                mat12,
+                mat13,
+                mat23,
+                filling_m12,
+                filling_m13,
+                filling_m23,
             )
 
         elif basis_u == 2:
@@ -268,7 +286,16 @@ def cc_lin_mhd_5d_D(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.mat_fill_v2_asym(
-                args_derham, span1, span2, span3, mat12, mat13, mat23, filling_m12, filling_m13, filling_m23
+                args_derham,
+                span1,
+                span2,
+                span3,
+                mat12,
+                mat13,
+                mat23,
+                filling_m12,
+                filling_m13,
+                filling_m23,
             )
 
     # -- removed omp: #$ omp end parallel
@@ -579,7 +606,16 @@ def cc_lin_mhd_5d_M(
         filling_v[:] = weight * mu / det_df * scale_vec * norm_b1
 
         particle_to_mat_kernels.vec_fill_v2(
-            args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+            args_derham,
+            span1,
+            span2,
+            span3,
+            vec1,
+            vec2,
+            vec3,
+            filling_v[0],
+            filling_v[1],
+            filling_v[2],
         )
 
     vec1 /= Np
@@ -759,7 +795,16 @@ def cc_lin_mhd_5d_gradB(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v0vec(
-                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+                args_derham,
+                span1,
+                span2,
+                span3,
+                vec1,
+                vec2,
+                vec3,
+                filling_v[0],
+                filling_v[1],
+                filling_v[2],
             )
 
         elif basis_u == 2:
@@ -770,7 +815,16 @@ def cc_lin_mhd_5d_gradB(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v2(
-                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+                args_derham,
+                span1,
+                span2,
+                span3,
+                vec1,
+                vec2,
+                vec3,
+                filling_v[0],
+                filling_v[1],
+                filling_v[2],
             )
     vec1 /= Np
     vec2 /= Np
@@ -955,7 +1009,16 @@ def cc_lin_mhd_5d_gradB_dg_init(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v0vec(
-                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+                args_derham,
+                span1,
+                span2,
+                span3,
+                vec1,
+                vec2,
+                vec3,
+                filling_v[0],
+                filling_v[1],
+                filling_v[2],
             )
 
         elif basis_u == 2:
@@ -981,7 +1044,16 @@ def cc_lin_mhd_5d_gradB_dg_init(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v2(
-                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+                args_derham,
+                span1,
+                span2,
+                span3,
+                vec1,
+                vec2,
+                vec3,
+                filling_v[0],
+                filling_v[1],
+                filling_v[2],
             )
 
     vec1 /= Np
@@ -1180,7 +1252,16 @@ def cc_lin_mhd_5d_gradB_dg(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v0vec(
-                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+                args_derham,
+                span1,
+                span2,
+                span3,
+                vec1,
+                vec2,
+                vec3,
+                filling_v[0],
+                filling_v[1],
+                filling_v[2],
             )
 
         elif basis_u == 2:
@@ -1218,7 +1299,16 @@ def cc_lin_mhd_5d_gradB_dg(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v2(
-                args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
+                args_derham,
+                span1,
+                span2,
+                span3,
+                vec1,
+                vec2,
+                vec3,
+                filling_v[0],
+                filling_v[1],
+                filling_v[2],
             )
 
     vec1 /= Np

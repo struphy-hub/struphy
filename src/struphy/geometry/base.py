@@ -1287,9 +1287,9 @@ class Domain(metaclass=ABCMeta):
 
                 elif isinstance(component, xp.ndarray):
                     if flat_eval:
-                        assert component.ndim == 1, print(f"{component.ndim = }")
+                        assert component.ndim == 1, print(f"{component.ndim =}")
                     else:
-                        assert component.ndim == 3, print(f"{component.ndim = }")
+                        assert component.ndim == 3, print(f"{component.ndim =}")
 
                     a_out += [component]
 
@@ -1312,7 +1312,7 @@ class Domain(metaclass=ABCMeta):
                 else:
                     raise ValueError(
                         "Input array a_in must be either 1d (scalar) or \
-                    2d (vector-valued, shape (3,:)) for flat evaluation!"
+                    2d (vector-valued, shape (3,:)) for flat evaluation!",
                     )
 
             else:
@@ -1331,13 +1331,13 @@ class Domain(metaclass=ABCMeta):
                 else:
                     raise ValueError(
                         "Input array a_in must be either 3d (scalar) or \
-                    4d (vector-valued, shape (3,:,:,:)) for non-flat evaluation!"
+                    4d (vector-valued, shape (3,:,:,:)) for non-flat evaluation!",
                     )
 
         else:
             raise TypeError(
                 "Argument a must be either a float OR a list/tuple of 1 or 3 callable(s)/numpy array(s)/float(s) \
-            OR a single numpy array OR a single callable!"
+            OR a single numpy array OR a single callable!",
             )
 
         # make sure that output array is 2d and of shape (:, 1) or (:, 3) for flat evaluation
