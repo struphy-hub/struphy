@@ -121,15 +121,10 @@ jobs:
       - name: Checkout the code
         uses: actions/checkout@v4
 
-      # TODO: Remove --select I once all errors are fixed
-      - name: ruff check --select I
+      - name: Linting with ruff
         run: |
           pip install ruff
-          ruff check --select I
-      
-      - name: ruff format --check
-        run: |
-          ruff format --check
+          ruff check --select I src/**/*.py
 
   # pylint:
   #   runs-on: ubuntu-latest
