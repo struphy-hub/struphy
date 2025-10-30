@@ -2,8 +2,6 @@ import importlib.metadata
 import re
 import tomllib
 
-import tomli_w
-
 
 def get_min_bound(entry):
     match = re.search(r"(>=|==|~=|>|>)\s*([\w\.\-]+)", entry)

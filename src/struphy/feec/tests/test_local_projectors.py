@@ -15,53 +15,6 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
 
 
-def get_span_and_basis(pts, space):
-    """Compute the knot span index and the values of p + 1 basis function at each point in pts.
-
-    Parameters
-    ----------
-    pts : xp.array
-        2d array of points (ii, iq) = (interval, quadrature point).
-
-    space : SplineSpace
-        Psydac object, the 1d spline space to be projected.
-
-    Returns
-    -------
-    span : xp.array
-        2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
-
-    basis : xp.array
-        3d array of values of basis functions indexed by (n, nq, basis function).
-    """
-
-    import psydac.core.bsplines as bsp
-
-    # Extract knot vectors, degree and kind of basis
-    T = space.knots
-    p = space.degree
-
-    span = xp.zeros(pts.shape, dtype=int)
-    basis = xp.zeros((*pts.shape, p + 1), dtype=float)
-
-    for n in range(pts.shape[0]):
-        for nq in range(pts.shape[1]):
-            # avoid 1. --> 0. for clamped interpolation
-            x = pts[n, nq] % (1.0 + 1e-14)
-            span_tmp = bsp.find_span(T, p, x)
-            basis[n, nq, :] = bsp.basis_funs_all_ders(
-                T,
-                p,
-                x,
-                span_tmp,
-                0,
-                normalization=space.basis,
-            )
-            span[n, nq] = span_tmp  # % space.nbasis
-
-    return span, basis
-
-
 @pytest.mark.parametrize("Nel", [[14, 16, 18]])
 @pytest.mark.parametrize("p", [[5, 4, 3]])
 @pytest.mark.parametrize("spl_kind", [[True, False, False], [False, True, False], [False, False, True]])
