@@ -9,6 +9,6 @@ runs:
       run: |
         pip install --upgrade pip
         pip uninstall -y gvec
-        pip install -e ".[dev,mpi,doc]"
+        pip install -e ".[dev,mpi]"
         pip list
         struphy -h

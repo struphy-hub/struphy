@@ -7,8 +7,15 @@ runs:
     - name: Install struphy
       shell: bash
       run: |
+        echo $FC
+        echo $CC
+        echo $CXX
+        echo "----------------"
+        which gfortran
+        which gcc
+        which g++
         pip install --upgrade pip
-        pip install ".[phys,mpi,doc]"
+        pip uninstall -y gvec
+        pip install ".[phys,mpi]"
         pip list
         struphy -h
-        struphy --refresh-models
