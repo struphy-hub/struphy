@@ -91,21 +91,21 @@ class Species(metaclass=ABCMeta):
             else:
                 self.alpha = alpha
                 if MPI.COMM_WORLD.Get_rank() == 0:
-                    warnings.warn(f"Override equation parameter {self.alpha = }")
+                    warnings.warn(f"Override equation parameter {self.alpha =}")
 
             if epsilon is None:
                 self.epsilon = 1.0 / (om_c * units.t)
             else:
                 self.epsilon = epsilon
                 if MPI.COMM_WORLD.Get_rank() == 0:
-                    warnings.warn(f"Override equation parameter {self.epsilon = }")
+                    warnings.warn(f"Override equation parameter {self.epsilon =}")
 
             if kappa is None:
                 self.kappa = om_p * units.t
             else:
                 self.kappa = kappa
                 if MPI.COMM_WORLD.Get_rank() == 0:
-                    warnings.warn(f"Override equation parameter {self.kappa = }")
+                    warnings.warn(f"Override equation parameter {self.kappa =}")
 
             if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                 print(f"\nSet normalization parameters for species {species.__class__.__name__}:")

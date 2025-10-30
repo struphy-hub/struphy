@@ -147,7 +147,7 @@ class BasisProjectionOperators:
                         e3,
                     )
                     / self.sqrt_g(e1, e2, e3),
-                ]
+                ],
             ]
             self._K3 = self.create_basis_op(
                 fun,
@@ -263,7 +263,7 @@ class BasisProjectionOperators:
                         e3,
                     )
                     / self.sqrt_g(e1, e2, e3),
-                ]
+                ],
             ]
             self._Q3 = self.create_basis_op(
                 fun,
@@ -1064,7 +1064,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                         self._V1ds[1][2].nbasis,
                     ],
                     [self._V1ds[2][0].nbasis, self._V1ds[2][1].nbasis, self._V1ds[2][2].nbasis],
-                ]
+                ],
             )
 
         # output space: 3d StencilVectorSpaces and 1d SplineSpaces of each component
@@ -1363,7 +1363,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                         col0,
                                         col1,
                                         col2,
-                                    ]
+                                    ],
                                 ),
                                 self._VNbasis[hh],
                                 Aux._data,
@@ -1443,7 +1443,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                         col0,
                                         col1,
                                         col2,
-                                    ]
+                                    ],
                                 ),
                                 self._VNbasis,
                                 Aux[h]._data,
@@ -1544,7 +1544,7 @@ class BasisProjectionOperatorLocal(LinOpWithTransp):
                                             col0,
                                             col1,
                                             col2,
-                                        ]
+                                        ],
                                     ),
                                     self._VNbasis[hh],
                                     Aux[h]._data,
@@ -2043,7 +2043,7 @@ class BasisProjectionOperator(LinOpWithTransp):
                         getattr(
                             basis_projection_kernels,
                             "assemble_dofs_for_weighted_basisfuns_" + str(V.ldim) + "d",
-                        )
+                        ),
                     )
 
                     if rank == 0 and verbose:

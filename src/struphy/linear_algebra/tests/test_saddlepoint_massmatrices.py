@@ -323,7 +323,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         compare_arrays(y1_rdm, y_uzawa, mpi_rank, atol=1e-5)
         compare_arrays(x1, x_uzawa[0], mpi_rank, atol=1e-5)
         compare_arrays(x2, x_uzawa[1], mpi_rank, atol=1e-5)
-        print(f"{info = }")
+        print(f"{info =}")
     elif isinstance(x_uzawa[0], BlockVector):
         # Output as Blockvector
         Rx1 = x1 - x_uzawa[0]

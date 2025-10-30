@@ -67,13 +67,16 @@ class InitialMHDAxisymHdivEigFun:
         nnz_tor = derham.boundary_ops["2"].dim_nz_tor
 
         eig_vec_1 = U2_eig[
-            0 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2], mode
+            0 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2],
+            mode,
         ]
         eig_vec_2 = U2_eig[
-            1 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 1 * nnz_pol[1] + 0 * nnz_pol[2], mode
+            1 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 1 * nnz_pol[1] + 0 * nnz_pol[2],
+            mode,
         ]
         eig_vec_3 = U2_eig[
-            1 * nnz_pol[0] + 1 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 1 * nnz_pol[1] + 1 * nnz_pol[2], mode
+            1 * nnz_pol[0] + 1 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 1 * nnz_pol[1] + 1 * nnz_pol[2],
+            mode,
         ]
 
         del omega2, U2_eig
@@ -182,7 +185,7 @@ class InitialMHDAxisymHdivEigFun:
             ]
 
             eigvec_1_ten[derham.Vh_pol["2"].n_rings[0] : derham.nbasis["2"][0][0] - bc1_2, :, :] = eig_vec_1[1].reshape(
-                n_v2_0[0]
+                n_v2_0[0],
             )
             eigvec_2_ten[derham.Vh_pol["2"].n_rings[1] :, :, :] = eig_vec_2[1].reshape(n_v2_0[1])
             eigvec_3_ten[derham.Vh_pol["2"].n_rings[2] :, :, :] = eig_vec_3[1].reshape(n_v2_0[2])

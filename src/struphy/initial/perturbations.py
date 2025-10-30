@@ -418,7 +418,7 @@ class CoaxialWaveguideMagnetic(Perturbation):
         z = eta3
 
         val += (self._a * scipy.special.jv(self._m, r) + self._b * scipy.special.yn(self._m, r)) * xp.cos(
-            self._m * theta
+            self._m * theta,
         )
         return val
 

@@ -712,27 +712,33 @@ class Tensor_spline_space:
         # extraction operators for 3D diagram: without boundary conditions
         self.E0 = spa.kron(self.E0_pol, self.E0_tor, format="csr")
         self.E1 = spa.bmat(
-            [[spa.kron(self.E1_pol, self.E0_tor), None], [None, spa.kron(self.E0_pol, self.E1_tor)]], format="csr"
+            [[spa.kron(self.E1_pol, self.E0_tor), None], [None, spa.kron(self.E0_pol, self.E1_tor)]],
+            format="csr",
         )
         self.E2 = spa.bmat(
-            [[spa.kron(self.E2_pol, self.E1_tor), None], [None, spa.kron(self.E3_pol, self.E0_tor)]], format="csr"
+            [[spa.kron(self.E2_pol, self.E1_tor), None], [None, spa.kron(self.E3_pol, self.E0_tor)]],
+            format="csr",
         )
         self.E3 = spa.kron(self.E3_pol, self.E1_tor, format="csr")
         self.Ev = spa.bmat(
-            [[spa.kron(self.Ev_pol, self.E0_tor), None], [None, spa.kron(self.E0_pol, self.E0_tor)]], format="csr"
+            [[spa.kron(self.Ev_pol, self.E0_tor), None], [None, spa.kron(self.E0_pol, self.E0_tor)]],
+            format="csr",
         )
 
         # boundary operators for 3D diagram
         self.B0 = spa.kron(self.B0_pol, self.B0_tor, format="csr")
         self.B1 = spa.bmat(
-            [[spa.kron(self.B1_pol, self.B0_tor), None], [None, spa.kron(self.B0_pol, self.B1_tor)]], format="csr"
+            [[spa.kron(self.B1_pol, self.B0_tor), None], [None, spa.kron(self.B0_pol, self.B1_tor)]],
+            format="csr",
         )
         self.B2 = spa.bmat(
-            [[spa.kron(self.B2_pol, self.B1_tor), None], [None, spa.kron(self.B3_pol, self.B0_tor)]], format="csr"
+            [[spa.kron(self.B2_pol, self.B1_tor), None], [None, spa.kron(self.B3_pol, self.B0_tor)]],
+            format="csr",
         )
         self.B3 = spa.kron(self.B3_pol, self.B1_tor, format="csr")
         self.Bv = spa.bmat(
-            [[spa.kron(self.Bv_pol, self.E0_tor), None], [None, spa.kron(Bv3, self.B0_tor)]], format="csr"
+            [[spa.kron(self.Bv_pol, self.E0_tor), None], [None, spa.kron(Bv3, self.B0_tor)]],
+            format="csr",
         )
 
         # extraction operators for 3D diagram: with boundary conditions
@@ -841,10 +847,10 @@ class Tensor_spline_space:
         x1, x2 = self.reshape_pol_1(x)
 
         out1 = self.B0_tor.dot(
-            mats[0][1].dot(self.B0_tor.T.dot(self.B1_pol.dot(mats[0][0].dot(self.B1_pol.T.dot(x1))).T))
+            mats[0][1].dot(self.B0_tor.T.dot(self.B1_pol.dot(mats[0][0].dot(self.B1_pol.T.dot(x1))).T)),
         ).T
         out2 = self.B1_tor.dot(
-            mats[1][1].dot(self.B1_tor.T.dot(self.B0_pol.dot(mats[1][0].dot(self.B0_pol.T.dot(x2))).T))
+            mats[1][1].dot(self.B1_tor.T.dot(self.B0_pol.dot(mats[1][0].dot(self.B0_pol.T.dot(x2))).T)),
         ).T
 
         return xp.concatenate((out1.flatten(), out2.flatten()))
@@ -857,10 +863,10 @@ class Tensor_spline_space:
         x1, x2 = self.reshape_pol_2(x)
 
         out1 = self.B1_tor.dot(
-            mats[0][1].dot(self.B1_tor.T.dot(self.B2_pol.dot(mats[0][0].dot(self.B2_pol.T.dot(x1))).T))
+            mats[0][1].dot(self.B1_tor.T.dot(self.B2_pol.dot(mats[0][0].dot(self.B2_pol.T.dot(x1))).T)),
         ).T
         out2 = self.B0_tor.dot(
-            mats[1][1].dot(self.B0_tor.T.dot(self.B3_pol.dot(mats[1][0].dot(self.B3_pol.T.dot(x2))).T))
+            mats[1][1].dot(self.B0_tor.T.dot(self.B3_pol.dot(mats[1][0].dot(self.B3_pol.T.dot(x2))).T)),
         ).T
 
         return xp.concatenate((out1.flatten(), out2.flatten()))
@@ -928,10 +934,12 @@ class Tensor_spline_space:
             self.M1_pol_mat = mass_2d.get_M1(self, domain)
 
             matvec = lambda x: self.apply_M1_ten(
-                x, [[self.M1_pol_mat[0], self.M0_tor], [self.M1_pol_mat[1], self.M1_tor]]
+                x,
+                [[self.M1_pol_mat[0], self.M0_tor], [self.M1_pol_mat[1], self.M1_tor]],
             )
             matvec_0 = lambda x: self.apply_M1_0_ten(
-                x, [[self.M1_pol_mat[0], self.M0_tor], [self.M1_pol_mat[1], self.M1_tor]]
+                x,
+                [[self.M1_pol_mat[0], self.M0_tor], [self.M1_pol_mat[1], self.M1_tor]],
             )
 
         # 3D
@@ -939,7 +947,8 @@ class Tensor_spline_space:
             if self.dim == 2:
                 M11, M22 = mass_2d.get_M1(self, domain)
                 self.M1_mat = spa.bmat(
-                    [[spa.kron(M11, self.M0_tor), None], [None, spa.kron(M22, self.M1_tor)]], format="csr"
+                    [[spa.kron(M11, self.M0_tor), None], [None, spa.kron(M22, self.M1_tor)]],
+                    format="csr",
                 )
             else:
                 self.M1_mat = mass_3d.get_M1(self, domain)
@@ -963,10 +972,12 @@ class Tensor_spline_space:
             self.M2_pol_mat = mass_2d.get_M2(self, domain)
 
             matvec = lambda x: self.apply_M2_ten(
-                x, [[self.M2_pol_mat[0], self.M1_tor], [self.M2_pol_mat[1], self.M0_tor]]
+                x,
+                [[self.M2_pol_mat[0], self.M1_tor], [self.M2_pol_mat[1], self.M0_tor]],
             )
             matvec_0 = lambda x: self.apply_M2_0_ten(
-                x, [[self.M2_pol_mat[0], self.M1_tor], [self.M2_pol_mat[1], self.M0_tor]]
+                x,
+                [[self.M2_pol_mat[0], self.M1_tor], [self.M2_pol_mat[1], self.M0_tor]],
             )
 
         # 3D
@@ -974,7 +985,8 @@ class Tensor_spline_space:
             if self.dim == 2:
                 M11, M22 = mass_2d.get_M2(self, domain)
                 self.M2_mat = spa.bmat(
-                    [[spa.kron(M11, self.M1_tor), None], [None, spa.kron(M22, self.M0_tor)]], format="csr"
+                    [[spa.kron(M11, self.M1_tor), None], [None, spa.kron(M22, self.M0_tor)]],
+                    format="csr",
                 )
             else:
                 self.M2_mat = mass_3d.get_M2(self, domain)
@@ -1026,10 +1038,12 @@ class Tensor_spline_space:
             self.Mv_pol_mat = mass_2d.get_Mv(self, domain)
 
             matvec = lambda x: self.apply_Mv_ten(
-                x, [[self.Mv_pol_mat[0], self.M0_tor], [self.Mv_pol_mat[1], self.M0_tor]]
+                x,
+                [[self.Mv_pol_mat[0], self.M0_tor], [self.Mv_pol_mat[1], self.M0_tor]],
             )
             matvec_0 = lambda x: self.apply_Mv_0_ten(
-                x, [[self.Mv_pol_mat[0], self.M0_tor], [self.Mv_pol_mat[1], self.M0_tor]]
+                x,
+                [[self.Mv_pol_mat[0], self.M0_tor], [self.Mv_pol_mat[1], self.M0_tor]],
             )
 
         # 3D
@@ -1037,7 +1051,8 @@ class Tensor_spline_space:
             if self.dim == 2:
                 M11, M22 = mass_2d.get_Mv(self, domain)
                 self.Mv_mat = spa.bmat(
-                    [[spa.kron(M11, self.M0_tor), None], [None, spa.kron(M22, self.M0_tor)]], format="csr"
+                    [[spa.kron(M11, self.M0_tor), None], [None, spa.kron(M22, self.M0_tor)]],
+                    format="csr",
                 )
             else:
                 self.Mv_mat = mass_3d.get_Mv(self, domain)
@@ -1093,17 +1108,21 @@ class Tensor_spline_space:
 
         if c_size == self.E1.shape[0]:
             coeff1_pol_1 = coeff[: self.E1_pol.shape[0] * self.E0_tor.shape[0]].reshape(
-                self.E1_pol.shape[0], self.E0_tor.shape[0]
+                self.E1_pol.shape[0],
+                self.E0_tor.shape[0],
             )
             coeff1_pol_3 = coeff[self.E1_pol.shape[0] * self.E0_tor.shape[0] :].reshape(
-                self.E0_pol.shape[0], self.E1_tor.shape[0]
+                self.E0_pol.shape[0],
+                self.E1_tor.shape[0],
             )
         else:
             coeff1_pol_1 = coeff[: self.E1_pol_0.shape[0] * self.E0_tor_0.shape[0]].reshape(
-                self.E1_pol_0.shape[0], self.E0_tor_0.shape[0]
+                self.E1_pol_0.shape[0],
+                self.E0_tor_0.shape[0],
             )
             coeff1_pol_3 = coeff[self.E1_pol_0.shape[0] * self.E0_tor_0.shape[0] :].reshape(
-                self.E0_pol_0.shape[0], self.E1_tor_0.shape[0]
+                self.E0_pol_0.shape[0],
+                self.E1_tor_0.shape[0],
             )
 
         return coeff1_pol_1, coeff1_pol_3
@@ -1119,17 +1138,21 @@ class Tensor_spline_space:
 
         if c_size == self.E2.shape[0]:
             coeff2_pol_1 = coeff[: self.E2_pol.shape[0] * self.E1_tor.shape[0]].reshape(
-                self.E2_pol.shape[0], self.E1_tor.shape[0]
+                self.E2_pol.shape[0],
+                self.E1_tor.shape[0],
             )
             coeff2_pol_3 = coeff[self.E2_pol.shape[0] * self.E1_tor.shape[0] :].reshape(
-                self.E3_pol.shape[0], self.E0_tor.shape[0]
+                self.E3_pol.shape[0],
+                self.E0_tor.shape[0],
             )
         else:
             coeff2_pol_1 = coeff[: self.E2_pol_0.shape[0] * self.E1_tor_0.shape[0]].reshape(
-                self.E2_pol_0.shape[0], self.E1_tor_0.shape[0]
+                self.E2_pol_0.shape[0],
+                self.E1_tor_0.shape[0],
             )
             coeff2_pol_3 = coeff[self.E2_pol_0.shape[0] * self.E1_tor_0.shape[0] :].reshape(
-                self.E3_pol_0.shape[0], self.E0_tor_0.shape[0]
+                self.E3_pol_0.shape[0],
+                self.E0_tor_0.shape[0],
             )
 
         return coeff2_pol_1, coeff2_pol_3
@@ -1161,18 +1184,22 @@ class Tensor_spline_space:
 
         if c_size == self.Ev.shape[0]:
             coeffv_pol_1 = coeff[: self.Ev_pol.shape[0] * self.E0_tor.shape[0]].reshape(
-                self.Ev_pol.shape[0], self.E0_tor.shape[0]
+                self.Ev_pol.shape[0],
+                self.E0_tor.shape[0],
             )
             coeffv_pol_3 = coeff[self.Ev_pol.shape[0] * self.E0_tor.shape[0] :].reshape(
-                self.E0_pol.shape[0], self.E0_tor.shape[0]
+                self.E0_pol.shape[0],
+                self.E0_tor.shape[0],
             )
 
         else:
             coeffv_pol_1 = coeff[: self.Ev_pol_0.shape[0] * self.E0_tor.shape[0]].reshape(
-                self.Ev_pol_0.shape[0], self.E0_tor.shape[0]
+                self.Ev_pol_0.shape[0],
+                self.E0_tor.shape[0],
             )
             coeffv_pol_3 = coeff[self.Ev_pol_0.shape[0] * self.E0_tor.shape[0] :].reshape(
-                self.E0_pol.shape[0], self.E0_tor_0.shape[0]
+                self.E0_pol.shape[0],
+                self.E0_tor_0.shape[0],
             )
 
         return coeffv_pol_1, coeffv_pol_3
@@ -1527,10 +1554,26 @@ class Tensor_spline_space:
 
             if self.n_tor != 0 and self.basis_tor == "r":
                 real_2 = eva_2d.evaluate_n_n(
-                    self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_r[:, :, 1], eta1, eta2
+                    self.T[0],
+                    self.T[1],
+                    self.p[0],
+                    self.p[1],
+                    self.indN[0],
+                    self.indN[1],
+                    coeff_r[:, :, 1],
+                    eta1,
+                    eta2,
                 )
                 imag_2 = eva_2d.evaluate_n_n(
-                    self.T[0], self.T[1], self.p[0], self.p[1], self.indN[0], self.indN[1], coeff_i[:, :, 1], eta1, eta2
+                    self.T[0],
+                    self.T[1],
+                    self.p[0],
+                    self.p[1],
+                    self.indN[0],
+                    self.indN[1],
+                    coeff_i[:, :, 1],
+                    eta1,
+                    eta2,
                 )
 
             # multiply with Fourier basis in third direction if |n_tor| > 0

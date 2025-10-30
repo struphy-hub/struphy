@@ -24,8 +24,8 @@ def test_clone_config(Nel, Np, num_clones):
             species: {
                 "markers": {
                     "Np": Np,
-                }
-            }
+                },
+            },
         },
     }
 
@@ -37,7 +37,7 @@ def test_clone_config(Nel, Np, num_clones):
     # Print outputs
     pconf.print_clone_config()
     pconf.print_particle_config()
-    print(f"{pconf.get_Np_clone(Np) = }")
+    print(f"{pconf.get_Np_clone(Np) =}")
 
 
 if __name__ == "__main__":
