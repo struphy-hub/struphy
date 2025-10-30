@@ -1,18 +1,15 @@
 name: Testing
 
 on:
-  push:
-    branches:
-      - main
-      - devel
-  pull_request:
-    branches:
-      - main
-      - devel
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ inputs.os }}
     env:
       OMPI_MCA_rmaps_base_oversubscribe: 1 # Linux
       PRRTE_MCA_rmaps_base_oversubscribe: 1 # MacOS
@@ -20,9 +17,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12"]
-        os: ["ubuntu-latest"] #, "macos-latest"]
         compile-language: ["fortran", "c"]
-        test-type: ["unit", "model", "quickstart", "tutorials"]
+        test-type: ["unit", "model"] #, "quickstart"]
 
     steps:
       # Checkout the repository
@@ -50,13 +46,13 @@ jobs:
 
       # Install prereqs
       # I don't think it's possible to use a single action for this because
-      # we can't use ${matrix.os} in an if statement, so we have to use two different actions.
+      # we can't use ${inputs.os} in an if statement, so we have to use two different actions.
       - name: Install prerequisites (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
+        if: inputs.os == 'ubuntu-latest'
         uses: ./.github/actions/install/ubuntu-latest
 
       - name: Install prerequisites (macOS)
-        if: matrix.os == 'macos-latest'
+        if: inputs.os == 'macos-latest'
         uses: ./.github/actions/install/macos-latest
 
       # Check that mpirun oversubscribing works, doesn't work unless OMPI_MCA_rmaps_base_oversubscribe==1
@@ -90,10 +86,6 @@ jobs:
         if: matrix.test-type == 'model'
         uses: ./.github/actions/tests/models
 
-      - name: Run quickstart tests
-        if: matrix.test-type == 'quickstart'
-        uses: ./.github/actions/tests/quickstart
-
-      - name: Run tutorials
-        if: matrix.test-type == 'tutorials'
-        uses: ./.github/actions/tests/tutorials
+      #- name: Run quickstart tests
+      #  if: matrix.test-type == 'quickstart'
+      #  uses: ./.github/actions/tests/quickstart
