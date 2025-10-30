@@ -1,5 +1,6 @@
 import importlib.metadata
 import re
+import tomllib
 
 
 def get_min_bound(entry):
