@@ -3,11 +3,11 @@
 # Copyright 2021 Florian Holderied (florian.holderied@ipp.mpg.de)
 
 
+import cunumpy as xp
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.legacy.mass_matrices_3d_pre as mass_3d_pre
 from struphy.eigenvalue_solvers.mhd_operators_core import MHDOperatorsCore
-from struphy.utils.arrays import xp as np
 
 
 class MHDOperators:
@@ -402,7 +402,7 @@ class MHDOperators:
                 out1 = self.int_N3.dot(self.dofs_EF[0].dot(u1).T).T + self.int_N3.dot(self.dofs_EF[1].dot(u3).T).T
                 out3 = self.his_N3.dot(self.dofs_EF[2].dot(u1).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
             elif self.core.basis_u == 2:
                 u1, u3 = self.core.space.reshape_pol_2(u)
@@ -410,7 +410,7 @@ class MHDOperators:
                 out1 = self.int_D3.dot(self.dofs_EF[0].dot(u1).T).T + self.int_N3.dot(self.dofs_EF[1].dot(u3).T).T
                 out3 = self.his_D3.dot(self.dofs_EF[2].dot(u1).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
         else:
             out = self.dofs_EF.dot(u)
@@ -434,7 +434,7 @@ class MHDOperators:
                 )
                 out3 = self.int_N3.T.dot(self.dofs_EF[1].T.dot(e1).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
             elif self.core.basis_u == 2:
                 out1 = (
@@ -442,7 +442,7 @@ class MHDOperators:
                 )
                 out3 = self.int_N3.T.dot(self.dofs_EF[1].T.dot(e1).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
         else:
             out = self.dofs_EF.T.dot(e)
@@ -462,7 +462,7 @@ class MHDOperators:
                 out1 = self.his_N3.dot(self.dofs_MF[0].dot(u1).T).T
                 out3 = self.int_N3.dot(self.dofs_MF[1].dot(u3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
             elif self.core.basis_u == 2:
                 u1, u3 = self.core.space.reshape_pol_2(u)
@@ -470,7 +470,7 @@ class MHDOperators:
                 out1 = self.his_D3.dot(self.dofs_MF[0].dot(u1).T).T
                 out3 = self.int_N3.dot(self.dofs_MF[1].dot(u3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
         else:
             out = self.dofs_MF.dot(u)
@@ -492,13 +492,13 @@ class MHDOperators:
                 out1 = self.his_N3.T.dot(self.dofs_MF[0].T.dot(f1).T).T
                 out3 = self.int_N3.T.dot(self.dofs_MF[1].T.dot(f3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
             elif self.core.basis_u == 2:
                 out1 = self.his_D3.T.dot(self.dofs_MF[0].T.dot(f1).T).T
                 out3 = self.int_N3.T.dot(self.dofs_MF[1].T.dot(f3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
         else:
             out = self.dofs_MF.T.dot(f)
@@ -518,7 +518,7 @@ class MHDOperators:
                 out1 = self.his_N3.dot(self.dofs_PF[0].dot(u1).T).T
                 out3 = self.int_N3.dot(self.dofs_PF[1].dot(u3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
             elif self.core.basis_u == 2:
                 u1, u3 = self.core.space.reshape_pol_2(u)
@@ -526,7 +526,7 @@ class MHDOperators:
                 out1 = self.his_D3.dot(self.dofs_PF[0].dot(u1).T).T
                 out3 = self.int_N3.dot(self.dofs_PF[1].dot(u3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
         else:
             out = self.dofs_PF.dot(u)
@@ -548,13 +548,13 @@ class MHDOperators:
                 out1 = self.his_N3.T.dot(self.dofs_PF[0].T.dot(f1).T).T
                 out3 = self.int_N3.T.dot(self.dofs_PF[1].T.dot(f3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
             elif self.core.basis_u == 2:
                 out1 = self.his_D3.T.dot(self.dofs_PF[0].T.dot(f1).T).T
                 out3 = self.int_N3.T.dot(self.dofs_PF[1].T.dot(f3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
         else:
             out = self.dofs_PF.T.dot(f)
@@ -574,7 +574,7 @@ class MHDOperators:
                 out1 = self.his_N3.dot(self.dofs_JF[0].dot(u1).T).T
                 out3 = self.int_N3.dot(self.dofs_JF[1].dot(u3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
             elif self.core.basis_u == 2:
                 u1, u3 = self.core.space.reshape_pol_2(u)
@@ -582,7 +582,7 @@ class MHDOperators:
                 out1 = self.his_D3.dot(self.dofs_JF[0].dot(u1).T).T
                 out3 = self.int_N3.dot(self.dofs_JF[1].dot(u3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
         else:
             out = self.dofs_JF.dot(u)
@@ -604,13 +604,13 @@ class MHDOperators:
                 out1 = self.his_N3.T.dot(self.dofs_JF[0].T.dot(f1).T).T
                 out3 = self.int_N3.T.dot(self.dofs_JF[1].T.dot(f3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
             elif self.core.basis_u == 2:
                 out1 = self.his_D3.T.dot(self.dofs_JF[0].T.dot(f1).T).T
                 out3 = self.int_N3.T.dot(self.dofs_JF[1].T.dot(f3).T).T
 
-                out = np.concatenate((out1.flatten(), out3.flatten()))
+                out = xp.concatenate((out1.flatten(), out3.flatten()))
 
         else:
             out = self.dofs_JF.T.dot(f)
@@ -678,7 +678,7 @@ class MHDOperators:
 
         if self.MJ_as_tensor:
             if self.core.basis_u == 0:
-                out = np.zeros(self.core.space.Ev_0.shape[0], dtype=float)
+                out = xp.zeros(self.core.space.Ev_0.shape[0], dtype=float)
             elif self.core.basis_u == 2:
                 out = self.core.space.apply_M2_ten(
                     b, [[self.MJ_mat[0], self.core.space.M1_tor], [self.MJ_mat[1], self.core.space.M0_tor]]
@@ -686,7 +686,7 @@ class MHDOperators:
 
         else:
             if self.core.basis_u == 0:
-                out = np.zeros(self.core.space.Ev_0.shape[0], dtype=float)
+                out = xp.zeros(self.core.space.Ev_0.shape[0], dtype=float)
             elif self.core.basis_u == 2:
                 out = self.MJ_mat.dot(b)
 
@@ -929,7 +929,7 @@ class MHDOperators:
             u_guess = u + self.dt_2 / 6 * (k1_u + 2 * k2_u + 2 * k3_u + k4_u)
 
         else:
-            u_guess = np.copy(u)
+            u_guess = xp.copy(u)
 
         return u_guess
 

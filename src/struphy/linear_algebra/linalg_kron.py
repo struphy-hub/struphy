@@ -13,10 +13,9 @@ COMMENT: the reshape of a matrix can be viewed as ravel+reshape.
                                     [r_M11, rM12, ... , r_MNO]]
 """
 
+import cunumpy as xp
 from scipy.linalg import solve_circulant
 from scipy.sparse.linalg import splu
-
-from struphy.utils.arrays import xp as np
 
 
 def kron_matvec_2d(kmat, vec2d):
@@ -197,9 +196,9 @@ def kron_matmat_fft_3d(a_vec, b_vec):
 
     c_vec = [0, 0, 0]
 
-    c_vec[0] = np.fft.ifft(np.fft.fft(a_vec[0]) * np.fft.fft(b_vec[0]))
-    c_vec[1] = np.fft.ifft(np.fft.fft(a_vec[1]) * np.fft.fft(b_vec[1]))
-    c_vec[2] = np.fft.ifft(np.fft.fft(a_vec[2]) * np.fft.fft(b_vec[2]))
+    c_vec[0] = xp.fft.ifft(xp.fft.fft(a_vec[0]) * xp.fft.fft(b_vec[0]))
+    c_vec[1] = xp.fft.ifft(xp.fft.fft(a_vec[1]) * xp.fft.fft(b_vec[1]))
+    c_vec[2] = xp.fft.ifft(xp.fft.fft(a_vec[2]) * xp.fft.fft(b_vec[2]))
 
     return c_vec
 

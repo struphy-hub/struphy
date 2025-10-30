@@ -1,9 +1,8 @@
 import importlib.util
 
+import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
-
-from struphy.utils.arrays import xp as np
 
 desc_spec = importlib.util.find_spec("desc")
 
@@ -33,9 +32,9 @@ def test_desc_equil(do_plot=False):
     n2 = 9
     n3 = 11
 
-    e1 = np.linspace(0.0001, 1, n1)
-    e2 = np.linspace(0, 1, n2)
-    e3 = np.linspace(0, 1 - 1e-6, n3)
+    e1 = xp.linspace(0.0001, 1, n1)
+    e2 = xp.linspace(0, 1, n2)
+    e3 = xp.linspace(0, 1 - 1e-6, n3)
 
     # desc grid and evaluation
     vars = [
@@ -70,43 +69,43 @@ def test_desc_equil(do_plot=False):
         outs[nfp] = {}
 
         rho = rmin + e1 * (1.0 - rmin)
-        theta = 2 * np.pi * e2
-        zeta = 2 * np.pi * e3 / nfp
+        theta = 2 * xp.pi * e2
+        zeta = 2 * xp.pi * e3 / nfp
 
-        r, t, ze = np.meshgrid(rho, theta, zeta, indexing="ij")
+        r, t, ze = xp.meshgrid(rho, theta, zeta, indexing="ij")
         r = r.flatten()
         t = t.flatten()
         ze = ze.flatten()
 
-        nodes = np.stack((r, t, ze)).T
-        grid_3d = Grid(nodes, spacing=np.ones_like(nodes), jitable=False)
+        nodes = xp.stack((r, t, ze)).T
+        grid_3d = Grid(nodes, spacing=xp.ones_like(nodes), jitable=False)
 
         for var in vars:
             node_values = desc_eq.compute(var, grid=grid_3d, override_grid=False)
 
             if node_values[var].ndim == 1:
                 out = node_values[var].reshape((rho.size, theta.size, zeta.size), order="C")
-                outs[nfp][var] = np.ascontiguousarray(out)
+                outs[nfp][var] = xp.ascontiguousarray(out)
             else:
                 B = []
                 for i in range(3):
                     Bcomp = node_values[var][:, i].reshape((rho.size, theta.size, zeta.size), order="C")
-                    Bcomp = np.ascontiguousarray(Bcomp)
+                    Bcomp = xp.ascontiguousarray(Bcomp)
                     B += [Bcomp]
                     outs[nfp][var + str(i + 1)] = Bcomp
-                outs[nfp][var] = np.sqrt(B[0] ** 2 + B[1] ** 2 + B[2] ** 2)
+                outs[nfp][var] = xp.sqrt(B[0] ** 2 + B[1] ** 2 + B[2] ** 2)
 
-        assert np.allclose(outs[nfp]["B1"], outs[nfp]["B_R"])
-        assert np.allclose(outs[nfp]["B2"], outs[nfp]["B_phi"])
-        assert np.allclose(outs[nfp]["B3"], outs[nfp]["B_Z"])
+        assert xp.allclose(outs[nfp]["B1"], outs[nfp]["B_R"])
+        assert xp.allclose(outs[nfp]["B2"], outs[nfp]["B_phi"])
+        assert xp.allclose(outs[nfp]["B3"], outs[nfp]["B_Z"])
 
-        assert np.allclose(outs[nfp]["J1"], outs[nfp]["J_R"])
-        assert np.allclose(outs[nfp]["J2"], outs[nfp]["J_phi"])
-        assert np.allclose(outs[nfp]["J3"], outs[nfp]["J_Z"])
+        assert xp.allclose(outs[nfp]["J1"], outs[nfp]["J_R"])
+        assert xp.allclose(outs[nfp]["J2"], outs[nfp]["J_phi"])
+        assert xp.allclose(outs[nfp]["J3"], outs[nfp]["J_Z"])
 
-        outs[nfp]["Bx"] = np.cos(outs[nfp]["phi"]) * outs[nfp]["B_R"] - np.sin(outs[nfp]["phi"]) * outs[nfp]["B_phi"]
+        outs[nfp]["Bx"] = xp.cos(outs[nfp]["phi"]) * outs[nfp]["B_R"] - xp.sin(outs[nfp]["phi"]) * outs[nfp]["B_phi"]
 
-        outs[nfp]["By"] = np.sin(outs[nfp]["phi"]) * outs[nfp]["B_R"] + np.cos(outs[nfp]["phi"]) * outs[nfp]["B_phi"]
+        outs[nfp]["By"] = xp.sin(outs[nfp]["phi"]) * outs[nfp]["B_R"] + xp.cos(outs[nfp]["phi"]) * outs[nfp]["B_phi"]
 
         outs[nfp]["Bz"] = outs[nfp]["B_Z"]
 
@@ -123,32 +122,32 @@ def test_desc_equil(do_plot=False):
         outs_struphy[nfp]["Y"] = y
         outs_struphy[nfp]["Z"] = z
 
-        outs_struphy[nfp]["R"] = np.sqrt(x**2 + y**2)
-        tmp = np.arctan2(y, x)
-        tmp[tmp < -1e-6] += 2 * np.pi
+        outs_struphy[nfp]["R"] = xp.sqrt(x**2 + y**2)
+        tmp = xp.arctan2(y, x)
+        tmp[tmp < -1e-6] += 2 * xp.pi
         outs_struphy[nfp]["phi"] = tmp
 
-        outs_struphy[nfp]["sqrt(g)"] = s_eq.domain.jacobian_det(e1, e2, e3) / (4 * np.pi**2 / nfp)
+        outs_struphy[nfp]["sqrt(g)"] = s_eq.domain.jacobian_det(e1, e2, e3) / (4 * xp.pi**2 / nfp)
 
         outs_struphy[nfp]["p"] = s_eq.p0(e1, e2, e3)
 
         # include push forward to DESC logical coordinates
         bv = s_eq.bv(e1, e2, e3)
         outs_struphy[nfp]["B^rho"] = bv[0] * (1 - rmin)
-        outs_struphy[nfp]["B^theta"] = bv[1] * 2 * np.pi
-        outs_struphy[nfp]["B^zeta"] = bv[2] * 2 * np.pi / nfp
+        outs_struphy[nfp]["B^theta"] = bv[1] * 2 * xp.pi
+        outs_struphy[nfp]["B^zeta"] = bv[2] * 2 * xp.pi / nfp
 
         outs_struphy[nfp]["B"] = s_eq.absB0(e1, e2, e3)
 
         # include push forward to DESC logical coordinates
         jv = s_eq.jv(e1, e2, e3)
         outs_struphy[nfp]["J^rho"] = jv[0] * (1 - rmin)
-        outs_struphy[nfp]["J^theta"] = jv[1] * 2 * np.pi
-        outs_struphy[nfp]["J^zeta"] = jv[2] * 2 * np.pi / nfp
+        outs_struphy[nfp]["J^theta"] = jv[1] * 2 * xp.pi
+        outs_struphy[nfp]["J^zeta"] = jv[2] * 2 * xp.pi / nfp
 
         j1 = s_eq.j1(e1, e2, e3)
 
-        outs_struphy[nfp]["J"] = np.sqrt(jv[0] * j1[0] + jv[1] * j1[1] + jv[2] * j1[2])
+        outs_struphy[nfp]["J"] = xp.sqrt(jv[0] * j1[0] + jv[1] * j1[1] + jv[2] * j1[2])
 
         b_cart, xyz = s_eq.b_cart(e1, e2, e3)
         outs_struphy[nfp]["Bx"] = b_cart[0]
@@ -158,8 +157,8 @@ def test_desc_equil(do_plot=False):
         # include push forward to DESC logical coordinates
         gradB1 = s_eq.gradB1(e1, e2, e3)
         outs_struphy[nfp]["|B|_r"] = gradB1[0] / (1 - rmin)
-        outs_struphy[nfp]["|B|_t"] = gradB1[1] / (2 * np.pi)
-        outs_struphy[nfp]["|B|_z"] = gradB1[2] / (2 * np.pi / nfp)
+        outs_struphy[nfp]["|B|_t"] = gradB1[1] / (2 * xp.pi)
+        outs_struphy[nfp]["|B|_z"] = gradB1[2] / (2 * xp.pi / nfp)
 
     # comparisons
     vars += ["Bx", "By", "Bz"]
@@ -173,10 +172,10 @@ def test_desc_equil(do_plot=False):
             if var in ("B_R", "B_phi", "B_Z", "J_R", "J_phi", "J_Z"):
                 continue
             else:
-                max_norm = np.max(np.abs(outs[nfp][var]))
+                max_norm = xp.max(xp.abs(outs[nfp][var]))
                 if max_norm < 1e-16:
                     max_norm = 1.0
-                err = np.max(np.abs(outs[nfp][var] - outs_struphy[nfp][var])) / max_norm
+                err = xp.max(xp.abs(outs[nfp][var] - outs_struphy[nfp][var])) / max_norm
 
                 assert err < err_lim
                 print(
@@ -186,7 +185,7 @@ def test_desc_equil(do_plot=False):
                 if do_plot:
                     fig = plt.figure(figsize=(12, 13))
 
-                    levels = np.linspace(np.min(outs[nfp][var]) - 1e-10, np.max(outs[nfp][var]), 20)
+                    levels = xp.linspace(xp.min(outs[nfp][var]) - 1e-10, xp.max(outs[nfp][var]), 20)
 
                     # poloidal plot
                     R = outs[nfp]["R"][:, :, 0].squeeze()
