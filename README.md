@@ -1,11 +1,13 @@
-# Struphy - Structure-preserving hybrid codes
+![Struphy header](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/struphy_header_with_subs.png)
 
-A Python package for plasma physics PDEs.
+# Welcome!
+
+Struphy is a Python package for plasma physics PDEs.
 
 Join the [Struphy mailing list](https://listserv.gwdg.de/mailman/listinfo/struphy) and stay informed on updates.
 
 ## Documentation
-See the [Struphy pages](https://struphy.pages.mpcdf.de/struphy/index.html) for details regarding installation, tutorials, use and development.
+See the [Struphy pages](https://struphy.pages.mpcdf.de/struphy/index.html) for details regarding installation, tutorials, use, and development.
 
 ## Quick install
 
