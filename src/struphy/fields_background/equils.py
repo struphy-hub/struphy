@@ -2918,6 +2918,7 @@ class ConstantVelocity(CartesianFluidEquilibrium):
         n: float = 1.0,
         n1: float = 0.0,
         density_profile: str = "constant",
+        velocity_profile: str = "constant",
         p0: float = 1.0,
     ):
         # use params setter
@@ -2926,7 +2927,15 @@ class ConstantVelocity(CartesianFluidEquilibrium):
     # equilibrium ion velocity
     def u_xyz(self, x, y, z):
         """Ion velocity."""
-        ux = 0 * x + self.params["ux"]
+        if self.params["velocity_profile"] == "constant":
+            ux = 0 * x + self.params["ux"]
+        elif self.params["velocity_profile"] == "step_function_velocity_y":
+            ux = 1e-8 + 0 * x
+            # mask_x = np.logical_and(x < .6, x > .4)
+            # mask_y = np.logical_and(y < .6, y > .4)
+            # mask = np.logical_and(mask_x, mask_y)
+            mask = y < 0.5
+            ux[mask] = self.params["ux"]
         uy = 0 * x + self.params["uy"]
         uz = 0 * x + self.params["uz"]
 

@@ -2235,6 +2235,7 @@ class EulerSPH(StruphyModel):
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
             self.push_sph_p = propagators_markers.PushVinSPHpressure()
+            
 
     ## abstract methods
 
@@ -2255,6 +2256,132 @@ class EulerSPH(StruphyModel):
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.euler_fluid.var
         self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
+        
+        
+        # define scalars for update_scalar_quantities
+        self.add_scalar("en_kin", compute="from_sph", variable=self.euler_fluid.var)
+
+    @property
+    def bulk_species(self):
+        return self.euler_fluid
+
+    @property
+    def velocity_scale(self):
+        return "thermal"
+
+    def allocate_helpers(self):
+        pass
+
+    # @staticmethod
+    # def diagnostics_dct():
+    #     dct = {}
+    #     dct["projected_density"] = "L2"
+    #     return dct
+
+    def update_scalar_quantities(self):
+        particles = self.euler_fluid.var.particles
+        valid_markers = particles.markers_wo_holes_and_ghost
+        en_kin = valid_markers[:, 6].dot(
+            valid_markers[:, 3] ** 2 + valid_markers[:, 4] ** 2 + valid_markers[:, 5] ** 2
+        ) / (2.0 * particles.Np)
+        self.update_scalar("en_kin", en_kin)
+
+    ## default parameters
+    def generate_default_parameter_file(self, path=None, prompt=True):
+        params_path = super().generate_default_parameter_file(path=path, prompt=prompt)
+        new_file = []
+        with open(params_path, "r") as f:
+            for line in f:
+                if "push_vxb.Options" in line:
+                    new_file += ["if model.with_B0:\n"]
+                    new_file += ["    " + line]
+                elif "set_save_data" in line:
+                    new_file += ["\nkd_plot = KernelDensityPlot()\n"]
+                    new_file += ["model.euler_fluid.set_save_data(kernel_density_plots=(kd_plot,))\n"]
+                elif "base_units = BaseUnits" in line:
+                    new_file += ["base_units = BaseUnits(kBT=1.0)\n"]
+                else:
+                    new_file += [line]
+
+        with open(params_path, "w") as f:
+            for line in new_file:
+                f.write(line)
+
+
+class ViscousEulerSPH(StruphyModel):
+    r"""Euler equations discretized with smoothed particle hydrodynamics (SPH).
+
+    :ref:`normalization`:
+
+    .. math::
+
+        \hat u =  \hat v_\textnormal{th} \,.
+
+    :ref:`Equations <gempic>`:
+
+    .. math::
+
+        \begin{align}
+        \partial_t \rho + \nabla \cdot (\rho \mathbf u) &= 0\,,
+        \\[2mm]
+        \rho(\partial_t \mathbf u + \mathbf u \cdot \nabla \mathbf u) &= - \nabla \left(\rho^2 \frac{\partial \mathcal U(\rho, S)}{\partial \rho} \right)\,,
+        \\[2mm]
+        \partial_t S + \mathbf u \cdot \nabla S &= 0\,,
+        \end{align}
+
+    where :math:`S` denotes the entropy per unit mass.
+    The internal energy per unit mass can be defined in two ways:
+
+    .. math::
+
+        \mathrm{"isothermal:"}\qquad &\mathcal U(\rho, S) = \kappa(S) \log \rho\,.
+
+        \mathrm{"polytropic:"}\qquad &\mathcal U(\rho, S) = \kappa(S) \frac{\rho^{\gamma - 1}}{\gamma - 1}\,.
+
+    :ref:`propagators` (called in sequence):
+
+    1. :class:`~struphy.propagators.propagators_markers.PushEta`
+    2. :class:`~struphy.propagators.propagators_markers.PushVxB`
+    3. :class:`~struphy.propagators.propagators_markers.PushVinSPHpressure`
+    """
+
+    ## species
+
+    class EulerFluid(ParticleSpecies):
+        def __init__(self):
+            self.var = SPHVariable()
+            self.init_variables()
+
+    ## propagators
+
+    class Propagators:
+        def __init__(self, with_B0: bool = True):
+            self.push_eta = propagators_markers.PushEta()
+            if with_B0:
+                self.push_vxb = propagators_markers.PushVxB()
+            self.push_sph_p = propagators_markers.PushVinSPHpressure()
+            self.push_viscous = propagators_markers.PushVinViscousPotential()
+
+    ## abstract methods
+
+    def __init__(self, with_B0: bool = True):
+        if rank == 0:
+            print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
+
+        self.with_B0 = with_B0
+
+        # 1. instantiate all species
+        self.euler_fluid = self.EulerFluid()
+
+        # 2. instantiate all propagators
+        self.propagators = self.Propagators(with_B0=with_B0)
+
+        # 3. assign variables to propagators
+        self.propagators.push_eta.variables.var = self.euler_fluid.var
+        if with_B0:
+            self.propagators.push_vxb.variables.ions = self.euler_fluid.var
+        self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
+        self.propagators.push_viscous.variables.fluid = self.euler_fluid.var
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_kin", compute="from_sph", variable=self.euler_fluid.var)
@@ -2304,6 +2431,8 @@ class EulerSPH(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
+
+
 
 
 class HasegawaWakatani(StruphyModel):

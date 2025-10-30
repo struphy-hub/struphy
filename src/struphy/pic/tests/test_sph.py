@@ -5,10 +5,11 @@ from psydac.ddm.mpi import MockComm
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.fields_background.equils import ConstantVelocity
+from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
 from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
-from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters, BinningPlot
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
@@ -909,20 +910,207 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
 
     if not tesselation:
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
+        
+    
+@pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
+@pytest.mark.parametrize("kernel", ["trigonometric_1d", "gaussian_1d", "linear_1d"])
+@pytest.mark.parametrize("derivative", [0, 1])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("eval_pts", [11, 16])
+@pytest.mark.parametrize("tesselation", [False, True])
+def test_sph_velocity_evaluation(
+    boxes_per_dim,
+    kernel,
+    derivative,
+    bc_x,
+    eval_pts,
+    tesselation,
+    show_plot=False,
+):
+    
+    comm = MPI.COMM_WORLD
 
+    # DOMAIN object
+    dom_type = "Cuboid"
+    dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+
+    if tesselation:
+        ppb = 100
+        loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
+    else:
+        ppb = 1000 
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
+
+    # test velocity profile
+    Lx = dom_params["r1"] - dom_params["l1"]
+    
+    def u_xyz(x, y, z):
+        ux = np.cos(2*np.pi/Lx*x)
+        uy = 0.0*x
+        uz = 0.0*x
+        return (ux, uy, uz)
+
+    background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    # background = ConstantVelocity(
+    #     ux=1.0,
+    #     uy=0.0,
+    #     uz=0.0,
+    #     n=1.5,
+    #     density_profile="constant",
+    #     velocity_profile="step_function_velocity_y",
+    # )
+    background.domain = domain
+    
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=2.0,
+        box_bufsize=4.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+        verbose=True,
+    )
+
+    eta1 = np.linspace(0, 1.0, eval_pts)
+    eta2 = np.array([0.0])
+    eta3 = np.array([0.0])
+    ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+    particles.draw_markers(sort=True, verbose=True)
+    # particles.mpi_sort_markers()
+    particles.initialize_weights()
+    
+    v1_bins = np.linspace(0, 1.0, 200, endpoint=True)
+    dv = v1_bins[1] - v1_bins[0]
+
+    binned_res, r2 = particles.binning(
+        [True, False, False, False, False, False],
+        [v1_bins], bin_vx= True
+    )
+    
+    v1_plot = v1_bins[:-1] + dv / 2
+
+    #ana_res = 1.0 / np.sqrt(2.0 * np.pi) * np.exp(-(v1_plot**2) / 2.0)
+
+    if show_plot:
+        #plt.plot(v1_plot, ana_res, label="Analytical result")
+        plt.plot(v1_plot, binned_res, "r*", label="From binning")
+        plt.title(r"Full-$f$: Maxwellian in $v_1$-direction")
+        plt.xlabel(r"$v_1$")
+        plt.ylabel(r"$f(v_1)$")
+        plt.legend()
+        plt.show()
+        plt.savefig("Binning_v1.png")
+
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+
+    # v1, v2, v3 = particles.eval_velocity(
+    #     ee1,
+    #     ee2,
+    #     ee3,
+    #     h1=h1,
+    #     h2=h2,
+    #     h3=h3,
+    #     kernel_type=kernel,
+    #     derivative=derivative,
+    # )
+
+
+    # v1_exact, v2_exact, v3_exact = background.u_xyz(ee1, ee2, ee3)
+
+    # all_velo1 = np.zeros_like(v1)
+    # all_velo2 = np.zeros_like(v2)
+    # all_velo3 = np.zeros_like(v3)
+    # comm.Allreduce(v1, all_velo1, op=MPI.SUM)
+    # comm.Allreduce(v2, all_velo2, op=MPI.SUM)
+    # comm.Allreduce(v3, all_velo3, op=MPI.SUM)
+    
+    v1, v2, v3 = particles.eval_velocity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=derivative,
+    )
+    v1_e, v2_e, v3_e = background.u_xyz(ee1, ee2, ee3)
+    
+    # all_velo = []
+    # for i in range(3):
+    #     v_tmp = np.zeros_like(v[i])
+    #     comm.Allreduce(v[i], v_tmp, op=MPI.SUM)
+    #     all_velo.append(v_tmp)
+
+    # all_velo1, all_velo2, all_velo3 = all_velo
+    all_velo1, all_velo2, all_velo3 = v1, v2, v3
+    
+    print(f"{v1_e.squeeze() = }")
+    print(f"{all_velo1.squeeze() = }")
+
+    err_ux = np.max(np.abs(all_velo1 - v1_e)) / max(np.max(np.abs(v1_e)), 1e-12)
+    err_uy = np.max(np.abs(all_velo2 - v2_e)) / max(np.max(np.abs(v2_e)), 1e-12)
+    err_uz = np.max(np.abs(all_velo3 - v3_e)) / max(np.max(np.abs(v3_e)), 1e-12)
+
+    if comm.Get_rank() == 0:
+        print(f"\n{boxes_per_dim = }")
+        print(f"{kernel = }, {derivative = }")
+        print(f"{bc_x = }, {eval_pts = }, {tesselation = }")
+        print(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}, uz={err_uz:.3e}")
+
+        if show_plot:
+            plt.figure(figsize=(12, 6))
+            plt.plot(ee1.squeeze(), v1_e.squeeze(), label="exact vx")
+            plt.plot(ee1.squeeze(), all_velo1.squeeze(), "--.", label="SPH vx")
+            plt.xlabel("e1")
+            plt.ylabel("Velocity (vx)")
+            plt.legend()
+            plt.grid(True)
+            plt.show()
+            plt.savefig("image_test.png")
+
+    
+    # if tesselation:
+    #     assert err_ux < 0.05
+    # else:
+    #     assert err_ux < 0.05
+
+    
 
 if __name__ == "__main__":
-    test_sph_evaluation_1d(
+    test_sph_velocity_evaluation(
         (24, 1, 1),
-        "trigonometric_1d",
+        "gaussian_1d",
         # "gaussian_1d",
-        1,
+        0,
         # "periodic",
-        "mirror",
+        "periodic",
         16,
         tesselation=False,
         show_plot=True,
     )
+    
+    # test_sph_evaluation_1d(
+    #     (24, 1, 1),
+    #     "trigonometric_1d",
+    #     # "gaussian_1d",
+    #     1,
+    #     # "periodic",
+    #     "mirror",
+    #     16,
+    #     tesselation=False,
+    #     show_plot=True,
+    # )
 
     # test_sph_evaluation_2d(
     #     (12, 12, 1),

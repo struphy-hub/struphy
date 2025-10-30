@@ -55,6 +55,8 @@ from struphy.pic.utilities import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
+from struphy.pic.pushing import eval_kernels_gc
+
 from struphy.utils.pyccel import Pyccelkernel
 
 
@@ -1893,6 +1895,7 @@ class Particles(metaclass=ABCMeta):
         components: tuple[bool],
         bin_edges: tuple[xp.ndarray],
         divide_by_jac: bool = True,
+        bin_vx: bool = False, 
     ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
         Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
@@ -1931,6 +1934,10 @@ class Particles(metaclass=ABCMeta):
         # compute weights of histogram:
         _weights0 = self.weights0
         _weights = self.weights
+        if bin_vx:
+            _weights0 *= self.velocities[:,0]
+            _weights *= self.velocities[:,0] 
+        
 
         if divide_by_jac:
             _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
@@ -3731,6 +3738,116 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h3=h3,
             fast=fast,
         )
+        
+    def eval_velocity(
+        self,
+        eta1,
+        eta2,
+        eta3,
+        h1,
+        h2,
+        h3,
+        kernel_type="gaussian_1d",
+        derivative=0,
+        fast=True,
+    ):
+        """Density function as 0-form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points (flat or meshgrid evaluation).
+
+        h1, h2, h3 : float
+            Support radius of the smoothing kernel in each dimension.
+
+        kernel_type : str
+            Name of the smoothing kernel to be used.
+
+        derivative: int
+            0: no kernel derivative
+            1: first component of grad
+            2: second component of grad
+            3: third component of grad
+
+        fast : bool
+            True: box-based evaluation, False: naive evaluation.
+
+        Returns
+        -------
+        out : array-like
+            Same size as eta1.
+        -------
+        """
+        
+        first_free_idx = self.args_markers.first_free_idx
+        comps = np.array((0, 1, 2))
+        eval_kernels_gc.sph_mean_velocity_coeffs(alpha = np.array((0.0, 0.0, 0.0)), 
+                                                 column_nr= first_free_idx,
+                                                 comps=comps,
+                                                 args_markers=self.args_markers,
+                                                 args_domain = self.domain.args_domain,
+                                                 boxes= self.sorting_boxes.boxes,
+                                                 neighbours = self.sorting_boxes.neighbours, 
+                                                 holes= self.holes, 
+                                                 periodic1 = self.boundary_params.bc_sph[0] == "periodic",
+                                                 periodic2 = self.boundary_params.bc_sph[1] == "periodic",
+                                                 periodic3 = self.boundary_params.bc_sph[2] == "periodic", 
+                                                 kernel_type= self.ker_dct()[kernel_type], 
+                                                 h1 = h1, 
+                                                 h2= h2, 
+                                                 h3= h3, 
+                                                 )
+        
+        v1 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+        
+        print(f"{self.markers.shape = }")
+        print(f"{first_free_idx = }")
+        print(f"{self.markers[:, first_free_idx]}")
+        print(f"{v1.squeeze() = }")
+        
+        v2 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx +1,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+        
+        
+        v3 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx + 2,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+        
+        return v1, v2, v3
+    
+    
+
 
     def eval_sph(
         self,

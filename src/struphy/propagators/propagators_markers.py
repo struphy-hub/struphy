@@ -1796,29 +1796,55 @@ class PushVinViscousPotential2D(Propagator):
 
     * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
+    class Variables:
+        def __init__(self):
+            self._fluid: SPHVariable = None
 
-    @staticmethod
-    def options(default=False):
-        dct = {}
-        dct["kernel_type"] = list(Particles.ker_dct())
-        dct["kernel_width"] = None
-        dct["algo"] = [
-            "forward_euler",
-        ]  # "heun2", "rk2", "heun3", "rk4"]
-        if default:
-            dct = descend_options_dict(dct, [])
-        return dct
+        @property
+        def fluid(self) -> SPHVariable:
+            return self._fluid
 
-    def __init__(
-        self,
-        particles: ParticlesSPH,
-        *,
-        kernel_type: str = "gaussian_2d",
-        kernel_width: tuple = None,
-        algo: str = options(default=True)["algo"],  # TODO: implement other algos than forward Euler
-    ):
-        # base class constructor call
-        super().__init__(particles)
+        @fluid.setter
+        def fluid(self, new):
+            assert isinstance(new, SPHVariable)
+            assert new.space == "ParticlesSPH"
+            self._fluid = new
+
+    def __init__(self):
+        self.variables = self.Variables()
+
+    @dataclass
+    class Options:
+        # specific literals
+        OptsAlgo = Literal["forward_euler"]
+        # propagator options
+        kernel_type: OptsKernel = "gaussian_2d"
+        kernel_width: tuple = None
+        algo: OptsAlgo = "forward_euler"
+
+        def __post_init__(self):
+            # checks
+            check_option(self.kernel_type, OptsKernel)
+            check_option(self.algo, self.OptsAlgo)
+
+    @property
+    def options(self) -> Options:
+        if not hasattr(self, "_options"):
+            self._options = self.Options()
+        return self._options
+
+    @options.setter
+    def options(self, new):
+        assert isinstance(new, self.Options)
+        if MPI.COMM_WORLD.Get_rank() == 0:
+            print(f"\nNew options for propagator '{self.__class__.__name__}':")
+            for k, v in new.__dict__.items():
+                print(f"  {k}: {v}")
+        self._options = new
+    
+    @profile
+    def allocate(self): #ersetzt init 
+        particles = self.variables.fluid.particles
 
         # init kernel for evaluating density etc. before each time step.
         init_kernel_1 = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
@@ -1969,12 +1995,12 @@ class PushVinViscousPotential3D(Propagator):
         neighbours = particles.sorting_boxes.neighbours
         holes = particles.holes
         periodic = [bci == "periodic" for bci in particles.bc]
-        kernel_nr = particles.ker_dct()[kernel_type]
+        kernel_nr = particles.ker_dct()[self.options.kernel_type]
 
-        if kernel_width is None:
-            kernel_width = tuple([1 / ni for ni in self.particles[0].boxes_per_dim])
+        if self.options.kernel_width is None:
+            self.options.kernel_width = tuple([1 / ni for ni in particles.boxes_per_dim])
         else:
-            assert all([hi <= 1 / ni for hi, ni in zip(kernel_width, self.particles[0].boxes_per_dim)])
+            assert all([hi <= 1 / ni for hi, ni in zip(self.options.kernel_width, particles.boxes_per_dim)])
 
         # init kernel
         args_init = (
@@ -1983,7 +2009,7 @@ class PushVinViscousPotential3D(Propagator):
             holes,
             *periodic,
             kernel_nr,
-            *kernel_width,
+            *self.options.kernel_width,
         )
 
         self.add_init_kernel(
@@ -2022,7 +2048,7 @@ class PushVinViscousPotential3D(Propagator):
             holes,
             *periodic,
             kernel_nr,
-            *kernel_width,
+            *self.options.kernel_width,
         )
 
         # the Pusher class wraps around all kernels
@@ -2036,5 +2062,5 @@ class PushVinViscousPotential3D(Propagator):
         )
 
     def __call__(self, dt):
-        self.particles[0].put_particles_in_boxes()
+        self.variables.fluid.particles.put_particles_in_boxes()
         self._pusher(dt)
