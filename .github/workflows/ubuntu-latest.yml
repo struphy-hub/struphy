@@ -1,11 +1,20 @@
-name: Ubuntu latest - cronjob
+name: Ubuntu
 on:
-  schedule:
-    # run at 1 a.m. on Sunday
-    - cron: "0 1 * * 0" 
+  push:
+    branches:
+      - main
+      - devel
+  pull_request:
+    branches:
+      - main
+      - devel
+
+# concurrency:
+#   group: ${{ github.ref }}
+#   cancel-in-progress: true
 
 jobs:
   ubuntu-latest-build:
-    uses: ./.github/workflows/reusable-testing.yml
+    uses: ./.github/workflows/testing.yml
     with:
       os: ubuntu-latest
