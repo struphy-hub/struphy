@@ -242,7 +242,7 @@ def test_saddlepointsolver(method_for_solving, Nel, p, spl_kind, dirichlet_bc, m
         TestA11dot = TestA11.dot(x1)
         compare_arrays(TestA11dot, TestA11composeddot, mpi_rank, atol=1e-5)
         # compare_arrays(TestA11dot, TestA11npdot, mpi_rank, atol=1e-5)
-        print(f"Comparison numpy to psydac succesfull.")
+        print("Comparison numpy to psydac succesfull.")
 
     M2pre = MassMatrixPreconditioner(mass_mats.M2)
 

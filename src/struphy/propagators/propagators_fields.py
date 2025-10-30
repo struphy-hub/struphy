@@ -8722,7 +8722,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 e = phi_temp.ends
                 phi_temp[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = phin.reshape(*dimphi)
             else:
-                print(f"TwoFluidQuasiNeutralFull is only running on one MPI.")
+                print("TwoFluidQuasiNeutralFull is only running on one MPI.")
 
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.update_feec_variables(u=u_temp, ue=ue_temp, phi=phi_temp)
