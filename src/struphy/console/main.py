@@ -452,7 +452,7 @@ def add_parser_run(subparsers, list_models, model_message, params_files, batch_f
         default=None,  # fallback if nothing is passed
         choices=list_models,
         metavar="MODEL",
-        help=model_message + f" (default: None)",
+        help=model_message + " (default: None)",
     )
 
     parser_run.add_argument(
@@ -953,8 +953,8 @@ def add_parser_test(subparsers, list_models):
             "--mpi",
             type=int,
             metavar="N",
-            help="set number of MPI processes used in tests (default=2))",
-            default=2,
+            help="set number of MPI processes used in tests (default=1))",
+            default=1,
         )
 
         parser_test.add_argument(

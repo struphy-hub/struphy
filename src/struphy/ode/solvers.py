@@ -1,6 +1,6 @@
 from inspect import signature
 
-import numpy as np
+import cunumpy as xp
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 

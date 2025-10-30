@@ -12,8 +12,8 @@ import pytest
     ],
 )
 def test_mass_preconditioner(Nel, p, spl_kind, mapping):
-    import numpy as np
-    from mpi4py import MPI
+    import cunumpy as xp
+    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
@@ -40,22 +40,22 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     v = []
 
     v += [StencilVector(derham.V0.coeff_space)]
-    v[-1]._data = np.random.rand(*v[-1]._data.shape)
+    v[-1]._data = xp.random.rand(*v[-1]._data.shape)
 
     v += [BlockVector(derham.V1.coeff_space)]
     for v1i in v[-1]:
-        v1i._data = np.random.rand(*v1i._data.shape)
+        v1i._data = xp.random.rand(*v1i._data.shape)
 
     v += [BlockVector(derham.V2.coeff_space)]
     for v1i in v[-1]:
-        v1i._data = np.random.rand(*v1i._data.shape)
+        v1i._data = xp.random.rand(*v1i._data.shape)
 
     v += [StencilVector(derham.V3.coeff_space)]
-    v[-1]._data = np.random.rand(*v[-1]._data.shape)
+    v[-1]._data = xp.random.rand(*v[-1]._data.shape)
 
     v += [BlockVector(derham.V0vec.coeff_space)]
     for v1i in v[-1]:
-        v1i._data = np.random.rand(*v1i._data.shape)
+        v1i._data = xp.random.rand(*v1i._data.shape)
 
     # assemble preconditioners
     M_pre = []
@@ -68,7 +68,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, mapping):
             n = "v"
 
         if domain.kind_map == 10 or domain.kind_map == 11:
-            assert np.allclose(M._mat.toarray(), M_p.matrix.toarray())
+            assert xp.allclose(M._mat.toarray(), M_p.matrix.toarray())
             print(f'Matrix assertion for space {n} case "Cuboid/HollowCylinder" passed.')
 
         inv_A = InverseLinearOperator(M, pc=M_p, tol=1e-8, maxiter=5000)

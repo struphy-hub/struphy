@@ -1,9 +1,9 @@
 import time
 import timeit
 
-import numpy as np
+import cunumpy as xp
 import scipy.sparse as spa
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 import struphy.geometry.mappings_3d as mapping3d
 import struphy.geometry.mappings_3d_fast as mapping_fast
@@ -39,67 +39,67 @@ class Temp_arrays:
         self.Ntot_1form = TENSOR_SPACE_FEM.Ntot_1form
         self.Ntot_2form = TENSOR_SPACE_FEM.Ntot_2form
 
-        self.b1_old = np.empty(TENSOR_SPACE_FEM.Nbase_1form[0], dtype=float)
-        self.b2_old = np.empty(TENSOR_SPACE_FEM.Nbase_1form[1], dtype=float)
-        self.b3_old = np.empty(TENSOR_SPACE_FEM.Nbase_1form[2], dtype=float)
+        self.b1_old = xp.empty(TENSOR_SPACE_FEM.Nbase_1form[0], dtype=float)
+        self.b2_old = xp.empty(TENSOR_SPACE_FEM.Nbase_1form[1], dtype=float)
+        self.b3_old = xp.empty(TENSOR_SPACE_FEM.Nbase_1form[2], dtype=float)
 
-        self.b1_iter = np.empty(TENSOR_SPACE_FEM.Nbase_1form[0], dtype=float)
-        self.b2_iter = np.empty(TENSOR_SPACE_FEM.Nbase_1form[1], dtype=float)
-        self.b3_iter = np.empty(TENSOR_SPACE_FEM.Nbase_1form[2], dtype=float)
+        self.b1_iter = xp.empty(TENSOR_SPACE_FEM.Nbase_1form[0], dtype=float)
+        self.b2_iter = xp.empty(TENSOR_SPACE_FEM.Nbase_1form[1], dtype=float)
+        self.b3_iter = xp.empty(TENSOR_SPACE_FEM.Nbase_1form[2], dtype=float)
 
-        self.temp_dft = np.empty((3, 3), dtype=float)
-        self.temp_generate_weight1 = np.empty(3, dtype=float)
-        self.temp_generate_weight2 = np.empty(3, dtype=float)
-        self.temp_generate_weight3 = np.empty(3, dtype=float)
+        self.temp_dft = xp.empty((3, 3), dtype=float)
+        self.temp_generate_weight1 = xp.empty(3, dtype=float)
+        self.temp_generate_weight2 = xp.empty(3, dtype=float)
+        self.temp_generate_weight3 = xp.empty(3, dtype=float)
 
-        self.zerosform_temp_long = np.empty(TENSOR_SPACE_FEM.Ntot_0form, dtype=float)
-        self.oneform_temp1_long = np.empty(TENSOR_SPACE_FEM.Ntot_1form[0], dtype=float)
-        self.oneform_temp2_long = np.empty(TENSOR_SPACE_FEM.Ntot_1form[1], dtype=float)
-        self.oneform_temp3_long = np.empty(TENSOR_SPACE_FEM.Ntot_1form[2], dtype=float)
+        self.zerosform_temp_long = xp.empty(TENSOR_SPACE_FEM.Ntot_0form, dtype=float)
+        self.oneform_temp1_long = xp.empty(TENSOR_SPACE_FEM.Ntot_1form[0], dtype=float)
+        self.oneform_temp2_long = xp.empty(TENSOR_SPACE_FEM.Ntot_1form[1], dtype=float)
+        self.oneform_temp3_long = xp.empty(TENSOR_SPACE_FEM.Ntot_1form[2], dtype=float)
 
-        self.oneform_temp_long = np.empty(
+        self.oneform_temp_long = xp.empty(
             TENSOR_SPACE_FEM.Ntot_1form[0] + TENSOR_SPACE_FEM.Ntot_1form[1] + TENSOR_SPACE_FEM.Ntot_1form[2],
             dtype=float,
         )
 
-        self.twoform_temp1_long = np.empty(TENSOR_SPACE_FEM.Ntot_2form[0], dtype=float)
-        self.twoform_temp2_long = np.empty(TENSOR_SPACE_FEM.Ntot_2form[1], dtype=float)
-        self.twoform_temp3_long = np.empty(TENSOR_SPACE_FEM.Ntot_2form[2], dtype=float)
+        self.twoform_temp1_long = xp.empty(TENSOR_SPACE_FEM.Ntot_2form[0], dtype=float)
+        self.twoform_temp2_long = xp.empty(TENSOR_SPACE_FEM.Ntot_2form[1], dtype=float)
+        self.twoform_temp3_long = xp.empty(TENSOR_SPACE_FEM.Ntot_2form[2], dtype=float)
 
-        self.twoform_temp_long = np.empty(
+        self.twoform_temp_long = xp.empty(
             TENSOR_SPACE_FEM.Ntot_2form[0] + TENSOR_SPACE_FEM.Ntot_2form[1] + TENSOR_SPACE_FEM.Ntot_2form[2],
             dtype=float,
         )
 
-        self.temp_twoform1 = np.empty(TENSOR_SPACE_FEM.Nbase_2form[0], dtype=float)
-        self.temp_twoform2 = np.empty(TENSOR_SPACE_FEM.Nbase_2form[1], dtype=float)
-        self.temp_twoform3 = np.empty(TENSOR_SPACE_FEM.Nbase_2form[2], dtype=float)
+        self.temp_twoform1 = xp.empty(TENSOR_SPACE_FEM.Nbase_2form[0], dtype=float)
+        self.temp_twoform2 = xp.empty(TENSOR_SPACE_FEM.Nbase_2form[1], dtype=float)
+        self.temp_twoform3 = xp.empty(TENSOR_SPACE_FEM.Nbase_2form[2], dtype=float)
 
         # arrays used to store intermidaite values
-        self.form_0_flatten = np.empty(self.Ntot_0form, dtype=float)
+        self.form_0_flatten = xp.empty(self.Ntot_0form, dtype=float)
 
-        self.form_1_1_flatten = np.empty(self.Ntot_1form[0], dtype=float)
-        self.form_1_2_flatten = np.empty(self.Ntot_1form[1], dtype=float)
-        self.form_1_3_flatten = np.empty(self.Ntot_1form[2], dtype=float)
+        self.form_1_1_flatten = xp.empty(self.Ntot_1form[0], dtype=float)
+        self.form_1_2_flatten = xp.empty(self.Ntot_1form[1], dtype=float)
+        self.form_1_3_flatten = xp.empty(self.Ntot_1form[2], dtype=float)
 
-        self.form_1_tot_flatten = np.empty(self.Ntot_1form[0] + self.Ntot_1form[1] + self.Ntot_1form[2], dtype=float)
+        self.form_1_tot_flatten = xp.empty(self.Ntot_1form[0] + self.Ntot_1form[1] + self.Ntot_1form[2], dtype=float)
 
-        self.form_2_1_flatten = np.empty(self.Ntot_2form[0], dtype=float)
-        self.form_2_2_flatten = np.empty(self.Ntot_2form[1], dtype=float)
-        self.form_2_3_flatten = np.empty(self.Ntot_2form[2], dtype=float)
+        self.form_2_1_flatten = xp.empty(self.Ntot_2form[0], dtype=float)
+        self.form_2_2_flatten = xp.empty(self.Ntot_2form[1], dtype=float)
+        self.form_2_3_flatten = xp.empty(self.Ntot_2form[2], dtype=float)
 
-        self.form_2_tot_flatten = np.empty(self.Ntot_2form[0] + self.Ntot_2form[1] + self.Ntot_2form[2], dtype=float)
+        self.form_2_tot_flatten = xp.empty(self.Ntot_2form[0] + self.Ntot_2form[1] + self.Ntot_2form[2], dtype=float)
 
-        self.bulkspeed_loc = np.zeros((3, self.Nel[0], self.Nel[1], self.Nel[2]), dtype=float)
-        self.temperature_loc = np.zeros((3, self.Nel[0], self.Nel[1], self.Nel[2]), dtype=float)
-        self.bulkspeed = np.zeros((3, self.Nel[0], self.Nel[1], self.Nel[2]), dtype=float)
+        self.bulkspeed_loc = xp.zeros((3, self.Nel[0], self.Nel[1], self.Nel[2]), dtype=float)
+        self.temperature_loc = xp.zeros((3, self.Nel[0], self.Nel[1], self.Nel[2]), dtype=float)
+        self.bulkspeed = xp.zeros((3, self.Nel[0], self.Nel[1], self.Nel[2]), dtype=float)
         if self.mpi_rank == 0:
-            temperature = np.zeros((3, self.Nel[0], self.Nel[1], self.Nel[2]), dtype=float)
+            temperature = xp.zeros((3, self.Nel[0], self.Nel[1], self.Nel[2]), dtype=float)
         else:
             temperature = None
 
         # values of magnetic fields at all quadrature points
-        self.LO_inv = np.empty(
+        self.LO_inv = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -111,7 +111,7 @@ class Temp_arrays:
             dtype=float,
         )
 
-        self.LO_b1 = np.empty(
+        self.LO_b1 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -122,7 +122,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.LO_b2 = np.empty(
+        self.LO_b2 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -133,7 +133,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.LO_b3 = np.empty(
+        self.LO_b3 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -145,7 +145,7 @@ class Temp_arrays:
             dtype=float,
         )
         # values of weights (used in the linear operators)
-        self.LO_w1 = np.empty(
+        self.LO_w1 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -156,7 +156,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.LO_w2 = np.empty(
+        self.LO_w2 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -167,7 +167,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.LO_w3 = np.empty(
+        self.LO_w3 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -179,7 +179,7 @@ class Temp_arrays:
             dtype=float,
         )
         # values of a function (given its finite element coefficients) at all quadrature points
-        self.LO_r1 = np.empty(
+        self.LO_r1 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -190,7 +190,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.LO_r2 = np.empty(
+        self.LO_r2 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -201,7 +201,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.LO_r3 = np.empty(
+        self.LO_r3 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -213,7 +213,7 @@ class Temp_arrays:
             dtype=float,
         )
         # values of determinant of Jacobi matrix of the map at all quadrature points
-        self.df_det = np.empty(
+        self.df_det = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -225,8 +225,8 @@ class Temp_arrays:
             dtype=float,
         )
         # when using delta f method, the values of current equilibrium at all quadrature points
-        if control == True:
-            self.Jeqx = np.empty(
+        if control:
+            self.Jeqx = xp.empty(
                 (
                     self.Nel[0],
                     self.Nel[1],
@@ -237,7 +237,7 @@ class Temp_arrays:
                 ),
                 dtype=float,
             )
-            self.Jeqy = np.empty(
+            self.Jeqy = xp.empty(
                 (
                     self.Nel[0],
                     self.Nel[1],
@@ -248,7 +248,7 @@ class Temp_arrays:
                 ),
                 dtype=float,
             )
-            self.Jeqz = np.empty(
+            self.Jeqz = xp.empty(
                 (
                     self.Nel[0],
                     self.Nel[1],
@@ -260,7 +260,7 @@ class Temp_arrays:
                 dtype=float,
             )
         # values of DF and inverse of DF at all quadrature points
-        self.DF_11 = np.empty(
+        self.DF_11 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -271,7 +271,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DF_12 = np.empty(
+        self.DF_12 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -282,7 +282,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DF_13 = np.empty(
+        self.DF_13 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -293,7 +293,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DF_21 = np.empty(
+        self.DF_21 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -304,7 +304,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DF_22 = np.empty(
+        self.DF_22 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -315,7 +315,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DF_23 = np.empty(
+        self.DF_23 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -326,7 +326,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DF_31 = np.empty(
+        self.DF_31 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -337,7 +337,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DF_32 = np.empty(
+        self.DF_32 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -348,107 +348,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DF_33 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-
-        self.DFI_11 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-        self.DFI_12 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-        self.DFI_13 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-        self.DFI_21 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-        self.DFI_22 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-        self.DFI_23 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-        self.DFI_31 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-        self.DFI_32 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-        self.DFI_33 = np.empty(
+        self.DF_33 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -460,7 +360,7 @@ class Temp_arrays:
             dtype=float,
         )
 
-        self.DFIT_11 = np.empty(
+        self.DFI_11 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -471,7 +371,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DFIT_12 = np.empty(
+        self.DFI_12 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -482,7 +382,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DFIT_13 = np.empty(
+        self.DFI_13 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -493,7 +393,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DFIT_21 = np.empty(
+        self.DFI_21 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -504,7 +404,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DFIT_22 = np.empty(
+        self.DFI_22 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -515,7 +415,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DFIT_23 = np.empty(
+        self.DFI_23 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -526,7 +426,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DFIT_31 = np.empty(
+        self.DFI_31 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -537,7 +437,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DFIT_32 = np.empty(
+        self.DFI_32 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -548,41 +448,7 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.DFIT_33 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-
-        self.G_inv_11 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-        self.G_inv_12 = np.empty(
-            (
-                self.Nel[0],
-                self.Nel[1],
-                self.Nel[2],
-                TENSOR_SPACE_FEM.n_quad[0],
-                TENSOR_SPACE_FEM.n_quad[1],
-                TENSOR_SPACE_FEM.n_quad[2],
-            ),
-            dtype=float,
-        )
-        self.G_inv_13 = np.empty(
+        self.DFI_33 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -594,7 +460,7 @@ class Temp_arrays:
             dtype=float,
         )
 
-        self.G_inv_22 = np.empty(
+        self.DFIT_11 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -605,7 +471,84 @@ class Temp_arrays:
             ),
             dtype=float,
         )
-        self.G_inv_23 = np.empty(
+        self.DFIT_12 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+        self.DFIT_13 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+        self.DFIT_21 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+        self.DFIT_22 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+        self.DFIT_23 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+        self.DFIT_31 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+        self.DFIT_32 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+        self.DFIT_33 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -617,7 +560,29 @@ class Temp_arrays:
             dtype=float,
         )
 
-        self.G_inv_33 = np.empty(
+        self.G_inv_11 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+        self.G_inv_12 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+        self.G_inv_13 = xp.empty(
             (
                 self.Nel[0],
                 self.Nel[1],
@@ -629,7 +594,42 @@ class Temp_arrays:
             dtype=float,
         )
 
-        self.temp_particle = np.empty(3, dtype=float)
+        self.G_inv_22 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+        self.G_inv_23 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+
+        self.G_inv_33 = xp.empty(
+            (
+                self.Nel[0],
+                self.Nel[1],
+                self.Nel[2],
+                TENSOR_SPACE_FEM.n_quad[0],
+                TENSOR_SPACE_FEM.n_quad[1],
+                TENSOR_SPACE_FEM.n_quad[2],
+            ),
+            dtype=float,
+        )
+
+        self.temp_particle = xp.empty(3, dtype=float)
         # initialization of DF and its inverse
         # ================ for mapping evaluation ==================
         # spline degrees
@@ -638,34 +638,34 @@ class Temp_arrays:
         pf3 = DOMAIN.p[2]
 
         # pf + 1 non-vanishing basis functions up tp degree pf
-        b1f = np.empty((pf1 + 1, pf1 + 1), dtype=float)
-        b2f = np.empty((pf2 + 1, pf2 + 1), dtype=float)
-        b3f = np.empty((pf3 + 1, pf3 + 1), dtype=float)
+        b1f = xp.empty((pf1 + 1, pf1 + 1), dtype=float)
+        b2f = xp.empty((pf2 + 1, pf2 + 1), dtype=float)
+        b3f = xp.empty((pf3 + 1, pf3 + 1), dtype=float)
 
         # left and right values for spline evaluation
-        l1f = np.empty(pf1, dtype=float)
-        l2f = np.empty(pf2, dtype=float)
-        l3f = np.empty(pf3, dtype=float)
+        l1f = xp.empty(pf1, dtype=float)
+        l2f = xp.empty(pf2, dtype=float)
+        l3f = xp.empty(pf3, dtype=float)
 
-        r1f = np.empty(pf1, dtype=float)
-        r2f = np.empty(pf2, dtype=float)
-        r3f = np.empty(pf3, dtype=float)
+        r1f = xp.empty(pf1, dtype=float)
+        r2f = xp.empty(pf2, dtype=float)
+        r3f = xp.empty(pf3, dtype=float)
 
         # scaling arrays for M-splines
-        d1f = np.empty(pf1, dtype=float)
-        d2f = np.empty(pf2, dtype=float)
-        d3f = np.empty(pf3, dtype=float)
+        d1f = xp.empty(pf1, dtype=float)
+        d2f = xp.empty(pf2, dtype=float)
+        d3f = xp.empty(pf3, dtype=float)
 
         # pf + 1 derivatives
-        der1f = np.empty(pf1 + 1, dtype=float)
-        der2f = np.empty(pf2 + 1, dtype=float)
-        der3f = np.empty(pf3 + 1, dtype=float)
+        der1f = xp.empty(pf1 + 1, dtype=float)
+        der2f = xp.empty(pf2 + 1, dtype=float)
+        der3f = xp.empty(pf3 + 1, dtype=float)
 
         # needed mapping quantities
-        df = np.empty((3, 3), dtype=float)
-        fx = np.empty(3, dtype=float)
-        ginv = np.empty((3, 3), dtype=float)
-        dfinv = np.empty((3, 3), dtype=float)
+        df = xp.empty((3, 3), dtype=float)
+        fx = xp.empty(3, dtype=float)
+        ginv = xp.empty((3, 3), dtype=float)
+        dfinv = xp.empty((3, 3), dtype=float)
 
         for ie1 in range(self.Nel[0]):
             for ie2 in range(self.Nel[1]):
@@ -761,7 +761,7 @@ class Temp_arrays:
 
                                 self.df_det[ie1, ie2, ie3, q1, q2, q3] = det_number
 
-                                if control == True:
+                                if control:
                                     x1 = mapping3d.f(
                                         TENSOR_SPACE_FEM.pts[0][ie1, q1],
                                         TENSOR_SPACE_FEM.pts[1][ie2, q2],

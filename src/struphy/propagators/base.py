@@ -4,8 +4,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
 
-import numpy as np
-from mpi4py import MPI
+import cunumpy as xp
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
@@ -72,7 +71,7 @@ class Propagator(metaclass=ABCMeta):
     @abstractmethod
     def options(self, new):
         assert isinstance(new, self.Options)
-        if MPI.COMM_WORLD.Get_rank() == 0:
+        if True:
             print(f"\nNew options for propagator '{self.__class__.__name__}':")
             for k, v in new.__dict__.items():
                 print(f"  {k}: {v}")
@@ -112,7 +111,7 @@ class Propagator(metaclass=ABCMeta):
             assert new.space == old.space
 
             # calculate maximum of difference abs(new - old)
-            diffs[var] = np.max(np.abs(new.toarray() - old.toarray()))
+            diffs[var] = xp.max(xp.abs(new.toarray() - old.toarray()))
 
             # copy new coeffs into old
             new.copy(out=old)
@@ -247,9 +246,9 @@ class Propagator(metaclass=ABCMeta):
             The arguments for the kernel function.
         """
         if comps is None:
-            comps = np.array([0])  # case for scalar evaluation
+            comps = xp.array([0])  # case for scalar evaluation
         else:
-            comps = np.array(comps, dtype=int)
+            comps = xp.array(comps, dtype=int)
 
         if not hasattr(self, "_init_kernels"):
             self._init_kernels = []
@@ -260,7 +259,7 @@ class Propagator(metaclass=ABCMeta):
                 column_nr,
                 comps,
                 args_init,
-            )
+            ),
         ]
 
     def add_eval_kernel(
@@ -298,12 +297,12 @@ class Propagator(metaclass=ABCMeta):
         """
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = [alpha] * 6
-        alpha = np.array(alpha)
+        alpha = xp.array(alpha)
 
         if comps is None:
-            comps = np.array([0])  # case for scalar evaluation
+            comps = xp.array([0])  # case for scalar evaluation
         else:
-            comps = np.array(comps, dtype=int)
+            comps = xp.array(comps, dtype=int)
 
         if not hasattr(self, "_eval_kernels"):
             self._eval_kernels = []
@@ -315,5 +314,5 @@ class Propagator(metaclass=ABCMeta):
                 column_nr,
                 comps,
                 args_eval,
-            )
+            ),
         ]

@@ -1,7 +1,7 @@
 import sys
 
 import yaml
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel
@@ -29,6 +29,8 @@ def struphy_params(model_name: str, params_path: str, yes: bool = False, check_f
         except AttributeError:
             pass
 
+    print(f"{model_name =}")
+
     # print units
     if check_file:
         print(f"Checking {check_file} with model {model_class}")
@@ -46,3 +48,5 @@ def struphy_params(model_name: str, params_path: str, yes: bool = False, check_f
     else:
         prompt = not yes
         model.generate_default_parameter_file(path=params_path, prompt=prompt)
+        # print(f"Generating default parameter file for {model_class}.")
+        # model_class().generate_default_parameter_file(path=params_path, prompt=prompt)

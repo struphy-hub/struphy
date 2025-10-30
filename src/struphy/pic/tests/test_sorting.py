@@ -1,8 +1,8 @@
 from time import time
 
-import numpy as np
+import cunumpy as xp
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.psydac_derham import Derham
 from struphy.geometry import domains
@@ -14,12 +14,12 @@ from struphy.pic.utilities import BoundaryParameters, LoadingParameters, Weights
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening(nx, ny, nz, algo):
+def test_flattening_1(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
-    n1s = np.array(np.random.rand(10) * (nx + 1), dtype=int)
-    n2s = np.array(np.random.rand(10) * (ny + 1), dtype=int)
-    n3s = np.array(np.random.rand(10) * (nz + 1), dtype=int)
+    n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
+    n2s = xp.array(xp.random.rand(10) * (ny + 1), dtype=int)
+    n3s = xp.array(xp.random.rand(10) * (nz + 1), dtype=int)
     for n1 in n1s:
         for n2 in n2s:
             for n3 in n3s:
@@ -34,12 +34,12 @@ def test_flattening(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening(nx, ny, nz, algo):
+def test_flattening_2(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
-    n1s = np.array(np.random.rand(10) * (nx + 1), dtype=int)
-    n2s = np.array(np.random.rand(10) * (ny + 1), dtype=int)
-    n3s = np.array(np.random.rand(10) * (nz + 1), dtype=int)
+    n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
+    n2s = xp.array(xp.random.rand(10) * (ny + 1), dtype=int)
+    n3s = xp.array(xp.random.rand(10) * (nz + 1), dtype=int)
     for n1 in n1s:
         for n2 in n2s:
             for n3 in n3s:
@@ -50,11 +50,31 @@ def test_flattening(nx, ny, nz, algo):
                 assert n3n == n3
 
 
-@pytest.mark.mpi(min_size=2)
+@pytest.mark.parametrize("nx", [8, 70])
+@pytest.mark.parametrize("ny", [16, 80])
+@pytest.mark.parametrize("nz", [32, 90])
+@pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
+def test_flattening_3(nx, ny, nz, algo):
+    from struphy.pic.sorting_kernels import flatten_index, unflatten_index
+
+    n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
+    n2s = xp.array(xp.random.rand(10) * (ny + 1), dtype=int)
+    n3s = xp.array(xp.random.rand(10) * (nz + 1), dtype=int)
+    for n1 in n1s:
+        for n2 in n2s:
+            for n3 in n3s:
+                n_glob = flatten_index(int(n1), int(n2), int(n3), nx, ny, nz, algo)
+                n1n, n2n, n3n = unflatten_index(n_glob, nx, ny, nz, algo)
+                assert n1n == n1
+                assert n2n == n2
+                assert n3n == n3
+
+
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(
-    "spl_kind", [[False, False, True], [False, True, False], [True, False, True], [True, True, False]]
+    "spl_kind",
+    [[False, False, True], [False, True, False], [True, False, True], [True, True, False]],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -116,7 +136,7 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
 
 
 if __name__ == "__main__":
-    test_flattening(8, 8, 8, "c_orderwding")
+    test_flattening_1(8, 8, 8, "c_orderwding")
     # test_sorting(
     #     [8, 9, 10],
     #     [2, 3, 4],

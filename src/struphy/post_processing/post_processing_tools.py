@@ -2,8 +2,8 @@ import os
 import pickle
 import shutil
 
+import cunumpy as xp
 import h5py
-import numpy as np
 import yaml
 from tqdm import tqdm
 
@@ -138,7 +138,7 @@ def create_femfields(
     fields : dict
         Nested dictionary holding :class:`~struphy.feec.psydac_derham.SplineFunction`: fields[t][name] contains the Field with the name "name" in the hdf5 file at time t.
 
-    t_grid : np.ndarray
+    t_grid : xp.ndarray
         Time grid.
     """
 
@@ -156,7 +156,7 @@ def create_femfields(
     # get fields names, space IDs and time grid from 0-th rank hdf5 file
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
     space_ids = {}
-    print(f"\nReading hdf5 data of following species:")
+    print("\nReading hdf5 data of following species:")
     for species, dset in file["feec"].items():
         space_ids[species] = {}
         print(f"{species}:")
@@ -276,7 +276,7 @@ def eval_femfields(
     Returns
     -------
     point_data : dict
-        Nested dictionary holding values of FemFields on the grid as list of 3d np.arrays:
+        Nested dictionary holding values of FemFields on the grid as list of 3d xp.arrays:
         point_data[name][t] contains the values of the field with name "name" in fields[t].keys() at time t.
 
         If physical is True, physical components of fields are saved.
@@ -299,7 +299,7 @@ def eval_femfields(
 
     Nel = params_in.grid.Nel
 
-    grids_log = [np.linspace(0.0, 1.0, Nel_i * n_i + 1) for Nel_i, n_i in zip(Nel, celldivide)]
+    grids_log = [xp.linspace(0.0, 1.0, Nel_i * n_i + 1) for Nel_i, n_i in zip(Nel, celldivide)]
     grids_phy = [
         domain(*grids_log)[0],
         domain(*grids_log)[1],
@@ -326,7 +326,7 @@ def eval_femfields(
                 point_data[species][name][t] = []
 
                 # scalar spaces
-                if isinstance(temp_val, np.ndarray):
+                if isinstance(temp_val, xp.ndarray):
                     if physical:
                         # push-forward
                         if space_id == "H1":
@@ -387,7 +387,7 @@ def eval_femfields(
 
 def create_vtk(
     path: str,
-    t_grid: np.ndarray,
+    t_grid: xp.ndarray,
     grids_phy: list,
     point_data: dict,
     *,
@@ -400,7 +400,7 @@ def create_vtk(
     path : str
         Absolute path of where to store the .vts files. Will then be in path/vtk/step_<step>.vts.
 
-    t_grid : np.ndarray
+    t_grid : xp.ndarray
         Time grid.
 
     grids_phy : 3-list
@@ -425,7 +425,7 @@ def create_vtk(
 
     # time loop
     nt = len(t_grid) - 1
-    log_nt = int(np.log10(nt)) + 1
+    log_nt = int(xp.log10(nt)) + 1
 
     print(f"\nCreating vtk in {path} ...")
     for n, t in enumerate(tqdm(t_grid)):
@@ -542,7 +542,7 @@ def post_process_markers(
     # get number of time steps and markers
     nt, n_markers, n_cols = files[0]["kinetic/" + species + "/markers"].shape
 
-    log_nt = int(np.log10(int(((nt - 1) / step)))) + 1
+    log_nt = int(xp.log10(int(((nt - 1) / step)))) + 1
 
     # directory for .txt files and marker index which will be saved
     path_orbits = os.path.join(path_out, "orbits")
@@ -561,8 +561,8 @@ def post_process_markers(
         os.mkdir(path_orbits)
 
     # temporary array
-    temp = np.empty((n_markers, len(save_index)), order="C")
-    lost_particles_mask = np.empty(n_markers, dtype=bool)
+    temp = xp.empty((n_markers, len(save_index)), order="C")
+    lost_particles_mask = xp.empty(n_markers, dtype=bool)
 
     print(f"Evaluation of {n_markers} marker orbits for {species}")
 
@@ -589,28 +589,28 @@ def post_process_markers(
 
         # sorting out lost particles
         ids = temp[:, -1].astype("int")
-        ids_lost_particles = np.setdiff1d(np.arange(n_markers), ids)
-        ids_removed_particles = np.nonzero(temp[:, 0] == -1.0)[0]
-        ids_lost_particles = np.array(list(set(ids_lost_particles) | set(ids_removed_particles)), dtype=int)
+        ids_lost_particles = xp.setdiff1d(xp.arange(n_markers), ids)
+        ids_removed_particles = xp.nonzero(temp[:, 0] == -1.0)[0]
+        ids_lost_particles = xp.array(list(set(ids_lost_particles) | set(ids_removed_particles)), dtype=int)
         lost_particles_mask[:] = False
         lost_particles_mask[ids_lost_particles] = True
 
         if len(ids_lost_particles) > 0:
             # lost markers are saved as [0, ..., 0, ids]
             temp[lost_particles_mask, -1] = ids_lost_particles
-            ids = np.unique(np.append(ids, ids_lost_particles))
+            ids = xp.unique(xp.append(ids, ids_lost_particles))
 
-        assert np.all(sorted(ids) == np.arange(n_markers))
+        assert xp.all(sorted(ids) == xp.arange(n_markers))
 
         # compute physical positions (x, y, z)
-        pos_phys = domain(np.array(temp[~lost_particles_mask, :3]), change_out_order=True)
+        pos_phys = domain(xp.array(temp[~lost_particles_mask, :3]), change_out_order=True)
         temp[~lost_particles_mask, :3] = pos_phys
 
         # save numpy
-        np.save(file_npy, temp)
+        xp.save(file_npy, temp)
         # move ids to first column and save txt
-        temp = np.roll(temp, 1, axis=1)
-        np.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
+        temp = xp.roll(temp, 1, axis=1)
+        xp.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
 
     # close hdf5 files
     for file in files:
@@ -692,7 +692,7 @@ def post_process_f(
                 path_slice,
                 "grid_" + slice_names[n_gr] + ".npy",
             )
-            np.save(grid_path, grid[:])
+            xp.save(grid_path, grid[:])
 
     # compute distribution function
     for slice_name in tqdm(files[0]["kinetic/" + species + "/f"]):
@@ -713,8 +713,8 @@ def post_process_f(
             data_df += files[rank]["kinetic/" + species + "/df/" + slice_name][::step]
 
         # save distribution functions
-        np.save(os.path.join(path_slice, "f_binned.npy"), data)
-        np.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
+        xp.save(os.path.join(path_slice, "f_binned.npy"), data)
+        xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
 
         if compute_bckgr:
             # bckgr_params = params["kinetic"][species]["background"]
@@ -753,11 +753,11 @@ def post_process_f(
 
                 # check if file exists and is in slice_name
                 if os.path.exists(filename) and current_slice in slice_names:
-                    grid_tot += [np.load(filename)]
+                    grid_tot += [xp.load(filename)]
 
                 # otherwise evaluate at zero
                 else:
-                    grid_tot += [np.zeros(1)]
+                    grid_tot += [xp.zeros(1)]
 
             # v-grid
             for comp in range(1, f_bckgr.vdim + 1):
@@ -769,15 +769,15 @@ def post_process_f(
 
                 # check if file exists and is in slice_name
                 if os.path.exists(filename) and current_slice in slice_names:
-                    grid_tot += [np.load(filename)]
+                    grid_tot += [xp.load(filename)]
 
                 # otherwise evaluate at zero
                 else:
-                    grid_tot += [np.zeros(1)]
+                    grid_tot += [xp.zeros(1)]
                     # correct integrating out in v-direction, TODO: check for 5D Maxwellians
-                    factor *= np.sqrt(2 * np.pi)
+                    factor *= xp.sqrt(2 * xp.pi)
 
-            grid_eval = np.meshgrid(*grid_tot, indexing="ij")
+            grid_eval = xp.meshgrid(*grid_tot, indexing="ij")
 
             data_bckgr = f_bckgr(*grid_eval).squeeze()
 
@@ -788,9 +788,9 @@ def post_process_f(
             data_delta_f = data_df
 
             # save distribution function
-            np.save(os.path.join(path_slice, "delta_f_binned.npy"), data_delta_f)
+            xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_delta_f)
             # add extra axis for data_bckgr since data_delta_f has axis for time series
-            np.save(
+            xp.save(
                 os.path.join(path_slice, "f_binned.npy"),
                 data_delta_f + data_bckgr[tuple([None])],
             )
@@ -866,7 +866,7 @@ def post_process_n_sph(
         eta2 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta2"]
         eta3 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta3"]
 
-        ee1, ee2, ee3 = np.meshgrid(
+        ee1, ee2, ee3 = xp.meshgrid(
             eta1,
             eta2,
             eta3,
@@ -877,7 +877,7 @@ def post_process_n_sph(
             path_view,
             "grid_n_sph.npy",
         )
-        np.save(grid_path, (ee1, ee2, ee3))
+        xp.save(grid_path, (ee1, ee2, ee3))
 
         # load n_sph data
         data = files[0]["kinetic/" + species + "/n_sph/" + view][::step].copy()
@@ -885,4 +885,4 @@ def post_process_n_sph(
             data += files[rank]["kinetic/" + species + "/n_sph/" + view][::step]
 
         # save distribution functions
-        np.save(os.path.join(path_view, "n_sph.npy"), data)
+        xp.save(os.path.join(path_view, "n_sph.npy"), data)
