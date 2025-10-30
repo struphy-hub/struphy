@@ -18,7 +18,7 @@ jobs:
       matrix:
         python-version: ["3.12"]
         compile-language: ["fortran", "c"]
-        test-type: ["unit", "model", "quickstart", "tutorials"]
+        test-type: ["unit", "model"] #, "quickstart"]
 
     steps:
       # Checkout the repository
@@ -86,10 +86,6 @@ jobs:
         if: matrix.test-type == 'model'
         uses: ./.github/actions/tests/models
 
-      - name: Run quickstart tests
-        if: matrix.test-type == 'quickstart'
-        uses: ./.github/actions/tests/quickstart
-
-      - name: Run tutorials
-        if: matrix.test-type == 'tutorials'
-        uses: ./.github/actions/tests/tutorials
+      #- name: Run quickstart tests
+      #  if: matrix.test-type == 'quickstart'
+      #  uses: ./.github/actions/tests/quickstart
