@@ -225,7 +225,7 @@ class Temp_arrays:
             dtype=float,
         )
         # when using delta f method, the values of current equilibrium at all quadrature points
-        if control == True:
+        if control:
             self.Jeqx = xp.empty(
                 (
                     self.Nel[0],

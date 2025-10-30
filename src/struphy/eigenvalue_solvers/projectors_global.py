@@ -186,7 +186,7 @@ class Projectors_global_1d:
                     self.x_his = xp.append(self.x_his, xr)
                     break
 
-        if spline_space.spl_kind == True and spline_space.p % 2 == 0:
+        if spline_space.spl_kind and spline_space.p % 2 == 0:
             self.x_his = xp.append(self.x_his, spline_space.el_b[-1] + self.x_his[0])
 
         # cumulative number of sub-intervals for conversion local interval --> global interval

@@ -2190,7 +2190,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._bf = self.derham.create_spline_function("bf", "Hdiv")
 
         # Initialize BasisProjectionOperator
-        if self.derham._with_local_projectors == True:
+        if self.derham._with_local_projectors:
             self._TB = BasisProjectionOperatorLocal(
                 P1,
                 Vh,

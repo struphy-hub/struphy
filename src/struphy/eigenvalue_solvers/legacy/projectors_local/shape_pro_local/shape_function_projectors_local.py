@@ -304,7 +304,7 @@ class projectors_local_3d:
         self.coeff_i = [0, 0, 0]
         self.coeff_h = [0, 0, 0]
         for a in range(3):
-            if self.bc[a] == True:
+            if self.bc[a]:
                 self.coeff_i[a] = xp.zeros(2 * self.p[a], dtype=float)
                 self.coeff_h[a] = xp.zeros(2 * self.p[a], dtype=float)
 

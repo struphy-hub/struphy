@@ -45,7 +45,7 @@ class projectors_local_1d:
         self.wts_loc = xp.polynomial.legendre.leggauss(self.n_quad)[1]
 
         # set interpolation and histopolation coefficients
-        if self.bc == True:
+        if self.bc:
             self.coeff_i = xp.zeros((1, 2 * self.p - 1), dtype=float)
             self.coeff_h = xp.zeros((1, 2 * self.p), dtype=float)
 
@@ -629,7 +629,7 @@ class projectors_local_3d:
         self.coeff_h = [0, 0, 0]
 
         for a in range(3):
-            if self.bc[a] == True:
+            if self.bc[a]:
                 self.coeff_i[a] = xp.zeros((1, 2 * self.p[a] - 1), dtype=float)
                 self.coeff_h[a] = xp.zeros((1, 2 * self.p[a]), dtype=float)
 

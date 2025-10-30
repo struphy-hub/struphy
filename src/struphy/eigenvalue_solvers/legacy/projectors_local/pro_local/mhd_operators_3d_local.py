@@ -52,7 +52,7 @@ class projectors_local_mhd:
         self.coeff_h = [0, 0, 0]
 
         for a in range(3):
-            if self.bc[a] == True:
+            if self.bc[a]:
                 self.coeff_i[a] = xp.zeros((1, 2 * self.p[a] - 1), dtype=float)
                 self.coeff_h[a] = xp.zeros((1, 2 * self.p[a]), dtype=float)
 

@@ -149,7 +149,7 @@ class LinOpWithTransp(LinearOperator):
                         # Compute to which column this iteration belongs
                         col = spoint
                         col += xp.ravel_multi_index(i, npts[h])
-                        if is_sparse == False:
+                        if not is_sparse:
                             result[:, col] = tmp2.toarray()
                         else:
                             aux = tmp2.toarray()
@@ -220,7 +220,7 @@ class LinOpWithTransp(LinearOperator):
                     self.dot(v, out=tmp2)
                     # Compute to which column this iteration belongs
                     col = xp.ravel_multi_index(i, npts)
-                    if is_sparse == False:
+                    if not is_sparse:
                         result[:, col] = tmp2.toarray()
                     else:
                         aux = tmp2.toarray()
