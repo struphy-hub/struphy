@@ -94,7 +94,7 @@ class SaddlePointSolver:
         max_iter: int = 1000,
         **solver_params,
     ):
-        assert type(A) == type(B)
+        assert type(A) is type(B)
         if isinstance(A, list):
             self._variant = "Uzawa"
             for i in A:

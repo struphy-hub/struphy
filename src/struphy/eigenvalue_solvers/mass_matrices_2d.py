@@ -45,7 +45,7 @@ def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
 
     # evaluation of weight function at quadrature points
-    if weight == None:
+    if weight is None:
         mat_w = xp.ones(det_df.shape, dtype=float)
     else:
         mat_w = weight(pts[0].flatten(), pts[1].flatten(), 0.0)
@@ -159,7 +159,7 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             M[a][b] = xp.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
 
             # evaluate inverse metric tensor at quadrature points
-            if weight == None:
+            if weight is None:
                 mat_w = g_inv[a, b]
             else:
                 mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), 0.0)
@@ -275,7 +275,7 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             M[a][b] = xp.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
 
             # evaluate metric tensor at quadrature points
-            if weight == None:
+            if weight is None:
                 mat_w = g[a, b]
             else:
                 mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), 0.0)
@@ -368,7 +368,7 @@ def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     det_df = det_df.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
 
     # evaluation of weight function at quadrature points
-    if weight == None:
+    if weight is None:
         mat_w = xp.ones(det_df.shape, dtype=float)
     else:
         mat_w = weight(pts[0].flatten(), pts[1].flatten(), 0.0)
@@ -478,7 +478,7 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             M[a][b] = xp.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
 
             # evaluate metric tensor at quadrature points
-            if weight == None:
+            if weight is None:
                 mat_w = g[a, b]
             else:
                 mat_w = weight[a][b](pts[0].flatten(), pts[1].flatten(), 0.0)

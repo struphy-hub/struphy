@@ -1717,7 +1717,7 @@ class CommutingProjectorLocal:
             Array that tell us for which rows the basis function in the i-th direction produces non-zero entries in the BasisProjectionOperatorLocal matrix.
             This array contains the start indices of said regions.
         """
-        if h == None:
+        if h is None:
             rows_splines = getattr(self, f"_rows_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return rows_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1745,7 +1745,7 @@ class CommutingProjectorLocal:
             Array that tell us for which rows the basis function in the i-th direction produces non-zero entries in the BasisProjectionOperatorLocal matrix.
             This array contains the end indices of said regions.
         """
-        if h == None:
+        if h is None:
             rowe_splines = getattr(self, f"_rowe_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return rowe_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1772,7 +1772,7 @@ class CommutingProjectorLocal:
         self._values_B_or_D_splines_i[self._B_or_D[i]][self._translation_indices_B_or_D_splines_i[self._B_or_D[i]][self._basis_indices[i]]] : 1d float array
             Array with the evaluated basis function for the i-th direction.
         """
-        if h == None:
+        if h is None:
             values_splines = getattr(self, f"_values_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return values_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1800,7 +1800,7 @@ class CommutingProjectorLocal:
             Array of zeros or ones. A one at index j means that for the set of quadrature points found in self._localpts[i][j] the basis function is not zero
             for at least one of them.
         """
-        if h == None:
+        if h is None:
             are_zero_splines = getattr(self, f"_are_zero_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return are_zero_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
