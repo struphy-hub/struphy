@@ -152,7 +152,7 @@ class projectors_local_1d:
 
         self.coeffi_indices = xp.zeros(n_lambda_int, dtype=int)
 
-        if self.bc == False:
+        if not self.bc:
             # maximum number of non-vanishing coefficients
             if self.p == 1:
                 self.n_int_nvcof_D = 2
@@ -318,7 +318,7 @@ class projectors_local_1d:
 
         self.coeffh_indices = xp.zeros(n_lambda_his, dtype=int)
 
-        if self.bc == False:
+        if not self.bc:
             # maximum number of non-vanishing coefficients
             self.n_his_nvcof_D = 3 * self.p - 2
             self.n_his_nvcof_N = 3 * self.p - 1
@@ -763,7 +763,7 @@ class projectors_local_3d:
         self.int_shift_N = [0, 0, 0]
 
         for a in range(3):
-            if self.bc[a] == False:
+            if not self.bc[a]:
                 # maximum number of non-vanishing coefficients
                 if self.p[a] == 1:
                     self.n_int_nvcof_D[a] = 2
@@ -979,7 +979,7 @@ class projectors_local_3d:
         self.his_shift_N = [0, 0, 0]
 
         for a in range(3):
-            if self.bc[a] == False:
+            if not self.bc[a]:
                 # maximum number of non-vanishing coefficients
                 self.n_his_nvcof_D[a] = 3 * self.p[a] - 2
                 self.n_his_nvcof_N[a] = 3 * self.p[a] - 1

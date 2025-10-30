@@ -63,7 +63,7 @@ class LinOpWithTransp(LinearOperator):
             rank = comm.Get_rank()
             size = comm.Get_size()
 
-        if is_sparse == False:
+        if not is_sparse:
             if out is None:
                 # We declare the matrix form of our linear operator
                 out = xp.zeros([self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
@@ -237,7 +237,7 @@ class LinOpWithTransp(LinearOperator):
             # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
             raise Exception("Function toarray_struphy() only supports Stencil Vectors or Block Vectors.")
 
-        if is_sparse == False:
+        if not is_sparse:
             # Use Allreduce to perform addition reduction and give one copy of the result to all ranks.
             if comm is None or isinstance(comm, MockComm):
                 out[:] = result

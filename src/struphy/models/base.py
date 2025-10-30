@@ -428,13 +428,13 @@ class StruphyModel(metaclass=ABCMeta):
         def setInDict(dataDict, mapList, value):
             # Loop over dicitionary and creaty empty dicts where the path does not exist
             for k in range(len(mapList)):
-                if not mapList[k] in getFromDict(dataDict, mapList[:k]).keys():
+                if mapList[k] not in getFromDict(dataDict, mapList[:k]).keys():
                     getFromDict(dataDict, mapList[:k])[mapList[k]] = {}
             getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
 
         # make sure that the base keys are top-level keys
         for base_key in ["em_fields", "fluid", "kinetic"]:
-            if not base_key in dct.keys():
+            if base_key not in dct.keys():
                 dct[base_key] = {}
 
         if isinstance(species, str):
