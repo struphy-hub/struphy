@@ -319,15 +319,15 @@ class LinearMHDVlasovPC(StruphyModel):
 
     class Propagators:
         def __init__(self, turn_off: tuple[str, ...] = (None,)):
-            if "PushEtaPC" not in turn_off:
+            if not "PushEtaPC" in turn_off:
                 self.push_eta_pc = propagators_markers.PushEtaPC()
-            if "PushVxB" not in turn_off:
+            if not "PushVxB" in turn_off:
                 self.push_vxb = propagators_markers.PushVxB()
-            if "PressureCoupling6D" not in turn_off:
+            if not "PressureCoupling6D" in turn_off:
                 self.pc6d = propagators_coupling.PressureCoupling6D()
-            if "ShearAlfven" not in turn_off:
+            if not "ShearAlfven" in turn_off:
                 self.shearalfven = propagators_fields.ShearAlfven()
-            if "Magnetosonic" not in turn_off:
+            if not "Magnetosonic" in turn_off:
                 self.magnetosonic = propagators_fields.Magnetosonic()
 
     def __init__(self, turn_off: tuple[str, ...] = (None,)):
@@ -343,19 +343,19 @@ class LinearMHDVlasovPC(StruphyModel):
         self.propagators = self.Propagators(turn_off)
 
         # 3. assign variables to propagators
-        if "ShearAlfven" not in turn_off:
+        if not "ShearAlfven" in turn_off:
             self.propagators.shearalfven.variables.u = self.mhd.velocity
             self.propagators.shearalfven.variables.b = self.em_fields.b_field
-        if "Magnetosonic" not in turn_off:
+        if not "Magnetosonic" in turn_off:
             self.propagators.magnetosonic.variables.n = self.mhd.density
             self.propagators.magnetosonic.variables.u = self.mhd.velocity
             self.propagators.magnetosonic.variables.p = self.mhd.pressure
-        if "PressureCoupling6D" not in turn_off:
+        if not "PressureCoupling6D" in turn_off:
             self.propagators.pc6d.variables.u = self.mhd.velocity
             self.propagators.pc6d.variables.energetic_ions = self.energetic_ions.var
-        if "PushEtaPC" not in turn_off:
+        if not "PushEtaPC" in turn_off:
             self.propagators.push_eta_pc.variables.var = self.energetic_ions.var
-        if "PushVxB" not in turn_off:
+        if not "PushVxB" in turn_off:
             self.propagators.push_vxb.variables.ions = self.energetic_ions.var
 
         # define scalars for update_scalar_quantities
@@ -584,19 +584,19 @@ class LinearMHDDriftkineticCC(StruphyModel):
 
     class Propagators:
         def __init__(self, turn_off: tuple[str, ...] = (None,)):
-            if "PushGuidingCenterBxEstar" not in turn_off:
+            if not "PushGuidingCenterBxEstar" in turn_off:
                 self.push_bxe = propagators_markers.PushGuidingCenterBxEstar()
-            if "PushGuidingCenterParallel" not in turn_off:
+            if not "PushGuidingCenterParallel" in turn_off:
                 self.push_parallel = propagators_markers.PushGuidingCenterParallel()
-            if "ShearAlfvenCurrentCoupling5D" not in turn_off:
+            if not "ShearAlfvenCurrentCoupling5D" in turn_off:
                 self.shearalfen_cc5d = propagators_fields.ShearAlfvenCurrentCoupling5D()
-            if "Magnetosonic" not in turn_off:
+            if not "Magnetosonic" in turn_off:
                 self.magnetosonic = propagators_fields.Magnetosonic()
-            if "CurrentCoupling5DDensity" not in turn_off:
+            if not "CurrentCoupling5DDensity" in turn_off:
                 self.cc5d_density = propagators_fields.CurrentCoupling5DDensity()
-            if "CurrentCoupling5DGradB" not in turn_off:
+            if not "CurrentCoupling5DGradB" in turn_off:
                 self.cc5d_gradb = propagators_coupling.CurrentCoupling5DGradB()
-            if "CurrentCoupling5DCurlb" not in turn_off:
+            if not "CurrentCoupling5DCurlb" in turn_off:
                 self.cc5d_curlb = propagators_coupling.CurrentCoupling5DCurlb()
 
     def __init__(self, turn_off: tuple[str, ...] = (None,)):
@@ -612,24 +612,24 @@ class LinearMHDDriftkineticCC(StruphyModel):
         self.propagators = self.Propagators(turn_off)
 
         # 3. assign variables to propagators
-        if "ShearAlfvenCurrentCoupling5D" not in turn_off:
+        if not "ShearAlfvenCurrentCoupling5D" in turn_off:
             self.propagators.shearalfen_cc5d.variables.u = self.mhd.velocity
             self.propagators.shearalfen_cc5d.variables.b = self.em_fields.b_field
-        if "Magnetosonic" not in turn_off:
+        if not "Magnetosonic" in turn_off:
             self.propagators.magnetosonic.variables.n = self.mhd.density
             self.propagators.magnetosonic.variables.u = self.mhd.velocity
             self.propagators.magnetosonic.variables.p = self.mhd.pressure
-        if "CurrentCoupling5DDensity" not in turn_off:
+        if not "CurrentCoupling5DDensity" in turn_off:
             self.propagators.cc5d_density.variables.u = self.mhd.velocity
-        if "CurrentCoupling5DGradB" not in turn_off:
+        if not "CurrentCoupling5DGradB" in turn_off:
             self.propagators.cc5d_gradb.variables.u = self.mhd.velocity
             self.propagators.cc5d_gradb.variables.energetic_ions = self.energetic_ions.var
-        if "CurrentCoupling5DCurlb" not in turn_off:
+        if not "CurrentCoupling5DCurlb" in turn_off:
             self.propagators.cc5d_curlb.variables.u = self.mhd.velocity
             self.propagators.cc5d_curlb.variables.energetic_ions = self.energetic_ions.var
-        if "PushGuidingCenterBxEstar" not in turn_off:
+        if not "PushGuidingCenterBxEstar" in turn_off:
             self.propagators.push_bxe.variables.ions = self.energetic_ions.var
-        if "PushGuidingCenterParallel" not in turn_off:
+        if not "PushGuidingCenterParallel" in turn_off:
             self.propagators.push_parallel.variables.ions = self.energetic_ions.var
 
         # define scalars for update_scalar_quantities
