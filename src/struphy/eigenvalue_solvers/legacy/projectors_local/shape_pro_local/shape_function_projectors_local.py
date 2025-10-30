@@ -87,7 +87,7 @@ class projectors_local_3d:
         for a in range(3):
             # self.related[a] = int(xp.floor(NbaseN[a]/2.0))
             self.related[a] = int(
-                xp.floor((3 * int((self.p_size[a] * (self.p_shape[a] + 1)) * self.Nel[a] + 1) + 3 * self.p[a]) / 2.0)
+                xp.floor((3 * int((self.p_size[a] * (self.p_shape[a] + 1)) * self.Nel[a] + 1) + 3 * self.p[a]) / 2.0),
             )
             if (2 * self.related[a] + 1) > NbaseN[a]:
                 self.related[a] = int(xp.floor(NbaseN[a] / 2.0))
@@ -294,7 +294,9 @@ class projectors_local_3d:
         self.wts = [0, 0, 0]
         for a in range(3):
             self.pts[a], self.wts[a] = bsp.quadrature_grid(
-                [0, 1.0 / 2.0 / self.Nel[a]], self.pts_loc[a], self.wts_loc[a]
+                [0, 1.0 / 2.0 / self.Nel[a]],
+                self.pts_loc[a],
+                self.wts_loc[a],
             )
         # print('check_pts', self.pts[0].shape, self.pts[1].shape, self.pts[2].shape)
         # print('check_pts', self.wts)
@@ -403,7 +405,7 @@ class projectors_local_3d:
 
         # conversion to sparse matrix
         indices = xp.indices(
-            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1),
         )
 
         shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
@@ -417,7 +419,8 @@ class projectors_local_3d:
         col = Nj[1] * Ni[2] * col1 + Ni[2] * col2 + col3
 
         M = spa.csr_matrix(
-            (self.kernel_0.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+            (self.kernel_0.flatten(), (row, col.flatten())),
+            shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
         )
 
         M.eliminate_zeros()
@@ -460,7 +463,7 @@ class projectors_local_3d:
 
         # convert to sparse matrix
         indices = xp.indices(
-            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1),
         )
 
         shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
@@ -474,7 +477,8 @@ class projectors_local_3d:
         col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
         M11 = spa.csr_matrix(
-            (self.kernel_1_11.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+            (self.kernel_1_11.flatten(), (row, col.flatten())),
+            shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
         )
         M11.eliminate_zeros()
 
@@ -486,7 +490,7 @@ class projectors_local_3d:
 
         # convert to sparse matrix
         indices = xp.indices(
-            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1),
         )
 
         shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
@@ -500,7 +504,8 @@ class projectors_local_3d:
         col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
         M12 = spa.csr_matrix(
-            (self.kernel_1_12.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+            (self.kernel_1_12.flatten(), (row, col.flatten())),
+            shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
         )
         M12.eliminate_zeros()
 
@@ -512,7 +517,7 @@ class projectors_local_3d:
 
         # convert to sparse matrix
         indices = xp.indices(
-            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1),
         )
 
         shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
@@ -526,7 +531,8 @@ class projectors_local_3d:
         col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
         M13 = spa.csr_matrix(
-            (self.kernel_1_13.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+            (self.kernel_1_13.flatten(), (row, col.flatten())),
+            shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
         )
         M13.eliminate_zeros()
 
@@ -538,7 +544,7 @@ class projectors_local_3d:
 
         # convert to sparse matrix
         indices = xp.indices(
-            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1),
         )
 
         shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
@@ -552,7 +558,8 @@ class projectors_local_3d:
         col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
         M22 = spa.csr_matrix(
-            (self.kernel_1_22.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+            (self.kernel_1_22.flatten(), (row, col.flatten())),
+            shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
         )
         M22.eliminate_zeros()
 
@@ -564,7 +571,7 @@ class projectors_local_3d:
 
         # convert to sparse matrix
         indices = xp.indices(
-            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1),
         )
 
         shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
@@ -578,7 +585,8 @@ class projectors_local_3d:
         col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
         M23 = spa.csr_matrix(
-            (self.kernel_1_23.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+            (self.kernel_1_23.flatten(), (row, col.flatten())),
+            shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
         )
         M23.eliminate_zeros()
 
@@ -590,7 +598,7 @@ class projectors_local_3d:
 
         # convert to sparse matrix
         indices = xp.indices(
-            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1)
+            (Ni[0], Ni[1], Ni[2], 2 * self.related[0] + 1, 2 * self.related[1] + 1, 2 * self.related[2] + 1),
         )
 
         shift = [xp.arange(Ni) - offset for Ni, offset in zip(Ni, self.related)]
@@ -604,7 +612,8 @@ class projectors_local_3d:
         col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
         M33 = spa.csr_matrix(
-            (self.kernel_1_33.flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+            (self.kernel_1_33.flatten(), (row, col.flatten())),
+            shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
         )
         M33.eliminate_zeros()
 

@@ -167,7 +167,7 @@ def test_desc_equil(do_plot=False):
     err_lim = 0.09
 
     for nfp in nfps:
-        print(f"\n{nfp = }")
+        print(f"\n{nfp =}")
         for var in vars:
             if var in ("B_R", "B_phi", "B_Z", "J_R", "J_phi", "J_Z"):
                 continue
@@ -179,7 +179,7 @@ def test_desc_equil(do_plot=False):
 
                 assert err < err_lim
                 print(
-                    f"compare {var}: {err = }",
+                    f"compare {var}: {err =}",
                 )
 
                 if do_plot:
@@ -193,7 +193,7 @@ def test_desc_equil(do_plot=False):
 
                     plt.subplot(2, 2, 1)
                     map1 = plt.contourf(R, Z, outs[nfp][var][:, :, 0], levels=levels)
-                    plt.title(f"DESC, {var = }, {nfp = }")
+                    plt.title(f"DESC, {var =}, {nfp =}")
                     plt.xlabel("$R$")
                     plt.ylabel("$Z$")
                     plt.axis("equal")
@@ -201,7 +201,7 @@ def test_desc_equil(do_plot=False):
 
                     plt.subplot(2, 2, 2)
                     map2 = plt.contourf(R, Z, outs_struphy[nfp][var][:, :, 0], levels=levels)
-                    plt.title(f"Struphy, {err = }")
+                    plt.title(f"Struphy, {err =}")
                     plt.xlabel("$R$")
                     plt.ylabel("$Z$")
                     plt.axis("equal")
@@ -217,7 +217,7 @@ def test_desc_equil(do_plot=False):
                     plt.subplot(2, 2, 3)
                     map3 = plt.contourf(x1, y1, outs[nfp][var][:, 0, :], levels=levels)
                     map3b = plt.contourf(x2, y2, outs[nfp][var][:, n2 // 2, :], levels=levels)
-                    plt.title(f"DESC, {var = }, {nfp = }")
+                    plt.title(f"DESC, {var =}, {nfp =}")
                     plt.xlabel("$x$")
                     plt.ylabel("$y$")
                     plt.axis("equal")
@@ -226,7 +226,7 @@ def test_desc_equil(do_plot=False):
                     plt.subplot(2, 2, 4)
                     map4 = plt.contourf(x1, y1, outs_struphy[nfp][var][:, 0, :], levels=levels)
                     map4b = plt.contourf(x2, y2, outs_struphy[nfp][var][:, n2 // 2, :], levels=levels)
-                    plt.title(f"Struphy, {err = }")
+                    plt.title(f"Struphy, {err =}")
                     plt.xlabel("$x$")
                     plt.ylabel("$y$")
                     plt.axis("equal")

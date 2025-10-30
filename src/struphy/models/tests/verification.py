@@ -85,8 +85,8 @@ def VlasovAmpereOneSpecies_weakLandau(
 
     # assert
     rel_error = xp.abs(gamma_num - gamma) / xp.abs(gamma)
-    assert rel_error < 0.25, f"{rank = }: Assertion for weak Landau damping failed: {gamma_num = } vs. {gamma = }."
-    print(f"{rank = }: Assertion for weak Landau damping passed ({rel_error = }).")
+    assert rel_error < 0.25, f"{rank =}: Assertion for weak Landau damping failed: {gamma_num =} vs. {gamma =}."
+    print(f"{rank =}: Assertion for weak Landau damping passed ({rel_error =}).")
 
 
 def LinearVlasovAmpereOneSpecies_weakLandau(
@@ -161,8 +161,8 @@ def LinearVlasovAmpereOneSpecies_weakLandau(
 
     # assert
     rel_error = xp.abs(gamma_num - gamma) / xp.abs(gamma)
-    assert rel_error < 0.25, f"{rank = }: Assertion for weak Landau damping failed: {gamma_num = } vs. {gamma = }."
-    print(f"{rank = }: Assertion for weak Landau damping passed ({rel_error = }).")
+    assert rel_error < 0.25, f"{rank =}: Assertion for weak Landau damping failed: {gamma_num =} vs. {gamma =}."
+    print(f"{rank =}: Assertion for weak Landau damping passed ({rel_error =}).")
 
 
 def IsothermalEulerSPH_soundwave(
@@ -207,7 +207,7 @@ def IsothermalEulerSPH_soundwave(
         plot_ct = 0
         for i in range(0, Nt + 1):
             if i % interval == 0:
-                print(f"{i = }")
+                print(f"{i =}")
                 plot_ct += 1
                 ax = plt.gca()
 
@@ -224,7 +224,7 @@ def IsothermalEulerSPH_soundwave(
                 plt.xlabel("x")
                 plt.ylabel(r"$\rho$")
 
-                plt.title(f"standing sound wave ($c_s = 1$) for {nx = } and {ppb = }")
+                plt.title(f"standing sound wave ($c_s = 1$) for {nx =} and {ppb =}")
             if plot_ct == 11:
                 break
 
@@ -232,7 +232,7 @@ def IsothermalEulerSPH_soundwave(
 
     # assert
     error = xp.max(xp.abs(n_sph[0] - n_sph[-1]))
-    print(f"{rank = }: Assertion for SPH sound wave passed ({error = }).")
+    print(f"{rank =}: Assertion for SPH sound wave passed ({error =}).")
     assert error < 1.3e-3
 
 
@@ -311,7 +311,13 @@ def Maxwell_coaxial(
         vmax = E_theta(X, Y, grids_phy[0], modes, 0).max()
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
         plot_exac = ax1.contourf(
-            X, Y, E_theta(X, Y, grids_phy[0], modes, t_grid[-1]), cmap="plasma", levels=100, vmin=vmin, vmax=vmax
+            X,
+            Y,
+            E_theta(X, Y, grids_phy[0], modes, t_grid[-1]),
+            cmap="plasma",
+            levels=100,
+            vmin=vmin,
+            vmax=vmax,
         )
         ax2.contourf(
             X,
@@ -344,18 +350,18 @@ def Maxwell_coaxial(
     rel_err_Etheta = error_Etheta / xp.max(xp.abs(Etheta_exact))
     rel_err_Bz = error_Bz / xp.max(xp.abs(Bz_exact))
 
-    print(f"{rel_err_Er = }")
-    print(f"{rel_err_Etheta = }")
-    print(f"{rel_err_Bz = }")
+    print(f"{rel_err_Er =}")
+    print(f"{rel_err_Etheta =}")
+    print(f"{rel_err_Bz =}")
 
-    assert rel_err_Bz < 0.0021, f"{rank = }: Assertion for magnetic field Maxwell failed: {rel_err_Bz = }"
-    print(f"{rank = }: Assertion for magnetic field Maxwell passed ({rel_err_Bz = }).")
+    assert rel_err_Bz < 0.0021, f"{rank =}: Assertion for magnetic field Maxwell failed: {rel_err_Bz =}"
+    print(f"{rank =}: Assertion for magnetic field Maxwell passed ({rel_err_Bz =}).")
     assert rel_err_Etheta < 0.0021, (
-        f"{rank = }: Assertion for electric (E_theta) field Maxwell failed: {rel_err_Etheta = }"
+        f"{rank =}: Assertion for electric (E_theta) field Maxwell failed: {rel_err_Etheta =}"
     )
-    print(f"{rank = }: Assertion for electric field Maxwell passed ({rel_err_Etheta = }).")
-    assert rel_err_Er < 0.0021, f"{rank = }: Assertion for electric (E_r) field Maxwell failed: {rel_err_Er = }"
-    print(f"{rank = }: Assertion for electric field Maxwell passed ({rel_err_Er = }).")
+    print(f"{rank =}: Assertion for electric field Maxwell passed ({rel_err_Etheta =}).")
+    assert rel_err_Er < 0.0021, f"{rank =}: Assertion for electric (E_r) field Maxwell failed: {rel_err_Er =}"
+    print(f"{rank =}: Assertion for electric field Maxwell passed ({rel_err_Er =}).")
 
 
 if __name__ == "__main__":

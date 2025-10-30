@@ -230,10 +230,10 @@ class Particles(metaclass=ABCMeta):
             n_boxes = self.mpi_size * self.num_clones
         else:
             assert all([nboxes >= nproc for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
-                f"There must be at least one box {self.boxes_per_dim = } on each process {self.nprocs = } in each direction."
+                f"There must be at least one box {self.boxes_per_dim =} on each process {self.nprocs =} in each direction."
             )
             assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
-                f"Number of boxes {self.boxes_per_dim = } must be divisible by number of processes {self.nprocs = } in each direction."
+                f"Number of boxes {self.boxes_per_dim =} must be divisible by number of processes {self.nprocs =} in each direction."
             )
             n_boxes = xp.prod(self.boxes_per_dim, dtype=int) * self.num_clones
 
@@ -776,7 +776,7 @@ class Particles(metaclass=ABCMeta):
     @velocities.setter
     def velocities(self, new):
         assert isinstance(new, xp.ndarray)
-        assert new.shape == (self.n_mks_loc, self.vdim), f"{self.n_mks_loc = } and {self.vdim = } but {new.shape = }"
+        assert new.shape == (self.n_mks_loc, self.vdim), f"{self.n_mks_loc =} and {self.vdim =} but {new.shape =}"
         self._markers[self.valid_mks, self.index["vel"]] = new
 
     @property
@@ -1126,7 +1126,7 @@ class Particles(metaclass=ABCMeta):
 
         # Have at least 3 spare places in markers array
         assert self.args_markers.first_free_idx + 2 < self.n_cols - 1, (
-            f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 = }; not enough columns in marker array !!"
+            f"{self.args_markers.first_free_idx + 2} is not smaller than {self.n_cols - 1 =}; not enough columns in marker array !!"
         )
 
     def _initialize_sorting_boxes(self):
@@ -1565,7 +1565,7 @@ class Particles(metaclass=ABCMeta):
                     num_loaded_particles_loc += num_valid
 
                 # make sure all particles are loaded
-                assert self.Np == int(num_loaded_particles_glob), f"{self.Np = }, {int(num_loaded_particles_glob) = }"
+                assert self.Np == int(num_loaded_particles_glob), f"{self.Np =}, {int(num_loaded_particles_glob) =}"
 
                 # set new n_mks_load
                 self._gather_scalar_in_subcomm_array(num_loaded_particles_loc, out=self.n_mks_load)
@@ -1843,7 +1843,7 @@ class Particles(metaclass=ABCMeta):
             self.update_holes()
             self.reset_marker_ids()
             print(
-                f"\nWeights < {self.threshold} have been rejected, number of valid markers on process {self.mpi_rank} is {self.n_mks_loc}."
+                f"\nWeights < {self.threshold} have been rejected, number of valid markers on process {self.mpi_rank} is {self.n_mks_loc}.",
             )
 
         # compute (time-dependent) weights at vdim + 3
@@ -2464,7 +2464,7 @@ class Particles(metaclass=ABCMeta):
                         self._bnd_boxes_x_p.append(flatten_index(self.nx, j, k, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(f"eta1 boundary on {self._rank = }:\n{self._bnd_boxes_x_m = }\n{self._bnd_boxes_x_p = }")
+                print(f"eta1 boundary on {self._rank =}:\n{self._bnd_boxes_x_m =}\n{self._bnd_boxes_x_p =}")
 
             # y boundary
             # negative direction
@@ -2479,7 +2479,7 @@ class Particles(metaclass=ABCMeta):
                         self._bnd_boxes_y_p.append(flatten_index(i, self.ny, k, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(f"eta2 boundary on {self._rank = }:\n{self._bnd_boxes_y_m = }\n{self._bnd_boxes_y_p = }")
+                print(f"eta2 boundary on {self._rank =}:\n{self._bnd_boxes_y_m =}\n{self._bnd_boxes_y_p =}")
 
             # z boundary
             # negative direction
@@ -2494,7 +2494,7 @@ class Particles(metaclass=ABCMeta):
                         self._bnd_boxes_z_p.append(flatten_index(i, j, self.nz, self.nx, self.ny, self.nz))
 
             if self._verbose:
-                print(f"eta3 boundary on {self._rank = }:\n{self._bnd_boxes_z_m = }\n{self._bnd_boxes_z_p = }")
+                print(f"eta3 boundary on {self._rank =}:\n{self._bnd_boxes_z_m =}\n{self._bnd_boxes_z_p =}")
 
             # x-y edges
             self._bnd_boxes_x_m_y_m = []
@@ -2512,11 +2512,11 @@ class Particles(metaclass=ABCMeta):
             if self._verbose:
                 print(
                     (
-                        f"eta1-eta2 edge on {self._rank = }:\n{self._bnd_boxes_x_m_y_m = }"
-                        f"\n{self._bnd_boxes_x_m_y_p = }"
-                        f"\n{self._bnd_boxes_x_p_y_m = }"
-                        f"\n{self._bnd_boxes_x_p_y_p = }"
-                    )
+                        f"eta1-eta2 edge on {self._rank =}:\n{self._bnd_boxes_x_m_y_m =}"
+                        f"\n{self._bnd_boxes_x_m_y_p =}"
+                        f"\n{self._bnd_boxes_x_p_y_m =}"
+                        f"\n{self._bnd_boxes_x_p_y_p =}"
+                    ),
                 )
 
             # x-z edges
@@ -2535,11 +2535,11 @@ class Particles(metaclass=ABCMeta):
             if self._verbose:
                 print(
                     (
-                        f"eta1-eta3 edge on {self._rank = }:\n{self._bnd_boxes_x_m_z_m = }"
-                        f"\n{self._bnd_boxes_x_m_z_p = }"
-                        f"\n{self._bnd_boxes_x_p_z_m = }"
-                        f"\n{self._bnd_boxes_x_p_z_p = }"
-                    )
+                        f"eta1-eta3 edge on {self._rank =}:\n{self._bnd_boxes_x_m_z_m =}"
+                        f"\n{self._bnd_boxes_x_m_z_p =}"
+                        f"\n{self._bnd_boxes_x_p_z_m =}"
+                        f"\n{self._bnd_boxes_x_p_z_p =}"
+                    ),
                 )
 
             # y-z edges
@@ -2558,11 +2558,11 @@ class Particles(metaclass=ABCMeta):
             if self._verbose:
                 print(
                     (
-                        f"eta2-eta3 edge on {self._rank = }:\n{self._bnd_boxes_y_m_z_m = }"
-                        f"\n{self._bnd_boxes_y_m_z_p = }"
-                        f"\n{self._bnd_boxes_y_p_z_m = }"
-                        f"\n{self._bnd_boxes_y_p_z_p = }"
-                    )
+                        f"eta2-eta3 edge on {self._rank =}:\n{self._bnd_boxes_y_m_z_m =}"
+                        f"\n{self._bnd_boxes_y_m_z_p =}"
+                        f"\n{self._bnd_boxes_y_p_z_m =}"
+                        f"\n{self._bnd_boxes_y_p_z_p =}"
+                    ),
                 )
 
             # corners
@@ -2588,15 +2588,15 @@ class Particles(metaclass=ABCMeta):
             if self._verbose:
                 print(
                     (
-                        f"corners on {self._rank = }:\n{self._bnd_boxes_x_m_y_m_z_m = }"
-                        f"\n{self._bnd_boxes_x_m_y_m_z_p = }"
-                        f"\n{self._bnd_boxes_x_m_y_p_z_m = }"
-                        f"\n{self._bnd_boxes_x_p_y_m_z_m = }"
-                        f"\n{self._bnd_boxes_x_m_y_p_z_p = }"
-                        f"\n{self._bnd_boxes_x_p_y_m_z_p = }"
-                        f"\n{self._bnd_boxes_x_p_y_p_z_m = }"
-                        f"\n{self._bnd_boxes_x_p_y_p_z_p = }"
-                    )
+                        f"corners on {self._rank =}:\n{self._bnd_boxes_x_m_y_m_z_m =}"
+                        f"\n{self._bnd_boxes_x_m_y_m_z_p =}"
+                        f"\n{self._bnd_boxes_x_m_y_p_z_m =}"
+                        f"\n{self._bnd_boxes_x_p_y_m_z_m =}"
+                        f"\n{self._bnd_boxes_x_m_y_p_z_p =}"
+                        f"\n{self._bnd_boxes_x_p_y_m_z_p =}"
+                        f"\n{self._bnd_boxes_x_p_y_p_z_m =}"
+                        f"\n{self._bnd_boxes_x_p_y_p_z_p =}"
+                    ),
                 )
 
     def _sort_boxed_particles_numpy(self):
@@ -2650,7 +2650,7 @@ class Particles(metaclass=ABCMeta):
                 f'Strong load imbalance detected in sorting boxes: \
 max number of markers in a box ({max_in_box}) on rank {self.mpi_rank} \
 exceeds the column-size of the box array ({self._sorting_boxes.boxes.shape[1]}). \
-Increasing the value of "box_bufsize" in the markers parameters for the next run.'
+Increasing the value of "box_bufsize" in the markers parameters for the next run.',
             )
             self.mpi_comm.Abort()
 
@@ -2734,17 +2734,23 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         # Mirror position for boundary condition
         if self.bc_sph[0] in ("mirror", "fixed"):
             self._mirror_particles(
-                "_markers_x_m", "_markers_x_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary
+                "_markers_x_m",
+                "_markers_x_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
             )
 
         if self.bc_sph[1] in ("mirror", "fixed"):
             self._mirror_particles(
-                "_markers_y_m", "_markers_y_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary
+                "_markers_y_m",
+                "_markers_y_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
             )
 
         if self.bc_sph[2] in ("mirror", "fixed"):
             self._mirror_particles(
-                "_markers_z_m", "_markers_z_p", is_domain_boundary=self.sorting_boxes.is_domain_boundary
+                "_markers_z_m",
+                "_markers_z_p",
+                is_domain_boundary=self.sorting_boxes.is_domain_boundary,
             )
 
         ## Edges x-y
@@ -2899,7 +2905,8 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                     arr[:, 0] *= -1.0
                     if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(
-                            *arr[:, :3].T, flat_eval=True
+                            *arr[:, :3].T,
+                            flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(
                             *arr[:, :3].T,
@@ -2911,7 +2918,8 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                     arr[:, 0] = 2.0 - arr[:, 0]
                     if self.bc_sph[0] == "fixed" and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(
-                            *arr[:, :3].T, flat_eval=True
+                            *arr[:, :3].T,
+                            flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(
                             *arr[:, :3].T,
@@ -2926,7 +2934,8 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                     arr[:, 1] *= -1.0
                     if self.bc_sph[1] == "fixed" and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(
-                            *arr[:, :3].T, flat_eval=True
+                            *arr[:, :3].T,
+                            flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(
                             *arr[:, :3].T,
@@ -2938,7 +2947,8 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                     arr[:, 1] = 2.0 - arr[:, 1]
                     if self.bc_sph[1] == "fixed" and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(
-                            *arr[:, :3].T, flat_eval=True
+                            *arr[:, :3].T,
+                            flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(
                             *arr[:, :3].T,
@@ -2953,7 +2963,8 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                     arr[:, 2] *= -1.0
                     if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(
-                            *arr[:, :3].T, flat_eval=True
+                            *arr[:, :3].T,
+                            flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(
                             *arr[:, :3].T,
@@ -2965,7 +2976,8 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                     arr[:, 2] = 2.0 - arr[:, 2]
                     if self.bc_sph[2] == "fixed" and arr_name not in self._fixed_markers_set:
                         boundary_values = self.f_init(
-                            *arr[:, :3].T, flat_eval=True
+                            *arr[:, :3].T,
+                            flat_eval=True,
                         )  # evaluation outside of the unit cube - maybe not working for all f_init!
                         arr[:, self.index["weights"]] = -boundary_values / self.s0(
                             *arr[:, :3].T,
@@ -3018,124 +3030,124 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
         # if self._x_m_y_m_proc is not None:
         self._send_info_box[self._x_m_y_m_proc] += len(self._markers_x_m_y_m)
         self._send_list_box[self._x_m_y_m_proc] = xp.concatenate(
-            (self._send_list_box[self._x_m_y_m_proc], self._markers_x_m_y_m)
+            (self._send_list_box[self._x_m_y_m_proc], self._markers_x_m_y_m),
         )
 
         # if self._x_m_y_p_proc is not None:
         self._send_info_box[self._x_m_y_p_proc] += len(self._markers_x_m_y_p)
         self._send_list_box[self._x_m_y_p_proc] = xp.concatenate(
-            (self._send_list_box[self._x_m_y_p_proc], self._markers_x_m_y_p)
+            (self._send_list_box[self._x_m_y_p_proc], self._markers_x_m_y_p),
         )
 
         # if self._x_p_y_m_proc is not None:
         self._send_info_box[self._x_p_y_m_proc] += len(self._markers_x_p_y_m)
         self._send_list_box[self._x_p_y_m_proc] = xp.concatenate(
-            (self._send_list_box[self._x_p_y_m_proc], self._markers_x_p_y_m)
+            (self._send_list_box[self._x_p_y_m_proc], self._markers_x_p_y_m),
         )
 
         # if self._x_p_y_p_proc is not None:
         self._send_info_box[self._x_p_y_p_proc] += len(self._markers_x_p_y_p)
         self._send_list_box[self._x_p_y_p_proc] = xp.concatenate(
-            (self._send_list_box[self._x_p_y_p_proc], self._markers_x_p_y_p)
+            (self._send_list_box[self._x_p_y_p_proc], self._markers_x_p_y_p),
         )
 
         # x-z edges
         # if self._x_m_z_m_proc is not None:
         self._send_info_box[self._x_m_z_m_proc] += len(self._markers_x_m_z_m)
         self._send_list_box[self._x_m_z_m_proc] = xp.concatenate(
-            (self._send_list_box[self._x_m_z_m_proc], self._markers_x_m_z_m)
+            (self._send_list_box[self._x_m_z_m_proc], self._markers_x_m_z_m),
         )
 
         # if self._x_m_z_p_proc is not None:
         self._send_info_box[self._x_m_z_p_proc] += len(self._markers_x_m_z_p)
         self._send_list_box[self._x_m_z_p_proc] = xp.concatenate(
-            (self._send_list_box[self._x_m_z_p_proc], self._markers_x_m_z_p)
+            (self._send_list_box[self._x_m_z_p_proc], self._markers_x_m_z_p),
         )
 
         # if self._x_p_z_m_proc is not None:
         self._send_info_box[self._x_p_z_m_proc] += len(self._markers_x_p_z_m)
         self._send_list_box[self._x_p_z_m_proc] = xp.concatenate(
-            (self._send_list_box[self._x_p_z_m_proc], self._markers_x_p_z_m)
+            (self._send_list_box[self._x_p_z_m_proc], self._markers_x_p_z_m),
         )
 
         # if self._x_p_z_p_proc is not None:
         self._send_info_box[self._x_p_z_p_proc] += len(self._markers_x_p_z_p)
         self._send_list_box[self._x_p_z_p_proc] = xp.concatenate(
-            (self._send_list_box[self._x_p_z_p_proc], self._markers_x_p_z_p)
+            (self._send_list_box[self._x_p_z_p_proc], self._markers_x_p_z_p),
         )
 
         # y-z edges
         # if self._y_m_z_m_proc is not None:
         self._send_info_box[self._y_m_z_m_proc] += len(self._markers_y_m_z_m)
         self._send_list_box[self._y_m_z_m_proc] = xp.concatenate(
-            (self._send_list_box[self._y_m_z_m_proc], self._markers_y_m_z_m)
+            (self._send_list_box[self._y_m_z_m_proc], self._markers_y_m_z_m),
         )
 
         # if self._y_m_z_p_proc is not None:
         self._send_info_box[self._y_m_z_p_proc] += len(self._markers_y_m_z_p)
         self._send_list_box[self._y_m_z_p_proc] = xp.concatenate(
-            (self._send_list_box[self._y_m_z_p_proc], self._markers_y_m_z_p)
+            (self._send_list_box[self._y_m_z_p_proc], self._markers_y_m_z_p),
         )
 
         # if self._y_p_z_m_proc is not None:
         self._send_info_box[self._y_p_z_m_proc] += len(self._markers_y_p_z_m)
         self._send_list_box[self._y_p_z_m_proc] = xp.concatenate(
-            (self._send_list_box[self._y_p_z_m_proc], self._markers_y_p_z_m)
+            (self._send_list_box[self._y_p_z_m_proc], self._markers_y_p_z_m),
         )
 
         # if self._y_p_z_p_proc is not None:
         self._send_info_box[self._y_p_z_p_proc] += len(self._markers_y_p_z_p)
         self._send_list_box[self._y_p_z_p_proc] = xp.concatenate(
-            (self._send_list_box[self._y_p_z_p_proc], self._markers_y_p_z_p)
+            (self._send_list_box[self._y_p_z_p_proc], self._markers_y_p_z_p),
         )
 
         # corners
         # if self._x_m_y_m_z_m_proc is not None:
         self._send_info_box[self._x_m_y_m_z_m_proc] += len(self._markers_x_m_y_m_z_m)
         self._send_list_box[self._x_m_y_m_z_m_proc] = xp.concatenate(
-            (self._send_list_box[self._x_m_y_m_z_m_proc], self._markers_x_m_y_m_z_m)
+            (self._send_list_box[self._x_m_y_m_z_m_proc], self._markers_x_m_y_m_z_m),
         )
 
         # if self._x_m_y_m_z_p_proc is not None:
         self._send_info_box[self._x_m_y_m_z_p_proc] += len(self._markers_x_m_y_m_z_p)
         self._send_list_box[self._x_m_y_m_z_p_proc] = xp.concatenate(
-            (self._send_list_box[self._x_m_y_m_z_p_proc], self._markers_x_m_y_m_z_p)
+            (self._send_list_box[self._x_m_y_m_z_p_proc], self._markers_x_m_y_m_z_p),
         )
 
         # if self._x_m_y_p_z_m_proc is not None:
         self._send_info_box[self._x_m_y_p_z_m_proc] += len(self._markers_x_m_y_p_z_m)
         self._send_list_box[self._x_m_y_p_z_m_proc] = xp.concatenate(
-            (self._send_list_box[self._x_m_y_p_z_m_proc], self._markers_x_m_y_p_z_m)
+            (self._send_list_box[self._x_m_y_p_z_m_proc], self._markers_x_m_y_p_z_m),
         )
 
         # if self._x_m_y_p_z_p_proc is not None:
         self._send_info_box[self._x_m_y_p_z_p_proc] += len(self._markers_x_m_y_p_z_p)
         self._send_list_box[self._x_m_y_p_z_p_proc] = xp.concatenate(
-            (self._send_list_box[self._x_m_y_p_z_p_proc], self._markers_x_m_y_p_z_p)
+            (self._send_list_box[self._x_m_y_p_z_p_proc], self._markers_x_m_y_p_z_p),
         )
 
         # if self._x_p_y_m_z_m_proc is not None:
         self._send_info_box[self._x_p_y_m_z_m_proc] += len(self._markers_x_p_y_m_z_m)
         self._send_list_box[self._x_p_y_m_z_m_proc] = xp.concatenate(
-            (self._send_list_box[self._x_p_y_m_z_m_proc], self._markers_x_p_y_m_z_m)
+            (self._send_list_box[self._x_p_y_m_z_m_proc], self._markers_x_p_y_m_z_m),
         )
 
         # if self._x_p_y_m_z_p_proc is not None:
         self._send_info_box[self._x_p_y_m_z_p_proc] += len(self._markers_x_p_y_m_z_p)
         self._send_list_box[self._x_p_y_m_z_p_proc] = xp.concatenate(
-            (self._send_list_box[self._x_p_y_m_z_p_proc], self._markers_x_p_y_m_z_p)
+            (self._send_list_box[self._x_p_y_m_z_p_proc], self._markers_x_p_y_m_z_p),
         )
 
         # if self._x_p_y_p_z_m_proc is not None:
         self._send_info_box[self._x_p_y_p_z_m_proc] += len(self._markers_x_p_y_p_z_m)
         self._send_list_box[self._x_p_y_p_z_m_proc] = xp.concatenate(
-            (self._send_list_box[self._x_p_y_p_z_m_proc], self._markers_x_p_y_p_z_m)
+            (self._send_list_box[self._x_p_y_p_z_m_proc], self._markers_x_p_y_p_z_m),
         )
 
         # if self._x_p_y_p_z_p_proc is not None:
         self._send_info_box[self._x_p_y_p_z_p_proc] += len(self._markers_x_p_y_p_z_p)
         self._send_list_box[self._x_p_y_p_z_p_proc] = xp.concatenate(
-            (self._send_list_box[self._x_p_y_p_z_p_proc], self._markers_x_p_y_p_z_p)
+            (self._send_list_box[self._x_p_y_p_z_p_proc], self._markers_x_p_y_p_z_p),
         )
 
     def self_communication_boxes(self):
@@ -3151,7 +3163,7 @@ Increasing the value of "box_bufsize" in the markers parameters for the next run
                     f'Strong load imbalance detected: \
 number of holes ({holes_inds.size}) on rank {self.mpi_rank} \
 is smaller than number of incoming particles ({self._send_info_box[self.mpi_rank]}). \
-Increasing the value of "bufsize" in the markers parameters for the next run.'
+Increasing the value of "bufsize" in the markers parameters for the next run.',
                 )
                 self.mpi_comm.Abort()
 
@@ -3242,7 +3254,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
                                 f'Strong load imbalance detected: \
 number of holes ({hole_inds.size}) on rank {self.mpi_rank} \
 is smaller than number of incoming particles ({first_hole[i] + self._recv_info_box[i]}). \
-Increasing the value of "bufsize" in the markers parameters for the next run.'
+Increasing the value of "bufsize" in the markers parameters for the next run.',
                             )
                             self.mpi_comm.Abort()
                             # exit()
@@ -4007,7 +4019,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.'
                                 f'Strong load imbalance detected: \
 number of holes ({hole_inds_after_send.size}) on rank {self.mpi_rank} \
 is smaller than number of incoming particles ({first_hole[i] + recv_info[i]}). \
-Increasing the value of "bufsize" in the markers parameters for the next run.'
+Increasing the value of "bufsize" in the markers parameters for the next run.',
                             )
                             self.mpi_comm.Abort()
 

@@ -338,7 +338,8 @@ def run(
             t1 = time.time()
             if rank == 0 and verbose:
                 message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
-                    run_time_now * 60, t1 - t0
+                    run_time_now * 60,
+                    t1 - t0,
                 )
                 print(message, end="\n")
                 print()
@@ -383,10 +384,12 @@ def run(
                 message = "time step: " + step + "/" + str(total_steps)
                 message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
                 message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
-                    time_state["value_sec"][0], Tend * model.units.t
+                    time_state["value_sec"][0],
+                    Tend * model.units.t,
                 )
                 message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
-                    run_time_now * 60, t1 - t0
+                    run_time_now * 60,
+                    t1 - t0,
                 )
 
                 print(message, end="\n")
@@ -513,7 +516,10 @@ def pproc(
 
         if physical:
             point_data_phy, grids_log, grids_phy = eval_femfields(
-                params_in, fields, celldivide=[celldivide] * 3, physical=True
+                params_in,
+                fields,
+                celldivide=[celldivide] * 3,
+                physical=True,
             )
 
         # directory for field data
@@ -699,7 +705,7 @@ def load_data(path: str) -> SimData:
     path_pproc = os.path.join(path, "post_processing")
     assert os.path.exists(path_pproc), f"Path {path_pproc} does not exist, run 'pproc' first?"
     print("\n*** Loading post-processed simulation data:")
-    print(f"{path = }")
+    print(f"{path =}")
 
     simdata = SimData(path)
 
@@ -738,7 +744,7 @@ def load_data(path: str) -> SimData:
     if os.path.exists(path_kinetic):
         # species folders
         species = next(os.walk(path_kinetic))[1]
-        print(f"{species = }")
+        print(f"{species =}")
         for spec in species:
             path_spec = os.path.join(path_kinetic, spec)
             wlk = os.walk(path_spec)
@@ -792,20 +798,20 @@ def load_data(path: str) -> SimData:
                             simdata._n_sph[spec][sli][name] = tmp
 
                 else:
-                    print(f"{folder = }")
+                    print(f"{folder =}")
                     raise NotImplementedError
 
     print("\nThe following data has been loaded:")
     print(f"\ngrids:")
-    print(f"{simdata.t_grid.shape = }")
+    print(f"{simdata.t_grid.shape =}")
     if simdata.grids_log is not None:
-        print(f"{simdata.grids_log[0].shape = }")
-        print(f"{simdata.grids_log[1].shape = }")
-        print(f"{simdata.grids_log[2].shape = }")
+        print(f"{simdata.grids_log[0].shape =}")
+        print(f"{simdata.grids_log[1].shape =}")
+        print(f"{simdata.grids_log[2].shape =}")
     if simdata.grids_phy is not None:
-        print(f"{simdata.grids_phy[0].shape = }")
-        print(f"{simdata.grids_phy[1].shape = }")
-        print(f"{simdata.grids_phy[2].shape = }")
+        print(f"{simdata.grids_phy[0].shape =}")
+        print(f"{simdata.grids_phy[1].shape =}")
+        print(f"{simdata.grids_phy[2].shape =}")
     print(f"\nsimdata.spline_values:")
     for k, v in simdata.spline_values.items():
         print(f"  {k}")

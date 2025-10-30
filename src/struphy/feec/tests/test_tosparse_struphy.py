@@ -7,7 +7,8 @@ import pytest
 @pytest.mark.parametrize("p", [[3, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, False]])
 @pytest.mark.parametrize(
-    "mapping", [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]]
+    "mapping",
+    [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]],
 )
 def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     """
@@ -115,14 +116,26 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
 
 if __name__ == "__main__":
     test_tosparse_struphy(
-        [32, 2, 2], [2, 1, 1], [True, True, True], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [32, 2, 2],
+        [2, 1, 1],
+        [True, True, True],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )
     test_tosparse_struphy(
-        [2, 32, 2], [1, 2, 1], [True, True, True], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [2, 32, 2],
+        [1, 2, 1],
+        [True, True, True],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )
     test_tosparse_struphy(
-        [2, 2, 32], [1, 1, 2], [True, True, True], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [2, 2, 32],
+        [1, 1, 2],
+        [True, True, True],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )
     test_tosparse_struphy(
-        [2, 2, 32], [1, 1, 2], [False, False, False], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [2, 2, 32],
+        [1, 1, 2],
+        [False, False, False],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )

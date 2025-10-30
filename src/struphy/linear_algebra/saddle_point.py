@@ -413,7 +413,10 @@ class SaddlePointSolver:
 
             # === Inverse for A[1]
             if hasattr(self, "_Aenpinv") and self._is_inverse_still_valid(
-                self._Aenpinv, A1, "A[1]", pre=self._A22npinv
+                self._Aenpinv,
+                A1,
+                "A[1]",
+                pre=self._A22npinv,
             ):
                 pass
             else:
@@ -497,7 +500,7 @@ class SaddlePointSolver:
         # print(f'{minbeforeA11_abs = }')
         # print(f'{minbeforeA11 = }')
         # print(f'{specA11_bef = }')
-        print(f"{specA11_bef_abs = }")
+        print(f"{specA11_bef_abs =}")
 
         # A22 before
         if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -517,8 +520,8 @@ class SaddlePointSolver:
         # print(f'{minbeforeA22_abs = }')
         # print(f'{minbeforeA22 = }')
         # print(f'{specA22_bef = }')
-        print(f"{specA22_bef_abs = }")
-        print(f"{condA22_before = }")
+        print(f"{specA22_bef_abs =}")
+        print(f"{condA22_before =}")
 
         if self._preconditioner == True:
             # A11 after preconditioning with its inverse
@@ -537,7 +540,7 @@ class SaddlePointSolver:
             # print(f'{minafterA11_abs_prec = }')
             # print(f'{minafterA11_prec = }')
             # print(f'{specA11_aft_prec = }')
-            print(f"{specA11_aft_abs_prec = }")
+            print(f"{specA11_aft_abs_prec =}")
 
             # A22 after preconditioning with its inverse
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
@@ -557,7 +560,7 @@ class SaddlePointSolver:
             # print(f'{minafterA22_abs_prec = }')
             # print(f'{minafterA22_prec = }')
             # print(f'{specA22_aft_prec = }')
-            print(f"{specA22_aft_abs_prec = }")
+            print(f"{specA22_aft_abs_prec =}")
 
             return condA22_before, specA22_bef_abs, condA11_before, condA22_after, specA22_aft_abs_prec
 

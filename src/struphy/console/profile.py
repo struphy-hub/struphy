@@ -106,7 +106,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
         + "ncalls".ljust(15)
         + "tottime".ljust(15)
         + "percall".ljust(15)
-        + "cumtime".ljust(15)
+        + "cumtime".ljust(15),
     )
     print("-" * 154)
     for position, key in enumerate(dicts[0].keys()):
@@ -207,7 +207,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
                 ax.set(
                     title="Weak scaling for cells/mpi_size="
                     + str(xp.prod(val["Nel"][0]) / val["mpi_size"][0])
-                    + "=const."
+                    + "=const.",
                 )
                 ax.legend(loc="upper left")
                 # ax.loglog(val['mpi_size'], val['time'][0]*xp.ones_like(val['time']), 'k--', alpha=0.3)

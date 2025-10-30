@@ -120,17 +120,17 @@ def solve_ev_problem(rho, B_phi, dB_phi, B_z, p, gamma, a, k, m, num_params, bcZ
     )
 
     W_dXZ = lambda eta: B_phi(r(eta)) * gamma * m * p(r(eta)) / r(eta) ** 2 + B_z(r(eta)) * gamma * k * p(r(eta)) / r(
-        eta
+        eta,
     )
     W_ZdX = lambda eta: B_phi(r(eta)) * gamma * m * p(r(eta)) / r(eta) ** 2 + B_z(r(eta)) * gamma * k * p(r(eta)) / r(
-        eta
+        eta,
     )
 
     W_VZ = lambda eta: B_phi(r(eta)) * gamma * m**2 * p(r(eta)) / r(eta) ** 2 + B_z(r(eta)) * gamma * k * m * p(
-        r(eta)
+        r(eta),
     ) / r(eta)
     W_ZV = lambda eta: B_phi(r(eta)) * gamma * m**2 * p(r(eta)) / r(eta) ** 2 + B_z(r(eta)) * gamma * k * m * p(
-        r(eta)
+        r(eta),
     ) / r(eta)
 
     # compute matrices
@@ -289,10 +289,16 @@ def solve_ev_problem_FEEC(Rho, B_phi, dB_phi, B_z, dB_z, P, gamma, a, R0, n, m, 
 
     # evaluate basis functions on quadrature points in format (interval, local quad. point, global basis function)
     basis_his_N = bsp.collocation_matrix(splines.T, splines.p, pts.flatten(), False, normalize=kind_splines[0]).reshape(
-        pts.shape[0], pts.shape[1], splines.NbaseN
+        pts.shape[0],
+        pts.shape[1],
+        splines.NbaseN,
     )
     basis_his_D = bsp.collocation_matrix(
-        splines.t, splines.p - 1, pts.flatten(), False, normalize=kind_splines[1]
+        splines.t,
+        splines.p - 1,
+        pts.flatten(),
+        False,
+        normalize=kind_splines[1],
     ).reshape(pts.shape[0], pts.shape[1], splines.NbaseD)
 
     # shift first interpolation point away from pole
@@ -459,12 +465,14 @@ def solve_ev_problem_FEEC(Rho, B_phi, dB_phi, B_z, dB_z, P, gamma, a, R0, n, m, 
     )
 
     rhs0_N_phi = spa.csr_matrix(
-        (rhs0_N_phi, (pi0_N_i[0], pi0_N_i[1])), shape=(splines.NbaseN, splines.NbaseN)
+        (rhs0_N_phi, (pi0_N_i[0], pi0_N_i[1])),
+        shape=(splines.NbaseN, splines.NbaseN),
     ).toarray()
     rhs0_N_z = spa.csr_matrix((rhs0_N_z, (pi0_N_i[0], pi0_N_i[1])), shape=(splines.NbaseN, splines.NbaseN)).toarray()
 
     rhs1_D_phi = spa.csr_matrix(
-        (rhs1_D_phi, (pi1_D_i[0], pi1_D_i[1])), shape=(splines.NbaseD, splines.NbaseD)
+        (rhs1_D_phi, (pi1_D_i[0], pi1_D_i[1])),
+        shape=(splines.NbaseD, splines.NbaseD),
     ).toarray()
     rhs1_D_z = spa.csr_matrix((rhs1_D_z, (pi1_D_i[0], pi1_D_i[1])), shape=(splines.NbaseD, splines.NbaseD)).toarray()
 
@@ -474,10 +482,12 @@ def solve_ev_problem_FEEC(Rho, B_phi, dB_phi, B_z, dB_z, P, gamma, a, R0, n, m, 
     rhs1_D_pr = spa.csr_matrix((rhs1_D_pr, (pi1_D_i[0], pi1_D_i[1])), shape=(splines.NbaseD, splines.NbaseD)).toarray()
 
     rhs0_N_rho = spa.csr_matrix(
-        (rhs0_N_rho, (pi0_N_i[0], pi0_N_i[1])), shape=(splines.NbaseN, splines.NbaseN)
+        (rhs0_N_rho, (pi0_N_i[0], pi0_N_i[1])),
+        shape=(splines.NbaseN, splines.NbaseN),
     ).toarray()
     rhs1_D_rho = spa.csr_matrix(
-        (rhs1_D_rho, (pi1_D_i[0], pi1_D_i[1])), shape=(splines.NbaseD, splines.NbaseD)
+        (rhs1_D_rho, (pi1_D_i[0], pi1_D_i[1])),
+        shape=(splines.NbaseD, splines.NbaseD),
     ).toarray()
 
     pi0_N_phi = xp.linalg.inv(proj.N.toarray()[1:-1, 1:-1]).dot(rhs0_N_phi[1:-1, 1:-1])
@@ -514,7 +524,7 @@ def solve_ev_problem_FEEC(Rho, B_phi, dB_phi, B_z, dB_z, P, gamma, a, R0, n, m, 
             [I_11, xp.zeros((len(u2_r) - 2, len(u2_phi))), xp.zeros((len(u2_r) - 2, len(u2_z) - 1))],
             [I_21, I_22, I_23[:, 1:]],
             [I_31[1:, :], I_32[1:, :], I_33[1:, 1:]],
-        ]
+        ],
     )
 
     # ======= matrices in strong pressure equation ================
@@ -534,7 +544,7 @@ def solve_ev_problem_FEEC(Rho, B_phi, dB_phi, B_z, dB_z, P, gamma, a, R0, n, m, 
             [A_1, xp.zeros((A_1.shape[0], A_2.shape[1])), xp.zeros((A_1.shape[0], A_3.shape[1]))],
             [xp.zeros((A_2.shape[0], A_1.shape[1])), A_2, xp.zeros((A_2.shape[0], A_3.shape[1]))],
             [xp.zeros((A_3.shape[0], A_1.shape[1])), xp.zeros((A_3.shape[0], A_2.shape[1])), A_3],
-        ]
+        ],
     )
 
     MB_11 = 2 * xp.pi * n * pi0_N_z.T.dot(M2_r) + 2 * xp.pi * m * pi0_N_phi.T.dot(M2_r)
@@ -553,7 +563,7 @@ def solve_ev_problem_FEEC(Rho, B_phi, dB_phi, B_z, dB_z, P, gamma, a, R0, n, m, 
     MB_34 = 2 * xp.pi * n * M3
 
     MB_b_all = xp.block(
-        [[MB_11, MB_12, MB_13[:, 1:]], [MB_21, MB_22, MB_23[:, 1:]], [MB_31[1:, :], MB_32[1:, :], MB_33[1:, 1:]]]
+        [[MB_11, MB_12, MB_13[:, 1:]], [MB_21, MB_22, MB_23[:, 1:]], [MB_31[1:, :], MB_32[1:, :], MB_33[1:, 1:]]],
     )
     MB_p_all = xp.block([[MB_14[:, 1:]], [MB_24[:, 1:]], [MB_34[1:, 1:]]])
 
@@ -664,7 +674,7 @@ def solve_ev_problem_FEEC(Rho, B_phi, dB_phi, B_z, dB_z, P, gamma, a, R0, n, m, 
                 xp.zeros((len(p3) - 1, A_all.shape[1])),
                 xp.identity(len(p3) - 1),
             ],
-        ]
+        ],
     )
 
     RHS = xp.block(
@@ -672,7 +682,7 @@ def solve_ev_problem_FEEC(Rho, B_phi, dB_phi, B_z, dB_z, P, gamma, a, R0, n, m, 
             [xp.zeros((MB_b_all.shape[0], I_all.shape[1])), MB_b_all, MB_p_all],
             [I_all, xp.zeros((I_all.shape[0], MB_b_all.shape[1])), xp.zeros((I_all.shape[0], MB_p_all.shape[1]))],
             [P_all, xp.zeros((P_all.shape[0], MB_b_all.shape[1])), xp.zeros((P_all.shape[0], MB_p_all.shape[1]))],
-        ]
+        ],
     )
 
     dt = 0.05
@@ -716,13 +726,14 @@ def solve_ev_problem_FEEC(Rho, B_phi, dB_phi, B_z, dB_z, P, gamma, a, R0, n, m, 
                 b2_phi_all[n, :],
                 b2_z_all[n, 1:],
                 p3_all[n, 1:],
-            )
+            ),
         )
         new = UPDATE.dot(old)
 
         # extract components
         unew, bnew, pnew = xp.split(
-            new, [len(u2_r) - 2 + len(u2_phi) + len(u2_z) - 1, 2 * (len(u2_r) - 2 + len(u2_phi) + len(u2_z) - 1)]
+            new,
+            [len(u2_r) - 2 + len(u2_phi) + len(u2_z) - 1, 2 * (len(u2_r) - 2 + len(u2_phi) + len(u2_z) - 1)],
         )
 
         u2_r_all[n + 1, :] = xp.array([0.0] + list(unew[: (splines.NbaseN - 2)]) + [0.0])

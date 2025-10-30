@@ -45,7 +45,7 @@ class RotationMatrix:
             [
                 [self._cross_mask[m][n] * fun(e1, e2, e3) for n, fun in enumerate(row)]
                 for m, row in enumerate(self._funs)
-            ]
+            ],
         )
 
         # numpy operates on the last two indices with @
@@ -99,7 +99,9 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
         e = arr_psy.ends
 
         arr_psy[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = arr[-1][
-            s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1
+            s[0] : e[0] + 1,
+            s[1] : e[1] + 1,
+            s[2] : e[2] + 1,
         ]
 
         if flattened:
@@ -117,7 +119,9 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
             e = block.ends
 
             arr_psy[d][s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = arr[-1][
-                s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1
+                s[0] : e[0] + 1,
+                s[1] : e[1] + 1,
+                s[2] : e[2] + 1,
             ]
 
         if flattened:
@@ -126,7 +130,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
                     arr[0].flatten(),
                     arr[1].flatten(),
                     arr[2].flatten(),
-                )
+                ),
             )
 
     arr_psy.update_ghost_regions()

@@ -209,7 +209,8 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
             M[a][b] = spa.csr_matrix(
-                (M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+                (M[a][b].flatten(), (row, col.flatten())),
+                shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
             )
             M[a][b].eliminate_zeros()
 
@@ -328,7 +329,8 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
             M[a][b] = spa.csr_matrix(
-                (M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+                (M[a][b].flatten(), (row, col.flatten())),
+                shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
             )
             M[a][b].eliminate_zeros()
 
@@ -563,7 +565,8 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
             M[a][b] = spa.csr_matrix(
-                (M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
+                (M[a][b].flatten(), (row, col.flatten())),
+                shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
             )
             M[a][b].eliminate_zeros()
 

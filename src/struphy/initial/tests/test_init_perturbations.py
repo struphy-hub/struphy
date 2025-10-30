@@ -222,7 +222,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         params = {
                             key: {
                                 "given_in_basis": [fun_form] * 3,
-                            }
+                            },
                         }
 
                         if "Modes" in key:
@@ -267,12 +267,20 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             fun3_xyz = perturbation(eee1, eee2, eee3)
                         elif fun_form == "norm":
                             tmp1, tmp2, tmp3 = domain.transform(
-                                [perturbation, perturbation, perturbation], eee1, eee2, eee3, kind=fun_form + "_to_v"
+                                [perturbation, perturbation, perturbation],
+                                eee1,
+                                eee2,
+                                eee3,
+                                kind=fun_form + "_to_v",
                             )
                             fun1_xyz, fun2_xyz, fun3_xyz = domain.push([tmp1, tmp2, tmp3], eee1, eee2, eee3, kind="v")
                         else:
                             fun1_xyz, fun2_xyz, fun3_xyz = domain.push(
-                                [perturbation, perturbation, perturbation], eee1, eee2, eee3, kind=fun_form
+                                [perturbation, perturbation, perturbation],
+                                eee1,
+                                eee2,
+                                eee3,
+                                kind=fun_form,
                             )
 
                         fun_xyz_vec = [fun1_xyz, fun2_xyz, fun3_xyz]
@@ -299,7 +307,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                     plt.ylabel("y")
                                 plt.colorbar()
                                 plt.title(
-                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})"
+                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})",
                                 )
                                 ax = plt.gca()
                                 ax.set_aspect("equal", adjustable="box")
@@ -316,7 +324,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                     plt.ylabel("z")
                                 plt.colorbar()
                                 plt.title(
-                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})"
+                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})",
                                 )
                                 ax = plt.gca()
                                 ax.set_aspect("equal", adjustable="box")

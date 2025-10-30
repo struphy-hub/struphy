@@ -347,7 +347,7 @@ class PolarVector(Vector):
                     out2,
                     self.pol[2].flatten(),
                     out3,
-                )
+                ),
             )
 
         return out

@@ -81,10 +81,12 @@ class Maxwell(StruphyModel):
 
     def update_scalar_quantities(self):
         en_E = 0.5 * self.mass_ops.M1.dot_inner(
-            self.em_fields.e_field.spline.vector, self.em_fields.e_field.spline.vector
+            self.em_fields.e_field.spline.vector,
+            self.em_fields.e_field.spline.vector,
         )
         en_B = 0.5 * self.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector, self.em_fields.b_field.spline.vector
+            self.em_fields.b_field.spline.vector,
+            self.em_fields.b_field.spline.vector,
         )
 
         self.update_scalar("electric energy", en_E)
@@ -336,7 +338,7 @@ class ShearAlfven(StruphyModel):
                 self.equil.b2_1,
                 self.equil.b2_2,
                 self.equil.b2_3,
-            ]
+            ],
         )
 
         # temporary vectors for scalar quantities
@@ -371,7 +373,8 @@ class ShearAlfven(StruphyModel):
         # perturbed fields
         en_U = 0.5 * self.mass_ops.M2n.dot_inner(self.mhd.velocity.spline.vector, self.mhd.velocity.spline.vector)
         en_B = 0.5 * self.mass_ops.M2.dot_inner(
-            self.em_fields.b_field.spline.vector, self.em_fields.b_field.spline.vector
+            self.em_fields.b_field.spline.vector,
+            self.em_fields.b_field.spline.vector,
         )
 
         self.update_scalar("en_U", en_U)
@@ -477,7 +480,7 @@ class VariationalPressurelessFluid(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='pressureless')\n"
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='pressureless')\n",
                     ]
                 else:
                     new_file += [line]
@@ -583,7 +586,7 @@ class VariationalBarotropicFluid(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='barotropic')\n"
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='barotropic')\n",
                     ]
                 else:
                     new_file += [line]
@@ -703,17 +706,17 @@ class VariationalCompressibleFluid(StruphyModel):
             for line in f:
                 if "variat_dens.Options" in line:
                     new_file += [
-                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full',\n"
+                        "model.propagators.variat_dens.options = model.propagators.variat_dens.Options(model='full',\n",
                     ]
                     new_file += [
-                        "                                                                              s=model.fluid.entropy)\n"
+                        "                                                                              s=model.fluid.entropy)\n",
                     ]
                 elif "variat_ent.Options" in line:
                     new_file += [
-                        "model.propagators.variat_ent.options = model.propagators.variat_ent.Options(model='full',\n"
+                        "model.propagators.variat_ent.options = model.propagators.variat_ent.Options(model='full',\n",
                     ]
                     new_file += [
-                        "                                                                            rho=model.fluid.density)\n"
+                        "                                                                            rho=model.fluid.density)\n",
                     ]
                 elif "entropy.add_background" in line:
                     new_file += ["model.fluid.density.add_background(FieldsBackground())\n"]
@@ -859,7 +862,7 @@ class Poisson(StruphyModel):
             for line in f:
                 if "poisson.Options" in line:
                     new_file += [
-                        "model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)\n"
+                        "model.propagators.poisson.options = model.propagators.poisson.Options(rho=model.em_fields.source)\n",
                     ]
                 else:
                     new_file += [line]

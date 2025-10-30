@@ -356,7 +356,7 @@ class Derham:
                     self._spline_types_pyccel[sp_form],
                 )
             else:
-                raise TypeError(f"{fem_space = } is not a valid type.")
+                raise TypeError(f"{fem_space =} is not a valid type.")
 
         # break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
@@ -1093,7 +1093,7 @@ class Derham:
         elif V == "L2":
             Wh = Vh.reduce_degree(axes=[0, 1, 2], multiplicity=Vh.multiplicity, basis=basis)
         else:
-            raise ValueError(f"V must be one of H1, Hcurl, Hdiv or L2, but is {V = }.")
+            raise ValueError(f"V must be one of H1, Hcurl, Hdiv or L2, but is {V =}.")
 
         Wh.symbolic_space = V
         for key in Wh._refined_space:
@@ -1573,7 +1573,9 @@ class SplineFunction:
                     e1, e2, e3 = self.ends
 
                     self._vector.tp[s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1] = value[1][
-                        s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1
+                        s1 : e1 + 1,
+                        s2 : e2 + 1,
+                        s3 : e3 + 1,
                     ]
                 else:
                     for n in range(3):
@@ -1589,7 +1591,9 @@ class SplineFunction:
                         e1, e2, e3 = self.ends[n]
 
                         self._vector.tp[n][s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1] = value[n][1][
-                            s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1
+                            s1 : e1 + 1,
+                            s2 : e2 + 1,
+                            s3 : e3 + 1,
                         ]
 
         self._vector.update_ghost_regions()
@@ -1732,13 +1736,13 @@ class SplineFunction:
                 else:
                     assert equil is not None
                     var = fb.variable
-                    assert var in dir(MHDequilibrium), f"{var = } is not an attribute of any fields background."
+                    assert var in dir(MHDequilibrium), f"{var =} is not an attribute of any fields background."
 
                     if self.space_id in {"H1", "L2"}:
                         fun = getattr(equil, var)
                     else:
                         assert (var + "_1") in dir(MHDequilibrium), (
-                            f"{(var + '_1') = } is not an attribute of any fields background."
+                            f"{(var + '_1') =} is not an attribute of any fields background."
                         )
                         fun = [
                             getattr(equil, var + "_1"),

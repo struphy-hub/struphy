@@ -658,11 +658,13 @@ class MHDOperators:
         if self.Mn_as_tensor:
             if self.core.basis_u == 0:
                 out = self.core.space.apply_Mv_ten(
-                    u, [[self.Mn_mat[0], self.core.space.M0_tor], [self.Mn_mat[1], self.core.space.M0_tor]]
+                    u,
+                    [[self.Mn_mat[0], self.core.space.M0_tor], [self.Mn_mat[1], self.core.space.M0_tor]],
                 )
             elif self.core.basis_u == 2:
                 out = self.core.space.apply_M2_ten(
-                    u, [[self.Mn_mat[0], self.core.space.M1_tor], [self.Mn_mat[1], self.core.space.M0_tor]]
+                    u,
+                    [[self.Mn_mat[0], self.core.space.M1_tor], [self.Mn_mat[1], self.core.space.M0_tor]],
                 )
 
         else:
@@ -681,7 +683,8 @@ class MHDOperators:
                 out = xp.zeros(self.core.space.Ev_0.shape[0], dtype=float)
             elif self.core.basis_u == 2:
                 out = self.core.space.apply_M2_ten(
-                    b, [[self.MJ_mat[0], self.core.space.M1_tor], [self.MJ_mat[1], self.core.space.M0_tor]]
+                    b,
+                    [[self.MJ_mat[0], self.core.space.M1_tor], [self.MJ_mat[1], self.core.space.M0_tor]],
                 )
 
         else:
@@ -700,7 +703,7 @@ class MHDOperators:
 
         if self.core.basis_u == 0:
             out = -self.core.space.D0.dot(self.__PF(u)) - (self.gamma - 1) * self.__PR(
-                self.core.space.D0.dot(self.__JF(u))
+                self.core.space.D0.dot(self.__JF(u)),
             )
         elif self.core.basis_u == 2:
             out = -self.core.space.D0.dot(self.__PF(u)) - (self.gamma - 1) * self.__PR(self.core.space.D0.dot(u))
@@ -782,27 +785,32 @@ class MHDOperators:
 
             if hasattr(self, "dofs_Mn"):
                 self.Mn = spa.linalg.LinearOperator(
-                    (self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__Mn
+                    (self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]),
+                    matvec=self.__Mn,
                 )
 
             if hasattr(self, "dofs_MJ"):
                 self.MJ = spa.linalg.LinearOperator(
-                    (self.core.space.Ev_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MJ
+                    (self.core.space.Ev_0.shape[0], self.core.space.E2_0.shape[0]),
+                    matvec=self.__MJ,
                 )
 
             if hasattr(self, "dofs_PF") and hasattr(self, "dofs_PR") and hasattr(self, "dofs_JF"):
                 self.L = spa.linalg.LinearOperator(
-                    (self.core.space.E3_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__L
+                    (self.core.space.E3_0.shape[0], self.core.space.Ev_0.shape[0]),
+                    matvec=self.__L,
                 )
 
             if hasattr(self, "Mn_mat") and hasattr(self, "dofs_EF"):
                 self.S2 = spa.linalg.LinearOperator(
-                    (self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__S2
+                    (self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]),
+                    matvec=self.__S2,
                 )
 
             if hasattr(self, "Mn_mat") and hasattr(self, "L"):
                 self.S6 = spa.linalg.LinearOperator(
-                    (self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]), matvec=self.__S6
+                    (self.core.space.Ev_0.shape[0], self.core.space.Ev_0.shape[0]),
+                    matvec=self.__S6,
                 )
 
         elif self.core.basis_u == 2:
@@ -836,27 +844,32 @@ class MHDOperators:
 
             if hasattr(self, "Mn_mat"):
                 self.Mn = spa.linalg.LinearOperator(
-                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__Mn
+                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]),
+                    matvec=self.__Mn,
                 )
 
             if hasattr(self, "MJ_mat"):
                 self.MJ = spa.linalg.LinearOperator(
-                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__MJ
+                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]),
+                    matvec=self.__MJ,
                 )
 
             if hasattr(self, "dofs_PF") and hasattr(self, "dofs_PR"):
                 self.L = spa.linalg.LinearOperator(
-                    (self.core.space.E3_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__L
+                    (self.core.space.E3_0.shape[0], self.core.space.E2_0.shape[0]),
+                    matvec=self.__L,
                 )
 
             if hasattr(self, "Mn_mat") and hasattr(self, "dofs_EF"):
                 self.S2 = spa.linalg.LinearOperator(
-                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__S2
+                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]),
+                    matvec=self.__S2,
                 )
 
             if hasattr(self, "Mn_mat") and hasattr(self, "L"):
                 self.S6 = spa.linalg.LinearOperator(
-                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]), matvec=self.__S6
+                    (self.core.space.E2_0.shape[0], self.core.space.E2_0.shape[0]),
+                    matvec=self.__S6,
                 )
 
     # ======================================
@@ -1024,7 +1037,7 @@ class MHDOperators:
 
             # assemble approximate S2 matrix
             S2_approx = Mn + self.dt_2**2 / 4 * EF_approx.T.dot(
-                self.core.space.C0.T.dot(M2_0.dot(self.core.space.C0.dot(EF_approx)))
+                self.core.space.C0.T.dot(M2_0.dot(self.core.space.C0.dot(EF_approx))),
             )
 
             del Mn, EF_approx, M2_0
@@ -1123,7 +1136,7 @@ class MHDOperators:
             # assemble approximate L matrix
             if self.core.basis_u == 0:
                 L_approx = -self.core.space.D0.dot(PF_approx) - (self.gamma - 1) * PR_approx.dot(
-                    self.core.space.D0.dot(JF_approx)
+                    self.core.space.D0.dot(JF_approx),
                 )
 
                 del PF_approx, PR_approx

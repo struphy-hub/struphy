@@ -142,7 +142,7 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
             errg[1] = xp.max(xp.abs(fieldg_vals[1] - field_vals[1]))
             errg[2] = xp.max(xp.abs(fieldg_vals[2] - field_vals[2]))
 
-        print(f"{sp_id = }, {xp.max(err) = }, {xp.max(errg) = },{exectime = }")
+        print(f"{sp_id =}, {xp.max(err) =}, {xp.max(errg) =},{exectime =}")
         if sp_id in ("H1", "H1vec"):
             assert xp.max(err) < 0.011
             assert xp.max(errg) < 0.011
@@ -264,14 +264,14 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             # for those cases is better to compute the convergance rate using only the information of Nel with smaller number
             if -m <= (pi + 1 - 0.1):
                 m = -xp.log2(errors[sp_id][1] / errors[sp_id][2])
-            print(f"{sp_id = }, fitted convergence rate = {-m}, degree = {pi}")
+            print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
             assert -m > (pi + 1 - 0.1)
         else:
             # Sometimes for very large number of elements the convergance rate falls of a bit since the error is already so small floating point impressions become relevant
             # for those cases is better to compute the convergance rate using only the information of Nel with smaller number
             if -m <= (pi - 0.1):
                 m = -xp.log2(errors[sp_id][1] / errors[sp_id][2])
-            print(f"{sp_id = }, fitted convergence rate = {-m}, degree = {pi}")
+            print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
             assert -m > (pi - 0.1)
 
         if do_plot:
@@ -282,7 +282,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             plt.loglog(Nels, line_for_rate_p0, "k--")
             plt.text(Nels[-2], line_for_rate_p1[-2], f"1/Nel^{rate_p1}")
             plt.text(Nels[-2], line_for_rate_p0[-2], f"1/Nel^{rate_p0}")
-            plt.title(f"{sp_id = }, degree = {pi}")
+            plt.title(f"{sp_id =}, degree = {pi}")
             plt.xlabel("Nel")
 
     if do_plot and rank == 0:
@@ -500,7 +500,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
                     VFEM1ds[1][2].nbasis,
                 ],
                 [VFEM1ds[2][0].nbasis, VFEM1ds[2][1].nbasis, VFEM1ds[2][2].nbasis],
-            ]
+            ],
         )
 
     if in_sp_key == "0" or in_sp_key == "3":
@@ -578,7 +578,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
                     npts_in[0][0] * npts_in[0][1] * npts_in[0][2]
                     + npts_in[1][0] * npts_in[1][1] * npts_in[1][2]
                     + npts_in[2][0] * npts_in[2][1] * npts_in[2][2],
-                )
+                ),
             )
 
     else:
@@ -591,57 +591,57 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
                 (
                     npts_out[0][0] * npts_out[0][1] * npts_out[0][2],
                     npts_in[0][0] * npts_in[0][1] * npts_in[0][2],
-                )
+                ),
             )
             matrix10 = xp.zeros(
                 (
                     npts_out[1][0] * npts_out[1][1] * npts_out[1][2],
                     npts_in[0][0] * npts_in[0][1] * npts_in[0][2],
-                )
+                ),
             )
             matrix20 = xp.zeros(
                 (
                     npts_out[2][0] * npts_out[2][1] * npts_out[2][2],
                     npts_in[0][0] * npts_in[0][1] * npts_in[0][2],
-                )
+                ),
             )
 
             matrix01 = xp.zeros(
                 (
                     npts_out[0][0] * npts_out[0][1] * npts_out[0][2],
                     npts_in[1][0] * npts_in[1][1] * npts_in[1][2],
-                )
+                ),
             )
             matrix11 = xp.zeros(
                 (
                     npts_out[1][0] * npts_out[1][1] * npts_out[1][2],
                     npts_in[1][0] * npts_in[1][1] * npts_in[1][2],
-                )
+                ),
             )
             matrix21 = xp.zeros(
                 (
                     npts_out[2][0] * npts_out[2][1] * npts_out[2][2],
                     npts_in[1][0] * npts_in[1][1] * npts_in[1][2],
-                )
+                ),
             )
 
             matrix02 = xp.zeros(
                 (
                     npts_out[0][0] * npts_out[0][1] * npts_out[0][2],
                     npts_in[2][0] * npts_in[2][1] * npts_in[2][2],
-                )
+                ),
             )
             matrix12 = xp.zeros(
                 (
                     npts_out[1][0] * npts_out[1][1] * npts_out[1][2],
                     npts_in[2][0] * npts_in[2][1] * npts_in[2][2],
-                )
+                ),
             )
             matrix22 = xp.zeros(
                 (
                     npts_out[2][0] * npts_out[2][1] * npts_out[2][2],
                     npts_in[2][0] * npts_in[2][1] * npts_in[2][2],
-                )
+                ),
             )
 
     # We build the BasisProjectionOperator by hand
@@ -1233,7 +1233,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
                     * basis1(random_i0)(*meshgrid)
                     * basis2(random_i1)(*meshgrid)
                     * basis3(random_i2)(*meshgrid),
-                ]
+                ],
             )
         else:
 
@@ -1307,7 +1307,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
                     * basis2(random_i1, random_h)(*meshgrid)
                     * basis3(random_i2, random_h)(*meshgrid)
                     for dim in range(3)
-                ]
+                ],
             )
 
     FE_loc = matrix_new.dot(input)
@@ -1367,10 +1367,10 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
 
     if rank == 0:
         assert reducemeanlocal < 10.0 * reducemeanglobal or reducemeanlocal < 10.0**-5
-        print(f"{reducemeanlocal = }")
-        print(f"{reducemaxlocal = }")
-        print(f"{reducemeanglobal = }")
-        print(f"{reducemaxglobal = }")
+        print(f"{reducemeanlocal =}")
+        print(f"{reducemaxlocal =}")
+        print(f"{reducemeanglobal =}")
+        print(f"{reducemaxglobal =}")
 
     if do_plot:
         if out_sp_key == "0" or out_sp_key == "3":
@@ -1502,7 +1502,7 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
                     maxerrorB = auxerror
                 inputB[col0, col1, col2] = 0.0
 
-    print(f"{maxerrorB = }")
+    print(f"{maxerrorB =}")
     assert maxerrorB < 10.0**-13
 
     maxerrorD = 0.0
@@ -1530,7 +1530,7 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
                     maxerrorD = auxerror
                 inputD[col0, col1, col2] = 0.0
 
-    print(f"{maxerrorD = }")
+    print(f"{maxerrorD =}")
     assert maxerrorD < 10.0**-13
     print("Test spline evaluation passed.")
 

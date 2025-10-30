@@ -306,7 +306,7 @@ def test_propagator2D(Nel, p, spl_kind, dirichlet_bc, mapping, epsilon, dt):
         "ManufacturedSolutionPotential": {
             "given_in_basis": "physical",
             "dimension": "2D",
-        }
+        },
     }
 
     uvec.initialize_coeffs(domain=domain, pert_params=pp_u)

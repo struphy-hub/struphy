@@ -700,7 +700,10 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
     # Histopolation grids
     spaces = derham.Vh_fem["3"].spaces
     ptsG, wtsG, spans, bases, subs = prepare_projection_of_basis(
-        spaces, spaces, derham.Vh["3"].starts, derham.Vh["3"].ends
+        spaces,
+        spaces,
+        derham.Vh["3"].starts,
+        derham.Vh["3"].ends,
     )
     eta1s = ptsG[0].flatten()
     eta2s = ptsG[1].flatten()
@@ -715,9 +718,9 @@ def test_eval_tensor_product_grid(Nel, p, spl_kind, n_markers=10):
 
     comm.Barrier()
     sleep(0.02 * (rank + 1))
-    print(f"rank {rank} | {eta1s = }")
-    print(f"rank {rank} | {eta2s = }")
-    print(f"rank {rank} | {eta3s = }\n")
+    print(f"rank {rank} | {eta1s =}")
+    print(f"rank {rank} | {eta2s =}")
+    print(f"rank {rank} | {eta3s =}\n")
     comm.Barrier()
 
     # compare spline evaluation routines

@@ -264,19 +264,27 @@ class BracketOperator(LinOpWithTransp):
         self.gv3f.vector = grad_3_v
 
         vf_values = self.vf.eval_tp_fixed_loc(
-            self.interpolation_grid_spans, [self.interpolation_grid_bn] * 3, out=self._vf_values
+            self.interpolation_grid_spans,
+            [self.interpolation_grid_bn] * 3,
+            out=self._vf_values,
         )
 
         gvf1_values = self.gv1f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans, self.interpolation_grid_gradient, out=self._gvf1_values
+            self.interpolation_grid_spans,
+            self.interpolation_grid_gradient,
+            out=self._gvf1_values,
         )
 
         gvf2_values = self.gv2f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans, self.interpolation_grid_gradient, out=self._gvf2_values
+            self.interpolation_grid_spans,
+            self.interpolation_grid_gradient,
+            out=self._gvf2_values,
         )
 
         gvf3_values = self.gv3f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans, self.interpolation_grid_gradient, out=self._gvf3_values
+            self.interpolation_grid_spans,
+            self.interpolation_grid_gradient,
+            out=self._gvf3_values,
         )
 
         self.PiuT.update_weights([[vf_values[0], vf_values[1], vf_values[2]]])
@@ -1383,7 +1391,12 @@ class H1vecMassMatrix_density:
             self._pc.update_mass_operator(self._massop)
 
     def _create_inv(
-        self, type="pcg", pc_type="MassMatrixDiagonalPreconditioner", tol=1e-16, maxiter=500, verbose=False
+        self,
+        type="pcg",
+        pc_type="MassMatrixDiagonalPreconditioner",
+        tol=1e-16,
+        maxiter=500,
+        verbose=False,
     ):
         """Inverse the  weighted mass matrix"""
         if pc_type is None:

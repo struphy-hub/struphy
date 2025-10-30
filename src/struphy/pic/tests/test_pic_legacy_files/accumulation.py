@@ -159,7 +159,8 @@ class Accumulator:
 
         # final block matrix
         M = spa.bmat(
-            [[None, M[0][1], M[0][2]], [-M[0][1].T, None, M[1][2]], [-M[0][2].T, -M[1][2].T, None]], format="csr"
+            [[None, M[0][1], M[0][2]], [-M[0][1].T, None, M[1][2]], [-M[0][2].T, -M[1][2].T, None]],
+            format="csr",
         )
 
         # apply extraction operator
@@ -226,7 +227,8 @@ class Accumulator:
 
         # final block matrix
         M = spa.bmat(
-            [[M[0][0], M[0][1], M[0][2]], [M[0][1].T, M[1][1], M[1][2]], [M[0][2].T, M[1][2].T, M[2][2]]], format="csr"
+            [[M[0][0], M[0][1], M[0][2]], [M[0][1].T, M[1][1], M[1][2]], [M[0][2].T, M[1][2].T, M[2][2]]],
+            format="csr",
         )
 
         # apply extraction operator
@@ -528,15 +530,15 @@ class Accumulator:
         # build global sparse matrix and global vector
         if self.basis_u == 0:
             return self.to_sparse_step3(), self.space.Ev_0.dot(
-                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
+                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())),
             )
 
         elif self.basis_u == 1:
             return self.to_sparse_step3(), self.space.E1_0.dot(
-                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
+                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())),
             )
 
         elif self.basis_u == 2:
             return self.to_sparse_step3(), self.space.E2_0.dot(
-                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
+                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())),
             )

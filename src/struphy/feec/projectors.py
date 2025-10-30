@@ -80,7 +80,11 @@ class CommutingProjector:
     """
 
     def __init__(
-        self, projector_tensor: GlobalProjector, dofs_extraction_op=None, base_extraction_op=None, boundary_op=None
+        self,
+        projector_tensor: GlobalProjector,
+        dofs_extraction_op=None,
+        base_extraction_op=None,
+        boundary_op=None,
     ):
         self._projector_tensor = projector_tensor
 
@@ -746,7 +750,7 @@ class CommutingProjectorLocal:
             # List that will contain the LocalProjectorsArguments for each value of h = 0,1,2.
             self._solve_args = []
         else:
-            raise TypeError(f"{fem_space = } is not of type FemSpace.")
+            raise TypeError(f"{fem_space =} is not of type FemSpace.")
 
         if isinstance(fem_space, TensorFemSpace):
             if space_id == "H1":
@@ -1425,7 +1429,7 @@ class CommutingProjectorLocal:
                     fh = fun(*self._meshgrid[h])[h]
                 # Case in which fun is a list of three functions, each one with one output.
                 else:
-                    assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+                    assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
                     # Evaluation of the function to compute the h component
                     fh = fun[h](*self._meshgrid[h])
 
@@ -1461,7 +1465,7 @@ class CommutingProjectorLocal:
                         fun,
                     )
                     == 3
-                ), f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+                ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
                 for h in range(3):
                     f_eval.append(fun[h](*self._meshgrid[h]))
 
@@ -1481,7 +1485,7 @@ class CommutingProjectorLocal:
                 pre_computed_dofs = [fun(*self._meshgrid)]
 
         elif self._space_key == "1" or self._space_key == "2":
-            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
 
             self._do_nothing = xp.zeros(3, dtype=int)
             f_eval = []
@@ -1561,7 +1565,7 @@ class CommutingProjectorLocal:
             )
 
         elif self._space_key == "v":
-            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
 
             self._do_nothing = xp.zeros(3, dtype=int)
             for h in range(3):
@@ -1668,7 +1672,8 @@ class CommutingProjectorLocal:
                 return self.solve_weighted(rhs, out=out), rhs_weights
             else:
                 return self.solve_weighted(
-                    self.get_dofs_weighted(fun, dofs=dofs, first_go=False, pre_computed_dofs=pre_computed_dofs), out=out
+                    self.get_dofs_weighted(fun, dofs=dofs, first_go=False, pre_computed_dofs=pre_computed_dofs),
+                    out=out,
                 )
 
     def get_translation_b(self, i, h):
@@ -2027,7 +2032,7 @@ class L2Projector:
             fun_weights = fun(*self._quad_grid_mesh)
         elif isinstance(fun, xp.ndarray):
             assert fun.shape == self._quad_grid_mesh[0].shape, (
-                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape = } instead."
+                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape =} instead."
             )
             fun_weights = fun
         else:
@@ -2036,7 +2041,7 @@ class L2Projector:
                     fun,
                 )
                 == 3
-            ), f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+            ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
             fun_weights = []
             # loop over rows (different meshes)
             for mesh in self._quad_grid_mesh:
@@ -2046,11 +2051,11 @@ class L2Projector:
                     if callable(f):
                         fun_weights[-1] += [f(*mesh)]
                     elif isinstance(f, xp.ndarray):
-                        assert f.shape == mesh[0].shape, f"Expected shape {mesh[0].shape}, got {f.shape = } instead."
+                        assert f.shape == mesh[0].shape, f"Expected shape {mesh[0].shape}, got {f.shape =} instead."
                         fun_weights[-1] += [f]
                     else:
                         raise ValueError(
-                            f"Expected callable or numpy array, got {type(f) = } instead.",
+                            f"Expected callable or numpy array, got {type(f) =} instead.",
                         )
 
         # check output vector

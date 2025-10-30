@@ -431,7 +431,7 @@ class CanonicalMaxwellian:
         """
 
         if isinstance(vth, xp.ndarray):
-            assert e.shape == vth.shape, f"{e.shape = } but {vth.shape = }"
+            assert e.shape == vth.shape, f"{e.shape =} but {vth.shape =}"
 
         return 2.0 * xp.sqrt(e / xp.pi) / vth**3 * xp.exp(-e / vth**2)
 
@@ -462,9 +462,9 @@ class CanonicalMaxwellian:
         # Check that all args have the same shape
         shape0 = xp.shape(args[0])
         for i, arg in enumerate(args):
-            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) = }, but must be {shape0 = }."
+            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) =}, but must be {shape0 =}."
             assert xp.ndim(arg) == 1 or xp.ndim(arg) == 3, (
-                f"{xp.ndim(arg) = } not allowed for canonical Maxwellian evaluation."
+                f"{xp.ndim(arg) =} not allowed for canonical Maxwellian evaluation."
             )  # flat or meshgrid evaluation
 
         # Get result evaluated with each particles' psic

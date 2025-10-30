@@ -334,7 +334,14 @@ class PolarLinearOperator(LinOpWithTransp):
     """
 
     def __init__(
-        self, V, W, tp_operator=None, blocks_pol_to_ten=None, blocks_pol_to_pol=None, blocks_e3=None, transposed=False
+        self,
+        V,
+        W,
+        tp_operator=None,
+        blocks_pol_to_ten=None,
+        blocks_pol_to_pol=None,
+        blocks_e3=None,
+        transposed=False,
     ):
         assert isinstance(V, PolarDerhamSpace)
         assert isinstance(W, PolarDerhamSpace)

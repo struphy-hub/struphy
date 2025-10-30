@@ -503,7 +503,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
             "n2": 4.0,
             "na": 0.0,
             "beta": 0.1,
-        }
+        },
     )
 
     if show_plots:
@@ -800,8 +800,8 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
                         res_PSY.starts[0] : res_PSY.ends[0] + 1,
                         res_PSY.starts[1] : res_PSY.ends[1] + 1,
                         res_PSY.starts[2] : res_PSY.ends[2] + 1,
-                    ]
-                )
+                    ],
+                ),
             ),
         )
 
@@ -834,5 +834,10 @@ if __name__ == "__main__":
     #     mapping=["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
     # )
     test_basis_ops_polar(
-        [6, 9, 7], [2, 2, 3], [False, True, True], None, ["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}], False
+        [6, 9, 7],
+        [2, 2, 3],
+        [False, True, True],
+        None,
+        ["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}],
+        False,
     )

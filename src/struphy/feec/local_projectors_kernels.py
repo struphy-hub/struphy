@@ -168,7 +168,10 @@ def get_dofs_local_1_form_ec_component_weighted(
 
 @stack_array("shp")
 def get_dofs_local_1_form_ec_component(
-    args_solve: LocalProjectorsArguments, f3: "float[:,:,:]", f_eval_aux: "float[:,:,:]", c: int
+    args_solve: LocalProjectorsArguments,
+    f3: "float[:,:,:]",
+    f_eval_aux: "float[:,:,:]",
+    c: int,
 ):
     """Kernel for evaluating the degrees of freedom for the c-th component of 1-forms.  This function is for local commuting projetors.
 
@@ -220,7 +223,10 @@ def get_dofs_local_1_form_ec_component(
 
 @stack_array("shp")
 def get_dofs_local_2_form_ec_component(
-    args_solve: LocalProjectorsArguments, fc: "float[:,:,:]", f_eval_aux: "float[:,:,:]", c: int
+    args_solve: LocalProjectorsArguments,
+    fc: "float[:,:,:]",
+    f_eval_aux: "float[:,:,:]",
+    c: int,
 ):
     """Kernel for evaluating the degrees of freedom for the c-th component of 2-forms.  This function is for local commuting projetors.
 
@@ -1037,7 +1043,15 @@ def get_rows_periodic(starts: int, ends: int, modl: int, modr: int, Nbasis: int,
 
 
 def get_rows(
-    col: int, starts: int, ends: int, p: int, Nbasis: int, periodic: bool, IoH: bool, BoD: bool, aux: "int[:]"
+    col: int,
+    starts: int,
+    ends: int,
+    p: int,
+    Nbasis: int,
+    periodic: bool,
+    IoH: bool,
+    BoD: bool,
+    aux: "int[:]",
 ):
     """Kernel for getting the list of rows that are non-zero for the current BasisProjectionLocal column, within the start and end indices of the current MPI rank.
 
