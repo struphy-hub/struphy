@@ -1,4 +1,4 @@
-name: Static analysis
+name: isort & ruff
 
 on:
   push:
@@ -10,6 +10,9 @@ on:
       - main
       - devel
 
+# concurrency:
+#   group: ${{ github.ref }}
+#   cancel-in-progress: true
 defaults:
   run:
     shell: bash
