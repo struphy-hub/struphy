@@ -1,11 +1,11 @@
 import pickle
 import sys
 
+import cunumpy as xp
 import yaml
 from matplotlib import pyplot as plt
 
 from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
-from struphy.utils.arrays import xp as np
 
 
 def main():
@@ -93,7 +93,7 @@ def main():
         + "ncalls".ljust(15)
         + "totime".ljust(15)
         + "percall".ljust(15)
-        + "cumtime".ljust(15)
+        + "cumtime".ljust(15),
     )
     print("-" * 154)
     for position, key in enumerate(dicts[0].keys()):
@@ -150,17 +150,17 @@ def main():
                 plt.ylabel("time [s]")
                 plt.title("Strong scaling for Nel=" + str(val["Nel"][0]) + " cells")
                 plt.legend(loc="lower left")
-                plt.loglog(val["mpi_size"], val["time"][0] / 2 ** np.arange(len(val["time"])), "k--", alpha=0.3)
+                plt.loglog(val["mpi_size"], val["time"][0] / 2 ** xp.arange(len(val["time"])), "k--", alpha=0.3)
             # weak scaling plot
             else:
                 plt.plot(val["mpi_size"], val["time"], label=key)
                 plt.xlabel("mpi_size")
                 plt.ylabel("time [s]")
                 plt.title(
-                    "Weak scaling for cells/mpi_size=" + str(np.prod(val["Nel"][0]) / val["mpi_size"][0]) + "=const."
+                    "Weak scaling for cells/mpi_size=" + str(xp.prod(val["Nel"][0]) / val["mpi_size"][0]) + "=const.",
                 )
                 plt.legend(loc="upper left")
-                # plt.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
+                # plt.loglog(val['mpi_size'], val['time'][0]*xp.ones_like(val['time']), 'k--', alpha=0.3)
                 plt.xscale("log")
 
     plt.show()

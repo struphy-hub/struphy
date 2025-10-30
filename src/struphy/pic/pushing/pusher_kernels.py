@@ -1615,6 +1615,15 @@ def push_bxu_Hdiv_pauli(
     # -- removed omp: #$ omp end parallel
 
 
+@stack_array(
+    "dfm",
+    "dfinv",
+    "dfinv_t",
+    "e",
+    "e_cart",
+    "GXu",
+    "v",
+)
 def push_pc_GXu_full(
     dt: float,
     stage: int,
@@ -1630,7 +1639,6 @@ def push_pc_GXu_full(
     GXu_31: "float[:,:,:]",
     GXu_32: "float[:,:,:]",
     GXu_33: "float[:,:,:]",
-    boundary_cut: "float",
 ):
     r"""Updates
 
@@ -1669,10 +1677,6 @@ def push_pc_GXu_full(
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
-            continue
-
-        # boundary cut
-        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1.0 - boundary_cut:
             continue
 
         eta1 = markers[ip, 0]
@@ -1740,6 +1744,15 @@ def push_pc_GXu_full(
         markers[ip, 3:6] -= dt * e_cart / 2.0
 
 
+@stack_array(
+    "dfm",
+    "dfinv",
+    "dfinv_t",
+    "e",
+    "e_cart",
+    "GXu",
+    "v",
+)
 def push_pc_GXu(
     dt: float,
     stage: int,
@@ -1755,7 +1768,6 @@ def push_pc_GXu(
     GXu_31: "float[:,:,:]",
     GXu_32: "float[:,:,:]",
     GXu_33: "float[:,:,:]",
-    boundary_cut: "float",
 ):
     r"""Updates
 
@@ -1783,7 +1795,6 @@ def push_pc_GXu(
     e = empty(3, dtype=float)
     e_cart = empty(3, dtype=float)
     GXu = empty((3, 3), dtype=float)
-    GXu_t = empty((3, 3), dtype=float)
 
     # particle velocity
     v = empty(3, dtype=float)
@@ -1795,10 +1806,6 @@ def push_pc_GXu(
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
-            continue
-
-        # boundary cut
-        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1.0 - boundary_cut:
             continue
 
         eta1 = markers[ip, 0]
@@ -1939,7 +1946,7 @@ def push_eta_stage(
 
 
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")
-def push_pc_eta_rk4_Hcurl_full(
+def push_pc_eta_stage_Hcurl(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -1948,6 +1955,10 @@ def push_pc_eta_rk4_Hcurl_full(
     u_1: "float[:,:,:]",
     u_2: "float[:,:,:]",
     u_3: "float[:,:,:]",
+    use_perp_model: "bool",
+    a: "float[:]",
+    b: "float[:]",
+    c: "float[:]",
 ):
     r"""Fourth order Runge-Kutta solve of
 
@@ -1960,14 +1971,6 @@ def push_pc_eta_rk4_Hcurl_full(
     .. math::
 
         \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
-
-    Parameters
-    ----------
-        u_1, u_2, u_3: array[float]
-            3d array of FE coeffs of U-field, either as 1-form or as 2-form.
-
-        u_basis : int
-            U is 1-form (u_basis=1) or a 2-form (u_basis=2).
     """
 
     # allocate metric coeffs
@@ -1993,22 +1996,13 @@ def push_pc_eta_rk4_Hcurl_full(
     first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
-    # assign factor of k for each stage
-    if stage == 0 or stage == 3:
-        nk = 1.0
-    else:
-        nk = 2.0
+    # get number of stages
+    n_stages = shape(b)[0]
 
-    # which stage
-    if stage == 3:
+    if stage == n_stages - 1:
         last = 1.0
-        cont = 0.0
-    elif stage == 2:
-        last = 0.0
-        cont = 2.0
     else:
         last = 0.0
-        cont = 1.0
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -2053,6 +2047,9 @@ def push_pc_eta_rk4_Hcurl_full(
             u,
         )
 
+        if use_perp_model:
+            u[2] = 0.0
+
         # transform to vector field
         linalg_kernels.matrix_vector(ginv, u, k_u)
 
@@ -2060,18 +2057,18 @@ def push_pc_eta_rk4_Hcurl_full(
         k[:] = k_v + k_u
 
         # accum k
-        markers[ip, first_free_idx : first_free_idx + 3] += k * nk / 6.0
+        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
 
         # update markers for the next stage
         markers[ip, 0:3] = (
             markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * k / 2 * cont
-            + dt * markers[ip, first_free_idx : first_free_idx + 3] * last
+            + dt * k * a[stage]
+            + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
 
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")
-def push_pc_eta_rk4_Hdiv_full(
+def push_pc_eta_stage_Hdiv(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -2080,6 +2077,10 @@ def push_pc_eta_rk4_Hdiv_full(
     u_1: "float[:,:,:]",
     u_2: "float[:,:,:]",
     u_3: "float[:,:,:]",
+    use_perp_model: "bool",
+    a: "float[:]",
+    b: "float[:]",
+    c: "float[:]",
 ):
     r"""Fourth order Runge-Kutta solve of
 
@@ -2092,14 +2093,6 @@ def push_pc_eta_rk4_Hdiv_full(
     .. math::
 
         \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
-
-    Parameters
-    ----------
-        u_1, u_2, u_3: array[float]
-            3d array of FE coeffs of U-field, either as 1-form or as 2-form.
-
-        u_basis : int
-            U is 1-form (u_basis=1) or a 2-form (u_basis=2).
     """
 
     # allocate metric coeffs
@@ -2125,19 +2118,13 @@ def push_pc_eta_rk4_Hdiv_full(
     first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
-    # assign factor of k for each stage
-    if stage == 0 or stage == 3:
-        nk = 1.0
-    else:
-        nk = 2.0
+    # get number of stages
+    n_stages = shape(b)[0]
 
-    # is it the last stage?
-    if stage == 3:
+    if stage == n_stages - 1:
         last = 1.0
-        cont = 0.0
     else:
         last = 0.0
-        cont = 1.0
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -2183,6 +2170,9 @@ def push_pc_eta_rk4_Hdiv_full(
             u,
         )
 
+        if use_perp_model:
+            u[2] = 0.0
+
         # transform to vector field
         k_u[:] = u / det_df
 
@@ -2190,18 +2180,18 @@ def push_pc_eta_rk4_Hdiv_full(
         k[:] = k_v + k_u
 
         # accum k
-        markers[ip, first_free_idx : first_free_idx + 3] += k * nk / 6.0
+        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
 
         # update markers for the next stage
         markers[ip, 0:3] = (
             markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * k / 2 * cont
-            + dt * markers[ip, first_free_idx : first_free_idx + 3] * last
+            + dt * k * a[stage]
+            + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
 
 @stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v")
-def push_pc_eta_rk4_H1vec_full(
+def push_pc_eta_stage_H1vec(
     dt: float,
     stage: int,
     args_markers: "MarkerArguments",
@@ -2210,6 +2200,10 @@ def push_pc_eta_rk4_H1vec_full(
     u_1: "float[:,:,:]",
     u_2: "float[:,:,:]",
     u_3: "float[:,:,:]",
+    use_perp_model: "bool",
+    a: "float[:]",
+    b: "float[:]",
+    c: "float[:]",
 ):
     r"""Fourth order Runge-Kutta solve of
 
@@ -2238,7 +2232,7 @@ def push_pc_eta_rk4_H1vec_full(
     dfinv_t = empty((3, 3), dtype=float)
     ginv = empty((3, 3), dtype=float)
 
-    # marker and velocity
+    # marker velocity
     v = empty(3, dtype=float)
 
     # U-fiels
@@ -2254,22 +2248,13 @@ def push_pc_eta_rk4_H1vec_full(
     first_init_idx = args_markers.first_init_idx
     first_free_idx = args_markers.first_free_idx
 
-    # assign factor of k for each stage
-    if stage == 0 or stage == 3:
-        nk = 1.0
-    else:
-        nk = 2.0
+    # get number of stages
+    n_stages = shape(b)[0]
 
-    # which stage
-    if stage == 3:
+    if stage == n_stages - 1:
         last = 1.0
-        cont = 0.0
-    elif stage == 2:
-        last = 0.0
-        cont = 2.0
     else:
         last = 0.0
-        cont = 1.0
 
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
@@ -2314,410 +2299,20 @@ def push_pc_eta_rk4_H1vec_full(
             u,
         )
 
-        # sum contribs
-        k[:] = k_v + u
-
-        # accum k
-        markers[ip, first_free_idx : first_free_idx + 3] += k * nk / 6.0
-
-        # update markers for the next stage
-        markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * k / 2 * cont
-            + dt * markers[ip, first_free_idx : first_free_idx + 3] * last
-        )
-
-
-@stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")
-def push_pc_eta_rk4_Hcurl(
-    dt: float,
-    stage: int,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    args_derham: "DerhamArguments",
-    u_1: "float[:,:,:]",
-    u_2: "float[:,:,:]",
-    u_3: "float[:,:,:]",
-):
-    r"""Fourth order Runge-Kutta solve of
-
-    .. math::
-
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
-
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
-
-    .. math::
-
-        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
-
-    Parameters
-    ----------
-    u_1, u_2, u_3 : array[float]
-        3d array of FE coeffs of U-field, either as 1-form or as 2-form.
-
-    u_basis : int
-        U is 1-form (u_basis=1) or a 2-form (u_basis=2).
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    dfinv = empty((3, 3), dtype=float)
-    dfinv_t = empty((3, 3), dtype=float)
-    ginv = empty((3, 3), dtype=float)
-
-    # marker velocity
-    v = empty(3, dtype=float)
-
-    # U-fiels
-    u = empty(3, dtype=float)
-
-    # intermediate stages in RK4
-    k = empty(3, dtype=float)
-    k_v = empty(3, dtype=float)
-    k_u = empty(3, dtype=float)
-
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
-    first_free_idx = args_markers.first_free_idx
-
-    # assign factor of k for each stage
-    if stage == 0 or stage == 3:
-        nk = 1.0
-    else:
-        nk = 2.0
-
-    # which stage
-    if stage == 3:
-        last = 1.0
-        cont = 0.0
-    elif stage == 2:
-        last = 0.0
-        cont = 2.0
-    else:
-        last = 0.0
-        cont = 1.0
-
-    for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
-
-        # ----------------- stage n in Runge-Kutta method -------------------
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            e1,
-            e2,
-            e3,
-            args_domain,
-            dfm,
-        )
-
-        # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
-        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
-
-        # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k_v)
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
-
-        # U-field
-        eval_1form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            u_1,
-            u_2,
-            u_3,
-            u,
-        )
-        u[2] = 0.0
-
-        # transform to vector field
-        linalg_kernels.matrix_vector(ginv, u, k_u)
-
-        # sum contribs
-        k[:] = k_v + k_u
-
-        # accum k
-        markers[ip, first_free_idx : first_free_idx + 3] += k * nk / 6.0
-
-        # update markers for the next stage
-        markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * k / 2 * cont
-            + dt * markers[ip, first_free_idx : first_free_idx + 3] * last
-        )
-
-
-@stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v", "k_u")
-def push_pc_eta_rk4_Hdiv(
-    dt: float,
-    stage: int,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    args_derham: "DerhamArguments",
-    u_1: "float[:,:,:]",
-    u_2: "float[:,:,:]",
-    u_3: "float[:,:,:]",
-):
-    r"""Fourth order Runge-Kutta solve of
-
-    .. math::
-
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
-
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
-
-    .. math::
-
-        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
-
-    Parameters
-    ----------
-    u_1, u_2, u_3 : array[float]
-        3d array of FE coeffs of U-field, either as 1-form or as 2-form.
-
-    u_basis : int
-        U is 1-form (u_basis=1) or a 2-form (u_basis=2).
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    dfinv = empty((3, 3), dtype=float)
-    dfinv_t = empty((3, 3), dtype=float)
-    ginv = empty((3, 3), dtype=float)
-
-    # marker velocity
-    v = empty(3, dtype=float)
-
-    # U-fiels
-    u = empty(3, dtype=float)
-
-    # intermediate stages in RK4
-    k = empty(3, dtype=float)
-    k_v = empty(3, dtype=float)
-    k_u = empty(3, dtype=float)
-
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
-    first_free_idx = args_markers.first_free_idx
-
-    # assign factor of k for each stage
-    if stage == 0 or stage == 3:
-        nk = 1.0
-    else:
-        nk = 2.0
-
-    # is it the last stage?
-    if stage == 3:
-        last = 1.0
-        cont = 0.0
-    else:
-        last = 0.0
-        cont = 1.0
-
-    for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
-
-        # ----------------- stage n in Runge-Kutta method -------------------
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            e1,
-            e2,
-            e3,
-            args_domain,
-            dfm,
-        )
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
-        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
-
-        # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k_v)
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
-
-        # U-field
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            u_1,
-            u_2,
-            u_3,
-            u,
-        )
-        u[2] = 0.0
-
-        # transform to vector field
-        k_u[:] = u / det_df
-
-        # sum contribs
-        k[:] = k_v + k_u
-
-        # accum k
-        markers[ip, first_free_idx : first_free_idx + 3] += k * nk / 6.0
-
-        # update markers for the next stage
-        markers[ip, 0:3] = (
-            markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * k / 2 * cont
-            + dt * markers[ip, first_free_idx : first_free_idx + 3] * last
-        )
-
-
-@stack_array("dfm", "dfinv", "dfinv_t", "ginv", "v", "u", "k", "k_v")
-def push_pc_eta_rk4_H1vec(
-    dt: float,
-    stage: int,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    args_derham: "DerhamArguments",
-    u_1: "float[:,:,:]",
-    u_2: "float[:,:,:]",
-    u_3: "float[:,:,:]",
-):
-    r"""Fourth order Runge-Kutta solve of
-
-    .. math::
-
-        \frac{\textnormal d \boldsymbol \eta_p(t)}{\textnormal d t} = DF^{-1}(\boldsymbol \eta_p(t)) \mathbf v + \textnormal{vec}( \hat{\mathbf U}^{1(2)})
-
-    for each marker :math:`p` in markers array, where :math:`\mathbf v` is constant and
-
-    .. math::
-
-        \textnormal{vec}( \hat{\mathbf U}^{1}) = G^{-1}\hat{\mathbf U}^{1}\,,\qquad \textnormal{vec}( \hat{\mathbf U}^{2}) = \frac{\hat{\mathbf U}^{2}}{\sqrt g}\,.
-
-    Parameters
-    ----------
-    u_1, u_2, u_3 : array[float]
-        3d array of FE coeffs of U-field, either as 1-form or as 2-form.
-
-    u_basis : int
-        U is 1-form (u_basis=1) or a 2-form (u_basis=2).
-    """
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    dfinv = empty((3, 3), dtype=float)
-    dfinv_t = empty((3, 3), dtype=float)
-    ginv = empty((3, 3), dtype=float)
-
-    # marker velocity
-    v = empty(3, dtype=float)
-
-    # U-fiels
-    u = empty(3, dtype=float)
-
-    # intermediate stages in RK4
-    k = empty(3, dtype=float)
-    k_v = empty(3, dtype=float)
-
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-    first_init_idx = args_markers.first_init_idx
-    first_free_idx = args_markers.first_free_idx
-
-    # assign factor of k for each stage
-    if stage == 0 or stage == 3:
-        nk = 1.0
-    else:
-        nk = 2.0
-
-    # which stage
-    if stage == 3:
-        last = 1.0
-        cont = 0.0
-    elif stage == 2:
-        last = 0.0
-        cont = 2.0
-    else:
-        last = 0.0
-        cont = 1.0
-
-    for ip in range(n_markers):
-        # only do something if particle is a "true" particle (i.e. not a hole)
-        if markers[ip, 0] == -1.0:
-            continue
-
-        e1 = markers[ip, 0]
-        e2 = markers[ip, 1]
-        e3 = markers[ip, 2]
-        v[:] = markers[ip, 3:6]
-
-        # ----------------- stage n in Runge-Kutta method -------------------
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            e1,
-            e2,
-            e3,
-            args_domain,
-            dfm,
-        )
-
-        # metric coeffs
-        linalg_kernels.matrix_inv(dfm, dfinv)
-        linalg_kernels.transpose(dfinv, dfinv_t)
-        linalg_kernels.matrix_matrix(dfinv, dfinv_t, ginv)
-
-        # pull-back of velocity
-        linalg_kernels.matrix_vector(dfinv, v, k_v)
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(e1, e2, e3, args_derham)
-
-        # U-field
-        eval_vectorfield_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            u_1,
-            u_2,
-            u_3,
-            u,
-        )
-        u[2] = 0.0
+        if use_perp_model:
+            u[2] = 0.0
 
         # sum contribs
         k[:] = k_v + u
 
         # accum k
-        markers[ip, first_free_idx : first_free_idx + 3] += k * nk / 6.0
+        markers[ip, first_free_idx : first_free_idx + 3] += dt * b[stage] * k
 
         # update markers for the next stage
         markers[ip, 0:3] = (
             markers[ip, first_init_idx : first_init_idx + 3]
-            + dt * k / 2 * cont
-            + dt * markers[ip, first_free_idx : first_free_idx + 3] * last
+            + dt * k * a[stage]
+            + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
 
@@ -3035,7 +2630,7 @@ def push_v_sph_pressure(
     h1, h2, h3 : float
         Kernel width in respective dimension.
 
-    gravity: np.ndarray
+    gravity: xp.ndarray
         Constant gravitational force as 3-vector.
     """
     # allocate arrays
@@ -3266,7 +2861,7 @@ def push_v_sph_pressure_ideal_gas(
     h1, h2, h3 : float
         Kernel width in respective dimension.
 
-    gravity: np.ndarray
+    gravity: xp.ndarray
         Constant gravitational force as 3-vector.
     """
     # allocate arrays
@@ -3498,7 +3093,7 @@ def push_v_viscosity(
     h1, h2, h3 : float
         Kernel width in respective dimension.
 
-    gravity: np.ndarray
+    gravity: xp.ndarray
         Constant gravitational force as 3-vector.
     """
     # allocate arrays

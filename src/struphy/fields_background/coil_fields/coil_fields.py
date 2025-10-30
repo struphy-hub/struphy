@@ -1,6 +1,7 @@
+import cunumpy as xp
+
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.coil_fields.base import CoilMagneticField, load_csv_data
-from struphy.utils.arrays import xp as np
 
 
 class RatGUI(CoilMagneticField):
@@ -14,7 +15,9 @@ class RatGUI(CoilMagneticField):
         self._ratgui_csv_data = load_csv_data(csv_path)
 
         derham = Derham(
-            Nel=Nel, p=p, spl_kind=[False, False, True]
+            Nel=Nel,
+            p=p,
+            spl_kind=[False, False, True],
         )  # Assuming (R=eta1, Z=eta2, phi=eta3) coordinates for csv data (periodic in eta3 only).
         self._interpolate = derham.P[
             "v"
@@ -33,14 +36,14 @@ class RatGUI(CoilMagneticField):
         self.rhs[1][:] = B_Z
         self.rhs[2][:] = B_phi
 
-        print(f"{self.rhs = }")
-        print(f"{derham.nbasis['v'] = }")
-        print(f"{self.rhs[0] = }")
-        print(f"{self.rhs[1] = }")
-        print(f"{self.rhs[2] = }")
-        print(f"{self.rhs[0][:].shape = }")
-        print(f"{self.rhs[1][:].shape = }")
-        print(f"{self.rhs[2][:].shape = }")
+        print(f"{self.rhs =}")
+        print(f"{derham.nbasis['v'] =}")
+        print(f"{self.rhs[0] =}")
+        print(f"{self.rhs[1] =}")
+        print(f"{self.rhs[2] =}")
+        print(f"{self.rhs[0][:].shape =}")
+        print(f"{self.rhs[1][:].shape =}")
+        print(f"{self.rhs[2][:].shape =}")
         # We need to choose Nel and p such that the csv_data fits into this vector.
         # For a periodic direction, the size of the vector is Nel, for non-periodic (spl_kind=False) the size is Nel + p.
         # See the Tutorial on FEEC data structures https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_06_data_structures.html#FEEC-data-structures on how to address such a vector
@@ -79,8 +82,8 @@ class RatGUI(CoilMagneticField):
     def b_xyz(self, x, y, z):
         """Cartesian coil magnetic field in physical space. Must return the components as a tuple."""
         # compute (R, Z, phi) corrdinates from (x, y, z), for example:
-        R = np.sqrt(x**2 + y**2)
+        R = xp.sqrt(x**2 + y**2)
         Z = z
-        phi = -np.arctan2(y / x)
+        phi = -xp.arctan2(y / x)
 
         return self.bfield_RZphi(R, Z, phi)

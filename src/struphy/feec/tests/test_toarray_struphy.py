@@ -5,20 +5,21 @@ import pytest
 @pytest.mark.parametrize("p", [[3, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, False]])
 @pytest.mark.parametrize(
-    "mapping", [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]]
+    "mapping",
+    [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]],
 )
 def test_toarray_struphy(Nel, p, spl_kind, mapping):
     """
     TODO
     """
 
+    import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.geometry import domains
-    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -70,30 +71,30 @@ def test_toarray_struphy(Nel, p, spl_kind, mapping):
     v3arr = v3arr[0].flatten()
 
     # not in-place
-    compare_arrays(M0.dot(v0), np.matmul(M0arr, v0arr), rank)
-    compare_arrays(M1.dot(v1), np.matmul(M1arr, v1arr), rank)
-    compare_arrays(M2.dot(v2), np.matmul(M2arr, v2arr), rank)
-    compare_arrays(M3.dot(v3), np.matmul(M3arr, v3arr), rank)
+    compare_arrays(M0.dot(v0), xp.matmul(M0arr, v0arr), rank)
+    compare_arrays(M1.dot(v1), xp.matmul(M1arr, v1arr), rank)
+    compare_arrays(M2.dot(v2), xp.matmul(M2arr, v2arr), rank)
+    compare_arrays(M3.dot(v3), xp.matmul(M3arr, v3arr), rank)
 
     # Now we test the in-place version
-    IM0 = np.zeros([M0.codomain.dimension, M0.domain.dimension], dtype=M0.dtype)
-    IM1 = np.zeros([M1.codomain.dimension, M1.domain.dimension], dtype=M1.dtype)
-    IM2 = np.zeros([M2.codomain.dimension, M2.domain.dimension], dtype=M2.dtype)
-    IM3 = np.zeros([M3.codomain.dimension, M3.domain.dimension], dtype=M3.dtype)
+    IM0 = xp.zeros([M0.codomain.dimension, M0.domain.dimension], dtype=M0.dtype)
+    IM1 = xp.zeros([M1.codomain.dimension, M1.domain.dimension], dtype=M1.dtype)
+    IM2 = xp.zeros([M2.codomain.dimension, M2.domain.dimension], dtype=M2.dtype)
+    IM3 = xp.zeros([M3.codomain.dimension, M3.domain.dimension], dtype=M3.dtype)
 
     M0.toarray_struphy(out=IM0)
     M1.toarray_struphy(out=IM1)
     M2.toarray_struphy(out=IM2)
     M3.toarray_struphy(out=IM3)
 
-    compare_arrays(M0.dot(v0), np.matmul(IM0, v0arr), rank)
-    compare_arrays(M1.dot(v1), np.matmul(IM1, v1arr), rank)
-    compare_arrays(M2.dot(v2), np.matmul(IM2, v2arr), rank)
-    compare_arrays(M3.dot(v3), np.matmul(IM3, v3arr), rank)
+    compare_arrays(M0.dot(v0), xp.matmul(IM0, v0arr), rank)
+    compare_arrays(M1.dot(v1), xp.matmul(IM1, v1arr), rank)
+    compare_arrays(M2.dot(v2), xp.matmul(IM2, v2arr), rank)
+    compare_arrays(M3.dot(v3), xp.matmul(IM3, v3arr), rank)
 
     print("test_toarray_struphy passed!")
 
-    # assert np.allclose(out1.toarray(), v1.toarray(), atol=1e-5)
+    # assert xp.allclose(out1.toarray(), v1.toarray(), atol=1e-5)
 
 
 if __name__ == "__main__":

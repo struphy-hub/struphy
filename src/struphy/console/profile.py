@@ -6,12 +6,12 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
     import os
     import pickle
 
+    import cunumpy as xp
     import yaml
     from matplotlib import pyplot as plt
 
     import struphy.utils.utils as utils
     from struphy.post_processing.cprofile_analyser import get_cprofile_data, replace_keys
-    from struphy.utils.arrays import xp as np
 
     # Read struphy state file
     state = utils.read_state()
@@ -106,7 +106,7 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
         + "ncalls".ljust(15)
         + "tottime".ljust(15)
         + "percall".ljust(15)
-        + "cumtime".ljust(15)
+        + "cumtime".ljust(15),
     )
     print("-" * 154)
     for position, key in enumerate(dicts[0].keys()):
@@ -167,10 +167,10 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
                 ratio.append(str(int(float(t) / runtime * 100)) + "%")
 
             # strong scaling plot
-            if np.all([Nel == val["Nel"][0] for Nel in val["Nel"]]):
+            if xp.all([Nel == val["Nel"][0] for Nel in val["Nel"]]):
                 # ideal scaling
                 if n == 0:
-                    ax.loglog(val["mpi_size"], 1 / 2 ** np.arange(len(val["time"])), "k--", alpha=0.3, label="ideal")
+                    ax.loglog(val["mpi_size"], 1 / 2 ** xp.arange(len(val["time"])), "k--", alpha=0.3, label="ideal")
 
                 # print average time per one time step
                 if "integrate" in key:
@@ -206,11 +206,11 @@ def struphy_profile(dirs, replace, all, n_lines, print_callers, savefig):
                 ax.set_ylabel("time [s]")
                 ax.set(
                     title="Weak scaling for cells/mpi_size="
-                    + str(np.prod(val["Nel"][0]) / val["mpi_size"][0])
-                    + "=const."
+                    + str(xp.prod(val["Nel"][0]) / val["mpi_size"][0])
+                    + "=const.",
                 )
                 ax.legend(loc="upper left")
-                # ax.loglog(val['mpi_size'], val['time'][0]*np.ones_like(val['time']), 'k--', alpha=0.3)
+                # ax.loglog(val['mpi_size'], val['time'][0]*xp.ones_like(val['time']), 'k--', alpha=0.3)
                 ax.set_xscale("log")
 
     if savefig is None:

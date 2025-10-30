@@ -7,13 +7,15 @@ import pytest
 @pytest.mark.parametrize("p", [[3, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [True, False, False]])
 @pytest.mark.parametrize(
-    "mapping", [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]]
+    "mapping",
+    [["Cuboid", {"l1": 1.0, "r1": 2.0, "l2": 10.0, "r2": 20.0, "l3": 100.0, "r3": 200.0}]],
 )
 def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     """
     TODO
     """
 
+    import cunumpy as xp
     from psydac.ddm.mpi import MockComm
     from psydac.ddm.mpi import mpi as MPI
 
@@ -21,7 +23,6 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
-    from struphy.utils.arrays import xp as np
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -102,27 +103,39 @@ def test_tosparse_struphy(Nel, p, spl_kind, mapping):
         comm.Allreduce(v3_local, v3_global, op=MPI.SUM)
 
     # not in-place
-    assert np.allclose(v0_global, M0arr.dot(v0arr))
-    assert np.allclose(v1_global, M1arr.dot(v1arr))
-    assert np.allclose(v2_global, M2arr.dot(v2arr))
-    assert np.allclose(v3_global, M3arr.dot(v3arr))
-    assert np.allclose(v0_global, M0arrad.dot(v0arr))
-    assert np.allclose(v1_global, M1arrad.dot(v1arr))
-    assert np.allclose(v2_global, M2arrad.dot(v2arr))
+    assert xp.allclose(v0_global, M0arr.dot(v0arr))
+    assert xp.allclose(v1_global, M1arr.dot(v1arr))
+    assert xp.allclose(v2_global, M2arr.dot(v2arr))
+    assert xp.allclose(v3_global, M3arr.dot(v3arr))
+    assert xp.allclose(v0_global, M0arrad.dot(v0arr))
+    assert xp.allclose(v1_global, M1arrad.dot(v1arr))
+    assert xp.allclose(v2_global, M2arrad.dot(v2arr))
 
     print("test_tosparse_struphy passed!")
 
 
 if __name__ == "__main__":
     test_tosparse_struphy(
-        [32, 2, 2], [2, 1, 1], [True, True, True], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [32, 2, 2],
+        [2, 1, 1],
+        [True, True, True],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )
     test_tosparse_struphy(
-        [2, 32, 2], [1, 2, 1], [True, True, True], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [2, 32, 2],
+        [1, 2, 1],
+        [True, True, True],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )
     test_tosparse_struphy(
-        [2, 2, 32], [1, 1, 2], [True, True, True], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [2, 2, 32],
+        [1, 1, 2],
+        [True, True, True],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )
     test_tosparse_struphy(
-        [2, 2, 32], [1, 1, 2], [False, False, False], ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}]
+        [2, 2, 32],
+        [1, 1, 2],
+        [False, False, False],
+        ["Colella", {"Lx": 1.0, "Ly": 2.0, "alpha": 0.5, "Lz": 3.0}],
     )

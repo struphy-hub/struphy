@@ -1,4 +1,5 @@
 import inspect
+from copy import deepcopy
 
 import pytest
 
@@ -19,6 +20,7 @@ import pytest
 def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False):
     """Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py."""
 
+    import cunumpy as xp
     from matplotlib import pyplot as plt
     from psydac.ddm.mpi import mpi as MPI
 
@@ -26,7 +28,8 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     from struphy.geometry import domains
     from struphy.geometry.base import Domain
     from struphy.initial import perturbations
-    from struphy.utils.arrays import xp as np
+    from struphy.initial.base import Perturbation
+    from struphy.models.variables import FEECVariable
 
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
@@ -47,10 +50,10 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     form_vector = ["1", "2", "v", "norm", "physical_at_eta"]
 
     # evaluation points
-    e1 = np.linspace(0.0, 1.0, 30)
-    e2 = np.linspace(0.0, 1.0, 40)
-    e3 = np.linspace(0.0, 1.0, 50)
-    eee1, eee2, eee3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    e1 = xp.linspace(0.0, 1.0, 30)
+    e2 = xp.linspace(0.0, 1.0, 40)
+    e3 = xp.linspace(0.0, 1.0, 50)
+    eee1, eee2, eee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     # mode paramters
     kwargs = {}
@@ -76,7 +79,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
         form_vector += ["physical"]
 
     for key, val in inspect.getmembers(perturbations):
-        if inspect.isclass(val):
+        if inspect.isclass(val) and val.__module__ == perturbations.__name__:
             print(key, val)
 
             if key not in ("ModesCos", "ModesSin", "TorusModesCos", "TorusModesSin"):
@@ -88,63 +91,60 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
             ):
                 continue
 
-            # functions to compare to
+            # instance of perturbation
             if "Torus" in key:
-                fun = val(**kwargs, pfuns=pfuns)
+                perturbation = val(**kwargs, pfuns=pfuns)
             else:
-                fun = val(**kwargs, ls=ls)
+                perturbation = val(**kwargs, ls=ls)
                 if isinstance(domain, domains.Cuboid) or isinstance(domain, domains.Colella):
-                    fun_xyz = val(**kwargs, ls=ls, Lx=Lx, Ly=Ly, Lz=Lz)
+                    perturbation_xyz = val(**kwargs, ls=ls, Lx=Lx, Ly=Ly, Lz=Lz)
+            assert isinstance(perturbation, Perturbation)
 
             # single component is initialized
-            for space, name in derham.space_to_form.items():
+            for space, form in derham.space_to_form.items():
                 if do_plot:
-                    plt.figure(key + "_" + name + "-form_e1e2 " + mapping[0], figsize=(24, 16))
-                    plt.figure(key + "_" + name + "-form_e1e3 " + mapping[0], figsize=(24, 16))
+                    plt.figure(key + "_" + form + "-form_e1e2 " + mapping[0], figsize=(24, 16))
+                    plt.figure(key + "_" + form + "-form_e1e3 " + mapping[0], figsize=(24, 16))
 
-                if name in ("0", "3"):
+                if form in ("0", "3"):
                     for n, fun_form in enumerate(form_scalar):
-                        params = {key: {"given_in_basis": fun_form}}
+                        if "Torus" in key and fun_form == "physical":
+                            continue
 
-                        if "Modes" in key:
-                            params[key]["ls"] = ls
-                            params[key]["ms"] = kwargs["ms"]
-                            params[key]["ns"] = kwargs["ns"]
-                            params[key]["amps"] = kwargs["amps"]
-                            if fun_form == "physical":
-                                params[key]["Lx"] = Lx
-                                params[key]["Ly"] = Ly
-                                params[key]["Lz"] = Lz
+                        if "Modes" in key and fun_form == "physical":
+                            perturbation._Lx = Lx
+                            perturbation._Ly = Ly
+                            perturbation._Lz = Lz
                         else:
-                            raise ValueError(f'Perturbation {key} not implemented, only "Modes" are testes.')
+                            perturbation._Lx = 1.0
+                            perturbation._Ly = 1.0
+                            perturbation._Lz = 1.0
+                        # use the setter
+                        perturbation.given_in_basis = fun_form
 
-                        if "Torus" in key:
-                            params[key].pop("ls")
-                            if fun_form == "physical":
-                                continue
-                            params[key]["pfuns"] = pfuns
+                        var = FEECVariable(space=space)
+                        var.add_perturbation(perturbation)
+                        var.allocate(derham, domain)
+                        field = var.spline
 
-                        field = derham.create_spline_function(name, space, pert_params=params)
-                        field.initialize_coeffs(domain=domain)
-
-                        field_vals_xyz = domain.push(field, e1, e2, e3, kind=name)
+                        field_vals_xyz = domain.push(field, e1, e2, e3, kind=form)
 
                         x, y, z = domain(e1, e2, e3)
-                        r = np.sqrt(x**2 + y**2)
+                        r = xp.sqrt(x**2 + y**2)
 
                         if fun_form == "physical":
-                            fun_vals_xyz = fun_xyz(x, y, z)
+                            fun_vals_xyz = perturbation_xyz(x, y, z)
                         elif fun_form == "physical_at_eta":
-                            fun_vals_xyz = fun(eee1, eee2, eee3)
+                            fun_vals_xyz = perturbation(eee1, eee2, eee3)
                         else:
-                            fun_vals_xyz = domain.push(fun, eee1, eee2, eee3, kind=fun_form)
+                            fun_vals_xyz = domain.push(perturbation, eee1, eee2, eee3, kind=fun_form)
 
-                        error = np.max(np.abs(field_vals_xyz - fun_vals_xyz)) / np.max(np.abs(fun_vals_xyz))
-                        print(f"{rank=}, {key=}, {name=}, {fun_form=}, {error=}")
+                        error = xp.max(xp.abs(field_vals_xyz - fun_vals_xyz)) / xp.max(xp.abs(fun_vals_xyz))
+                        print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
 
                         if do_plot:
-                            plt.figure(key + "_" + name + "-form_e1e2 " + mapping[0])
+                            plt.figure(key + "_" + form + "-form_e1e2 " + mapping[0])
                             plt.subplot(2, 4, n + 1)
                             if isinstance(domain, domains.HollowTorus):
                                 plt.contourf(r[:, :, 0], z[:, :, 0], field_vals_xyz[:, :, 0])
@@ -173,7 +173,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             ax = plt.gca()
                             ax.set_aspect("equal", adjustable="box")
 
-                            plt.figure(key + "_" + name + "-form_e1e3 " + mapping[0])
+                            plt.figure(key + "_" + form + "-form_e1e3 " + mapping[0])
                             plt.subplot(2, 4, n + 1)
                             if isinstance(domain, domains.HollowTorus):
                                 plt.contourf(x[:, 0, :], y[:, 0, :], field_vals_xyz[:, 0, :])
@@ -204,10 +204,25 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
                 else:
                     for n, fun_form in enumerate(form_vector):
+                        if "Torus" in key and fun_form == "physical":
+                            continue
+
+                        if "Modes" in key and fun_form == "physical":
+                            perturbation._Lx = Lx
+                            perturbation._Ly = Ly
+                            perturbation._Lz = Lz
+                        else:
+                            perturbation._Lx = 1.0
+                            perturbation._Ly = 1.0
+                            perturbation._Lz = 1.0
+                        perturbation_0 = perturbation
+                        perturbation_1 = deepcopy(perturbation)
+                        perturbation_2 = deepcopy(perturbation)
+
                         params = {
                             key: {
                                 "given_in_basis": [fun_form] * 3,
-                            }
+                            },
                         }
 
                         if "Modes" in key:
@@ -217,59 +232,70 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         else:
                             raise ValueError(f'Perturbation {key} not implemented, only "Modes" are testes.')
 
-                        if "Torus" in key:
-                            # params[key].pop('ls')
-                            if fun_form == "physical":
-                                continue
-                            params[key]["pfuns"] = [pfuns] * 3
-                        else:
-                            params[key]["ls"] = [ls] * 3
-                            if fun_form == "physical":
-                                params[key]["Lx"] = Lx
-                                params[key]["Ly"] = Ly
-                                params[key]["Lz"] = Lz
-                            if isinstance(domain, domains.HollowTorus):
-                                continue
+                        if "Torus" not in key and isinstance(domain, domains.HollowTorus):
+                            continue
 
-                        field = derham.create_spline_function(name, space, pert_params=params)
-                        field.initialize_coeffs(domain=domain)
+                        # use the setters
+                        perturbation_0.given_in_basis = fun_form
+                        perturbation_0.comp = 0
+                        perturbation_1.given_in_basis = fun_form
+                        perturbation_1.comp = 1
+                        perturbation_2.given_in_basis = fun_form
+                        perturbation_2.comp = 2
 
-                        f1_xyz, f2_xyz, f3_xyz = domain.push(field, e1, e2, e3, kind=name)
+                        var = FEECVariable(space=space)
+                        var.add_perturbation(perturbation_0)
+                        var.add_perturbation(perturbation_1)
+                        var.add_perturbation(perturbation_2)
+                        var.allocate(derham, domain)
+                        field = var.spline
+
+                        f1_xyz, f2_xyz, f3_xyz = domain.push(field, e1, e2, e3, kind=form)
                         f_xyz = [f1_xyz, f2_xyz, f3_xyz]
 
                         x, y, z = domain(e1, e2, e3)
-                        r = np.sqrt(x**2 + y**2)
+                        r = xp.sqrt(x**2 + y**2)
 
                         # exact values
                         if fun_form == "physical":
-                            fun1_xyz = fun_xyz(x, y, z)
-                            fun2_xyz = fun_xyz(x, y, z)
-                            fun3_xyz = fun_xyz(x, y, z)
+                            fun1_xyz = perturbation_xyz(x, y, z)
+                            fun2_xyz = perturbation_xyz(x, y, z)
+                            fun3_xyz = perturbation_xyz(x, y, z)
                         elif fun_form == "physical_at_eta":
-                            fun1_xyz = fun(eee1, eee2, eee3)
-                            fun2_xyz = fun(eee1, eee2, eee3)
-                            fun3_xyz = fun(eee1, eee2, eee3)
+                            fun1_xyz = perturbation(eee1, eee2, eee3)
+                            fun2_xyz = perturbation(eee1, eee2, eee3)
+                            fun3_xyz = perturbation(eee1, eee2, eee3)
                         elif fun_form == "norm":
                             tmp1, tmp2, tmp3 = domain.transform(
-                                [fun, fun, fun], eee1, eee2, eee3, kind=fun_form + "_to_v"
+                                [perturbation, perturbation, perturbation],
+                                eee1,
+                                eee2,
+                                eee3,
+                                kind=fun_form + "_to_v",
                             )
                             fun1_xyz, fun2_xyz, fun3_xyz = domain.push([tmp1, tmp2, tmp3], eee1, eee2, eee3, kind="v")
                         else:
-                            fun1_xyz, fun2_xyz, fun3_xyz = domain.push([fun, fun, fun], eee1, eee2, eee3, kind=fun_form)
+                            fun1_xyz, fun2_xyz, fun3_xyz = domain.push(
+                                [perturbation, perturbation, perturbation],
+                                eee1,
+                                eee2,
+                                eee3,
+                                kind=fun_form,
+                            )
 
                         fun_xyz_vec = [fun1_xyz, fun2_xyz, fun3_xyz]
 
                         error = 0.0
                         for fi, funi in zip(f_xyz, fun_xyz_vec):
-                            error += np.max(np.abs(fi - funi)) / np.max(np.abs(funi))
+                            error += xp.max(xp.abs(fi - funi)) / xp.max(xp.abs(funi))
                         error /= 3.0
-                        print(f"{rank=}, {key=}, {name=}, {fun_form=}, {error=}")
+                        print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
 
                         if do_plot:
                             rn = len(form_vector)
                             for c, (fi, f) in enumerate(zip(f_xyz, fun_xyz_vec)):
-                                plt.figure(key + "_" + name + "-form_e1e2 " + mapping[0])
+                                plt.figure(key + "_" + form + "-form_e1e2 " + mapping[0])
                                 plt.subplot(3, rn, rn * c + n + 1)
                                 if isinstance(domain, domains.HollowTorus):
                                     plt.contourf(r[:, :, 0], z[:, :, 0], fi[:, :, 0])
@@ -281,12 +307,12 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                     plt.ylabel("y")
                                 plt.colorbar()
                                 plt.title(
-                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})"
+                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})",
                                 )
                                 ax = plt.gca()
                                 ax.set_aspect("equal", adjustable="box")
 
-                                plt.figure(key + "_" + name + "-form_e1e3 " + mapping[0])
+                                plt.figure(key + "_" + form + "-form_e1e3 " + mapping[0])
                                 plt.subplot(3, rn, rn * c + n + 1)
                                 if isinstance(domain, domains.HollowTorus):
                                     plt.contourf(x[:, 0, :], y[:, 0, :], fi[:, 0, :])
@@ -298,7 +324,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                     plt.ylabel("z")
                                 plt.colorbar()
                                 plt.title(
-                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})"
+                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})",
                                 )
                                 ax = plt.gca()
                                 ax.set_aspect("equal", adjustable="box")
@@ -308,8 +334,8 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
 
 if __name__ == "__main__":
-    mapping = ["Colella", {"Lx": 4.0, "Ly": 5.0, "alpha": 0.07, "Lz": 6.0}]
-    # mapping = ['HollowCylinder', {'a1': 0.1}]
+    # mapping = ['Colella', {'Lx': 4., 'Ly': 5., 'alpha': .07, 'Lz': 6.}]
+    mapping = ["HollowCylinder", {"a1": 0.1}]
     # mapping = ['Cuboid', {'l1': 0., 'r1': 4., 'l2': 0., 'r2': 5., 'l3': 0., 'r3': 6.}]
     test_init_modes([16, 16, 16], [2, 3, 4], [False, True, True], mapping, combine_comps=None, do_plot=False)
     # mapping = ["HollowTorus", {"tor_period": 1}]
