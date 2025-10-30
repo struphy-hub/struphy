@@ -18,6 +18,8 @@ share/python-wheels/
 *.egg
 MANIFEST
 doc/_build/
+doc/source/*
+tutorials/sim*
 *STUBDIR*
 .VSCodeCounter/
 .pymon

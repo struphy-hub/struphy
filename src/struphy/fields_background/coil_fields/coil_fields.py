@@ -1,6 +1,7 @@
+import cunumpy as xp
+
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.coil_fields.base import CoilMagneticField, load_csv_data
-from struphy.utils.arrays import xp as np
 
 
 class RatGUI(CoilMagneticField):
@@ -79,8 +80,8 @@ class RatGUI(CoilMagneticField):
     def b_xyz(self, x, y, z):
         """Cartesian coil magnetic field in physical space. Must return the components as a tuple."""
         # compute (R, Z, phi) corrdinates from (x, y, z), for example:
-        R = np.sqrt(x**2 + y**2)
+        R = xp.sqrt(x**2 + y**2)
         Z = z
-        phi = -np.arctan2(y / x)
+        phi = -xp.arctan2(y / x)
 
         return self.bfield_RZphi(R, Z, phi)

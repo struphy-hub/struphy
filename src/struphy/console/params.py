@@ -3,34 +3,33 @@ import sys
 import yaml
 from psydac.ddm.mpi import mpi as MPI
 
+from struphy.models import fluid, hybrid, kinetic, toy
+from struphy.models.base import StruphyModel
 
-def struphy_params(model, file, yes=False, options=False, check_file=None):
+
+def struphy_params(model_name: str, params_path: str, yes: bool = False, check_file: bool = False):
     """Create a model's default parameter file and save in current input path.
 
     Parameters
     ----------
-    model : str
+    model_name : str
         The name of the Struphy model.
+
+    params_path : str
+        An alternative file name to the default params_<model>.yml.
 
     yes : bool
         If true, say yes on prompt to overwrite .yml FILE
-
-    file : str
-        An alternative file name to the default params_<model>.yml.
-
-    show_options : bool
-        Whether to print to screen all possible options for the model.
     """
-
-    from struphy.models import fluid, hybrid, kinetic, toy
-
-    # load model class
     objs = [fluid, kinetic, hybrid, toy]
     for obj in objs:
         try:
-            model_class = getattr(obj, model)
+            model_class = getattr(obj, model_name)
+            model: StruphyModel = model_class()
         except AttributeError:
             pass
+
+    print(f"{model_name = }")
 
     # print units
     if check_file:
@@ -46,8 +45,8 @@ def struphy_params(model, file, yes=False, options=False, check_file=None):
             print(f"Failed to initialize model: {e}")
             sys.exit(1)
 
-    elif options:
-        model_class.show_options()
     else:
         prompt = not yes
-        params = model_class.generate_default_parameter_file(file=file, prompt=prompt)
+        model.generate_default_parameter_file(path=params_path, prompt=prompt)
+        # print(f"Generating default parameter file for {model_class}.")
+        # model_class().generate_default_parameter_file(path=params_path, prompt=prompt)

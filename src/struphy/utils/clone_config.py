@@ -1,7 +1,6 @@
+import cunumpy as xp
 from psydac.ddm.mpi import MockComm
 from psydac.ddm.mpi import mpi as MPI
-
-from struphy.utils.arrays import xp as np
 
 
 class CloneConfig:
@@ -19,7 +18,7 @@ class CloneConfig:
     def __init__(
         self,
         comm: MPI.Intracomm,
-        params=None,
+        params: None,
         num_clones=1,
     ):
         """
@@ -28,8 +27,8 @@ class CloneConfig:
         Parameters:
             comm : (MPI.Intracomm)
                 The MPI communicator covering all processes.
-            params : dict, optional
-                Dictionary containing simulation parameters.
+            params : StruphyParameters
+                Struphy simulation parameters.
             num_clones : int, optional
                 The number of clones to create. The total number of MPI ranks must be divisible by this number.
         """
@@ -122,10 +121,10 @@ class CloneConfig:
         if "Np" in markers:
             return markers["Np"]
         elif "ppc" in markers:
-            n_cells = np.prod(self.params["grid"]["Nel"], dtype=int)
+            n_cells = xp.prod(self.params["grid"]["Nel"], dtype=int)
             return int(markers["ppc"] * n_cells)
         elif "ppb" in markers:
-            n_boxes = np.prod(species["boxes_per_dim"], dtype=int) * self.num_clones
+            n_boxes = xp.prod(species["boxes_per_dim"], dtype=int) * self.num_clones
             return int(markers["ppb"] * n_boxes)
 
     def print_clone_config(self):
@@ -210,7 +209,7 @@ class CloneConfig:
                     row = f"{i_clone:6} "
                     # Np = self.params["kinetic"][species_name]["markers"]["Np"]
                     Np = self.get_Np_global(species_name)
-                    n_cells_clone = np.prod(self.params["grid"]["Nel"])
+                    n_cells_clone = xp.prod(self.params["grid"]["Nel"])
 
                     Np_clone = self.get_Np_clone(Np, clone_id=i_clone)
                     ppc_clone = Np_clone / n_cells_clone

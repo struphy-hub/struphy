@@ -5,8 +5,10 @@ from pyccel.decorators import stack_array
 
 
 @stack_array("vec_copy", "mask1d", "mask", "top", "i_bottom", "i_top", "fi", "ir")
-def apply_three_point_filter(
+def apply_three_point_filter_3d(
     vec: "float[:,:,:]",
+    dir: "int",
+    form: "int",
     Nel: "int[:]",
     spl_kind: "bool[:]",
     pn: "int[:]",
@@ -47,6 +49,7 @@ def apply_three_point_filter(
     i_top = zeros(3, dtype=int)
     fi = empty(3, dtype=int)
     ir = empty(3, dtype=int)
+    isDspline = zeros(3, dtype=int)
 
     # copy vectors
     vec_copy[:, :, :] = vec[:, :, :]
@@ -62,22 +65,33 @@ def apply_three_point_filter(
                 mask[i, j, k] *= mask1d[i] * mask1d[j] * mask1d[k]
 
     # consider left and right boundary
+    if form == 1:
+        isDspline[dir] = 1
+    elif form == 2:
+        isDspline[:] = 1
+        isDspline[dir] = 0
+    elif form == 3:
+        isDspline[:] = 1
+
     for i in range(3):
         if spl_kind[i]:
             top[i] = Nel[i] - 1
         else:
-            top[i] = Nel[i] + pn[i] - 1
+            if isDspline[i] == 1:
+                top[i] = Nel[i] + pn[i] - 2
+            else:
+                top[i] = Nel[i] + pn[i] - 1
 
     for i in range(3):
         if starts[i] == 0:
             if spl_kind[i]:
-                i_bottom[i] = -1
+                i_bottom[i] = 0
             else:
                 i_bottom[i] = +1
 
         if ends[i] == top[i]:
             if spl_kind[i]:
-                i_top[i] = +1
+                i_top[i] = 0
             else:
                 i_top[i] = -1
 

@@ -23,6 +23,7 @@ classifiers = [
     ]
 dependencies = [
     'numpy',
+    'cunumpy',
     'pyccel>=2.0',
     'psydac @ git+https://github.com/max-models/psydac-for-struphy.git@devel-tiny',
     'scipy',
@@ -34,6 +35,7 @@ dependencies = [
     'argcomplete',
     'pytest',
     'pytest-mpi',
+    'line_profiler',
 ]
 
 [project.license]
@@ -45,6 +47,7 @@ phys = [
     'desc-opt',
 ]
 dev = [
+    "struphy[mpi]",
     "notebook",
     "autopep8",
     "isort",
@@ -66,6 +69,9 @@ mpi = [
 ]
 doc = [
     "struphy[phys]",
+    "jupyter",
+    "nbconvert",
+    "ipykernel",
     "sphinx",
     "sphinx-design",
     "lxml_html_clean",
@@ -165,4 +171,14 @@ ignore = [
     "F405",
     "D211",
     "D213",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "models",
+    "toy",
+    "fluid",
+    "kinetic",
+    "hybrid",
+    "single",
 ]

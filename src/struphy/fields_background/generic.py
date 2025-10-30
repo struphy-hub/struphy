@@ -1,3 +1,5 @@
+import copy
+
 from struphy.fields_background.base import (
     CartesianFluidEquilibrium,
     CartesianFluidEquilibriumWithB,
@@ -17,6 +19,9 @@ class GenericCartesianFluidEquilibrium(CartesianFluidEquilibrium):
         p_xyz: callable = None,
         n_xyz: callable = None,
     ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
+
         if u_xyz is None:
             u_xyz = lambda x, y, z: (0.0 * x, 0.0 * x, 0.0 * x)
         else:
@@ -57,6 +62,9 @@ class GenericCartesianFluidEquilibriumWithB(GenericCartesianFluidEquilibrium):
         b_xyz: callable = None,
         gradB_xyz: callable = None,
     ):
+        # use params setter
+        self.params = copy.deepcopy(locals())
+
         super().__init__(u_xyz=u_xyz, p_xyz=p_xyz, n_xyz=n_xyz)
 
         if b_xyz is None:

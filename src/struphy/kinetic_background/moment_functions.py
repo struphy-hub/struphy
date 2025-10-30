@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 "Analytical moment functions."
 
-from struphy.utils.arrays import xp as np
+import cunumpy as xp
 
 
 class ITPA_density:
@@ -46,8 +46,8 @@ class ITPA_density:
             val = (
                 self._n0
                 * self._c[3]
-                * np.exp(
-                    -self._c[2] / self._c[1] * np.tanh((eta1 - self._c[0]) / self._c[2]),
+                * xp.exp(
+                    -self._c[2] / self._c[1] * xp.tanh((eta1 - self._c[0]) / self._c[2]),
                 )
             )
 

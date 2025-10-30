@@ -1,6 +1,6 @@
 import time
 
-from arrays import xp
+import cunumpy as xp
 
 
 def main(N=8192):

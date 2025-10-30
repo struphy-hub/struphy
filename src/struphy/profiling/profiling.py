@@ -17,9 +17,8 @@ import pickle
 # Import the profiling configuration class and context manager
 from functools import lru_cache
 
+import cunumpy as xp
 from psydac.ddm.mpi import mpi as MPI
-
-from struphy.utils.arrays import xp as np
 
 
 @lru_cache(maxsize=None)  # Cache the import result to avoid repeated imports
@@ -171,9 +170,9 @@ class ProfileManager:
         for name, region in cls._regions.items():
             local_data[name] = {
                 "ncalls": region.ncalls,
-                "durations": np.array(region.durations, dtype=np.float64),
-                "start_times": np.array(region.start_times, dtype=np.float64),
-                "end_times": np.array(region.end_times, dtype=np.float64),
+                "durations": xp.array(region.durations, dtype=xp.float64),
+                "start_times": xp.array(region.start_times, dtype=xp.float64),
+                "end_times": xp.array(region.end_times, dtype=xp.float64),
                 "config": {
                     "likwid": region.config.likwid,
                     "simulation_label": region.config.simulation_label,
@@ -247,7 +246,7 @@ class ProfileManager:
                 average_duration = total_duration / region.ncalls
                 min_duration = min(region.durations)
                 max_duration = max(region.durations)
-                std_duration = np.std(region.durations)
+                std_duration = xp.std(region.durations)
             else:
                 total_duration = average_duration = min_duration = max_duration = std_duration = 0
 
@@ -271,16 +270,16 @@ class ProfileRegion:
         self._region_name = self.config.simulation_label + region_name
         self._time_trace = time_trace
         self._ncalls = 0
-        self._start_times = np.empty(1, dtype=float)
-        self._end_times = np.empty(1, dtype=float)
-        self._durations = np.empty(1, dtype=float)
+        self._start_times = xp.empty(1, dtype=float)
+        self._end_times = xp.empty(1, dtype=float)
+        self._durations = xp.empty(1, dtype=float)
         self._started = False
 
     def __enter__(self):
         if self._ncalls == len(self._start_times):
-            self._start_times = np.append(self._start_times, np.zeros_like(self._start_times))
-            self._end_times = np.append(self._end_times, np.zeros_like(self._end_times))
-            self._durations = np.append(self._durations, np.zeros_like(self._durations))
+            self._start_times = xp.append(self._start_times, xp.zeros_like(self._start_times))
+            self._end_times = xp.append(self._end_times, xp.zeros_like(self._end_times))
+            self._durations = xp.append(self._durations, xp.zeros_like(self._durations))
 
         if self.config.likwid:
             self._pylikwid().markerstartregion(self.region_name)

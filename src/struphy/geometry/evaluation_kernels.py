@@ -31,7 +31,7 @@ def f(
     args: DomainArguments
         Arguments for the mapping.
 
-    f_out : np.array
+    f_out : xp.array
         Output array of shape (3,).
     """
 
@@ -196,7 +196,7 @@ def df(
     args: DomainArguments
         Arguments for the mapping.
 
-    df_out : np.array
+    df_out : xp.array
         Output array of shape (3, 3).
     """
 
@@ -354,7 +354,7 @@ def det_df(
     args: DomainArguments
         Arguments for the mapping.
 
-    tmp1 : np.array
+    tmp1 : xp.array
         Temporary array of shape (3, 3).
     """
 
@@ -388,13 +388,13 @@ def df_inv(
     args: DomainArguments
         Arguments for the mapping.
 
-    tmp1: np.array
+    tmp1: xp.array
         Temporary array of shape (3, 3).
 
     avoid_round_off: bool
         Whether to manually set exact zeros in arrays.
 
-    dfinv_out: np.array
+    dfinv_out: xp.array
         Output array of shape (3, 3).
     """
 
@@ -484,13 +484,13 @@ def g(
     args: DomainArguments
         Arguments for the mapping.
 
-    tmp1, tmp2: np.array
+    tmp1, tmp2: xp.array
         Temporary arrays of shape (3, 3).
 
     avoid_round_off: bool
         Whether to manually set exact zeros in arrays.
 
-    g_out: np.array
+    g_out: xp.array
         Output array of shape (3, 3).
     """
     df(
@@ -601,13 +601,13 @@ def g_inv(
     args: DomainArguments
         Arguments for the mapping.
 
-    tmp1, tmp2, tmp3: np.array
+    tmp1, tmp2, tmp3: xp.array
         Temporary arrays of shape (3, 3).
 
     avoid_round_off: bool
         Whether to manually set exact zeros in arrays.
 
-    ginv_out: np.array
+    ginv_out: xp.array
         Output array of shape (3, 3).
     """
     g(
@@ -732,16 +732,16 @@ def select_metric_coeff(
     args: DomainArguments
         Arguments for the mapping.
 
-    tmp0: np.array
+    tmp0: xp.array
         Temporary array of shape (3,).
 
-    tmp1, tmp2, tmp3: np.array
+    tmp1, tmp2, tmp3: xp.array
         Temporary arrays of shape (3, 3).
 
     avoid_round_off: bool
         Whether to manually set exact zeros in arrays.
 
-    out: np.array
+    out: xp.array
         Output array of shape (3, 3).
     """
     # identity map

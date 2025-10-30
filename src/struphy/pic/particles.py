@@ -1,12 +1,17 @@
 import copy
 
-from struphy.fields_background.base import FluidEquilibriumWithB
+import cunumpy as xp
+
+from struphy.fields_background import equils
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
+from struphy.geometry.utilities import TransformedPformComponent
+from struphy.initial.base import Perturbation
 from struphy.kinetic_background import maxwellians
+from struphy.kinetic_background.base import Maxwellian, SumKineticBackground
 from struphy.pic import utilities_kernels
 from struphy.pic.base import Particles
-from struphy.utils.arrays import xp as np
 
 
 class Particles6D(Particles):
@@ -23,8 +28,8 @@ class Particles6D(Particles):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"Maxwellian3D": {}}
+    def default_background(cls):
+        return maxwellians.Maxwellian3D()
 
     def __init__(
         self,
@@ -32,17 +37,19 @@ class Particles6D(Particles):
     ):
         kwargs["type"] = "full_f"
 
-        if "bckgr_params" not in kwargs:
-            kwargs["bckgr_params"] = self.default_bckgr_params()
+        if "background" not in kwargs:
+            kwargs["background"] = self.default_background()
+        elif kwargs["background"] is None:
+            kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
         self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
-        print(kwargs.keys())
+
         super().__init__(**kwargs)
 
         # call projected mhd equilibrium in case of CanonicalMaxwellian
-        if "CanonicalMaxwellian" in kwargs["bckgr_params"]:
+        if isinstance(kwargs["background"], maxwellians.CanonicalMaxwellian):
             assert isinstance(self.equil, FluidEquilibriumWithB), (
                 "CanonicalMaxwellian needs background with magnetic field."
             )
@@ -90,16 +97,16 @@ class Particles6D(Particles):
         """
         # load sampling density svol (normalized to 1 in logical space)
         maxw_params = {
-            "n": 1.0,
-            "u1": self.loading_params["moments"][0],
-            "u2": self.loading_params["moments"][1],
-            "u3": self.loading_params["moments"][2],
-            "vth1": self.loading_params["moments"][3],
-            "vth2": self.loading_params["moments"][4],
-            "vth3": self.loading_params["moments"][5],
+            "n": (1.0, None),
+            "u1": (self.loading_params.moments[0], None),
+            "u2": (self.loading_params.moments[1], None),
+            "u3": (self.loading_params.moments[2], None),
+            "vth1": (self.loading_params.moments[3], None),
+            "vth2": (self.loading_params.moments[4], None),
+            "vth3": (self.loading_params.moments[5], None),
         }
 
-        fun = maxwellians.Maxwellian3D(maxw_params=maxw_params)
+        fun = maxwellians.Maxwellian3D(**maxw_params)
 
         if self.spatial == "uniform":
             return fun(eta1, eta2, eta3, *v)
@@ -239,35 +246,45 @@ class DeltaFParticles6D(Particles6D):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"Maxwellian3D": {}}
+    def default_background(cls):
+        return maxwellians.Maxwellian3D()
 
     def __init__(
         self,
         **kwargs,
     ):
         kwargs["type"] = "delta_f"
-        kwargs["control_variate"] = False
+        if "weights_params" in kwargs:
+            kwargs["weights_params"].control_variate = False
         super().__init__(**kwargs)
 
     def _set_initial_condition(self):
-        bp_copy = copy.deepcopy(self.bckgr_params)
-        pp_copy = copy.deepcopy(self.pert_params)
+        # bp_copy = copy.deepcopy(self.bckgr_params)
+        # pp_copy = copy.deepcopy(self.pert_params)
 
-        # Prepare delta-f perturbation parameters
-        if pp_copy is not None:
-            for fi in bp_copy:
-                # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
-                if fi in pp_copy:
-                    if "use_background_n" in pp_copy[fi]:
-                        if not pp_copy[fi]["use_background_n"]:
-                            bp_copy[fi]["n"] = 0.0
-                    else:
-                        bp_copy[fi]["n"] = 0.0
-                else:
-                    bp_copy[fi]["n"] = 0.0
+        # # Prepare delta-f perturbation parameters
+        # if pp_copy is not None:
+        #     for fi in bp_copy:
+        #         # Set background to zero (if "use_background_n" in perturbation params is set to false or not in keys)
+        #         if fi in pp_copy:
+        #             if "use_background_n" in pp_copy[fi]:
+        #                 if not pp_copy[fi]["use_background_n"]:
+        #                     bp_copy[fi]["n"] = 0.0
+        #             else:
+        #                 bp_copy[fi]["n"] = 0.0
+        #         else:
+        #             bp_copy[fi]["n"] = 0.0
+        self.set_n_to_zero(self.initial_condition)
 
-        super()._set_initial_condition(bp_copy=bp_copy, pp_copy=pp_copy)
+        super()._set_initial_condition()
+
+    def set_n_to_zero(self, background: Maxwellian | SumKineticBackground):
+        if isinstance(background, Maxwellian):
+            background.maxw_params["n"] = (0.0, background.maxw_params["n"][1])
+        else:
+            assert isinstance(background, SumKineticBackground)
+            self.set_n_to_zero(background._f1)
+            self.set_n_to_zero(background._f2)
 
 
 class Particles5D(Particles):
@@ -302,18 +319,20 @@ class Particles5D(Particles):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"GyroMaxwellian2D": {}}
+    def default_background(cls):
+        return maxwellians.GyroMaxwellian2D()
 
     def __init__(
         self,
         projected_equil: ProjectedFluidEquilibriumWithB,
         **kwargs,
     ):
+        assert projected_equil is not None, "Particles5D needs a projected MHD equilibrium."
+
         kwargs["type"] = "full_f"
 
-        if "bckgr_params" not in kwargs:
-            kwargs["bckgr_params"] = self.default_bckgr_params()
+        # if "bckgr_params" not in kwargs:
+        #     kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 3)
@@ -333,6 +352,7 @@ class Particles5D(Particles):
         self._unit_b1_h = self.projected_equil.unit_b1
         self._derham = self.projected_equil.derham
 
+        self._tmp0 = self.derham.Vh["0"].zeros()
         self._tmp2 = self.derham.Vh["2"].zeros()
 
     @property
@@ -401,14 +421,18 @@ class Particles5D(Particles):
         # load sampling density svol (normalized to 1 in logical space)
         maxw_params = {
             "n": 1.0,
-            "u_para": self.loading_params["moments"][0],
-            "u_perp": self.loading_params["moments"][1],
-            "vth_para": self.loading_params["moments"][2],
-            "vth_perp": self.loading_params["moments"][3],
+            "u_para": self.loading_params.moments[0],
+            "u_perp": self.loading_params.moments[1],
+            "vth_para": self.loading_params.moments[2],
+            "vth_perp": self.loading_params.moments[3],
         }
 
         self._svol = maxwellians.GyroMaxwellian2D(
-            maxw_params=maxw_params,
+            n=(1.0, None),
+            u_para=(self.loading_params.moments[0], None),
+            u_perp=(self.loading_params.moments[1], None),
+            vth_para=(self.loading_params.moments[2], None),
+            vth_perp=(self.loading_params.moments[3], None),
             volume_form=True,
             equil=self._magn_bckgr,
         )
@@ -538,7 +562,7 @@ class Particles5D(Particles):
             self.absB0_h._data,
         )
 
-    def save_magnetic_energy(self, b2):
+    def save_magnetic_energy(self, PBb):
         r"""
         Calculate magnetic field energy at each particles' position and assign it into markers[:,self.first_diagnostics_idx].
 
@@ -549,22 +573,17 @@ class Particles5D(Particles):
             Finite element coefficients of the time-dependent magnetic field.
         """
 
-        E2T = self.derham.extraction_ops["2"].transpose()
-        b2t = E2T.dot(b2, out=self._tmp2)
-        b2t.update_ghost_regions()
+        E0T = self.derham.extraction_ops["0"].transpose()
+        PBbt = E0T.dot(PBb, out=self._tmp0)
+        PBbt.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_energy(
+        utilities_kernels.eval_magnetic_energy_PBb(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
             self.first_diagnostics_idx,
             self.absB0_h._data,
-            self.unit_b1_h[0]._data,
-            self.unit_b1_h[1]._data,
-            self.unit_b1_h[2]._data,
-            b2t[0]._data,
-            b2t[1]._data,
-            b2t[2]._data,
+            PBbt._data,
         )
 
     def save_magnetic_background_energy(self):
@@ -626,8 +645,8 @@ class Particles3D(Particles):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"ColdPlasma": {}}
+    def default_background(cls):
+        return maxwellians.ColdPlasma()
 
     def __init__(
         self,
@@ -635,8 +654,10 @@ class Particles3D(Particles):
     ):
         kwargs["type"] = "full_f"
 
-        if "bckgr_params" not in kwargs:
-            kwargs["bckgr_params"] = self.default_bckgr_params()
+        if "background" not in kwargs:
+            kwargs["background"] = self.default_background()
+        elif kwargs["background"] is None:
+            kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
@@ -749,8 +770,8 @@ class ParticlesSPH(Particles):
     """
 
     @classmethod
-    def default_bckgr_params(cls):
-        return {"ConstantVelocity": {}}
+    def default_background(cls):
+        return equils.ConstantVelocity()
 
     def __init__(
         self,
@@ -758,14 +779,20 @@ class ParticlesSPH(Particles):
     ):
         kwargs["type"] = "sph"
 
-        if "bckgr_params" not in kwargs:
-            kwargs["bckgr_params"] = self.default_bckgr_params()
+        if "background" not in kwargs:
+            bckgr = self.default_background()
+            bckgr.domain = kwargs["domain"]
+            kwargs["background"] = bckgr
+        elif kwargs["background"] is None:
+            bckgr = self.default_background()
+            bckgr.domain = kwargs["domain"]
+            kwargs["background"] = bckgr
 
         if "boxes_per_dim" not in kwargs:
-            boxes_per_dim = (1, 1, 1)
+            kwargs["boxes_per_dim"] = (1, 1, 1)
         else:
             if kwargs["boxes_per_dim"] is None:
-                boxes_per_dim = (1, 1, 1)
+                kwargs["boxes_per_dim"] = (1, 1, 1)
 
         # TODO: maybe this needs a fix
         # else:
@@ -861,60 +888,3 @@ class ParticlesSPH(Particles):
             kind="3_to_0",
             remove_outside=remove_holes,
         )
-
-    def _set_initial_condition(self):
-        """Set a callable initial condition f_init as a 0-form (scalar), and u_init in Cartesian coordinates."""
-        from struphy.feec.psydac_derham import transform_perturbation
-        from struphy.fields_background.base import FluidEquilibrium
-
-        pp_copy = copy.deepcopy(self.pert_params)
-
-        # Get the initialization function and pass the correct arguments
-        assert isinstance(self.f0, FluidEquilibrium)
-        self._u_init = self.f0.u_cart
-
-        if pp_copy is not None:
-            if "n" in pp_copy:
-                for _type, _params in pp_copy["n"].items():  # only one perturbation is taken into account at the moment
-                    _fun = transform_perturbation(_type, _params, "0", self.domain)
-            if "u1" in pp_copy:
-                for _type, _params in pp_copy[
-                    "u1"
-                ].items():  # only one perturbation is taken into account at the moment
-                    _fun = transform_perturbation(_type, _params, "v", self.domain)
-                    _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
-                self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
-                # TODO: add other velocity components
-        else:
-            _fun = None
-
-        def _f_init(*etas, flat_eval=False):
-            if len(etas) == 1:
-                if _fun is None:
-                    out = self.f0.n0(etas[0])
-                else:
-                    out = self.f0.n0(etas[0]) + _fun(*etas[0].T)
-            else:
-                assert len(etas) == 3
-                E1, E2, E3, is_sparse_meshgrid = Domain.prepare_eval_pts(
-                    etas[0],
-                    etas[1],
-                    etas[2],
-                    flat_eval=flat_eval,
-                )
-
-                out0 = self.f0.n0(E1, E2, E3)
-
-                if _fun is None:
-                    out = out0
-                else:
-                    out1 = _fun(E1, E2, E3)
-                    assert out0.shape == out1.shape
-                    out = out0 + out1
-
-                if flat_eval:
-                    out = np.squeeze(out)
-
-            return out
-
-        self._f_init = _f_init

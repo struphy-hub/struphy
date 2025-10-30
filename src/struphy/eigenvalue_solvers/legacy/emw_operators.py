@@ -6,11 +6,11 @@
 Class for 2D/3D linear MHD projection operators.
 """
 
+import cunumpy as xp
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_3d as ker
 import struphy.eigenvalue_solvers.legacy.mass_matrices_3d_pre as mass_3d_pre
-from struphy.utils.arrays import xp as np
 
 
 class EMW_operators:
@@ -134,7 +134,7 @@ class EMW_operators:
                 Ni = self.SPACES.Nbase_1form[a]
                 Nj = self.SPACES.Nbase_1form[b]
 
-                M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1), dtype=float)
+                M[a][b] = xp.zeros((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1), dtype=float)
 
                 # evaluate metric tensor at quadrature points
                 if a == 1 and b == 2:
@@ -185,9 +185,9 @@ class EMW_operators:
                         mat_w,
                     )
                 # convert to sparse matrix
-                indices = np.indices((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1))
+                indices = xp.indices((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1))
 
-                shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
+                shift = [xp.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
                 row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 

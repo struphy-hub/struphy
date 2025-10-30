@@ -1,350 +1,37 @@
-from dataclasses import dataclass
+import glob
+import importlib.util
+import os
+import shutil
+import sys
+from types import ModuleType
 
+import cunumpy as xp
 from psydac.ddm.mpi import mpi as MPI
 
-from struphy.utils.arrays import xp as np
-from struphy.utils.utils import dict_to_yaml
+from struphy.geometry.base import Domain
+from struphy.io.options import DerhamOptions
+from struphy.topology.grids import TensorProductGrid
 
 
-def derive_units(
-    Z_bulk: int = None,
-    A_bulk: int = None,
-    x: float = 1.0,
-    B: float = 1.0,
-    n: float = 1.0,
-    kBT: float = None,
-    velocity_scale: str = "alfvén",
-):
-    """Computes units used in Struphy model's :ref:`normalization`.
-
-    Input units from parameter file:
-
-    * Length (m)
-    * Magnetic field (T)
-    * Number density (10^20 1/m^3)
-    * Thermal energy (keV), optional
-
-    Velocity unit is defined here:
-
-    * Velocity (m/s)
-
-    Derived units using mass and charge number of bulk species:
-
-    * Time (s)
-    * Pressure (Pa)
-    * Mass density (kg/m^3)
-    * Current density (A/m^2)
-
-    Parameters
-    ---------
-    Z_bulk : int
-        Charge number of bulk species.
-
-    A_bulk : int
-        Mass number of bulk species.
-
-    x : float
-        Unit of length (in meters).
-
-    B : float
-        Unit of magnetic field (in Tesla).
-
-    n : float
-        Unit of particle number density (in 1e20 per cubic meter).
-
-    kBT : float
-        Unit of internal energy (in keV). Only in effect if the velocity scale is set to 'thermal'.
-
-    velocity_scale : str
-        Velocity scale to be used ("alfvén", "cyclotron", "light" or "thermal").
-
-    Returns
-    -------
-    units : dict
-        The Struphy units defined above and some Physics constants.
-    """
-
-    units = {}
-
-    # physics constants
-    units["elementary charge"] = 1.602176634e-19  # elementary charge (C)
-    units["proton mass"] = 1.67262192369e-27  # proton mass (kg)
-    units["mu0"] = 1.25663706212e-6  # magnetic constant (N/A^2)
-    units["eps0"] = 8.8541878128e-12  # vacuum permittivity (F/m)
-    units["kB"] = 1.380649e-23  # Boltzmann constant (J/K)
-    units["speed of light"] = 299792458  # speed of light (m/s)
-
-    e = units["elementary charge"]
-    mH = units["proton mass"]
-    mu0 = units["mu0"]
-    eps0 = units["eps0"]
-    kB = units["kB"]
-    c = units["speed of light"]
-
-    # length (m)
-    units["x"] = x
-    # magnetic field (T)
-    units["B"] = B
-    # number density (1/m^3)
-    units["n"] = n * 1e20
-
-    # velocity (m/s)
-    if velocity_scale is None:
-        units["v"] = 1.0
-
-    elif velocity_scale == "light":
-        units["v"] = 1.0 * c
-
-    elif velocity_scale == "alfvén":
-        assert A_bulk is not None, 'Need bulk species to choose velocity scale "alfvén".'
-        units["v"] = units["B"] / np.sqrt(units["n"] * A_bulk * mH * mu0)
-
-    elif velocity_scale == "cyclotron":
-        assert Z_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
-        assert A_bulk is not None, 'Need bulk species to choose velocity scale "cyclotron".'
-        units["v"] = Z_bulk * e * units["B"] / (A_bulk * mH) * units["x"]
-
-    elif velocity_scale == "thermal":
-        assert A_bulk is not None, 'Need bulk species to choose velocity scale "thermal".'
-        assert kBT is not None
-        units["v"] = np.sqrt(kBT * 1000 * e / (mH * A_bulk))
-
-    # time (s)
-    units["t"] = units["x"] / units["v"]
-    if A_bulk is None:
-        return units
-
-    # pressure (Pa), equal to B^2/mu0 if velocity_scale='alfvén'
-    units["p"] = A_bulk * mH * units["n"] * units["v"] ** 2
-
-    # mass density (kg/m^3)
-    units["rho"] = A_bulk * mH * units["n"]
-
-    # current density (A/m^2)
-    units["j"] = e * units["n"] * units["v"]
-
-    return units
+def import_parameters_py(params_path: str) -> ModuleType:
+    """Import a .py parameter file under the module name 'parameters' and return it."""
+    assert ".py" in params_path
+    spec = importlib.util.spec_from_file_location("parameters", params_path)
+    params_in = importlib.util.module_from_spec(spec)
+    sys.modules["parameters"] = params_in
+    spec.loader.exec_module(params_in)
+    return params_in
 
 
-def setup_domain_and_equil(params: dict, units: dict = None):
-    """
-    Creates the domain object and equilibrium for a given parameter file.
-
-    Parameters
-    ----------
-    params : dict
-        The full simulation parameter dictionary.
-
-    units : dict
-        All Struphy units.
-
-    Returns
-    -------
-    domain : Domain
-        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
-
-    equil : FluidEquilibrium
-        The equilibrium object.
-    """
-
-    from struphy.fields_background import equils
-    from struphy.fields_background.base import (
-        NumericalFluidEquilibrium,
-        NumericalFluidEquilibriumWithB,
-        NumericalMHDequilibrium,
-    )
-    from struphy.geometry import domains
-
-    if "fluid_background" in params:
-        for eq_type, eq_params in params["fluid_background"].items():
-            eq_class = getattr(equils, eq_type)
-            if eq_type in ("EQDSKequilibrium", "GVECequilibrium", "DESCequilibrium"):
-                equil = eq_class(**eq_params, units=units)
-            else:
-                equil = eq_class(**eq_params)
-
-        # for numerical equilibria, the domain comes from the equilibrium
-        if isinstance(equil, (NumericalMHDequilibrium, NumericalFluidEquilibrium, NumericalFluidEquilibriumWithB)):
-            domain = equil.domain
-        # for all other equilibria, the domain can be chosen idependently
-        else:
-            dom_type = params["geometry"]["type"]
-            dom_class = getattr(domains, dom_type)
-
-            if dom_type == "Tokamak":
-                domain = dom_class(**params["geometry"][dom_type], equilibrium=equil)
-            else:
-                domain = dom_class(**params["geometry"][dom_type])
-
-            # set domain attribute in mhd object
-            equil.domain = domain
-
-    # no equilibrium (just load domain)
-    else:
-        dom_type = params["geometry"]["type"]
-        dom_class = getattr(domains, dom_type)
-        domain = dom_class(**params["geometry"][dom_type])
-
-        equil = None
-
-    return domain, equil
-
-
-def setup_derham(
-    params_grid,
-    comm=None,
-    domain=None,
-    mpi_dims_mask=None,
-    verbose=False,
-):
-    """
-    Creates the 3d derham sequence for given grid parameters.
-
-    Parameters
-    ----------
-    params_grid : dict
-        Grid parameters dictionary.
-
-    comm: Intracomm
-        MPI communicator (sub_comm if clones are used).
-
-    domain : struphy.geometry.base.Domain, optional
-        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
-
-    mpi_dims_mask: list of bool
-        True if the dimension is to be used in the domain decomposition (=default for each dimension).
-        If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-
-    verbose : bool
-        Show info on screen.
-
-    Returns
-    -------
-    derham : struphy.feec.psydac_derham.Derham
-        Discrete de Rham sequence on the logical unit cube.
-    """
-
-    from struphy.feec.psydac_derham import Derham
-
-    # number of grid cells
-    Nel = params_grid["Nel"]
-    # spline degrees
-    p = params_grid["p"]
-    # spline types (clamped vs. periodic)
-    spl_kind = params_grid["spl_kind"]
-    # boundary conditions (Homogeneous Dirichlet or None)
-    dirichlet_bc = params_grid["dirichlet_bc"]
-    # Number of quadrature points per histopolation cell
-    nq_pr = params_grid["nq_pr"]
-    # Number of quadrature points per grid cell for L^2
-    nq_el = params_grid["nq_el"]
-    # C^k smoothness at eta_1=0 for polar domains
-    polar_ck = params_grid["polar_ck"]
-    # local commuting projectors
-    local_projectors = params_grid["local_projectors"]
-
-    derham = Derham(
-        Nel,
-        p,
-        spl_kind,
-        dirichlet_bc=dirichlet_bc,
-        nquads=nq_el,
-        nq_pr=nq_pr,
-        comm=comm,
-        mpi_dims_mask=mpi_dims_mask,
-        with_projectors=True,
-        polar_ck=polar_ck,
-        domain=domain,
-        local_projectors=local_projectors,
-    )
-
-    if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
-        print("\nDERHAM:")
-        print(f"number of elements:".ljust(25), Nel)
-        print(f"spline degrees:".ljust(25), p)
-        print(f"periodic bcs:".ljust(25), spl_kind)
-        print(f"hom. Dirichlet bc:".ljust(25), dirichlet_bc)
-        print(f"GL quad pts (L2):".ljust(25), nq_el)
-        print(f"GL quad pts (hist):".ljust(25), nq_pr)
-        print(
-            "MPI proc. per dir.:".ljust(25),
-            derham.domain_decomposition.nprocs,
-        )
-        print("use polar splines:".ljust(25), derham.polar_ck == 1)
-        print("domain on process 0:".ljust(25), derham.domain_array[0])
-
-    return derham
-
-
-def pre_processing(
-    model_name: str,
-    parameters: dict | str,
+def setup_folders(
     path_out: str,
     restart: bool,
-    max_sim_time: int,
-    save_step: int,
-    mpi_rank: int,
-    mpi_size: int,
-    use_mpi: bool,
-    num_clones: int,
     verbose: bool = False,
 ):
     """
-    Prepares simulation parameters, output folder and prints some information of the run to the screen.
-
-    Parameters
-    ----------
-    model_name : str
-        The name of the model to run.
-
-    parameters : dict | str
-        The simulation parameters. Can either be a dictionary OR a string (path of .yml parameter file)
-
-    path_out : str
-        The output directory. Will create a folder if it does not exist OR cleans the folder for new runs.
-
-    restart : bool
-        Whether to restart a run.
-
-    max_sim_time : int
-        Maximum run time of simulation in minutes. Will finish the time integration once this limit is reached.
-
-    save_step : int
-        When to save data output: every time step (save_step=1), every second time step (save_step=2).
-
-    mpi_rank : int
-        The rank of the calling process.
-
-    mpi_size : int
-        Total number of MPI processes of the run.
-
-    use_mpi: bool
-        True if MPI.COMM_WORLD is not None.
-
-    num_clones: int
-        Number of domain clones.
-
-    verbose : bool
-        Show full screen output.
-
-    Returns
-    -------
-    params : dict
-        The simulation parameters.
+    Setup output folders.
     """
-
-    import datetime
-    import glob
-    import os
-    import shutil
-    import sysconfig
-
-    import yaml
-
-    from struphy.models import fluid, hybrid, kinetic, toy
-
-    # prepare output folder
-    if mpi_rank == 0:
+    if MPI.COMM_WORLD.Get_rank() == 0:
         if verbose:
             print("\nPREPARATION AND CLEAN-UP:")
 
@@ -359,8 +46,6 @@ def pre_processing(
             os.mkdir(os.path.join(path_out, "data/"))
             if verbose:
                 print("Created folder " + os.path.join(path_out, "data/"))
-
-        # clean output folder if it already exists
         else:
             # remove post_processing folder
             folder = os.path.join(path_out, "post_processing")
@@ -397,80 +82,90 @@ def pre_processing(
                     if verbose and n < 10:  # print only ten statements in case of many processes
                         print("Removed existing file " + file)
 
-    # save "parameters" dictionary as .yml file
-    if isinstance(parameters, dict):
-        parameters_path = os.path.join(path_out, "parameters.yml")
 
-        # write parameters to file and save it in output folder
-        if mpi_rank == 0:
-            dict_to_yaml(parameters, parameters_path)
+def setup_derham(
+    grid: TensorProductGrid,
+    options: DerhamOptions,
+    comm: MPI.Intracomm = None,
+    domain: Domain = None,
+    verbose=False,
+):
+    """
+    Creates the 3d derham sequence for given grid parameters.
 
-        params = parameters
+    Parameters
+    ----------
+    grid : TensorProductGrid
+        The FEEC grid.
 
-    # OR load parameters if "parameters" is a string (path)
-    else:
-        parameters_path = parameters
+    comm: Intracomm
+        MPI communicator (sub_comm if clones are used).
 
-        with open(parameters) as file:
-            params = yaml.load(file, Loader=yaml.FullLoader)
+    domain : Domain, optional
+        The Struphy domain object for evaluating the mapping F : [0, 1]^3 --> R^3 and the corresponding metric coefficients.
 
-    if model_name is None:
-        assert "model" in params, "If model is not specified, then model: MODEL must be specified in the params!"
-        model_name = params["model"]
+    verbose : bool
+        Show info on screen.
 
-    if mpi_rank == 0:
-        # copy parameter file to output folder
-        if parameters_path != os.path.join(path_out, "parameters.yml"):
-            shutil.copy2(
-                parameters_path,
-                os.path.join(
-                    path_out,
-                    "parameters.yml",
-                ),
-            )
+    Returns
+    -------
+    derham : struphy.feec.psydac_derham.Derham
+        Discrete de Rham sequence on the logical unit cube.
+    """
 
-        # print simulation info
-        print("\nMETADATA:")
-        print("platform:".ljust(25), sysconfig.get_platform())
-        print("python version:".ljust(25), sysconfig.get_python_version())
-        print("model:".ljust(25), model_name)
-        print("MPI processes:".ljust(25), mpi_size)
-        print("use MPI.COMM_WORLD:".ljust(25), use_mpi)
-        print("number of domain clones:".ljust(25), num_clones)
-        print("parameter file:".ljust(25), parameters_path)
-        print("output folder:".ljust(25), path_out)
-        print("restart:".ljust(25), restart)
-        print("max wall-clock [min]:".ljust(25), max_sim_time)
-        print("save interval [steps]:".ljust(25), save_step)
+    from struphy.feec.psydac_derham import Derham
 
-        # write meta data to output folder
-        with open(path_out + "/meta.txt", "w") as f:
-            f.write(
-                "date of simulation: ".ljust(
-                    30,
-                )
-                + str(datetime.datetime.now())
-                + "\n",
-            )
-            f.write("platform: ".ljust(30) + sysconfig.get_platform() + "\n")
-            f.write(
-                "python version: ".ljust(
-                    30,
-                )
-                + sysconfig.get_python_version()
-                + "\n",
-            )
-            f.write("model_name: ".ljust(30) + model_name + "\n")
-            f.write("processes: ".ljust(30) + str(mpi_size) + "\n")
-            f.write("use MPI.COMM_WORLD: ".ljust(30) + str(use_mpi) + "\n")
-            f.write("output folder:".ljust(30) + path_out + "\n")
-            f.write("restart:".ljust(30) + str(restart) + "\n")
-            f.write(
-                "max wall-clock time [min]:".ljust(30) + str(max_sim_time) + "\n",
-            )
-            f.write("save interval (steps):".ljust(30) + str(save_step) + "\n")
+    # number of grid cells
+    Nel = grid.Nel
+    # mpi
+    mpi_dims_mask = grid.mpi_dims_mask
 
-    return params
+    # spline degrees
+    p = options.p
+    # spline types (clamped vs. periodic)
+    spl_kind = options.spl_kind
+    # boundary conditions (Homogeneous Dirichlet or None)
+    dirichlet_bc = options.dirichlet_bc
+    # Number of quadrature points per histopolation cell
+    nq_pr = options.nq_pr
+    # Number of quadrature points per grid cell for L^2
+    nquads = options.nquads
+    # C^k smoothness at eta_1=0 for polar domains
+    polar_ck = options.polar_ck
+    # local commuting projectors
+    local_projectors = options.local_projectors
+
+    derham = Derham(
+        Nel,
+        p,
+        spl_kind,
+        dirichlet_bc=dirichlet_bc,
+        nquads=nquads,
+        nq_pr=nq_pr,
+        comm=comm,
+        mpi_dims_mask=mpi_dims_mask,
+        with_projectors=True,
+        polar_ck=polar_ck,
+        domain=domain,
+        local_projectors=local_projectors,
+    )
+
+    if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
+        print("\nDERHAM:")
+        print(f"number of elements:".ljust(25), Nel)
+        print(f"spline degrees:".ljust(25), p)
+        print(f"periodic bcs:".ljust(25), spl_kind)
+        print(f"hom. Dirichlet bc:".ljust(25), dirichlet_bc)
+        print(f"GL quad pts (L2):".ljust(25), nquads)
+        print(f"GL quad pts (hist):".ljust(25), nq_pr)
+        print(
+            "MPI proc. per dir.:".ljust(25),
+            derham.domain_decomposition.nprocs,
+        )
+        print("use polar splines:".ljust(25), derham.polar_ck == 1)
+        print("domain on process 0:".ljust(25), derham.domain_array[0])
+
+    return derham
 
 
 def descend_options_dict(

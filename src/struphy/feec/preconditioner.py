@@ -1,3 +1,4 @@
+import cunumpy as xp
 from psydac.api.essential_bc import apply_essential_bc_stencil
 from psydac.ddm.cart import CartDecomposition, DomainDecomposition
 from psydac.fem.tensor import TensorFemSpace
@@ -11,7 +12,6 @@ from scipy.linalg import solve_circulant
 
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.mass import WeightedMassOperator
-from struphy.utils.arrays import xp as np
 
 
 class MassMatrixPreconditioner(LinearOperator):
@@ -94,12 +94,12 @@ class MassMatrixPreconditioner(LinearOperator):
                             s = e.shape[0]
                             newshape = tuple([1 if i != d else s for i in range(n_dims)])
                             f = e.reshape(newshape)
-                            return np.atleast_1d(
+                            return xp.atleast_1d(
                                 loc_weights(
-                                    *[np.array(np.full_like(f, 0.5)) if i != d else np.array(f) for i in range(n_dims)],
+                                    *[xp.array(xp.full_like(f, 0.5)) if i != d else xp.array(f) for i in range(n_dims)],
                                 ).squeeze(),
                             )
-                    elif isinstance(loc_weights, np.ndarray):
+                    elif isinstance(loc_weights, xp.ndarray):
                         s = loc_weights.shape
                         if d == 0:
                             fun = loc_weights[:, s[1] // 2, s[2] // 2]
@@ -108,14 +108,14 @@ class MassMatrixPreconditioner(LinearOperator):
                         elif d == 2:
                             fun = loc_weights[s[0] // 2, s[1] // 2, :]
                     elif loc_weights is None:
-                        fun = lambda e: np.ones(e.size, dtype=float)
+                        fun = lambda e: xp.ones(e.size, dtype=float)
                     else:
                         raise TypeError(
-                            "weights needs to be callable, np.ndarray or None but is{}".format(type(loc_weights)),
+                            "weights needs to be callable, xp.ndarray or None but is{}".format(type(loc_weights)),
                         )
                     fun = [[fun]]
                 else:
-                    fun = [[lambda e: np.ones(e.size, dtype=float)]]
+                    fun = [[lambda e: xp.ones(e.size, dtype=float)]]
 
                 # get 1D FEM space (serial, not distributed) and quadrature order
                 femspace_1d = femspaces[c].spaces[d]
@@ -207,7 +207,7 @@ class MassMatrixPreconditioner(LinearOperator):
 
                 M_local = StencilMatrix(V_local, V_local)
 
-                row_indices, col_indices = np.nonzero(M_arr)
+                row_indices, col_indices = xp.nonzero(M_arr)
 
                 for row_i, col_i in zip(row_indices, col_indices):
                     # only consider row indices on process
@@ -220,7 +220,7 @@ class MassMatrixPreconditioner(LinearOperator):
                         ] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
-                assert np.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
+                assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
 
                 matrixcells += [M_local.copy()]
                 # =======================================================================================================
@@ -487,7 +487,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
             # loop over spatial directions
             for d in range(n_dims):
-                fun = [[lambda e: np.ones(e.size, dtype=float)]]
+                fun = [[lambda e: xp.ones(e.size, dtype=float)]]
 
                 # get 1D FEM space (serial, not distributed) and quadrature order
                 femspace_1d = femspaces[c].spaces[d]
@@ -579,7 +579,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
                 M_local = StencilMatrix(V_local, V_local)
 
-                row_indices, col_indices = np.nonzero(M_arr)
+                row_indices, col_indices = xp.nonzero(M_arr)
 
                 for row_i, col_i in zip(row_indices, col_indices):
                     # only consider row indices on process
@@ -592,7 +592,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
                         ] = M_arr[row_i, col_i]
 
                 # check if stencil matrix was built correctly
-                assert np.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
+                assert xp.allclose(M_local.toarray()[s : e + 1], M_arr[s : e + 1])
 
                 matrixcells += [M_local.copy()]
                 # =======================================================================================================
@@ -676,7 +676,7 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
 
         # Need to assemble the logical mass matrix to extract the coefficients
         fun = [
-            [lambda e1, e2, e3: np.ones_like(e1, dtype=float) if i == j else None for j in range(3)] for i in range(3)
+            [lambda e1, e2, e3: xp.ones_like(e1, dtype=float) if i == j else None for j in range(3)] for i in range(3)
         ]
         log_M = WeightedMassOperator(
             self._mass_operator.derham,
@@ -864,15 +864,15 @@ class FFTSolver(BandedSolver):
 
     Parameters
     ----------
-    circmat : np.ndarray
+    circmat : xp.ndarray
         Generic circulant matrix.
     """
 
     def __init__(self, circmat):
-        assert isinstance(circmat, np.ndarray)
+        assert isinstance(circmat, xp.ndarray)
         assert is_circulant(circmat)
 
-        self._space = np.ndarray
+        self._space = xp.ndarray
         self._column = circmat[:, 0]
 
     # --------------------------------------
@@ -889,13 +889,13 @@ class FFTSolver(BandedSolver):
 
         Parameters
         ----------
-        rhs : np.ndarray
+        rhs : xp.ndarray
             The right-hand sides to solve for. The vectors are assumed to be given in C-contiguous order,
             i.e. if multiple right-hand sides are given, then rhs is a two-dimensional array with the 0-th
             index denoting the number of the right-hand side, and the 1-st index denoting the element inside
             a right-hand side.
 
-        out : np.ndarray, optional
+        out : xp.ndarray, optional
             Output vector. If given, it has to have the same shape and datatype as rhs.
 
         transposed : bool
@@ -913,7 +913,7 @@ class FFTSolver(BandedSolver):
 
             try:
                 out[:] = solve_circulant(self._column, rhs.T).T
-            except np.linalg.LinAlgError:
+            except xp.linalg.LinAlgError:
                 eps = 1e-4
                 print(f"Stabilizing singular preconditioning FFTSolver with {eps = }:")
                 self._column[0] *= 1.0 + eps
@@ -937,13 +937,13 @@ def is_circulant(mat):
         Whether the matrix is circulant (=True) or not (=False).
     """
 
-    assert isinstance(mat, np.ndarray)
+    assert isinstance(mat, xp.ndarray)
     assert len(mat.shape) == 2
     assert mat.shape[0] == mat.shape[1]
 
     if mat.shape[0] > 1:
         for i in range(mat.shape[0] - 1):
-            circulant = np.allclose(mat[i, :], np.roll(mat[i + 1, :], -1))
+            circulant = xp.allclose(mat[i, :], xp.roll(mat[i + 1, :], -1))
             if not circulant:
                 return circulant
     else:

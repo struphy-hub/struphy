@@ -78,7 +78,7 @@ def split_command(command):
         # ["units", "Maxwell", "--input-abs", "/params.yml"],
         # Test cases for 'params' sub-command
         ["params", "Maxwell"],
-        ["params", "Vlasov", "--options"],
+        ["params", "Vlasov"],
         # ["params", "Maxwell", "-f", "params_Maxwell.yml"],
         # Test cases for 'profile' sub-command
         ["profile", "sim_1"],
@@ -93,7 +93,7 @@ def split_command(command):
         # Test cases for 'test' sub-command
         ["test", "models"],
         ["test", "unit"],
-        ["test", "Maxwell", "--Tend", "1.0"],
+        ["test", "Maxwell"],
         ["test", "hybrid", "--mpi", "8"],
     ],
 )
@@ -360,10 +360,9 @@ def test_struphy_compile(
 @pytest.mark.parametrize("model", ["Maxwell"])
 @pytest.mark.parametrize("file", ["params_Maxwell.yml", "params_Maxwel2.yml"])
 @pytest.mark.parametrize("yes", [True])
-@pytest.mark.parametrize("options", [True, False])
-def test_struphy_params(tmp_path, model, file, yes, options):
+def test_struphy_params(tmp_path, model, file, yes):
     file_path = os.path.join(tmp_path, file)
-    struphy_params(model, str(file_path), yes=yes, options=options)
+    struphy_params(model, str(file_path), yes=yes)
 
 
 @pytest.mark.mpi_skip

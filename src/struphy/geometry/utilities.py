@@ -1,14 +1,23 @@
+# from __future__ import annotations
 "Domain-related utility functions."
 
+from typing import Callable
+
+import cunumpy as xp
+import numpy as np
+
+# from typing import TYPE_CHECKING
 from scipy.optimize import newton, root, root_scalar
 from scipy.sparse import csc_matrix
 from scipy.sparse.linalg import splu
 
 from struphy.bsplines import bsplines as bsp
-from struphy.geometry.base import PoloidalSplineTorus
+
+# if TYPE_CHECKING:
+from struphy.geometry.base import Domain, PoloidalSplineTorus
 from struphy.geometry.utilities_kernels import weighted_arc_lengths_flux_surface
+from struphy.io.options import GivenInBasis
 from struphy.linear_algebra.linalg_kron import kron_lusolve_2d
-from struphy.utils.arrays import xp as np
 
 
 def field_line_tracing(
@@ -120,10 +129,10 @@ def field_line_tracing(
 
     Returns
     -------
-    cR : np.ndarray
+    cR : xp.ndarray
         Control points (2d) of flux aligned spline mapping (R-component).
 
-    cZ : np.ndarray
+    cZ : xp.ndarray
         Control points (2d) of flux aligned spline mapping (Z-component).
     """
 
@@ -136,8 +145,8 @@ def field_line_tracing(
         ps, px = p_pre
 
     # spline knots
-    Ts = bsp.make_knots(np.linspace(0.0, 1.0, ns + 1), ps, False)
-    Tx = bsp.make_knots(np.linspace(0.0, 1.0, nx + 1), px, True)
+    Ts = bsp.make_knots(xp.linspace(0.0, 1.0, ns + 1), ps, False)
+    Tx = bsp.make_knots(xp.linspace(0.0, 1.0, nx + 1), px, True)
 
     # interpolation (Greville) points
     s_gr = bsp.greville(Ts, ps, False)
@@ -156,13 +165,13 @@ def field_line_tracing(
     ]
 
     # check if pole is included
-    if np.abs(psi(psi_axis_R, psi_axis_Z) - psi0) < 1e-14:
+    if xp.abs(psi(psi_axis_R, psi_axis_Z) - psi0) < 1e-14:
         pole = True
     else:
         pole = False
 
-    R = np.zeros((s_gr.size, x_gr.size), dtype=float)
-    Z = np.zeros((s_gr.size, x_gr.size), dtype=float)
+    R = xp.zeros((s_gr.size, x_gr.size), dtype=float)
+    Z = xp.zeros((s_gr.size, x_gr.size), dtype=float)
 
     # function whose root must be found
     for j, x in enumerate(x_gr):
@@ -179,8 +188,8 @@ def field_line_tracing(
 
             # function whose root must be found
             def f(r):
-                _R = psi_axis_R + r * np.cos(2 * np.pi * x)
-                _Z = psi_axis_Z + r * np.sin(2 * np.pi * x)
+                _R = psi_axis_R + r * xp.cos(2 * xp.pi * x)
+                _Z = psi_axis_Z + r * xp.sin(2 * xp.pi * x)
 
                 psi_norm = (psi(_R, _Z) - psi0) / (psi1 - psi0)
 
@@ -191,8 +200,8 @@ def field_line_tracing(
 
             r_flux_surface = newton(f, x0=r_guess)
 
-            R[i, j] = psi_axis_R + r_flux_surface * np.cos(2 * np.pi * x)
-            Z[i, j] = psi_axis_Z + r_flux_surface * np.sin(2 * np.pi * x)
+            R[i, j] = psi_axis_R + r_flux_surface * xp.cos(2 * xp.pi * x)
+            Z[i, j] = psi_axis_Z + r_flux_surface * xp.sin(2 * xp.pi * x)
 
     # get control points
     cR_equal_angle = kron_lusolve_2d(ILUs, R)
@@ -218,8 +227,8 @@ def field_line_tracing(
         ps, px = p
 
         # spline knots
-        Ts = bsp.make_knots(np.linspace(0.0, 1.0, ns + 1), ps, False)
-        Tx = bsp.make_knots(np.linspace(0.0, 1.0, nx + 1), px, True)
+        Ts = bsp.make_knots(xp.linspace(0.0, 1.0, ns + 1), ps, False)
+        Tx = bsp.make_knots(xp.linspace(0.0, 1.0, nx + 1), px, True)
 
         # interpolation (Greville) points
         s_gr = bsp.greville(Ts, ps, False)
@@ -246,10 +255,10 @@ def field_line_tracing(
 
         # target function for xi parametrization
         def f_angles(xis, s_val):
-            assert np.all(np.logical_and(xis > 0.0, xis < 1.0))
+            assert xp.all(xp.logical_and(xis > 0.0, xis < 1.0))
 
             # add 0 and 1 to angles array
-            xis_extended = np.array([0.0] + list(xis) + [1.0])
+            xis_extended = xp.array([0.0] + list(xis) + [1.0])
 
             # compute (R, Z) coordinates for given xis on fixed flux surface corresponding to s_val
             _RZ = domain_eq_angle(s_val, xis_extended, 0.0)
@@ -258,17 +267,17 @@ def field_line_tracing(
             _Z = _RZ[2]
 
             # |grad(psi)| at xis
-            gp = np.sqrt(psi(_R, _Z, dR=1) ** 2 + psi(_R, _Z, dZ=1) ** 2)
+            gp = xp.sqrt(psi(_R, _Z, dR=1) ** 2 + psi(_R, _Z, dZ=1) ** 2)
 
             # compute weighted arc_lengths between two successive points in xis_extended array
-            dl = np.zeros(xis_extended.size - 1, dtype=float)
+            dl = xp.zeros(xis_extended.size - 1, dtype=float)
             weighted_arc_lengths_flux_surface(_R, _Z, gp, dl, xi_param_dict[xi_param])
 
             # total length of the flux surface
-            l = np.sum(dl)
+            l = xp.sum(dl)
 
             # cumulative sum of arc lengths, start with 0!
-            l_cum = np.cumsum(dl)
+            l_cum = xp.cumsum(dl)
 
             # odd spline degree
             if px % 2 == 1:
@@ -280,8 +289,8 @@ def field_line_tracing(
             return xi_diff
 
         # loop over flux surfaces and find xi parametrization
-        R = np.zeros((s_gr.size, x_gr.size), dtype=float)
-        Z = np.zeros((s_gr.size, x_gr.size), dtype=float)
+        R = xp.zeros((s_gr.size, x_gr.size), dtype=float)
+        Z = xp.zeros((s_gr.size, x_gr.size), dtype=float)
 
         if px % 2 == 1:
             xis0 = x_gr[1:].copy()
@@ -333,10 +342,10 @@ class TransformedPformComponent:
 
     Parameters
     ----------
-    fun : list
-        Callable function components. Has to be length three for 1-, 2-forms and vector fields, length one otherwise.
+    fun : Callable | list
+        Callable function (components). Has to be length three for vector-valued funnctions,.
 
-    fun_basis : str
+    given_in_basis : GivenInBasis
         In which basis fun is represented: either a p-form,
         then '0' or '3' for scalar
         and 'v', '1' or '2' for vector-valued,
@@ -348,19 +357,24 @@ class TransformedPformComponent:
         The p-form representation of the output: '0', '1', '2' '3' or 'v'.
 
     comp : int
-        Which component of the transformed p-form is returned, 0, 1, or 2 (only needed for vector-valued fun).
+        Which component of the vector-valued function to return (=0 for scalars).
 
     domain: struphy.geometry.domains
         All things mapping. If None, the input fun is just evaluated and not transformed at __call__.
-
-    Returns
-    -------
-    out : array[float]
-        The values of the component comp of fun transformed from fun_basis to out_form.
     """
 
-    def __init__(self, fun: list, fun_basis: str, out_form: str, comp=0, domain=None):
-        assert len(fun) == 1 or len(fun) == 3
+    def __init__(
+        self,
+        fun: Callable | list,
+        given_in_basis: GivenInBasis,
+        out_form: str,
+        comp: int = 0,
+        domain: Domain = None,
+    ):
+        if isinstance(fun, list):
+            assert len(fun) == 1 or len(fun) == 3
+        else:
+            fun = [fun]
 
         self._fun = []
         for f in fun:
@@ -374,7 +388,7 @@ class TransformedPformComponent:
                 assert callable(f)
                 self._fun += [f]
 
-        self._fun_basis = fun_basis
+        self._given_in_basis = given_in_basis
         self._out_form = out_form
         self._comp = comp
         self._domain = domain
@@ -391,19 +405,19 @@ class TransformedPformComponent:
 
     def __call__(self, eta1, eta2, eta3):
         """
-        Evaluate the component of the transformed p-form specified in self._comp.
+        Evaluate the component of the transformed p-form specified 'comp'.
 
         Depending on the dimension of eta1 either point-wise, tensor-product,
         slice plane or general (see :ref:`struphy.geometry.base.prepare_arg`).
         """
 
-        if self._fun_basis == self._out_form or self._domain is None:
+        if self._given_in_basis == self._out_form or self._domain is None:
             if self._is_scalar:
                 out = self._fun(eta1, eta2, eta3)
             else:
                 out = self._fun[self._comp](eta1, eta2, eta3)
 
-        elif self._fun_basis == "physical":
+        elif self._given_in_basis == "physical":
             if self._is_scalar:
                 out = self._domain.pull(
                     self._fun,
@@ -421,7 +435,7 @@ class TransformedPformComponent:
                     kind=self._out_form,
                 )[self._comp]
 
-        elif self._fun_basis == "physical_at_eta":
+        elif self._given_in_basis == "physical_at_eta":
             if self._is_scalar:
                 out = self._domain.pull(
                     self._fun,
@@ -442,7 +456,7 @@ class TransformedPformComponent:
                 )[self._comp]
 
         else:
-            dict_tran = self._fun_basis + "_to_" + self._out_form
+            dict_tran = self._given_in_basis + "_to_" + self._out_form
 
             if self._is_scalar:
                 out = self._domain.transform(
