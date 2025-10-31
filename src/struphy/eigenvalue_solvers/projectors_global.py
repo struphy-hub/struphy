@@ -169,7 +169,7 @@ class Projectors_global_1d:
         for i in range(spline_space.NbaseD):
             for br in spline_space.el_b:
                 # left and right integration boundaries
-                if spline_space.spl_kind == False:
+                if not spline_space.spl_kind:
                     xl = self.x_int[i]
                     xr = self.x_int[i + 1]
                 else:
@@ -186,7 +186,7 @@ class Projectors_global_1d:
                     self.x_his = xp.append(self.x_his, xr)
                     break
 
-        if spline_space.spl_kind == True and spline_space.p % 2 == 0:
+        if spline_space.spl_kind and spline_space.p % 2 == 0:
             self.x_his = xp.append(self.x_his, spline_space.el_b[-1] + self.x_his[0])
 
         # cumulative number of sub-intervals for conversion local interval --> global interval
@@ -198,7 +198,7 @@ class Projectors_global_1d:
 
         # quadrature points and weights, ignoring subs (less accurate integration for even degree)
         self.x_hisG = self.x_int
-        if spline_space.spl_kind == True:
+        if spline_space.spl_kind:
             if spline_space.p % 2 == 0:
                 self.x_hisG = xp.append(self.x_hisG, spline_space.el_b[-1] + self.x_hisG[0])
             else:
@@ -2153,7 +2153,7 @@ class ProjectorsGlobal3D:
     # ========================================
 
     def assemble_approx_inv(self, tol):
-        if self.approx_Ik_0_inv == False or (self.approx_Ik_0_inv == True and self.approx_Ik_0_tol != tol):
+        if not self.approx_Ik_0_inv or (self.approx_Ik_0_inv and self.approx_Ik_0_tol != tol):
             # poloidal plane
             I0_pol_0_inv_approx = xp.linalg.inv(self.I0_pol_0.toarray())
             I1_pol_0_inv_approx = xp.linalg.inv(self.I1_pol_0.toarray())
