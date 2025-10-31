@@ -1,0 +1,14 @@
+name: "Clone and install struphy"
+
+# defaults:
+#   run:
+#     shell: bash
+
+runs:
+  using: composite
+  steps:
+    - name: Install Struphy
+      shell: bash
+      run: |
+        pip install --upgrade pip
+        pip install ".[dev,doc]"
