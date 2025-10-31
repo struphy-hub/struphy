@@ -15,7 +15,7 @@ https://pypi.org/project/struphy/)
 
 **This is a Python package for solving partial differential equations (PDEs) mainly - but not exclusively - for plasma physics.**
 
-**STRUPHY** stands for "**STRU**cture in **PHY**sics" or "**STRU**cture-**P**reserving **HY**brid codes". The package provides off-the-shelf physics models for plasma physics problems, such as
+**STRUPHY** stands for "**STRU**cture in **PHY**sics" or "**STRU**cture-**P**reserving **HY**brid codes". The package provides off-the-shelf models for plasma physics problems, such as
 
 * Maxwell's equations
 * Magneto-hydrodynamics (MHD)
@@ -68,7 +68,7 @@ Hit yes when prompted - this will create the file `params_Maxwell.py` in your cu
 python params_Maxwell.py
 ```
 
-The default output is in `sim/` in your cwd. You can change the output path via the class `EnvironmentOptions` in the parameter file.
+The default output is in `sim_1/` in your cwd. You can change the output path via the class `EnvironmentOptions` in the parameter file.
 
 Parallel simulations are run for example with
 
