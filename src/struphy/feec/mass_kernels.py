@@ -2,7 +2,6 @@
 Integral kernels for mass matrices and L2-projections.
 """
 
-import numpy as np
 from numpy import shape
 
 # ================= 1d =================================
@@ -315,6 +314,8 @@ def kernel_3d_mat(
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
 
+    import numpy as np
+
     ne1 = spans1.size
     ne2 = spans2.size
     ne3 = spans3.size
@@ -341,9 +342,7 @@ def kernel_3d_mat(
         for iel2 in range(ne2):
             for iel3 in range(ne3):
                 tmp_mat_fun[:, :, :] = mat_fun[
-                    iel1 * nq1 : (iel1 + 1) * nq1,
-                    iel2 * nq2 : (iel2 + 1) * nq2,
-                    iel3 * nq3 : (iel3 + 1) * nq3,
+                    iel1 * nq1 : (iel1 + 1) * nq1, iel2 * nq2 : (iel2 + 1) * nq2, iel3 * nq3 : (iel3 + 1) * nq3
                 ]
 
                 tmp_w1[:] = w1[iel1, :]
@@ -576,6 +575,8 @@ def kernel_3d_matrixfree(
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
 
+    import numpy as np
+
     ne1 = spansi1.size
     ne2 = spansi2.size
     ne3 = spansi3.size
@@ -602,9 +603,7 @@ def kernel_3d_matrixfree(
         for iel2 in range(ne2):
             for iel3 in range(ne3):
                 tmp_mat_fun[:, :, :] = mat_fun[
-                    iel1 * nq1 : (iel1 + 1) * nq1,
-                    iel2 * nq2 : (iel2 + 1) * nq2,
-                    iel3 * nq3 : (iel3 + 1) * nq3,
+                    iel1 * nq1 : (iel1 + 1) * nq1, iel2 * nq2 : (iel2 + 1) * nq2, iel3 * nq3 : (iel3 + 1) * nq3
                 ]
 
                 tmp_w1[:] = w1[iel1, :]
@@ -693,6 +692,8 @@ def kernel_3d_diag(
     The results are written into data (attention: data is NOT set to zero first, but the results are added to data).
     """
 
+    import numpy as np
+
     ne1 = spans1.size
     ne2 = spans2.size
     ne3 = spans3.size
@@ -717,9 +718,7 @@ def kernel_3d_diag(
         for iel2 in range(ne2):
             for iel3 in range(ne3):
                 tmp_mat_fun[:, :, :] = mat_fun[
-                    iel1 * nq1 : (iel1 + 1) * nq1,
-                    iel2 * nq2 : (iel2 + 1) * nq2,
-                    iel3 * nq3 : (iel3 + 1) * nq3,
+                    iel1 * nq1 : (iel1 + 1) * nq1, iel2 * nq2 : (iel2 + 1) * nq2, iel3 * nq3 : (iel3 + 1) * nq3
                 ]
 
                 tmp_w1[:] = w1[iel1, :]

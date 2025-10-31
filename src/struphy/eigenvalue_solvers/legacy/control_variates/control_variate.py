@@ -6,7 +6,7 @@
 Class for control variates in delta-f method for current coupling scheme.
 """
 
-import cunumpy as xp
+import numpy as np
 import scipy.sparse as spa
 
 import struphy.feec.basics.kernels_3d as ker
@@ -40,7 +40,7 @@ class terms_control_variate:
             kind_fun_eq = [11, 12, 13, 14]
 
         # ========= evaluation of DF^(-1) * jh_eq_phys * |det(DF)| at quadrature points =========
-        self.mat_jh1 = xp.empty(
+        self.mat_jh1 = np.empty(
             (
                 self.space.Nel[0],
                 self.space.n_quad[0],
@@ -51,7 +51,7 @@ class terms_control_variate:
             ),
             dtype=float,
         )
-        self.mat_jh2 = xp.empty(
+        self.mat_jh2 = np.empty(
             (
                 self.space.Nel[0],
                 self.space.n_quad[0],
@@ -62,7 +62,7 @@ class terms_control_variate:
             ),
             dtype=float,
         )
-        self.mat_jh3 = xp.empty(
+        self.mat_jh3 = np.empty(
             (
                 self.space.Nel[0],
                 self.space.n_quad[0],
@@ -133,7 +133,7 @@ class terms_control_variate:
         )
 
         # ========= evaluation of nh_eq_phys * |det(DF)| at quadrature points ===================
-        self.mat_nh = xp.empty(
+        self.mat_nh = np.empty(
             (
                 self.space.Nel[0],
                 self.space.n_quad[0],
@@ -166,7 +166,7 @@ class terms_control_variate:
         )
 
         # =========== 2-form magnetic field at quadrature points =================================
-        self.B2_1 = xp.empty(
+        self.B2_1 = np.empty(
             (
                 self.space.Nel[0],
                 self.space.n_quad[0],
@@ -177,7 +177,7 @@ class terms_control_variate:
             ),
             dtype=float,
         )
-        self.B2_2 = xp.empty(
+        self.B2_2 = np.empty(
             (
                 self.space.Nel[0],
                 self.space.n_quad[0],
@@ -188,7 +188,7 @@ class terms_control_variate:
             ),
             dtype=float,
         )
-        self.B2_3 = xp.empty(
+        self.B2_3 = np.empty(
             (
                 self.space.Nel[0],
                 self.space.n_quad[0],
@@ -202,7 +202,7 @@ class terms_control_variate:
 
         # ================== correction matrices in step 1 ========================
         if self.basis_u == 0:
-            self.M12 = xp.empty(
+            self.M12 = np.empty(
                 (
                     self.space.NbaseN[0],
                     self.space.NbaseN[1],
@@ -213,7 +213,7 @@ class terms_control_variate:
                 ),
                 dtype=float,
             )
-            self.M13 = xp.empty(
+            self.M13 = np.empty(
                 (
                     self.space.NbaseN[0],
                     self.space.NbaseN[1],
@@ -224,7 +224,7 @@ class terms_control_variate:
                 ),
                 dtype=float,
             )
-            self.M23 = xp.empty(
+            self.M23 = np.empty(
                 (
                     self.space.NbaseN[0],
                     self.space.NbaseN[1],
@@ -237,7 +237,7 @@ class terms_control_variate:
             )
 
         elif self.basis_u == 2:
-            self.M12 = xp.empty(
+            self.M12 = np.empty(
                 (
                     self.space.NbaseN[0],
                     self.space.NbaseD[1],
@@ -248,7 +248,7 @@ class terms_control_variate:
                 ),
                 dtype=float,
             )
-            self.M13 = xp.empty(
+            self.M13 = np.empty(
                 (
                     self.space.NbaseN[0],
                     self.space.NbaseD[1],
@@ -259,7 +259,7 @@ class terms_control_variate:
                 ),
                 dtype=float,
             )
-            self.M23 = xp.empty(
+            self.M23 = np.empty(
                 (
                     self.space.NbaseD[0],
                     self.space.NbaseN[1],
@@ -273,14 +273,14 @@ class terms_control_variate:
 
         # ==================== correction vectors in step 3 =======================
         if self.basis_u == 0:
-            self.F1 = xp.empty((self.space.NbaseN[0], self.space.NbaseN[1], self.space.NbaseN[2]), dtype=float)
-            self.F2 = xp.empty((self.space.NbaseN[0], self.space.NbaseN[1], self.space.NbaseN[2]), dtype=float)
-            self.F3 = xp.empty((self.space.NbaseN[0], self.space.NbaseN[1], self.space.NbaseN[2]), dtype=float)
+            self.F1 = np.empty((self.space.NbaseN[0], self.space.NbaseN[1], self.space.NbaseN[2]), dtype=float)
+            self.F2 = np.empty((self.space.NbaseN[0], self.space.NbaseN[1], self.space.NbaseN[2]), dtype=float)
+            self.F3 = np.empty((self.space.NbaseN[0], self.space.NbaseN[1], self.space.NbaseN[2]), dtype=float)
 
         elif self.basis_u == 2:
-            self.F1 = xp.empty((self.space.NbaseN[0], self.space.NbaseD[1], self.space.NbaseD[2]), dtype=float)
-            self.F2 = xp.empty((self.space.NbaseD[0], self.space.NbaseN[1], self.space.NbaseD[2]), dtype=float)
-            self.F3 = xp.empty((self.space.NbaseD[0], self.space.NbaseD[1], self.space.NbaseN[2]), dtype=float)
+            self.F1 = np.empty((self.space.NbaseN[0], self.space.NbaseD[1], self.space.NbaseD[2]), dtype=float)
+            self.F2 = np.empty((self.space.NbaseD[0], self.space.NbaseN[1], self.space.NbaseD[2]), dtype=float)
+            self.F3 = np.empty((self.space.NbaseD[0], self.space.NbaseD[1], self.space.NbaseN[2]), dtype=float)
 
     # ===== inner product in V0^3 resp. V2 of (B x jh_eq) - term ==========
     def inner_prod_jh_eq(self, b1, b2, b3):
@@ -511,7 +511,7 @@ class terms_control_variate:
                 self.B2_1 * self.mat_jh2 - self.B2_2 * self.mat_jh1,
             )
 
-        return xp.concatenate((self.F1.flatten(), self.F2.flatten(), self.F3.flatten()))
+        return np.concatenate((self.F1.flatten(), self.F2.flatten(), self.F3.flatten()))
 
     # ===== mass matrix in V0^3 resp. V2 of -(rhoh_eq * (B x U)) - term =======
     def mass_nh_eq(self, b1, b2, b3):

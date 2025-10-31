@@ -1,14 +1,12 @@
 import inspect
-from copy import deepcopy
 
-import cunumpy as xp
+import numpy as np
+from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-from psydac.ddm.mpi import mpi as MPI
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
 from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
 from psydac.linalg.block import BlockLinearOperator, BlockVector
-from psydac.linalg.solvers import inverse
 from psydac.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
 from struphy.feec import mass_kernels
@@ -17,7 +15,6 @@ from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities import RotationMatrix
 from struphy.geometry.base import Domain
 from struphy.polar.linear_operators import PolarExtractionOperator
-from struphy.utils.pyccel import Pyccelkernel
 
 
 class WeightedMassOperators:
@@ -449,7 +446,7 @@ class WeightedMassOperators:
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
                     self.weights[self.selected_weight].a1_3,
-                ],
+                ]
             )
 
             tmp_b2 = self.derham.curl.dot(a_eq)
@@ -555,7 +552,7 @@ class WeightedMassOperators:
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
                     self.weights[self.selected_weight].a1_3,
-                ],
+                ]
             )
 
             tmp_b2 = self.derham.curl.dot(a_eq)
@@ -731,12 +728,6 @@ class WeightedMassOperators:
 
         return self._M1gyro
 
-    @property
-    def WMM(self):
-        if not hasattr(self, "_WMM"):
-            self._WMM = self.H1vecMassMatrix_density(self.derham, self, self.domain)
-        return self._WMM
-
     #######################################
     # Wrapper around WeightedMassOperator #
     #######################################
@@ -777,7 +768,7 @@ class WeightedMassOperators:
             1. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
             2. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
             3. ``1D list`` : 1d list consisting of either a) strings or b) matrices (3x3 callables or 3x3 list) and can be mixed. Predefined names are ``G``, ``Ginv``, ``DFinv``, ``sqrt_g``. Access them using strings in the 1d list: ``weights=['<name>']``. Possible choices for key-value pairs in **weights** are, at the moment: ``eq_mhd``: :class:`~struphy.fields_background.base.MHDequilibrium`. To access them, use for ``<name>`` the string ``eq_<method name>``, where ``<method name>`` can be found in the just mentioned base classes for MHD equilibria. By default, all scalars are multiplied. For division of scalars use ``1/<name>``.
-            4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
+            4. ``2D list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
         assemble: bool
             Whether to assemble the weighted mass matrix, i.e. computes the integrals with
@@ -905,7 +896,7 @@ class WeightedMassOperators:
             if weights_rank2:
                 # if matrix exits
                 fun = []
-                if listinput and len(weights_rank2) == 1:
+                if listinput == True and len(weights_rank2) == 1:
                     for m in range(3):
                         fun += [[]]
                         for n in range(3):
@@ -918,11 +909,7 @@ class WeightedMassOperators:
                         for n in range(3):
                             fun[-1] += [
                                 lambda e1, e2, e3, m=m, n=n: self._matrix_operate(e1, e2, e3, *weights_rank2)[
-                                    :,
-                                    :,
-                                    :,
-                                    m,
-                                    n,
+                                    :, :, :, m, n
                                 ],
                             ]
                 # Scalar operations second
@@ -949,14 +936,14 @@ class WeightedMassOperators:
                     fun = [
                         [
                             lambda e1, e2, e3: 1.0 / weights_rank0[0](e1, e2, e3),
-                        ],
+                        ]
                     ]
 
                 for f2, op in zip(weights_rank0[1:], operations[1:]):
                     fun = [
                         [
                             lambda e1, e2, e3, f=fun[0][0], op=op, f2=f2: self._operate(f, f2, op, e1, e2, e3),
-                        ],
+                        ]
                     ]
 
         V_id = self.derham.space_to_form[V_id]
@@ -990,11 +977,11 @@ class WeightedMassOperators:
             else:
                 dummy_eta = (0.0, 0.0, 0.0)
                 val = func(*dummy_eta)
-                assert isinstance(val, xp.ndarray)
+                assert isinstance(val, np.ndarray)
                 out = len(val.shape) - 3
         else:
             if isinstance(func, list):
-                if isinstance(func[0], xp.ndarray):
+                if isinstance(func[0], np.ndarray):
                     out = 2
                 else:
                     out = len(func) - 1
@@ -1036,92 +1023,6 @@ class WeightedMassOperators:
             out = (f1(e1, e2, e3) @ f2(e1, e2, e3))[:, :, :]
 
         return out
-
-    #######################################
-    # Aux classes (to be removed in TODO) #
-    #######################################
-    class H1vecMassMatrix_density:
-        """Wrapper around a Weighted mass operator from H1vec to H1vec whose weights are given by a 3 form"""
-
-        def __init__(self, derham, mass_ops, domain):
-            self._massop = mass_ops.create_weighted_mass("H1vec", "H1vec")
-            self.field = derham.create_spline_function("field", "L2")
-
-            integration_grid = [grid_1d.flatten() for grid_1d in derham.quad_grid_pts["0"]]
-
-            self.integration_grid_spans, self.integration_grid_bn, self.integration_grid_bd = (
-                derham.prepare_eval_tp_fixed(
-                    integration_grid,
-                )
-            )
-
-            grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
-            self._f_values = xp.zeros(grid_shape, dtype=float)
-
-            metric = domain.metric(*integration_grid)
-            self._mass_metric_term = deepcopy(metric)
-            self._full_term_mass = deepcopy(metric)
-
-        @property
-        def massop(
-            self,
-        ):
-            """The WeightedMassOperator"""
-            return self._massop
-
-        @property
-        def inv(
-            self,
-        ):
-            """The inverse WeightedMassOperator"""
-            if not hasattr(self, "_inv"):
-                self._create_inv()
-            return self._inv
-
-        def update_weight(self, coeffs):
-            """Update the weighted mass matrix operator"""
-
-            self.field.vector = coeffs
-            f_values = self.field.eval_tp_fixed_loc(
-                self.integration_grid_spans,
-                self.integration_grid_bd,
-                out=self._f_values,
-            )
-            for i in range(3):
-                for j in range(3):
-                    self._full_term_mass[i, j] = f_values * self._mass_metric_term[i, j]
-
-            self._massop.assemble(
-                [
-                    [self._full_term_mass[0, 0], self._full_term_mass[0, 1], self._full_term_mass[0, 2]],
-                    [
-                        self._full_term_mass[1, 0],
-                        self._full_term_mass[
-                            1,
-                            1,
-                        ],
-                        self._full_term_mass[1, 2],
-                    ],
-                    [self._full_term_mass[2, 0], self._full_term_mass[2, 1], self._full_term_mass[2, 2]],
-                ],
-                verbose=False,
-            )
-
-            if hasattr(self, "_inv") and self.inv._options["pc"] is not None:
-                self.inv._options["pc"].update_mass_operator(self.massop)
-
-        def _create_inv(self, type="pcg", tol=1e-16, maxiter=500, verbose=False):
-            """Inverse the  weighted mass matrix, preconditioner must be set outside
-            via self._inv._options['pc'] = ..."""
-            self._inv = inverse(
-                self.massop,
-                type,
-                pc=None,
-                tol=tol,
-                maxiter=maxiter,
-                verbose=verbose,
-                recycle=True,
-            )
 
 
 class WeightedMassOperatorsOldForTesting:
@@ -1630,7 +1531,7 @@ class WeightedMassOperatorsOldForTesting:
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
                     self.weights[self.selected_weight].a1_3,
-                ],
+                ]
             )
 
             tmp_b2 = self.derham.curl.dot(a_eq)
@@ -1744,7 +1645,7 @@ class WeightedMassOperatorsOldForTesting:
                     self.weights[self.selected_weight].a1_1,
                     self.weights[self.selected_weight].a1_2,
                     self.weights[self.selected_weight].a1_3,
-                ],
+                ]
             )
 
             tmp_b2 = self.derham.curl.dot(a_eq)
@@ -1865,11 +1766,7 @@ class WeightedMassOperatorsOldForTesting:
                 for n in range(3):
                     fun[-1] += [
                         lambda e1, e2, e3, m=m, n=n: (self.DFinv(e1, e2, e3) @ self.D @ self.DFinv(e1, e2, e3))[
-                            :,
-                            :,
-                            :,
-                            m,
-                            n,
+                            :, :, :, m, n
                         ]
                         * self.sqrt_g(
                             e1,
@@ -1906,7 +1803,7 @@ class WeightedMassOperatorsOldForTesting:
                         e3,
                     )
                     * self.sqrt_g(e1, e2, e3),
-                ],
+                ]
             ]
 
             self._M0ad = self._assemble_weighted_mass(
@@ -2091,7 +1988,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         1. ``None`` : all blocks are allocated, disregarding zero-blocks or any symmetry.
         2. ``str``  : for square block matrices (V=W), a symmetry can be set in order to accelerate the assembly process. Possible strings are ``symm`` (symmetric), ``asym`` (anti-symmetric) and ``diag`` (diagonal).
-        3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) xp.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
+        3. ``list`` : 2d list with the same number of rows/columns as the number of components of the domain/codomain spaces. The entries can be either a) callables or b) np.ndarrays representing the weights at the quadrature points. If an entry is zero or ``None``, the corresponding block is set to ``None`` to accelerate the dot product.
 
     transposed : bool
         Whether to assemble the transposed operator.
@@ -2367,22 +2264,21 @@ class WeightedMassOperator(LinOpWithTransp):
                             pts = [
                                 quad_grid[nquad].points.flatten()
                                 for quad_grid, nquad in zip(
-                                    self.derham.get_quad_grids(wspace, nquads=self.nquads),
-                                    self.nquads,
+                                    self.derham.get_quad_grids(wspace, nquads=self.nquads), self.nquads
                                 )
                             ]
 
                             if callable(weights_info[a][b]):
-                                PTS = xp.meshgrid(*pts, indexing="ij")
+                                PTS = np.meshgrid(*pts, indexing="ij")
                                 mat_w = weights_info[a][b](*PTS).copy()
-                            elif isinstance(weights_info[a][b], xp.ndarray):
+                            elif isinstance(weights_info[a][b], np.ndarray):
                                 mat_w = weights_info[a][b]
 
                             assert mat_w.shape == tuple(
                                 [pt.size for pt in pts],
                             )
 
-                            if xp.any(xp.abs(mat_w) > 1e-14):
+                            if np.any(np.abs(mat_w) > 1e-14):
                                 if self._matrix_free:
                                     blocks[-1] += [
                                         StencilMatrixFreeMassOperator(
@@ -2478,11 +2374,9 @@ class WeightedMassOperator(LinOpWithTransp):
 
         # load assembly kernel
         if not self._matrix_free:
-            self._assembly_kernel = Pyccelkernel(
-                getattr(
-                    mass_kernels,
-                    "kernel_" + str(self._V.ldim) + "d_mat",
-                ),
+            self._assembly_kernel = getattr(
+                mass_kernels,
+                "kernel_" + str(self._V.ldim) + "d_mat",
             )
 
     @property
@@ -2518,10 +2412,10 @@ class WeightedMassOperator(LinOpWithTransp):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".tosparse() only works without boundary conditions at the moment")
+                    assert bc == False, print(".tosparse() only works without boundary conditions at the moment")
             for bl in self._W_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".tosparse() only works without boundary conditions at the moment")
+                    assert bc == False, print(".tosparse() only works without boundary conditions at the moment")
 
             return self._mat.tosparse()
         elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
@@ -2534,10 +2428,10 @@ class WeightedMassOperator(LinOpWithTransp):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".toarray() only works without boundary conditions at the moment")
+                    assert bc == False, print(".toarray() only works without boundary conditions at the moment")
             for bl in self._W_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".toarray() only works without boundary conditions at the moment")
+                    assert bc == False, print(".toarray() only works without boundary conditions at the moment")
 
             return self._mat.toarray()
         elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
@@ -2698,7 +2592,7 @@ class WeightedMassOperator(LinOpWithTransp):
         Parameters
         ----------
         weights : list | NoneType
-            Weight function(s) (callables or xp.ndarrays) in a 2d list of shape corresponding to
+            Weight function(s) (callables or np.ndarrays) in a 2d list of shape corresponding to
             number of components of domain/codomain.
             If ``weights=None``, the weight is taken from the given weights in the
             instanziation of the object, else it will be overriden.
@@ -2721,7 +2615,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             if weight is not None:
                                 assert callable(weight) or isinstance(
                                     weight,
-                                    xp.ndarray,
+                                    np.ndarray,
                                 )
                             self._mat[a, b].weights = weight
 
@@ -2788,8 +2682,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 codomain_spans = [
                     quad_grid[nquad].spans
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads),
-                        self.nquads,
+                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads), self.nquads
                     )
                 ]
 
@@ -2802,8 +2695,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 pts = [
                     quad_grid[nquad].points.flatten()
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads),
-                        self.nquads,
+                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads), self.nquads
                     )
                 ]
                 wts = [
@@ -2818,8 +2710,7 @@ class WeightedMassOperator(LinOpWithTransp):
                 codomain_basis = [
                     quad_grid[nquad].basis
                     for quad_grid, nquad in zip(
-                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads),
-                        self.nquads,
+                        self.derham.get_quad_grids(codomain_space, nquads=self.nquads), self.nquads
                     )
                 ]
 
@@ -2834,13 +2725,13 @@ class WeightedMassOperator(LinOpWithTransp):
 
                     # evaluate weight at quadrature points
                     if callable(loc_weight):
-                        PTS = xp.meshgrid(*pts, indexing="ij")
+                        PTS = np.meshgrid(*pts, indexing="ij")
                         mat_w = loc_weight(*PTS).copy()
-                    elif isinstance(loc_weight, xp.ndarray):
+                    elif isinstance(loc_weight, np.ndarray):
                         mat_w = loc_weight
                     elif loc_weight is not None:
                         raise TypeError(
-                            "weights must be callable or xp.ndarray or None but is {}".format(
+                            "weights must be callable or np.ndarray or None but is {}".format(
                                 type(self._weights[a][b]),
                             ),
                         )
@@ -2848,8 +2739,8 @@ class WeightedMassOperator(LinOpWithTransp):
                     if loc_weight is not None:
                         assert mat_w.shape == tuple([pt.size for pt in pts])
 
-                    not_weight_zero = xp.array(
-                        int(loc_weight is not None and xp.any(xp.abs(mat_w) > 1e-14)),
+                    not_weight_zero = np.array(
+                        int(loc_weight is not None and np.any(np.abs(mat_w) > 1e-14)),
                     )
                     if self._mpi_comm is not None:
                         self._mpi_comm.Allreduce(
@@ -2862,8 +2753,7 @@ class WeightedMassOperator(LinOpWithTransp):
                     domain_basis = [
                         quad_grid[nquad].basis
                         for quad_grid, nquad in zip(
-                            self.derham.get_quad_grids(domain_space, nquads=self.nquads),
-                            self.nquads,
+                            self.derham.get_quad_grids(domain_space, nquads=self.nquads), self.nquads
                         )
                     ]
 
@@ -2874,7 +2764,7 @@ class WeightedMassOperator(LinOpWithTransp):
                             mat = self._mat
                             if loc_weight is None:
                                 # in case it's none we still need to have zeros weights to call the kernel
-                                mat_w = xp.zeros(
+                                mat_w = np.zeros(
                                     tuple([pt.size for pt in pts]),
                                 )
                         else:
@@ -3010,12 +2900,12 @@ class WeightedMassOperator(LinOpWithTransp):
         coeffs : StencilVector | BlockVector
             The coefficient vector corresponding to the FEM field. Ghost regions must be up-to-date!
 
-        out : xp.ndarray | list/tuple of xp.ndarrays, optional
+        out : np.ndarray | list/tuple of np.ndarrays, optional
             If given, the result will be written into these arrays in-place. Number of outs must be compatible with number of components of FEM field.
 
         Returns
         -------
-        out : xp.ndarray | list/tuple of xp.ndarrays
+        out : np.ndarray | list/tuple of np.ndarrays
             The values of the FEM field at the quadrature points.
         """
 
@@ -3034,7 +2924,7 @@ class WeightedMassOperator(LinOpWithTransp):
             out = ()
             if isinstance(W, TensorFemSpace):
                 out += (
-                    xp.zeros(
+                    np.zeros(
                         [
                             q_grid[nquad].points.size
                             for q_grid, nquad in zip(self.derham.get_quad_grids(W, nquads=self.nquads), self.nquads)
@@ -3045,12 +2935,11 @@ class WeightedMassOperator(LinOpWithTransp):
             else:
                 for space in W.spaces:
                     out += (
-                        xp.zeros(
+                        np.zeros(
                             [
                                 q_grid[nquad].points.size
                                 for q_grid, nquad in zip(
-                                    self.derham.get_quad_grids(space, nquads=self.nquads),
-                                    self.nquads,
+                                    self.derham.get_quad_grids(space, nquads=self.nquads), self.nquads
                                 )
                             ],
                             dtype=float,
@@ -3059,13 +2948,13 @@ class WeightedMassOperator(LinOpWithTransp):
 
         else:
             if isinstance(W, TensorFemSpace):
-                assert isinstance(out, xp.ndarray)
+                assert isinstance(out, np.ndarray)
                 out = (out,)
             else:
                 assert isinstance(out, (list, tuple))
 
         # load assembly kernel
-        kernel = Pyccelkernel(getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval"))
+        kernel = getattr(mass_kernels, "kernel_" + str(W.ldim) + "d_eval")
 
         # loop over components
         for a, wspace in enumerate(Wspaces):
@@ -3160,22 +3049,18 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
         self._nquads = nquads
 
         self._dtype = V.coeff_space.dtype
-        self._dot_kernel = Pyccelkernel(
-            getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_matrixfree",
-            ),
+        self._dot_kernel = getattr(
+            mass_kernels,
+            "kernel_" + str(self._V.ldim) + "d_matrixfree",
         )
 
-        self._diag_kernel = Pyccelkernel(
-            getattr(
-                mass_kernels,
-                "kernel_" + str(self._V.ldim) + "d_diag",
-            ),
+        self._diag_kernel = getattr(
+            mass_kernels,
+            "kernel_" + str(self._V.ldim) + "d_diag",
         )
 
         shape = tuple(e - s + 1 for s, e in zip(V.coeff_space.starts, V.coeff_space.ends))
-        self._diag_tmp = xp.zeros((shape))
+        self._diag_tmp = np.zeros((shape))
 
         # knot span indices of elements of local domain
         self._codomain_spans = [
@@ -3259,11 +3144,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
     def transpose(self, conjugate=False):
         return StencilMatrixFreeMassOperator(
-            self._derham,
-            self._codomain,
-            self._domain,
-            self._weights,
-            nquads=self._nquads,
+            self._derham, self._codomain, self._domain, self._weights, nquads=self._nquads
         )
 
     @property
@@ -3306,16 +3187,16 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # evaluate weight at quadrature points
         if callable(self._weights):
-            PTS = xp.meshgrid(*self._pts, indexing="ij")
+            PTS = np.meshgrid(*self._pts, indexing="ij")
             mat_w = self._weights(*PTS).copy()
-        elif isinstance(self._weights, xp.ndarray):
+        elif isinstance(self._weights, np.ndarray):
             mat_w = self._weights
 
         if self._weights is not None:
             assert mat_w.shape == tuple([pt.size for pt in self._pts])
 
             # call kernel (if mat_w is not zero) by calling the appropriate kernel (1d, 2d or 3d)
-            if xp.any(xp.abs(mat_w) > 1e-14):
+            if np.any(np.abs(mat_w) > 1e-14):
                 self._dot_kernel(
                     *self._codomain_spans,
                     *self._domain_spans,
@@ -3375,9 +3256,9 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # evaluate weight at quadrature points
         if callable(self._weights):
-            PTS = xp.meshgrid(*self._pts, indexing="ij")
+            PTS = np.meshgrid(*self._pts, indexing="ij")
             mat_w = self._weights(*PTS).copy()
-        elif isinstance(self._weights, xp.ndarray):
+        elif isinstance(self._weights, np.ndarray):
             mat_w = self._weights
 
         diag = self._diag_tmp
@@ -3397,12 +3278,12 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         # Calculate entries of StencilDiagonalMatrix
         if sqrt:
-            diag = xp.sqrt(diag)
+            diag = np.sqrt(diag)
 
         if inverse:
-            data = xp.divide(1, diag, out=data)
+            data = np.divide(1, diag, out=data)
         elif out:
-            xp.copyto(data, diag)
+            np.copyto(data, diag)
         else:
             data = diag.copy()
 

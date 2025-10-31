@@ -5,11 +5,12 @@ import shutil
 import sys
 from types import ModuleType
 
-import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
+import yaml
+from mpi4py import MPI
 
 from struphy.geometry.base import Domain
-from struphy.io.options import DerhamOptions
+from struphy.geometry.domains import Cuboid
+from struphy.io.options import DerhamOptions, Time, Units
 from struphy.topology.grids import TensorProductGrid
 
 
@@ -152,12 +153,12 @@ def setup_derham(
 
     if MPI.COMM_WORLD.Get_rank() == 0 and verbose:
         print("\nDERHAM:")
-        print("number of elements:".ljust(25), Nel)
-        print("spline degrees:".ljust(25), p)
-        print("periodic bcs:".ljust(25), spl_kind)
-        print("hom. Dirichlet bc:".ljust(25), dirichlet_bc)
-        print("GL quad pts (L2):".ljust(25), nquads)
-        print("GL quad pts (hist):".ljust(25), nq_pr)
+        print(f"number of elements:".ljust(25), Nel)
+        print(f"spline degrees:".ljust(25), p)
+        print(f"periodic bcs:".ljust(25), spl_kind)
+        print(f"hom. Dirichlet bc:".ljust(25), dirichlet_bc)
+        print(f"GL quad pts (L2):".ljust(25), nquads)
+        print(f"GL quad pts (hist):".ljust(25), nq_pr)
         print(
             "MPI proc. per dir.:".ljust(25),
             derham.domain_decomposition.nprocs,
@@ -233,35 +234,35 @@ def descend_options_dict(
             out = copy.deepcopy(d)
 
     if verbose:
-        print(f"{d =}")
-        print(f"{out =}")
-        print(f"{d_default =}")
-        print(f"{d_opts =}")
-        print(f"{keys =}")
-        print(f"{depth =}")
-        print(f"{pop_again =}")
+        print(f"{d = }")
+        print(f"{out = }")
+        print(f"{d_default = }")
+        print(f"{d_opts = }")
+        print(f"{keys = }")
+        print(f"{depth = }")
+        print(f"{pop_again = }")
 
     if verbose:
-        print(f"{d =}")
-        print(f"{out =}")
-        print(f"{d_default =}")
-        print(f"{d_opts =}")
-        print(f"{keys =}")
-        print(f"{depth =}")
-        print(f"{pop_again =}")
+        print(f"{d = }")
+        print(f"{out = }")
+        print(f"{d_default = }")
+        print(f"{d_opts = }")
+        print(f"{keys = }")
+        print(f"{depth = }")
+        print(f"{pop_again = }")
 
     count = 0
     for key, val in d.items():
         count += 1
 
         if verbose:
-            print(f"\n{keys =} | {key =}, {type(val) =}, {count =}\n")
+            print(f"\n{keys = } | {key = }, {type(val) = }, {count = }\n")
 
         if isinstance(val, list):
             # create default parameter dict "out"
 
             if verbose:
-                print(f"{val =}")
+                print(f"{val = }")
 
             if d_default is None:
                 if len(keys) == 0:
@@ -299,10 +300,10 @@ def descend_options_dict(
                 out += [out_sublist]
 
             if verbose:
-                print(f"{out =}")
+                print(f"{out = }")
 
             if verbose:
-                print(f"{out =}")
+                print(f"{out = }")
 
         # recurse if necessary
         elif isinstance(val, dict):

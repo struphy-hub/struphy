@@ -13,7 +13,7 @@ COMMENT: the reshape of a matrix can be viewed as ravel+reshape.
                                     [r_M11, rM12, ... , r_MNO]]
 """
 
-import cunumpy as xp
+import numpy as np
 from scipy.linalg import solve_circulant
 from scipy.sparse.linalg import splu
 
@@ -82,9 +82,8 @@ def kron_matvec_3d(kmat, vec3d):
         (
             kmat[2].dot(
                 ((kmat[1].dot(((kmat[0].dot(vec3d.reshape(v0, v1 * v2))).T).reshape(v1, v2 * k0))).T).reshape(
-                    v2,
-                    k0 * k1,
-                ),
+                    v2, k0 * k1
+                )
             )
         ).T
     ).reshape(k0, k1, k2)
@@ -197,9 +196,9 @@ def kron_matmat_fft_3d(a_vec, b_vec):
 
     c_vec = [0, 0, 0]
 
-    c_vec[0] = xp.fft.ifft(xp.fft.fft(a_vec[0]) * xp.fft.fft(b_vec[0]))
-    c_vec[1] = xp.fft.ifft(xp.fft.fft(a_vec[1]) * xp.fft.fft(b_vec[1]))
-    c_vec[2] = xp.fft.ifft(xp.fft.fft(a_vec[2]) * xp.fft.fft(b_vec[2]))
+    c_vec[0] = np.fft.ifft(np.fft.fft(a_vec[0]) * np.fft.fft(b_vec[0]))
+    c_vec[1] = np.fft.ifft(np.fft.fft(a_vec[1]) * np.fft.fft(b_vec[1]))
+    c_vec[2] = np.fft.ifft(np.fft.fft(a_vec[2]) * np.fft.fft(b_vec[2]))
 
     return c_vec
 
@@ -279,9 +278,8 @@ def kron_lusolve_3d(kmatlu, rhs):
         (
             kmatlu[2].solve(
                 ((kmatlu[1].solve(((kmatlu[0].solve(rhs.reshape(r0, r1 * r2))).T).reshape(r1, r2 * r0))).T).reshape(
-                    r2,
-                    r0 * r1,
-                ),
+                    r2, r0 * r1
+                )
             )
         ).T
     ).reshape(r0, r1, r2)
@@ -322,7 +320,7 @@ def kron_solve_3d(kmat, rhs):
             splu(kmat[2]).solve(
                 (
                     (splu(kmat[1]).solve(((splu(kmat[0]).solve(rhs.reshape(r0, r1 * r2))).T).reshape(r1, r2 * r0))).T
-                ).reshape(r2, r0 * r1),
+                ).reshape(r2, r0 * r1)
             )
         ).T
     ).reshape(r0, r1, r2)
@@ -363,8 +361,7 @@ def kron_fftsolve_3d(cvec, rhs):
                 (
                     (
                         solve_circulant(
-                            cvec[1],
-                            ((solve_circulant(cvec[0], rhs.reshape(r0, r1 * r2))).T).reshape(r1, r2 * r0),
+                            cvec[1], ((solve_circulant(cvec[0], rhs.reshape(r0, r1 * r2))).T).reshape(r1, r2 * r0)
                         )
                     ).T
                 ).reshape(r2, r0 * r1),

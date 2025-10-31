@@ -1,6 +1,7 @@
 import pytest
 
 
+@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [12])
 @pytest.mark.parametrize("p", [1, 2, 3])
 @pytest.mark.parametrize("spl_kind", [False, True])
@@ -13,9 +14,9 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_dot_kernels.matvec_1d_kernel
     b) the result from Stencil .dot with precompiled=True"""
 
-    import cunumpy as xp
+    import numpy as np
+    from mpi4py import MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.feec.psydac_derham import Derham
@@ -25,6 +26,7 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
     comm = MPI.COMM_WORLD
+    assert comm.size >= 2
     rank = comm.Get_rank()
 
     if rank == 0:
@@ -78,8 +80,8 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
                     mat_pre._data[p_out + i_loc, d1] = m - i
 
     # random vector
-    # xp.random.seed(123)
-    x[s_in : e_in + 1] = xp.random.rand(domain.coeff_space.npts[0])
+    # np.random.seed(123)
+    x[s_in : e_in + 1] = np.random.rand(domain.coeff_space.npts[0])
 
     if rank == 0:
         print(f"spl_kind={spl_kind}")
@@ -118,10 +120,11 @@ def test_1d(Nel, p, spl_kind, domain_ind, codomain_ind):
         print("\nout_ker=", out_ker._data)
         print("\nout_pre=", out_pre._data)
 
-    assert xp.allclose(out_ker._data, out._data)
-    assert xp.allclose(out_pre._data, out._data)
+    assert np.allclose(out_ker._data, out._data)
+    assert np.allclose(out_pre._data, out._data)
 
 
+@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[12, 16, 20]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[True, False, False]])
@@ -134,9 +137,9 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     a) the result from kernel in struphy.linear_algebra.stencil_dot_kernels.matvec_1d_kernel
     b) the result from Stencil .dot with precompiled=True"""
 
-    import cunumpy as xp
+    import numpy as np
+    from mpi4py import MPI
     from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-    from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.stencil import StencilMatrix, StencilVector
 
     from struphy.feec.psydac_derham import Derham
@@ -146,6 +149,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     PSYDAC_BACKEND_GPYCCEL["flags"] = "-O3 -march=native -mtune=native -ffast-math -ffree-line-length-none"
 
     comm = MPI.COMM_WORLD
+    assert comm.size >= 2
     rank = comm.Get_rank()
 
     if rank == 0:
@@ -177,16 +181,16 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     x = StencilVector(domain.coeff_space)
     out_ker = StencilVector(codomain.coeff_space)
 
-    s_out = xp.array(mat.codomain.starts)
-    e_out = xp.array(mat.codomain.ends)
-    p_out = xp.array(mat.codomain.pads)
-    s_in = xp.array(mat.domain.starts)
-    e_in = xp.array(mat.domain.ends)
-    p_in = xp.array(mat.domain.pads)
+    s_out = np.array(mat.codomain.starts)
+    e_out = np.array(mat.codomain.ends)
+    p_out = np.array(mat.codomain.pads)
+    s_in = np.array(mat.domain.starts)
+    e_in = np.array(mat.domain.ends)
+    p_in = np.array(mat.domain.pads)
 
     # random matrix
-    xp.random.seed(123)
-    tmp1 = xp.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in p])
+    np.random.seed(123)
+    tmp1 = np.random.rand(*codomain.coeff_space.npts, *[2 * q + 1 for q in p])
     mat[
         s_out[0] : e_out[0] + 1,
         s_out[1] : e_out[1] + 1,
@@ -207,7 +211,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
     ]
 
     # random vector
-    tmp2 = xp.random.rand(*domain.coeff_space.npts)
+    tmp2 = np.random.rand(*domain.coeff_space.npts)
     x[
         s_in[0] : e_in[0] + 1,
         s_in[1] : e_in[1] + 1,
@@ -226,7 +230,7 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
 
     # kernel matvec
     add = [int(end_in >= end_out) for end_in, end_out in zip(mat.domain.ends, mat.codomain.ends)]
-    add = xp.array(add)
+    add = np.array(add)
     matvec_3d_kernel(mat._data, x._data, out_ker._data, s_in, p_in, add, s_out, e_out, p_out)
 
     # precompiled .dot
@@ -253,12 +257,12 @@ def test_3d(Nel, p, spl_kind, domain_ind, codomain_ind):
         print("\nout_ker[2]=", out_ker._data[p_out[0], p_out[1], :])
         print("\nout_pre[2]=", out_pre._data[p_out[0], p_out[1], :])
 
-    assert xp.allclose(
+    assert np.allclose(
         out_ker[s_out[0] : e_out[0] + 1, s_out[1] : e_out[1] + 1, s_out[2] : e_out[2] + 1],
         out[s_out[0] : e_out[0] + 1, s_out[1] : e_out[1] + 1, s_out[2] : e_out[2] + 1],
     )
 
-    assert xp.allclose(
+    assert np.allclose(
         out_pre[s_out[0] : e_out[0] + 1, s_out[1] : e_out[1] + 1, s_out[2] : e_out[2] + 1],
         out[s_out[0] : e_out[0] + 1, s_out[1] : e_out[1] + 1, s_out[2] : e_out[2] + 1],
     )

@@ -3,8 +3,10 @@
 
 from abc import ABCMeta, abstractmethod
 
-import cunumpy as xp
 import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+from mpl_toolkits.mplot3d import Axes3D
 from scipy.sparse import csc_matrix, kron
 from scipy.sparse.linalg import splu, spsolve
 
@@ -56,12 +58,12 @@ class Domain(metaclass=ABCMeta):
 
         self._NbaseN = [Nel + p - kind * p for Nel, p, kind in zip(Nel, p, spl_kind)]
 
-        el_b = [xp.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
+        el_b = [np.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
 
         self._T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl_kind)]
 
         self._indN = [
-            (xp.indices((Nel, p + 1))[1] + xp.arange(Nel)[:, None]) % NbaseN
+            (np.indices((Nel, p + 1))[1] + np.arange(Nel)[:, None]) % NbaseN
             for Nel, p, NbaseN in zip(Nel, p, self._NbaseN)
         ]
 
@@ -71,15 +73,15 @@ class Domain(metaclass=ABCMeta):
             self._p = (*self._p, 0)
             self._NbaseN = self._NbaseN + [0]
 
-            self._T = self._T + [xp.zeros((1,), dtype=float)]
+            self._T = self._T + [np.zeros((1,), dtype=float)]
 
-            self._indN = self._indN + [xp.zeros((1, 1), dtype=int)]
+            self._indN = self._indN + [np.zeros((1, 1), dtype=int)]
 
         # create dummy attributes for analytical mappings
         if self.kind_map >= 10:
-            self._cx = xp.zeros((1, 1, 1), dtype=float)
-            self._cy = xp.zeros((1, 1, 1), dtype=float)
-            self._cz = xp.zeros((1, 1, 1), dtype=float)
+            self._cx = np.zeros((1, 1, 1), dtype=float)
+            self._cy = np.zeros((1, 1, 1), dtype=float)
+            self._cz = np.zeros((1, 1, 1), dtype=float)
 
         self._transformation_ids = {
             "pull": 0,
@@ -120,7 +122,7 @@ class Domain(metaclass=ABCMeta):
         self._args_domain = DomainArguments(
             self.kind_map,
             self.params_numpy,
-            xp.array(self.p),
+            np.array(self.p),
             self.T[0],
             self.T[1],
             self.T[2],
@@ -165,15 +167,15 @@ class Domain(metaclass=ABCMeta):
         self._params = new
 
     @property
-    def params_numpy(self) -> xp.ndarray:
+    def params_numpy(self) -> np.ndarray:
         """Mapping parameters as numpy array (can be empty)."""
         if not hasattr(self, "_params_numpy"):
-            self._params_numpy = xp.array([0], dtype=float)
+            self._params_numpy = np.array([0], dtype=float)
         return self._params_numpy
 
     @params_numpy.setter
     def params_numpy(self, new):
-        assert isinstance(new, xp.ndarray)
+        assert isinstance(new, np.ndarray)
         assert new.ndim == 1
         self._params_numpy = new
 
@@ -768,7 +770,7 @@ class Domain(metaclass=ABCMeta):
             markers = etas[0]
 
             # to keep C-ordering the (3, 3)-part is in the last indices
-            out = xp.empty((markers.shape[0], 3, 3), dtype=float)
+            out = np.empty((markers.shape[0], 3, 3), dtype=float)
 
             n_inside = evaluation_kernels.kernel_evaluate_pic(
                 markers,
@@ -780,24 +782,24 @@ class Domain(metaclass=ABCMeta):
             )
 
             # move the (3, 3)-part to front
-            out = xp.transpose(out, axes=(1, 2, 0))
+            out = np.transpose(out, axes=(1, 2, 0))
 
             # remove holes
             out = out[:, :, :n_inside]
 
             if transposed:
-                out = xp.transpose(out, axes=(1, 0, 2))
+                out = np.transpose(out, axes=(1, 0, 2))
 
             # change size of "out" depending on which metric coeff has been evaluated
             if which == 0 or which == -1:
                 out = out[:, 0, :]
                 if change_out_order:
-                    out = xp.transpose(out, axes=(1, 0))
+                    out = np.transpose(out, axes=(1, 0))
             elif which == 2:
                 out = out[0, 0, :]
             else:
                 if change_out_order:
-                    out = xp.transpose(out, axes=(2, 0, 1))
+                    out = np.transpose(out, axes=(2, 0, 1))
 
         # tensor-product/slice evaluation
         else:
@@ -809,7 +811,7 @@ class Domain(metaclass=ABCMeta):
             )
 
             # to keep C-ordering the (3, 3)-part is in the last indices
-            out = xp.empty(
+            out = np.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3, 3),
                 dtype=float,
             )
@@ -825,20 +827,20 @@ class Domain(metaclass=ABCMeta):
             )
 
             # move the (3, 3)-part to front
-            out = xp.transpose(out, axes=(3, 4, 0, 1, 2))
+            out = np.transpose(out, axes=(3, 4, 0, 1, 2))
 
             if transposed:
-                out = xp.transpose(out, axes=(1, 0, 2, 3, 4))
+                out = np.transpose(out, axes=(1, 0, 2, 3, 4))
 
             if which == 0:
                 out = out[:, 0, :, :, :]
                 if change_out_order:
-                    out = xp.transpose(out, axes=(1, 2, 3, 0))
+                    out = np.transpose(out, axes=(1, 2, 3, 0))
             elif which == 2:
                 out = out[0, 0, :, :, :]
             else:
                 if change_out_order:
-                    out = xp.transpose(out, axes=(2, 3, 4, 0, 1))
+                    out = np.transpose(out, axes=(2, 3, 4, 0, 1))
 
             # remove singleton dimensions for slice evaluation
             if squeeze_out:
@@ -903,7 +905,7 @@ class Domain(metaclass=ABCMeta):
                 assert len(etas) == 3
                 assert etas[0].shape == etas[1].shape == etas[2].shape
                 assert etas[0].ndim == 1
-                markers = xp.stack(etas, axis=1)
+                markers = np.stack(etas, axis=1)
             else:
                 markers = etas[0]
 
@@ -955,7 +957,7 @@ class Domain(metaclass=ABCMeta):
                 A_has_holes = False
 
             # call evaluation kernel
-            out = xp.empty((markers.shape[0], 3), dtype=float)
+            out = np.empty((markers.shape[0], 3), dtype=float)
 
             # make sure we don't have stride = 0
             A = A.copy()
@@ -971,7 +973,7 @@ class Domain(metaclass=ABCMeta):
             )
 
             # move the (3, 3)-part to front
-            out = xp.transpose(out, axes=(1, 0))
+            out = np.transpose(out, axes=(1, 0))
 
             # remove holes
             out = out[:, :n_inside]
@@ -985,7 +987,7 @@ class Domain(metaclass=ABCMeta):
                 out = out[0, :]
             else:
                 if change_out_order:
-                    out = xp.transpose(out, axes=(1, 0))
+                    out = np.transpose(out, axes=(1, 0))
 
         # tensor-product/slice evaluation
         else:
@@ -1012,7 +1014,7 @@ class Domain(metaclass=ABCMeta):
                 A = Domain.prepare_arg(a, X[0], X[1], X[2], a_kwargs=a_kwargs)
 
             # call evaluation kernel
-            out = xp.empty(
+            out = np.empty(
                 (E1.shape[0], E2.shape[1], E3.shape[2], 3),
                 dtype=float,
             )
@@ -1029,14 +1031,14 @@ class Domain(metaclass=ABCMeta):
             )
 
             # move the (3, 3)-part to front
-            out = xp.transpose(out, axes=(3, 0, 1, 2))
+            out = np.transpose(out, axes=(3, 0, 1, 2))
 
             # change output order
             if kind_int < 10:
                 out = out[0, :, :, :]
             else:
                 if change_out_order:
-                    out = xp.transpose(out, axes=(1, 2, 3, 0))
+                    out = np.transpose(out, axes=(1, 2, 3, 0))
 
             # remove singleton dimensions for slice evaluation
             if squeeze_out:
@@ -1083,22 +1085,22 @@ class Domain(metaclass=ABCMeta):
         if flat_eval:
             # convert list type data to numpy array:
             if isinstance(x, list):
-                arg_x = xp.array(x)
-            elif isinstance(x, xp.ndarray):
+                arg_x = np.array(x)
+            elif isinstance(x, np.ndarray):
                 arg_x = x
             else:
                 raise ValueError("Input x must be a 1d list or numpy array")
 
             if isinstance(y, list):
-                arg_y = xp.array(y)
-            elif isinstance(y, xp.ndarray):
+                arg_y = np.array(y)
+            elif isinstance(y, np.ndarray):
                 arg_y = y
             else:
                 raise ValueError("Input y must be a 1d list or numpy array")
 
             if isinstance(z, list):
-                arg_z = xp.array(z)
-            elif isinstance(z, xp.ndarray):
+                arg_z = np.array(z)
+            elif isinstance(z, np.ndarray):
                 arg_z = z
             else:
                 raise ValueError("Input z must be a 1d list or numpy array")
@@ -1117,56 +1119,56 @@ class Domain(metaclass=ABCMeta):
         else:
             # convert list type data to numpy array:
             if isinstance(x, float):
-                arg_x = xp.array([x])
+                arg_x = np.array([x])
             elif isinstance(x, int):
-                arg_x = xp.array([float(x)])
+                arg_x = np.array([float(x)])
             elif isinstance(x, list):
-                arg_x = xp.array(x)
-            elif isinstance(x, xp.ndarray):
+                arg_x = np.array(x)
+            elif isinstance(x, np.ndarray):
                 arg_x = x.copy()
             else:
                 raise ValueError(f"data type {type(x)} not supported")
 
             if isinstance(y, float):
-                arg_y = xp.array([y])
+                arg_y = np.array([y])
             elif isinstance(y, int):
-                arg_y = xp.array([float(y)])
+                arg_y = np.array([float(y)])
             elif isinstance(y, list):
-                arg_y = xp.array(y)
-            elif isinstance(y, xp.ndarray):
+                arg_y = np.array(y)
+            elif isinstance(y, np.ndarray):
                 arg_y = y.copy()
             else:
                 raise ValueError(f"data type {type(y)} not supported")
 
             if isinstance(z, float):
-                arg_z = xp.array([z])
+                arg_z = np.array([z])
             elif isinstance(z, int):
-                arg_z = xp.array([float(z)])
+                arg_z = np.array([float(z)])
             elif isinstance(z, list):
-                arg_z = xp.array(z)
-            elif isinstance(z, xp.ndarray):
+                arg_z = np.array(z)
+            elif isinstance(z, np.ndarray):
                 arg_z = z.copy()
             else:
                 raise ValueError(f"data type {type(z)} not supported")
 
             # tensor-product for given three 1D arrays
             if arg_x.ndim == 1 and arg_y.ndim == 1 and arg_z.ndim == 1:
-                E1, E2, E3 = xp.meshgrid(arg_x, arg_y, arg_z, indexing="ij")
+                E1, E2, E3 = np.meshgrid(arg_x, arg_y, arg_z, indexing="ij")
             # given xy-plane at point z:
             elif arg_x.ndim == 2 and arg_y.ndim == 2 and arg_z.size == 1:
                 E1 = arg_x[:, :, None]
                 E2 = arg_y[:, :, None]
-                E3 = arg_z * xp.ones(E1.shape)
+                E3 = arg_z * np.ones(E1.shape)
             # given xz-plane at point y:
             elif arg_x.ndim == 2 and arg_y.size == 1 and arg_z.ndim == 2:
                 E1 = arg_x[:, None, :]
-                E2 = arg_y * xp.ones(E1.shape)
+                E2 = arg_y * np.ones(E1.shape)
                 E3 = arg_z[:, None, :]
             # given yz-plane at point x:
             elif arg_x.size == 1 and arg_y.ndim == 2 and arg_z.ndim == 2:
                 E2 = arg_y[None, :, :]
                 E3 = arg_z[None, :, :]
-                E1 = arg_x * xp.ones(E2.shape)
+                E1 = arg_x * np.ones(E2.shape)
             # given three 3D arrays
             elif arg_x.ndim == 3 and arg_y.ndim == 3 and arg_z.ndim == 3:
                 # Distinguish if input coordinates are from sparse or dense meshgrid.
@@ -1224,7 +1226,7 @@ class Domain(metaclass=ABCMeta):
 
         # float (point-wise, scalar function)
         if isinstance(a_in, float):
-            a_out = xp.array([[[[a_in]]]])
+            a_out = np.array([[[[a_in]]]])
 
         # single callable:
         # scalar function -> must return a 3d array for 3d evaluation points
@@ -1237,7 +1239,7 @@ class Domain(metaclass=ABCMeta):
             else:
                 if is_sparse_meshgrid:
                     a_out = a_in(
-                        *xp.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing="ij"),
+                        *np.meshgrid(Xs[0][:, 0, 0], Xs[1][0, :, 0], Xs[2][0, 0, :], indexing="ij"),
                         **a_kwargs,
                     )
                 else:
@@ -1245,7 +1247,7 @@ class Domain(metaclass=ABCMeta):
 
                 # case of Field.__call__
                 if isinstance(a_out, list):
-                    a_out = xp.array(a_out)
+                    a_out = np.array(a_out)
 
                 if a_out.ndim == 3:
                     a_out = a_out[None, :, :, :]
@@ -1273,7 +1275,7 @@ class Domain(metaclass=ABCMeta):
                         if is_sparse_meshgrid:
                             a_out += [
                                 component(
-                                    *xp.meshgrid(
+                                    *np.meshgrid(
                                         Xs[0][:, 0, 0],
                                         Xs[1][0, :, 0],
                                         Xs[2][0, 0, :],
@@ -1285,25 +1287,25 @@ class Domain(metaclass=ABCMeta):
                         else:
                             a_out += [component(*Xs, **a_kwargs)]
 
-                elif isinstance(component, xp.ndarray):
+                elif isinstance(component, np.ndarray):
                     if flat_eval:
-                        assert component.ndim == 1, print(f"{component.ndim =}")
+                        assert component.ndim == 1, print(f"{component.ndim = }")
                     else:
-                        assert component.ndim == 3, print(f"{component.ndim =}")
+                        assert component.ndim == 3, print(f"{component.ndim = }")
 
                     a_out += [component]
 
                 elif isinstance(component, float):
-                    a_out += [xp.array([component])[:, None, None]]
+                    a_out += [np.array([component])[:, None, None]]
 
-            a_out = xp.array(a_out, dtype=float)
+            a_out = np.array(a_out, dtype=float)
 
         # numpy array:
         # 1d array (flat_eval=True and scalar input or flat_eval=False and length 1 (scalar) or length 3 (vector))
         # 2d array (flat_eval=True and vector-valued input of shape (3,:))
         # 3d array (flat_eval=False and scalar input)
         # 4d array (flat_eval=False and vector-valued input of shape (3,:,:,:))
-        elif isinstance(a_in, xp.ndarray):
+        elif isinstance(a_in, np.ndarray):
             if flat_eval:
                 if a_in.ndim == 1:
                     a_out = a_in[None, :]
@@ -1312,7 +1314,7 @@ class Domain(metaclass=ABCMeta):
                 else:
                     raise ValueError(
                         "Input array a_in must be either 1d (scalar) or \
-                    2d (vector-valued, shape (3,:)) for flat evaluation!",
+                    2d (vector-valued, shape (3,:)) for flat evaluation!"
                     )
 
             else:
@@ -1331,39 +1333,415 @@ class Domain(metaclass=ABCMeta):
                 else:
                     raise ValueError(
                         "Input array a_in must be either 3d (scalar) or \
-                    4d (vector-valued, shape (3,:,:,:)) for non-flat evaluation!",
+                    4d (vector-valued, shape (3,:,:,:)) for non-flat evaluation!"
                     )
 
         else:
             raise TypeError(
                 "Argument a must be either a float OR a list/tuple of 1 or 3 callable(s)/numpy array(s)/float(s) \
-            OR a single numpy array OR a single callable!",
+            OR a single numpy array OR a single callable!"
             )
 
         # make sure that output array is 2d and of shape (:, 1) or (:, 3) for flat evaluation
         if flat_eval:
             assert a_out.ndim == 2
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
-            a_out = xp.ascontiguousarray(xp.transpose(a_out, axes=(1, 0))).copy()  # Make sure we don't have stride 0
+            a_out = np.ascontiguousarray(np.transpose(a_out, axes=(1, 0))).copy()  # Make sure we don't have stride 0
 
         # make sure that output array is 4d and of shape (:,:,:, 1) or (:,:,:, 3) for tensor-product/slice evaluation
         else:
             assert a_out.ndim == 4
             assert a_out.shape[0] == 1 or a_out.shape[0] == 3
-            a_out = xp.ascontiguousarray(
-                xp.transpose(a_out, axes=(1, 2, 3, 0)),
+            a_out = np.ascontiguousarray(
+                np.transpose(a_out, axes=(1, 2, 3, 0)),
             ).copy()  # Make sure we don't have stride 0
 
         return a_out
 
     # ================================
 
-    def get_params_numpy(self) -> xp.ndarray:
+    def get_params_numpy(self) -> np.ndarray:
         """Convert parameter dict into numpy array."""
         params_numpy = []
         for k, v in self.params.items():
             params_numpy.append(v)
-        return xp.array(params_numpy)
+        return np.array(params_numpy)
+
+    def show3D_interactive(
+        self,
+        fig=None,
+        logical=False,
+        grid_info=None,
+        markers=None,
+        marker_coords="logical",
+        show_control_pts=False,
+        save_dir=None,
+    ):
+        import numpy as np
+        import plotly.graph_objects as go
+
+        torus_mappings = (
+            "Tokamak",
+            "GVECunit",
+            "DESCunit",
+            "IGAPolarTorus",
+            "HollowTorus",
+        )
+        if fig is None:
+            fig = go.Figure()
+
+        # --- default grid
+        e1 = np.linspace(0.0, 1.0, 20)
+        e2 = np.linspace(0.0, 1.0, 20)
+        e3 = np.linspace(0.0, 1.0, 20)
+
+        if logical:
+            E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+            X, Y, Z = E1, E2, E3
+        else:
+            XYZ = self(e1, e2, e3, squeeze_out=True)
+            X, Y, Z = XYZ[0], XYZ[1], XYZ[2]
+
+        # add wireframes along e1, e2, e3 directions
+        axis_colors = ["black", "red", "blue"]  # colors for each direction
+
+        # e1 isolines
+        for j in range(len(e2)):
+            for k in range(len(e3)):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X[:, j, k],
+                        y=Y[:, j, k],
+                        z=Z[:, j, k],
+                        mode="lines",
+                        line=dict(color=axis_colors[0], width=1),
+                        opacity=0.3,
+                    )
+                )
+
+        # e2 isolines
+        for k in range(len(e3)):
+            for i in range(len(e1)):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X[i, :, k],
+                        y=Y[i, :, k],
+                        z=Z[i, :, k],
+                        mode="lines",
+                        line=dict(color=axis_colors[1], width=1),
+                        opacity=0.3,
+                    )
+                )
+
+        # e3 isolines
+        for i in range(len(e1)):
+            for j in range(len(e2)):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X[i, j, :],
+                        y=Y[i, j, :],
+                        z=Z[i, j, :],
+                        mode="lines",
+                        line=dict(color=axis_colors[2], width=1),
+                        opacity=0.3,
+                    )
+                )
+
+        # Layout
+        fig.update_layout(
+            scene=dict(xaxis_title="x", yaxis_title="y", zaxis_title="z", aspectmode="data"),
+            title=self.__class__.__name__ + " 3D Domain (Interactive)",
+            showlegend=False,
+            autosize=True,
+            margin=dict(l=0, r=0, t=30, b=0),  # remove internal margins
+            width=None,
+            height=None,
+        )
+
+        # if save_dir:
+        #     fig.write_html(save_dir)
+        # else:
+        #     fig.show()
+
+        return fig
+
+    def show_plotly(
+        self,
+        logical=False,
+        grid_info=None,
+        markers=None,
+        marker_coords="logical",
+        show_control_pts=False,
+        save_dir=None,
+        fig=None,
+    ):
+        import numpy as np
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        torus_mappings = (
+            "Tokamak",
+            "GVECunit",
+            "DESCunit",
+            "IGAPolarTorus",
+            "HollowTorus",
+        )
+        is_not_cube = self.kind_map < 10 or self.kind_map > 19
+
+        # --- figure with 2 subplots
+        if fig is None:
+            fig = make_subplots(
+                rows=1,
+                cols=2,
+                subplot_titles=[f"{self.__class__.__name__} at η₃=0", "Top view"],
+            )
+
+        # --- default grid
+        if grid_info is None:
+            e1 = np.linspace(0.0, 1.0, 16)
+            e2 = np.linspace(0.0, 1.0, 65)
+            e3 = np.linspace(0.0, 1.0, 65)
+        else:
+            e1 = np.linspace(0.0, 1.0, grid_info[0] + 1)
+            e2 = np.linspace(0.0, 1.0, grid_info[1] + 1)
+            e3 = np.linspace(0.0, 1.0, grid_info[2] + 1 if len(grid_info) > 2 else 2)
+
+        # --- compute coordinates
+        if logical:
+            E1, E2 = np.meshgrid(e1, e2, indexing="ij")
+            X, Y = E1, E2
+        else:
+            XYZ = self(e1, e2, 0.0, squeeze_out=True)
+            X = XYZ[0]
+            Y = XYZ[2] if self.__class__.__name__ in torus_mappings else XYZ[1]
+
+        # --- subplot 1: side view
+        for i in range(len(e1)):
+            fig.add_trace(
+                go.Scatter(
+                    x=X[i, :],
+                    y=Y[i, :],
+                    mode="lines",
+                    line=dict(color="blue", width=1),
+                    opacity=0.5,
+                ),
+                row=1,
+                col=1,
+            )
+        for j in range(len(e2) - int(is_not_cube)):
+            fig.add_trace(
+                go.Scatter(
+                    x=X[:, j],
+                    y=Y[:, j],
+                    mode="lines",
+                    line=dict(color="blue", width=1),
+                    opacity=0.5,
+                ),
+                row=1,
+                col=1,
+            )
+
+        # --- subplot 2: top view
+        if not logical:
+            theta_0 = self(e1, 0.0, e3, squeeze_out=True)
+            theta_pi = self(e1, 0.5, e3, squeeze_out=True)
+            X0, Z0 = theta_0[0], theta_0[2] if self.__class__.__name__ in torus_mappings else theta_0[2]
+            Xpi, Zpi = theta_pi[0], theta_pi[2] if self.__class__.__name__ in torus_mappings else theta_pi[2]
+
+            for i in range(len(e1)):
+                fig.add_trace(
+                    go.Scatter(x=X0[i, :], y=Z0[i, :], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                    row=1,
+                    col=2,
+                )
+            for j in range(len(e2)):
+                fig.add_trace(
+                    go.Scatter(x=X0[:, j], y=Z0[:, j], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                    row=1,
+                    col=2,
+                )
+
+            if is_not_cube:
+                for i in range(len(e1)):
+                    fig.add_trace(
+                        go.Scatter(
+                            x=Xpi[i, :], y=Zpi[i, :], mode="lines", line=dict(color="blue", width=1), opacity=0.5
+                        ),
+                        row=1,
+                        col=2,
+                    )
+                for j in range(len(e2)):
+                    fig.add_trace(
+                        go.Scatter(
+                            x=Xpi[:, j], y=Zpi[:, j], mode="lines", line=dict(color="blue", width=1), opacity=0.5
+                        ),
+                        row=1,
+                        col=2,
+                    )
+
+        # --- layout
+        fig.update_layout(
+            title_text=f"{self.__class__.__name__} Domain",
+            showlegend=False,
+            autosize=True,
+            margin=dict(l=10, r=10, t=40, b=10),
+        )
+
+        return fig
+
+    def show_combined_plotly(
+        self,
+        logical=False,
+        grid_info=None,
+        markers=None,
+        marker_coords="logical",
+        show_control_pts=False,
+        save_dir=None,
+        fig=None,
+    ):
+        """
+        Combined interactive Plotly figure:
+        1) 3D domain wireframe
+        2) Side view (eta1/eta2)
+        3) Top view (eta1/eta3)
+        """
+        import numpy as np
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        torus_mappings = (
+            "Tokamak",
+            "GVECunit",
+            "DESCunit",
+            "IGAPolarTorus",
+            "HollowTorus",
+        )
+        is_not_cube = self.kind_map < 10 or self.kind_map > 19
+
+        # --- default figure with 3 subplots
+        if fig is None:
+            fig = make_subplots(
+                rows=1,
+                cols=3,
+                specs=[[{"type": "scene"}, {}, {}]],
+                subplot_titles=["3D Domain", f"{self.__class__.__name__} at η₃=0", "Top view"],
+            )
+
+        # --- grid setup
+        if grid_info is None:
+            e1 = np.linspace(0.0, 1.0, 20)
+            e2 = np.linspace(0.0, 1.0, 20)
+            e3 = np.linspace(0.0, 1.0, 20)
+        else:
+            e1 = np.linspace(0.0, 1.0, grid_info[0] + 1)
+            e2 = np.linspace(0.0, 1.0, grid_info[1] + 1)
+            e3 = np.linspace(0.0, 1.0, grid_info[2] + 1 if len(grid_info) > 2 else 2)
+
+        # --- compute coordinates
+        if logical:
+            E1, E2, E3 = np.meshgrid(e1, e2, e3, indexing="ij")
+            X3d, Y3d, Z3d = E1, E2, E3
+            X_side, Y_side = E1[:, :, 0], E2[:, :, 0]
+            X_top, Z_top = E1[:, 0, :], E3[:, 0, :]
+        else:
+            XYZ = self(e1, e2, e3, squeeze_out=True)
+            X3d, Y3d, Z3d = XYZ[0], XYZ[1], XYZ[2]
+
+            # side view at eta3=0
+            XYZ_side = self(e1, e2, 0.0, squeeze_out=True)
+            X_side = XYZ_side[0]
+            Y_side = XYZ_side[2] if self.__class__.__name__ in torus_mappings else XYZ_side[1]
+
+            # top view at eta2=0
+            XYZ_top = self(e1, 0.0, e3, squeeze_out=True)
+            X_top = XYZ_top[0]
+            Z_top = XYZ_top[2] if self.__class__.__name__ in torus_mappings else XYZ_top[2]
+
+        # --- 3D wireframe (subplot 1)
+        axis_colors = ["black", "red", "blue"]
+        # e1 lines
+        for j in range(Y3d.shape[1]):
+            for k in range(Z3d.shape[2]):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X3d[:, j, k],
+                        y=Y3d[:, j, k],
+                        z=Z3d[:, j, k],
+                        mode="lines",
+                        line=dict(color=axis_colors[0], width=1),
+                        opacity=0.3,
+                    ),
+                    row=1,
+                    col=1,
+                )
+        # e2 lines
+        for k in range(Z3d.shape[2]):
+            for i in range(X3d.shape[0]):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X3d[i, :, k],
+                        y=Y3d[i, :, k],
+                        z=Z3d[i, :, k],
+                        mode="lines",
+                        line=dict(color=axis_colors[1], width=1),
+                        opacity=0.3,
+                    ),
+                    row=1,
+                    col=1,
+                )
+        # e3 lines
+        for i in range(X3d.shape[0]):
+            for j in range(Y3d.shape[1]):
+                fig.add_trace(
+                    go.Scatter3d(
+                        x=X3d[i, j, :],
+                        y=Y3d[i, j, :],
+                        z=Z3d[i, j, :],
+                        mode="lines",
+                        line=dict(color=axis_colors[2], width=1),
+                        opacity=0.3,
+                    ),
+                    row=1,
+                    col=1,
+                )
+
+        # --- Side view (subplot 2)
+        for i in range(X_side.shape[0]):
+            fig.add_trace(
+                go.Scatter(x=X_side[i, :], y=Y_side[i, :], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                row=1,
+                col=2,
+            )
+        for j in range(X_side.shape[1]):
+            fig.add_trace(
+                go.Scatter(x=X_side[:, j], y=Y_side[:, j], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                row=1,
+                col=2,
+            )
+
+        # --- Top view (subplot 3)
+        for i in range(X_top.shape[0]):
+            fig.add_trace(
+                go.Scatter(x=X_top[i, :], y=Z_top[i, :], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                row=1,
+                col=3,
+            )
+        for j in range(X_top.shape[1]):
+            fig.add_trace(
+                go.Scatter(x=X_top[:, j], y=Z_top[:, j], mode="lines", line=dict(color="blue", width=1), opacity=0.5),
+                row=1,
+                col=3,
+            )
+
+        fig.update_layout(
+            title_text=f"{self.__class__.__name__} Combined Domain",
+            showlegend=False,
+            autosize=True,
+            margin=dict(l=10, r=10, t=40, b=10),
+            height=500,
+        )
+
+        return fig
 
     def show(
         self,
@@ -1374,6 +1752,7 @@ class Domain(metaclass=ABCMeta):
         show_control_pts=False,
         figsize=(12, 5),
         save_dir=None,
+        fig=None,
     ):
         """Plots isolines (and control point in case on spline mappings) of the 2D physical domain for eta3 = 0.
         Markers can be plotted as well (optional).
@@ -1414,12 +1793,12 @@ class Domain(metaclass=ABCMeta):
 
         # plot domain without MPI decomposition and high resolution
         if grid_info is None:
-            e1 = xp.linspace(0.0, 1.0, 16)
-            e2 = xp.linspace(0.0, 1.0, 65)
+            e1 = np.linspace(0.0, 1.0, 16)
+            e2 = np.linspace(0.0, 1.0, 65)
 
             if logical:
-                E1, E2 = xp.meshgrid(e1, e2, indexing="ij")
-                X = xp.stack((E1, E2), axis=0)
+                E1, E2 = np.meshgrid(e1, e2, indexing="ij")
+                X = np.stack((E1, E2), axis=0)
             else:
                 XYZ = self(e1, e2, 0.0, squeeze_out=True)
 
@@ -1429,7 +1808,8 @@ class Domain(metaclass=ABCMeta):
             else:
                 Y = XYZ[1]
 
-            fig = plt.figure(figsize=figsize)
+            if fig is None:
+                fig = plt.figure(figsize=figsize)
             ax = fig.add_subplot(1, 2, 1)
 
             # eta1-isolines
@@ -1459,11 +1839,11 @@ class Domain(metaclass=ABCMeta):
             )
 
             # top view
-            e3 = xp.linspace(0.0, 1.0, 65)
+            e3 = np.linspace(0.0, 1.0, 65)
 
             if logical:
-                E1, E2 = xp.meshgrid(e1, e2, indexing="ij")
-                X = xp.stack((E1, E2), axis=0)
+                E1, E2 = np.meshgrid(e1, e2, indexing="ij")
+                X = np.stack((E1, E2), axis=0)
             else:
                 theta_0 = self(e1, 0.0, e3, squeeze_out=True)
                 theta_pi = self(e1, 0.5, e3, squeeze_out=True)
@@ -1524,7 +1904,7 @@ class Domain(metaclass=ABCMeta):
             # coordinates
             # e3 = [0., .25, .5, .75]
             # x, y, z = self(e1, e2, e3)
-            # R = xp.sqrt(x**2 + y**2)
+            # R = np.sqrt(x**2 + y**2)
 
             # fig = plt.figure(figsize=(13, 13))
             # for n in range(4):
@@ -1551,14 +1931,14 @@ class Domain(metaclass=ABCMeta):
         elif isinstance(grid_info, list):
             assert len(grid_info) > 1
 
-            e1 = xp.linspace(0.0, 1.0, grid_info[0] + 1)
-            e2 = xp.linspace(0.0, 1.0, grid_info[1] + 1)
+            e1 = np.linspace(0.0, 1.0, grid_info[0] + 1)
+            e2 = np.linspace(0.0, 1.0, grid_info[1] + 1)
 
             fig = plt.figure(figsize=figsize)
             ax = fig.add_subplot(1, 1, 1)
 
             if logical:
-                E1, E2 = xp.meshgrid(e1, e2, indexing="ij")
+                E1, E2 = np.meshgrid(e1, e2, indexing="ij")
 
                 # eta1-isolines
                 for i in range(e1.size):
@@ -1586,7 +1966,7 @@ class Domain(metaclass=ABCMeta):
                     ax.plot(X[co1, :, j], X[co2, :, j], "tab:blue", alpha=0.5)
 
         # plot domain with MPI decomposition
-        elif isinstance(grid_info, xp.ndarray):
+        elif isinstance(grid_info, np.ndarray):
             assert grid_info.ndim == 2
             assert grid_info.shape[1] > 5
 
@@ -1594,7 +1974,7 @@ class Domain(metaclass=ABCMeta):
             ax = fig.add_subplot(1, 1, 1)
 
             for i in range(grid_info.shape[0]):
-                e1 = xp.linspace(
+                e1 = np.linspace(
                     grid_info[i, 0],
                     grid_info[i, 1],
                     int(
@@ -1602,7 +1982,7 @@ class Domain(metaclass=ABCMeta):
                     )
                     + 1,
                 )
-                e2 = xp.linspace(
+                e2 = np.linspace(
                     grid_info[i, 3],
                     grid_info[i, 4],
                     int(
@@ -1612,7 +1992,7 @@ class Domain(metaclass=ABCMeta):
                 )
 
                 if logical:
-                    E1, E2 = xp.meshgrid(e1, e2, indexing="ij")
+                    E1, E2 = np.meshgrid(e1, e2, indexing="ij")
 
                     # eta1-isolines
                     first_line = ax.plot(
@@ -1737,7 +2117,7 @@ class Domain(metaclass=ABCMeta):
 
         ax.axis("equal")
 
-        if isinstance(grid_info, xp.ndarray):
+        if isinstance(grid_info, np.ndarray):
             plt.legend()
 
         if self.__class__.__name__ in torus_mappings:
@@ -1747,10 +2127,12 @@ class Domain(metaclass=ABCMeta):
         ax.set_xlabel("x")
         ax.set_ylabel(ylab)
 
-        if save_dir is not None:
-            plt.savefig(save_dir, bbox_inches="tight")
-        else:
-            plt.show()
+        # if save_dir is not None:
+        #     plt.savefig(save_dir, bbox_inches="tight")
+        # else:
+        #     plt.show()
+
+        return fig, ax
 
 
 class Spline(Domain):
@@ -1772,9 +2154,9 @@ class Spline(Domain):
         Nel: tuple[int] = (8, 24, 6),
         p: tuple[int] = (2, 3, 1),
         spl_kind: tuple[bool] = (False, True, True),
-        cx: xp.ndarray = None,
-        cy: xp.ndarray = None,
-        cz: xp.ndarray = None,
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
+        cz: np.ndarray = None,
     ):
         self.kind_map = 0
 
@@ -1805,7 +2187,7 @@ class Spline(Domain):
         assert self.cz.shape == expected_shape
 
         # identify polar singularity at eta1=0
-        if xp.all(self.cx[0, :, 0] == self.cx[0, 0, 0]):
+        if np.all(self.cx[0, :, 0] == self.cx[0, 0, 0]):
             self.pole = True
         else:
             self.pole = False
@@ -1836,17 +2218,17 @@ class PoloidalSpline(Domain):
         Nel: tuple[int] = (8, 24),
         p: tuple[int] = (2, 3),
         spl_kind: tuple[bool] = (False, True),
-        cx: xp.ndarray = None,
-        cy: xp.ndarray = None,
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
     ):
         # get default control points
         if cx is None or cy is None:
 
             def X(eta1, eta2):
-                return eta1 * xp.cos(2 * xp.pi * eta2) + 3.0
+                return eta1 * np.cos(2 * np.pi * eta2) + 3.0
 
             def Y(eta1, eta2):
-                return eta1 * xp.sin(2 * xp.pi * eta2)
+                return eta1 * np.sin(2 * np.pi * eta2)
 
             cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
 
@@ -1869,7 +2251,7 @@ class PoloidalSpline(Domain):
         assert self.cy.shape == expected_shape
 
         # identify polar singularity at eta1=0
-        if xp.all(self.cx[0, :] == self.cx[0, 0]):
+        if np.all(self.cx[0, :] == self.cx[0, 0]):
             self.pole = True
         else:
             self.pole = False
@@ -1877,7 +2259,7 @@ class PoloidalSpline(Domain):
         # reshape control points to 3D
         self._cx = self.cx[:, :, None]
         self._cy = self.cy[:, :, None]
-        self._cz = xp.zeros((1, 1, 1), dtype=float)
+        self._cz = np.zeros((1, 1, 1), dtype=float)
 
         # init base class
         super().__init__(Nel=Nel, p=p, spl_kind=spl_kind)
@@ -1902,8 +2284,8 @@ class PoloidalSplineStraight(PoloidalSpline):
         Nel: tuple[int] = (8, 24),
         p: tuple[int] = (2, 3),
         spl_kind: tuple[bool] = (False, True),
-        cx: xp.ndarray = None,
-        cy: xp.ndarray = None,
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
         Lz: float = 4.0,
     ):
         self.kind_map = 1
@@ -1912,10 +2294,10 @@ class PoloidalSplineStraight(PoloidalSpline):
         if cx is None or cy is None:
 
             def X(eta1, eta2):
-                return eta1 * xp.cos(2 * xp.pi * eta2)
+                return eta1 * np.cos(2 * np.pi * eta2)
 
             def Y(eta1, eta2):
-                return eta1 * xp.sin(2 * xp.pi * eta2)
+                return eta1 * np.sin(2 * np.pi * eta2)
 
             cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
 
@@ -1923,7 +2305,7 @@ class PoloidalSplineStraight(PoloidalSpline):
             cx[0] = 0.0
             cy[0] = 0.0
 
-        self.params_numpy = xp.array([Lz])
+        self.params_numpy = np.array([Lz])
         self.periodic_eta3 = False
 
         # init base class
@@ -1954,7 +2336,7 @@ class PoloidalSplineTorus(PoloidalSpline):
     spl_kind : tuple[bool]
         Kind of spline in each poloidal direction (True=periodic, False=clamped).
 
-    cx, cy : xp.ndarray
+    cx, cy : np.ndarray
         Control points (spline coefficients) of the poloidal mapping.
         If None, a default square-to-disc mapping of radius 1 centered around (x, y) = (3, 0) is interpolated.
 
@@ -1967,23 +2349,23 @@ class PoloidalSplineTorus(PoloidalSpline):
         Nel: tuple[int] = (8, 24),
         p: tuple[int] = (2, 3),
         spl_kind: tuple[bool] = (False, True),
-        cx: xp.ndarray = None,
-        cy: xp.ndarray = None,
+        cx: np.ndarray = None,
+        cy: np.ndarray = None,
         tor_period: int = 3,
     ):
         # use setters for mapping attributes
         self.kind_map = 2
-        self.params_numpy = xp.array([float(tor_period)])
+        self.params_numpy = np.array([float(tor_period)])
         self.periodic_eta3 = True
 
         # get default control points
         if cx is None or cy is None:
 
             def X(eta1, eta2):
-                return eta1 * xp.cos(2 * xp.pi * eta2) + 3.0
+                return eta1 * np.cos(2 * np.pi * eta2) + 3.0
 
             def Y(eta1, eta2):
-                return eta1 * xp.sin(2 * xp.pi * eta2)
+                return eta1 * np.sin(2 * np.pi * eta2)
 
             cx, cy = interp_mapping(Nel, p, spl_kind, X, Y)
 
@@ -2025,7 +2407,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     NbaseN = [Nel + p - kind * p for Nel, p, kind in zip(Nel, p, spl_kind)]
 
     # element boundaries
-    el_b = [xp.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
+    el_b = [np.linspace(0.0, 1.0, Nel + 1) for Nel in Nel]
 
     # spline knot vectors
     T = [bsp.make_knots(el_b, p, kind) for el_b, p, kind in zip(el_b, p, spl_kind)]
@@ -2040,7 +2422,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
     if len(Nel) == 2:
         I = kron(I_mat[0], I_mat[1], format="csc")
 
-        I_pts = xp.meshgrid(I_pts[0], I_pts[1], indexing="ij")
+        I_pts = np.meshgrid(I_pts[0], I_pts[1], indexing="ij")
 
         cx = spsolve(I, X(I_pts[0], I_pts[1]).flatten()).reshape(
             NbaseN[0],
@@ -2073,7 +2455,7 @@ def interp_mapping(Nel, p, spl_kind, X, Y, Z=None):
         return 0.0
 
 
-def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.ndarray):
+def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: np.ndarray):
     """n-dimensional tensor-product spline interpolation with discrete input.
 
     The interpolation points are passed as a list of 1d arrays, each array with increasing entries g[0]=0 < g[1] < ...
@@ -2095,7 +2477,7 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
 
     Returns
     --------
-    coeffs : xp.array
+    coeffs : np.array
         spline coefficients as nd array.
 
     T : list[array]
@@ -2110,11 +2492,11 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
     I_mat = []
     I_LU = []
     for sh, x_grid, p_i, kind_i in zip(values.shape, grids_1d, p, spl_kind):
-        assert isinstance(x_grid, xp.ndarray)
+        assert isinstance(x_grid, np.ndarray)
         assert sh == x_grid.size
         assert (
-            xp.all(
-                xp.roll(x_grid, 1)[1:] < x_grid[1:],
+            np.all(
+                np.roll(x_grid, 1)[1:] < x_grid[1:],
             )
             and x_grid[-1] > x_grid[-2]
         )
@@ -2122,17 +2504,17 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
 
         if kind_i:
             assert x_grid[-1] < 1.0, "Interpolation points must be <1 for periodic interpolation."
-            breaks = xp.ones(x_grid.size + 1)
+            breaks = np.ones(x_grid.size + 1)
 
             if p_i % 2 == 0:
-                breaks[1:-1] = (x_grid[1:] + xp.roll(x_grid, 1)[1:]) / 2.0
+                breaks[1:-1] = (x_grid[1:] + np.roll(x_grid, 1)[1:]) / 2.0
                 breaks[0] = 0.0
             else:
                 breaks[:-1] = x_grid
 
         else:
             assert (
-                xp.abs(
+                np.abs(
                     x_grid[-1] - 1.0,
                 )
                 < 1e-14
@@ -2149,12 +2531,12 @@ def spline_interpolation_nd(p: list, spl_kind: list, grids_1d: list, values: xp.
             breaks[0] = 0.0
             breaks[-1] = 1.0
 
-        # breaks = xp.linspace(0., 1., x_grid.size - (not kind_i)*p_i + 1)
+        # breaks = np.linspace(0., 1., x_grid.size - (not kind_i)*p_i + 1)
 
         T += [bsp.make_knots(breaks, p_i, periodic=kind_i)]
 
         indN += [
-            (xp.indices((breaks.size - 1, p_i + 1))[1] + xp.arange(breaks.size - 1)[:, None]) % x_grid.size,
+            (np.indices((breaks.size - 1, p_i + 1))[1] + np.arange(breaks.size - 1)[:, None]) % x_grid.size,
         ]
 
         I_mat += [bsp.collocation_matrix(T[-1], p_i, x_grid, periodic=kind_i)]

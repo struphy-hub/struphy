@@ -6,7 +6,8 @@ from unittest.mock import patch  # , MagicMock, mock_open
 
 import pytest
 
-# from psydac.ddm.mpi import mpi as MPI
+# from mpi4py import MPI
+import struphy
 import struphy as struphy_lib
 from struphy.console.compile import struphy_compile
 from struphy.console.main import struphy
@@ -289,7 +290,7 @@ def test_struphy_compile(
         # Otherwise, we will not remove all the *_tmp.py files
         # We can not use the real os.remove becuase then
         # the state and all compiled files will be removed
-        print(f"{path =}")
+        print(f"{path = }")
         if "_tmp.py" in path:
             print("Not mock remove")
             os_remove(path)
@@ -317,19 +318,19 @@ def test_struphy_compile(
             time_execution=time_execution,
             yes=yes,
         )
-        print(f"{language =}")
-        print(f"{compiler =}")
-        print(f"{omp_pic =}")
-        print(f"{omp_feec =}")
-        print(f"{delete =}")
+        print(f"{language = }")
+        print(f"{compiler = }")
+        print(f"{omp_pic = }")
+        print(f"{omp_feec = }")
+        print(f"{delete = }")
         print(f"{status} = ")
-        print(f"{verbose =}")
-        print(f"{dependencies =}")
-        print(f"{time_execution =}")
-        print(f"{yes =}")
-        print(f"{mock_save_state.call_count =}")
-        print(f"{mock_subprocess_run.call_count =}")
-        print(f"{mock_os_remove.call_count =}")
+        print(f"{verbose = }")
+        print(f"{dependencies = }")
+        print(f"{time_execution = }")
+        print(f"{yes = }")
+        print(f"{mock_save_state.call_count = }")
+        print(f"{mock_subprocess_run.call_count = }")
+        print(f"{mock_os_remove.call_count = }")
 
         if delete:
             print("if delete")

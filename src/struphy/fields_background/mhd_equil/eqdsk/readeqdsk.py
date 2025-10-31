@@ -173,11 +173,7 @@ def main():
         action="store_true",
     )
     parser.add_option(
-        "-v",
-        "--vars",
-        dest="vars",
-        help="comma separated list of variables (use '-v \"*\"' for all)",
-        default="*",
+        "-v", "--vars", dest="vars", help="comma separated list of variables (use '-v \"*\"' for all)", default="*"
     )
     parser.add_option(
         "-p",

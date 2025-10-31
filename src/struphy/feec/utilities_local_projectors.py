@@ -1,4 +1,4 @@
-import cunumpy as xp
+import numpy as np
 
 from struphy.feec.local_projectors_kernels import are_quadrature_points_zero, get_rows, select_quasi_points
 
@@ -33,7 +33,7 @@ def split_points(
     shifts : 1d int array
         For each one of the three spatial directions it determines by which amount to shift the position index (pos) in case we have to loop over the evaluation points.
 
-    pts : list of xp.array
+    pts : list of np.array
         3D list of 2D array with the quasi-interpolation points
         (or Gauss-Legendre quadrature points for histopolation).
         In format (ns, nb, np) = (spatial direction, B-spline index, point) for StencilVector spaces .
@@ -50,7 +50,7 @@ def split_points(
     npts : list of ints
         Contains the number of B-splines for each one of the three spatial directions.
 
-    periodic : 1D bool xp.array
+    periodic : 1D bool np.array
         For each one of the three spatial directions contains the information of whether the B-splines are periodic or not.
 
     wij: 3d float array
@@ -75,18 +75,18 @@ def split_points(
     """
     # We iterate over the three spatial directions
     for n, pt in enumerate(pts):
-        original_pts_size[n] = xp.shape(pt)[0]
+        original_pts_size[n] = np.shape(pt)[0]
         # We initialize localpts with as many entries as the global pt, but with all entries being -1
         # This function will change the values of the needed entries from -1 to the value of the point.
         if IoH[n] == "I":
-            localpts = xp.full((xp.shape(pt)[0]), fill_value=-1, dtype=float)
+            localpts = np.full((np.shape(pt)[0]), fill_value=-1, dtype=float)
         elif IoH[n] == "H":
-            localpts = xp.full((xp.shape(pt)), fill_value=-1, dtype=float)
+            localpts = np.full((np.shape(pt)), fill_value=-1, dtype=float)
 
         for i in range(starts[n], ends[n] + 1):
             startj1, endj1 = select_quasi_points(int(i), int(p[n]), int(npts[n]), bool(periodic[n]))
             for j1 in range(lenj[n]):
-                if startj1 + j1 < xp.shape(pt)[0]:
+                if startj1 + j1 < np.shape(pt)[0]:
                     pos = startj1 + j1
                 else:
                     pos = int(startj1 + j1 + shift[n])
@@ -98,42 +98,42 @@ def split_points(
                         localpts[pos] = pt[pos]
         # We get the local points by grabing only the values different from -1.
         if IoH[n] == "I":
-            localpos = xp.where(localpts != -1)[0]
+            localpos = np.where(localpts != -1)[0]
         elif IoH[n] == "H":
-            localpos = xp.where(localpts[:, 0] != -1)[0]
+            localpos = np.where(localpts[:, 0] != -1)[0]
         localpts = localpts[localpos]
-        localptsout.append(xp.array(localpts))
+        localptsout.append(np.array(localpts))
 
         ##
         # We build the index_translation array that shall turn global indices into local indices
         ##
-        mini_indextranslation = xp.full(
-            (xp.shape(pt)[0]),
+        mini_indextranslation = np.full(
+            (np.shape(pt)[0]),
             fill_value=-1,
             dtype=int,
         )
         for i, j in enumerate(localpos):
             mini_indextranslation[j] = i
 
-        index_translation.append(xp.array(mini_indextranslation))
+        index_translation.append(np.array(mini_indextranslation))
 
         ##
         # We build the inv_index_translation that shall turn local indices into global indices
         ##
 
-        inv_mini_indextranslation = xp.full(
-            (xp.shape(localptsout[-1])[0]),
+        inv_mini_indextranslation = np.full(
+            (np.shape(localptsout[-1])[0]),
             fill_value=-1,
             dtype=int,
         )
         for i, j in enumerate(localpos):
             inv_mini_indextranslation[i] = j
 
-        inv_index_translation.append(xp.array(inv_mini_indextranslation))
+        inv_index_translation.append(np.array(inv_mini_indextranslation))
 
 
 def get_values_and_indices_splines(Nbasis, degree, periodic, spans, values):
-    """Given an array with the values of the splines evaluated at certain points this function returns a xp.array that tell us the index of each spline. So we can know to which spline each
+    """Given an array with the values of the splines evaluated at certain points this function returns a np.array that tell us the index of each spline. So we can know to which spline each
     value corresponds. It also modifies the evaluation values in the case we have one spline of degree one with periodic boundary conditions, so it is artificially equal to the identity.
 
     Parameters
@@ -147,31 +147,31 @@ def get_values_and_indices_splines(Nbasis, degree, periodic, spans, values):
     periodic : bool
         Whether we have periodic boundary conditions or nor.
 
-    span : xp.array
+    span : np.array
     2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
 
-    values : xp.array
+    values : np.array
     3d array of values of basis functions indexed by (n, nq, basis function).
 
     Returns
     -------
 
-    eval_indeces : xp.array
+    eval_indeces : np.array
     3d array of basis functions indices, indexed by (n, nq, basis function).
 
-    values : xp.array
+    values : np.array
     3d array of values of basis functions indexed by (n, nq, basis function).
 
     """
     # In this case we want this spatial direction to be "neglected", that means we artificially set the values of the B-spline to 1 at all points. So it becomes the multiplicative identity.
     if Nbasis == 1 and degree == 1 and periodic:
         # Set all values to 1 for the identity case
-        values = xp.ones((values.shape[0], values.shape[1], 1))
-        eval_indeces = xp.zeros_like(values, dtype=int)
+        values = np.ones((values.shape[0], values.shape[1], 1))
+        eval_indeces = np.zeros_like(values, dtype=int)
     else:
-        eval_indeces = xp.zeros_like(values, dtype=int)
-        for i in range(xp.shape(spans)[0]):
-            for k in range(xp.shape(spans)[1]):
+        eval_indeces = np.zeros_like(values, dtype=int)
+        for i in range(np.shape(spans)[0]):
+            for k in range(np.shape(spans)[1]):
                 for j in range(degree + 1):
                     eval_indeces[i, k, j] = (spans[i][k] - degree + j) % Nbasis
 
@@ -180,31 +180,31 @@ def get_values_and_indices_splines(Nbasis, degree, periodic, spans, values):
 
 def get_one_spline(a, values, eval_indeces):
     """Given the spline index, an array with the splines evaluated at the evaluation points and another array with the indices indicating to which spline each value corresponds, this function returns
-    a 1d xp.array with the desired spline evaluated at all evaluation points.
+    a 1d np.array with the desired spline evaluated at all evaluation points.
 
     Parameters
     ----------
     a : int
     Spline index
 
-    values : xp.array
+    values : np.array
     3d array of values of basis functions indexed by (n, nq, basis function).
 
-    eval_indeces : xp.array
+    eval_indeces : np.array
     3d array of basis functions indices, indexed by (n, nq, basis function).
 
     Returns
     -------
-    my_values : xp.array
+    my_values : np.array
     1d array of values for the spline evaluated at all evaluation points.
 
     """
-    my_values = xp.zeros(xp.shape(values)[0] * xp.shape(values)[1])
-    for i in range(xp.shape(values)[0]):
-        for j in range(xp.shape(values)[1]):
-            for k in range(xp.shape(values)[2]):
+    my_values = np.zeros(np.shape(values)[0] * np.shape(values)[1])
+    for i in range(np.shape(values)[0]):
+        for j in range(np.shape(values)[1]):
+            for k in range(np.shape(values)[2]):
                 if eval_indeces[i, j, k] == a:
-                    my_values[i * xp.shape(values)[1] + j] = values[i, j, k]
+                    my_values[i * np.shape(values)[1] + j] = values[i, j, k]
                     break
     return my_values
 
@@ -214,7 +214,7 @@ def get_span_and_basis(pts, space):
 
     Parameters
     ----------
-    pts : xp.array
+    pts : np.array
         2d array of points (ii, iq) = (interval, quadrature point).
 
     space : SplineSpace
@@ -222,10 +222,10 @@ def get_span_and_basis(pts, space):
 
     Returns
     -------
-    span : xp.array
+    span : np.array
         2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
 
-    basis : xp.array
+    basis : np.array
         3d array of values of basis functions indexed by (n, nq, basis function).
     """
 
@@ -235,8 +235,8 @@ def get_span_and_basis(pts, space):
     T = space.knots
     p = space.degree
 
-    span = xp.zeros(pts.shape, dtype=int)
-    basis = xp.zeros((*pts.shape, p + 1), dtype=float)
+    span = np.zeros(pts.shape, dtype=int)
+    basis = np.zeros((*pts.shape, p + 1), dtype=float)
 
     for n in range(pts.shape[0]):
         for nq in range(pts.shape[1]):
@@ -464,7 +464,7 @@ def get_non_zero_B_spline_indices(periodic, IoH, p, B_nbasis, starts, ends, Basi
                 stuck,
             )
 
-        Basis_functions_indices_B.append(xp.array(aux_indices))
+        Basis_functions_indices_B.append(np.array(aux_indices))
 
 
 def get_non_zero_D_spline_indices(periodic, IoH, p, D_nbasis, starts, ends, Basis_functions_indices_D):
@@ -522,7 +522,7 @@ def get_non_zero_D_spline_indices(periodic, IoH, p, D_nbasis, starts, ends, Basi
                 stuck,
             )
 
-        Basis_functions_indices_D.append(xp.array(aux_indices))
+        Basis_functions_indices_D.append(np.array(aux_indices))
 
 
 def build_translation_list_for_non_zero_spline_indices(
@@ -584,18 +584,18 @@ def build_translation_list_for_non_zero_spline_indices(
     """
     translation_indices_B_or_D_splines = [
         {
-            "B": xp.full((B_nbasis[h]), fill_value=-1, dtype=int),
-            "D": xp.full((D_nbasis[h]), fill_value=-1, dtype=int),
+            "B": np.full((B_nbasis[h]), fill_value=-1, dtype=int),
+            "D": np.full((D_nbasis[h]), fill_value=-1, dtype=int),
         }
         for h in range(3)
     ]
 
     for h in range(3):
-        translation_indices_B_or_D_splines[h]["B"][Basis_functions_indices_B[h]] = xp.arange(
-            len(Basis_functions_indices_B[h]),
+        translation_indices_B_or_D_splines[h]["B"][Basis_functions_indices_B[h]] = np.arange(
+            len(Basis_functions_indices_B[h])
         )
-        translation_indices_B_or_D_splines[h]["D"][Basis_functions_indices_D[h]] = xp.arange(
-            len(Basis_functions_indices_D[h]),
+        translation_indices_B_or_D_splines[h]["D"][Basis_functions_indices_D[h]] = np.arange(
+            len(Basis_functions_indices_D[h])
         )
 
         if sp_id in {"Hcurl", "Hdiv", "H1vec"}:
@@ -610,11 +610,7 @@ def build_translation_list_for_non_zero_spline_indices(
 
 
 def evaluate_relevant_splines_at_relevant_points(
-    localpts,
-    Bspaces_1d,
-    Dspaces_1d,
-    Basis_functions_indices_B,
-    Basis_functions_indices_D,
+    localpts, Bspaces_1d, Dspaces_1d, Basis_functions_indices_B, Basis_functions_indices_D
 ):
     """This function evaluates all the B and D-splines that produce non-zeros in the BasisProjectionOperatorLocal's rows that belong to the current MPI rank over all the local evaluation points.
     They are store as float arrays in a dictionary of lists.
@@ -658,7 +654,7 @@ def evaluate_relevant_splines_at_relevant_points(
     for h in range(3):
         # Reshape localpts[h] if necessary
         localpts_reshaped = (
-            localpts[h].reshape((xp.shape(localpts[h])[0], 1)) if len(xp.shape(localpts[h])) == 1 else localpts[h]
+            localpts[h].reshape((np.shape(localpts[h])[0], 1)) if len(np.shape(localpts[h])) == 1 else localpts[h]
         )
 
         # Get spans and evaluation values for B-splines and D-splines
@@ -697,15 +693,7 @@ def evaluate_relevant_splines_at_relevant_points(
 
 
 def determine_non_zero_rows_for_each_spline(
-    Basis_functions_indices_B,
-    Basis_functions_indices_D,
-    starts,
-    ends,
-    p,
-    B_nbasis,
-    D_nbasis,
-    periodic,
-    IoH,
+    Basis_functions_indices_B, Basis_functions_indices_D, starts, ends, p, B_nbasis, D_nbasis, periodic, IoH
 ):
     """This function determines for which rows (amongst those belonging to the current MPI rank) of the BasisProjectionOperatorLocal each B and D spline, of relevance for the current MPI rank, produces
     non-zero entries and annotates this regions of non-zeros by saving the rows at which each region starts and ends.
@@ -772,7 +760,7 @@ def determine_non_zero_rows_for_each_spline(
 
     def process_splines(indices, nbasis, is_D, h):
         for i in indices[h]:
-            aux = xp.zeros((ends[h] + 1 - starts[h]), dtype=int)
+            aux = np.zeros((ends[h] + 1 - starts[h]), dtype=int)
             get_rows(
                 int(i),
                 int(starts[h]),
@@ -786,8 +774,8 @@ def determine_non_zero_rows_for_each_spline(
             )
             rangestart, rangeend = transform_into_ranges(aux)
             key = "D" if is_D else "B"
-            rows_B_or_D_splines[h][key].append(xp.array(rangestart, dtype=int))
-            rowe_B_or_D_splines[h][key].append(xp.array(rangeend, dtype=int))
+            rows_B_or_D_splines[h][key].append(np.array(rangestart, dtype=int))
+            rowe_B_or_D_splines[h][key].append(np.array(rangeend, dtype=int))
 
     for h in range(3):
         process_splines(Basis_functions_indices_B, B_nbasis, False, h)
@@ -804,8 +792,7 @@ def determine_non_zero_rows_for_each_spline(
 
 
 def get_splines_that_are_relevant_for_at_least_one_block(
-    Basis_function_indices_agreggated_B,
-    Basis_function_indices_agreggated_D,
+    Basis_function_indices_agreggated_B, Basis_function_indices_agreggated_D
 ):
     """This function builds one list with all the B-spline indices (and another one for the D-splines) that are required for at least one block of the FE coefficients
     the current MPI rank needs to build its share of the BasisProjectionOperatorLocal.
@@ -904,7 +891,7 @@ def is_spline_zero_at_quadrature_points(
     for h in range(3):
         if necessary_direction[h]:
             for i in Basis_functions_indices_B[h]:
-                Auxiliar = xp.ones((xp.shape(localpts[h])[0]), dtype=int)
+                Auxiliar = np.ones((np.shape(localpts[h])[0]), dtype=int)
                 are_quadrature_points_zero(
                     Auxiliar,
                     int(
@@ -915,7 +902,7 @@ def is_spline_zero_at_quadrature_points(
                 are_zero_B_or_D_splines[h]["B"].append(Auxiliar)
 
             for i in Basis_functions_indices_D[h]:
-                Auxiliar = xp.ones((xp.shape(localpts[h])[0]), dtype=int)
+                Auxiliar = np.ones((np.shape(localpts[h])[0]), dtype=int)
                 are_quadrature_points_zero(
                     Auxiliar,
                     int(

@@ -108,8 +108,7 @@ def kernel_0_form(
                 width[il1] = p[il1] + cell_number[il1] - 1
 
         mat_f = empty(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], num_cell[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], num_cell[2]), dtype=float
         )
         mat_f[:, :, :, :, :, :] = 0.0
 
@@ -336,8 +335,7 @@ def potential_kernel_0_form(
                 width[il1] = p[il1] + cell_number[il1] - 1
 
         mat_f = empty(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], num_cell[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], num_cell[2]), dtype=float
         )
         mat_f[:, :, :, :, :, :] = 0.0
 
@@ -541,42 +539,33 @@ def kernel_1_form(
 
         # evaluation of function at interpolation/quadrature points
         mat_11 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
         mat_21 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
         mat_31 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
 
         mat_12 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
         mat_22 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
         mat_32 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
 
         mat_13 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
         mat_23 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
         mat_33 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
 
         for i1 in range(cell_number[0]):
@@ -1270,42 +1259,33 @@ def bv_localproj_push(
 
         # evaluation of function at interpolation/quadrature points
         mat_11 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
         mat_21 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
         mat_31 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
 
         mat_12 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
         mat_22 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
         mat_32 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
 
         mat_13 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
         mat_23 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
         mat_33 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
 
         for i1 in range(cell_number[0]):
@@ -1825,42 +1805,33 @@ def kernel_1_heavy(
 
         # evaluation of function at interpolation/quadrature points
         mat_11 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
         mat_21 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
         mat_31 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
 
         mat_12 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
         mat_22 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
         mat_32 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
 
         mat_13 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
         mat_23 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
         mat_33 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
 
         for i1 in range(cell_number[0]):
@@ -2402,42 +2373,33 @@ def vv_1_form(
 
         # evaluation of function at interpolation/quadrature points
         mat_11 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
         mat_21 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
         mat_31 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
 
         mat_12 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
         mat_22 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
         mat_32 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
 
         mat_13 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
         mat_23 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
         mat_33 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
 
         for i1 in range(cell_number[0]):
@@ -2943,42 +2905,33 @@ def vv_push(
 
         # evaluation of function at interpolation/quadrature points
         mat_11 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
         mat_21 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
         mat_31 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], 2, num_cell[1], num_cell[2], quad[0]), dtype=float
         )
 
         mat_12 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
         mat_22 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
         mat_32 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], 2, num_cell[2], quad[1]), dtype=float
         )
 
         mat_13 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
         mat_23 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
         mat_33 = zeros(
-            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]),
-            dtype=float,
+            (cell_number[0], cell_number[1], cell_number[2], num_cell[0], num_cell[1], 2, quad[2]), dtype=float
         )
 
         for i1 in range(cell_number[0]):

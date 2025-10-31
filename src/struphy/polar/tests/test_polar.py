@@ -1,6 +1,7 @@
 import pytest
 
 
+@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 6]])
 @pytest.mark.parametrize("p", [[3, 2, 4]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
@@ -167,8 +168,8 @@ def test_spaces(Nel, p, spl_kind):
 @pytest.mark.parametrize("p", [[3, 2, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
-    import cunumpy as xp
-    from psydac.ddm.mpi import mpi as MPI
+    import numpy as np
+    from mpi4py import MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
@@ -222,11 +223,11 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     b2_pol.tp = b2_tp
     p3_pol.tp = p3_tp
 
-    xp.random.seed(1607)
-    f0_pol.pol = [xp.random.rand(f0_pol.pol[0].shape[0], f0_pol.pol[0].shape[1])]
-    e1_pol.pol = [xp.random.rand(e1_pol.pol[n].shape[0], e1_pol.pol[n].shape[1]) for n in range(3)]
-    b2_pol.pol = [xp.random.rand(b2_pol.pol[n].shape[0], b2_pol.pol[n].shape[1]) for n in range(3)]
-    p3_pol.pol = [xp.random.rand(p3_pol.pol[0].shape[0], p3_pol.pol[0].shape[1])]
+    np.random.seed(1607)
+    f0_pol.pol = [np.random.rand(f0_pol.pol[0].shape[0], f0_pol.pol[0].shape[1])]
+    e1_pol.pol = [np.random.rand(e1_pol.pol[n].shape[0], e1_pol.pol[n].shape[1]) for n in range(3)]
+    b2_pol.pol = [np.random.rand(b2_pol.pol[n].shape[0], b2_pol.pol[n].shape[1]) for n in range(3)]
+    p3_pol.pol = [np.random.rand(p3_pol.pol[0].shape[0], p3_pol.pol[0].shape[1])]
 
     f0_pol_leg = f0_pol.toarray(True)
     e1_pol_leg = e1_pol.toarray(True)
@@ -243,10 +244,10 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     r2_pol = derham.extraction_ops["2"].dot(b2_tp)
     r3_pol = derham.extraction_ops["3"].dot(p3_tp)
 
-    assert xp.allclose(r0_pol.toarray(True), space.E0.dot(f0_tp_leg))
-    assert xp.allclose(r1_pol.toarray(True), space.E1.dot(e1_tp_leg))
-    assert xp.allclose(r2_pol.toarray(True), space.E2.dot(b2_tp_leg))
-    assert xp.allclose(r3_pol.toarray(True), space.E3.dot(p3_tp_leg))
+    assert np.allclose(r0_pol.toarray(True), space.E0.dot(f0_tp_leg))
+    assert np.allclose(r1_pol.toarray(True), space.E1.dot(e1_tp_leg))
+    assert np.allclose(r2_pol.toarray(True), space.E2.dot(b2_tp_leg))
+    assert np.allclose(r3_pol.toarray(True), space.E3.dot(p3_tp_leg))
 
     # test transposed extraction operators
     E0T = derham.extraction_ops["0"].transpose()
@@ -277,9 +278,9 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     r2_pol = derham.curl.dot(e1_pol)
     r3_pol = derham.div.dot(b2_pol)
 
-    assert xp.allclose(r1_pol.toarray(True), space.G.dot(f0_pol_leg))
-    assert xp.allclose(r2_pol.toarray(True), space.C.dot(e1_pol_leg))
-    assert xp.allclose(r3_pol.toarray(True), space.D.dot(b2_pol_leg))
+    assert np.allclose(r1_pol.toarray(True), space.G.dot(f0_pol_leg))
+    assert np.allclose(r2_pol.toarray(True), space.C.dot(e1_pol_leg))
+    assert np.allclose(r3_pol.toarray(True), space.D.dot(b2_pol_leg))
 
     # test transposed derivatives
     GT = derham.grad.transpose()
@@ -290,9 +291,9 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     r1_pol = CT.dot(b2_pol)
     r2_pol = DT.dot(p3_pol)
 
-    assert xp.allclose(r0_pol.toarray(True), space.G.T.dot(e1_pol_leg))
-    assert xp.allclose(r1_pol.toarray(True), space.C.T.dot(b2_pol_leg))
-    assert xp.allclose(r2_pol.toarray(True), space.D.T.dot(p3_pol_leg))
+    assert np.allclose(r0_pol.toarray(True), space.G.T.dot(e1_pol_leg))
+    assert np.allclose(r1_pol.toarray(True), space.C.T.dot(b2_pol_leg))
+    assert np.allclose(r2_pol.toarray(True), space.D.T.dot(p3_pol_leg))
 
     if rank == 0:
         print("------------- Test passed ---------------------------")
@@ -302,8 +303,8 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
 @pytest.mark.parametrize("p", [[4, 3, 2]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 def test_projectors(Nel, p, spl_kind):
-    import cunumpy as xp
-    from psydac.ddm.mpi import mpi as MPI
+    import numpy as np
+    from mpi4py import MPI
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
@@ -338,7 +339,7 @@ def test_projectors(Nel, p, spl_kind):
 
     # function to project on physical domain
     def fun_scalar(x, y, z):
-        return xp.sin(2 * xp.pi * (x)) * xp.cos(2 * xp.pi * y) * xp.sin(2 * xp.pi * z)
+        return np.sin(2 * np.pi * (x)) * np.cos(2 * np.pi * y) * np.sin(2 * np.pi * z)
 
     fun_vector = [fun_scalar, fun_scalar, fun_scalar]
 
@@ -369,7 +370,7 @@ def test_projectors(Nel, p, spl_kind):
 
     r0_pol_leg = space.projectors.pi_0(fun0)
 
-    assert xp.allclose(r0_pol.toarray(True), r0_pol_leg)
+    assert np.allclose(r0_pol.toarray(True), r0_pol_leg)
 
     if rank == 0:
         print("Test passed for PI_0 polar projector")
@@ -385,7 +386,7 @@ def test_projectors(Nel, p, spl_kind):
 
     r1_pol_leg = space.projectors.pi_1(fun1, with_subs=False)
 
-    assert xp.allclose(r1_pol.toarray(True), r1_pol_leg)
+    assert np.allclose(r1_pol.toarray(True), r1_pol_leg)
 
     if rank == 0:
         print("Test passed for PI_1 polar projector")
@@ -401,7 +402,7 @@ def test_projectors(Nel, p, spl_kind):
 
     r2_pol_leg = space.projectors.pi_2(fun2, with_subs=False)
 
-    assert xp.allclose(r2_pol.toarray(True), r2_pol_leg)
+    assert np.allclose(r2_pol.toarray(True), r2_pol_leg)
 
     if rank == 0:
         print("Test passed for PI_2 polar projector")
@@ -417,7 +418,7 @@ def test_projectors(Nel, p, spl_kind):
 
     r3_pol_leg = space.projectors.pi_3(fun3, with_subs=False)
 
-    assert xp.allclose(r3_pol.toarray(True), r3_pol_leg)
+    assert np.allclose(r3_pol.toarray(True), r3_pol_leg)
 
     if rank == 0:
         print("Test passed for PI_3 polar projector")

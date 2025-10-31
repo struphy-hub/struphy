@@ -8,9 +8,9 @@ Modules to create sparse matrices from 6D sub-matrices in particle accumulation 
 
 import time
 
-import cunumpy as xp
+import numpy as np
 import scipy.sparse as spa
-from psydac.ddm.mpi import mpi as MPI
+from mpi4py import MPI
 
 import struphy.pic.tests.test_pic_legacy_files.accumulation_kernels_3d as pic_ker_3d
 
@@ -69,22 +69,22 @@ class Accumulator:
             else:
                 Ni = getattr(self.space, "Nbase_" + str(self.basis_u) + "form")[a]
 
-            self.vecs_loc[a] = xp.empty((Ni[0], Ni[1], Ni[2]), dtype=float)
-            self.vecs_glo[a] = xp.empty((Ni[0], Ni[1], Ni[2]), dtype=float)
+            self.vecs_loc[a] = np.empty((Ni[0], Ni[1], Ni[2]), dtype=float)
+            self.vecs_glo[a] = np.empty((Ni[0], Ni[1], Ni[2]), dtype=float)
 
             for b in range(3):
                 if self.space.dim == 2:
-                    self.blocks_loc[a][b] = xp.empty(
+                    self.blocks_loc[a][b] = np.empty(
                         (Ni[0], Ni[1], Ni[2], 2 * self.space.p[0] + 1, 2 * self.space.p[1] + 1, self.space.NbaseN[2]),
                         dtype=float,
                     )
-                    self.blocks_glo[a][b] = xp.empty(
+                    self.blocks_glo[a][b] = np.empty(
                         (Ni[0], Ni[1], Ni[2], 2 * self.space.p[0] + 1, 2 * self.space.p[1] + 1, self.space.NbaseN[2]),
                         dtype=float,
                     )
 
                 else:
-                    self.blocks_loc[a][b] = xp.empty(
+                    self.blocks_loc[a][b] = np.empty(
                         (
                             Ni[0],
                             Ni[1],
@@ -95,7 +95,7 @@ class Accumulator:
                         ),
                         dtype=float,
                     )
-                    self.blocks_glo[a][b] = xp.empty(
+                    self.blocks_glo[a][b] = np.empty(
                         (
                             Ni[0],
                             Ni[1],
@@ -134,16 +134,16 @@ class Accumulator:
                     Ni = self.space.Nbase_2form[a]
                     Nj = self.space.Nbase_2form[b]
 
-                indices = xp.indices(self.blocks_glo[a][b].shape)
+                indices = np.indices(self.blocks_glo[a][b].shape)
 
                 row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-                shift = [xp.arange(Ni) - p for Ni, p in zip(Ni[:2], self.space.p[:2])]
+                shift = [np.arange(Ni) - p for Ni, p in zip(Ni[:2], self.space.p[:2])]
 
                 if self.space.dim == 2:
-                    shift += [xp.zeros(self.space.NbaseN[2], dtype=int)]
+                    shift += [np.zeros(self.space.NbaseN[2], dtype=int)]
                 else:
-                    shift += [xp.arange(Ni[2]) - self.space.p[2]]
+                    shift += [np.arange(Ni[2]) - self.space.p[2]]
 
                 col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
                 col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
@@ -159,8 +159,7 @@ class Accumulator:
 
         # final block matrix
         M = spa.bmat(
-            [[None, M[0][1], M[0][2]], [-M[0][1].T, None, M[1][2]], [-M[0][2].T, -M[1][2].T, None]],
-            format="csr",
+            [[None, M[0][1], M[0][2]], [-M[0][1].T, None, M[1][2]], [-M[0][2].T, -M[1][2].T, None]], format="csr"
         )
 
         # apply extraction operator
@@ -202,16 +201,16 @@ class Accumulator:
                     Ni = self.space.Nbase_2form[a]
                     Nj = self.space.Nbase_2form[b]
 
-                indices = xp.indices(self.blocks_glo[a][b].shape)
+                indices = np.indices(self.blocks_glo[a][b].shape)
 
                 row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
-                shift = [xp.arange(Ni) - p for Ni, p in zip(Ni[:2], self.space.p[:2])]
+                shift = [np.arange(Ni) - p for Ni, p in zip(Ni[:2], self.space.p[:2])]
 
                 if self.space.dim == 2:
-                    shift += [xp.zeros(self.space.NbaseN[2], dtype=int)]
+                    shift += [np.zeros(self.space.NbaseN[2], dtype=int)]
                 else:
-                    shift += [xp.arange(Ni[2]) - self.space.p[2]]
+                    shift += [np.arange(Ni[2]) - self.space.p[2]]
 
                 col1 = (indices[3] + shift[0][:, None, None, None, None, None]) % Nj[0]
                 col2 = (indices[4] + shift[1][None, :, None, None, None, None]) % Nj[1]
@@ -227,8 +226,7 @@ class Accumulator:
 
         # final block matrix
         M = spa.bmat(
-            [[M[0][0], M[0][1], M[0][2]], [M[0][1].T, M[1][1], M[1][2]], [M[0][2].T, M[1][2].T, M[2][2]]],
-            format="csr",
+            [[M[0][0], M[0][1], M[0][2]], [M[0][1].T, M[1][1], M[1][2]], [M[0][2].T, M[1][2].T, M[2][2]]], format="csr"
         )
 
         # apply extraction operator
@@ -530,15 +528,15 @@ class Accumulator:
         # build global sparse matrix and global vector
         if self.basis_u == 0:
             return self.to_sparse_step3(), self.space.Ev_0.dot(
-                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())),
+                np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
             )
 
         elif self.basis_u == 1:
             return self.to_sparse_step3(), self.space.E1_0.dot(
-                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())),
+                np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
             )
 
         elif self.basis_u == 2:
             return self.to_sparse_step3(), self.space.E2_0.dot(
-                xp.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten())),
+                np.concatenate((self.vecs[0].flatten(), self.vecs[1].flatten(), self.vecs[2].flatten()))
             )

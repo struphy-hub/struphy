@@ -1,5 +1,5 @@
-import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
+import numpy as np
+from mpi4py import MPI
 from psydac.linalg.block import BlockVector, BlockVectorSpace
 from psydac.linalg.stencil import StencilVector, StencilVectorSpace
 from scipy.sparse import csr_matrix, identity
@@ -334,14 +334,7 @@ class PolarLinearOperator(LinOpWithTransp):
     """
 
     def __init__(
-        self,
-        V,
-        W,
-        tp_operator=None,
-        blocks_pol_to_ten=None,
-        blocks_pol_to_pol=None,
-        blocks_e3=None,
-        transposed=False,
+        self, V, W, tp_operator=None, blocks_pol_to_ten=None, blocks_pol_to_pol=None, blocks_e3=None, transposed=False
     ):
         assert isinstance(V, PolarDerhamSpace)
         assert isinstance(W, PolarDerhamSpace)
@@ -675,7 +668,7 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
 
     # loop over codomain components
     for m, (row_e1_e2, row_e3) in enumerate(zip(blocks_e1_e2, blocks_e3)):
-        res = xp.zeros((n_rows[m], n3_out[m]), dtype=float)
+        res = np.zeros((n_rows[m], n3_out[m]), dtype=float)
 
         # loop over domain components
         for n, (block_e1_e2, block_e3) in enumerate(zip(row_e1_e2, row_e3)):
@@ -684,7 +677,7 @@ def dot_inner_tp_rings(blocks_e1_e2, blocks_e3, v, out):
                 e1, e2, e3 = in_ends[n]
 
                 if block_e1_e2 is not None:
-                    tmp = xp.zeros((n_rings_in[n], n2, n3_in[n]), dtype=float)
+                    tmp = np.zeros((n_rings_in[n], n2, n3_in[n]), dtype=float)
                     tmp[:, s2 : e2 + 1, s3 : e3 + 1] = in_vec[n][0 : n_rings_in[n], s2 : e2 + 1, s3 : e3 + 1]
                     res += kron_matvec_2d([block_e1_e2, block_e3], tmp.reshape(n_rings_in[n] * n2, n3_in[n]))
 
@@ -792,7 +785,7 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out):
 
     # loop over codomain components
     for m, (row_e1_e2, row_e3) in enumerate(zip(blocks_e1_e2, blocks_e3)):
-        res = xp.zeros((n_rings_out[m], n2, n3_out[m]), dtype=float)
+        res = np.zeros((n_rings_out[m], n2, n3_out[m]), dtype=float)
 
         # loop over domain components
         for n, (block_e1_e2, block_e3) in enumerate(zip(row_e1_e2, row_e3)):
@@ -801,7 +794,7 @@ def dot_parts_of_polar(blocks_e1_e2, blocks_e3, v, out):
                     if in_starts[n][0] == 0:
                         s1, s2, s3 = in_starts[n]
                         e1, e2, e3 = in_ends[n]
-                        tmp = xp.zeros((n2, n3_in[n]), dtype=float)
+                        tmp = np.zeros((n2, n3_in[n]), dtype=float)
                         tmp[s2 : e2 + 1, s3 : e3 + 1] = in_tp[n][n_rings_in[n], s2 : e2 + 1, s3 : e3 + 1]
                         res += kron_matvec_2d([block_e1_e2, block_e3], tmp).reshape(n_rings_out[m], n2, n3_out[m])
                 else:

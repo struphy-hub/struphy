@@ -127,19 +127,7 @@ def evaluate_n_n_n(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pn1,
-        pn2,
-        pn3,
-        bn1,
-        bn2,
-        bn3,
-        span_n1,
-        span_n2,
-        span_n3,
-        nbase_n1,
-        nbase_n2,
-        nbase_n3,
-        coeff,
+        pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff
     )
 
     return value
@@ -201,19 +189,7 @@ def evaluate_diffn_n_n(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pn1,
-        pn2,
-        pn3,
-        bn1,
-        bn2,
-        bn3,
-        span_n1,
-        span_n2,
-        span_n3,
-        nbase_n1,
-        nbase_n2,
-        nbase_n3,
-        coeff,
+        pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff
     )
 
     return value
@@ -275,19 +251,7 @@ def evaluate_n_diffn_n(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pn1,
-        pn2,
-        pn3,
-        bn1,
-        bn2,
-        bn3,
-        span_n1,
-        span_n2,
-        span_n3,
-        nbase_n1,
-        nbase_n2,
-        nbase_n3,
-        coeff,
+        pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff
     )
 
     return value
@@ -349,19 +313,7 @@ def evaluate_n_n_diffn(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pn1,
-        pn2,
-        pn3,
-        bn1,
-        bn2,
-        bn3,
-        span_n1,
-        span_n2,
-        span_n3,
-        nbase_n1,
-        nbase_n2,
-        nbase_n3,
-        coeff,
+        pn1, pn2, pn3, bn1, bn2, bn3, span_n1, span_n2, span_n3, nbase_n1, nbase_n2, nbase_n3, coeff
     )
 
     return value
@@ -425,19 +377,7 @@ def evaluate_d_n_n(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pd1,
-        pn2,
-        pn3,
-        bd1,
-        bn2,
-        bn3,
-        span_d1,
-        span_n2,
-        span_n3,
-        nbase_d1,
-        nbase_n2,
-        nbase_n3,
-        coeff,
+        pd1, pn2, pn3, bd1, bn2, bn3, span_d1, span_n2, span_n3, nbase_d1, nbase_n2, nbase_n3, coeff
     )
 
     return value
@@ -501,19 +441,7 @@ def evaluate_n_d_n(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pn1,
-        pd2,
-        pn3,
-        bn1,
-        bd2,
-        bn3,
-        span_n1,
-        span_d2,
-        span_n3,
-        nbase_n1,
-        nbase_d2,
-        nbase_n3,
-        coeff,
+        pn1, pd2, pn3, bn1, bd2, bn3, span_n1, span_d2, span_n3, nbase_n1, nbase_d2, nbase_n3, coeff
     )
 
     return value
@@ -577,19 +505,7 @@ def evaluate_n_n_d(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pn1,
-        pn2,
-        pd3,
-        bn1,
-        bn2,
-        bd3,
-        span_n1,
-        span_n2,
-        span_d3,
-        nbase_n1,
-        nbase_n2,
-        nbase_d3,
-        coeff,
+        pn1, pn2, pd3, bn1, bn2, bd3, span_n1, span_n2, span_d3, nbase_n1, nbase_n2, nbase_d3, coeff
     )
 
     return value
@@ -654,19 +570,7 @@ def evaluate_n_d_d(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pn1,
-        pd2,
-        pd3,
-        bn1,
-        bd2,
-        bd3,
-        span_n1,
-        span_d2,
-        span_d3,
-        nbase_n1,
-        nbase_d2,
-        nbase_d3,
-        coeff,
+        pn1, pd2, pd3, bn1, bd2, bd3, span_n1, span_d2, span_d3, nbase_n1, nbase_d2, nbase_d3, coeff
     )
 
     return value
@@ -731,19 +635,7 @@ def evaluate_d_n_d(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pd1,
-        pn2,
-        pd3,
-        bd1,
-        bn2,
-        bd3,
-        span_d1,
-        span_n2,
-        span_d3,
-        nbase_d1,
-        nbase_n2,
-        nbase_d3,
-        coeff,
+        pd1, pn2, pd3, bd1, bn2, bd3, span_d1, span_n2, span_d3, nbase_d1, nbase_n2, nbase_d3, coeff
     )
 
     return value
@@ -808,19 +700,7 @@ def evaluate_d_d_n(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pd1,
-        pd2,
-        pn3,
-        bd1,
-        bd2,
-        bn3,
-        span_d1,
-        span_d2,
-        span_n3,
-        nbase_d1,
-        nbase_d2,
-        nbase_n3,
-        coeff,
+        pd1, pd2, pn3, bd1, bd2, bn3, span_d1, span_d2, span_n3, nbase_d1, nbase_d2, nbase_n3, coeff
     )
 
     return value
@@ -886,19 +766,7 @@ def evaluate_d_d_d(
 
     # sum up non-vanishing contributions
     value = evaluation_kernel_3d(
-        pd1,
-        pd2,
-        pd3,
-        bd1,
-        bd2,
-        bd3,
-        span_d1,
-        span_d2,
-        span_d3,
-        nbase_d1,
-        nbase_d2,
-        nbase_d3,
-        coeff,
+        pd1, pd2, pd3, bd1, bd2, bd3, span_d1, span_d2, span_d3, nbase_d1, nbase_d2, nbase_d3, coeff
     )
 
     return value
@@ -938,7 +806,7 @@ def evaluate_tensor_product(
     Returns:
     --------
         values:                     double[:, :, :]     values of spline at points from
-                                                        xp.meshgrid(eta1, eta2, eta3, indexing='ij').
+                                                        np.meshgrid(eta1, eta2, eta3, indexing='ij').
     """
 
     for i1 in range(len(eta1)):
@@ -947,137 +815,41 @@ def evaluate_tensor_product(
                 # V0 - space
                 if kind == 0:
                     values[i1, i2, i3] = evaluate_n_n_n(
-                        t1,
-                        t2,
-                        t3,
-                        p1,
-                        p2,
-                        p3,
-                        nbase_1,
-                        nbase_2,
-                        nbase_3,
-                        coeff,
-                        eta1[i1],
-                        eta2[i2],
-                        eta3[i3],
+                        t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1], eta2[i2], eta3[i3]
                     )
 
                 # V1 - space
                 elif kind == 11:
                     values[i1, i2, i3] = evaluate_d_n_n(
-                        t1,
-                        t2,
-                        t3,
-                        p1,
-                        p2,
-                        p3,
-                        nbase_1,
-                        nbase_2,
-                        nbase_3,
-                        coeff,
-                        eta1[i1],
-                        eta2[i2],
-                        eta3[i3],
+                        t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1], eta2[i2], eta3[i3]
                     )
                 elif kind == 12:
                     values[i1, i2, i3] = evaluate_n_d_n(
-                        t1,
-                        t2,
-                        t3,
-                        p1,
-                        p2,
-                        p3,
-                        nbase_1,
-                        nbase_2,
-                        nbase_3,
-                        coeff,
-                        eta1[i1],
-                        eta2[i2],
-                        eta3[i3],
+                        t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1], eta2[i2], eta3[i3]
                     )
                 elif kind == 13:
                     values[i1, i2, i3] = evaluate_n_n_d(
-                        t1,
-                        t2,
-                        t3,
-                        p1,
-                        p2,
-                        p3,
-                        nbase_1,
-                        nbase_2,
-                        nbase_3,
-                        coeff,
-                        eta1[i1],
-                        eta2[i2],
-                        eta3[i3],
+                        t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1], eta2[i2], eta3[i3]
                     )
 
                 # V2 - space
                 elif kind == 21:
                     values[i1, i2, i3] = evaluate_n_d_d(
-                        t1,
-                        t2,
-                        t3,
-                        p1,
-                        p2,
-                        p3,
-                        nbase_1,
-                        nbase_2,
-                        nbase_3,
-                        coeff,
-                        eta1[i1],
-                        eta2[i2],
-                        eta3[i3],
+                        t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1], eta2[i2], eta3[i3]
                     )
                 elif kind == 22:
                     values[i1, i2, i3] = evaluate_d_n_d(
-                        t1,
-                        t2,
-                        t3,
-                        p1,
-                        p2,
-                        p3,
-                        nbase_1,
-                        nbase_2,
-                        nbase_3,
-                        coeff,
-                        eta1[i1],
-                        eta2[i2],
-                        eta3[i3],
+                        t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1], eta2[i2], eta3[i3]
                     )
                 elif kind == 23:
                     values[i1, i2, i3] = evaluate_d_d_n(
-                        t1,
-                        t2,
-                        t3,
-                        p1,
-                        p2,
-                        p3,
-                        nbase_1,
-                        nbase_2,
-                        nbase_3,
-                        coeff,
-                        eta1[i1],
-                        eta2[i2],
-                        eta3[i3],
+                        t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1], eta2[i2], eta3[i3]
                     )
 
                 # V3 - space
                 elif kind == 3:
                     values[i1, i2, i3] = evaluate_d_d_d(
-                        t1,
-                        t2,
-                        t3,
-                        p1,
-                        p2,
-                        p3,
-                        nbase_1,
-                        nbase_2,
-                        nbase_3,
-                        coeff,
-                        eta1[i1],
-                        eta2[i2],
-                        eta3[i3],
+                        t1, t2, t3, p1, p2, p3, nbase_1, nbase_2, nbase_3, coeff, eta1[i1], eta2[i2], eta3[i3]
                     )
 
 

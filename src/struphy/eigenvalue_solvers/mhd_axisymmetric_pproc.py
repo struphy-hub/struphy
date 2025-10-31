@@ -3,7 +3,7 @@ def main():
     import argparse
     import os
 
-    import cunumpy as xp
+    import numpy as np
     import yaml
 
     # parse arguments
@@ -21,10 +21,7 @@ def main():
     )
 
     parser.add_argument(
-        "--input-abs",
-        type=str,
-        metavar="DIR",
-        help="directory with eigenspectrum (.npy) file, absolute path",
+        "--input-abs", type=str, metavar="DIR", help="directory with eigenspectrum (.npy) file, absolute path"
     )
 
     parser.add_argument("lower", type=float, help="lower range of squared eigenfrequency")
@@ -54,18 +51,18 @@ def main():
 
     spec_path = os.path.join(input_path, "spec_n_" + n_tor_str + ".npy")
 
-    omega2, U2_eig = xp.split(xp.load(spec_path), [1], axis=0)
+    omega2, U2_eig = np.split(np.load(spec_path), [1], axis=0)
     omega2 = omega2.flatten()
 
-    modes_ind = xp.where((xp.real(omega2) < args.upper) & (xp.real(omega2) > args.lower))[0]
+    modes_ind = np.where((np.real(omega2) < args.upper) & (np.real(omega2) > args.lower))[0]
 
     omega2 = omega2[modes_ind]
     U2_eig = U2_eig[:, modes_ind]
 
     # save restricted spectrum
-    xp.save(
+    np.save(
         os.path.join(input_path, "spec_" + str(args.lower) + "_" + str(args.upper) + "_n_" + n_tor_str + ".npy"),
-        xp.vstack((omega2.reshape(1, omega2.size), U2_eig)),
+        np.vstack((omega2.reshape(1, omega2.size), U2_eig)),
     )
 
 

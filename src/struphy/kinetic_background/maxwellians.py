@@ -2,7 +2,7 @@
 
 from typing import Callable
 
-import cunumpy as xp
+import numpy as np
 
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
@@ -251,7 +251,7 @@ class GyroMaxwellian2D(Maxwellian):
         assert len(v) == 2
 
         # call equilibrium
-        etas = (xp.vstack((eta1, eta2, eta3)).T).copy()
+        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
         absB0 = self.equil.absB0(etas)
 
         # J = v_perp/B
@@ -405,14 +405,14 @@ class CanonicalMaxwellian:
         assert eta3.ndim == 1
 
         if self.maxw_params["type"] == "Particles6D":
-            return xp.sqrt(2.0 * energy) * 4.0 * xp.pi
+            return np.sqrt(2.0 * energy) * 4.0 * np.pi
 
         else:
             # call equilibrium
-            etas = (xp.vstack((eta1, eta2, eta3)).T).copy()
+            etas = (np.vstack((eta1, eta2, eta3)).T).copy()
             absB0 = self.equil.absB0(etas)
 
-            return xp.sqrt(energy) * 2.0 * xp.sqrt(2.0) / absB0
+            return np.sqrt(energy) * 2.0 * np.sqrt(2.0) / absB0
 
     def gaussian(self, e, vth=1.0):
         """3-dim. normal distribution, to which array-valued thermal velocities can be passed.
@@ -430,10 +430,10 @@ class CanonicalMaxwellian:
         An array of size(e).
         """
 
-        if isinstance(vth, xp.ndarray):
-            assert e.shape == vth.shape, f"{e.shape =} but {vth.shape =}"
+        if isinstance(vth, np.ndarray):
+            assert e.shape == vth.shape, f"{e.shape = } but {vth.shape = }"
 
-        return 2.0 * xp.sqrt(e / xp.pi) / vth**3 * xp.exp(-e / vth**2)
+        return 2.0 * np.sqrt(e / np.pi) / vth**3 * np.exp(-e / vth**2)
 
     def __call__(self, *args):
         """Evaluates the canonical Maxwellian distribution function.
@@ -455,16 +455,16 @@ class CanonicalMaxwellian:
 
         Returns
         -------
-        f : xp.ndarray
+        f : np.ndarray
             The evaluated Maxwellian.
         """
 
         # Check that all args have the same shape
-        shape0 = xp.shape(args[0])
+        shape0 = np.shape(args[0])
         for i, arg in enumerate(args):
-            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) =}, but must be {shape0 =}."
-            assert xp.ndim(arg) == 1 or xp.ndim(arg) == 3, (
-                f"{xp.ndim(arg) =} not allowed for canonical Maxwellian evaluation."
+            assert np.shape(arg) == shape0, f"Argument {i} has {np.shape(arg) = }, but must be {shape0 = }."
+            assert np.ndim(arg) == 1 or np.ndim(arg) == 3, (
+                f"{np.ndim(arg) = } not allowed for canonical Maxwellian evaluation."
             )  # flat or meshgrid evaluation
 
         # Get result evaluated with each particles' psic
@@ -472,26 +472,26 @@ class CanonicalMaxwellian:
         vths = self.vth(args[2])
 
         # take care of correct broadcasting, assuming args come from phase space meshgrid
-        if xp.ndim(args[0]) == 3:
+        if np.ndim(args[0]) == 3:
             # move eta axes to the back
-            arg_t = xp.moveaxis(args[0], 0, -1)
-            arg_t = xp.moveaxis(arg_t, 0, -1)
-            arg_t = xp.moveaxis(arg_t, 0, -1)
+            arg_t = np.moveaxis(args[0], 0, -1)
+            arg_t = np.moveaxis(arg_t, 0, -1)
+            arg_t = np.moveaxis(arg_t, 0, -1)
 
             # broadcast
             res_broad = res + 0.0 * arg_t
 
             # move eta axes to the front
-            res = xp.moveaxis(res_broad, -1, 0)
-            res = xp.moveaxis(res, -1, 0)
-            res = xp.moveaxis(res, -1, 0)
+            res = np.moveaxis(res_broad, -1, 0)
+            res = np.moveaxis(res, -1, 0)
+            res = np.moveaxis(res, -1, 0)
 
         # Multiply result with gaussian in energy
-        if xp.ndim(args[0]) == 3:
+        if np.ndim(args[0]) == 3:
             vth_broad = vths + 0.0 * arg_t
-            vth = xp.moveaxis(vth_broad, -1, 0)
-            vth = xp.moveaxis(vth, -1, 0)
-            vth = xp.moveaxis(vth, -1, 0)
+            vth = np.moveaxis(vth_broad, -1, 0)
+            vth = np.moveaxis(vth, -1, 0)
+            vth = np.moveaxis(vth, -1, 0)
         else:
             vth = vths
 
@@ -544,13 +544,13 @@ class CanonicalMaxwellian:
         rc_squared = (psic - self.equil.psi_range[0]) / (self.equil.psi_range[1] - self.equil.psi_range[0])
 
         # sorting out indices of negative rc²
-        neg_index = xp.logical_not(rc_squared >= 0)
+        neg_index = np.logical_not(rc_squared >= 0)
 
         # make them positive
         rc_squared[neg_index] *= -1
 
         # calculate rc
-        rc = xp.sqrt(rc_squared)
+        rc = np.sqrt(rc_squared)
         rc[neg_index] *= -1
 
         return rc
@@ -568,7 +568,7 @@ class CanonicalMaxwellian:
         A float (background value) or a numpy.array of the evaluated density.
         """
         # collect arguments
-        assert isinstance(psic, xp.ndarray)
+        assert isinstance(psic, np.ndarray)
 
         # assuming that input comes from meshgrid.
         if psic.ndim == 3:
@@ -612,7 +612,7 @@ class CanonicalMaxwellian:
         """
 
         # collect arguments
-        assert isinstance(psic, xp.ndarray)
+        assert isinstance(psic, np.ndarray)
 
         # assuming that input comes from meshgrid.
         if psic.ndim == 3:
@@ -655,28 +655,20 @@ class ColdPlasma(Maxwellian):
 
     def __init__(
         self,
-        n: tuple[float | Callable, Perturbation] = (1.0, None),
-        u1: tuple[float | Callable, Perturbation] = (0.0, None),
-        u2: tuple[float | Callable, Perturbation] = (0.0, None),
-        u3: tuple[float | Callable, Perturbation] = (0.0, None),
+        maxw_params: dict = None,
+        pert_params: dict = None,
         equil: FluidEquilibriumWithB = None,
     ):
-        self._maxw_params = {}
-        self._maxw_params["n"] = n
-        self._maxw_params["u1"] = u1
-        self._maxw_params["u2"] = u2
-        self._maxw_params["u3"] = u3
-        self._maxw_params["vth1"] = (0.0, None)
-        self._maxw_params["vth2"] = (0.0, None)
-        self._maxw_params["vth3"] = (0.0, None)
+        super().__init__(
+            maxw_params=maxw_params,
+            pert_params=pert_params,
+            equil=equil,
+        )
 
-        self.check_maxw_params()
-
-        self._equil = equil
-
-    @property
-    def maxw_params(self):
-        return self._maxw_params
+        # make sure temperatures are zero
+        self._maxw_params["vth1"] = 0.0
+        self._maxw_params["vth2"] = 0.0
+        self._maxw_params["vth3"] = 0.0
 
     @property
     def coords(self):
@@ -699,10 +691,6 @@ class ColdPlasma(Maxwellian):
         return False
 
     @property
-    def equil(self) -> FluidEquilibriumWithB:
-        """Fluid background with B-field."""
-        return self._equil
-
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """Jacobian determinant of the velocity coordinate transformation."""
         return 1.0
@@ -730,3 +718,14 @@ class ColdPlasma(Maxwellian):
 
     def __call__(self, eta1, eta2, eta3):
         return self.n(eta1, eta2, eta3)
+
+    @property
+    def add_perturbation(self) -> bool:
+        if not hasattr(self, "_add_perturbation"):
+            self._add_perturbation = True
+        return self._add_perturbation
+
+    @add_perturbation.setter
+    def add_perturbation(self, new):
+        assert isinstance(new, bool)
+        self._add_perturbation = new

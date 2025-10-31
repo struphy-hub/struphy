@@ -61,12 +61,7 @@ def evaluation_kernel_1d(p1: int, basis1: "Final[float[:]]", ind1: "Final[int[:]
 @pure
 @stack_array("tmp1", "tmp2")
 def evaluate(
-    kind1: int,
-    t1: "Final[float[:]]",
-    p1: int,
-    ind1: "Final[int[:,:]]",
-    coeff: "Final[float[:]]",
-    eta1: float,
+    kind1: int, t1: "Final[float[:]]", p1: int, ind1: "Final[int[:,:]]", coeff: "Final[float[:]]", eta1: float
 ) -> float:
     """
     Point-wise evaluation of a spline.

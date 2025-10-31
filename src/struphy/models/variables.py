@@ -4,8 +4,8 @@ from __future__ import annotations
 from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING
 
-import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
+import numpy as np
+from mpi4py import MPI
 
 from struphy.feec.psydac_derham import Derham, SplineFunction
 from struphy.fields_background.base import FluidEquilibrium
@@ -82,7 +82,7 @@ class Variable(metaclass=ABCMeta):
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added background '{background.__class__.__name__}' with:",
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added background '{background.__class__.__name__}' with:"
             )
             for k, v in background.__dict__.items():
                 print(f"  {k}: {v}")
@@ -120,7 +120,7 @@ class FEECVariable(Variable):
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:",
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:"
             )
             for k, v in perturbation.__dict__.items():
                 print(f"  {k}: {v}")
@@ -175,7 +175,7 @@ class PICVariable(Variable):
         self._initial_condition = init
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added initial condition '{init.__class__.__name__}' with:",
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added initial condition '{init.__class__.__name__}' with:"
             )
             for k, v in init.__dict__.items():
                 print(f"  {k}: {v}")
@@ -197,7 +197,7 @@ class PICVariable(Variable):
     ):
         # assert isinstance(self.species, KineticSpecies)
         assert isinstance(self.backgrounds, KineticBackground), (
-            "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+            f"List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
         )
 
         if derham is None:
@@ -257,7 +257,7 @@ class PICVariable(Variable):
             f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
         )
         if self._n_to_save > 0:
-            self._saved_markers = xp.zeros(
+            self._saved_markers = np.zeros(
                 (self._n_to_save, self.particles.markers.shape[1]),
                 dtype=float,
             )
@@ -270,7 +270,7 @@ class PICVariable(Variable):
         return self._n_to_save
 
     @property
-    def saved_markers(self) -> xp.ndarray:
+    def saved_markers(self) -> np.ndarray:
         return self._saved_markers
 
 
@@ -340,7 +340,7 @@ class SPHVariable(Variable):
         verbose: bool = False,
     ):
         assert isinstance(self.backgrounds, FluidEquilibrium), (
-            "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+            f"List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
         )
 
         self.backgrounds.domain = domain
@@ -398,7 +398,7 @@ class SPHVariable(Variable):
             f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
         )
         if self._n_to_save > 0:
-            self._saved_markers = xp.zeros(
+            self._saved_markers = np.zeros(
                 (self._n_to_save, self.particles.markers.shape[1]),
                 dtype=float,
             )
@@ -411,5 +411,5 @@ class SPHVariable(Variable):
         return self._n_to_save
 
     @property
-    def saved_markers(self) -> xp.ndarray:
+    def saved_markers(self) -> np.ndarray:
         return self._saved_markers

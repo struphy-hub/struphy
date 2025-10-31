@@ -3,7 +3,6 @@
 
 from typing import Callable
 
-import cunumpy as xp
 import numpy as np
 
 # from typing import TYPE_CHECKING
@@ -129,10 +128,10 @@ def field_line_tracing(
 
     Returns
     -------
-    cR : xp.ndarray
+    cR : np.ndarray
         Control points (2d) of flux aligned spline mapping (R-component).
 
-    cZ : xp.ndarray
+    cZ : np.ndarray
         Control points (2d) of flux aligned spline mapping (Z-component).
     """
 
@@ -145,8 +144,8 @@ def field_line_tracing(
         ps, px = p_pre
 
     # spline knots
-    Ts = bsp.make_knots(xp.linspace(0.0, 1.0, ns + 1), ps, False)
-    Tx = bsp.make_knots(xp.linspace(0.0, 1.0, nx + 1), px, True)
+    Ts = bsp.make_knots(np.linspace(0.0, 1.0, ns + 1), ps, False)
+    Tx = bsp.make_knots(np.linspace(0.0, 1.0, nx + 1), px, True)
 
     # interpolation (Greville) points
     s_gr = bsp.greville(Ts, ps, False)
@@ -165,13 +164,13 @@ def field_line_tracing(
     ]
 
     # check if pole is included
-    if xp.abs(psi(psi_axis_R, psi_axis_Z) - psi0) < 1e-14:
+    if np.abs(psi(psi_axis_R, psi_axis_Z) - psi0) < 1e-14:
         pole = True
     else:
         pole = False
 
-    R = xp.zeros((s_gr.size, x_gr.size), dtype=float)
-    Z = xp.zeros((s_gr.size, x_gr.size), dtype=float)
+    R = np.zeros((s_gr.size, x_gr.size), dtype=float)
+    Z = np.zeros((s_gr.size, x_gr.size), dtype=float)
 
     # function whose root must be found
     for j, x in enumerate(x_gr):
@@ -188,8 +187,8 @@ def field_line_tracing(
 
             # function whose root must be found
             def f(r):
-                _R = psi_axis_R + r * xp.cos(2 * xp.pi * x)
-                _Z = psi_axis_Z + r * xp.sin(2 * xp.pi * x)
+                _R = psi_axis_R + r * np.cos(2 * np.pi * x)
+                _Z = psi_axis_Z + r * np.sin(2 * np.pi * x)
 
                 psi_norm = (psi(_R, _Z) - psi0) / (psi1 - psi0)
 
@@ -200,8 +199,8 @@ def field_line_tracing(
 
             r_flux_surface = newton(f, x0=r_guess)
 
-            R[i, j] = psi_axis_R + r_flux_surface * xp.cos(2 * xp.pi * x)
-            Z[i, j] = psi_axis_Z + r_flux_surface * xp.sin(2 * xp.pi * x)
+            R[i, j] = psi_axis_R + r_flux_surface * np.cos(2 * np.pi * x)
+            Z[i, j] = psi_axis_Z + r_flux_surface * np.sin(2 * np.pi * x)
 
     # get control points
     cR_equal_angle = kron_lusolve_2d(ILUs, R)
@@ -227,8 +226,8 @@ def field_line_tracing(
         ps, px = p
 
         # spline knots
-        Ts = bsp.make_knots(xp.linspace(0.0, 1.0, ns + 1), ps, False)
-        Tx = bsp.make_knots(xp.linspace(0.0, 1.0, nx + 1), px, True)
+        Ts = bsp.make_knots(np.linspace(0.0, 1.0, ns + 1), ps, False)
+        Tx = bsp.make_knots(np.linspace(0.0, 1.0, nx + 1), px, True)
 
         # interpolation (Greville) points
         s_gr = bsp.greville(Ts, ps, False)
@@ -255,10 +254,10 @@ def field_line_tracing(
 
         # target function for xi parametrization
         def f_angles(xis, s_val):
-            assert xp.all(xp.logical_and(xis > 0.0, xis < 1.0))
+            assert np.all(np.logical_and(xis > 0.0, xis < 1.0))
 
             # add 0 and 1 to angles array
-            xis_extended = xp.array([0.0] + list(xis) + [1.0])
+            xis_extended = np.array([0.0] + list(xis) + [1.0])
 
             # compute (R, Z) coordinates for given xis on fixed flux surface corresponding to s_val
             _RZ = domain_eq_angle(s_val, xis_extended, 0.0)
@@ -267,17 +266,17 @@ def field_line_tracing(
             _Z = _RZ[2]
 
             # |grad(psi)| at xis
-            gp = xp.sqrt(psi(_R, _Z, dR=1) ** 2 + psi(_R, _Z, dZ=1) ** 2)
+            gp = np.sqrt(psi(_R, _Z, dR=1) ** 2 + psi(_R, _Z, dZ=1) ** 2)
 
             # compute weighted arc_lengths between two successive points in xis_extended array
-            dl = xp.zeros(xis_extended.size - 1, dtype=float)
+            dl = np.zeros(xis_extended.size - 1, dtype=float)
             weighted_arc_lengths_flux_surface(_R, _Z, gp, dl, xi_param_dict[xi_param])
 
             # total length of the flux surface
-            l = xp.sum(dl)
+            l = np.sum(dl)
 
             # cumulative sum of arc lengths, start with 0!
-            l_cum = xp.cumsum(dl)
+            l_cum = np.cumsum(dl)
 
             # odd spline degree
             if px % 2 == 1:
@@ -289,8 +288,8 @@ def field_line_tracing(
             return xi_diff
 
         # loop over flux surfaces and find xi parametrization
-        R = xp.zeros((s_gr.size, x_gr.size), dtype=float)
-        Z = xp.zeros((s_gr.size, x_gr.size), dtype=float)
+        R = np.zeros((s_gr.size, x_gr.size), dtype=float)
+        Z = np.zeros((s_gr.size, x_gr.size), dtype=float)
 
         if px % 2 == 1:
             xis0 = x_gr[1:].copy()

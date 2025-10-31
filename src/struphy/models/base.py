@@ -5,11 +5,10 @@ from abc import ABCMeta, abstractmethod
 from functools import reduce
 from textwrap import indent
 
-import cunumpy as xp
+import numpy as np
 import yaml
 from line_profiler import profile
-from psydac.ddm.mpi import MockMPI
-from psydac.ddm.mpi import mpi as MPI
+from mpi4py import MPI
 from psydac.linalg.stencil import StencilVector
 
 import struphy
@@ -106,7 +105,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
             print("\nDOMAIN:")
-            print("type:".ljust(25), self.domain.__class__.__name__)
+            print(f"type:".ljust(25), self.domain.__class__.__name__)
             for key, val in self.domain.params.items():
                 if key not in {"cx", "cy", "cz"}:
                     print((key + ":").ljust(25), val)
@@ -172,59 +171,40 @@ class StruphyModel(metaclass=ABCMeta):
         else:
             derham_comm = self.clone_config.sub_comm
 
-        if grid is None or derham_opts is None:
-            if MPI.COMM_WORLD.Get_rank() == 0:
-                print(f"\n{grid =}, {derham_opts =}: no Derham object set up.")
-            self._derham = None
-        else:
-            self._derham = setup_derham(
-                grid,
-                derham_opts,
-                comm=derham_comm,
-                domain=self.domain,
-                verbose=self.verbose,
-            )
+        self._derham = setup_derham(
+            grid,
+            derham_opts,
+            comm=derham_comm,
+            domain=self.domain,
+            verbose=self.verbose,
+        )
 
-        # create weighted mass and basis operators
-        if self.derham is None:
-            self._mass_ops = None
-            self._basis_ops = None
-        else:
-            self._mass_ops = WeightedMassOperators(
-                self.derham,
-                self.domain,
-                verbose=self.verbose,
-                eq_mhd=self.equil,
-            )
-
-            self._basis_ops = BasisProjectionOperators(
-                self.derham,
-                self.domain,
-                verbose=self.verbose,
-                eq_mhd=self.equil,
-            )
+        # create weighted mass operators
+        self._mass_ops = WeightedMassOperators(
+            self.derham,
+            self.domain,
+            verbose=self.verbose,
+            eq_mhd=self.equil,
+        )
 
         # create projected equilibrium
-        if self.derham is None:
-            self._projected_equil = None
+        if isinstance(self.equil, MHDequilibrium):
+            self._projected_equil = ProjectedMHDequilibrium(
+                self.equil,
+                self.derham,
+            )
+        elif isinstance(self.equil, FluidEquilibriumWithB):
+            self._projected_equil = ProjectedFluidEquilibriumWithB(
+                self.equil,
+                self.derham,
+            )
+        elif isinstance(self.equil, FluidEquilibrium):
+            self._projected_equil = ProjectedFluidEquilibrium(
+                self.equil,
+                self.derham,
+            )
         else:
-            if isinstance(self.equil, MHDequilibrium):
-                self._projected_equil = ProjectedMHDequilibrium(
-                    self.equil,
-                    self.derham,
-                )
-            elif isinstance(self.equil, FluidEquilibriumWithB):
-                self._projected_equil = ProjectedFluidEquilibriumWithB(
-                    self.equil,
-                    self.derham,
-                )
-            elif isinstance(self.equil, FluidEquilibrium):
-                self._projected_equil = ProjectedFluidEquilibrium(
-                    self.equil,
-                    self.derham,
-                )
-            else:
-                self._projected_equil = None
+            self._projected_equil = None
 
     def allocate_propagators(self):
         # set propagators base class attributes (then available to all propagators)
@@ -232,7 +212,12 @@ class StruphyModel(metaclass=ABCMeta):
         Propagator.domain = self.domain
         if self.derham is not None:
             Propagator.mass_ops = self.mass_ops
-            Propagator.basis_ops = self.basis_ops
+            Propagator.basis_ops = BasisProjectionOperators(
+                self.derham,
+                self.domain,
+                verbose=self.verbose,
+                eq_mhd=self.equil,
+            )
             Propagator.projected_equil = self.projected_equil
 
         assert len(self.prop_list) > 0, "No propagators in this model, check the model class."
@@ -276,6 +261,11 @@ class StruphyModel(metaclass=ABCMeta):
         self._clone_config = new
 
     @property
+    def diagnostics(self):
+        """Dictionary of diagnostics."""
+        return self._diagnostics
+
+    @property
     def domain(self):
         """Domain object, see :ref:`avail_mappings`."""
         return self._domain
@@ -311,11 +301,6 @@ class StruphyModel(metaclass=ABCMeta):
         return self._mass_ops
 
     @property
-    def basis_ops(self):
-        """Basis projection operators."""
-        return self._basis_ops
-
-    @property
     def prop_list(self):
         """List of Propagator objects."""
         if not hasattr(self, "_prop_list"):
@@ -346,8 +331,6 @@ class StruphyModel(metaclass=ABCMeta):
     @property
     def scalar_quantities(self):
         """A dictionary of scalar quantities to be saved during the simulation."""
-        if not hasattr(self, "_scalar_quantities"):
-            self._scalar_quantities = {}
         return self._scalar_quantities
 
     @property
@@ -428,13 +411,13 @@ class StruphyModel(metaclass=ABCMeta):
         def setInDict(dataDict, mapList, value):
             # Loop over dicitionary and creaty empty dicts where the path does not exist
             for k in range(len(mapList)):
-                if mapList[k] not in getFromDict(dataDict, mapList[:k]).keys():
+                if not mapList[k] in getFromDict(dataDict, mapList[:k]).keys():
                     getFromDict(dataDict, mapList[:k])[mapList[k]] = {}
             getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
 
         # make sure that the base keys are top-level keys
         for base_key in ["em_fields", "fluid", "kinetic"]:
-            if base_key not in dct.keys():
+            if not base_key in dct.keys():
                 dct[base_key] = {}
 
         if isinstance(species, str):
@@ -472,13 +455,13 @@ class StruphyModel(metaclass=ABCMeta):
 
         assert isinstance(name, str), "name must be a string"
         if compute == "from_particles":
-            assert isinstance(variable, (PICVariable, SPHVariable)), f"Variable is needed when {compute =}"
+            assert isinstance(variable, (PICVariable, SPHVariable)), f"Variable is needed when {compute = }"
 
         if not hasattr(self, "_scalar_quantities"):
             self._scalar_quantities = {}
 
         self._scalar_quantities[name] = {
-            "value": xp.empty(1, dtype=float),
+            "value": np.empty(1, dtype=float),
             "variable": variable,
             "compute": compute,
             "summands": summands,
@@ -524,17 +507,17 @@ class StruphyModel(metaclass=ABCMeta):
             assert isinstance(value, float)
 
             # Create a numpy array to hold the scalar value
-            value_array = xp.array([value], dtype=xp.float64)
+            value_array = np.array([value], dtype=np.float64)
 
             # Perform MPI operations based on the compute flags
-            if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
+            if "sum_world" in compute_operations:
                 MPI.COMM_WORLD.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
                     op=MPI.SUM,
                 )
 
-            if "sum_within_clone" in compute_operations and self.derham.comm is not None:
+            if "sum_within_clone" in compute_operations:
                 self.derham.comm.Allreduce(
                     MPI.IN_PLACE,
                     value_array,
@@ -562,7 +545,7 @@ class StruphyModel(metaclass=ABCMeta):
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
-                n_mks_tot = xp.array([variable.particles.Np])
+                n_mks_tot = np.array([variable.particles.Np])
                 value_array /= n_mks_tot
 
             # Update the scalar value
@@ -640,18 +623,6 @@ class StruphyModel(metaclass=ABCMeta):
                             verbose=verbose,
                         )
 
-        # allocate memory for FE coeffs of fluid variables
-        if self.diagnostic_species:
-            for species, spec in self.diagnostic_species.items():
-                assert isinstance(spec, DiagnosticSpecies)
-                for k, v in spec.variables.items():
-                    assert isinstance(v, FEECVariable)
-                    v.allocate(
-                        derham=self.derham,
-                        domain=self.domain,
-                        equil=self.equil,
-                    )
-
         # TODO: allocate memory for FE coeffs of diagnostics
         # if self.params.diagnostic_fields is not None:
         #     for key, val in self.diagnostics.items():
@@ -721,18 +692,18 @@ class StruphyModel(metaclass=ABCMeta):
 
         for name, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+            assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
             for _, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
                 obj = var.particles
                 assert isinstance(obj, Particles)
 
             if var.n_to_save > 0:
-                markers_on_proc = xp.logical_and(
+                markers_on_proc = np.logical_and(
                     obj.markers[:, -1] >= 0.0,
                     obj.markers[:, -1] < var.n_to_save,
                 )
-                n_markers_on_proc = xp.count_nonzero(markers_on_proc)
+                n_markers_on_proc = np.count_nonzero(markers_on_proc)
                 var.saved_markers[:] = -1.0
                 var.saved_markers[:n_markers_on_proc] = obj.markers[markers_on_proc]
 
@@ -746,7 +717,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         for name, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+            assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
             for _, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
                 obj = var.particles
@@ -776,7 +747,7 @@ class StruphyModel(metaclass=ABCMeta):
                     h2 = 1 / obj.boxes_per_dim[1]
                     h3 = 1 / obj.boxes_per_dim[2]
 
-                    ndim = xp.count_nonzero([d > 1 for d in obj.boxes_per_dim])
+                    ndim = np.count_nonzero([d > 1 for d in obj.boxes_per_dim])
                     if ndim == 0:
                         kernel_type = "gaussian_3d"
                     else:
@@ -800,7 +771,7 @@ class StruphyModel(metaclass=ABCMeta):
         sq_str = ""
         for key, scalar_dict in self._scalar_quantities.items():
             val = scalar_dict["value"]
-            assert not xp.isnan(val[0]), f"Scalar {key} is {val[0]}."
+            assert not np.isnan(val[0]), f"Scalar {key} is {val[0]}."
             sq_str += key + ": {:14.11f}".format(val[0]) + "   "
         print(sq_str)
 
@@ -962,9 +933,8 @@ class StruphyModel(metaclass=ABCMeta):
     #                     if obj.coords == "vpara_mu":
     #                         obj.save_magnetic_moment()
 
-    # obj.draw_markers(sort=True, verbose=self.verbose)
-    # if self.comm_world is not None:
-    #     obj.mpi_sort_markers(do_test=True)
+    #                     if val["space"] != "ParticlesSPH" and obj.f0.coords == "constants_of_motion":
+    #                         obj.save_constants_of_motion()
 
     #                     obj.initialize_weights(
     #                         reject_weights=obj.weights_params["reject_weights"],
@@ -1014,8 +984,7 @@ class StruphyModel(metaclass=ABCMeta):
                 obj._markers[:, :] = data.file["restart/" + key][-1, :, :]
 
                 # important: sets holes attribute of markers!
-                if self.comm_world is not None:
-                    obj.mpi_sort_markers(do_test=True)
+                obj.mpi_sort_markers(do_test=True)
 
     def initialize_data_output(self, data: DataContainer, size):
         """
@@ -1107,7 +1076,7 @@ class StruphyModel(metaclass=ABCMeta):
         # save kinetic data in group 'kinetic/'
         for name, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+            assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
             for varname, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
                 obj = var.particles
@@ -1172,7 +1141,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         print(
             'Options are given under the keyword "options" for each species dict. \
-Available options stand in lists as dict values.\nThe first entry of a list denotes the default value.',
+Available options stand in lists as dict values.\nThe first entry of a list denotes the default value.'
         )
 
         tab = "    "
@@ -1233,6 +1202,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         import yaml
 
+        import struphy
         import struphy.utils.utils as utils
 
         # Read struphy state file
@@ -1300,7 +1270,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 file = open(path, "w")
             else:
                 print("exiting ...")
-                exit()
+                return
         except FileNotFoundError:
             folder = os.path.join("/", *path.split("/")[:-1])
             if not prompt:
@@ -1312,7 +1282,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 file = open(path, "x")
             else:
                 print("exiting ...")
-                exit()
+                return
 
         file.write("from struphy.io.options import EnvironmentOptions, BaseUnits, Time\n")
         file.write("from struphy.geometry import domains\n")
@@ -1331,15 +1301,15 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 has_plasma = True
                 species_params += f"model.{sn}.set_phys_params()\n"
                 if isinstance(species, ParticleSpecies):
-                    particle_params += "\nloading_params = LoadingParameters()\n"
-                    particle_params += "weights_params = WeightsParameters()\n"
-                    particle_params += "boundary_params = BoundaryParameters()\n"
+                    particle_params += f"\nloading_params = LoadingParameters()\n"
+                    particle_params += f"weights_params = WeightsParameters()\n"
+                    particle_params += f"boundary_params = BoundaryParameters()\n"
                     particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
-                    txt = "weights_params=weights_params,\n"
+                    txt = f"weights_params=weights_params,\n"
                     particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                    txt = "boundary_params=boundary_params,\n"
+                    txt = f"boundary_params=boundary_params,\n"
                     particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                    txt = ")\n"
+                    txt = f")\n"
                     particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                     particle_params += f"model.{sn}.set_sorting_boxes()\n"
                     particle_params += f"model.{sn}.set_save_data()\n"
@@ -1360,40 +1330,32 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
                 elif isinstance(var, PICVariable):
                     has_pic = True
-                    init_pert_pic = (
-                        "\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
-                    )
-                    init_pert_pic += "perturbation = perturbations.TorusModesCos()\n"
+                    init_pert_pic = f"\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
+                    init_pert_pic += f"perturbation = perturbations.TorusModesCos()\n"
                     if "6D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
-                        init_bckgr_pic += "maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
-                        init_pert_pic += "maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
-                        init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
-                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
+                        init_bckgr_pic = f"maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
+                        init_pert_pic += f"maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
+                        init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
+                        init_pert_pic += f"model.kinetic_ions.var.add_initial_condition(init)\n"
                     elif "5D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
-                        init_bckgr_pic += "maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
+                        init_bckgr_pic = f"maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
                         init_pert_pic += (
-                            "maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
+                            f"maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
                         )
-                        init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
-                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
-                    if "3D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.ColdPlasma(n=(1.0, None))\n"
-                        init_bckgr_pic += "maxwellian_2 = maxwellians.ColdPlasma(n=(0.1, None))\n"
-                        init_pert_pic += "maxwellian_1pt = maxwellians.ColdPlasma(n=(1.0, perturbation))\n"
-                        init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
-                        init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
-                    init_bckgr_pic += "background = maxwellian_1 + maxwellian_2\n"
+                        init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
+                        init_pert_pic += f"model.kinetic_ions.var.add_initial_condition(init)\n"
+                    init_bckgr_pic += f"background = maxwellian_1 + maxwellian_2\n"
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
 
-                    exclude = "# model.....save_data = False\n"
+                    exclude = f"# model.....save_data = False\n"
 
                 elif isinstance(var, SPHVariable):
                     has_sph = True
-                    init_bckgr_sph = "background = equils.ConstantVelocity()\n"
+                    init_bckgr_sph = f"background = equils.ConstantVelocity()\n"
                     init_bckgr_sph += f"model.{sn}.{vn}.add_background(background)\n"
-                    init_pert_sph = "perturbation = perturbations.TorusModesCos()\n"
+                    init_pert_sph = f"perturbation = perturbations.TorusModesCos()\n"
                     init_pert_sph += f"model.{sn}.{vn}.add_perturbation(del_n=perturbation)\n"
                 exclude = f"# model.{sn}.{vn}.save_data = False\n"
 
@@ -1409,12 +1371,13 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
                                    BoundaryParameters,\n\
                                    BinningPlot,\n\
                                    KernelDensityPlot,\n\
-                                   )\n",
+                                   )\n"
         )
         file.write("from struphy import main\n")
 
         file.write("\n# import model, set verbosity\n")
         file.write(f"from {self.__module__} import {self.__class__.__name__}\n")
+        file.write("verbose = True\n")
 
         file.write("\n# environment options\n")
         file.write("env = EnvironmentOptions()\n")
@@ -1431,12 +1394,12 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
         file.write("\n# fluid equilibrium (can be used as part of initial conditions)\n")
         file.write("equil = equils.HomogenSlab()\n")
 
-        # if has_feec:
-        grid = "grid = grids.TensorProductGrid()\n"
-        derham = "derham_opts = DerhamOptions()\n"
-        # else:
-        #     grid = "grid = None\n"
-        #     derham = "derham_opts = None\n"
+        if has_feec:
+            grid = "grid = grids.TensorProductGrid()\n"
+            derham = "derham_opts = DerhamOptions()\n"
+        else:
+            grid = "grid = None\n"
+            derham = "derham_opts = None\n"
 
         file.write("\n# grid\n")
         file.write(grid)
@@ -1473,7 +1436,6 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
         file.write('\nif __name__ == "__main__":\n')
         file.write("    # start run\n")
-        file.write("    verbose = True\n\n")
         file.write(
             "    main.run(model,\n\
              params_path=__file__,\n\
@@ -1485,14 +1447,14 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
              grid=grid,\n\
              derham_opts=derham_opts,\n\
              verbose=verbose,\n\
-             )",
+             )"
         )
 
         file.close()
 
         print(
             f"\nDefault parameter file for '{self.__class__.__name__}' has been created in the cwd ({path}).\n\
-You can now launch a simulation with 'python params_{self.__class__.__name__}.py'",
+You can now launch a simulation with 'python params_{self.__class__.__name__}.py'"
         )
 
         return path
@@ -1500,6 +1462,131 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
     ###################
     # Private methods :
     ###################
+
+    def _init_variable_dicts(self):
+        """
+        Initialize em-fields, fluid and kinetic dictionaries for information on the model variables.
+        """
+
+        # electromagnetic fields, fluid and/or kinetic species
+        self._em_fields = {}
+        self._fluid = {}
+        self._kinetic = {}
+        self._diagnostics = {}
+
+        if self.rank_world == 0 and self.verbose:
+            print("\nMODEL SPECIES:")
+
+        # create dictionaries for each em-field/species and fill in space/class name and parameters
+        for var_name, space in self.species()["em_fields"].items():
+            assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
+            assert self.params.em_fields is not None, '"em_fields" is missing in parameter file.'
+
+            if self.rank_world == 0 and self.verbose:
+                print("em_field:".ljust(25), f'"{var_name}" ({space})')
+
+            self._em_fields[var_name] = {}
+
+            # space
+            self._em_fields[var_name]["space"] = space
+
+            # initial conditions
+            if "background" in self.params.em_fields:
+                # background= self.params.em_fields["background"].get(var_name)
+                self._em_fields[var_name]["background"] = self.params.em_fields["background"].get(var_name)
+            # else:
+            #     background = None
+
+            if "perturbation" in self.params.em_fields:
+                # perturbation = self.params.em_fields["perturbation"].get(var_name)
+                self._em_fields[var_name]["perturbation"] = self.params.em_fields["perturbation"].get(var_name)
+            # else:
+            #     perturbation = None
+
+            # which components to save
+            if "save_data" in self.params.em_fields:
+                # save_data = self.params.em_fields["save_data"]["comps"][var_name]
+                self._em_fields[var_name]["save_data"] = self.params.em_fields["save_data"]["comps"][var_name]
+            else:
+                self._em_fields[var_name]["save_data"] = True
+                # save_data = True
+
+            # self._em_fields[var_name] = Variable(name=var_name,
+            #                                      space=space,
+            #                                      background=background,
+            #                                      perturbation=perturbation,
+            #                                      save_data=save_data,)
+
+            # overall parameters
+            # print(f'{self._em_fields = }')
+            self._em_fields["params"] = self.params.em_fields
+
+        for var_name, space in self.species()["fluid"].items():
+            assert isinstance(space, dict)
+            assert "fluid" in self.params, 'Top-level key "fluid" is missing in parameter file.'
+            assert var_name in self.params["fluid"], f"Fluid species {var_name} is missing in parameter file."
+
+            if self.rank_world == 0 and self.verbose:
+                print("fluid:".ljust(25), f'"{var_name}" ({space})')
+
+            self._fluid[var_name] = {}
+            for sub_var_name, sub_space in space.items():
+                self._fluid[var_name][sub_var_name] = {}
+
+                # space
+                self._fluid[var_name][sub_var_name]["space"] = sub_space
+
+                # initial conditions
+                if "background" in self.params["fluid"][var_name]:
+                    self._fluid[var_name][sub_var_name]["background"] = self.params["fluid"][var_name][
+                        "background"
+                    ].get(sub_var_name)
+                if "perturbation" in self.params["fluid"][var_name]:
+                    self._fluid[var_name][sub_var_name]["perturbation"] = self.params["fluid"][var_name][
+                        "perturbation"
+                    ].get(sub_var_name)
+
+                # which components to save
+                if "save_data" in self.params["fluid"][var_name]:
+                    self._fluid[var_name][sub_var_name]["save_data"] = self.params["fluid"][var_name]["save_data"][
+                        "comps"
+                    ][sub_var_name]
+
+                else:
+                    self._fluid[var_name][sub_var_name]["save_data"] = True
+
+            # overall parameters
+            self._fluid[var_name]["params"] = self.params["fluid"][var_name]
+
+        for var_name, space in self.species()["kinetic"].items():
+            assert "Particles" in space
+            assert "kinetic" in self.params, 'Top-level key "kinetic" is missing in parameter file.'
+            assert var_name in self.params["kinetic"], f"Kinetic species {var_name} is missing in parameter file."
+
+            if self.rank_world == 0 and self.verbose:
+                print("kinetic:".ljust(25), f'"{var_name}" ({space})')
+
+            self._kinetic[var_name] = {}
+            self._kinetic[var_name]["space"] = space
+            self._kinetic[var_name]["params"] = self.params["kinetic"][var_name]
+
+        if self.diagnostics_dct() is not None:
+            for var_name, space in self.diagnostics_dct().items():
+                assert space in {"H1", "Hcurl", "Hdiv", "L2", "H1vec"}
+
+                if self.rank_world == 0 and self.verbose:
+                    print("diagnostics:".ljust(25), f'"{var_name}" ({space})')
+
+                self._diagnostics[var_name] = {}
+                self._diagnostics[var_name]["space"] = space
+                self._diagnostics["params"] = self.params["diagnostics"][var_name]
+
+                # which components to save
+                if "save_data" in self.params["diagnostics"][var_name]:
+                    self._diagnostics[var_name]["save_data"] = self.params["diagnostics"][var_name]["save_data"]
+
+                else:
+                    self._diagnostics[var_name]["save_data"] = True
 
     def compute_plasma_params(self, verbose=True):
         """
@@ -1555,15 +1642,15 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         units_affix["epsilon"] = ""
 
         h = 1 / 20
-        eta1 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-        eta2 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
-        eta3 = xp.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta1 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta2 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
+        eta3 = np.linspace(h / 2.0, 1.0 - h / 2.0, 20)
 
         ##  global parameters
 
         # plasma volume (hat x^3)
         det_tmp = self.domain.jacobian_det(eta1, eta2, eta3)
-        vol1 = xp.mean(xp.abs(det_tmp))
+        vol1 = np.mean(np.abs(det_tmp))
         # plasma volume (m⁻³)
         plasma_volume = vol1 * self.units.x**3
         # transit length (m)
@@ -1572,35 +1659,35 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         if isinstance(self.equil, FluidEquilibriumWithB):
             B_tmp = self.equil.absB0(eta1, eta2, eta3)
         else:
-            B_tmp = xp.zeros((eta1.size, eta2.size, eta3.size))
-        magnetic_field = xp.mean(B_tmp * xp.abs(det_tmp)) / vol1 * self.units.B
-        B_max = xp.max(B_tmp) * self.units.B
-        B_min = xp.min(B_tmp) * self.units.B
+            B_tmp = np.zeros((eta1.size, eta2.size, eta3.size))
+        magnetic_field = np.mean(B_tmp * np.abs(det_tmp)) / vol1 * self.units.B
+        B_max = np.max(B_tmp) * self.units.B
+        B_min = np.min(B_tmp) * self.units.B
 
         if magnetic_field < 1e-14:
-            magnetic_field = xp.nan
+            magnetic_field = np.nan
             # print("\n+++++++ WARNING +++++++ magnetic field is zero - set to nan !!")
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print("\nPLASMA PARAMETERS:")
             print(
-                "Plasma volume:".ljust(25),
+                f"Plasma volume:".ljust(25),
                 "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
             )
             print(
-                "Transit length:".ljust(25),
+                f"Transit length:".ljust(25),
                 "{:4.3e}".format(transit_length) + units_affix["transit length"],
             )
             print(
-                "Avg. magnetic field:".ljust(25),
+                f"Avg. magnetic field:".ljust(25),
                 "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
             )
             print(
-                "Max magnetic field:".ljust(25),
+                f"Max magnetic field:".ljust(25),
                 "{:4.3e}".format(B_max) + units_affix["magnetic field"],
             )
             print(
-                "Min magnetic field:".ljust(25),
+                f"Min magnetic field:".ljust(25),
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
 
@@ -1618,13 +1705,13 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #         self._pparams[species]["charge"] = val["params"]["phys_params"]["Z"] * e
         #         # density (m⁻³)
         #         self._pparams[species]["density"] = (
-        #             xp.mean(
+        #             np.mean(
         #                 self.equil.n0(
         #                     eta1,
         #                     eta2,
         #                     eta3,
         #                 )
-        #                 * xp.abs(det_tmp),
+        #                 * np.abs(det_tmp),
         #             )
         #             * self.units.x ** 3
         #             / plasma_volume
@@ -1632,13 +1719,13 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #         )
         #         # pressure (bar)
         #         self._pparams[species]["pressure"] = (
-        #             xp.mean(
+        #             np.mean(
         #                 self.equil.p0(
         #                     eta1,
         #                     eta2,
         #                     eta3,
         #                 )
-        #                 * xp.abs(det_tmp),
+        #                 * np.abs(det_tmp),
         #             )
         #             * self.units.x ** 3
         #             / plasma_volume
@@ -1649,7 +1736,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #         self._pparams[species]["kBT"] = self._pparams[species]["pressure"] * 1e5 / self._pparams[species]["density"] / e * 1e-3
 
         # if len(self.kinetic) > 0:
-        #     eta1mg, eta2mg, eta3mg = xp.meshgrid(
+        #     eta1mg, eta2mg, eta3mg = np.meshgrid(
         #         eta1,
         #         eta2,
         #         eta3,
@@ -1695,11 +1782,11 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
 
         #             # density (m⁻³)
         #             self._pparams[species]["density"] = (
-        #                 xp.mean(tmp.n(psi) * xp.abs(det_tmp)) * self.units.x ** 3 / plasma_volume * self.units.n
+        #                 np.mean(tmp.n(psi) * np.abs(det_tmp)) * self.units.x ** 3 / plasma_volume * self.units.n
         #             )
         #             # thermal speed (m/s)
         #             self._pparams[species]["v_th"] = (
-        #                 xp.mean(tmp.vth(psi) * xp.abs(det_tmp)) * self.units.x ** 3 / plasma_volume * self.units.v
+        #                 np.mean(tmp.vth(psi) * np.abs(det_tmp)) * self.units.x ** 3 / plasma_volume * self.units.v
         #             )
         #             # thermal energy (keV)
         #             self._pparams[species]["kBT"] = self._pparams[species]["mass"] * self._pparams[species]["v_th"] ** 2 / e * 1e-3
@@ -1710,8 +1797,8 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
 
         #         else:
         #             # density (m⁻³)
-        #             # self._pparams[species]['density'] = xp.mean(tmp.n(
-        #             #     eta1mg, eta2mg, eta3mg) * xp.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
+        #             # self._pparams[species]['density'] = np.mean(tmp.n(
+        #             #     eta1mg, eta2mg, eta3mg) * np.abs(det_tmp)) * units['x']**3 / plasma_volume * units['n']
         #             self._pparams[species]["density"] = 99.0
         #             # thermal speeds (m/s)
         #             vth = []
@@ -1719,11 +1806,11 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #             vths = [99.0]
         #             for k in range(len(vths)):
         #                 vth += [
-        #                     vths[k] * xp.abs(det_tmp) * self.units.x ** 3 / plasma_volume * self.units.v,
+        #                     vths[k] * np.abs(det_tmp) * self.units.x ** 3 / plasma_volume * self.units.v,
         #                 ]
         #             thermal_speed = 0.0
         #             for dir in range(val["obj"].vdim):
-        #                 # self._pparams[species]['vth' + str(dir + 1)] = xp.mean(vth[dir])
+        #                 # self._pparams[species]['vth' + str(dir + 1)] = np.mean(vth[dir])
         #                 self._pparams[species]["vth" + str(dir + 1)] = 99.0
         #                 thermal_speed += self._pparams[species]["vth" + str(dir + 1)]
         #             # TODO: here it is assumed that background density parameter is called "n",
@@ -1742,11 +1829,11 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
 
         # for species in self._pparams:
         #     # alfvén speed (m/s)
-        #     self._pparams[species]["v_A"] = magnetic_field / xp.sqrt(
+        #     self._pparams[species]["v_A"] = magnetic_field / np.sqrt(
         #         mu0 * self._pparams[species]["mass"] * self._pparams[species]["density"],
         #     )
         #     # thermal speed (m/s)
-        #     self._pparams[species]["v_th"] = xp.sqrt(
+        #     self._pparams[species]["v_th"] = np.sqrt(
         #         self._pparams[species]["kBT"] * 1e3 * e / self._pparams[species]["mass"],
         #     )
         #     # thermal frequency (Mrad/s)
@@ -1755,7 +1842,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #     self._pparams[species]["Omega_c"] = self._pparams[species]["charge"] * magnetic_field / self._pparams[species]["mass"] * 1e-6
         #     # plasma frequency (Mrad/s)
         #     self._pparams[species]["Omega_p"] = (
-        #         xp.sqrt(
+        #         np.sqrt(
         #             self._pparams[species]["density"] * (self._pparams[species]["charge"]) ** 2 / eps0 / self._pparams[species]["mass"],
         #         )
         #         * 1e-6
@@ -1765,7 +1852,7 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         #     # Larmor radius (m)
         #     self._pparams[species]["rho_th"] = self._pparams[species]["v_th"] / (self._pparams[species]["Omega_c"] * 1e6)
         #     # MHD length scale (m)
-        #     self._pparams[species]["v_A/Omega_c"] = self._pparams[species]["v_A"] / (xp.abs(self._pparams[species]["Omega_c"]) * 1e6)
+        #     self._pparams[species]["v_A/Omega_c"] = self._pparams[species]["v_A"] / (np.abs(self._pparams[species]["Omega_c"]) * 1e6)
         #     # dim-less ratios
         #     self._pparams[species]["rho_th/L"] = self._pparams[species]["rho_th"] / transit_length
 

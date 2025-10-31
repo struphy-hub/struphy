@@ -2,7 +2,7 @@
 #
 # Copyright 2020 Florian Holderied
 
-import cunumpy as xp
+import numpy as np
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_2d as ker
@@ -46,7 +46,7 @@ def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
     # evaluation of weight function at quadrature points
     if weight == None:
-        mat_w = xp.ones(det_df.shape, dtype=float)
+        mat_w = np.ones(det_df.shape, dtype=float)
     else:
         mat_w = weight(pts[0].flatten(), pts[1].flatten(), 0.0)
         mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
@@ -55,14 +55,14 @@ def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     Ni = tensor_space_FEM.Nbase_0form
     Nj = tensor_space_FEM.Nbase_0form
 
-    M = xp.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
+    M = np.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
 
     ker.kernel_mass(
-        xp.array(Nel),
-        xp.array(p),
-        xp.array(n_quad),
-        xp.array([0, 0]),
-        xp.array([0, 0]),
+        np.array(Nel),
+        np.array(p),
+        np.array(n_quad),
+        np.array([0, 0]),
+        np.array([0, 0]),
         wts[0],
         wts[1],
         basisN[0],
@@ -76,9 +76,9 @@ def get_M0(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     )
 
     # conversion to sparse matrix
-    indices = xp.indices((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1))
+    indices = np.indices((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1))
 
-    shift = [xp.arange(Ni) - p for Ni, p in zip(Ni, p)]
+    shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
     row = (Ni[1] * indices[0] + indices[1]).flatten()
 
@@ -156,7 +156,7 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             Ni = tensor_space_FEM.Nbase_1form[a]
             Nj = tensor_space_FEM.Nbase_1form[b]
 
-            M[a][b] = xp.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
+            M[a][b] = np.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
 
             # evaluate inverse metric tensor at quadrature points
             if weight == None:
@@ -167,13 +167,13 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
 
             # assemble block if weight is not zero
-            if xp.any(mat_w):
+            if np.any(mat_w):
                 ker.kernel_mass(
-                    xp.array(Nel),
-                    xp.array(p),
-                    xp.array(n_quad),
-                    xp.array(ns[a]),
-                    xp.array(ns[b]),
+                    np.array(Nel),
+                    np.array(p),
+                    np.array(n_quad),
+                    np.array(ns[a]),
+                    np.array(ns[b]),
                     wts[0],
                     wts[1],
                     basis[a][0],
@@ -187,9 +187,9 @@ def get_M1(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
                 )
 
             # convert to sparse matrix
-            indices = xp.indices((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1))
+            indices = np.indices((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1))
 
-            shift = [xp.arange(Ni) - p for Ni, p in zip(Ni, p)]
+            shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
             row = (Ni[1] * indices[0] + indices[1]).flatten()
 
@@ -272,7 +272,7 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             Ni = tensor_space_FEM.Nbase_2form[a]
             Nj = tensor_space_FEM.Nbase_2form[b]
 
-            M[a][b] = xp.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
+            M[a][b] = np.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
 
             # evaluate metric tensor at quadrature points
             if weight == None:
@@ -283,13 +283,13 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
 
             # assemble block if weight is not zero
-            if xp.any(mat_w):
+            if np.any(mat_w):
                 ker.kernel_mass(
-                    xp.array(Nel),
-                    xp.array(p),
-                    xp.array(n_quad),
-                    xp.array(ns[a]),
-                    xp.array(ns[b]),
+                    np.array(Nel),
+                    np.array(p),
+                    np.array(n_quad),
+                    np.array(ns[a]),
+                    np.array(ns[b]),
                     wts[0],
                     wts[1],
                     basis[a][0],
@@ -303,9 +303,9 @@ def get_M2(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
                 )
 
             # convert to sparse matrix
-            indices = xp.indices((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1))
+            indices = np.indices((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1))
 
-            shift = [xp.arange(Ni) - p for Ni, p in zip(Ni, p)]
+            shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
             row = (Ni[1] * indices[0] + indices[1]).flatten()
 
@@ -369,7 +369,7 @@ def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
 
     # evaluation of weight function at quadrature points
     if weight == None:
-        mat_w = xp.ones(det_df.shape, dtype=float)
+        mat_w = np.ones(det_df.shape, dtype=float)
     else:
         mat_w = weight(pts[0].flatten(), pts[1].flatten(), 0.0)
         mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
@@ -378,14 +378,14 @@ def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     Ni = tensor_space_FEM.Nbase_3form
     Nj = tensor_space_FEM.Nbase_3form
 
-    M = xp.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
+    M = np.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
 
     ker.kernel_mass(
-        xp.array(Nel),
-        xp.array(p),
-        xp.array(n_quad),
-        xp.array([1, 1]),
-        xp.array([1, 1]),
+        np.array(Nel),
+        np.array(p),
+        np.array(n_quad),
+        np.array([1, 1]),
+        np.array([1, 1]),
         wts[0],
         wts[1],
         basisD[0],
@@ -399,9 +399,9 @@ def get_M3(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
     )
 
     # conversion to sparse matrix
-    indices = xp.indices((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1))
+    indices = np.indices((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1))
 
-    shift = [xp.arange(Ni) - p for Ni, p in zip(Ni, p)]
+    shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
     row = (Ni[1] * indices[0] + indices[1]).flatten()
 
@@ -475,7 +475,7 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             Ni = tensor_space_FEM.Nbase_0form
             Nj = tensor_space_FEM.Nbase_0form
 
-            M[a][b] = xp.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
+            M[a][b] = np.zeros((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1), dtype=float)
 
             # evaluate metric tensor at quadrature points
             if weight == None:
@@ -486,13 +486,13 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
             mat_w = mat_w.reshape(Nel[0], n_quad[0], Nel[1], n_quad[1])
 
             # assemble block if weight is not zero
-            if xp.any(mat_w):
+            if np.any(mat_w):
                 ker.kernel_mass(
-                    xp.array(Nel),
-                    xp.array(p),
-                    xp.array(n_quad),
-                    xp.array(ns[a]),
-                    xp.array(ns[b]),
+                    np.array(Nel),
+                    np.array(p),
+                    np.array(n_quad),
+                    np.array(ns[a]),
+                    np.array(ns[b]),
                     wts[0],
                     wts[1],
                     basis[a][0],
@@ -506,9 +506,9 @@ def get_Mv(tensor_space_FEM, domain, apply_boundary_ops=False, weight=None):
                 )
 
             # convert to sparse matrix
-            indices = xp.indices((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1))
+            indices = np.indices((Ni[0], Ni[1], 2 * p[0] + 1, 2 * p[1] + 1))
 
-            shift = [xp.arange(Ni) - p for Ni, p in zip(Ni, p)]
+            shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
             row = (Ni[1] * indices[0] + indices[1]).flatten()
 

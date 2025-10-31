@@ -1,6 +1,7 @@
 import pytest
 
 
+@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[1, 2, 3]])
 @pytest.mark.parametrize("spl_kind", [[False, False, True], [False, True, False], [True, False, False]])
@@ -35,8 +36,8 @@ import pytest
 def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     """Asserts whether all particles are on the correct process after `particles.mpi_sort_markers()`."""
 
-    import cunumpy as xp
-    from psydac.ddm.mpi import mpi as MPI
+    import numpy as np
+    from mpi4py import MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
@@ -44,6 +45,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
+    assert comm.size >= 2
     rank = comm.Get_rank()
 
     seed = 1234
@@ -85,7 +87,7 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     particles.initialize_weights()
     _w0 = particles.weights
     print("Test weights:")
-    print(f"rank {rank}:", _w0.shape, xp.min(_w0), xp.max(_w0))
+    print(f"rank {rank}:", _w0.shape, np.min(_w0), np.max(_w0))
 
     comm.Barrier()
     print("Number of particles w/wo holes on each process before sorting : ")
@@ -106,17 +108,17 @@ def test_draw(Nel, p, spl_kind, mapping, ppc=10):
     print("Rank", rank, ":", particles.n_mks_loc, particles.markers.shape[0])
 
     # are all markers in the correct domain?
-    conds = xp.logical_and(
+    conds = np.logical_and(
         particles.markers[:, :3] > derham.domain_array[rank, 0::3],
         particles.markers[:, :3] < derham.domain_array[rank, 1::3],
     )
     holes = particles.markers[:, 0] == -1.0
-    stay = xp.all(conds, axis=1)
+    stay = np.all(conds, axis=1)
 
-    error_mks = particles.markers[xp.logical_and(~stay, ~holes)]
+    error_mks = particles.markers[np.logical_and(~stay, ~holes)]
 
     assert error_mks.size == 0, (
-        f"rank {rank} | markers not on correct process: {xp.nonzero(xp.logical_and(~stay, ~holes))} \n corresponding positions:\n {error_mks[:, :3]}"
+        f"rank {rank} | markers not on correct process: {np.nonzero(np.logical_and(~stay, ~holes))} \n corresponding positions:\n {error_mks[:, :3]}"
     )
 
 

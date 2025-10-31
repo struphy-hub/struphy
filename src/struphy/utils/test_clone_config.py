@@ -1,20 +1,15 @@
 import pytest
-from psydac.ddm.mpi import MockComm
-from psydac.ddm.mpi import mpi as MPI
+from mpi4py import MPI
 
 
+@pytest.mark.mpi(min_size=2)
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("Np", [1000, 999])
 @pytest.mark.parametrize("num_clones", [1, 2])
 def test_clone_config(Nel, Np, num_clones):
     from struphy.utils.clone_config import CloneConfig
 
-    if isinstance(MPI.COMM_WORLD, MockComm):
-        comm = None
-        num_clones = 1
-    else:
-        comm = MPI.COMM_WORLD
-
+    comm = MPI.COMM_WORLD
     species = "ions"
     params = {
         "grid": {
@@ -24,8 +19,8 @@ def test_clone_config(Nel, Np, num_clones):
             species: {
                 "markers": {
                     "Np": Np,
-                },
-            },
+                }
+            }
         },
     }
 
@@ -37,7 +32,7 @@ def test_clone_config(Nel, Np, num_clones):
     # Print outputs
     pconf.print_clone_config()
     pconf.print_particle_config()
-    print(f"{pconf.get_Np_clone(Np) =}")
+    print(f"{pconf.get_Np_clone(Np) = }")
 
 
 if __name__ == "__main__":

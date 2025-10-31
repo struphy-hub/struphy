@@ -1,4 +1,4 @@
-import cunumpy as xp
+import numpy as np
 import scipy.sparse as spa
 
 import struphy.feec.basics.kernels_3d as ker
@@ -204,7 +204,7 @@ def bv_right(
     )
     # ========================= C.T ===========================
     return tensor_space_FEM.C.T.dot(
-        xp.concatenate((temp_twoform1.flatten(), temp_twoform2.flatten(), temp_twoform3.flatten())),
+        np.concatenate((temp_twoform1.flatten(), temp_twoform2.flatten(), temp_twoform3.flatten()))
     )
 
 

@@ -37,7 +37,7 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
         the radial location s_spec[m][0], squared eigenfrequencis s_spec[m][1] and global mode index s_spec[m][2] corresponding to slow sound modes for each poloidal mode number m in m_range.
     """
 
-    import cunumpy as xp
+    import numpy as np
 
     import struphy.bsplines.bsplines as bsp
 
@@ -50,7 +50,7 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
     gD_2 = bsp.greville(space.t[1], space.p[1] - 1, space.spl_kind[1])
 
     # poloidal mode numbers
-    ms = xp.arange(m_range[1] - m_range[0] + 1) + m_range[0]
+    ms = np.arange(m_range[1] - m_range[0] + 1) + m_range[0]
 
     # grid for normalized Jacobian determinant
     det_df = domain.jacobian_det(gD_1, gD_2, 0.0)
@@ -66,7 +66,7 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
     s_spec = [[[], [], []] for m in ms]
 
     # only consider eigenmodes in range omega^2/omega_A^2 = [0, 1]
-    modes_ind = xp.where((xp.real(omega2) / omega_A**2 < 1.0) & (xp.real(omega2) / omega_A**2 > 0.0))[0]
+    modes_ind = np.where((np.real(omega2) / omega_A**2 < 1.0) & (np.real(omega2) / omega_A**2 > 0.0))[0]
 
     for i in range(modes_ind.size):
         # determine whether it's an Alfvén branch or sound branch by checking DIV(U)
@@ -86,14 +86,14 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
                 U2_1_coeff = (U2_1_coeff[:, :, 0] - 1j * U2_1_coeff[:, :, 1]) / 2
 
             # determine radial location of singularity by looking for a peak in eigenfunction U2_1
-            s_ind = xp.unravel_index(xp.argmax(abs(U2_1_coeff)), U2_1_coeff.shape)[0]
+            s_ind = np.unravel_index(np.argmax(abs(U2_1_coeff)), U2_1_coeff.shape)[0]
             s = gN_1[s_ind]
 
             # perform fft to determine m
-            U2_1_fft = xp.fft.fft(U2_1_coeff)
+            U2_1_fft = np.fft.fft(U2_1_coeff)
 
             # determine m by looking for peak in Fourier spectrum at singularity
-            m = int((xp.fft.fftfreq(U2_1_fft[s_ind].size) * U2_1_fft[s_ind].size)[xp.argmax(abs(U2_1_fft[s_ind]))])
+            m = int((np.fft.fftfreq(U2_1_fft[s_ind].size) * U2_1_fft[s_ind].size)[np.argmax(abs(U2_1_fft[s_ind]))])
 
             ## perform shift for negative m
             # if m >= (space.Nel[1] + 1)//2:
@@ -103,7 +103,7 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
             for j in range(ms.size):
                 if ms[j] == m:
                     a_spec[j][0].append(s)
-                    a_spec[j][1].append(xp.real(omega2[modes_ind[i]]))
+                    a_spec[j][1].append(np.real(omega2[modes_ind[i]]))
                     a_spec[j][2].append(modes_ind[i])
 
         # Sound branch
@@ -117,14 +117,14 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
                 U2_coeff = (U2_coeff[:, :, 0] - 1j * U2_coeff[:, :, 1]) / 2
 
             # determine radial location of singularity by looking for a peak in eigenfunction (U2_2 or U2_3)
-            s_ind = xp.unravel_index(xp.argmax(abs(U2_coeff)), U2_coeff.shape)[0]
+            s_ind = np.unravel_index(np.argmax(abs(U2_coeff)), U2_coeff.shape)[0]
             s = gD_1[s_ind]
 
             # perform fft to determine m
-            U2_fft = xp.fft.fft(U2_coeff)
+            U2_fft = np.fft.fft(U2_coeff)
 
             # determine m by looking for peak in Fourier spectrum at singularity
-            m = int((xp.fft.fftfreq(U2_fft[s_ind].size) * U2_fft[s_ind].size)[xp.argmax(abs(U2_fft[s_ind]))])
+            m = int((np.fft.fftfreq(U2_fft[s_ind].size) * U2_fft[s_ind].size)[np.argmax(abs(U2_fft[s_ind]))])
 
             ## perform shift for negative m
             # if m >= (space.Nel[1] + 1)//2:
@@ -134,13 +134,13 @@ def get_mhd_continua_2d(space, domain, omega2, U_eig, m_range, omega_A, div_tol,
             for j in range(ms.size):
                 if ms[j] == m:
                     s_spec[j][0].append(s)
-                    s_spec[j][1].append(xp.real(omega2[modes_ind[i]]))
+                    s_spec[j][1].append(np.real(omega2[modes_ind[i]]))
                     s_spec[j][2].append(modes_ind[i])
 
     # convert to array
     for j in range(ms.size):
-        a_spec[j] = xp.array(a_spec[j])
-        s_spec[j] = xp.array(s_spec[j])
+        a_spec[j] = np.array(a_spec[j])
+        s_spec[j] = np.array(s_spec[j])
 
     return a_spec, s_spec
 
@@ -152,12 +152,12 @@ if __name__ == "__main__":
     import os
     import shutil
 
-    import cunumpy as xp
+    import numpy as np
     import yaml
 
     # parse arguments
     parser = argparse.ArgumentParser(
-        description="Looks for eigenmodes in a given MHD eigenspectrum in a certain poloidal mode number range and plots the continuous shear Alfvén and slow sound spectra (frequency versus radial-like coordinate).",
+        description="Looks for eigenmodes in a given MHD eigenspectrum in a certain poloidal mode number range and plots the continuous shear Alfvén and slow sound spectra (frequency versus radial-like coordinate)."
     )
 
     parser.add_argument("m_l_alfvén", type=int, help="lower bound of poloidal mode number range for Alfvénic modes")
@@ -252,16 +252,11 @@ if __name__ == "__main__":
     fem_1d_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], dirichlet_bc[1])
 
     fem_2d = Tensor_spline_space(
-        [fem_1d_1, fem_1d_2],
-        polar_ck,
-        domain.cx[:, :, 0],
-        domain.cy[:, :, 0],
-        n_tor=n_tor,
-        basis_tor="i",
+        [fem_1d_1, fem_1d_2], polar_ck, domain.cx[:, :, 0], domain.cy[:, :, 0], n_tor=n_tor, basis_tor="i"
     )
 
     # load and analyze spectrum
-    omega2, U2_eig = xp.split(xp.load(spec_path), [1], axis=0)
+    omega2, U2_eig = np.split(np.load(spec_path), [1], axis=0)
     omega2 = omega2.flatten()
 
     m_range_alfven = [args.m_l_alfvén, args.m_u_alfvén]
@@ -287,7 +282,7 @@ if __name__ == "__main__":
     fig.set_figheight(12)
     fig.set_figwidth(14)
 
-    etaplot = [xp.linspace(0.0, 1.0, 201), xp.linspace(0.0, 1.0, 101)]
+    etaplot = [np.linspace(0.0, 1.0, 201), np.linspace(0.0, 1.0, 101)]
 
     etaplot[0][0] += 1e-5
 

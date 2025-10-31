@@ -1,8 +1,8 @@
 import os
 
-import cunumpy as xp
+import numpy as np
 import pytest
-from psydac.ddm.mpi import mpi as MPI
+from mpi4py import MPI
 
 from struphy import main
 from struphy.diagnostics.diagn_tools import power_spectrum_2d
@@ -113,10 +113,10 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         )
 
         # assert
-        vA = xp.sqrt(Bsquare / n0)
-        v_alfven = vA * B0z / xp.sqrt(Bsquare)
-        print(f"{v_alfven =}")
-        assert xp.abs(coeffs[0][0] - v_alfven) < 0.07
+        vA = np.sqrt(Bsquare / n0)
+        v_alfven = vA * B0z / np.sqrt(Bsquare)
+        print(f"{v_alfven = }")
+        assert np.abs(coeffs[0][0] - v_alfven) < 0.07
 
         # second fft
         p_of_t = simdata.spline_values["mhd"]["pressure_log"]
@@ -139,15 +139,15 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
 
         # assert
         gamma = 5 / 3
-        cS = xp.sqrt(gamma * p0 / n0)
+        cS = np.sqrt(gamma * p0 / n0)
 
         delta = (4 * B0z**2 * cS**2 * vA**2) / ((cS**2 + vA**2) ** 2 * Bsquare)
-        v_slow = xp.sqrt(1 / 2 * (cS**2 + vA**2) * (1 - xp.sqrt(1 - delta)))
-        v_fast = xp.sqrt(1 / 2 * (cS**2 + vA**2) * (1 + xp.sqrt(1 - delta)))
-        print(f"{v_slow =}")
-        print(f"{v_fast =}")
-        assert xp.abs(coeffs[0][0] - v_slow) < 0.05
-        assert xp.abs(coeffs[1][0] - v_fast) < 0.19
+        v_slow = np.sqrt(1 / 2 * (cS**2 + vA**2) * (1 - np.sqrt(1 - delta)))
+        v_fast = np.sqrt(1 / 2 * (cS**2 + vA**2) * (1 + np.sqrt(1 - delta)))
+        print(f"{v_slow = }")
+        print(f"{v_fast = }")
+        assert np.abs(coeffs[0][0] - v_slow) < 0.05
+        assert np.abs(coeffs[1][0] - v_fast) < 0.19
 
 
 if __name__ == "__main__":

@@ -8,11 +8,10 @@ import sysconfig
 import time
 from typing import Optional, TypedDict
 
-import cunumpy as xp
 import h5py
+import numpy as np
 from line_profiler import profile
-from psydac.ddm.mpi import MockMPI
-from psydac.ddm.mpi import mpi as MPI
+from mpi4py import MPI
 from pyevtk.hl import gridToVTK
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
@@ -69,23 +68,10 @@ def run(
         Absolute path to .py parameter file.
     """
 
-    if isinstance(MPI, MockMPI):
-        comm = None
-        rank = 0
-        size = 1
-        Barrier = lambda: None
-    else:
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        size = comm.Get_size()
-        Barrier = comm.Barrier
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
 
-    if rank == 0:
-        print("")
-    Barrier()
-
-    # synchronize MPI processes to set same start time of simulation for all processes
-    Barrier()
     start_simulation = time.time()
 
     # check model
@@ -103,7 +89,6 @@ def run(
     save_step = env.save_step
     sort_step = env.sort_step
     num_clones = env.num_clones
-    use_mpi = (not comm is None,)
 
     meta = {}
     meta["platform"] = sysconfig.get_platform()
@@ -112,7 +97,6 @@ def run(
     meta["parameter file"] = params_path
     meta["output folder"] = path_out
     meta["MPI processes"] = size
-    meta["use MPI.COMM_WORLD"] = use_mpi
     meta["number of domain clones"] = num_clones
     meta["restart"] = restart
     meta["max wall-clock [min]"] = max_runtime
@@ -185,7 +169,7 @@ def run(
                 clone_config.print_particle_config()
 
     model.clone_config = clone_config
-    Barrier()
+    comm.Barrier()
 
     ## configure model instance
 
@@ -207,7 +191,22 @@ def run(
     # domain and fluid background
     model.setup_domain_and_equil(domain, equil)
 
-    # feec
+    # default grid
+    if grid is None:
+        Nel = (16, 16, 16)
+        if rank == 0:
+            print(f"\nNo grid specified - using TensorProductGrid with {Nel = }.")
+        grid = grids.TensorProductGrid(Nel=Nel)
+
+    # allocate derham-related objects
+    if derham_opts is None:
+        p = (3, 3, 3)
+        spl_kind = (False, False, False)
+        if rank == 0:
+            print(
+                f"\nNo Derham options specified - creating Derham with {p = } and {spl_kind = } for projecting equilibrium."
+            )
+        derham_opts = DerhamOptions(p=p, spl_kind=spl_kind)
     model.allocate_feec(grid, derham_opts)
 
     # equation paramters
@@ -226,7 +225,7 @@ def run(
     if rank < 32:
         if rank == 0:
             print("")
-        Barrier()
+        comm.Barrier()
         print(f"Rank {rank}: executing main.run() for model {model_name} ...")
 
     if size > 32 and rank == 32:
@@ -235,9 +234,9 @@ def run(
     # store geometry vtk
     if rank == 0:
         grids_log = [
-            xp.linspace(1e-6, 1.0, 32),
-            xp.linspace(0.0, 1.0, 32),
-            xp.linspace(0.0, 1.0, 32),
+            np.linspace(1e-6, 1.0, 32),
+            np.linspace(0.0, 1.0, 32),
+            np.linspace(0.0, 1.0, 32),
         ]
 
         tmp = model.domain(*grids_log)
@@ -262,9 +261,9 @@ def run(
 
     # time quantities (current time value, value in seconds and index)
     time_state = {}
-    time_state["value"] = xp.zeros(1, dtype=float)
-    time_state["value_sec"] = xp.zeros(1, dtype=float)
-    time_state["index"] = xp.zeros(1, dtype=int)
+    time_state["value"] = np.zeros(1, dtype=float)
+    time_state["value_sec"] = np.zeros(1, dtype=float)
+    time_state["index"] = np.zeros(1, dtype=int)
 
     # add time quantities to data object for saving
     for key, val in time_state.items():
@@ -310,7 +309,7 @@ def run(
     # time loop
     run_time_now = 0.0
     while True:
-        Barrier()
+        comm.Barrier()
 
         # stop time loop?
         break_cond_1 = time_state["value"][0] >= Tend
@@ -338,22 +337,21 @@ def run(
             t1 = time.time()
             if rank == 0 and verbose:
                 message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
-                    run_time_now * 60,
-                    t1 - t0,
+                    run_time_now * 60, t1 - t0
                 )
                 print(message, end="\n")
                 print()
-
-        # update time and index (round time to 10 decimals for a clean time grid!)
-        time_state["value"][0] = round(time_state["value"][0] + dt, 10)
-        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units.t, 10)
-        time_state["index"][0] += 1
 
         # perform one time step dt
         t0 = time.time()
         with ProfileManager.profile_region("model.integrate"):
             model.integrate(dt, split_algo)
         t1 = time.time()
+
+        # update time and index (round time to 10 decimals for a clean time grid!)
+        time_state["value"][0] = round(time_state["value"][0] + dt, 10)
+        time_state["value_sec"][0] = round(time_state["value_sec"][0] + dt * model.units.t, 10)
+        time_state["index"][0] += 1
 
         run_time_now = (time.time() - start_simulation) / 60
 
@@ -384,12 +382,10 @@ def run(
                 message = "time step: " + step + "/" + str(total_steps)
                 message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
                 message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
-                    time_state["value_sec"][0],
-                    Tend * model.units.t,
+                    time_state["value_sec"][0], Tend * model.units.t
                 )
                 message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
-                    run_time_now * 60,
-                    t1 - t0,
+                    run_time_now * 60, t1 - t0
                 )
 
                 print(message, end="\n")
@@ -399,7 +395,7 @@ def run(
     # ===================================================================
 
     meta["wall-clock time[min]"] = (end_simulation - start_simulation) / 60
-    Barrier()
+    comm.Barrier()
 
     if rank == 0:
         # save meta-data
@@ -479,7 +475,7 @@ def pproc(
     file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
 
     # save time grid at which post-processing data is created
-    xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+    np.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
     if "feec" in file.keys():
         exist_fields = True
@@ -516,10 +512,7 @@ def pproc(
 
         if physical:
             point_data_phy, grids_log, grids_phy = eval_femfields(
-                params_in,
-                fields,
-                celldivide=[celldivide] * 3,
-                physical=True,
+                params_in, fields, celldivide=[celldivide] * 3, physical=True
             )
 
         # directory for field data
@@ -641,28 +634,28 @@ class SimData:
         self._f = {}
         self._spline_values = {}
         self._n_sph = {}
-        self.grids_log: list[xp.ndarray] = None
-        self.grids_phy: list[xp.ndarray] = None
-        self.t_grid: xp.ndarray = None
+        self.grids_log: list[np.ndarray] = None
+        self.grids_phy: list[np.ndarray] = None
+        self.t_grid: np.ndarray = None
 
     @property
-    def orbits(self) -> dict[str, xp.ndarray]:
+    def orbits(self) -> dict[str, np.ndarray]:
         """Keys: species name. Values: 3d arrays indexed by (n, p, a), where 'n' is the time index, 'p' the particle index and 'a' the attribute index."""
         return self._orbits
 
     @property
-    def f(self) -> dict[str, dict[str, dict[str, xp.ndarray]]]:
-        """Keys: species name. Values: dicts of slice names ('e1_v1' etc.) holding dicts of corresponding xp.arrays for plotting."""
+    def f(self) -> dict[str, dict[str, dict[str, np.ndarray]]]:
+        """Keys: species name. Values: dicts of slice names ('e1_v1' etc.) holding dicts of corresponding np.arrays for plotting."""
         return self._f
 
     @property
-    def spline_values(self) -> dict[str, dict[str, xp.ndarray]]:
+    def spline_values(self) -> dict[str, dict[str, np.ndarray]]:
         """Keys: species name. Values: dicts of variable names with values being 3d arrays on the grid."""
         return self._spline_values
 
     @property
-    def n_sph(self) -> dict[str, dict[str, dict[str, xp.ndarray]]]:
-        """Keys: species name. Values: dicts of view names ('view_0' etc.) holding dicts of corresponding xp.arrays for plotting."""
+    def n_sph(self) -> dict[str, dict[str, dict[str, np.ndarray]]]:
+        """Keys: species name. Values: dicts of view names ('view_0' etc.) holding dicts of corresponding np.arrays for plotting."""
         return self._n_sph
 
     @property
@@ -692,6 +685,18 @@ class SimData:
                 self._Nattr[spec] = orbs.shape[2]
         return self._Nattr
 
+    @property
+    def spline_grid_resolution(self):
+        if self.grids_log is not None:
+            res = [x.size for x in self.grids_log]
+        else:
+            res = None
+        return res
+
+    @property
+    def time_grid_size(self):
+        return self.t_grid.size
+
 
 def load_data(path: str) -> SimData:
     """Load data generated during post-processing.
@@ -705,12 +710,12 @@ def load_data(path: str) -> SimData:
     path_pproc = os.path.join(path, "post_processing")
     assert os.path.exists(path_pproc), f"Path {path_pproc} does not exist, run 'pproc' first?"
     print("\n*** Loading post-processed simulation data:")
-    print(f"{path =}")
+    print(f"{path = }")
 
     simdata = SimData(path)
 
     # load time grid
-    simdata.t_grid = xp.load(os.path.join(path_pproc, "t_grid.npy"))
+    simdata.t_grid = np.load(os.path.join(path_pproc, "t_grid.npy"))
 
     # data paths
     path_fields = os.path.join(path_pproc, "fields_data")
@@ -744,7 +749,7 @@ def load_data(path: str) -> SimData:
     if os.path.exists(path_kinetic):
         # species folders
         species = next(os.walk(path_kinetic))[1]
-        print(f"{species =}")
+        print(f"{species = }")
         for spec in species:
             path_spec = os.path.join(path_kinetic, spec)
             wlk = os.walk(path_spec)
@@ -761,9 +766,9 @@ def load_data(path: str) -> SimData:
                         # print(f"{file = }")
                         if ".npy" in file:
                             step = int(file.split(".")[0].split("_")[-1])
-                            tmp = xp.load(os.path.join(path_dat, file))
+                            tmp = np.load(os.path.join(path_dat, file))
                             if n == 0:
-                                simdata._orbits[spec] = xp.zeros((Nt, *tmp.shape), dtype=float)
+                                simdata._orbits[spec] = np.zeros((Nt, *tmp.shape), dtype=float)
                             simdata._orbits[spec][step] = tmp
                             n += 1
 
@@ -778,7 +783,7 @@ def load_data(path: str) -> SimData:
                         # print(f"{files = }")
                         for file in files:
                             name = file.split(".")[0]
-                            tmp = xp.load(os.path.join(path_dat, sli, file))
+                            tmp = np.load(os.path.join(path_dat, sli, file))
                             # print(f"{name = }")
                             simdata._f[spec][sli][name] = tmp
 
@@ -793,41 +798,33 @@ def load_data(path: str) -> SimData:
                         # print(f"{files = }")
                         for file in files:
                             name = file.split(".")[0]
-                            tmp = xp.load(os.path.join(path_dat, sli, file))
+                            tmp = np.load(os.path.join(path_dat, sli, file))
                             # print(f"{name = }")
                             simdata._n_sph[spec][sli][name] = tmp
 
                 else:
-                    print(f"{folder =}")
+                    print(f"{folder = }")
                     raise NotImplementedError
 
     print("\nThe following data has been loaded:")
-    print("\ngrids:")
-    print(f"{simdata.t_grid.shape =}")
-    if simdata.grids_log is not None:
-        print(f"{simdata.grids_log[0].shape =}")
-        print(f"{simdata.grids_log[1].shape =}")
-        print(f"{simdata.grids_log[2].shape =}")
-    if simdata.grids_phy is not None:
-        print(f"{simdata.grids_phy[0].shape =}")
-        print(f"{simdata.grids_phy[1].shape =}")
-        print(f"{simdata.grids_phy[2].shape =}")
-    print("\nsimdata.spline_values:")
+    print(f"{simdata.time_grid_size = }")
+    print(f"{simdata.spline_grid_resolution = }")
+    print(f"\nsimdata.spline_values:")
     for k, v in simdata.spline_values.items():
         print(f"  {k}")
         for kk, vv in v.items():
             print(f"    {kk}")
-    print("\nsimdata.orbits:")
+    print(f"\nsimdata.orbits:")
     for k, v in simdata.orbits.items():
         print(f"  {k}")
-    print("\nsimdata.f:")
+    print(f"\nsimdata.f:")
     for k, v in simdata.f.items():
         print(f"  {k}")
         for kk, vv in v.items():
             print(f"    {kk}")
             for kkk, vvv in vv.items():
                 print(f"      {kkk}")
-    print("\nsimdata.n_sph:")
+    print(f"\nsimdata.n_sph:")
     for k, v in simdata.n_sph.items():
         print(f"  {k}")
         for kk, vv in v.items():

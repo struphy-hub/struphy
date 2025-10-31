@@ -1,4 +1,4 @@
-import cunumpy as xp
+import numpy as np
 from numpy import empty, exp, floor, zeros
 
 import struphy.bsplines.bsplines_kernels as bsp
@@ -542,8 +542,7 @@ def piecewise_gather(
                         for q2 in range(n_quad[1]):
                             for q3 in range(n_quad[2]):
                                 temp1[0] = (cell_left[0] + il1) / Nel[0] + pts1[
-                                    0,
-                                    q1,
+                                    0, q1
                                 ]  # quadrature points in the cell x direction
                                 temp4[0] = abs(temp1[0] - eta1) - compact[0] / 2.0  # if > 0, result is 0
 
@@ -742,8 +741,7 @@ def piecewise_scatter(
                         for q2 in range(n_quad[1]):
                             for q3 in range(n_quad[2]):
                                 temp1[0] = (cell_left[0] + il1) / Nel[0] + pts1[
-                                    0,
-                                    q1,
+                                    0, q1
                                 ]  # quadrature points in the cell x direction
                                 temp4[0] = abs(temp1[0] - eta1) - compact[0] / 2  # if > 0, result is 0
 

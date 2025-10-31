@@ -1,6 +1,6 @@
 import copy
 
-import cunumpy as xp
+import numpy as np
 
 from struphy.fields_background import equils
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
@@ -142,7 +142,7 @@ class Particles6D(Particles):
             The 0-form sampling density.
         -------
         """
-        assert self.domain, "self.domain must be set to call the sampling density 0-form."
+        assert self.domain, f"self.domain must be set to call the sampling density 0-form."
 
         return self.domain.transform(
             self.svol(eta1, eta2, eta3, *v),
@@ -219,11 +219,9 @@ class Particles6D(Particles):
 
         # send particles to the guiding center positions
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = self.markers[
-            ~self.holes,
-            slice_gc,
+            ~self.holes, slice_gc
         ]
-        if self.mpi_comm is not None:
-            self.mpi_sort_markers(alpha=1)
+        self.mpi_sort_markers(alpha=1)
 
         utilities_kernels.eval_canonical_toroidal_moment_6d(
             self.markers,
@@ -236,8 +234,7 @@ class Particles6D(Particles):
         )
 
         # send back and clear buffer
-        if self.mpi_comm is not None:
-            self.mpi_sort_markers()
+        self.mpi_sort_markers()
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = 0
 
 
@@ -353,7 +350,6 @@ class Particles5D(Particles):
         self._unit_b1_h = self.projected_equil.unit_b1
         self._derham = self.projected_equil.derham
 
-        self._tmp0 = self.derham.Vh["0"].zeros()
         self._tmp2 = self.derham.Vh["2"].zeros()
 
     @property
@@ -563,7 +559,7 @@ class Particles5D(Particles):
             self.absB0_h._data,
         )
 
-    def save_magnetic_energy(self, PBb):
+    def save_magnetic_energy(self, b2):
         r"""
         Calculate magnetic field energy at each particles' position and assign it into markers[:,self.first_diagnostics_idx].
 
@@ -574,17 +570,22 @@ class Particles5D(Particles):
             Finite element coefficients of the time-dependent magnetic field.
         """
 
-        E0T = self.derham.extraction_ops["0"].transpose()
-        PBbt = E0T.dot(PBb, out=self._tmp0)
-        PBbt.update_ghost_regions()
+        E2T = self.derham.extraction_ops["2"].transpose()
+        b2t = E2T.dot(b2, out=self._tmp2)
+        b2t.update_ghost_regions()
 
-        utilities_kernels.eval_magnetic_energy_PBb(
+        utilities_kernels.eval_magnetic_energy(
             self.markers,
             self.derham.args_derham,
             self.domain.args_domain,
             self.first_diagnostics_idx,
             self.absB0_h._data,
-            PBbt._data,
+            self.unit_b1_h[0]._data,
+            self.unit_b1_h[1]._data,
+            self.unit_b1_h[2]._data,
+            b2t[0]._data,
+            b2t[1]._data,
+            b2t[2]._data,
         )
 
     def save_magnetic_background_energy(self):
@@ -646,8 +647,8 @@ class Particles3D(Particles):
     """
 
     @classmethod
-    def default_background(cls):
-        return maxwellians.ColdPlasma()
+    def default_bckgr_params(cls):
+        return {"ColdPlasma": {}}
 
     def __init__(
         self,
@@ -655,10 +656,8 @@ class Particles3D(Particles):
     ):
         kwargs["type"] = "full_f"
 
-        if "background" not in kwargs:
-            kwargs["background"] = self.default_background()
-        elif kwargs["background"] is None:
-            kwargs["background"] = self.default_background()
+        if "bckgr_params" not in kwargs:
+            kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
         self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
