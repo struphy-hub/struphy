@@ -2,6 +2,10 @@
 <img src="https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/struphy_header_with_subs.png">
 </h1><br>
 
+<h1 align="center">
+<img src="https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb.png" width="200">
+</h1><br>
+
 [![Ubuntu latest](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml)
 [![MacOS latest](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml)
 [![isort and ruff](https://github.com/struphy-hub/struphy/actions/workflows/static_analysis.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/static_analysis.yml)
@@ -13,56 +17,89 @@ https://pypi.org/project/struphy/)
 
 # Welcome!
 
-Struphy is a Python package for plasma physics PDEs.
+**This is a Python package for solving partial differential equations (PDEs) mainly - but not exclusively - for plasma physics.**
 
-Join the [Struphy mailing list](https://listserv.gwdg.de/mailman/listinfo/struphy) and stay informed on updates.
+**STRUPHY** stands for "**STRU**cture in **PHY**sics" or "**STRU**cture-**P**reserving **HY**brid codes". The package provides off-the-shelf physics models for plasma physics problems, such as
 
-## Documentation
-See the [Struphy pages](https://struphy.pages.mpcdf.de/struphy/index.html) for details regarding installation, tutorials, use, and development.
+* Maxwell's equations
+* Magneto-hydrodynamics (MHD)
+* Vlasov-Poisson and Vlasov-Maxwell kinetic models
+* Drift-kinetic models for strongly magnetized plasma
+* MHD-kinetic hybrid models 
+
+All models can be run on multiple cores through MPI (distributed memory) and OpenMP (shared memory). The compute-intensive parts of the code are translated and compiled ("transpiled") using [pyccel](https://github.com/pyccel/pyccel), giving you the speed of Fortran or C while working within the familiar Python environment. 
+
+The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2025, Struphy developers, Max Planck Institute for Plasma Physics.
+
+
+## Tutorials
+
+Get familiar with Struphy right away on [mybinder](https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main) - no installation needed.
+
 
 ## Quick install
 
-Use a virtual environment:
+Quick install on your computer (using a virtual environment):
 
-    python3 -m pip install --upgrade virtualenv
-    python3 -m venv struphy_env
-    source struphy_env/bin/activate
+```
+python -m venv struphy_env
+source struphy_env/bin/activate
+pip install -U pip
+pip install -U struphy
+struphy compile --status
+struphy compile
+```
 
-Install latest release:
+In case you face troubles with install/compile:
 
-    pip install --no-cache-dir --upgrade struphy
+1. check the [requirements](https://struphy-hub.github.io/struphy/sections/install.html#requirements)
+2. visit [trouble shooting](https://struphy-hub.github.io/struphy/sections/install.html#trouble-shooting)
 
-Compile kernels:
 
-    struphy compile
+## Quick run
 
-Quick help:
+As an example, let's say we want to solve Maxwell's equations. We can use the CLI and generate a default launch file via
 
-    struphy -h
+```
+struphy params Maxwell
+```
+Hit yes when prompted - this will create the file `params_Maxwell.py` in your current working directory (cwd). You can open the file and - if you feel like it already - change some parameters, then run
 
-In case of problems visit [Trouble shooting](https://struphy.pages.mpcdf.de/struphy/sections/install.html#trouble-shooting).
+```
+python params_Maxwell.py
+```
 
-## Run tests from the command-line
+The default output is in `sim/` in your cwd. You can change the output path via the class `EnvironmentOptions` in the parameter file.
 
-Run available verification tests for [Struphy models](https://struphy.pages.mpcdf.de/struphy/sections/models.html):
+Parallel simulations are run for example with
 
-    struphy test models --verification --fast --show-plots 
+```
+mpirun -n 4 python params_Maxwell.py
+```
 
-The corresponding parameter files are in [struphy/io/inp/verification/](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/tree/devel/src/struphy/io/inp/verification).
-The corresponding diagnostics functions are in [struphy/models/tests/verification.py](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/models/tests/verification.py). You can repeat the verification run of a single `<model_name>` by typing
+You can also put the run command in a batch script.
 
-    struphy test <model_name> --verification --fast --show-plots 
 
-## Tutorial notebooks
+## Documentation
 
-Struphy tutorials are available in the form of [Jupyter notebooks](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/tree/devel/doc/tutorials).  
+The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), we recommend in particular to visit:
 
-## Reference paper
+* [Install]()
+* [Userguide]()
+* [Available models]()
+* [Numerical methods]()
+
+
+## Get in touch
+
+* [Issues](https://github.com/struphy-hub/struphy/issues)
+* [Discussions](https://github.com/struphy-hub/struphy/discussions)
+* @spossann [stefan.possanner@ipp.mpg.de](mailto:spossann@ipp.mpg.de) (Maintainer)
+* @max-models [Max.Lindqvist@ipp.mpg.de](mailto:Max.Lindqvist@ipp.mpg.de) (Maintainer)
+* [LinkedIn profile](https://www.linkedin.com/company/struphy/)
+
+
+## Citing Struphy
 
 * S. Possanner, F. Holderied, Y. Li, B.-K. Na, D. Bell, S. Hadjout and Y. Güçlü, [**High-Order Structure-Preserving Algorithms for Plasma Hybrid Models**](https://link.springer.com/chapter/10.1007/978-3-031-38299-4_28), International Conference on Geometric Science of Information 2023, 263-271, Springer Nature Switzerland.
 
-## Contact
-
-* Stefan Possanner [stefan.possanner@ipp.mpg.de](mailto:spossann@ipp.mpg.de)
-* Eric Sonnendrücker [eric.sonnendruecker@ipp.mpg.de](mailto:eric.sonnendruecker@ipp.mpg.de)
-* Xin Wang [xin.wang@ipp.mpg.de](mailto:xin.wang@ipp.mpg.de)
