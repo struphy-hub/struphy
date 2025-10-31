@@ -73,6 +73,7 @@ The default output is in `sim/` in your cwd. You can change the output path via 
 Parallel simulations are run for example with
 
 ```
+pip install -U mpi4py
 mpirun -n 4 python params_Maxwell.py
 ```
 
