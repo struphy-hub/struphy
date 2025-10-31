@@ -2,10 +2,6 @@
 <img src="https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/struphy_header_with_subs.png">
 </h1><br>
 
-<h1 align="center">
-<img src="https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb.png" width="200">
-</h1><br>
-
 [![Ubuntu latest](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/ubuntu-latest.yml)
 [![MacOS latest](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/macos-latest.yml)
 [![isort and ruff](https://github.com/struphy-hub/struphy/actions/workflows/static_analysis.yml/badge.svg)](https://github.com/struphy-hub/struphy/actions/workflows/static_analysis.yml)
@@ -31,6 +27,9 @@ All models can be run on multiple cores through MPI (distributed memory) and Ope
 
 The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2025, Struphy developers, Max Planck Institute for Plasma Physics.
 
+<h1 align="center">
+<img src="https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/MPI_PP_Logo_Vertical_E_green_rgb.png" width="200">
+</h1>
 
 ## Tutorials
 
@@ -84,10 +83,10 @@ You can also put the run command in a batch script.
 
 The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), we recommend in particular to visit:
 
-* [Install]()
-* [Userguide]()
-* [Available models]()
-* [Numerical methods]()
+* [Install](https://struphy-hub.github.io/struphy/sections/install.html)
+* [Userguide](https://struphy-hub.github.io/struphy/sections/userguide.html)
+* [Available models](https://struphy-hub.github.io/struphy/sections/models.html)
+* [Numerical methods](https://struphy-hub.github.io/struphy/sections/numerics.html)
 
 
 ## Get in touch
