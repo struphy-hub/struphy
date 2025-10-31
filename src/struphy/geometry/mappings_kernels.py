@@ -49,40 +49,13 @@ def spline_3d(
     tmp3 = ind3[span3 - int(p[2]), :]
 
     f_out[0] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        b1,
-        b2,
-        b3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cx,
+        int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cx
     )
     f_out[1] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        b1,
-        b2,
-        b3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cy,
+        int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cy
     )
     f_out[2] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        b1,
-        b2,
-        b3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cz,
+        int(p[0]), int(p[1]), int(p[2]), b1, b2, b3, tmp1, tmp2, tmp3, args.cz
     )
 
 
@@ -124,112 +97,31 @@ def spline_3d_df(
     tmp3 = ind3[span3 - int(p[2]), :]
 
     df_out[0, 0] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        der1,
-        b2,
-        b3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cx,
+        int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cx
     )
     df_out[0, 1] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        b1,
-        der2,
-        b3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cx,
+        int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cx
     )
     df_out[0, 2] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        b1,
-        b2,
-        der3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cx,
+        int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cx
     )
     df_out[1, 0] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        der1,
-        b2,
-        b3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cy,
+        int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cy
     )
     df_out[1, 1] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        b1,
-        der2,
-        b3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cy,
+        int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cy
     )
     df_out[1, 2] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        b1,
-        b2,
-        der3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cy,
+        int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cy
     )
     df_out[2, 0] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        der1,
-        b2,
-        b3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cz,
+        int(p[0]), int(p[1]), int(p[2]), der1, b2, b3, tmp1, tmp2, tmp3, args.cz
     )
     df_out[2, 1] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        b1,
-        der2,
-        b3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cz,
+        int(p[0]), int(p[1]), int(p[2]), b1, der2, b3, tmp1, tmp2, tmp3, args.cz
     )
     df_out[2, 2] = evaluation_kernels_3d.evaluation_kernel_3d(
-        int(p[0]),
-        int(p[1]),
-        int(p[2]),
-        b1,
-        b2,
-        der3,
-        tmp1,
-        tmp2,
-        tmp3,
-        args.cz,
+        int(p[0]), int(p[1]), int(p[2]), b1, b2, der3, tmp1, tmp2, tmp3, args.cz
     )
 
 
@@ -384,7 +276,7 @@ def spline_2d_torus(
     tmp2 = ind2[span2 - int(p[1]), :]
 
     f_out[0] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx) * cos(
-        2 * pi * eta3 / tor_period,
+        2 * pi * eta3 / tor_period
     )
     f_out[1] = (
         evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx)
@@ -437,10 +329,10 @@ def spline_2d_torus_df(
     tmp2 = ind2[span2 - int(p[1]), :]
 
     df_out[0, 0] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), der1, b2, tmp1, tmp2, cx) * cos(
-        2 * pi * eta3 / tor_period,
+        2 * pi * eta3 / tor_period
     )
     df_out[0, 1] = evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, der2, tmp1, tmp2, cx) * cos(
-        2 * pi * eta3 / tor_period,
+        2 * pi * eta3 / tor_period
     )
     df_out[0, 2] = (
         evaluation_kernels_2d.evaluation_kernel_2d(int(p[0]), int(p[1]), b1, b2, tmp1, tmp2, cx)
@@ -729,14 +621,7 @@ def hollow_cyl_df(eta1: float, eta2: float, a1: float, a2: float, lz: float, poc
 
 @pure
 def powered_ellipse(
-    eta1: float,
-    eta2: float,
-    eta3: float,
-    rx: float,
-    ry: float,
-    lz: float,
-    s: float,
-    f_out: "float[:]",
+    eta1: float, eta2: float, eta3: float, rx: float, ry: float, lz: float, s: float, f_out: "float[:]"
 ):
     r"""
     Point-wise evaluation of
@@ -779,14 +664,7 @@ def powered_ellipse(
 
 @pure
 def powered_ellipse_df(
-    eta1: float,
-    eta2: float,
-    eta3: float,
-    rx: float,
-    ry: float,
-    lz: float,
-    s: float,
-    df_out: "float[:,:]",
+    eta1: float, eta2: float, eta3: float, rx: float, ry: float, lz: float, s: float, df_out: "float[:,:]"
 ):
     """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.powered_ellipse`."""
 
@@ -965,14 +843,7 @@ def hollow_torus_df(
 
 @pure
 def shafranov_shift(
-    eta1: float,
-    eta2: float,
-    eta3: float,
-    rx: float,
-    ry: float,
-    lz: float,
-    de: float,
-    f_out: "float[:]",
+    eta1: float, eta2: float, eta3: float, rx: float, ry: float, lz: float, de: float, f_out: "float[:]"
 ):
     r"""
     Point-wise evaluation of
@@ -1016,14 +887,7 @@ def shafranov_shift(
 
 @pure
 def shafranov_shift_df(
-    eta1: float,
-    eta2: float,
-    eta3: float,
-    rx: float,
-    ry: float,
-    lz: float,
-    de: float,
-    df_out: "float[:,:]",
+    eta1: float, eta2: float, eta3: float, rx: float, ry: float, lz: float, de: float, df_out: "float[:,:]"
 ):
     """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.shafranov_shift`."""
 
@@ -1040,14 +904,7 @@ def shafranov_shift_df(
 
 @pure
 def shafranov_sqrt(
-    eta1: float,
-    eta2: float,
-    eta3: float,
-    rx: float,
-    ry: float,
-    lz: float,
-    de: float,
-    f_out: "float[:]",
+    eta1: float, eta2: float, eta3: float, rx: float, ry: float, lz: float, de: float, f_out: "float[:]"
 ):
     r"""
     Point-wise evaluation of
@@ -1089,14 +946,7 @@ def shafranov_sqrt(
 
 @pure
 def shafranov_sqrt_df(
-    eta1: float,
-    eta2: float,
-    eta3: float,
-    rx: float,
-    ry: float,
-    lz: float,
-    de: float,
-    df_out: "float[:,:]",
+    eta1: float, eta2: float, eta3: float, rx: float, ry: float, lz: float, de: float, df_out: "float[:,:]"
 ):
     """Jacobian matrix for :meth:`struphy.geometry.mappings_kernels.shafranov_sqrt`."""
 

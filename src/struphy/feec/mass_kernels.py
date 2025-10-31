@@ -341,9 +341,7 @@ def kernel_3d_mat(
         for iel2 in range(ne2):
             for iel3 in range(ne3):
                 tmp_mat_fun[:, :, :] = mat_fun[
-                    iel1 * nq1 : (iel1 + 1) * nq1,
-                    iel2 * nq2 : (iel2 + 1) * nq2,
-                    iel3 * nq3 : (iel3 + 1) * nq3,
+                    iel1 * nq1 : (iel1 + 1) * nq1, iel2 * nq2 : (iel2 + 1) * nq2, iel3 * nq3 : (iel3 + 1) * nq3
                 ]
 
                 tmp_w1[:] = w1[iel1, :]
@@ -602,9 +600,7 @@ def kernel_3d_matrixfree(
         for iel2 in range(ne2):
             for iel3 in range(ne3):
                 tmp_mat_fun[:, :, :] = mat_fun[
-                    iel1 * nq1 : (iel1 + 1) * nq1,
-                    iel2 * nq2 : (iel2 + 1) * nq2,
-                    iel3 * nq3 : (iel3 + 1) * nq3,
+                    iel1 * nq1 : (iel1 + 1) * nq1, iel2 * nq2 : (iel2 + 1) * nq2, iel3 * nq3 : (iel3 + 1) * nq3
                 ]
 
                 tmp_w1[:] = w1[iel1, :]
@@ -717,9 +713,7 @@ def kernel_3d_diag(
         for iel2 in range(ne2):
             for iel3 in range(ne3):
                 tmp_mat_fun[:, :, :] = mat_fun[
-                    iel1 * nq1 : (iel1 + 1) * nq1,
-                    iel2 * nq2 : (iel2 + 1) * nq2,
-                    iel3 * nq3 : (iel3 + 1) * nq3,
+                    iel1 * nq1 : (iel1 + 1) * nq1, iel2 * nq2 : (iel2 + 1) * nq2, iel3 * nq3 : (iel3 + 1) * nq3
                 ]
 
                 tmp_w1[:] = w1[iel1, :]

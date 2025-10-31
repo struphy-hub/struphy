@@ -6,11 +6,11 @@
 Modules to obtain preconditioners for mass matrices in 3D.
 """
 
-import cunumpy as xp
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.spline_space as spl
 import struphy.linear_algebra.linalg_kron as linkron
+from struphy.utils.arrays import xp as np
 
 
 # ================ inverse mass matrix in V0 ===========================
@@ -32,9 +32,9 @@ def get_M0_PRE(tensor_space_FEM, domain):
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M0(lambda eta: (domain.params[1] - domain.params[0]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M0(lambda eta: (domain.params[3] - domain.params[2]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M0(lambda eta: (domain.params[5] - domain.params[4]) * xp.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M0(lambda eta: (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
     c_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
 
@@ -63,20 +63,20 @@ def get_M1_PRE(tensor_space_FEM, domain):
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M0(lambda eta: (domain.params[1] - domain.params[0]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M0(lambda eta: (domain.params[3] - domain.params[2]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M0(lambda eta: (domain.params[5] - domain.params[4]) * xp.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M0(lambda eta: (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
-    spaces_pre[0].assemble_M1(lambda eta: 1 / (domain.params[1] - domain.params[0]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M1(lambda eta: 1 / (domain.params[3] - domain.params[2]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M1(lambda eta: 1 / (domain.params[5] - domain.params[4]) * xp.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M1(lambda eta: 1 / (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M1(lambda eta: 1 / (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M1(lambda eta: 1 / (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
     c11_pre = [spaces_pre[0].M1.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
     c22_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M1.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
     c33_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M1.toarray()[:, 0]]
 
     def solve(x):
-        x1, x2, x3 = xp.split(x, 3)
+        x1, x2, x3 = np.split(x, 3)
 
         x1 = x1.reshape(Nel_pre[0], Nel_pre[1], Nel_pre[2])
         x2 = x2.reshape(Nel_pre[0], Nel_pre[1], Nel_pre[2])
@@ -86,7 +86,7 @@ def get_M1_PRE(tensor_space_FEM, domain):
         r2 = linkron.kron_fftsolve_3d(c22_pre, x2).flatten()
         r3 = linkron.kron_fftsolve_3d(c33_pre, x3).flatten()
 
-        return xp.concatenate((r1, r2, r3))
+        return np.concatenate((r1, r2, r3))
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.M1.shape, matvec=solve)
 
@@ -110,20 +110,20 @@ def get_M2_PRE(tensor_space_FEM, domain):
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M0(lambda eta: (domain.params[1] - domain.params[0]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M0(lambda eta: (domain.params[3] - domain.params[2]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M0(lambda eta: (domain.params[5] - domain.params[4]) * xp.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M0(lambda eta: (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
-    spaces_pre[0].assemble_M1(lambda eta: 1 / (domain.params[1] - domain.params[0]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M1(lambda eta: 1 / (domain.params[3] - domain.params[2]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M1(lambda eta: 1 / (domain.params[5] - domain.params[4]) * xp.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M1(lambda eta: 1 / (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M1(lambda eta: 1 / (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M1(lambda eta: 1 / (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
     c11_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M1.toarray()[:, 0], spaces_pre[2].M1.toarray()[:, 0]]
     c22_pre = [spaces_pre[0].M1.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M1.toarray()[:, 0]]
     c33_pre = [spaces_pre[0].M1.toarray()[:, 0], spaces_pre[1].M1.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
 
     def solve(x):
-        x1, x2, x3 = xp.split(x, 3)
+        x1, x2, x3 = np.split(x, 3)
 
         x1 = x1.reshape(Nel_pre[0], Nel_pre[1], Nel_pre[2])
         x2 = x2.reshape(Nel_pre[0], Nel_pre[1], Nel_pre[2])
@@ -133,7 +133,7 @@ def get_M2_PRE(tensor_space_FEM, domain):
         r2 = linkron.kron_fftsolve_3d(c22_pre, x2).flatten()
         r3 = linkron.kron_fftsolve_3d(c33_pre, x3).flatten()
 
-        return xp.concatenate((r1, r2, r3))
+        return np.concatenate((r1, r2, r3))
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.M2.shape, matvec=solve)
 
@@ -157,9 +157,9 @@ def get_M3_PRE(tensor_space_FEM, domain):
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M1(lambda eta: 1 / (domain.params[1] - domain.params[0]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M1(lambda eta: 1 / (domain.params[3] - domain.params[2]) * xp.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M1(lambda eta: 1 / (domain.params[5] - domain.params[4]) * xp.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M1(lambda eta: 1 / (domain.params[1] - domain.params[0]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M1(lambda eta: 1 / (domain.params[3] - domain.params[2]) * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M1(lambda eta: 1 / (domain.params[5] - domain.params[4]) * np.ones(eta.shape, dtype=float))
 
     c_pre = [spaces_pre[0].M1.toarray()[:, 0], spaces_pre[1].M1.toarray()[:, 0], spaces_pre[2].M1.toarray()[:, 0]]
 
@@ -188,26 +188,26 @@ def get_Mv_PRE(tensor_space_FEM, domain):
     # spaces_pre[1].set_extraction_operators()
     # spaces_pre[2].set_extraction_operators()
 
-    spaces_pre[0].assemble_M0(lambda eta: domain.params[0] ** 3 * xp.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M0(lambda eta: domain.params[1] * xp.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M0(lambda eta: domain.params[2] * xp.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M0(lambda eta: domain.params[0] ** 3 * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: domain.params[1] * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: domain.params[2] * np.ones(eta.shape, dtype=float))
 
     c11_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
 
-    spaces_pre[0].assemble_M0(lambda eta: domain.params[0] * xp.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M0(lambda eta: domain.params[1] ** 3 * xp.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M0(lambda eta: domain.params[2] * xp.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M0(lambda eta: domain.params[0] * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: domain.params[1] ** 3 * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: domain.params[2] * np.ones(eta.shape, dtype=float))
 
     c22_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
 
-    spaces_pre[0].assemble_M0(lambda eta: domain.params[0] * xp.ones(eta.shape, dtype=float))
-    spaces_pre[1].assemble_M0(lambda eta: domain.params[1] * xp.ones(eta.shape, dtype=float))
-    spaces_pre[2].assemble_M0(lambda eta: domain.params[2] ** 3 * xp.ones(eta.shape, dtype=float))
+    spaces_pre[0].assemble_M0(lambda eta: domain.params[0] * np.ones(eta.shape, dtype=float))
+    spaces_pre[1].assemble_M0(lambda eta: domain.params[1] * np.ones(eta.shape, dtype=float))
+    spaces_pre[2].assemble_M0(lambda eta: domain.params[2] ** 3 * np.ones(eta.shape, dtype=float))
 
     c33_pre = [spaces_pre[0].M0.toarray()[:, 0], spaces_pre[1].M0.toarray()[:, 0], spaces_pre[2].M0.toarray()[:, 0]]
 
     def solve(x):
-        x1, x2, x3 = xp.split(x, 3)
+        x1, x2, x3 = np.split(x, 3)
 
         x1 = x1.reshape(Nel_pre[0], Nel_pre[1], Nel_pre[2])
         x2 = x2.reshape(Nel_pre[0], Nel_pre[1], Nel_pre[2])
@@ -217,7 +217,7 @@ def get_Mv_PRE(tensor_space_FEM, domain):
         r2 = linkron.kron_fftsolve_3d(c22_pre, x2).flatten()
         r3 = linkron.kron_fftsolve_3d(c33_pre, x3).flatten()
 
-        return xp.concatenate((r1, r2, r3))
+        return np.concatenate((r1, r2, r3))
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.Mv.shape, matvec=solve)
 
@@ -273,18 +273,16 @@ def get_M1_PRE_3(tensor_space_FEM, mats_pol=None):
 
     def solve(x):
         x1 = x[: tensor_space_FEM.E1_pol_0.shape[0] * tensor_space_FEM.NbaseN[2]].reshape(
-            tensor_space_FEM.E1_pol_0.shape[0],
-            tensor_space_FEM.NbaseN[2],
+            tensor_space_FEM.E1_pol_0.shape[0], tensor_space_FEM.NbaseN[2]
         )
         x2 = x[tensor_space_FEM.E1_pol_0.shape[0] * tensor_space_FEM.NbaseN[2] :].reshape(
-            tensor_space_FEM.E0_pol_0.shape[0],
-            tensor_space_FEM.NbaseD[2],
+            tensor_space_FEM.E0_pol_0.shape[0], tensor_space_FEM.NbaseD[2]
         )
 
         r1 = linkron.kron_fftsolve_2d(M1_pol_0_11_LU, tor_vec0, x1).flatten()
         r2 = linkron.kron_fftsolve_2d(M1_pol_0_22_LU, tor_vec1, x2).flatten()
 
-        return xp.concatenate((r1, r2))
+        return np.concatenate((r1, r2))
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.M1_0.shape, matvec=solve)
 
@@ -313,18 +311,16 @@ def get_M2_PRE_3(tensor_space_FEM, mats_pol=None):
 
     def solve(x):
         x1 = x[: tensor_space_FEM.E2_pol_0.shape[0] * tensor_space_FEM.NbaseD[2]].reshape(
-            tensor_space_FEM.E2_pol_0.shape[0],
-            tensor_space_FEM.NbaseD[2],
+            tensor_space_FEM.E2_pol_0.shape[0], tensor_space_FEM.NbaseD[2]
         )
         x2 = x[tensor_space_FEM.E2_pol_0.shape[0] * tensor_space_FEM.NbaseD[2] :].reshape(
-            tensor_space_FEM.E3_pol_0.shape[0],
-            tensor_space_FEM.NbaseN[2],
+            tensor_space_FEM.E3_pol_0.shape[0], tensor_space_FEM.NbaseN[2]
         )
 
         r1 = linkron.kron_fftsolve_2d(M2_pol_0_11_LU, tor_vec1, x1).flatten()
         r2 = linkron.kron_fftsolve_2d(M2_pol_0_22_LU, tor_vec0, x2).flatten()
 
-        return xp.concatenate((r1, r2))
+        return np.concatenate((r1, r2))
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.M2_0.shape, matvec=solve)
 
@@ -377,17 +373,15 @@ def get_Mv_PRE_3(tensor_space_FEM, mats_pol=None):
 
     def solve(x):
         x1 = x[: tensor_space_FEM.Ev_pol_0.shape[0] * tensor_space_FEM.NbaseN[2]].reshape(
-            tensor_space_FEM.Ev_pol_0.shape[0],
-            tensor_space_FEM.NbaseN[2],
+            tensor_space_FEM.Ev_pol_0.shape[0], tensor_space_FEM.NbaseN[2]
         )
         x2 = x[tensor_space_FEM.Ev_pol_0.shape[0] * tensor_space_FEM.NbaseN[2] :].reshape(
-            tensor_space_FEM.E0_pol.shape[0],
-            tensor_space_FEM.NbaseN[2],
+            tensor_space_FEM.E0_pol.shape[0], tensor_space_FEM.NbaseN[2]
         )
 
         r1 = linkron.kron_fftsolve_2d(Mv_pol_0_11_LU, tor_vec0, x1).flatten()
         r2 = linkron.kron_fftsolve_2d(Mv_pol_0_22_LU, tor_vec0, x2).flatten()
 
-        return xp.concatenate((r1, r2))
+        return np.concatenate((r1, r2))
 
     return spa.linalg.LinearOperator(shape=tensor_space_FEM.Mv_0.shape, matvec=solve)

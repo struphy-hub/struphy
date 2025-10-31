@@ -1,11 +1,11 @@
 import os
 
-import cunumpy as xp
 import yaml
 from psydac.api.discretization import discretize
 from sympde.topology import Derham, Line
 
 from struphy.fields_background.equils import set_defaults
+from struphy.utils.arrays import xp as np
 
 
 class InitialMHDAxisymHdivEigFun:
@@ -54,11 +54,11 @@ class InitialMHDAxisymHdivEigFun:
             spec_path = params["spec_abs"]
 
         # load eigenvector for velocity field
-        omega2, U2_eig = xp.split(xp.load(spec_path), [1], axis=0)
+        omega2, U2_eig = np.split(np.load(spec_path), [1], axis=0)
         omega2 = omega2.flatten()
 
         # find eigenvector corresponding to given squared eigenfrequency range
-        mode = xp.where((xp.real(omega2) < params["eig_freq_upper"]) & (xp.real(omega2) > params["eig_freq_lower"]))[0]
+        mode = np.where((np.real(omega2) < params["eig_freq_upper"]) & (np.real(omega2) > params["eig_freq_lower"]))[0]
 
         assert mode.size == 1
         mode = mode[0]
@@ -67,16 +67,13 @@ class InitialMHDAxisymHdivEigFun:
         nnz_tor = derham.boundary_ops["2"].dim_nz_tor
 
         eig_vec_1 = U2_eig[
-            0 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2],
-            mode,
+            0 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2], mode
         ]
         eig_vec_2 = U2_eig[
-            1 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 1 * nnz_pol[1] + 0 * nnz_pol[2],
-            mode,
+            1 * nnz_pol[0] + 0 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 1 * nnz_pol[1] + 0 * nnz_pol[2], mode
         ]
         eig_vec_3 = U2_eig[
-            1 * nnz_pol[0] + 1 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 1 * nnz_pol[1] + 1 * nnz_pol[2],
-            mode,
+            1 * nnz_pol[0] + 1 * nnz_pol[1] + 0 * nnz_pol[2] : 1 * nnz_pol[0] + 1 * nnz_pol[1] + 1 * nnz_pol[2], mode
         ]
 
         del omega2, U2_eig
@@ -92,28 +89,28 @@ class InitialMHDAxisymHdivEigFun:
 
         n_tor = int(os.path.split(spec_path)[-1][-6:-4])
 
-        N_cos = p0(lambda phi: xp.cos(2 * xp.pi * n_tor * phi)).coeffs.toarray()
-        N_sin = p0(lambda phi: xp.sin(2 * xp.pi * n_tor * phi)).coeffs.toarray()
+        N_cos = p0(lambda phi: np.cos(2 * np.pi * n_tor * phi)).coeffs.toarray()
+        N_sin = p0(lambda phi: np.sin(2 * np.pi * n_tor * phi)).coeffs.toarray()
 
-        D_cos = p1(lambda phi: xp.cos(2 * xp.pi * n_tor * phi)).coeffs.toarray()
-        D_sin = p1(lambda phi: xp.sin(2 * xp.pi * n_tor * phi)).coeffs.toarray()
+        D_cos = p1(lambda phi: np.cos(2 * np.pi * n_tor * phi)).coeffs.toarray()
+        D_sin = p1(lambda phi: np.sin(2 * np.pi * n_tor * phi)).coeffs.toarray()
 
         # select real part or imaginary part
         assert params["kind"] == "r" or params["kind"] == "i"
 
         if params["kind"] == "r":
-            eig_vec_1 = (xp.outer(xp.real(eig_vec_1), D_cos) - xp.outer(xp.imag(eig_vec_1), D_sin)).flatten()
-            eig_vec_2 = (xp.outer(xp.real(eig_vec_2), D_cos) - xp.outer(xp.imag(eig_vec_2), D_sin)).flatten()
-            eig_vec_3 = (xp.outer(xp.real(eig_vec_3), N_cos) - xp.outer(xp.imag(eig_vec_3), N_sin)).flatten()
+            eig_vec_1 = (np.outer(np.real(eig_vec_1), D_cos) - np.outer(np.imag(eig_vec_1), D_sin)).flatten()
+            eig_vec_2 = (np.outer(np.real(eig_vec_2), D_cos) - np.outer(np.imag(eig_vec_2), D_sin)).flatten()
+            eig_vec_3 = (np.outer(np.real(eig_vec_3), N_cos) - np.outer(np.imag(eig_vec_3), N_sin)).flatten()
         else:
-            eig_vec_1 = (xp.outer(xp.imag(eig_vec_1), D_cos) + xp.outer(xp.real(eig_vec_1), D_sin)).flatten()
-            eig_vec_2 = (xp.outer(xp.imag(eig_vec_2), D_cos) + xp.outer(xp.real(eig_vec_2), D_sin)).flatten()
-            eig_vec_3 = (xp.outer(xp.imag(eig_vec_3), N_cos) + xp.outer(xp.real(eig_vec_3), N_sin)).flatten()
+            eig_vec_1 = (np.outer(np.imag(eig_vec_1), D_cos) + np.outer(np.real(eig_vec_1), D_sin)).flatten()
+            eig_vec_2 = (np.outer(np.imag(eig_vec_2), D_cos) + np.outer(np.real(eig_vec_2), D_sin)).flatten()
+            eig_vec_3 = (np.outer(np.imag(eig_vec_3), N_cos) + np.outer(np.real(eig_vec_3), N_sin)).flatten()
 
         # set coefficients in full space
-        eigvec_1_ten = xp.zeros(derham.nbasis["2"][0], dtype=float)
-        eigvec_2_ten = xp.zeros(derham.nbasis["2"][1], dtype=float)
-        eigvec_3_ten = xp.zeros(derham.nbasis["2"][2], dtype=float)
+        eigvec_1_ten = np.zeros(derham.nbasis["2"][0], dtype=float)
+        eigvec_2_ten = np.zeros(derham.nbasis["2"][1], dtype=float)
+        eigvec_3_ten = np.zeros(derham.nbasis["2"][2], dtype=float)
 
         bc1_1 = derham.dirichlet_bc[0][0]
         bc1_2 = derham.dirichlet_bc[0][1]
@@ -141,19 +138,19 @@ class InitialMHDAxisymHdivEigFun:
 
         else:
             # split into polar/tensor product parts
-            eig_vec_1 = xp.split(
+            eig_vec_1 = np.split(
                 eig_vec_1,
                 [
                     derham.Vh_pol["2"].n_polar[0] * nnz_tor[0],
                 ],
             )
-            eig_vec_2 = xp.split(
+            eig_vec_2 = np.split(
                 eig_vec_2,
                 [
                     derham.Vh_pol["2"].n_polar[1] * nnz_tor[1],
                 ],
             )
-            eig_vec_3 = xp.split(
+            eig_vec_3 = np.split(
                 eig_vec_3,
                 [
                     derham.Vh_pol["2"].n_polar[2] * nnz_tor[2],
@@ -185,7 +182,7 @@ class InitialMHDAxisymHdivEigFun:
             ]
 
             eigvec_1_ten[derham.Vh_pol["2"].n_rings[0] : derham.nbasis["2"][0][0] - bc1_2, :, :] = eig_vec_1[1].reshape(
-                n_v2_0[0],
+                n_v2_0[0]
             )
             eigvec_2_ten[derham.Vh_pol["2"].n_rings[1] :, :, :] = eig_vec_2[1].reshape(n_v2_0[1])
             eigvec_3_ten[derham.Vh_pol["2"].n_rings[2] :, :, :] = eig_vec_3[1].reshape(n_v2_0[2])

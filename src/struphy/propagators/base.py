@@ -1,24 +1,16 @@
 "Propagator base class."
 
 from abc import ABCMeta, abstractmethod
-from dataclasses import dataclass
-from typing import Literal
-
-import cunumpy as xp
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilVector
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import Derham
-from struphy.fields_background.projected_equils import ProjectedFluidEquilibriumWithB
 from struphy.geometry.base import Domain
-from struphy.io.options import check_option
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
+from struphy.utils.arrays import xp as np
 
 
 class Propagator(metaclass=ABCMeta):
-    """Base class for propagators used in StruphyModels.
+    """Base class for Struphy propagators used in Struphy models.
 
     Note
     ----
@@ -27,99 +19,55 @@ class Propagator(metaclass=ABCMeta):
     Only propagators that update both a FEEC and a PIC species go into ``propagators_coupling.py``.
     """
 
-    @abstractmethod
-    class Variables:
-        """Define variable names and types to be updated by the propagator."""
-
-        def __init__(self):
-            self._var1 = None
-
-        @property
-        def var1(self):
-            return self._var1
-
-        @var1.setter
-        def var1(self, new):
-            assert isinstance(new, PICVariable)
-            assert new.space == "Particles6D"
-            self._var1 = new
-
-    @abstractmethod
-    def __init__(self):
-        self.variables = self.Variables()
-
-    @abstractmethod
-    @dataclass
-    class Options:
-        # specific literals
-        OptsTemplate = Literal["implicit", "explicit"]
-        # propagator options
-        opt1: str = ("implicit",)
-
-        def __post_init__(self):
-            # checks
-            check_option(self.opt1, self.OptsTemplate)
-
-    @property
-    @abstractmethod
-    def options(self) -> Options:
-        if not hasattr(self, "_options"):
-            self._options = self.Options()
-        return self._options
-
-    @options.setter
-    @abstractmethod
-    def options(self, new):
-        assert isinstance(new, self.Options)
-        if True:
-            print(f"\nNew options for propagator '{self.__class__.__name__}':")
-            for k, v in new.__dict__.items():
-                print(f"  {k}: {v}")
-        self._options = new
-
-    @abstractmethod
-    def allocate(self):
-        """Allocate all data/objects of the instance."""
-
-    @abstractmethod
-    def __call__(self, dt: float):
-        """Update variables from t -> t + dt.
-        Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
+    def __init__(self, *vars):
+        """Create an instance of a Propagator.
 
         Parameters
         ----------
-        dt : float
-            Time step size.
+        vars : Vector or Particles
+            :attr:`struphy.models.base.StruphyModel.pointer` of variables to be updated.
         """
+        from psydac.linalg.basic import Vector
 
-    def update_feec_variables(self, **new_coeffs):
-        r"""Return max_diff = max(abs(new - old)) for each new_coeffs,
-        update feec coefficients and update ghost regions.
+        from struphy.pic.particles import Particles
 
-        Returns
-        -------
-        diffs : dict
-            max_diff for all feec variables.
+        self._feec_vars = []
+        self._particles = []
+
+        for var in vars:
+            if isinstance(var, Vector):
+                self._feec_vars += [var]
+            elif isinstance(var, Particles):
+                self._particles += [var]
+            else:
+                ValueError(
+                    f'Variable {var} must be of type "Vector" or "Particles".',
+                )
+
+        # for iterative particle push
+        self._init_kernels = []
+        self._eval_kernels = []
+
+        # mpi comm
+        if self.particles:
+            comm = self.particles[0].mpi_comm
+        else:
+            comm = self.derham.comm
+        self._rank = comm.Get_rank() if comm is not None else 0
+
+    @property
+    def feec_vars(self):
+        """List of FEEC variables (not particles) to be updated by the propagator.
+        Contains FE coefficients from :attr:`struphy.feec.SplineFunction.vector`.
         """
-        diffs = {}
-        for var, new in new_coeffs.items():
-            assert "_" + var in self.variables.__dict__, f"{var} not in {self.variables.__dict__}."
-            assert isinstance(new, (StencilVector, BlockVector))
-            old_var = getattr(self.variables, var)
-            assert isinstance(old_var, FEECVariable)
-            old = old_var.spline.vector
-            assert new.space == old.space
+        return self._feec_vars
 
-            # calculate maximum of difference abs(new - old)
-            diffs[var] = xp.max(xp.abs(new.toarray() - old.toarray()))
-
-            # copy new coeffs into old
-            new.copy(out=old)
-
-            # important: sync processes!
-            old.update_ghost_regions()
-
-        return diffs
+    @property
+    def particles(self):
+        """List of kinetic variables (not FEEC) to be updated by the propagator.
+        Contains :class:`struphy.pic.particles.Particles`.
+        """
+        return self._particles
 
     @property
     def init_kernels(self):
@@ -142,6 +90,24 @@ class Propagator(metaclass=ABCMeta):
     def rank(self):
         """MPI rank, is 0 if no communicator."""
         return self._rank
+
+    @abstractmethod
+    def __call__(self, dt):
+        """Update from t -> t + dt.
+        Use ``Propagators.feec_vars_update`` to write to FEEC variables to ``Propagator.feec_vars``.
+
+        Parameters
+        ----------
+        dt : float
+            Time step size.
+        """
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def options():
+        """Dictionary of available propagator options, as appearing under species/options in the parameter file."""
+        pass
 
     @property
     def derham(self):
@@ -191,7 +157,7 @@ class Propagator(metaclass=ABCMeta):
         self._basis_ops = basis_ops
 
     @property
-    def projected_equil(self) -> ProjectedFluidEquilibriumWithB:
+    def projected_equil(self):
         """Fluid equilibrium projected on 3d Derham sequence with commuting projectors."""
         assert hasattr(
             self,
@@ -200,9 +166,8 @@ class Propagator(metaclass=ABCMeta):
         return self._projected_equil
 
     @projected_equil.setter
-    def projected_equil(self, new):
-        assert isinstance(new, ProjectedFluidEquilibriumWithB)
-        self._projected_equil = new
+    def projected_equil(self, projected_equil):
+        self._projected_equil = projected_equil
 
     @property
     def time_state(self):
@@ -219,6 +184,40 @@ class Propagator(metaclass=ABCMeta):
         """
         assert time_state.size == 1
         self._time_state = time_state
+
+    def feec_vars_update(self, *variables_new):
+        r"""Return :math:`\textrm{max}_i |x_i(t + \Delta t) - x_i(t)|` for each unknown in list,
+        update :method:`~struphy.propagators.base.Propagator.feec_vars`
+        and update ghost regions.
+
+        Parameters
+        ----------
+        variables_new : list[StencilVector | BlockVector]
+            Same sequence as in :method:`~struphy.propagators.base.Propagator.feec_vars`
+            but with the updated variables,
+            i.e. for feec_vars = [e, b] we must have variables_new = [e_updated, b_updated].
+
+        Returns
+        -------
+        diffs : list
+            A list [max(abs(self.feec_vars - variables_new)), ...] for all variables in self.feec_vars and variables_new.
+        """
+
+        diffs = []
+
+        for i, new in enumerate(variables_new):
+            assert type(new) is type(self.feec_vars[i])
+
+            # calculate maximum of difference abs(old - new)
+            diffs += [np.max(np.abs(self.feec_vars[i].toarray() - new.toarray()))]
+
+            # copy new variables into self.feec_vars
+            new.copy(out=self.feec_vars[i])
+
+            # important: sync processes!
+            self.feec_vars[i].update_ghost_regions()
+
+        return diffs
 
     def add_init_kernel(
         self,
@@ -246,12 +245,9 @@ class Propagator(metaclass=ABCMeta):
             The arguments for the kernel function.
         """
         if comps is None:
-            comps = xp.array([0])  # case for scalar evaluation
+            comps = np.array([0])  # case for scalar evaluation
         else:
-            comps = xp.array(comps, dtype=int)
-
-        if not hasattr(self, "_init_kernels"):
-            self._init_kernels = []
+            comps = np.array(comps, dtype=int)
 
         self._init_kernels += [
             (
@@ -259,7 +255,7 @@ class Propagator(metaclass=ABCMeta):
                 column_nr,
                 comps,
                 args_init,
-            ),
+            )
         ]
 
     def add_eval_kernel(
@@ -297,15 +293,12 @@ class Propagator(metaclass=ABCMeta):
         """
         if isinstance(alpha, int) or isinstance(alpha, float):
             alpha = [alpha] * 6
-        alpha = xp.array(alpha)
+        alpha = np.array(alpha)
 
         if comps is None:
-            comps = xp.array([0])  # case for scalar evaluation
+            comps = np.array([0])  # case for scalar evaluation
         else:
-            comps = xp.array(comps, dtype=int)
-
-        if not hasattr(self, "_eval_kernels"):
-            self._eval_kernels = []
+            comps = np.array(comps, dtype=int)
 
         self._eval_kernels += [
             (
@@ -314,5 +307,5 @@ class Propagator(metaclass=ABCMeta):
                 column_nr,
                 comps,
                 args_eval,
-            ),
+            )
         ]

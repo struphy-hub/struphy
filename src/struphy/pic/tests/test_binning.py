@@ -35,19 +35,13 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         name and specification of the mapping
     """
 
-    import cunumpy as xp
     import matplotlib.pyplot as plt
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.geometry import domains
-    from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
-    from struphy.pic.utilities import (
-        BoundaryParameters,
-        LoadingParameters,
-        WeightsParameters,
-    )
+    from struphy.utils.arrays import xp as np
 
     # Set seed
     seed = 1234
@@ -60,17 +54,19 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     domain = domain_class(**mapping[1])
 
     # create particles
-    bc_params = ("periodic", "periodic", "periodic")
+    loading_params = {
+        "seed": seed,
+        "spatial": "uniform",
+    }
+    bc_params = ["periodic", "periodic", "periodic"]
 
     # ===========================================
     # ===== Test Maxwellian in v1 direction =====
     # ===========================================
-    loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform")
-    boundary_params = BoundaryParameters(bc=bc_params)
-
     particles = Particles6D(
+        Np=Np,
+        bc=bc_params,
         loading_params=loading_params,
-        boundary_params=boundary_params,
         domain=domain,
     )
 
@@ -79,7 +75,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     # test weights
     particles.initialize_weights()
 
-    v1_bins = xp.linspace(-5.0, 5.0, 200, endpoint=True)
+    v1_bins = np.linspace(-5.0, 5.0, 200, endpoint=True)
     dv = v1_bins[1] - v1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -89,7 +85,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     v1_plot = v1_bins[:-1] + dv / 2
 
-    ana_res = 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-(v1_plot**2) / 2.0)
+    ana_res = 1.0 / np.sqrt(2.0 * np.pi) * np.exp(-(v1_plot**2) / 2.0)
 
     if show_plot:
         plt.plot(v1_plot, ana_res, label="Analytical result")
@@ -100,7 +96,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+    l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
     assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
 
@@ -110,19 +106,27 @@ def test_binning_6D_full_f(mapping, show_plot=False):
     # test weights
     amp_n = 0.1
     l_n = 2
-    pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
-    maxwellian = Maxwellian3D(n=(1.0, pert))
+    pert_params = {
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            }
+        }
+    }
 
     particles = Particles6D(
+        Np=Np,
+        bc=bc_params,
         loading_params=loading_params,
-        boundary_params=boundary_params,
         domain=domain,
-        background=maxwellian,
+        pert_params=pert_params,
     )
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -132,7 +136,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = 1.0 + amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
+    ana_res = 1.0 + amp_n * np.cos(2 * np.pi * l_n * e1_plot)
 
     if show_plot:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -143,46 +147,67 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+    l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
     assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
 
     # ==============================================================
     # ===== Test cosines for two backgrounds in eta1 direction =====
     # ==============================================================
+    loading_params = {
+        "seed": seed,
+        "spatial": "uniform",
+    }
     n1 = 0.8
     n2 = 0.2
-
+    bckgr_params = {
+        "Maxwellian3D_1": {
+            "n": n1,
+        },
+        "Maxwellian3D_2": {
+            "n": n2,
+            "vth1": 0.5,
+            "u1": 4.5,
+        },
+    }
     # test weights
     amp_n1 = 0.1
     amp_n2 = 0.1
     l_n1 = 2
     l_n2 = 4
-
-    pert_1 = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
-    pert_2 = perturbations.ModesCos(ls=(l_n2,), amps=(amp_n2,))
-    maxw_1 = Maxwellian3D(n=(n1, pert_1))
-    maxw_2 = Maxwellian3D(n=(n2, pert_2), u1=(4.5, None), vth1=(0.5, None))
-    background = maxw_1 + maxw_2
-
-    # adapt s0 for importance sampling
-    loading_params = LoadingParameters(
-        Np=Np,
-        seed=seed,
-        spatial="uniform",
-        moments=(2.5, 0, 0, 3, 1, 1),
-    )
+    pert_params = {
+        "Maxwellian3D_1": {
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n],
+                    "amps": [amp_n],
+                }
+            }
+        },
+        "Maxwellian3D_2": {
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n2],
+                    "amps": [amp_n2],
+                }
+            }
+        },
+    }
 
     particles = Particles6D(
+        Np=Np,
+        bc=bc_params,
         loading_params=loading_params,
-        boundary_params=boundary_params,
         domain=domain,
-        background=background,
+        bckgr_params=bckgr_params,
+        pert_params=pert_params,
     )
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -192,28 +217,29 @@ def test_binning_6D_full_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = n1 + amp_n1 * xp.cos(2 * xp.pi * l_n1 * e1_plot) + n2 + amp_n2 * xp.cos(2 * xp.pi * l_n2 * e1_plot)
+    ana_res = n1 + amp_n1 * np.cos(2 * np.pi * l_n1 * e1_plot) + n2 + amp_n2 * np.cos(2 * np.pi * l_n2 * e1_plot)
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot:
-        s0 = Maxwellian3D(
-            n=(1.0, None),
-            u1=(particles.loading_params.moments[0], None),
-            u2=(particles.loading_params.moments[1], None),
-            u3=(particles.loading_params.moments[2], None),
-            vth1=(particles.loading_params.moments[3], None),
-            vth2=(particles.loading_params.moments[4], None),
-            vth3=(particles.loading_params.moments[5], None),
-        )
+        s0_dict = {
+            "n": 1.0,
+            "u1": particles.loading_params["moments"][0],
+            "u2": particles.loading_params["moments"][1],
+            "u3": particles.loading_params["moments"][2],
+            "vth1": particles.loading_params["moments"][3],
+            "vth2": particles.loading_params["moments"][4],
+            "vth3": particles.loading_params["moments"][5],
+        }
+        s0 = Maxwellian3D(maxw_params=s0_dict)
 
-        v1 = xp.linspace(-10.0, 10.0, 400)
-        phase_space = xp.meshgrid(
-            xp.array([0.0]),
-            xp.array([0.0]),
-            xp.array([0.0]),
+        v1 = np.linspace(-10.0, 10.0, 400)
+        phase_space = np.meshgrid(
+            np.array([0.0]),
+            np.array([0.0]),
+            np.array([0.0]),
             v1,
-            xp.array([0.0]),
-            xp.array([0.0]),
+            np.array([0.0]),
+            np.array([0.0]),
         )
 
         s0_vals = s0(*phase_space).squeeze()
@@ -235,7 +261,7 @@ def test_binning_6D_full_f(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+    l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
@@ -268,19 +294,13 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         name and specification of the mapping
     """
 
-    import cunumpy as xp
     import matplotlib.pyplot as plt
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.geometry import domains
-    from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
-    from struphy.pic.utilities import (
-        BoundaryParameters,
-        LoadingParameters,
-        WeightsParameters,
-    )
+    from struphy.utils.arrays import xp as np
 
     # Set seed
     seed = 1234
@@ -293,30 +313,39 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
     domain = domain_class(**mapping[1])
 
     # create particles
-    bc_params = ("periodic", "periodic", "periodic")
+    loading_params = {
+        "seed": seed,
+        "spatial": "uniform",
+    }
+    bc_params = ["periodic", "periodic", "periodic"]
 
     # =========================================
     # ===== Test cosine in eta1 direction =====
     # =========================================
-    loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform")
-    boundary_params = BoundaryParameters(bc=bc_params)
-
     # test weights
     amp_n = 0.1
     l_n = 2
-    pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
-    background = Maxwellian3D(n=(1.0, pert))
+    pert_params = {
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            },
+        }
+    }
 
     particles = DeltaFParticles6D(
+        Np=Np,
+        bc=bc_params,
         loading_params=loading_params,
-        boundary_params=boundary_params,
         domain=domain,
-        background=background,
+        pert_params=pert_params,
     )
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -326,7 +355,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
+    ana_res = amp_n * np.cos(2 * np.pi * l_n * e1_plot)
 
     if show_plot:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -337,46 +366,69 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+    l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
     assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
 
     # ==============================================================
     # ===== Test cosines for two backgrounds in eta1 direction =====
     # ==============================================================
+    loading_params = {
+        "seed": seed,
+        "spatial": "uniform",
+    }
     n1 = 0.8
     n2 = 0.2
-
+    bckgr_params = {
+        "Maxwellian3D_1": {
+            "n": n1,
+        },
+        "Maxwellian3D_2": {
+            "n": n2,
+            "vth1": 0.5,
+            "u1": 4.5,
+        },
+    }
     # test weights
     amp_n1 = 0.1
     amp_n2 = 0.1
     l_n1 = 2
     l_n2 = 4
-
-    pert_1 = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
-    pert_2 = perturbations.ModesCos(ls=(l_n2,), amps=(amp_n2,))
-    maxw_1 = Maxwellian3D(n=(n1, pert_1))
-    maxw_2 = Maxwellian3D(n=(n2, pert_2), u1=(4.5, None), vth1=(0.5, None))
-    background = maxw_1 + maxw_2
-
-    # adapt s0 for importance sampling
-    loading_params = LoadingParameters(
-        Np=Np,
-        seed=seed,
-        spatial="uniform",
-        moments=(2.5, 0, 0, 2, 1, 1),
-    )
+    pert_params = {
+        "Maxwellian3D_1": {
+            "use_background_n": False,
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n1],
+                    "amps": [amp_n1],
+                }
+            },
+        },
+        "Maxwellian3D_2": {
+            "use_background_n": True,
+            "n": {
+                "ModesCos": {
+                    "given_in_basis": "0",
+                    "ls": [l_n2],
+                    "amps": [amp_n2],
+                }
+            },
+        },
+    }
 
     particles = DeltaFParticles6D(
+        Np=Np,
+        bc=bc_params,
         loading_params=loading_params,
-        boundary_params=boundary_params,
         domain=domain,
-        background=background,
+        bckgr_params=bckgr_params,
+        pert_params=pert_params,
     )
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -386,28 +438,29 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n1 * xp.cos(2 * xp.pi * l_n1 * e1_plot) + amp_n2 * xp.cos(2 * xp.pi * l_n2 * e1_plot)
+    ana_res = amp_n1 * np.cos(2 * np.pi * l_n1 * e1_plot) + n2 + amp_n2 * np.cos(2 * np.pi * l_n2 * e1_plot)
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot:
-        s0 = Maxwellian3D(
-            n=(1.0, None),
-            u1=(particles.loading_params.moments[0], None),
-            u2=(particles.loading_params.moments[1], None),
-            u3=(particles.loading_params.moments[2], None),
-            vth1=(particles.loading_params.moments[3], None),
-            vth2=(particles.loading_params.moments[4], None),
-            vth3=(particles.loading_params.moments[5], None),
-        )
+        s0_dict = {
+            "n": 1.0,
+            "u1": particles.loading_params["moments"][0],
+            "u2": particles.loading_params["moments"][1],
+            "u3": particles.loading_params["moments"][2],
+            "vth1": particles.loading_params["moments"][3],
+            "vth2": particles.loading_params["moments"][4],
+            "vth3": particles.loading_params["moments"][5],
+        }
+        s0 = Maxwellian3D(maxw_params=s0_dict)
 
-        v1 = xp.linspace(-10.0, 10.0, 400)
-        phase_space = xp.meshgrid(
-            xp.array([0.0]),
-            xp.array([0.0]),
-            xp.array([0.0]),
+        v1 = np.linspace(-10.0, 10.0, 400)
+        phase_space = np.meshgrid(
+            np.array([0.0]),
+            np.array([0.0]),
+            np.array([0.0]),
             v1,
-            xp.array([0.0]),
-            xp.array([0.0]),
+            np.array([0.0]),
+            np.array([0.0]),
         )
 
         s0_vals = s0(*phase_space).squeeze()
@@ -429,7 +482,7 @@ def test_binning_6D_delta_f(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - binned_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+    l2_error = np.sqrt(np.sum((ana_res - binned_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
@@ -464,20 +517,14 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         name and specification of the mapping
     """
 
-    import cunumpy as xp
     import matplotlib.pyplot as plt
     from psydac.ddm.mpi import MockComm
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.geometry import domains
-    from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import Particles6D
-    from struphy.pic.utilities import (
-        BoundaryParameters,
-        LoadingParameters,
-        WeightsParameters,
-    )
+    from struphy.utils.arrays import xp as np
 
     # Set seed
     seed = 1234
@@ -500,17 +547,19 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         rank = comm.Get_rank()
 
     # create particles
-    bc_params = ("periodic", "periodic", "periodic")
+    loading_params = {
+        "seed": seed,
+        "spatial": "uniform",
+    }
+    bc_params = ["periodic", "periodic", "periodic"]
 
     # ===========================================
     # ===== Test Maxwellian in v1 direction =====
     # ===========================================
-    loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform")
-    boundary_params = BoundaryParameters(bc=bc_params)
-
     particles = Particles6D(
+        Np=Np,
+        bc=bc_params,
         loading_params=loading_params,
-        boundary_params=boundary_params,
         comm_world=comm,
         domain=domain,
     )
@@ -519,7 +568,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     # test weights
     particles.initialize_weights()
 
-    v1_bins = xp.linspace(-5.0, 5.0, 200, endpoint=True)
+    v1_bins = np.linspace(-5.0, 5.0, 200, endpoint=True)
     dv = v1_bins[1] - v1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -531,13 +580,13 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     if comm is None:
         mpi_res = binned_res
     else:
-        mpi_res = xp.zeros_like(binned_res)
+        mpi_res = np.zeros_like(binned_res)
         comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
         comm.Barrier()
 
     v1_plot = v1_bins[:-1] + dv / 2
 
-    ana_res = 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-(v1_plot**2) / 2.0)
+    ana_res = 1.0 / np.sqrt(2.0 * np.pi) * np.exp(-(v1_plot**2) / 2.0)
 
     if show_plot and rank == 0:
         plt.plot(v1_plot, ana_res, label="Analytical result")
@@ -548,7 +597,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - mpi_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+    l2_error = np.sqrt(np.sum((ana_res - mpi_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
     assert l2_error <= 0.03, f"Error between binned data and analytical result was {l2_error}"
 
@@ -558,20 +607,28 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     # test weights
     amp_n = 0.1
     l_n = 2
-    pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
-    maxwellian = Maxwellian3D(n=(1.0, pert))
+    pert_params = {
+        "n": {
+            "ModesCos": {
+                "given_in_basis": "0",
+                "ls": [l_n],
+                "amps": [amp_n],
+            }
+        }
+    }
 
     particles = Particles6D(
+        Np=Np,
+        bc=bc_params,
         loading_params=loading_params,
-        boundary_params=boundary_params,
         comm_world=comm,
         domain=domain,
-        background=maxwellian,
+        pert_params=pert_params,
     )
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -583,13 +640,13 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     if comm is None:
         mpi_res = binned_res
     else:
-        mpi_res = xp.zeros_like(binned_res)
+        mpi_res = np.zeros_like(binned_res)
         comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
         comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = 1.0 + amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
+    ana_res = 1.0 + amp_n * np.cos(2 * np.pi * l_n * e1_plot)
 
     if show_plot and rank == 0:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -600,13 +657,17 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - mpi_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+    l2_error = np.sqrt(np.sum((ana_res - mpi_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
     assert l2_error <= 0.03, f"Error between binned data and analytical result was {l2_error}"
 
     # ==============================================================
     # ===== Test cosines for two backgrounds in eta1 direction =====
     # ==============================================================
+    loading_params = {
+        "seed": seed,
+        "spatial": "uniform",
+    }
     n1 = 0.8
     n2 = 0.2
     bckgr_params = {
@@ -631,8 +692,8 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
                     "given_in_basis": "0",
                     "ls": [l_n1],
                     "amps": [amp_n1],
-                },
-            },
+                }
+            }
         },
         "Maxwellian3D_2": {
             "n": {
@@ -640,35 +701,24 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
                     "given_in_basis": "0",
                     "ls": [l_n2],
                     "amps": [amp_n2],
-                },
-            },
+                }
+            }
         },
     }
-    pert_1 = perturbations.ModesCos(ls=(l_n1,), amps=(amp_n1,))
-    pert_2 = perturbations.ModesCos(ls=(l_n2,), amps=(amp_n2,))
-    maxw_1 = Maxwellian3D(n=(n1, pert_1))
-    maxw_2 = Maxwellian3D(n=(n2, pert_2), u1=(4.5, None), vth1=(0.5, None))
-    background = maxw_1 + maxw_2
-
-    # adapt s0 for importance sampling
-    loading_params = LoadingParameters(
-        Np=Np,
-        seed=seed,
-        spatial="uniform",
-        moments=(2.5, 0, 0, 2, 1, 1),
-    )
 
     particles = Particles6D(
+        Np=Np,
+        bc=bc_params,
         loading_params=loading_params,
-        boundary_params=boundary_params,
         comm_world=comm,
         domain=domain,
-        background=background,
+        bckgr_params=bckgr_params,
+        pert_params=pert_params,
     )
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -680,34 +730,35 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
     if comm is None:
         mpi_res = binned_res
     else:
-        mpi_res = xp.zeros_like(binned_res)
+        mpi_res = np.zeros_like(binned_res)
         comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
         comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = n1 + amp_n1 * xp.cos(2 * xp.pi * l_n1 * e1_plot) + n2 + amp_n2 * xp.cos(2 * xp.pi * l_n2 * e1_plot)
+    ana_res = n1 + amp_n1 * np.cos(2 * np.pi * l_n1 * e1_plot) + n2 + amp_n2 * np.cos(2 * np.pi * l_n2 * e1_plot)
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot and rank == 0:
-        s0 = Maxwellian3D(
-            n=(1.0, None),
-            u1=(particles.loading_params.moments[0], None),
-            u2=(particles.loading_params.moments[1], None),
-            u3=(particles.loading_params.moments[2], None),
-            vth1=(particles.loading_params.moments[3], None),
-            vth2=(particles.loading_params.moments[4], None),
-            vth3=(particles.loading_params.moments[5], None),
-        )
+        s0_dict = {
+            "n": 1.0,
+            "u1": particles.loading_params["moments"][0],
+            "u2": particles.loading_params["moments"][1],
+            "u3": particles.loading_params["moments"][2],
+            "vth1": particles.loading_params["moments"][3],
+            "vth2": particles.loading_params["moments"][4],
+            "vth3": particles.loading_params["moments"][5],
+        }
+        s0 = Maxwellian3D(maxw_params=s0_dict)
 
-        v1 = xp.linspace(-10.0, 10.0, 400)
-        phase_space = xp.meshgrid(
-            xp.array([0.0]),
-            xp.array([0.0]),
-            xp.array([0.0]),
+        v1 = np.linspace(-10.0, 10.0, 400)
+        phase_space = np.meshgrid(
+            np.array([0.0]),
+            np.array([0.0]),
+            np.array([0.0]),
             v1,
-            xp.array([0.0]),
-            xp.array([0.0]),
+            np.array([0.0]),
+            np.array([0.0]),
         )
 
         s0_vals = s0(*phase_space).squeeze()
@@ -729,7 +780,7 @@ def test_binning_6D_full_f_mpi(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - mpi_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+    l2_error = np.sqrt(np.sum((ana_res - mpi_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 
@@ -761,20 +812,14 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         name and specification of the mapping
     """
 
-    import cunumpy as xp
     import matplotlib.pyplot as plt
     from psydac.ddm.mpi import MockComm
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.geometry import domains
-    from struphy.initial import perturbations
     from struphy.kinetic_background.maxwellians import Maxwellian3D
     from struphy.pic.particles import DeltaFParticles6D
-    from struphy.pic.utilities import (
-        BoundaryParameters,
-        LoadingParameters,
-        WeightsParameters,
-    )
+    from struphy.utils.arrays import xp as np
 
     # Set seed
     seed = 1234
@@ -797,14 +842,15 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         rank = comm.Get_rank()
 
     # create particles
-    bc_params = ("periodic", "periodic", "periodic")
+    loading_params = {
+        "seed": seed,
+        "spatial": "uniform",
+    }
+    bc_params = ["periodic", "periodic", "periodic"]
 
     # =========================================
     # ===== Test cosine in eta1 direction =====
     # =========================================
-    loading_params = LoadingParameters(Np=Np, seed=seed, spatial="uniform")
-    boundary_params = BoundaryParameters(bc=bc_params)
-
     # test weights
     amp_n = 0.1
     l_n = 2
@@ -814,23 +860,22 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
                 "given_in_basis": "0",
                 "ls": [l_n],
                 "amps": [amp_n],
-            },
-        },
+            }
+        }
     }
-    pert = perturbations.ModesCos(ls=(l_n,), amps=(amp_n,))
-    background = Maxwellian3D(n=(1.0, pert))
 
     particles = DeltaFParticles6D(
+        Np=Np,
+        bc=bc_params,
         loading_params=loading_params,
-        boundary_params=boundary_params,
         comm_world=comm,
         domain=domain,
-        background=background,
+        pert_params=pert_params,
     )
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -842,13 +887,13 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     if comm is None:
         mpi_res = binned_res
     else:
-        mpi_res = xp.zeros_like(binned_res)
+        mpi_res = np.zeros_like(binned_res)
         comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
         comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n * xp.cos(2 * xp.pi * l_n * e1_plot)
+    ana_res = amp_n * np.cos(2 * np.pi * l_n * e1_plot)
 
     if show_plot and rank == 0:
         plt.plot(e1_plot, ana_res, label="Analytical result")
@@ -859,13 +904,17 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - mpi_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+    l2_error = np.sqrt(np.sum((ana_res - mpi_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
     assert l2_error <= 0.02, f"Error between binned data and analytical result was {l2_error}"
 
     # ==============================================================
     # ===== Test cosines for two backgrounds in eta1 direction =====
     # ==============================================================
+    loading_params = {
+        "seed": seed,
+        "spatial": "uniform",
+    }
     n1 = 0.8
     n2 = 0.2
     bckgr_params = {
@@ -891,7 +940,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
                     "given_in_basis": "0",
                     "ls": [l_n1],
                     "amps": [amp_n1],
-                },
+                }
             },
         },
         "Maxwellian3D_2": {
@@ -901,35 +950,24 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
                     "given_in_basis": "0",
                     "ls": [l_n2],
                     "amps": [amp_n2],
-                },
+                }
             },
         },
     }
-    pert_1 = perturbations.ModesCos(ls=(l_n1,), amps=(amp_n1,))
-    pert_2 = perturbations.ModesCos(ls=(l_n2,), amps=(amp_n2,))
-    maxw_1 = Maxwellian3D(n=(n1, pert_1))
-    maxw_2 = Maxwellian3D(n=(n2, pert_2), u1=(4.5, None), vth1=(0.5, None))
-    background = maxw_1 + maxw_2
-
-    # adapt s0 for importance sampling
-    loading_params = LoadingParameters(
-        Np=Np,
-        seed=seed,
-        spatial="uniform",
-        moments=(2.5, 0, 0, 2, 1, 1),
-    )
 
     particles = DeltaFParticles6D(
+        Np=Np,
+        bc=bc_params,
         loading_params=loading_params,
-        boundary_params=boundary_params,
         comm_world=comm,
         domain=domain,
-        background=background,
+        bckgr_params=bckgr_params,
+        pert_params=pert_params,
     )
     particles.draw_markers()
     particles.initialize_weights()
 
-    e1_bins = xp.linspace(0.0, 1.0, 200, endpoint=True)
+    e1_bins = np.linspace(0.0, 1.0, 200, endpoint=True)
     de = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -941,34 +979,35 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
     if comm is None:
         mpi_res = binned_res
     else:
-        mpi_res = xp.zeros_like(binned_res)
+        mpi_res = np.zeros_like(binned_res)
         comm.Allreduce(binned_res, mpi_res, op=MPI.SUM)
         comm.Barrier()
 
     e1_plot = e1_bins[:-1] + de / 2
 
-    ana_res = amp_n1 * xp.cos(2 * xp.pi * l_n1 * e1_plot) + amp_n2 * xp.cos(2 * xp.pi * l_n2 * e1_plot)
+    ana_res = amp_n1 * np.cos(2 * np.pi * l_n1 * e1_plot) + n2 + amp_n2 * np.cos(2 * np.pi * l_n2 * e1_plot)
 
     # Compare s0 and the sum of two Maxwellians
     if show_plot and rank == 0:
-        s0 = Maxwellian3D(
-            n=(1.0, None),
-            u1=(particles.loading_params.moments[0], None),
-            u2=(particles.loading_params.moments[1], None),
-            u3=(particles.loading_params.moments[2], None),
-            vth1=(particles.loading_params.moments[3], None),
-            vth2=(particles.loading_params.moments[4], None),
-            vth3=(particles.loading_params.moments[5], None),
-        )
+        s0_dict = {
+            "n": 1.0,
+            "u1": particles.loading_params["moments"][0],
+            "u2": particles.loading_params["moments"][1],
+            "u3": particles.loading_params["moments"][2],
+            "vth1": particles.loading_params["moments"][3],
+            "vth2": particles.loading_params["moments"][4],
+            "vth3": particles.loading_params["moments"][5],
+        }
+        s0 = Maxwellian3D(maxw_params=s0_dict)
 
-        v1 = xp.linspace(-10.0, 10.0, 400)
-        phase_space = xp.meshgrid(
-            xp.array([0.0]),
-            xp.array([0.0]),
-            xp.array([0.0]),
+        v1 = np.linspace(-10.0, 10.0, 400)
+        phase_space = np.meshgrid(
+            np.array([0.0]),
+            np.array([0.0]),
+            np.array([0.0]),
             v1,
-            xp.array([0.0]),
-            xp.array([0.0]),
+            np.array([0.0]),
+            np.array([0.0]),
         )
 
         s0_vals = s0(*phase_space).squeeze()
@@ -990,7 +1029,7 @@ def test_binning_6D_delta_f_mpi(mapping, show_plot=False):
         plt.legend()
         plt.show()
 
-    l2_error = xp.sqrt(xp.sum((ana_res - mpi_res) ** 2)) / xp.sqrt(xp.sum((ana_res) ** 2))
+    l2_error = np.sqrt(np.sum((ana_res - mpi_res) ** 2)) / np.sqrt(np.sum((ana_res) ** 2))
 
     assert l2_error <= 0.04, f"Error between binned data and analytical result was {l2_error}"
 

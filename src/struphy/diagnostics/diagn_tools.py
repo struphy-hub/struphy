@@ -3,7 +3,6 @@ import os
 import shutil
 import subprocess
 
-import cunumpy as xp
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 from scipy.fft import fftfreq, fftn
@@ -11,25 +10,23 @@ from scipy.signal import argrelextrema
 from tqdm import tqdm
 
 from struphy.dispersion_relations import analytic
+from struphy.utils.arrays import xp as np
 
 
 def power_spectrum_2d(
-    values: dict,
-    name: str,
-    grids: tuple,
-    grids_mapped: tuple = None,
-    component: int = 0,
-    slice_at: tuple = (None, 0, 0),
-    do_plot: bool = False,
-    disp_name: str = None,
-    disp_params: dict = {},
-    fit_branches: int = 0,
-    noise_level: float = 0.1,
-    extr_order: int = 10,
-    fit_degree: tuple = (1,),
-    save_plot: bool = False,
-    save_name: str = None,
-    file_format: str = "png",
+    values,
+    name,
+    code,
+    grids,
+    grids_mapped=None,
+    component=0,
+    slice_at=(None, 0, 0),
+    do_plot=False,
+    disp_name=None,
+    disp_params={},
+    save_plot=False,
+    save_name=None,
+    file_format="png",
 ):
     """Perform fft in space-time, (t, x) -> (omega, k), where x can be a logical or physical coordinate.
     Returns values if plot=False.
@@ -37,22 +34,25 @@ def power_spectrum_2d(
     Parameters
     ----------
     values : dict
-        Dictionary holding values of a B-spline FemField on the grid as 3d xp.arrays:
+        Dictionary holding values of a B-spline FemField on the grid as 3d np.arrays:
         values[n] contains the values at time step n, where n = 0:Nt-1:step with 0<step.
 
     name : str
         Name of the FemField.
 
-    grids : 3-tuple
+    code : str
+        From which code the data has been obtained.
+
+    grids : 3-list
         1d logical grids in each eta-direction with Nel[i]*npts_per_cell[i] + 1 entries in each direction.
 
-    grids_mapped : 3-tuple
+    grids_mapped : 3-list
         Mapped grids obtained by domain(). If None, the fft is performed on the logical grids.
 
     component : int
         Which component of a FemField to consider; is 0 for 0-and 3-forms, is in {0, 1, 2} for 1- and 2-forms.
 
-    slice_at : 3-tuple
+    slice_at : 3-list
         At which indices i, j the 1d slice data (t, eta)_(i, j) should be obtained.
         One entry must be "None"; this is the direction of the fft.
         Default: [None, 0, 0] performs the eta1-fft at (eta2[0], eta3[0]).
@@ -66,20 +66,6 @@ def power_spectrum_2d(
     disp_params : dict
         Parameters needed for analytical dispersion relation, see struphy.dispersion_relations.analytic.
 
-    fit_branches: int
-        How many branches to fit in the dispersion relation.
-        Default=0 means no fits are made.
-
-    noise_level: float
-        Sets the threshold above which local maxima in the power spectrum are taken into account.
-        Computed as threshold = max(spectrum) * noise_level.
-
-    extr_oder: int
-        Order given to argrelextrema.
-
-    fit_degree: tuple[int]
-        Degree of fitting polynomial for each branch (fit_branches) of power spectrum.
-
     save_plot : boolean
         Save figure if True. Then a path has to be given.
 
@@ -91,30 +77,30 @@ def power_spectrum_2d(
 
     Returns
     -------
-    omega : xp.array
+    omega : np.array
         1d array of angular frequency.
 
-    kvec : xp.array
+    kvec : np.array
         1d array of wave vector.
 
-    dispersion : xp.array
-        2d array of shape (omega.size, kvec.size) holding the fft.
-
-    coeffs : list[list]
-        List of fitting coefficients (lenght is fit_branches).
+    dispersion : np.array
+        2d array of shape (omega.size, kvce.size) holding the fft.
     """
+
+    print(f"code: {code}")
 
     keys = list(values.keys())
 
     # check uniform grid in time
     dt = keys[1] - keys[0]
-    assert xp.all([xp.abs(y - x - dt) < 1e-12 for x, y in zip(keys[:-1], keys[1:])])
+    print(f"time step: {dt}")
+    assert np.all([np.abs(y - x - dt) < 1e-12 for x, y in zip(keys[:-1], keys[1:])])
 
-    # create 4d xp.array with shape (time, eta1, eta2, eta3)
+    # create 4d np.array with shape (time, eta1, eta2, eta3)
     dim_t = len(keys)
     dim_eta = values[keys[0]][component].shape
 
-    temp = xp.zeros((dim_t, *dim_eta))
+    temp = np.zeros((dim_t, *dim_eta))
 
     for n, (time, snapshot) in enumerate(values.items()):
         temp[n, :, :, :] = snapshot[component]
@@ -145,52 +131,18 @@ def power_spectrum_2d(
     Nt = data.shape[0]
     Nx = grid.size
     dx = grid[1] - grid[0]
-    assert xp.allclose(grid[1:] - grid[:-1], dx * xp.ones_like(grid[:-1]))
+    print(f"space step: {dx}")
+    assert np.allclose(grid[1:] - grid[:-1], dx * np.ones_like(grid[:-1]))
 
-    dispersion = (2.0 / Nt) * (2.0 / Nx) * xp.abs(fftn(data))[: Nt // 2, : Nx // 2]
-    kvec = 2 * xp.pi * fftfreq(Nx, dx)[: Nx // 2]
-    omega = 2 * xp.pi * fftfreq(Nt, dt)[: Nt // 2]
-
-    coeffs = None
-    if fit_branches > 0:
-        assert len(fit_degree) == fit_branches
-        # determine maxima for each k
-        k_start = kvec.size // 8  # take only first half of k-vector
-        k_end = kvec.size // 2  # take only first half of k-vector
-        k_fit = []
-        omega_fit = {}
-        for n in range(fit_branches):
-            omega_fit[n] = []
-        for k, f_of_omega in zip(kvec[k_start:k_end], dispersion[:, k_start:k_end].T):
-            threshold = xp.max(f_of_omega) * noise_level
-            extrms = argrelextrema(f_of_omega, xp.greater, order=extr_order)[0]
-            above_noise = xp.nonzero(f_of_omega > threshold)[0]
-            intersec = list(set(extrms) & set(above_noise))
-            # intersec = list(set(extrms))
-            if not intersec:
-                continue
-            intersec.sort()
-            # print(f"{intersec = }")
-            # print(f"{[omega[intersec[n]] for n in range(fit_branches)]}")
-            assert len(intersec) == fit_branches, (
-                f"Number of found branches {len(intersec)} is not {fit_branches =}! \
-                Try to lower 'noise_level' or increase 'extr_order'."
-            )
-            k_fit += [k]
-            for n in range(fit_branches):
-                omega_fit[n] += [omega[intersec[n]]]
-
-        # fit
-        coeffs = []
-        for m, om in omega_fit.items():
-            coeffs += [xp.polyfit(k_fit, om, deg=fit_degree[n])]
-        print(f"\nFitted {coeffs =}")
+    dispersion = (2.0 / Nt) * (2.0 / Nx) * np.abs(fftn(data))[: Nt // 2, : Nx // 2]
+    kvec = 2 * np.pi * fftfreq(Nx, dx)[: Nx // 2]
+    omega = 2 * np.pi * fftfreq(Nt, dt)[: Nt // 2]
 
     if do_plot:
         _, ax = plt.subplots(1, 1, figsize=(10, 10))
         colormap = "plasma"
-        K, W = xp.meshgrid(kvec, omega)
-        lvls = xp.logspace(-15, -1, 27)
+        K, W = np.meshgrid(kvec, omega)
+        lvls = np.logspace(-15, -1, 27)
         disp_plot = ax.contourf(
             K,
             W,
@@ -204,21 +156,10 @@ def power_spectrum_2d(
             mappable=disp_plot,
             format="%.0e",
         )
-        title = name + ", component " + str(component + 1)
+        title = name + " component " + str(component + 1) + " from code: " + code
         ax.set_title(title)
         ax.set_xlabel("$k$ [a.u.]")
         ax.set_ylabel(r"$\omega$ [a.u.]")
-
-        if fit_branches > 0:
-            for n, cs in enumerate(coeffs):
-
-                def fun(k):
-                    out = k * 0.0
-                    for i, c in enumerate(xp.flip(cs)):
-                        out += c * k**i
-                    return out
-
-                ax.plot(kvec, fun(kvec), "r:", label=f"fit_{n + 1}")
 
         # analytic solution:
         disp_class = getattr(analytic, disp_name)
@@ -230,12 +171,12 @@ def power_spectrum_2d(
         set_min = 0.0
         set_max = 0.0
         for key, branch in branches.items():
-            vals = xp.real(branch)
+            vals = np.real(branch)
             ax.plot(kvec, vals, "--", label=key)
-            tmp = xp.min(vals)
+            tmp = np.min(vals)
             if tmp < set_min:
                 set_min = tmp
-            tmp = xp.max(vals)
+            tmp = np.max(vals)
             if tmp > set_max:
                 set_max = tmp
 
@@ -249,7 +190,8 @@ def power_spectrum_2d(
         else:
             plt.show()
 
-    return omega, kvec, dispersion, coeffs
+    else:
+        return kvec, omega, dispersion
 
 
 def plot_scalars(
@@ -331,8 +273,8 @@ def plot_scalars(
         plt.figure("en_tot_rel_err")
         plt.plot(
             time[1:],
-            xp.divide(
-                xp.abs(en_tot[1:] - en_tot[0]),
+            np.divide(
+                np.abs(en_tot[1:] - en_tot[0]),
                 en_tot[0],
             ),
         )
@@ -363,9 +305,9 @@ def plot_scalars(
     for key, plot_quantity in plot_quantities.items():
         # Get the indices of the extrema
         if do_fit:
-            inds_exs = argrelextrema(plot_quantity, xp.greater, order=order)
+            inds_exs = argrelextrema(plot_quantity, np.greater, order=order)
         elif fit_minima:
-            inds_exs = argrelextrema(plot_quantity, xp.less, order=order)
+            inds_exs = argrelextrema(plot_quantity, np.less, order=order)
         else:
             inds_exs = None
 
@@ -376,10 +318,10 @@ def plot_scalars(
 
             # for plotting take a bit more time at start and end
             if len(inds_exs[0]) >= 2:
-                time_start_idx = xp.max(
+                time_start_idx = np.max(
                     [0, 2 * inds_exs[0][start_extremum] - inds_exs[0][start_extremum + 1]],
                 )
-                time_end_idx = xp.min(
+                time_end_idx = np.min(
                     [
                         len(time) - 1,
                         2 * inds_exs[0][start_extremum + no_extrema - 1] - inds_exs[0][start_extremum + no_extrema - 2],
@@ -395,9 +337,9 @@ def plot_scalars(
 
             if inds_exs is not None:
                 # do the fitting
-                coeffs = xp.polyfit(
+                coeffs = np.polyfit(
                     times_extrema,
-                    xp.log(
+                    np.log(
                         quantity_extrema,
                     ),
                     deg=degree,
@@ -410,15 +352,15 @@ def plot_scalars(
                 )
                 plt.plot(
                     time_cut,
-                    xp.exp(coeffs[0] * time_cut + coeffs[1]),
-                    label=r"$a * \exp(m x)$ with" + f"\na={xp.round(xp.exp(coeffs[1]), 3)} m={xp.round(coeffs[0], 3)}",
+                    np.exp(coeffs[0] * time_cut + coeffs[1]),
+                    label=r"$a * \exp(m x)$ with" + f"\na={np.round(np.exp(coeffs[1]), 3)} m={np.round(coeffs[0], 3)}",
                 )
         else:
             plt.plot(time, plot_quantity[:], ".", label=key, markersize=2)
 
             if inds_exs is not None:
                 # do the fitting
-                coeffs = xp.polyfit(
+                coeffs = np.polyfit(
                     times_extrema,
                     quantity_extrema,
                     deg=degree,
@@ -433,8 +375,8 @@ def plot_scalars(
                 )
                 plt.plot(
                     time_cut,
-                    xp.exp(coeffs[0] * time_cut + coeffs[1]),
-                    label=r"$a x + b$ with" + f"\na={xp.round(coeffs[1], 3)} b={xp.round(coeffs[0], 3)}",
+                    np.exp(coeffs[0] * time_cut + coeffs[1]),
+                    label=r"$a x + b$ with" + f"\na={np.round(coeffs[1], 3)} b={np.round(coeffs[0], 3)}",
                 )
 
     plt.legend()
@@ -496,11 +438,11 @@ def plot_distr_fun(
 
             # load full distribution functions
             if filename == "f_binned.npy":
-                f = xp.load(filepath)
+                f = np.load(filepath)
 
             # load delta f
             elif filename == "delta_f_binned.npy":
-                delta_f = xp.load(filepath)
+                delta_f = np.load(filepath)
 
         assert f is not None, "No distribution function file found!"
 
@@ -508,7 +450,7 @@ def plot_distr_fun(
         directions = folder.split("_")
         for direction in directions:
             grids += [
-                xp.load(
+                np.load(
                     os.path.join(
                         subpath,
                         "grid_" + direction + ".npy",
@@ -519,8 +461,8 @@ def plot_distr_fun(
         # Get indices of where to plot in other directions
         grid_idxs = {}
         for k in range(f.ndim - 1):
-            grid_idxs[directions[k]] = xp.argmin(
-                xp.abs(grids[k] - grid_slices[directions[k]]),
+            grid_idxs[directions[k]] = np.argmin(
+                np.abs(grids[k] - grid_slices[directions[k]]),
             )
 
         for k in range(f.ndim - 1):
@@ -655,17 +597,17 @@ def plots_videos_2d(
         grid_idxs = {}
         for k in range(df_data.ndim - 1):
             direc = directions[k]
-            grid_idxs[direc] = xp.argmin(
-                xp.abs(grids[direc] - grid_slices[direc]),
+            grid_idxs[direc] = np.argmin(
+                np.abs(grids[direc] - grid_slices[direc]),
             )
 
-        grid_1 = xp.load(
+        grid_1 = np.load(
             os.path.join(
                 data_path,
                 "grid_" + label_1 + ".npy",
             ),
         )
-        grid_2 = xp.load(
+        grid_2 = np.load(
             os.path.join(
                 data_path,
                 "grid_" + label_2 + ".npy",
@@ -683,7 +625,7 @@ def plots_videos_2d(
 
         df_binned = df_data[tuple(f_slicing)].squeeze()
 
-        assert t_grid.ndim == grid_1.ndim == grid_2.ndim == 1, "Input arrays must be 1D!"
+        assert t_grid.ndim == grid_1.ndim == grid_2.ndim == 1, f"Input arrays must be 1D!"
         assert df_binned.shape[0] == t_grid.size, f"{df_binned.shape =}, {t_grid.shape =}"
         assert df_binned.shape[1] == grid_1.size, f"{df_binned.shape =}, {grid_1.shape =}"
         assert df_binned.shape[2] == grid_2.size, f"{df_binned.shape =}, {grid_2.shape =}"
@@ -696,9 +638,9 @@ def plots_videos_2d(
                         var *= polar_params["r_max"] - polar_params["r_min"]
                         var += polar_params["r_min"]
                     elif polar_params["angular_coord"] == sl:
-                        var *= 2 * xp.pi
+                        var *= 2 * np.pi
 
-        grid_1_mesh, grid_2_mesh = xp.meshgrid(grid_1, grid_2, indexing="ij")
+        grid_1_mesh, grid_2_mesh = np.meshgrid(grid_1, grid_2, indexing="ij")
 
         if output == "video":
             plots_2d_video(
@@ -745,7 +687,7 @@ def video_2d(slc, diagn_path, images_path):
 
     Parameters
     ----------
-    t_grid : xp.ndarray
+    t_grid : np.ndarray
         1D-array containing all the times
 
     grid_slices : dict
@@ -833,15 +775,15 @@ def plots_2d_video(
 
     # Get parameters for time and labelling for it
     nt = len(t_grid)
-    log_nt = int(xp.log10(nt)) + 1
+    log_nt = int(np.log10(nt)) + 1
     len_dt = len(str(t_grid[1]).split(".")[1])
 
     # Get the correct scale for the plots
-    vmin += [xp.min(df_binned[:]) / 3]
-    vmax += [xp.max(df_binned[:]) / 3]
-    vmin = xp.min(vmin)
-    vmax = xp.max(vmax)
-    vscale = xp.max(xp.abs([vmin, vmax]))
+    vmin += [np.min(df_binned[:]) / 3]
+    vmax += [np.max(df_binned[:]) / 3]
+    vmin = np.min(vmin)
+    vmax = np.max(vmax)
+    vscale = np.max(np.abs([vmin, vmax]))
 
     # Set up the figure and axis once
     if do_polar:
@@ -939,18 +881,18 @@ def plots_2d_overview(
         fig_height = 8.5
     else:
         n_cols = 3
-        n_rows = int(xp.ceil(n_times / n_cols))
+        n_rows = int(np.ceil(n_times / n_cols))
         fig_height = 4 * n_rows
 
     fig_size = (4 * n_cols, fig_height)
 
     # Get the correct scale for the plots
     for time in times:
-        vmin += [xp.min(df_binned[time]) / 3]
-        vmax += [xp.max(df_binned[time]) / 3]
-    vmin = xp.min(vmin)
-    vmax = xp.max(vmax)
-    vscale = xp.max(xp.abs([vmin, vmax]))
+        vmin += [np.min(df_binned[time]) / 3]
+        vmax += [np.max(df_binned[time]) / 3]
+    vmin = np.min(vmin)
+    vmax = np.max(vmax)
+    vscale = np.max(np.abs([vmin, vmax]))
 
     # Plot options for polar plots
     subplot_kw = dict(projection="polar") if do_polar else None
@@ -959,8 +901,8 @@ def plots_2d_overview(
     fig, axes = plt.subplots(n_rows, n_cols, figsize=fig_size, subplot_kw=subplot_kw)
 
     # So we an use .flatten() even for just 1 plot
-    if not isinstance(axes, xp.ndarray):
-        axes = xp.array([axes])
+    if not isinstance(axes, np.ndarray):
+        axes = np.array([axes])
 
     # fig.tight_layout(h_pad=5.0, w_pad=5.0)
     # fig.tight_layout(pad=5.0)
@@ -976,7 +918,7 @@ def plots_2d_overview(
     # Set the suptitle
     fig.suptitle(f"Struphy model '{model_name}'")
 
-    for k in xp.arange(n_times):
+    for k in np.arange(n_times):
         obj = axes.flatten()[k]
         n = times[k]
         t = f"%.{len_dt}f" % t_grid[n]
@@ -1048,13 +990,13 @@ def get_slices_grids_directions_and_df_data(plot_full_f, grid_slices, data_path,
     slices_2d : list[string]
         A list of all the slicings
 
-    grids : list[xp.ndarray]
+    grids : list[np.ndarray]
         A list of all grids according to the slices
 
     directions : list[string]
         A list of the directions that appear in all slices
 
-    df_data : xp.ndarray
+    df_data : np.ndarray
         The data of delta-f (in case of full-f: distribution function minus background)
     """
 
@@ -1063,7 +1005,7 @@ def get_slices_grids_directions_and_df_data(plot_full_f, grid_slices, data_path,
     # Load all the grids
     grids = {}
     for direction in directions:
-        grids[direction] = xp.load(
+        grids[direction] = np.load(
             os.path.join(data_path, "grid_" + direction + ".npy"),
         )
 
@@ -1072,7 +1014,7 @@ def get_slices_grids_directions_and_df_data(plot_full_f, grid_slices, data_path,
         _name = "f_binned.npy"
     else:
         _name = "delta_f_binned.npy"
-    _data = xp.load(os.path.join(data_path, _name))
+    _data = np.load(os.path.join(data_path, _name))
 
     # Check how many slicings have been given and make slices_2d for all
     # combinations of spatial and velocity dimensions

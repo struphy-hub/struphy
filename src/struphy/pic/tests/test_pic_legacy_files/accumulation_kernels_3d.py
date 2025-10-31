@@ -185,49 +185,13 @@ def kernel_step1(
         bsp.b_d_splines_slim(t3, int(pn3), eta3, int(span3), bn3, bd3)
 
         b[0] = eva3.evaluation_kernel_3d(
-            pn1,
-            pd2,
-            pd3,
-            bn1,
-            bd2,
-            bd3,
-            span1,
-            span2 - 1,
-            span3 - 1,
-            nbase_n[0],
-            nbase_d[1],
-            nbase_d[2],
-            b2_1,
+            pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1
         )
         b[1] = eva3.evaluation_kernel_3d(
-            pd1,
-            pn2,
-            pd3,
-            bd1,
-            bn2,
-            bd3,
-            span1 - 1,
-            span2,
-            span3 - 1,
-            nbase_d[0],
-            nbase_n[1],
-            nbase_d[2],
-            b2_2,
+            pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2
         )
         b[2] = eva3.evaluation_kernel_3d(
-            pd1,
-            pd2,
-            pn3,
-            bd1,
-            bd2,
-            bn3,
-            span1 - 1,
-            span2 - 1,
-            span3,
-            nbase_d[0],
-            nbase_d[1],
-            nbase_n[2],
-            b2_3,
+            pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3
         )
 
         b_prod[0, 1] = -b[2]
@@ -590,49 +554,13 @@ def kernel_step3(
         bsp.b_d_splines_slim(t3, int(pn3), eta3, int(span3), bn3, bd3)
 
         b[0] = eva3.evaluation_kernel_3d(
-            pn1,
-            pd2,
-            pd3,
-            bn1,
-            bd2,
-            bd3,
-            span1,
-            span2 - 1,
-            span3 - 1,
-            nbase_n[0],
-            nbase_d[1],
-            nbase_d[2],
-            b2_1,
+            pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1
         )
         b[1] = eva3.evaluation_kernel_3d(
-            pd1,
-            pn2,
-            pd3,
-            bd1,
-            bn2,
-            bd3,
-            span1 - 1,
-            span2,
-            span3 - 1,
-            nbase_d[0],
-            nbase_n[1],
-            nbase_d[2],
-            b2_2,
+            pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2
         )
         b[2] = eva3.evaluation_kernel_3d(
-            pd1,
-            pd2,
-            pn3,
-            bd1,
-            bd2,
-            bn3,
-            span1 - 1,
-            span2 - 1,
-            span3,
-            nbase_d[0],
-            nbase_d[1],
-            nbase_n[2],
-            b2_3,
+            pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3
         )
 
         b_prod[0, 1] = -b[2]
@@ -1202,14 +1130,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat11[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
                         for jl1 in range(pn1 + 1):
@@ -1221,14 +1142,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat12[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
                         for jl1 in range(pn1 + 1):
@@ -1240,14 +1154,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat13[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
             # add contribution to 22 component (NDN NDN) and 23 component (NDN NND)
@@ -1272,14 +1179,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat22[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
                         for jl1 in range(pn1 + 1):
@@ -1291,14 +1191,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat23[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
             # add contribution to 33 component (NND NND)
@@ -1323,14 +1216,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat33[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
         elif basis_u == 2:
@@ -1356,14 +1242,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat11[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
                         for jl1 in range(pd1 + 1):
@@ -1375,14 +1254,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat12[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
                         for jl1 in range(pd1 + 1):
@@ -1394,14 +1266,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat13[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
             # add contribution to 22 component (DND DND) and 23 component (DND DDN)
@@ -1426,14 +1291,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat22[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
                         for jl1 in range(pd1 + 1):
@@ -1445,14 +1303,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat23[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
             # add contribution to 33 component (DDN DDN)
@@ -1477,14 +1328,7 @@ def kernel_step_ph_full(
                                     for vp in range(3):
                                         for vq in range(3):
                                             mat33[
-                                                i1,
-                                                i2,
-                                                i3,
-                                                pn1 + jl1 - il1,
-                                                pn2 + jl2 - il2,
-                                                pn3 + jl3 - il3,
-                                                vp,
-                                                vq,
+                                                i1, i2, i3, pn1 + jl1 - il1, pn2 + jl2 - il2, pn3 + jl3 - il3, vp, vq
                                             ] += bj3 * v[vp] * v[vq]
 
     # -- removed omp: #$ omp end parallel

@@ -1896,7 +1896,7 @@ def push_gc_cc_J1_H1vec(
         )
 
         # b_star; in H1vec
-        b_star[:] = b + curl_norm_b * v * epsilon
+        b_star[:] = (b + curl_norm_b * v * epsilon) / det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
@@ -1905,7 +1905,7 @@ def push_gc_cc_J1_H1vec(
         linalg_kernels.cross(b, u, e)
 
         # curl_norm_b dot electric field
-        temp = linalg_kernels.scalar_dot(e, curl_norm_b)
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
 
         markers[ip, 3] += temp / abs_b_star_para * v * dt
 
@@ -2077,6 +2077,7 @@ def push_gc_cc_J1_Hdiv(
     u1: "float[:,:,:]",
     u2: "float[:,:,:]",
     u3: "float[:,:,:]",
+    boundary_cut: float,
 ):
     r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
 
@@ -2104,6 +2105,8 @@ def push_gc_cc_J1_Hdiv(
     markers = args_markers.markers
     n_markers = args_markers.n_markers
 
+    # -- removed omp: #$ omp parallel private(ip, boundary_cut, eta1, eta2, eta3, v, det_df, dfm, span1, span2, span3, b, u, e, curl_norm_b, norm_b1, b_star, temp, abs_b_star_para)
+    # -- removed omp: #$ omp for
     for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
@@ -2113,6 +2116,9 @@ def push_gc_cc_J1_Hdiv(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         v = markers[ip, 3]
+
+        if eta1 < boundary_cut or eta1 > 1.0 - boundary_cut:
+            continue
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -2177,10 +2183,10 @@ def push_gc_cc_J1_Hdiv(
             curl_norm_b,
         )
 
-        # b_star; 2form
-        b_star[:] = b + curl_norm_b * v * epsilon
+        # b_star; 2form in H1vec
+        b_star[:] = (b + curl_norm_b * v * epsilon) / det_df
 
-        # calculate 3form abs_b_star_para
+        # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
         # transform u into H1vec
@@ -2190,9 +2196,11 @@ def push_gc_cc_J1_Hdiv(
         linalg_kernels.cross(b, u, e)
 
         # curl_norm_b dot electric field
-        temp = linalg_kernels.scalar_dot(e, curl_norm_b)
+        temp = linalg_kernels.scalar_dot(e, curl_norm_b) / det_df
 
         markers[ip, 3] += temp / abs_b_star_para * v * dt
+
+    # -- removed omp: #$ omp end parallel
 
 
 @stack_array(
@@ -2204,11 +2212,13 @@ def push_gc_cc_J1_Hdiv(
     "u",
     "bb",
     "b_star",
-    "norm_b",
+    "norm_b1",
+    "norm_b2",
     "curl_norm_b",
-    "tmp",
+    "tmp1",
+    "tmp2",
     "b_prod",
-    "norm_b_prod",
+    "norm_b2_prod",
 )
 def push_gc_cc_J2_stage_H1vec(
     dt: float,
@@ -2223,6 +2233,9 @@ def push_gc_cc_J2_stage_H1vec(
     norm_b11: "float[:,:,:]",
     norm_b12: "float[:,:,:]",
     norm_b13: "float[:,:,:]",
+    norm_b21: "float[:,:,:]",
+    norm_b22: "float[:,:,:]",
+    norm_b23: "float[:,:,:]",
     curl_norm_b1: "float[:,:,:]",
     curl_norm_b2: "float[:,:,:]",
     curl_norm_b3: "float[:,:,:]",
@@ -2251,14 +2264,16 @@ def push_gc_cc_J2_stage_H1vec(
     g_inv = empty((3, 3), dtype=float)
 
     # containers for fields
-    tmp = empty((3, 3), dtype=float)
+    tmp1 = empty((3, 3), dtype=float)
+    tmp2 = empty((3, 3), dtype=float)
     b_prod = zeros((3, 3), dtype=float)
-    norm_b_prod = empty((3, 3), dtype=float)
+    norm_b2_prod = empty((3, 3), dtype=float)
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
     bb = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
+    norm_b2 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
 
     # get marker arguments
@@ -2339,6 +2354,18 @@ def push_gc_cc_J2_stage_H1vec(
             norm_b1,
         )
 
+        # norm_b; 2form
+        eval_2form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            norm_b21,
+            norm_b22,
+            norm_b23,
+            norm_b2,
+        )
+
         # curl_norm_b; 2form
         eval_2form_spline_mpi(
             span1,
@@ -2359,21 +2386,24 @@ def push_gc_cc_J2_stage_H1vec(
         b_prod[2, 0] = -bb[1]
         b_prod[2, 1] = +bb[0]
 
-        norm_b_prod[0, 1] = -norm_b1[2]
-        norm_b_prod[0, 2] = +norm_b1[1]
-        norm_b_prod[1, 0] = +norm_b1[2]
-        norm_b_prod[1, 2] = -norm_b1[0]
-        norm_b_prod[2, 0] = -norm_b1[1]
-        norm_b_prod[2, 1] = +norm_b1[0]
+        norm_b2_prod[0, 1] = -norm_b2[2]
+        norm_b2_prod[0, 2] = +norm_b2[1]
+        norm_b2_prod[1, 0] = +norm_b2[2]
+        norm_b2_prod[1, 2] = -norm_b2[0]
+        norm_b2_prod[2, 0] = -norm_b2[1]
+        norm_b2_prod[2, 1] = +norm_b2[0]
 
         # b_star; 2form in H1vec
-        b_star[:] = bb + curl_norm_b * v * epsilon
+        b_star[:] = (bb + curl_norm_b * v * epsilon) / det_df
 
-        # calculate 3form abs_b_star_para
+        # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
-        linalg_kernels.matrix_matrix(norm_b_prod, b_prod, tmp)
-        linalg_kernels.matrix_vector(tmp, u, e)
+        linalg_kernels.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+        linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+        linalg_kernels.matrix_matrix(tmp2, b_prod, tmp1)
+
+        linalg_kernels.matrix_vector(tmp1, u, e)
 
         e /= abs_b_star_para
 
@@ -2398,10 +2428,12 @@ def push_gc_cc_J2_stage_H1vec(
     "bb",
     "b_star",
     "norm_b1",
+    "norm_b2",
     "curl_norm_b",
-    "tmp",
+    "tmp1",
+    "tmp2",
     "b_prod",
-    "norm_b_prod",
+    "norm_b2_prod",
 )
 def push_gc_cc_J2_stage_Hdiv(
     dt: float,
@@ -2416,6 +2448,9 @@ def push_gc_cc_J2_stage_Hdiv(
     norm_b11: "float[:,:,:]",
     norm_b12: "float[:,:,:]",
     norm_b13: "float[:,:,:]",
+    norm_b21: "float[:,:,:]",
+    norm_b22: "float[:,:,:]",
+    norm_b23: "float[:,:,:]",
     curl_norm_b1: "float[:,:,:]",
     curl_norm_b2: "float[:,:,:]",
     curl_norm_b3: "float[:,:,:]",
@@ -2425,6 +2460,7 @@ def push_gc_cc_J2_stage_Hdiv(
     a: "float[:]",
     b: "float[:]",
     c: "float[:]",
+    boundary_cut: float,
 ):
     r"""Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
 
@@ -2444,14 +2480,16 @@ def push_gc_cc_J2_stage_Hdiv(
     g_inv = empty((3, 3), dtype=float)
 
     # containers for fields
-    tmp = zeros((3, 3), dtype=float)
+    tmp1 = zeros((3, 3), dtype=float)
+    tmp2 = zeros((3, 3), dtype=float)
     b_prod = zeros((3, 3), dtype=float)
-    norm_b_prod = zeros((3, 3), dtype=float)
+    norm_b2_prod = zeros((3, 3), dtype=float)
     e = empty(3, dtype=float)
     u = empty(3, dtype=float)
     bb = empty(3, dtype=float)
     b_star = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
+    norm_b2 = empty(3, dtype=float)
     curl_norm_b = empty(3, dtype=float)
 
     # get marker arguments
@@ -2469,6 +2507,8 @@ def push_gc_cc_J2_stage_Hdiv(
     else:
         last = 0.0
 
+    # -- removed omp: #$ omp parallel firstprivate(b_prod, norm_b2_prod) private(ip, boundary_cut, eta1, eta2, eta3, v, det_df, dfm, df_inv, df_inv_t, g_inv, span1, span2, span3, bb, u, e, curl_norm_b, norm_b1, norm_b2, b_star, tmp1, tmp2, abs_b_star_para)
+    # -- removed omp: #$ omp for
     for ip in range(n_markers):
         # check if marker is a hole
         if markers[ip, first_init_idx] == -1.0:
@@ -2478,6 +2518,9 @@ def push_gc_cc_J2_stage_Hdiv(
         eta2 = markers[ip, 1]
         eta3 = markers[ip, 2]
         v = markers[ip, 3]
+
+        if eta1 < boundary_cut or eta2 > 1.0 - boundary_cut:
+            continue
 
         # evaluate Jacobian, result in dfm
         evaluation_kernels.df(
@@ -2533,6 +2576,18 @@ def push_gc_cc_J2_stage_Hdiv(
             norm_b1,
         )
 
+        # norm_b; 2form
+        eval_2form_spline_mpi(
+            span1,
+            span2,
+            span3,
+            args_derham,
+            norm_b21,
+            norm_b22,
+            norm_b23,
+            norm_b2,
+        )
+
         # curl_norm_b; 2form
         eval_2form_spline_mpi(
             span1,
@@ -2553,21 +2608,24 @@ def push_gc_cc_J2_stage_Hdiv(
         b_prod[2, 0] = -bb[1]
         b_prod[2, 1] = +bb[0]
 
-        norm_b_prod[0, 1] = -norm_b1[2]
-        norm_b_prod[0, 2] = +norm_b1[1]
-        norm_b_prod[1, 0] = +norm_b1[2]
-        norm_b_prod[1, 2] = -norm_b1[0]
-        norm_b_prod[2, 0] = -norm_b1[1]
-        norm_b_prod[2, 1] = +norm_b1[0]
+        norm_b2_prod[0, 1] = -norm_b2[2]
+        norm_b2_prod[0, 2] = +norm_b2[1]
+        norm_b2_prod[1, 0] = +norm_b2[2]
+        norm_b2_prod[1, 2] = -norm_b2[0]
+        norm_b2_prod[2, 0] = -norm_b2[1]
+        norm_b2_prod[2, 1] = +norm_b2[0]
 
-        # b_star; 2form
-        b_star[:] = bb + curl_norm_b * v * epsilon
+        # b_star; 2form in H1vec
+        b_star[:] = (bb + curl_norm_b * v * epsilon) / det_df
 
         # calculate abs_b_star_para
         abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
 
-        linalg_kernels.matrix_matrix(norm_b_prod, b_prod, tmp)
-        linalg_kernels.matrix_vector(tmp, u, e)
+        linalg_kernels.matrix_matrix(g_inv, norm_b2_prod, tmp1)
+        linalg_kernels.matrix_matrix(tmp1, g_inv, tmp2)
+        linalg_kernels.matrix_matrix(tmp2, b_prod, tmp1)
+
+        linalg_kernels.matrix_vector(tmp1, u, e)
 
         e /= abs_b_star_para
         e /= det_df
@@ -2582,367 +2640,4 @@ def push_gc_cc_J2_stage_Hdiv(
             + last * markers[ip, first_free_idx : first_free_idx + 3]
         )
 
-
-@stack_array(
-    "dfm",
-    "df_inv",
-    "df_inv_t",
-    "g_inv",
-    "e",
-    "u",
-    "bb",
-    "b_star",
-    "norm_b1",
-    "curl_norm_b",
-    "tmp1",
-    "b_prod",
-    "norm_b_prod",
-)
-def push_gc_cc_J2_dg_init_Hdiv(
-    dt: float,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    args_derham: "DerhamArguments",
-    epsilon: float,
-    b1: "float[:,:,:]",
-    b2: "float[:,:,:]",
-    b3: "float[:,:,:]",
-    norm_b11: "float[:,:,:]",
-    norm_b12: "float[:,:,:]",
-    norm_b13: "float[:,:,:]",
-    curl_norm_b1: "float[:,:,:]",
-    curl_norm_b2: "float[:,:,:]",
-    curl_norm_b3: "float[:,:,:]",
-    u1: "float[:,:,:]",
-    u2: "float[:,:,:]",
-    u3: "float[:,:,:]",
-):
-    r"""TODO"""
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    df_inv_t = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # containers for fields
-    tmp1 = zeros((3, 3), dtype=float)
-    b_prod = zeros((3, 3), dtype=float)
-    norm_b_prod = zeros((3, 3), dtype=float)
-    e = empty(3, dtype=float)
-    u = empty(3, dtype=float)
-    bb = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-    mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
-    first_free_idx = args_markers.first_free_idx
-
-    for ip in range(n_markers):
-        # check if marker is a hole
-        if markers[ip, first_init_idx] == -1.0:
-            continue
-
-        eta1 = markers[ip, 0]
-        eta2 = markers[ip, 1]
-        eta3 = markers[ip, 2]
-        v = markers[ip, 3]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            eta1,
-            eta2,
-            eta3,
-            args_domain,
-            dfm,
-        )
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg_kernels.transpose(df_inv, df_inv_t)
-        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(eta1, eta2, eta3, args_derham)
-
-        # b; 2form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            b1,
-            b2,
-            b3,
-            bb,
-        )
-
-        # u; 2form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            u1,
-            u2,
-            u3,
-            u,
-        )
-
-        # norm_b1; 1form
-        eval_1form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            norm_b11,
-            norm_b12,
-            norm_b13,
-            norm_b1,
-        )
-
-        # curl_norm_b; 2form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            curl_norm_b1,
-            curl_norm_b2,
-            curl_norm_b3,
-            curl_norm_b,
-        )
-
-        # operator bx() as matrix
-        b_prod[0, 1] = -bb[2]
-        b_prod[0, 2] = +bb[1]
-        b_prod[1, 0] = +bb[2]
-        b_prod[1, 2] = -bb[0]
-        b_prod[2, 0] = -bb[1]
-        b_prod[2, 1] = +bb[0]
-
-        norm_b_prod[0, 1] = -norm_b1[2]
-        norm_b_prod[0, 2] = +norm_b1[1]
-        norm_b_prod[1, 0] = +norm_b1[2]
-        norm_b_prod[1, 2] = -norm_b1[0]
-        norm_b_prod[2, 0] = -norm_b1[1]
-        norm_b_prod[2, 1] = +norm_b1[0]
-
-        # b_star; 2form
-        b_star[:] = bb + curl_norm_b * v * epsilon
-
-        # calculate 3form abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        linalg_kernels.matrix_matrix(norm_b_prod, b_prod, tmp1)
-        linalg_kernels.matrix_vector(tmp1, u, e)
-
-        e /= abs_b_star_para
-        e /= det_df
-
-        markers[ip, 0:3] -= dt * e
-
-
-@stack_array(
-    "dfm",
-    "df_inv",
-    "df_inv_t",
-    "g_inv",
-    "e",
-    "u",
-    "ud",
-    "bb",
-    "b_star",
-    "norm_b1",
-    "curl_norm_b",
-    "tmp1",
-    "tmp2",
-    "b_prod",
-    "norm_b_prod",
-    "eta_old",
-    "eta_mid",
-)
-def push_gc_cc_J2_dg_Hdiv(
-    dt: float,
-    args_markers: "MarkerArguments",
-    args_domain: "DomainArguments",
-    args_derham: "DerhamArguments",
-    epsilon: float,
-    b1: "float[:,:,:]",
-    b2: "float[:,:,:]",
-    b3: "float[:,:,:]",
-    norm_b11: "float[:,:,:]",
-    norm_b12: "float[:,:,:]",
-    norm_b13: "float[:,:,:]",
-    curl_norm_b1: "float[:,:,:]",
-    curl_norm_b2: "float[:,:,:]",
-    curl_norm_b3: "float[:,:,:]",
-    u1: "float[:,:,:]",
-    u2: "float[:,:,:]",
-    u3: "float[:,:,:]",
-    ud1: "float[:,:,:]",
-    ud2: "float[:,:,:]",
-    ud3: "float[:,:,:]",
-    const: float,
-    alpha: float,
-):
-    r"""TODO"""
-
-    # allocate metric coeffs
-    dfm = empty((3, 3), dtype=float)
-    df_inv = empty((3, 3), dtype=float)
-    df_inv_t = empty((3, 3), dtype=float)
-    g_inv = empty((3, 3), dtype=float)
-
-    # containers for fields
-    tmp1 = zeros((3, 3), dtype=float)
-    tmp2 = zeros(3, dtype=float)
-    b_prod = zeros((3, 3), dtype=float)
-    norm_b_prod = zeros((3, 3), dtype=float)
-    e = empty(3, dtype=float)
-    u = empty(3, dtype=float)
-    ud = empty(3, dtype=float)
-    bb = empty(3, dtype=float)
-    b_star = empty(3, dtype=float)
-    norm_b1 = empty(3, dtype=float)
-    curl_norm_b = empty(3, dtype=float)
-    eta_old = empty(3, dtype=float)
-    eta_mid = empty(3, dtype=float)
-
-    # get marker arguments
-    markers = args_markers.markers
-    n_markers = args_markers.n_markers
-    mu_idx = args_markers.mu_idx
-    first_init_idx = args_markers.first_init_idx
-    first_free_idx = args_markers.first_free_idx
-
-    for ip in range(n_markers):
-        # check if marker is a hole
-        if markers[ip, 0] == -1.0:
-            continue
-
-        # marker positions, mid point
-        eta_old[:] = markers[ip, 0:3]
-        eta_mid[:] = (markers[ip, 0:3] + markers[ip, first_init_idx : first_init_idx + 3]) / 2.0
-        eta_mid[:] = mod(eta_mid[:], 1.0)
-
-        v = markers[ip, 3]
-
-        # evaluate Jacobian, result in dfm
-        evaluation_kernels.df(
-            eta_mid[0],
-            eta_mid[1],
-            eta_mid[2],
-            args_domain,
-            dfm,
-        )
-
-        # metric coeffs
-        det_df = linalg_kernels.det(dfm)
-        linalg_kernels.matrix_inv_with_det(dfm, det_df, df_inv)
-        linalg_kernels.transpose(df_inv, df_inv_t)
-        linalg_kernels.matrix_matrix(df_inv, df_inv_t, g_inv)
-
-        # spline evaluation
-        span1, span2, span3 = get_spans(eta_mid[0], eta_mid[1], eta_mid[2], args_derham)
-
-        # b; 2form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            b1,
-            b2,
-            b3,
-            bb,
-        )
-
-        # u; 2form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            u1,
-            u2,
-            u3,
-            u,
-        )
-
-        # ud; 2form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            ud1,
-            ud2,
-            ud3,
-            ud,
-        )
-
-        # norm_b1; 1form
-        eval_1form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            norm_b11,
-            norm_b12,
-            norm_b13,
-            norm_b1,
-        )
-
-        # curl_norm_b; 2form
-        eval_2form_spline_mpi(
-            span1,
-            span2,
-            span3,
-            args_derham,
-            curl_norm_b1,
-            curl_norm_b2,
-            curl_norm_b3,
-            curl_norm_b,
-        )
-
-        # operator bx() as matrix
-        b_prod[0, 1] = -bb[2]
-        b_prod[0, 2] = +bb[1]
-        b_prod[1, 0] = +bb[2]
-        b_prod[1, 2] = -bb[0]
-        b_prod[2, 0] = -bb[1]
-        b_prod[2, 1] = +bb[0]
-
-        norm_b_prod[0, 1] = -norm_b1[2]
-        norm_b_prod[0, 2] = +norm_b1[1]
-        norm_b_prod[1, 0] = +norm_b1[2]
-        norm_b_prod[1, 2] = -norm_b1[0]
-        norm_b_prod[2, 0] = -norm_b1[1]
-        norm_b_prod[2, 1] = +norm_b1[0]
-
-        # b_star; 2form
-        b_star[:] = bb + curl_norm_b * v * epsilon
-
-        # calculate 3form abs_b_star_para
-        abs_b_star_para = linalg_kernels.scalar_dot(norm_b1, b_star)
-
-        linalg_kernels.matrix_matrix(norm_b_prod, b_prod, tmp1)
-        linalg_kernels.matrix_vector(tmp1, u, e)
-        linalg_kernels.matrix_vector(tmp1, ud, tmp2)
-        tmp2 *= const
-
-        e += tmp2
-
-        e /= abs_b_star_para
-        e /= det_df
-
-        markers[ip, 0:3] = markers[ip, first_init_idx : first_init_idx + 3] - dt * e
-        markers[ip, 0:3] *= alpha
-        markers[ip, 0:3] += eta_old * (1.0 - alpha)
+    # -- removed omp: #$ omp end parallel

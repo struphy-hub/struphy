@@ -1,10 +1,10 @@
 from inspect import signature
 
-import cunumpy as xp
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilVector
 
 from struphy.ode.utils import ButcherTableau
+from struphy.utils.arrays import xp as np
 
 
 class ODEsolverFEEC:
@@ -31,10 +31,10 @@ class ODEsolverFEEC:
     def __init__(
         self,
         vector_field: dict,
-        butcher: ButcherTableau = ButcherTableau(),
+        algo: str = "rk4",
     ):
         # get algorithm
-        self._butcher = butcher
+        self._butcher = ButcherTableau(algo=algo)
 
         # check arguments and allocate k for each stage
         self._k = {}
@@ -51,6 +51,7 @@ class ODEsolverFEEC:
                 self._k[vec] += [vec.space.zeros()]
 
         self._vector_field = vector_field
+        self._algo = algo
 
         # collect unknows in list
         self._y = list(self.vector_field.keys())
@@ -94,6 +95,11 @@ class ODEsolverFEEC:
         Keys are the variables to be updated (i.e. Stencil- or BlockVectors),
         values are callables representing the respective component of the vector field."""
         return self._vector_field
+
+    @property
+    def algo(self):
+        """See :class:`~struphy.ode.utils.ButcherTableau` for available algorithms."""
+        return self._algo
 
     @property
     def y(self):

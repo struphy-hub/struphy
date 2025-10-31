@@ -2,13 +2,12 @@ import os
 import pickle
 import re
 
-import cunumpy as xp
 import matplotlib.pyplot as plt
-import plotly.graph_objects as go
 import plotly.io as pio
 
 # pio.kaleido.scope.mathjax = None
 import struphy.post_processing.likwid.maxplotlylib as mply
+from struphy.utils.arrays import xp as np
 
 
 def glob_to_regex(pat: str) -> str:
@@ -17,31 +16,19 @@ def glob_to_regex(pat: str) -> str:
     return "^" + esc.replace(r"\*", ".*").replace(r"\?", ".") + "$"
 
 
-# def plot_region(region_name, groups_include=["*"], groups_skip=[]):
-#     # skips first
-#     for pat in groups_skip:
-#         rx = glob_to_regex(pat)
-#         if re.fullmatch(rx, region_name):
-#             return False
-
-#     # includes next
-#     for pat in groups_include:
-#         rx = glob_to_regex(pat)
-#         if re.fullmatch(rx, region_name):
-#             return True
-
-#     return False
-
-
 def plot_region(region_name, groups_include=["*"], groups_skip=[]):
-    from fnmatch import fnmatch
-
-    for pattern in groups_skip:
-        if fnmatch(region_name, pattern):
+    # skips first
+    for pat in groups_skip:
+        rx = glob_to_regex(pat)
+        if re.fullmatch(rx, region_name):
             return False
-    for pattern in groups_include:
-        if fnmatch(region_name, pattern):
+
+    # includes next
+    for pat in groups_include:
+        rx = glob_to_regex(pat)
+        if re.fullmatch(rx, region_name):
             return True
+
     return False
 
 
@@ -67,7 +54,7 @@ def plot_time_vs_duration(
 
     plt.figure(figsize=(10, 6))
     for path in paths:
-        print(f"{path =}")
+        print(f"{path = }")
         with open(path, "rb") as file:
             profiling_data = pickle.load(file)
 
@@ -134,9 +121,9 @@ def plot_avg_duration_bar_chart(
 
     # Compute statistics per region
     regions = sorted(region_durations.keys())
-    avg_durations = [xp.mean(region_durations[r]) for r in regions]
-    min_durations = [xp.min(region_durations[r]) for r in regions]
-    max_durations = [xp.max(region_durations[r]) for r in regions]
+    avg_durations = [np.mean(region_durations[r]) for r in regions]
+    min_durations = [np.min(region_durations[r]) for r in regions]
+    max_durations = [np.max(region_durations[r]) for r in regions]
     yerr = [
         [avg - min_ for avg, min_ in zip(avg_durations, min_durations)],
         [max_ - avg for avg, max_ in zip(avg_durations, max_durations)],
@@ -144,7 +131,7 @@ def plot_avg_duration_bar_chart(
 
     # Plot bar chart with error bars (min-max spans)
     plt.figure(figsize=(12, 6))
-    x = xp.arange(len(regions))
+    x = np.arange(len(regions))
     plt.bar(x, avg_durations, yerr=yerr, capsize=5, color="skyblue", edgecolor="k")
     plt.yscale("log")
     plt.xticks(x, regions, rotation=45, ha="right")
@@ -157,6 +144,21 @@ def plot_avg_duration_bar_chart(
     figure_path = os.path.join(output_path, "avg_duration_per_region.pdf")
     plt.savefig(figure_path)
     print(f"Saved average duration bar chart to: {figure_path}")
+
+
+import plotly.graph_objects as go
+
+
+def plot_region(region_name, groups_include=["*"], groups_skip=[]):
+    from fnmatch import fnmatch
+
+    for pattern in groups_skip:
+        if fnmatch(region_name, pattern):
+            return False
+    for pattern in groups_include:
+        if fnmatch(region_name, pattern):
+            return True
+    return False
 
 
 def plot_gantt_chart_plotly(
@@ -173,7 +175,7 @@ def plot_gantt_chart_plotly(
     region_start_times = {}
     for rank_data in profiling_data["rank_data"].values():
         for region_name, info in rank_data.items():
-            first_start_time = xp.min(info["start_times"])
+            first_start_time = np.min(info["start_times"])
             if region_name not in region_start_times or first_start_time < region_start_times[region_name]:
                 region_start_times[region_name] = first_start_time
 
@@ -202,7 +204,7 @@ def plot_gantt_chart_plotly(
                             Start=start_times[i],
                             Finish=end_times[i],
                             Duration=durations[i],
-                        ),
+                        )
                     )
 
     if len(bars) == 0:
@@ -224,7 +226,7 @@ def plot_gantt_chart_plotly(
                 name=bar["Rank"],
                 marker_color=rank_color_map[bar["Rank"]],
                 hovertemplate=f"Rank: {bar['Rank']}<br>Start: {bar['Start']:.3f}s<br>Duration: {bar['Duration']:.3f}s",
-            ),
+            )
         )
 
     fig.update_layout(
@@ -289,7 +291,7 @@ def plot_gantt_chart(
         region_start_times = {}
         for rank_data in profiling_data["rank_data"].values():
             for region_name, info in rank_data.items():
-                first_start_time = xp.min(info["start_times"])
+                first_start_time = np.min(info["start_times"])
                 if region_name not in region_start_times or first_start_time < region_start_times[region_name]:
                     region_start_times[region_name] = first_start_time
 

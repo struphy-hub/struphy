@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import importlib.metadata
 
-import cunumpy as xp
 import psydac.core.bsplines as bsp
 from psydac.ddm.cart import DomainDecomposition
 from psydac.ddm.mpi import MockComm, MockMPI
@@ -22,18 +21,16 @@ from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_produc
 from struphy.feec.linear_operators import BoundaryOperator
 from struphy.feec.local_projectors_kernels import get_local_problem_size, select_quasi_points
 from struphy.feec.projectors import CommutingProjector, CommutingProjectorLocal
-from struphy.fields_background.base import FluidEquilibrium, MHDequilibrium
+from struphy.fields_background.base import MHDequilibrium
 from struphy.fields_background.equils import set_defaults
 from struphy.geometry.base import Domain
 from struphy.geometry.utilities import TransformedPformComponent
 from struphy.initial import perturbations, utilities
-from struphy.initial.base import Perturbation
-from struphy.initial.perturbations import Noise
-from struphy.io.options import FieldsBackground, GivenInBasis, NoiseDirections
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments
 from struphy.polar.basic import PolarDerhamSpace, PolarVector
 from struphy.polar.extraction_operators import PolarExtractionBlocksC1
 from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearOperator
+from struphy.utils.arrays import xp as np
 
 
 class Derham:
@@ -117,7 +114,7 @@ class Derham:
         if dirichlet_bc is not None:
             assert len(dirichlet_bc) == 3
             # make sure that boundary conditions are compatible with spline space
-            assert xp.all([bc == (False, False) for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
+            assert np.all([bc == [False, False] for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
 
         self._dirichlet_bc = dirichlet_bc
 
@@ -300,7 +297,7 @@ class Derham:
                             fag.basis,
                         ]
 
-                    self._spline_types_pyccel[sp_form][-1] = xp.array(
+                    self._spline_types_pyccel[sp_form][-1] = np.array(
                         self._spline_types_pyccel[sp_form][-1],
                     )
             # In this case we are working with a scalar valued space
@@ -352,11 +349,11 @@ class Derham:
                     self._quad_grid_spans[sp_form] += [fag.spans]
                     self._quad_grid_bases[sp_form] += [fag.basis]
 
-                self._spline_types_pyccel[sp_form] = xp.array(
+                self._spline_types_pyccel[sp_form] = np.array(
                     self._spline_types_pyccel[sp_form],
                 )
             else:
-                raise TypeError(f"{fem_space =} is not a valid type.")
+                raise TypeError(f"{fem_space = } is not a valid type.")
 
         # break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
@@ -364,8 +361,8 @@ class Derham:
         # index arrays
         self._indN = [
             (
-                xp.indices((space.ncells, space.degree + 1))[1]
-                + xp.arange(
+                np.indices((space.ncells, space.degree + 1))[1]
+                + np.arange(
                     space.ncells,
                 )[:, None]
             )
@@ -374,8 +371,8 @@ class Derham:
         ]
         self._indD = [
             (
-                xp.indices((space.ncells, space.degree + 1))[1]
-                + xp.arange(
+                np.indices((space.ncells, space.degree + 1))[1]
+                + np.arange(
                     space.ncells,
                 )[:, None]
             )
@@ -525,11 +522,11 @@ class Derham:
 
         # collect arguments for kernels
         self._args_derham = DerhamArguments(
-            xp.array(self.p),
+            np.array(self.p),
             self.Vh_fem["0"].knots[0],
             self.Vh_fem["0"].knots[1],
             self.Vh_fem["0"].knots[2],
-            xp.array(self.Vh["0"].starts),
+            np.array(self.Vh["0"].starts),
         )
 
     @property
@@ -873,11 +870,8 @@ class Derham:
         name: str,
         space_id: str,
         coeffs: StencilVector | BlockVector = None,
-        backgrounds: FieldsBackground | list = None,
-        perturbations: Perturbation | list = None,
-        domain: Domain = None,
-        equil: FluidEquilibrium = None,
-        verbose: bool = True,
+        bckgr_params: dict = None,
+        pert_params: dict = None,
     ):
         """Creat a callable spline function.
 
@@ -892,28 +886,19 @@ class Derham:
         coeffs : StencilVector | BlockVector
             The spline coefficients.
 
-        backgrounds : FieldsBackground | list
-            For the initial condition.
+        bckgr_params : dict
+            Field's background parameters.
 
-        perturbations : Perturbation | list
-            For the initial condition.
-
-        domain : Domain
-            Mapping for pullback/transform of initial condition.
-
-        equil : FLuidEquilibrium
-            Fluid background used for inital condition.
+        pert_params : dict
+            Field's perturbation parameters for initial condition.
         """
         return SplineFunction(
             name,
             space_id,
             self,
             coeffs,
-            backgrounds=backgrounds,
-            perturbations=perturbations,
-            domain=domain,
-            equil=equil,
-            verbose=verbose,
+            bckgr_params=bckgr_params,
+            pert_params=pert_params,
         )
 
     def prepare_eval_tp_fixed(self, grids_1d):
@@ -1062,7 +1047,7 @@ class Derham:
         )
 
         # Create uniform grid
-        grids = [xp.linspace(xmin, xmax, num=ne + 1) for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
+        grids = [np.linspace(xmin, xmax, num=ne + 1) for xmin, xmax, ne in zip(min_coords, max_coords, ncells)]
 
         # Create 1D finite element spaces and precompute quadrature data
         spaces_1d = [
@@ -1093,7 +1078,7 @@ class Derham:
         elif V == "L2":
             Wh = Vh.reduce_degree(axes=[0, 1, 2], multiplicity=Vh.multiplicity, basis=basis)
         else:
-            raise ValueError(f"V must be one of H1, Hcurl, Hdiv or L2, but is {V =}.")
+            raise ValueError(f"V must be one of H1, Hcurl, Hdiv or L2, but is {V = }.")
 
         Wh.symbolic_space = V
         for key in Wh._refined_space:
@@ -1107,7 +1092,7 @@ class Derham:
 
         Returns
         -------
-        dom_arr : xp.ndarray
+        dom_arr : np.ndarray
             A 2d array of shape (#MPI processes, 9). The row index denotes the process rank. The columns are for n=0,1,2:
                 - arr[i, 3*n + 0] holds the LEFT domain boundary of process i in direction eta_(n+1).
                 - arr[i, 3*n + 1] holds the RIGHT domain boundary of process i in direction eta_(n+1).
@@ -1121,10 +1106,10 @@ class Derham:
             nproc = 1
 
         # send buffer
-        dom_arr_loc = xp.zeros(9, dtype=float)
+        dom_arr_loc = np.zeros(9, dtype=float)
 
         # main array (receive buffers)
-        dom_arr = xp.zeros(nproc * 9, dtype=float)
+        dom_arr = np.zeros(nproc * 9, dtype=float)
 
         # Get global starts and ends of domain decomposition
         gl_s = self.domain_decomposition.starts
@@ -1155,7 +1140,7 @@ class Derham:
 
         Returns
         -------
-        ind_arr : xp.ndarray
+        ind_arr : np.ndarray
             A 2d array of shape (#MPI processes, 6). The row index denotes the process rank. The columns are for n=0,1,2:
                 - arr[i, 2*n + 0] holds the global start index process i in direction eta_(n+1).
                 - arr[i, 2*n + 1] holds the global end index of process i in direction eta_(n+1).
@@ -1168,10 +1153,10 @@ class Derham:
             nproc = 1
 
         # send buffer
-        ind_arr_loc = xp.zeros(6, dtype=int)
+        ind_arr_loc = np.zeros(6, dtype=int)
 
         # main array (receive buffers)
-        ind_arr = xp.zeros(nproc * 6, dtype=int)
+        ind_arr = np.zeros(nproc * 6, dtype=int)
 
         # Get global starts and ends of cart OR domain decomposition
         gl_s = decomposition.starts
@@ -1214,13 +1199,13 @@ class Derham:
 
         Returns
         -------
-        neighbours : xp.ndarray
+        neighbours : np.ndarray
             A 3d array of shape (3,3,3).
             The i-th axis is the direction eta_(i+1). Neighbours along the faces have index with two 1s,
             neighbours along the edges only have one 1, neighbours along the edges have no 1 in the index.
         """
 
-        neighs = xp.empty((3, 3, 3), dtype=int)
+        neighs = np.empty((3, 3, 3), dtype=int)
 
         for i in range(3):
             for j in range(3):
@@ -1265,12 +1250,12 @@ class Derham:
         if comp == [1, 1, 1]:
             return neigh_id
 
-        comp = xp.array(comp)
-        kinds = xp.array(kinds)
+        comp = np.array(comp)
+        kinds = np.array(kinds)
 
         # if only one process: check if comp is neighbour in non-peridic directions, if this is not the case then return the rank as neighbour id
         if size == 1:
-            if (comp[~kinds] == 1).all():
+            if (comp[kinds == False] == 1).all():
                 return rank
 
         # multiple processes
@@ -1301,15 +1286,15 @@ class Derham:
                         "Wrong value for component; must be 0 or 1 or 2 !",
                     )
 
-            neigh_inds = xp.array(neigh_inds)
+            neigh_inds = np.array(neigh_inds)
 
             # only use indices where information is present to find the neighbours rank
-            inds = xp.where(neigh_inds != None)
+            inds = np.where(neigh_inds != None)
 
             # find ranks (row index of domain_array) which agree in start/end indices
-            index_temp = xp.squeeze(self.index_array[:, inds])
-            unique_ranks = xp.where(
-                xp.equal(index_temp, neigh_inds[inds]).all(1),
+            index_temp = np.squeeze(self.index_array[:, inds])
+            unique_ranks = np.where(
+                np.equal(index_temp, neigh_inds[inds]).all(1),
             )[0]
 
             # if any row satisfies condition, return its index (=rank of neighbour)
@@ -1329,7 +1314,7 @@ class Derham:
 
         Parameters
         ----------
-        etas : xp.array
+        etas : np.array
             1d array of evaluation points (ascending).
 
         Nspace : SplineSpace
@@ -1340,13 +1325,13 @@ class Derham:
 
         Returns
         -------
-        spans : xp.array
+        spans : np.array
             1d array of knot span indices.
 
-        bn : xp.array
+        bn : np.array
             2d array of pn + 1 values of N-splines indexed by (eta, spline value).
 
-        bd : xp.array
+        bd : np.array
             2d array of pn values of D-splines indexed by (eta, spline value).
         """
 
@@ -1356,11 +1341,11 @@ class Derham:
         Tn = Nspace.knots
         pn = Nspace.degree
 
-        spans = xp.zeros(etas.size, dtype=int)
-        bns = xp.zeros((etas.size, pn + 1), dtype=float)
-        bds = xp.zeros((etas.size, pn), dtype=float)
-        bn = xp.zeros(pn + 1, dtype=float)
-        bd = xp.zeros(pn, dtype=float)
+        spans = np.zeros(etas.size, dtype=int)
+        bns = np.zeros((etas.size, pn + 1), dtype=float)
+        bds = np.zeros((etas.size, pn), dtype=float)
+        bn = np.zeros(pn + 1, dtype=float)
+        bd = np.zeros(pn, dtype=float)
 
         for n in range(etas.size):
             # avoid 1. --> 0. for clamped interpolation
@@ -1406,17 +1391,11 @@ class SplineFunction:
     coeffs : StencilVector | BlockVector
         The spline coefficients (optional).
 
-    backgrounds : FieldsBackground | list
-        For the initial condition.
+    bckgr_params : dict
+        Field's background parameters.
 
-    perturbations : Perturbation | list
-        For the initial condition.
-
-    domain : Domain
-        Mapping for pullback/transform of initial condition.
-
-    equil : FluidEquilibrium
-        Fluid background used for inital condition.
+    pert_params : dict
+        Field's perturbation parameters for initial condition.
     """
 
     def __init__(
@@ -1425,19 +1404,14 @@ class SplineFunction:
         space_id: str,
         derham: Derham,
         coeffs: StencilVector | BlockVector = None,
-        backgrounds: FieldsBackground | list = None,
-        perturbations: Perturbation | list = None,
-        domain: Domain = None,
-        equil: FluidEquilibrium = None,
-        verbose: bool = True,
+        bckgr_params: dict = None,
+        pert_params: dict = None,
     ):
         self._name = name
         self._space_id = space_id
         self._derham = derham
-        self._backgrounds = backgrounds
-        self._perturbations = perturbations
-        self._domain = domain
-        self._equil = equil
+        self._bckgr_params = bckgr_params
+        self._pert_params = pert_params
 
         # initialize field in memory (FEM space, vector and tensor product (stencil) vector)
         self._space_key = derham.space_to_form[space_id]
@@ -1477,12 +1451,6 @@ class SplineFunction:
         else:
             self._nbasis = [tuple([space.nbasis for space in vec_space.spaces]) for vec_space in self.fem_space.spaces]
 
-        if verbose and MPI.COMM_WORLD.Get_rank() == 0:
-            print(f"\nAllocated SplineFuntion '{self.name}' in space '{self.space_id}'.")
-
-        if self.backgrounds is not None or self.perturbations is not None:
-            self.initialize_coeffs(domain=self.domain, equil=self.equil)
-
     @property
     def name(self):
         """Name of the field in data container (string)."""
@@ -1502,16 +1470,6 @@ class SplineFunction:
     def derham(self):
         """3d Derham complex struphy.feec.psydac_derham.Derham."""
         return self._derham
-
-    @property
-    def domain(self):
-        """Mapping for pullback/transform of initial condition."""
-        return self._domain
-
-    @property
-    def equil(self):
-        """Fluid equilibirum used for initial condition."""
-        return self._equil
 
     @property
     def space(self):
@@ -1538,7 +1496,7 @@ class SplineFunction:
         """In-place setter for Stencil-/Block-/PolarVector."""
 
         if isinstance(self._vector, StencilVector):
-            assert isinstance(value, (StencilVector, xp.ndarray))
+            assert isinstance(value, (StencilVector, np.ndarray))
 
             s1, s2, s3 = self.starts
             e1, e2, e3 = self.ends
@@ -1561,10 +1519,10 @@ class SplineFunction:
                 self._vector.set_vector(value)
             else:
                 if isinstance(self._vector.tp, StencilVector):
-                    assert isinstance(value[0], xp.ndarray)
+                    assert isinstance(value[0], np.ndarray)
                     assert isinstance(
                         value[1],
-                        (StencilVector, xp.ndarray),
+                        (StencilVector, np.ndarray),
                     )
 
                     self._vector.pol[0][:] = value[0][:]
@@ -1573,16 +1531,14 @@ class SplineFunction:
                     e1, e2, e3 = self.ends
 
                     self._vector.tp[s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1] = value[1][
-                        s1 : e1 + 1,
-                        s2 : e2 + 1,
-                        s3 : e3 + 1,
+                        s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1
                     ]
                 else:
                     for n in range(3):
-                        assert isinstance(value[n][0], xp.ndarray)
+                        assert isinstance(value[n][0], np.ndarray)
                         assert isinstance(
                             value[n][1],
-                            (StencilVector, xp.ndarray),
+                            (StencilVector, np.ndarray),
                         )
 
                         self._vector.pol[n][:] = value[n][0][:]
@@ -1591,9 +1547,7 @@ class SplineFunction:
                         e1, e2, e3 = self.ends[n]
 
                         self._vector.tp[n][s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1] = value[n][1][
-                            s1 : e1 + 1,
-                            s2 : e2 + 1,
-                            s3 : e3 + 1,
+                            s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1
                         ]
 
         self._vector.update_ghost_regions()
@@ -1629,14 +1583,14 @@ class SplineFunction:
         return self._vector_stencil
 
     @property
-    def backgrounds(self) -> FieldsBackground | list:
-        """For the initial condition."""
-        return self._backgrounds
+    def bckgr_params(self):
+        """Field's background parameters."""
+        return self._bckgr_params
 
     @property
-    def perturbations(self) -> Perturbation | list:
-        """For the initial condition."""
-        return self._perturbations
+    def pert_params(self):
+        """Field's perturbation parameters for initial condition."""
+        return self._pert_params
 
     ###############
     ### Methods ###
@@ -1658,180 +1612,173 @@ class SplineFunction:
     def initialize_coeffs(
         self,
         *,
-        backgrounds: FieldsBackground | list = None,
-        perturbations: Perturbation | list = None,
-        domain: Domain = None,
-        equil: FluidEquilibrium = None,
+        bckgr_params=None,
+        pert_params=None,
+        domain=None,
+        bckgr_obj=None,
+        species=None,
     ):
         """
-        Set the initial conditions for self.vector.
+        Sets the initial conditions for self.vector.
+
+        Parameters
+        ----------
+        bckgr_params : dict
+            Field's background parameters.
+
+        pert_params : dict
+            Field's perturbation parameters for initial condition.
+
+        domain : struphy.geometry.domains
+            Domain object for metric coefficients, only needed for transform of analytical perturbations.
+
+        bckgr_obj: FluidEquilibrium
+            Fields background object.
+
+        species : string
+            Species name (e.g. "mhd") the field belongs to.
         """
 
         # set background paramters
-        if backgrounds is not None:
-            # if self.backgrounds is not None:
-            #     print(f"Attention: overwriting backgrounds for {self.name}")
-            self._backgrounds = backgrounds
+        if bckgr_params is not None:
+            if self._bckgr_params is not None:
+                print(f"Attention: overwriting background parameters for {self.name}")
+            self._bckgr_params = bckgr_params
 
         # set perturbation paramters
-        if perturbations is not None:
-            # if self.perturbations is not None:
-            #     print(f"Attention: overwriting perturbation parameters for {self.name}")
-            self._perturbations = perturbations
+        if pert_params is not None:
+            if self._pert_params is not None:
+                print(f"Attention: overwriting perturbation parameters for {self.name}")
+            self._pert_params = pert_params
 
-        # set domain
-        if domain is not None:
-            # if self.domain is not None:
-            #     print(f"Attention: overwriting domain for {self.name}")
-            self._domain = domain
-
-        if isinstance(self.backgrounds, FieldsBackground):
-            self._backgrounds = [self.backgrounds]
-
-        if isinstance(self.perturbations, Perturbation):
-            self._perturbations = [self.perturbations]
-
-        # start from zero coeffs
         self._vector *= 0.0
 
         if MPI.COMM_WORLD.Get_rank() == 0:
             print(f"Initializing {self.name} ...")
 
-        # add backgrounds to initial vector
-        if self.backgrounds is not None:
-            for fb in self.backgrounds:
-                assert isinstance(fb, FieldsBackground)
-                if MPI.COMM_WORLD.Get_rank() == 0:
-                    print(f"Adding background {fb} ...")
+        # add background to initial vector
+        if self.bckgr_params is not None:
+            for _type in self.bckgr_params:
+                _params = self.bckgr_params[_type].copy()
 
                 # special case of const
-                if fb.type == "LogicalConst":
-                    vals = fb.values
-                    assert isinstance(vals, (list, tuple))
+                if "LogicalConst" in _type:
+                    _val = _params["values"]
 
                     if self.space_id in {"H1", "L2"}:
+                        assert isinstance(_val, float) or isinstance(_val, int)
 
                         def f_tmp(e1, e2, e3):
-                            return vals[0] + 0.0 * e1
+                            return _val + 0.0 * e1
 
                         fun = f_tmp
                     else:
-                        assert len(vals) == 3
+                        assert isinstance(_val, list)
+                        assert len(_val) == 3
                         fun = []
+                        for i, _v in enumerate(_val):
+                            assert isinstance(_v, float) or isinstance(_v, int) or _v is None
 
-                        if vals[0] is not None:
-                            fun += [lambda e1, e2, e3: vals[0] + 0.0 * e1]
+                        if _val[0] is not None:
+                            fun += [lambda e1, e2, e3: _val[0] + 0.0 * e1]
                         else:
                             fun += [lambda e1, e2, e3: 0.0 * e1]
 
-                        if vals[1] is not None:
-                            fun += [lambda e1, e2, e3: vals[1] + 0.0 * e1]
+                        if _val[1] is not None:
+                            fun += [lambda e1, e2, e3: _val[1] + 0.0 * e1]
                         else:
                             fun += [lambda e1, e2, e3: 0.0 * e1]
 
-                        if vals[2] is not None:
-                            fun += [lambda e1, e2, e3: vals[2] + 0.0 * e1]
+                        if _val[2] is not None:
+                            fun += [lambda e1, e2, e3: _val[2] + 0.0 * e1]
                         else:
                             fun += [lambda e1, e2, e3: 0.0 * e1]
                 else:
-                    assert equil is not None
-                    var = fb.variable
-                    assert var in dir(MHDequilibrium), f"{var =} is not an attribute of any fields background."
+                    assert bckgr_obj is not None
+                    _var = _params["variable"]
+                    assert _var in dir(MHDequilibrium), f"{_var = } is not an attribute of any fields background."
 
                     if self.space_id in {"H1", "L2"}:
-                        fun = getattr(equil, var)
+                        fun = getattr(bckgr_obj, _var)
                     else:
-                        assert (var + "_1") in dir(MHDequilibrium), (
-                            f"{(var + '_1') =} is not an attribute of any fields background."
+                        assert (_var + "_1") in dir(MHDequilibrium), (
+                            f"{(_var + '_1') = } is not an attribute of any fields background."
                         )
                         fun = [
-                            getattr(equil, var + "_1"),
-                            getattr(equil, var + "_2"),
-                            getattr(equil, var + "_3"),
+                            getattr(bckgr_obj, _var + "_1"),
+                            getattr(bckgr_obj, _var + "_2"),
+                            getattr(bckgr_obj, _var + "_3"),
                         ]
 
-                # perform projection
+                # peform projection
                 self.vector += self.derham.P[self.space_key](fun)
 
         # add perturbations to coefficient vector
-        if self.perturbations is not None:
-            for ptb in self.perturbations:
+        if self.pert_params is not None:
+            for _type in self.pert_params:
                 if MPI.COMM_WORLD.Get_rank() == 0:
-                    print(f"Adding perturbation {ptb} ...")
+                    print(f"Adding perturbation {_type} ...")
+
+                _params = self.pert_params[_type].copy()
 
                 # special case of white noise in logical space for different components
-                if isinstance(ptb, Noise):
-                    # set white noise FE coefficients
-                    self._add_noise(
-                        direction=ptb.direction,
-                        amp=ptb.amp,
-                        seed=ptb.seed,
-                        n=ptb.comp,
-                    )
-                # perturbation class
-                elif isinstance(ptb, Perturbation):
-                    if self.space_id in {"H1", "L2"}:
-                        fun = TransformedPformComponent(
-                            ptb,
-                            ptb.given_in_basis,
-                            self.space_key,
-                            domain=domain,
-                        )
-                    elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
-                        fun_vec = [None] * 3
-                        fun_vec[ptb.comp] = ptb
+                if "noise" in _type:
+                    # component(s) to perturb
+                    if isinstance(_params["comps"], bool):
+                        comps = [_params["comps"]]
+                    else:
+                        comps = _params["comps"]
+                    _params.pop("comps")
 
-                        # pullback callable for each component
-                        fun = []
-                        for comp in range(3):
-                            fun += [
-                                TransformedPformComponent(
-                                    fun_vec,
-                                    ptb.given_in_basis,
-                                    self.space_key,
-                                    comp=comp,
-                                    domain=domain,
-                                ),
-                            ]
+                    # set white noise FE coefficients
+                    if self.space_id in {"H1", "L2"}:
+                        if comps[0]:
+                            self._add_noise(**_params)
+                    elif self.space_id in {"Hcurl", "Hdiv", "H1vec"}:
+                        for n, comp in enumerate(comps):
+                            if comp:
+                                self._add_noise(**_params, n=n)
+
+                # given function class
+                elif _type in dir(perturbations):
+                    fun = transform_perturbation(_type, _params, self.space_key, domain)
 
                     # peform projection
                     self.vector += self.derham.P[self.space_key](fun)
 
-                # TODO: re-add Eigfun and InitFromOutput in new framework
-
                 # loading of MHD eigenfunction (legacy code, might not be up to date)
-                # elif "EigFun" in _type:
-                #     print("Warning: Eigfun is not regularly tested ...")
-                #     from struphy.initial import eigenfunctions
+                elif "EigFun" in _type:
+                    print("Warning: Eigfun is not regularly tested ...")
+                    from struphy.initial import eigenfunctions
 
-                #     # select class
-                #     funs = getattr(eigenfunctions, _type)(
-                #         self.derham,
-                #         **_params,
-                #     )
+                    # select class
+                    funs = getattr(eigenfunctions, _type)(
+                        self.derham,
+                        **_params,
+                    )
 
-                #     # select eigenvector and set coefficients
-                #     if hasattr(funs, self.name):
-                #         eig_vec = getattr(funs, self.name)
+                    # select eigenvector and set coefficients
+                    if hasattr(funs, self.name):
+                        eig_vec = getattr(funs, self.name)
 
-                #         self.vector += eig_vec
+                        self.vector += eig_vec
 
-                # # initialize from existing output file
-                # elif "InitFromOutput" in _type:
-                #     # select class
-                #     o_data = getattr(utilities, _type)(
-                #         self.derham,
-                #         self.name,
-                #         species,
-                #         **_params,
-                #     )
+                # initialize from existing output file
+                elif "InitFromOutput" in _type:
+                    # select class
+                    o_data = getattr(utilities, _type)(
+                        self.derham,
+                        self.name,
+                        species,
+                        **_params,
+                    )
 
-                #     if isinstance(self.vector, StencilVector):
-                #         self.vector._data[:] += o_data.vector
+                    if isinstance(self.vector, StencilVector):
+                        self.vector._data[:] += o_data.vector
 
-                #     else:
-                #         for n in range(3):
-                #             self.vector[n]._data[:] += o_data.vector[n]
+                    else:
+                        for n in range(3):
+                            self.vector[n]._data[:] += o_data.vector[n]
 
         # apply boundary operator (in-place)
         self.derham.boundary_ops[self.space_key].dot(
@@ -1888,7 +1835,7 @@ class SplineFunction:
             assert [span.size for span in spans] == [base.shape[0] for base in bases]
 
             if out is None:
-                out = xp.empty([span.size for span in spans], dtype=float)
+                out = np.empty([span.size for span in spans], dtype=float)
             else:
                 assert out.shape == tuple([span.size for span in spans])
 
@@ -1897,8 +1844,8 @@ class SplineFunction:
                 *bases,
                 vec._data,
                 self.derham.spline_types_pyccel[self.space_key],
-                xp.array(self.derham.p),
-                xp.array(self.starts),
+                np.array(self.derham.p),
+                np.array(self.starts),
                 out,
             )
 
@@ -1912,7 +1859,7 @@ class SplineFunction:
                 assert [span.size for span in spans] == [base.shape[0] for base in bases[i]]
 
                 if out_is_none:
-                    out += xp.empty(
+                    out += np.empty(
                         [span.size for span in spans],
                         dtype=float,
                     )
@@ -1926,10 +1873,10 @@ class SplineFunction:
                     *bases[i],
                     vec[i]._data,
                     self.derham.spline_types_pyccel[self.space_key][i],
-                    xp.array(
+                    np.array(
                         self.derham.p,
                     ),
-                    xp.array(
+                    np.array(
                         self.starts[i],
                     ),
                     out[i],
@@ -1996,14 +1943,14 @@ class SplineFunction:
 
         # prepare arrays for AllReduce
         if tmp is None:
-            tmp = xp.zeros(
+            tmp = np.zeros(
                 tmp_shape,
                 dtype=float,
             )
         else:
-            assert isinstance(tmp, xp.ndarray)
+            assert isinstance(tmp, np.ndarray)
             assert tmp.shape == tmp_shape
-            assert tmp.dtype.type is xp.float64
+            assert tmp.dtype.type is np.float64
             tmp[:] = 0.0
 
         # scalar-valued field
@@ -2018,11 +1965,11 @@ class SplineFunction:
                     E3,
                     self._vector_stencil._data,
                     kind,
-                    xp.array(self.derham.p),
+                    np.array(self.derham.p),
                     T1,
                     T2,
                     T3,
-                    xp.array(self.starts),
+                    np.array(self.starts),
                     tmp,
                 )
             elif marker_evaluation:
@@ -2031,11 +1978,11 @@ class SplineFunction:
                     markers,
                     self._vector_stencil._data,
                     kind,
-                    xp.array(self.derham.p),
+                    np.array(self.derham.p),
                     T1,
                     T2,
                     T3,
-                    xp.array(self.starts),
+                    np.array(self.starts),
                     tmp,
                 )
             else:
@@ -2046,16 +1993,16 @@ class SplineFunction:
                     E3,
                     self._vector_stencil._data,
                     kind,
-                    xp.array(self.derham.p),
+                    np.array(self.derham.p),
                     T1,
                     T2,
                     T3,
-                    xp.array(self.starts),
+                    np.array(self.starts),
                     tmp,
                 )
 
             if self.derham.comm is not None:
-                if not local:
+                if local == False:
                     self.derham.comm.Allreduce(
                         MPI.IN_PLACE,
                         tmp,
@@ -2070,7 +2017,7 @@ class SplineFunction:
                 out += tmp
 
             if squeeze_out:
-                out = xp.squeeze(out)
+                out = np.squeeze(out)
 
             if out.ndim == 0:
                 out = out.item()
@@ -2089,11 +2036,11 @@ class SplineFunction:
                         E3,
                         self._vector_stencil[n]._data,
                         kind,
-                        xp.array(self.derham.p),
+                        np.array(self.derham.p),
                         T1,
                         T2,
                         T3,
-                        xp.array(self.starts[n]),
+                        np.array(self.starts[n]),
                         tmp,
                     )
                 elif marker_evaluation:
@@ -2102,11 +2049,11 @@ class SplineFunction:
                         markers,
                         self._vector_stencil[n]._data,
                         kind,
-                        xp.array(self.derham.p),
+                        np.array(self.derham.p),
                         T1,
                         T2,
                         T3,
-                        xp.array(self.starts[n]),
+                        np.array(self.starts[n]),
                         tmp,
                     )
                 else:
@@ -2117,16 +2064,16 @@ class SplineFunction:
                         E3,
                         self._vector_stencil[n]._data,
                         kind,
-                        xp.array(self.derham.p),
+                        np.array(self.derham.p),
                         T1,
                         T2,
                         T3,
-                        xp.array(self.starts[n]),
+                        np.array(self.starts[n]),
                         tmp,
                     )
 
                 if self.derham.comm is not None:
-                    if not local:
+                    if local == False:
                         self.derham.comm.Allreduce(
                             MPI.IN_PLACE,
                             tmp,
@@ -2143,7 +2090,7 @@ class SplineFunction:
                 tmp[:] = 0.0
 
                 if squeeze_out:
-                    out[-1] = xp.squeeze(out[-1])
+                    out[-1] = np.squeeze(out[-1])
 
                 if out[-1].ndim == 0:
                     out[-1] = out[-1].item()
@@ -2176,11 +2123,11 @@ class SplineFunction:
             markers = etas[0]
 
             # check which particles are on the current process domain
-            is_on_proc_domain = xp.logical_and(
+            is_on_proc_domain = np.logical_and(
                 markers[:, :3] >= dom_arr[rank, 0::3],
                 markers[:, :3] <= dom_arr[rank, 1::3],
             )
-            on_proc = xp.all(is_on_proc_domain, axis=1)
+            on_proc = np.all(is_on_proc_domain, axis=1)
 
             markers[~on_proc, :] = -1.0
 
@@ -2206,15 +2153,15 @@ class SplineFunction:
                 E3[E3 == dom_arr[rank, 7]] += 1e-8
 
             # True for eval points on current process
-            E1_on_proc = xp.logical_and(
+            E1_on_proc = np.logical_and(
                 E1 >= dom_arr[rank, 0],
                 E1 <= dom_arr[rank, 1],
             )
-            E2_on_proc = xp.logical_and(
+            E2_on_proc = np.logical_and(
                 E2 >= dom_arr[rank, 3],
                 E2 <= dom_arr[rank, 4],
             )
-            E3_on_proc = xp.logical_and(
+            E3_on_proc = np.logical_and(
                 E3 >= dom_arr[rank, 6],
                 E3 <= dom_arr[rank, 7],
             )
@@ -2224,13 +2171,7 @@ class SplineFunction:
             E2[~E2_on_proc] = -1.0
             E3[~E3_on_proc] = -1.0
 
-    def _add_noise(
-        self,
-        direction: NoiseDirections = "e3",
-        amp: float = 0.0001,
-        seed: int = None,
-        n: int = None,
-    ):
+    def _add_noise(self, direction="e3", amp=0.0001, seed=None, n=None):
         """Add noise to a vector component where init_comps==True, otherwise leave at zero.
 
         Parameters
@@ -2375,7 +2316,7 @@ class SplineFunction:
 
         Returns
         -------
-        _amps : xp.array
+        _amps : np.array
             The noisy FE coefficients in the desired direction (1d, 2d or 3d array)."""
 
         if self.derham.comm is not None:
@@ -2390,40 +2331,40 @@ class SplineFunction:
         domain_array = self.derham.domain_array
 
         if seed is not None:
-            xp.random.seed(seed)
+            np.random.seed(seed)
 
         # temporary
-        _amps = xp.zeros(shapes)
+        _amps = np.zeros(shapes)
 
         # no process has been drawn for yet
-        already_drawn = xp.zeros(nprocs) == 1.0
+        already_drawn = np.zeros(nprocs) == 1.0
 
         # 1d mid point arrays in each direction
         mid_points = []
         for npr in nprocs:
             delta = 1.0 / npr
-            mid_points_i = xp.zeros(npr)
+            mid_points_i = np.zeros(npr)
             for n in range(npr):
                 mid_points_i[n] = delta * (n + 1 / 2)
             mid_points += [mid_points_i]
 
         if direction == "e1":
-            tmp_arrays = xp.zeros(nprocs[0]).tolist()
+            tmp_arrays = np.zeros(nprocs[0]).tolist()
         elif direction == "e2":
-            tmp_arrays = xp.zeros(nprocs[1]).tolist()
+            tmp_arrays = np.zeros(nprocs[1]).tolist()
         elif direction == "e3":
-            tmp_arrays = xp.zeros(nprocs[2]).tolist()
+            tmp_arrays = np.zeros(nprocs[2]).tolist()
         elif direction == "e1e2":
-            tmp_arrays = xp.zeros((nprocs[0], nprocs[1])).tolist()
+            tmp_arrays = np.zeros((nprocs[0], nprocs[1])).tolist()
             Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
         elif direction == "e1e3":
-            tmp_arrays = xp.zeros((nprocs[0], nprocs[2])).tolist()
+            tmp_arrays = np.zeros((nprocs[0], nprocs[2])).tolist()
             Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
         elif direction == "e2e3":
-            tmp_arrays = xp.zeros((nprocs[1], nprocs[2])).tolist()
+            tmp_arrays = np.zeros((nprocs[1], nprocs[2])).tolist()
             Warning, f"2d noise in the directions {direction} is not correctly initilaized for MPI !!"
         elif direction == "e1e2e3":
-            tmp_arrays = xp.zeros((nprocs[0], nprocs[1], nprocs[2])).tolist()
+            tmp_arrays = np.zeros((nprocs[0], nprocs[1], nprocs[2])).tolist()
             Warning, f"3d noise in the directions {direction} is not correctly initilaized for MPI !!"
         else:
             raise ValueError("Invalid direction for tmp_arrays.")
@@ -2432,7 +2373,7 @@ class SplineFunction:
         inds_current = []
         for n in range(3):
             mid_pt_current = (domain_array[rank, 3 * n] + domain_array[rank, 3 * n + 1]) / 2.0
-            inds_current += [xp.argmin(xp.abs(mid_points[n] - mid_pt_current))]
+            inds_current += [np.argmin(np.abs(mid_points[n] - mid_pt_current))]
 
         # loop over processes
         for i in range(comm_size):
@@ -2440,7 +2381,7 @@ class SplineFunction:
             inds = []
             for n in range(3):
                 mid_pt = (domain_array[i, 3 * n] + domain_array[i, 3 * n + 1]) / 2.0
-                inds += [xp.argmin(xp.abs(mid_points[n] - mid_pt))]
+                inds += [np.argmin(np.abs(mid_points[n] - mid_pt))]
 
             if already_drawn[inds[0], inds[1], inds[2]]:
                 if direction == "e1":
@@ -2462,7 +2403,7 @@ class SplineFunction:
                 if direction == "e1":
                     tmp_arrays[inds[0]] = (
                         (
-                            xp.random.rand(
+                            np.random.rand(
                                 *shapes,
                             )
                             - 0.5
@@ -2475,7 +2416,7 @@ class SplineFunction:
                 elif direction == "e2":
                     tmp_arrays[inds[1]] = (
                         (
-                            xp.random.rand(
+                            np.random.rand(
                                 *shapes,
                             )
                             - 0.5
@@ -2488,7 +2429,7 @@ class SplineFunction:
                 elif direction == "e3":
                     tmp_arrays[inds[2]] = (
                         (
-                            xp.random.rand(
+                            np.random.rand(
                                 *shapes,
                             )
                             - 0.5
@@ -2499,23 +2440,23 @@ class SplineFunction:
                     already_drawn[:, :, inds[2]] = True
                     _amps[:] = tmp_arrays[inds[2]]
                 elif direction == "e1e2":
-                    tmp_arrays[inds[0]][inds[1]] = (xp.random.rand(*shapes) - 0.5) * 2.0 * amp
+                    tmp_arrays[inds[0]][inds[1]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
                     already_drawn[inds[0], inds[1], :] = True
                     _amps[:] = tmp_arrays[inds[0]][inds[1]]
                 elif direction == "e1e3":
-                    tmp_arrays[inds[0]][inds[2]] = (xp.random.rand(*shapes) - 0.5) * 2.0 * amp
+                    tmp_arrays[inds[0]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
                     already_drawn[inds[0], :, inds[2]] = True
                     _amps[:] = tmp_arrays[inds[0]][inds[2]]
                 elif direction == "e2e3":
-                    tmp_arrays[inds[1]][inds[2]] = (xp.random.rand(*shapes) - 0.5) * 2.0 * amp
+                    tmp_arrays[inds[1]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
                     already_drawn[:, inds[1], inds[2]] = True
                     _amps[:] = tmp_arrays[inds[1]][inds[2]]
                 elif direction == "e1e2e3":
-                    tmp_arrays[inds[0]][inds[1]][inds[2]] = (xp.random.rand(*shapes) - 0.5) * 2.0 * amp
+                    tmp_arrays[inds[0]][inds[1]][inds[2]] = (np.random.rand(*shapes) - 0.5) * 2.0 * amp
                     already_drawn[inds[0], inds[1], inds[2]] = True
                     _amps[:] = tmp_arrays[inds[0]][inds[1]][inds[2]]
 
-            if xp.all(xp.array([ind_c == ind for ind_c, ind in zip(inds_current, inds)])):
+            if np.all(np.array([ind_c == ind for ind_c, ind in zip(inds_current, inds)])):
                 return _amps
 
 
@@ -2766,16 +2707,16 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
     histopol_loc = space_1d.histopolation_grid[start : end + 2].copy()
 
     # make sure that greville points used for interpolation are in [0, 1]
-    assert xp.all(xp.logical_and(greville_loc >= 0.0, greville_loc <= 1.0))
+    assert np.all(np.logical_and(greville_loc >= 0.0, greville_loc <= 1.0))
 
     # interpolation
     if space_1d.basis == "B":
         x_grid = greville_loc
         pts = greville_loc[:, None]
-        wts = xp.ones(pts.shape, dtype=float)
+        wts = np.ones(pts.shape, dtype=float)
 
         # sub-interval index is always 0 for interpolation.
-        subs = xp.zeros(pts.shape[0], dtype=int)
+        subs = np.zeros(pts.shape[0], dtype=int)
 
         # !! shift away first interpolation point in eta_1 direction for polar domains !!
         if pts[0] == 0.0 and polar_shift:
@@ -2789,27 +2730,27 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             union_breaks = space_1d.breaks[:-1]
 
         # Make union of Greville and break points
-        tmp = set(xp.round(space_1d.histopolation_grid, decimals=14)).union(
-            xp.round(union_breaks, decimals=14),
+        tmp = set(np.round(space_1d.histopolation_grid, decimals=14)).union(
+            np.round(union_breaks, decimals=14),
         )
 
         tmp = list(tmp)
         tmp.sort()
-        tmp_a = xp.array(tmp)
+        tmp_a = np.array(tmp)
 
         x_grid = tmp_a[
-            xp.logical_and(
+            np.logical_and(
                 tmp_a
-                >= xp.min(
+                >= np.min(
                     histopol_loc,
                 )
                 - 1e-14,
-                tmp_a <= xp.max(histopol_loc) + 1e-14,
+                tmp_a <= np.max(histopol_loc) + 1e-14,
             )
         ]
 
         # determine subinterval index (= 0 or 1):
-        subs = xp.zeros(x_grid[:-1].size, dtype=int)
+        subs = np.zeros(x_grid[:-1].size, dtype=int)
         for n, x_h in enumerate(x_grid[:-1]):
             add = 1
             for x_g in histopol_loc:
@@ -2822,7 +2763,7 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             # products of basis functions are integrated exactly
             n_quad = space_1d.degree + 1
 
-        pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
+        pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
         x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
 
@@ -2885,12 +2826,12 @@ def get_pts_and_wts_quasi(
         # interpolation
         if space_1d.basis == "B":
             if p == 1 and h != 1.0:
-                x_grid = xp.linspace(-(p - 1) * h, 1.0 - h + (h / 2.0), (N + p - 1) * 2)
+                x_grid = np.linspace(-(p - 1) * h, 1.0 - h + (h / 2.0), (N + p - 1) * 2)
             else:
-                x_grid = xp.linspace(-(p - 1) * h, 1.0 - h, (N + p - 1) * 2 - 1)
+                x_grid = np.linspace(-(p - 1) * h, 1.0 - h, (N + p - 1) * 2 - 1)
 
             pts = x_grid[:, None] % 1.0
-            wts = xp.ones(pts.shape, dtype=float)
+            wts = np.ones(pts.shape, dtype=float)
 
             # !! shift away first interpolation point in eta_1 direction for polar domains !!
             if pts[0] == 0.0 and polar_shift:
@@ -2901,16 +2842,16 @@ def get_pts_and_wts_quasi(
             # The computation of histopolation points breaks in case we have Nel=1 and periodic boundary conditions since we end up with only one x_grid point.
             # We need to build the histopolation points by hand in this scenario.
             if p == 0 and h == 1.0:
-                x_grid = xp.array([0.0, 0.5, 1.0])
+                x_grid = np.array([0.0, 0.5, 1.0])
             elif p == 0 and h != 1.0:
-                x_grid = xp.linspace(-p * h, 1.0 - h + (h / 2.0), (N + p) * 2)
+                x_grid = np.linspace(-p * h, 1.0 - h + (h / 2.0), (N + p) * 2)
             else:
-                x_grid = xp.linspace(-p * h, 1.0 - h, (N + p) * 2 - 1)
+                x_grid = np.linspace(-p * h, 1.0 - h, (N + p) * 2 - 1)
 
             n_quad = p + 1
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly
-            pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
             x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             pts = x % 1.0
@@ -2924,26 +2865,26 @@ def get_pts_and_wts_quasi(
             N_b = N + p
 
             # Filling the quasi-interpolation points for i=0 and i=1 (since they are equal)
-            x_grid = xp.linspace(0.0, knots[p + 1], p + 1)
-            x_aux = xp.linspace(0.0, knots[p + 1], p + 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_grid = np.linspace(0.0, knots[p + 1], p + 1)
+            x_aux = np.linspace(0.0, knots[p + 1], p + 1)
+            x_grid = np.append(x_grid, x_aux)
             # Now we append those for 1<i<p-1
             for i in range(2, p - 1):
-                x_aux = xp.linspace(knots[p], knots[p + i], p + i)
-                x_grid = xp.append(x_grid, x_aux)
+                x_aux = np.linspace(knots[p], knots[p + i], p + i)
+                x_grid = np.append(x_grid, x_aux)
 
             # Now we append the points for p-1<= i <= N_b-p
-            x_aux = xp.linspace(0.0, 1.0, 2 * N + 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_aux = np.linspace(0.0, 1.0, 2 * N + 1)
+            x_grid = np.append(x_grid, x_aux)
 
             # Now the points for N_b-p < i < N_b-1
             for i in range(N_b - p + 1, N_b - 1):
-                x_aux = xp.linspace(knots[i + 1], knots[N_b], N_b + p - i - 1)
-                x_grid = xp.append(x_grid, x_aux)
+                x_aux = np.linspace(knots[i + 1], knots[N_b], N_b + p - i - 1)
+                x_grid = np.append(x_grid, x_aux)
             # Finally we add the pointset for i = N_b-1, which is the same as the one for i = N_b-2
             i = N_b - 2
-            x_aux = xp.linspace(knots[i + 1], knots[N_b], N_b + p - i - 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_aux = np.linspace(knots[i + 1], knots[N_b], N_b + p - i - 1)
+            x_grid = np.append(x_grid, x_aux)
 
             if polar_shift:
                 for i in range(len(x_grid)):
@@ -2951,7 +2892,7 @@ def get_pts_and_wts_quasi(
                         x_grid[i] += 0.00001
 
             pts = x_grid[:, None]
-            wts = xp.ones(pts.shape, dtype=float)
+            wts = np.ones(pts.shape, dtype=float)
 
         # histopolation
         elif space_1d.basis == "M":
@@ -2968,31 +2909,31 @@ def get_pts_and_wts_quasi(
             # Thus, we must substract 1 to all the indices of the knots here to refere to the same point.
 
             # Filling the quasi-interpolation points for i=0 and i=1 (since they are equal)
-            x_grid = xp.linspace(0.0, knots[p], p + 1)
-            x_aux = xp.linspace(0.0, knots[p], p + 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_grid = np.linspace(0.0, knots[p], p + 1)
+            x_aux = np.linspace(0.0, knots[p], p + 1)
+            x_grid = np.append(x_grid, x_aux)
             # Now we append those for 1<i<p-1
             for i in range(2, p - 1):
-                x_aux = xp.linspace(knots[p - 1], knots[p + i - 1], p + i)
-                x_grid = xp.append(x_grid, x_aux)
+                x_aux = np.linspace(knots[p - 1], knots[p + i - 1], p + i)
+                x_grid = np.append(x_grid, x_aux)
 
             # Now we append the points for p-1<= i <= N_b-p
-            x_aux = xp.linspace(0.0, 1.0, 2 * N + 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_aux = np.linspace(0.0, 1.0, 2 * N + 1)
+            x_grid = np.append(x_grid, x_aux)
 
             # Now the points for N_b-p < i < N_b-1
             for i in range(N_b - p + 1, N_b - 1):
-                x_aux = xp.linspace(knots[i], knots[N_b - 1], N_b + p - i - 1)
-                x_grid = xp.append(x_grid, x_aux)
+                x_aux = np.linspace(knots[i], knots[N_b - 1], N_b + p - i - 1)
+                x_grid = np.append(x_grid, x_aux)
             # Finally we add the pointset for i = N_b-1, which is the same as the one for i = N_b-2
             i = N_b - 2
-            x_aux = xp.linspace(knots[i], knots[N_b - 1], N_b + p - i - 1)
-            x_grid = xp.append(x_grid, x_aux)
+            x_aux = np.linspace(knots[i], knots[N_b - 1], N_b + p - i - 1)
+            x_grid = np.append(x_grid, x_aux)
 
             # Gauss - Legendre quadrature points and weights
             # products of basis functions are integrated exactly
             n_quad = p
-            pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
+            pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
 
             x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
             pts = x
@@ -3005,7 +2946,7 @@ def get_span_and_basis(pts, space):
 
     Parameters
     ----------
-    pts : xp.array
+    pts : np.array
         2d array of points (ii, iq) = (interval, quadrature point).
 
     space : SplineSpace
@@ -3013,10 +2954,10 @@ def get_span_and_basis(pts, space):
 
     Returns
     -------
-    span : xp.array
+    span : np.array
         2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
 
-    basis : xp.array
+    basis : np.array
         3d array of values of basis functions indexed by (n, nq, basis function).
     """
 
@@ -3024,8 +2965,8 @@ def get_span_and_basis(pts, space):
     T = space.knots
     p = space.degree
 
-    span = xp.zeros(pts.shape, dtype=int)
-    basis = xp.zeros((*pts.shape, p + 1), dtype=float)
+    span = np.zeros(pts.shape, dtype=int)
+    basis = np.zeros((*pts.shape, p + 1), dtype=float)
 
     for n in range(pts.shape[0]):
         for nq in range(pts.shape[1]):
@@ -3051,7 +2992,7 @@ def get_weights_local_projector(pts, fem_space):
 
     Parameters
     ----------
-    pts : xp.array
+    pts : np.array
         3d array of points. Contains the quasi-interpolation points in each direction.
 
     fem_space : SplineSpace
@@ -3059,10 +3000,10 @@ def get_weights_local_projector(pts, fem_space):
 
     Returns
     -------
-    wij : List of xp.array
+    wij : List of np.array
         List of 2d array indexed by (space_direction, i, j), where i determines for which FEEC coefficient this weights are needed. Used for interpolation.
 
-    whij : List of xp.array
+    whij : List of np.array
         List of 2d array indexed by (space_direction, i, j), where i determines for which FEEC coefficient this weights are needed. Used for histopolation.
     """
     wij = []
@@ -3078,7 +3019,7 @@ def get_weights_local_projector(pts, fem_space):
     #######
 
     # List with the degree of the B-splines in each spatial direction
-    plist = xp.zeros(3, dtype=int)
+    plist = np.zeros(3, dtype=int)
     # List with a bool that tell us if the B-splines in each spatial direction are periodic
     periodiclist = []
     # We iterate over each one of the spatial dimension of the 0 fem_space
@@ -3086,9 +3027,9 @@ def get_weights_local_projector(pts, fem_space):
         plist[d] = space.degree
         periodiclist.append(space.periodic)
 
-    periodiclist = xp.array(periodiclist)
+    periodiclist = np.array(periodiclist)
     # We get the maximum number of j entries for wij
-    lenj1, lenj2, lenj3 = get_local_problem_size(periodiclist, plist, xp.array([False, False, False], dtype=bool))
+    lenj1, lenj2, lenj3 = get_local_problem_size(periodiclist, plist, np.array([False, False, False], dtype=bool))
 
     maxjwij = [lenj1, lenj2, lenj3]
 
@@ -3099,7 +3040,7 @@ def get_weights_local_projector(pts, fem_space):
     #######
 
     # We get the maximum number of j entries for whij
-    lenj1, lenj2, lenj3 = get_local_problem_size(periodiclist, plist, xp.array([True, True, True], dtype=bool))
+    lenj1, lenj2, lenj3 = get_local_problem_size(periodiclist, plist, np.array([True, True, True], dtype=bool))
 
     maxjwhij = [lenj1, lenj2, lenj3]
 
@@ -3132,21 +3073,21 @@ def get_weights_local_projector(pts, fem_space):
             counter = 1
             minicol = colmatrix[xstart:xend, bstart]
             while counter < 2 * p - 1:
-                minicol = xp.column_stack(
+                minicol = np.column_stack(
                     (minicol, colmatrix[xstart:xend, (bstart + counter) % Nbasis]),
                 )
                 counter += 1
 
             # We need to consider the case in which our minicollocation matrix ends up being just one number
-            if xp.shape(minicol)[0] == 1:
+            if np.shape(minicol)[0] == 1:
                 # There seems to be a bug with the bsp.collocation_matrix function for the case Nel = 1, p = 1 and periodic, when evaluating the only B-spline at 0 the answer should be 1 not 0.
                 if p == 1 and Nbasis == 1:
                     minicol[0] = 1.0
                 invmini = 1.0 / minicol[0]
                 for i in range(Nbasis):
-                    wijaux.append(xp.array([invmini]))
+                    wijaux.append(np.array([invmini]))
             else:
-                invmini = xp.linalg.inv(minicol)
+                invmini = np.linalg.inv(minicol)
                 for i in range(Nbasis):
                     wijaux.append(invmini[p - 1, :])
         else:
@@ -3158,7 +3099,7 @@ def get_weights_local_projector(pts, fem_space):
                 # We can finally build the minicollocation matrix necessary to obtain the weights wij
                 minicol = colmatrix[xstart:xend, bstart:bend]
                 # Now we get its inverse
-                invmini = xp.linalg.inv(minicol)
+                invmini = np.linalg.inv(minicol)
 
                 # Now we need to extract the row of invmini that corresponds to the ith histopolation coefficient.
                 if i == 0:
@@ -3178,9 +3119,9 @@ def get_weights_local_projector(pts, fem_space):
                 for j in range(len(auxiliar), maxjwij[d]):
                     auxiliar.append(0.0)
 
-                wijaux.append(xp.array(auxiliar))
+                wijaux.append(np.array(auxiliar))
 
-        wij.append(xp.array(wijaux))
+        wij.append(np.array(wijaux))
 
         # Now that we know the wij we must use them to compute the whij
         # We begin by adressing the special case p=1 and periodic
@@ -3190,14 +3131,14 @@ def get_weights_local_projector(pts, fem_space):
             nD = Nbasis
             if p == 1:
                 for i in range(nD):
-                    whijaux.append(xp.array([wijaux[i][0], wijaux[i][0]]))
+                    whijaux.append(np.array([wijaux[i][0], wijaux[i][0]]))
             else:
                 whats = [wijaux[0][0], wijaux[0][0] + wijaux[0][1]]
                 for j in range(2, 2 * p - 1):
                     whats.append(wijaux[0][j - 1] + wijaux[0][j])
                 whats.append(wijaux[0][2 * p - 2])
                 for i in range(nD):
-                    whijaux.append(xp.array(whats))
+                    whijaux.append(np.array(whats))
 
         else:
             # Number of D-splines
@@ -3275,9 +3216,9 @@ def get_weights_local_projector(pts, fem_space):
                         else:
                             whats.append(0.0)
 
-                whijaux.append(xp.array(whats))
+                whijaux.append(np.array(whats))
 
-        whij.append(xp.array(whijaux))
+        whij.append(np.array(whijaux))
 
     return wij, whij
 

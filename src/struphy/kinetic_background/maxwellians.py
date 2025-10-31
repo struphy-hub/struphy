@@ -1,13 +1,10 @@
 "Maxwellian (Gaussian) distributions in velocity space."
 
-from typing import Callable
-
-import cunumpy as xp
-
-from struphy.fields_background.base import FluidEquilibriumWithB
+from struphy.fields_background.base import FluidEquilibrium
 from struphy.fields_background.equils import set_defaults
-from struphy.initial.base import Perturbation
-from struphy.kinetic_background.base import Maxwellian
+from struphy.kinetic_background import moment_functions
+from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
+from struphy.utils.arrays import xp as np
 
 
 class Maxwellian3D(Maxwellian):
@@ -15,31 +12,40 @@ class Maxwellian3D(Maxwellian):
 
     Parameters
     ----------
-    n, ui, vthi : tuple
-        Moments of the Maxwellian as tuples. The first entry defines the background
-        (float for constant background or callable), the second entry defines a Perturbation (can be None).
+    maxw_params : dict
+        Parameters for the kinetic background.
+
+    pert_params : dict
+        Parameters for the kinetic perturbation added to the background.
+
+    equil : FluidEquilibrium
+        One of :mod:`~struphy.fields_background.equils`.
     """
+
+    @classmethod
+    def default_maxw_params(cls):
+        """Default parameters dictionary defining constant moments of the Maxwellian."""
+        return {
+            "n": 1.0,
+            "u1": 0.0,
+            "u2": 0.0,
+            "u3": 0.0,
+            "vth1": 1.0,
+            "vth2": 1.0,
+            "vth3": 1.0,
+        }
 
     def __init__(
         self,
-        n: tuple[float | Callable, Perturbation] = (1.0, None),
-        u1: tuple[float | Callable, Perturbation] = (0.0, None),
-        u2: tuple[float | Callable, Perturbation] = (0.0, None),
-        u3: tuple[float | Callable, Perturbation] = (0.0, None),
-        vth1: tuple[float | Callable, Perturbation] = (1.0, None),
-        vth2: tuple[float | Callable, Perturbation] = (1.0, None),
-        vth3: tuple[float | Callable, Perturbation] = (1.0, None),
+        maxw_params: dict = None,
+        pert_params: dict = None,
+        equil: FluidEquilibrium = None,
     ):
-        self._maxw_params = {}
-        self._maxw_params["n"] = n
-        self._maxw_params["u1"] = u1
-        self._maxw_params["u2"] = u2
-        self._maxw_params["u3"] = u3
-        self._maxw_params["vth1"] = vth1
-        self._maxw_params["vth2"] = vth2
-        self._maxw_params["vth3"] = vth3
-
-        self.check_maxw_params()
+        super().__init__(
+            maxw_params=maxw_params,
+            pert_params=pert_params,
+            equil=equil,
+        )
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
         self._moment_factors = {
@@ -47,10 +53,6 @@ class Maxwellian3D(Maxwellian):
             "u": [1.0, 1.0, 1.0],
             "vth": [1.0, 1.0, 1.0],
         }
-
-    @property
-    def maxw_params(self):
-        return self._maxw_params
 
     @property
     def coords(self):
@@ -142,18 +144,14 @@ class GyroMaxwellian2D(Maxwellian):
 
     Parameters
     ----------
-    n, u_para, u_perp, vth_para, vth_perp : tuple
-        Moments of the Maxwellian as tuples. The first entry defines the background
-        (float for constant background or callable), the second entry defines a Perturbation (can be None).
-
     maxw_params : dict
         Parameters for the kinetic background.
 
     pert_params : dict
         Parameters for the kinetic perturbation added to the background.
 
-    equil : FluidEquilibriumWithB
-        Fluid background.
+    equil : FluidEquilibrium
+        One of :mod:`~struphy.fields_background.equils`.
 
     volume_form : bool
         Whether to represent the Maxwellian as a volume form;
@@ -161,28 +159,32 @@ class GyroMaxwellian2D(Maxwellian):
         of the polar coordinate transofrmation (default = False).
     """
 
+    @classmethod
+    def default_maxw_params(cls):
+        """Default parameters dictionary defining constant moments of the Maxwellian."""
+        return {
+            "n": 1.0,
+            "u_para": 0.0,
+            "u_perp": 0.0,
+            "vth_para": 1.0,
+            "vth_perp": 1.0,
+        }
+
     def __init__(
         self,
-        n: tuple[float | Callable, Perturbation] = (1.0, None),
-        u_para: tuple[float | Callable, Perturbation] = (0.0, None),
-        u_perp: tuple[float | Callable, Perturbation] = (0.0, None),
-        vth_para: tuple[float | Callable, Perturbation] = (1.0, None),
-        vth_perp: tuple[float | Callable, Perturbation] = (1.0, None),
-        equil: FluidEquilibriumWithB = None,
+        maxw_params: dict = None,
+        pert_params: dict = None,
+        equil: FluidEquilibrium = None,
         volume_form: bool = True,
     ):
-        self._maxw_params = {}
-        self._maxw_params["n"] = n
-        self._maxw_params["u_para"] = u_para
-        self._maxw_params["u_perp"] = u_perp
-        self._maxw_params["vth_para"] = vth_para
-        self._maxw_params["vth_perp"] = vth_perp
-
-        self.check_maxw_params()
+        super().__init__(
+            maxw_params=maxw_params,
+            pert_params=pert_params,
+            equil=equil,
+        )
 
         # volume form represenation
         self._volume_form = volume_form
-        self._equil = equil
 
         # factors multiplied onto the defined moments n, u and vth (can be set via setter)
         self._moment_factors = {
@@ -190,10 +192,6 @@ class GyroMaxwellian2D(Maxwellian):
             "u": [1.0, 1.0],
             "vth": [1.0, 1.0],
         }
-
-    @property
-    def maxw_params(self):
-        return self._maxw_params
 
     @property
     def coords(self):
@@ -251,7 +249,7 @@ class GyroMaxwellian2D(Maxwellian):
         assert len(v) == 2
 
         # call equilibrium
-        etas = (xp.vstack((eta1, eta2, eta3)).T).copy()
+        etas = (np.vstack((eta1, eta2, eta3)).T).copy()
         absB0 = self.equil.absB0(etas)
 
         # J = v_perp/B
@@ -260,14 +258,9 @@ class GyroMaxwellian2D(Maxwellian):
         return jacobian_det
 
     @property
-    def volume_form(self) -> bool:
+    def volume_form(self):
         """Boolean. True if the background is represented as a volume form (thus including the velocity Jacobian |v_perp|)."""
         return self._volume_form
-
-    @property
-    def equil(self) -> FluidEquilibriumWithB:
-        """Fluid background with B-field."""
-        return self._equil
 
     @property
     def moment_factors(self):
@@ -301,35 +294,8 @@ class GyroMaxwellian2D(Maxwellian):
         return [ou * mom_fac for ou, mom_fac in zip(out, self.moment_factors["vth"])]
 
 
-class CanonicalMaxwellian:
-    r"""canonical Maxwellian distribution function.
-    It is defined by three constants of motion in the axissymmetric toroidal system:
-
-    - Shifted canonical toroidal momentum
-
-    .. math::
-
-        \psi_c = \psi + \frac{m_s F}{q_s B}v_\parallel - \text{sign}(v_\parallel)\sqrt{2(\epsilon - \mu B)}\frac{m_sF}{q_sB} \mathcal{H}(\epsilon - \mu B),
-
-    - Energy
-
-    .. math::
-
-        \epsilon = \frac{1}{2}m_sv_\parallel² + \mu B,
-
-    - Magnetic moment
-
-    .. math::
-
-        \mu = \frac{m_s v_\perp²}{2B},
-
-    where :math:`\psi` is the poloidal magnetic flux function, :math:`F=F(\psi)` is the poloidal current function and :math:`\mathcal{H}` is the Heaviside function.
-
-    With the three constants of motion, a canonical Maxwellian distribution function is defined as
-
-    .. math::
-
-        F(\psi_c, \epsilon, \mu) = \frac{n(\psi_c)}{(2\pi)^{3/2}v_\text{th}³(\psi_c)} \text{exp}\left[ - \frac{\epsilon}{v_\text{th}²(\psi_c)}\right].
+class CanonicalMaxwellian(CanonicalMaxwellian):
+    r"""A :class:`~struphy.kinetic_background.base.CanonicalMaxwellian`.
 
     Parameters
     ----------
@@ -339,8 +305,8 @@ class CanonicalMaxwellian:
     pert_params : dict
         Parameters for the kinetic perturbation added to the background.
 
-    equil : FluidEquilibriumWithB
-        Fluid background.
+    equil : FluidEquilibrium
+        One of :mod:`~struphy.fields_background.equils`.
 
     volume_form : bool
         Whether to represent the Maxwellian as a volume form;
@@ -348,22 +314,46 @@ class CanonicalMaxwellian:
         of the polar coordinate transofrmation (default = False).
     """
 
+    @classmethod
+    def default_maxw_params(cls):
+        """Default parameters dictionary defining constant moments of the Maxwellian."""
+        return {
+            "n": 1.0,
+            "vth": 1.0,
+            "type": "Particles5D",
+        }
+
     def __init__(
         self,
-        n: tuple[float | Callable, Perturbation] = (1.0, None),
-        vth: tuple[float | Callable, Perturbation] = (1.0, None),
-        equil: FluidEquilibriumWithB = None,
+        maxw_params: dict = None,
+        pert_params: dict = None,
+        equil: FluidEquilibrium = None,
         volume_form: bool = True,
     ):
-        self._maxw_params = {}
-        self._maxw_params["n"] = n
-        self._maxw_params["vth"] = vth
+        # Set background parameters
+        self._maxw_params = self.default_maxw_params()
 
-        self.check_maxw_params()
+        if maxw_params is not None:
+            assert isinstance(maxw_params, dict)
+            self._maxw_params = set_defaults(
+                maxw_params,
+                self.default_maxw_params(),
+            )
+
+        # Set parameters for perturbation
+        self._pert_params = pert_params
+
+        if self.pert_params is not None:
+            assert isinstance(pert_params, dict)
+            assert "type" in self.pert_params, '"type" is mandatory in perturbation dictionary.'
+            ptype = self.pert_params["type"]
+            assert ptype in self.pert_params, f"{ptype} is mandatory in perturbation dictionary."
+            self._pert_type = ptype
+
+        self._equil = equil
 
         # volume form represenation
         self._volume_form = volume_form
-        self._equil = equil
 
         # factors multiplied onto the defined moments n and vth (can be set via setter)
         self._moment_factors = {
@@ -382,20 +372,16 @@ class CanonicalMaxwellian:
         return self._maxw_params
 
     @property
-    def equil(self) -> FluidEquilibriumWithB:
+    def pert_params(self):
+        """Parameters dictionary defining the perturbations of the :meth:`~Maxwellian5D.maxw_params`."""
+        return self._pert_params
+
+    @property
+    def equil(self):
         """One of :mod:`~struphy.fields_background.equils`
         in case that moments are to be set in that way, None otherwise.
         """
         return self._equil
-
-    def check_maxw_params(self):
-        for k, v in self.maxw_params.items():
-            assert isinstance(k, str)
-            assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
-            assert len(v) == 2
-
-            assert isinstance(v[0], (float, int, Callable))
-            assert isinstance(v[1], Perturbation) or v[1] is None
 
     def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
         r"""TODO"""
@@ -405,99 +391,14 @@ class CanonicalMaxwellian:
         assert eta3.ndim == 1
 
         if self.maxw_params["type"] == "Particles6D":
-            return xp.sqrt(2.0 * energy) * 4.0 * xp.pi
+            return np.sqrt(2.0 * energy) * 4.0 * np.pi
 
         else:
             # call equilibrium
-            etas = (xp.vstack((eta1, eta2, eta3)).T).copy()
+            etas = (np.vstack((eta1, eta2, eta3)).T).copy()
             absB0 = self.equil.absB0(etas)
 
-            return xp.sqrt(energy) * 2.0 * xp.sqrt(2.0) / absB0
-
-    def gaussian(self, e, vth=1.0):
-        """3-dim. normal distribution, to which array-valued thermal velocities can be passed.
-
-        Parameters
-        ----------
-        e : float | array-like
-            Energy.
-
-        vth : float | array-like
-            Thermal velocity evaluated at psic.
-
-        Returns
-        -------
-        An array of size(e).
-        """
-
-        if isinstance(vth, xp.ndarray):
-            assert e.shape == vth.shape, f"{e.shape =} but {vth.shape =}"
-
-        return 2.0 * xp.sqrt(e / xp.pi) / vth**3 * xp.exp(-e / vth**2)
-
-    def __call__(self, *args):
-        """Evaluates the canonical Maxwellian distribution function.
-
-        There are two use-cases for this function in the code:
-
-        1. Evaluating for particles ("flat evaluation", inputs are all 1D of length N_p)
-        2. Evaluating the function on a meshgrid (in phase space).
-
-        Hence all arguments must always have
-
-        1. the same shape
-        2. either ndim = 1 or ndim = 3.
-
-        Parameters
-        ----------
-        *args : array_like
-            Position-velocity arguments in the order energy, magnetic moment, canonical toroidal momentum.
-
-        Returns
-        -------
-        f : xp.ndarray
-            The evaluated Maxwellian.
-        """
-
-        # Check that all args have the same shape
-        shape0 = xp.shape(args[0])
-        for i, arg in enumerate(args):
-            assert xp.shape(arg) == shape0, f"Argument {i} has {xp.shape(arg) =}, but must be {shape0 =}."
-            assert xp.ndim(arg) == 1 or xp.ndim(arg) == 3, (
-                f"{xp.ndim(arg) =} not allowed for canonical Maxwellian evaluation."
-            )  # flat or meshgrid evaluation
-
-        # Get result evaluated with each particles' psic
-        res = self.n(args[2])
-        vths = self.vth(args[2])
-
-        # take care of correct broadcasting, assuming args come from phase space meshgrid
-        if xp.ndim(args[0]) == 3:
-            # move eta axes to the back
-            arg_t = xp.moveaxis(args[0], 0, -1)
-            arg_t = xp.moveaxis(arg_t, 0, -1)
-            arg_t = xp.moveaxis(arg_t, 0, -1)
-
-            # broadcast
-            res_broad = res + 0.0 * arg_t
-
-            # move eta axes to the front
-            res = xp.moveaxis(res_broad, -1, 0)
-            res = xp.moveaxis(res, -1, 0)
-            res = xp.moveaxis(res, -1, 0)
-
-        # Multiply result with gaussian in energy
-        if xp.ndim(args[0]) == 3:
-            vth_broad = vths + 0.0 * arg_t
-            vth = xp.moveaxis(vth_broad, -1, 0)
-            vth = xp.moveaxis(vth, -1, 0)
-            vth = xp.moveaxis(vth, -1, 0)
-        else:
-            vth = vths
-
-        res *= self.gaussian(args[0], vth=vth)
-
-        return res
+            return np.sqrt(energy) * 2.0 * np.sqrt(2.0) / absB0
 
     @property
     def volume_form(self):
@@ -544,18 +445,18 @@ class CanonicalMaxwellian:
         rc_squared = (psic - self.equil.psi_range[0]) / (self.equil.psi_range[1] - self.equil.psi_range[0])
 
         # sorting out indices of negative rc²
-        neg_index = xp.logical_not(rc_squared >= 0)
+        neg_index = np.logical_not(rc_squared >= 0)
 
         # make them positive
         rc_squared[neg_index] *= -1
 
         # calculate rc
-        rc = xp.sqrt(rc_squared)
+        rc = np.sqrt(rc_squared)
         rc[neg_index] *= -1
 
         return rc
 
-    def n(self, psic, add_perturbation: bool = None):
+    def n(self, psic):
         """Density as background + perturbation.
 
         Parameters
@@ -567,34 +468,24 @@ class CanonicalMaxwellian:
         -------
         A float (background value) or a numpy.array of the evaluated density.
         """
+
         # collect arguments
-        assert isinstance(psic, xp.ndarray)
+        assert isinstance(psic, np.ndarray)
 
         # assuming that input comes from meshgrid.
         if psic.ndim == 3:
             psic = psic[0, 0, :]
 
         # set background density
-        if isinstance(self.maxw_params["n"][0], (float, int)):
-            res = self.maxw_params["n"][0] + 0.0 * psic
-        else:
-            nfun = self.maxw_params["n"][1]
-            # for typ, params in mom_funcs.items():
-            #     nfun = getattr(moment_functions, typ)(**params)
+        if isinstance(self.maxw_params["n"], dict):
+            mom_funcs = self.maxw_params["n"]
+            for typ, params in mom_funcs.items():
+                nfun = getattr(moment_functions, typ)(**params)
             res = nfun(eta1=self.rc(psic))
+        else:
+            res = self.maxw_params["n"] + 0.0 * psic
 
-        # add perturbation
-        if add_perturbation is None:
-            add_perturbation = self.add_perturbation
-
-        perturbation = self.maxw_params["n"][1]
-        if perturbation is not None and add_perturbation:
-            assert isinstance(perturbation, Perturbation)
-            res = perturbation(eta1=self.rc(psic))
-            # if eta1.ndim == 1:
-            #     out += perturbation(eta1, eta2, eta3)
-            # else:
-            #     out += perturbation(*etas)
+        # TODO: add perturbation
 
         return res * self.moment_factors["n"]
 
@@ -612,28 +503,17 @@ class CanonicalMaxwellian:
         """
 
         # collect arguments
-        assert isinstance(psic, xp.ndarray)
+        assert isinstance(psic, np.ndarray)
 
         # assuming that input comes from meshgrid.
         if psic.ndim == 3:
             psic = psic[0, 0, :]
 
-        res = self.maxw_params["vth"][0] + 0.0 * psic
+        res = self.maxw_params["vth"] + 0.0 * psic
 
         # TODO: add perturbation
 
         return res * self.moment_factors["vth"]
-
-    @property
-    def add_perturbation(self) -> bool:
-        if not hasattr(self, "_add_perturbation"):
-            self._add_perturbation = True
-        return self._add_perturbation
-
-    @add_perturbation.setter
-    def add_perturbation(self, new):
-        assert isinstance(new, bool)
-        self._add_perturbation = new
 
 
 class ColdPlasma(Maxwellian):
@@ -655,28 +535,20 @@ class ColdPlasma(Maxwellian):
 
     def __init__(
         self,
-        n: tuple[float | Callable, Perturbation] = (1.0, None),
-        u1: tuple[float | Callable, Perturbation] = (0.0, None),
-        u2: tuple[float | Callable, Perturbation] = (0.0, None),
-        u3: tuple[float | Callable, Perturbation] = (0.0, None),
-        equil: FluidEquilibriumWithB = None,
+        maxw_params: dict = None,
+        pert_params: dict = None,
+        equil: FluidEquilibrium = None,
     ):
-        self._maxw_params = {}
-        self._maxw_params["n"] = n
-        self._maxw_params["u1"] = u1
-        self._maxw_params["u2"] = u2
-        self._maxw_params["u3"] = u3
-        self._maxw_params["vth1"] = (0.0, None)
-        self._maxw_params["vth2"] = (0.0, None)
-        self._maxw_params["vth3"] = (0.0, None)
+        super().__init__(
+            maxw_params=maxw_params,
+            pert_params=pert_params,
+            equil=equil,
+        )
 
-        self.check_maxw_params()
-
-        self._equil = equil
-
-    @property
-    def maxw_params(self):
-        return self._maxw_params
+        # make sure temperatures are zero
+        self._maxw_params["vth1"] = 0.0
+        self._maxw_params["vth2"] = 0.0
+        self._maxw_params["vth3"] = 0.0
 
     @property
     def coords(self):
@@ -699,10 +571,6 @@ class ColdPlasma(Maxwellian):
         return False
 
     @property
-    def equil(self) -> FluidEquilibriumWithB:
-        """Fluid background with B-field."""
-        return self._equil
-
     def velocity_jacobian_det(self, eta1, eta2, eta3, *v):
         """Jacobian determinant of the velocity coordinate transformation."""
         return 1.0

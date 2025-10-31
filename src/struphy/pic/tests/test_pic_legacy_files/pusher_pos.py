@@ -532,52 +532,13 @@ def pusher_step4_pcart(
 
         # compute old pseudo-cartesian coordinates
         fx_pseudo[0] = mapping.f(
-            eta[0],
-            eta[1],
-            eta[2],
-            1,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 1, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
         fx_pseudo[1] = mapping.f(
-            eta[0],
-            eta[1],
-            eta[2],
-            2,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 2, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
         fx_pseudo[2] = mapping.f(
-            eta[0],
-            eta[1],
-            eta[2],
-            3,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 3, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
 
         # evaluate old Jacobian matrix of mapping F
@@ -627,150 +588,33 @@ def pusher_step4_pcart(
 
         # evaluate old Jacobian matrix of mapping F_pseudo
         df_pseudo_old[0, 0] = mapping.df(
-            eta[0],
-            eta[1],
-            eta[2],
-            11,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 11, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
         df_pseudo_old[0, 1] = mapping.df(
-            eta[0],
-            eta[1],
-            eta[2],
-            12,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 12, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
         df_pseudo_old[0, 2] = mapping.df(
-            eta[0],
-            eta[1],
-            eta[2],
-            13,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 13, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
 
         df_pseudo_old[1, 0] = mapping.df(
-            eta[0],
-            eta[1],
-            eta[2],
-            21,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 21, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
         df_pseudo_old[1, 1] = mapping.df(
-            eta[0],
-            eta[1],
-            eta[2],
-            22,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 22, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
         df_pseudo_old[1, 2] = mapping.df(
-            eta[0],
-            eta[1],
-            eta[2],
-            23,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 23, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
 
         df_pseudo_old[2, 0] = mapping.df(
-            eta[0],
-            eta[1],
-            eta[2],
-            31,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 31, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
         df_pseudo_old[2, 1] = mapping.df(
-            eta[0],
-            eta[1],
-            eta[2],
-            32,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 32, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
         df_pseudo_old[2, 2] = mapping.df(
-            eta[0],
-            eta[1],
-            eta[2],
-            33,
-            map_pseudo,
-            params_pseudo,
-            tf1,
-            tf2,
-            tf3,
-            pf,
-            nbasef,
-            cx,
-            cy,
-            cz,
+            eta[0], eta[1], eta[2], 33, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
         )
 
         while True:
@@ -843,150 +687,33 @@ def pusher_step4_pcart(
 
             # evaluate Jacobian matrix of mapping F_pseudo
             df_pseudo[0, 0] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                11,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 11, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[0, 1] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                12,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 12, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[0, 2] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                13,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 13, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
 
             df_pseudo[1, 0] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                21,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 21, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[1, 1] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                22,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 22, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[1, 2] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                23,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 23, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
 
             df_pseudo[2, 0] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                31,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 31, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[2, 1] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                32,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 32, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[2, 2] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                33,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 33, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
 
             # compute df_pseudo*df_inv*v
@@ -1057,150 +784,33 @@ def pusher_step4_pcart(
 
             # evaluate Jacobian matrix of mapping F_pseudo
             df_pseudo[0, 0] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                11,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 11, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[0, 1] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                12,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 12, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[0, 2] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                13,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 13, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
 
             df_pseudo[1, 0] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                21,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 21, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[1, 1] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                22,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 22, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[1, 2] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                23,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 23, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
 
             df_pseudo[2, 0] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                31,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 31, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[2, 1] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                32,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 32, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[2, 2] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                33,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 33, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
 
             # compute df_pseudo*df_inv*v
@@ -1271,150 +881,33 @@ def pusher_step4_pcart(
 
             # evaluate Jacobian matrix of mapping F_pseudo
             df_pseudo[0, 0] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                11,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 11, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[0, 1] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                12,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 12, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[0, 2] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                13,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 13, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
 
             df_pseudo[1, 0] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                21,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 21, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[1, 1] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                22,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 22, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[1, 2] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                23,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 23, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
 
             df_pseudo[2, 0] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                31,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 31, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[2, 1] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                32,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 32, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
             df_pseudo[2, 2] = mapping.df(
-                eta[0],
-                eta[1],
-                eta[2],
-                33,
-                map_pseudo,
-                params_pseudo,
-                tf1,
-                tf2,
-                tf3,
-                pf,
-                nbasef,
-                cx,
-                cy,
-                cz,
+                eta[0], eta[1], eta[2], 33, map_pseudo, params_pseudo, tf1, tf2, tf3, pf, nbasef, cx, cy, cz
             )
 
             # compute df_pseudo*df_inv*v
@@ -1881,98 +1374,26 @@ def pusher_rk4_pc_full(
         # velocity field
         if basis_u == 1:
             u[0] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pn3,
-                bd1,
-                bn2,
-                bn3,
-                span1 - 1,
-                span2,
-                span3,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_n[2],
-                u1,
+                pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pn3,
-                bn1,
-                bd2,
-                bn3,
-                span1,
-                span2 - 1,
-                span3,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_n[2],
-                u2,
+                pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pd3,
-                bn1,
-                bn2,
-                bd3,
-                span1,
-                span2,
-                span3 - 1,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_d[2],
-                u3,
+                pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3
             )
 
             linalg.matrix_vector(Ginv, u, k1_u)
 
         elif basis_u == 2:
             u[0] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pd3,
-                bn1,
-                bd2,
-                bd3,
-                span1,
-                span2 - 1,
-                span3 - 1,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_d[2],
-                u1,
+                pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pd3,
-                bd1,
-                bn2,
-                bd3,
-                span1 - 1,
-                span2,
-                span3 - 1,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_d[2],
-                u2,
+                pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pd1,
-                pd2,
-                pn3,
-                bd1,
-                bd2,
-                bn3,
-                span1 - 1,
-                span2 - 1,
-                span3,
-                nbase_d[0],
-                nbase_d[1],
-                nbase_n[2],
-                u3,
+                pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3
             )
 
             k1_u[:] = u / det_df
@@ -2070,98 +1491,26 @@ def pusher_rk4_pc_full(
         # velocity field
         if basis_u == 1:
             u[0] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pn3,
-                bd1,
-                bn2,
-                bn3,
-                span1 - 1,
-                span2,
-                span3,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_n[2],
-                u1,
+                pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pn3,
-                bn1,
-                bd2,
-                bn3,
-                span1,
-                span2 - 1,
-                span3,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_n[2],
-                u2,
+                pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pd3,
-                bn1,
-                bn2,
-                bd3,
-                span1,
-                span2,
-                span3 - 1,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_d[2],
-                u3,
+                pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3
             )
 
             linalg.matrix_vector(Ginv, u, k2_u)
 
         elif basis_u == 2:
             u[0] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pd3,
-                bn1,
-                bd2,
-                bd3,
-                span1,
-                span2 - 1,
-                span3 - 1,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_d[2],
-                u1,
+                pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pd3,
-                bd1,
-                bn2,
-                bd3,
-                span1 - 1,
-                span2,
-                span3 - 1,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_d[2],
-                u2,
+                pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pd1,
-                pd2,
-                pn3,
-                bd1,
-                bd2,
-                bn3,
-                span1 - 1,
-                span2 - 1,
-                span3,
-                nbase_d[0],
-                nbase_d[1],
-                nbase_n[2],
-                u3,
+                pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3
             )
 
             k2_u[:] = u / det_df
@@ -2259,98 +1608,26 @@ def pusher_rk4_pc_full(
         # velocity field
         if basis_u == 1:
             u[0] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pn3,
-                bd1,
-                bn2,
-                bn3,
-                span1 - 1,
-                span2,
-                span3,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_n[2],
-                u1,
+                pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pn3,
-                bn1,
-                bd2,
-                bn3,
-                span1,
-                span2 - 1,
-                span3,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_n[2],
-                u2,
+                pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pd3,
-                bn1,
-                bn2,
-                bd3,
-                span1,
-                span2,
-                span3 - 1,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_d[2],
-                u3,
+                pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3
             )
 
             linalg.matrix_vector(Ginv, u, k3_u)
 
         elif basis_u == 2:
             u[0] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pd3,
-                bn1,
-                bd2,
-                bd3,
-                span1,
-                span2 - 1,
-                span3 - 1,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_d[2],
-                u1,
+                pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pd3,
-                bd1,
-                bn2,
-                bd3,
-                span1 - 1,
-                span2,
-                span3 - 1,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_d[2],
-                u2,
+                pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pd1,
-                pd2,
-                pn3,
-                bd1,
-                bd2,
-                bn3,
-                span1 - 1,
-                span2 - 1,
-                span3,
-                nbase_d[0],
-                nbase_d[1],
-                nbase_n[2],
-                u3,
+                pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3
             )
 
             k3_u[:] = u / det_df
@@ -2445,98 +1722,26 @@ def pusher_rk4_pc_full(
         # velocity field
         if basis_u == 1:
             u[0] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pn3,
-                bd1,
-                bn2,
-                bn3,
-                span1 - 1,
-                span2,
-                span3,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_n[2],
-                u1,
+                pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pn3,
-                bn1,
-                bd2,
-                bn3,
-                span1,
-                span2 - 1,
-                span3,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_n[2],
-                u2,
+                pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pd3,
-                bn1,
-                bn2,
-                bd3,
-                span1,
-                span2,
-                span3 - 1,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_d[2],
-                u3,
+                pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3
             )
 
             linalg.matrix_vector(Ginv, u, k4_u)
 
         elif basis_u == 2:
             u[0] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pd3,
-                bn1,
-                bd2,
-                bd3,
-                span1,
-                span2 - 1,
-                span3 - 1,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_d[2],
-                u1,
+                pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pd3,
-                bd1,
-                bn2,
-                bd3,
-                span1 - 1,
-                span2,
-                span3 - 1,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_d[2],
-                u2,
+                pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pd1,
-                pd2,
-                pn3,
-                bd1,
-                bd2,
-                bn3,
-                span1 - 1,
-                span2 - 1,
-                span3,
-                nbase_d[0],
-                nbase_d[1],
-                nbase_n[2],
-                u3,
+                pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3
             )
 
             k4_u[:] = u / det_df
@@ -2787,98 +1992,26 @@ def pusher_rk4_pc_perp(
         # velocity field
         if basis_u == 1:
             u[0] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pn3,
-                bd1,
-                bn2,
-                bn3,
-                span1 - 1,
-                span2,
-                span3,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_n[2],
-                u1,
+                pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pn3,
-                bn1,
-                bd2,
-                bn3,
-                span1,
-                span2 - 1,
-                span3,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_n[2],
-                u2,
+                pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pd3,
-                bn1,
-                bn2,
-                bd3,
-                span1,
-                span2,
-                span3 - 1,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_d[2],
-                u3,
+                pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3
             )
 
             linalg.matrix_vector(Ginv, u, k1_u)
 
         elif basis_u == 2:
             u[0] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pd3,
-                bn1,
-                bd2,
-                bd3,
-                span1,
-                span2 - 1,
-                span3 - 1,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_d[2],
-                u1,
+                pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pd3,
-                bd1,
-                bn2,
-                bd3,
-                span1 - 1,
-                span2,
-                span3 - 1,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_d[2],
-                u2,
+                pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pd1,
-                pd2,
-                pn3,
-                bd1,
-                bd2,
-                bn3,
-                span1 - 1,
-                span2 - 1,
-                span3,
-                nbase_d[0],
-                nbase_d[1],
-                nbase_n[2],
-                u3,
+                pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3
             )
 
             k1_u[:] = u / det_df
@@ -2975,98 +2108,26 @@ def pusher_rk4_pc_perp(
         # velocity field
         if basis_u == 1:
             u[0] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pn3,
-                bd1,
-                bn2,
-                bn3,
-                span1 - 1,
-                span2,
-                span3,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_n[2],
-                u1,
+                pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pn3,
-                bn1,
-                bd2,
-                bn3,
-                span1,
-                span2 - 1,
-                span3,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_n[2],
-                u2,
+                pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pd3,
-                bn1,
-                bn2,
-                bd3,
-                span1,
-                span2,
-                span3 - 1,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_d[2],
-                u3,
+                pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3
             )
 
             linalg.matrix_vector(Ginv, u, k2_u)
 
         elif basis_u == 2:
             u[0] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pd3,
-                bn1,
-                bd2,
-                bd3,
-                span1,
-                span2 - 1,
-                span3 - 1,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_d[2],
-                u1,
+                pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pd3,
-                bd1,
-                bn2,
-                bd3,
-                span1 - 1,
-                span2,
-                span3 - 1,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_d[2],
-                u2,
+                pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pd1,
-                pd2,
-                pn3,
-                bd1,
-                bd2,
-                bn3,
-                span1 - 1,
-                span2 - 1,
-                span3,
-                nbase_d[0],
-                nbase_d[1],
-                nbase_n[2],
-                u3,
+                pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3
             )
 
             k2_u[:] = u / det_df
@@ -3162,98 +2223,26 @@ def pusher_rk4_pc_perp(
         # velocity field
         if basis_u == 1:
             u[0] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pn3,
-                bd1,
-                bn2,
-                bn3,
-                span1 - 1,
-                span2,
-                span3,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_n[2],
-                u1,
+                pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pn3,
-                bn1,
-                bd2,
-                bn3,
-                span1,
-                span2 - 1,
-                span3,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_n[2],
-                u2,
+                pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pd3,
-                bn1,
-                bn2,
-                bd3,
-                span1,
-                span2,
-                span3 - 1,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_d[2],
-                u3,
+                pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3
             )
 
             linalg.matrix_vector(Ginv, u, k3_u)
 
         elif basis_u == 2:
             u[0] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pd3,
-                bn1,
-                bd2,
-                bd3,
-                span1,
-                span2 - 1,
-                span3 - 1,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_d[2],
-                u1,
+                pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pd3,
-                bd1,
-                bn2,
-                bd3,
-                span1 - 1,
-                span2,
-                span3 - 1,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_d[2],
-                u2,
+                pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pd1,
-                pd2,
-                pn3,
-                bd1,
-                bd2,
-                bn3,
-                span1 - 1,
-                span2 - 1,
-                span3,
-                nbase_d[0],
-                nbase_d[1],
-                nbase_n[2],
-                u3,
+                pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3
             )
 
             k3_u[:] = u / det_df
@@ -3349,98 +2338,26 @@ def pusher_rk4_pc_perp(
         # velocity field
         if basis_u == 1:
             u[0] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pn3,
-                bd1,
-                bn2,
-                bn3,
-                span1 - 1,
-                span2,
-                span3,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_n[2],
-                u1,
+                pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pn3,
-                bn1,
-                bd2,
-                bn3,
-                span1,
-                span2 - 1,
-                span3,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_n[2],
-                u2,
+                pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pd3,
-                bn1,
-                bn2,
-                bd3,
-                span1,
-                span2,
-                span3 - 1,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_d[2],
-                u3,
+                pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3
             )
 
             linalg.matrix_vector(Ginv, u, k4_u)
 
         elif basis_u == 2:
             u[0] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pd3,
-                bn1,
-                bd2,
-                bd3,
-                span1,
-                span2 - 1,
-                span3 - 1,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_d[2],
-                u1,
+                pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pd3,
-                bd1,
-                bn2,
-                bd3,
-                span1 - 1,
-                span2,
-                span3 - 1,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_d[2],
-                u2,
+                pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pd1,
-                pd2,
-                pn3,
-                bd1,
-                bd2,
-                bn3,
-                span1 - 1,
-                span2 - 1,
-                span3,
-                nbase_d[0],
-                nbase_d[1],
-                nbase_n[2],
-                u3,
+                pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3
             )
 
             k4_u[:] = u / det_df

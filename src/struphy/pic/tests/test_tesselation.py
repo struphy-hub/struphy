@@ -1,16 +1,13 @@
 from time import time
 
-import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.psydac_derham import Derham
-from struphy.fields_background.equils import ConstantVelocity
 from struphy.geometry import domains
-from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
-from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+from struphy.utils.arrays import xp as np
 
 
 @pytest.mark.parametrize("ppb", [8, 12])
@@ -27,14 +24,17 @@ def test_draw(ppb, nx, ny, nz):
     domain = domain_class(**dom_params)
 
     boxes_per_dim = (nx, ny, nz)
+    bc = ["periodic"] * 3
+    loading = "tesselation"
     bufsize = 0.5
-    loading_params = LoadingParameters(ppb=ppb, loading="tesselation")
 
     # instantiate Particle object
     particles = ParticlesSPH(
         comm_world=comm,
-        loading_params=loading_params,
+        ppb=ppb,
         boxes_per_dim=boxes_per_dim,
+        bc=bc,
+        loading=loading,
         domain=domain,
         verbose=False,
         bufsize=bufsize,
@@ -56,20 +56,20 @@ def test_draw(ppb, nx, ny, nz):
     zl = particles.domain_array[rank, 6]
     zr = particles.domain_array[rank, 7]
 
-    eta1 = xp.linspace(xl, xr, tiles_x + 1)[:-1] + (xr - xl) / (2 * tiles_x)
-    eta2 = xp.linspace(yl, yr, tiles_y + 1)[:-1] + (yr - yl) / (2 * tiles_y)
-    eta3 = xp.linspace(zl, zr, tiles_z + 1)[:-1] + (zr - zl) / (2 * tiles_z)
+    eta1 = np.linspace(xl, xr, tiles_x + 1)[:-1] + (xr - xl) / (2 * tiles_x)
+    eta2 = np.linspace(yl, yr, tiles_y + 1)[:-1] + (yr - yl) / (2 * tiles_y)
+    eta3 = np.linspace(zl, zr, tiles_z + 1)[:-1] + (zr - zl) / (2 * tiles_z)
 
-    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+    ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
     e1 = ee1.flatten()
     e2 = ee2.flatten()
     e3 = ee3.flatten()
 
     # print(f'\n{rank = }, {e1 = }')
 
-    assert xp.allclose(particles.positions[:, 0], e1)
-    assert xp.allclose(particles.positions[:, 1], e2)
-    assert xp.allclose(particles.positions[:, 2], e3)
+    assert np.allclose(particles.positions[:, 0], e1)
+    assert np.allclose(particles.positions[:, 1], e2)
+    assert np.allclose(particles.positions[:, 2], e3)
 
 
 @pytest.mark.parametrize("ppb", [8, 12])
@@ -87,24 +87,31 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
     domain = domain_class(**dom_params)
 
     boxes_per_dim = (nx, ny, nz)
-    loading_params = LoadingParameters(ppb=ppb, loading="tesselation", n_quad=n_quad)
+    bc = ["periodic"] * 3
+    loading = "tesselation"
+    loading_params = {"n_quad": n_quad}
     bufsize = 0.5
 
-    background = ConstantVelocity(n=1.0, ux=0.0, uy=0.0, uz=0.0, density_profile="constant")
-    background.domain = domain
+    cst_vel = {"ux": 0.0, "uy": 0.0, "uz": 0.0, "density_profile": "constant"}
+    bckgr_params = {"ConstantVelocity": cst_vel}
 
-    pert = {"n": perturbations.ModesSin(ls=(1,), amps=(1e-0,))}
+    mode_params = {"given_in_basis": "0", "ls": [1], "amps": [1e-0]}
+    modes = {"ModesSin": mode_params}
+    pert_params = {"n": modes}
 
     # instantiate Particle object
     particles = ParticlesSPH(
         comm_world=comm,
+        ppb=ppb,
         boxes_per_dim=boxes_per_dim,
+        bc=bc,
+        loading=loading,
         loading_params=loading_params,
         domain=domain,
         verbose=False,
         bufsize=bufsize,
-        background=background,
-        perturbations=pert,
+        bckgr_params=bckgr_params,
+        pert_params=pert_params,
     )
 
     particles.draw_markers(sort=False)
@@ -119,20 +126,20 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
         yl = particles.domain_array[rank, 3]
         yr = particles.domain_array[rank, 4]
 
-        eta1 = xp.linspace(xl, xr, tiles_x + 1)
-        eta2 = xp.linspace(yl, yr, tiles_y + 1)
+        eta1 = np.linspace(xl, xr, tiles_x + 1)
+        eta2 = np.linspace(yl, yr, tiles_y + 1)
 
         if ny == nz == 1:
             plt.figure(figsize=(15, 10))
-            plt.plot(particles.positions[:, 0], xp.zeros_like(particles.weights), "o", label="markers")
+            plt.plot(particles.positions[:, 0], np.zeros_like(particles.weights), "o", label="markers")
             plt.plot(particles.positions[:, 0], particles.weights, "-o", label="weights")
             plt.plot(
-                xp.linspace(xl, xr, 100),
-                particles.f_init(xp.linspace(xl, xr, 100), 0.5, 0.5).squeeze(),
+                np.linspace(xl, xr, 100),
+                particles.f_init(np.linspace(xl, xr, 100), 0.5, 0.5).squeeze(),
                 "--",
                 label="f_init",
             )
-            plt.vlines(xp.linspace(xl, xr, nx + 1), 0, 2, label="sorting boxes", color="k")
+            plt.vlines(np.linspace(xl, xr, nx + 1), 0, 2, label="sorting boxes", color="k")
             ax = plt.gca()
             ax.set_xticks(eta1)
             ax.set_yticks(eta2)
@@ -146,8 +153,8 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
 
             plt.subplot(1, 2, 1)
             ax = plt.gca()
-            ax.set_xticks(xp.linspace(0, 1, nx + 1))
-            ax.set_yticks(xp.linspace(0, 1, ny + 1))
+            ax.set_xticks(np.linspace(0, 1, nx + 1))
+            ax.set_yticks(np.linspace(0, 1, ny + 1))
             coloring = particles.weights
             plt.scatter(particles.positions[:, 0], particles.positions[:, 1], c=coloring, s=40)
             plt.grid(c="k")
@@ -159,12 +166,12 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
 
             plt.subplot(1, 2, 2)
             ax = plt.gca()
-            ax.set_xticks(xp.linspace(0, 1, nx + 1))
-            ax.set_yticks(xp.linspace(0, 1, ny + 1))
+            ax.set_xticks(np.linspace(0, 1, nx + 1))
+            ax.set_yticks(np.linspace(0, 1, ny + 1))
             coloring = particles.weights
-            pos1 = xp.linspace(xl, xr, 100)
-            pos2 = xp.linspace(yl, yr, 100)
-            pp1, pp2 = xp.meshgrid(pos1, pos2, indexing="ij")
+            pos1 = np.linspace(xl, xr, 100)
+            pos2 = np.linspace(yl, yr, 100)
+            pp1, pp2 = np.meshgrid(pos1, pos2, indexing="ij")
             plt.pcolor(pp1, pp2, particles.f_init(pp1, pp2, 0.5).squeeze())
             plt.grid(c="k")
             plt.axis("square")
@@ -176,10 +183,10 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
         plt.show()
 
     # test
-    print(f"\n{rank =}, {xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) =}")
-    assert xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) < 0.012
+    print(f"\n{rank = }, {np.max(np.abs(particles.weights - particles.f_init(particles.positions))) = }")
+    assert np.max(np.abs(particles.weights - particles.f_init(particles.positions))) < 0.012
 
 
 if __name__ == "__main__":
-    test_draw(8, 16, 1, 1)
+    # test_draw(8, 16, 1, 1)
     test_cell_average(8, 6, 16, 14, n_quad=2, show_plot=True)

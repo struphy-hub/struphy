@@ -226,9 +226,7 @@ def right_hand2(
                                             * bd2[ie2, il2, 0, q2]
                                             * bd3[ie3, il3, 0, q3]
                                             * temp_vector_1[
-                                                N_index_x[ie1, il1],
-                                                D_index_y[ie2, il2],
-                                                D_index_z[ie3, il3],
+                                                N_index_x[ie1, il1], D_index_y[ie2, il2], D_index_z[ie3, il3]
                                             ]
                                         )
 
@@ -254,9 +252,7 @@ def right_hand2(
                                             * bn2[ie2, il2, 0, q2]
                                             * bd3[ie3, il3, 0, q3]
                                             * temp_vector_2[
-                                                D_index_x[ie1, il1],
-                                                N_index_y[ie2, il2],
-                                                D_index_z[ie3, il3],
+                                                D_index_x[ie1, il1], N_index_y[ie2, il2], D_index_z[ie3, il3]
                                             ]
                                         )
 
@@ -282,9 +278,7 @@ def right_hand2(
                                             * bd2[ie2, il2, 0, q2]
                                             * bn3[ie3, il3, 0, q3]
                                             * temp_vector_3[
-                                                D_index_x[ie1, il1],
-                                                D_index_y[ie2, il2],
-                                                N_index_z[ie3, il3],
+                                                D_index_x[ie1, il1], D_index_y[ie2, il2], N_index_z[ie3, il3]
                                             ]
                                         )
 
@@ -344,9 +338,7 @@ def right_hand1(
                                             * bn2[ie2, il2, 0, q2]
                                             * bn3[ie3, il3, 0, q3]
                                             * temp_vector_1[
-                                                D_index_x[ie1, il1],
-                                                N_index_y[ie2, il2],
-                                                N_index_z[ie3, il3],
+                                                D_index_x[ie1, il1], N_index_y[ie2, il2], N_index_z[ie3, il3]
                                             ]
                                         )
 
@@ -372,9 +364,7 @@ def right_hand1(
                                             * bd2[ie2, il2, 0, q2]
                                             * bn3[ie3, il3, 0, q3]
                                             * temp_vector_2[
-                                                N_index_x[ie1, il1],
-                                                D_index_y[ie2, il2],
-                                                N_index_z[ie3, il3],
+                                                N_index_x[ie1, il1], D_index_y[ie2, il2], N_index_z[ie3, il3]
                                             ]
                                         )
 
@@ -400,9 +390,7 @@ def right_hand1(
                                             * bn2[ie2, il2, 0, q2]
                                             * bd3[ie3, il3, 0, q3]
                                             * temp_vector_3[
-                                                N_index_x[ie1, il1],
-                                                N_index_y[ie2, il2],
-                                                D_index_z[ie3, il3],
+                                                N_index_x[ie1, il1], N_index_y[ie2, il2], D_index_z[ie3, il3]
                                             ]
                                         )
 

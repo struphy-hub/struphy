@@ -93,13 +93,13 @@ def tile_int_kernel(
 
     Parameters
     ----------
-    fun: xp.ndarray
+    fun: np.ndarray
         The integrand evaluated at the quadrature points (meshgrid).
 
-    x_wts, y_wts, z_wts: xp.ndarray
+    x_wts, y_wts, z_wts: np.ndarray
         Quadrature weights for tile integral.
 
-    out: xp.ndarray
+    out: np.ndarray
         The result holding all tile integrals in one sorting box."""
 
     _shp = shape(out)

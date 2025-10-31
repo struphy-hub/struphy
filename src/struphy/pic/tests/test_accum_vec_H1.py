@@ -6,8 +6,7 @@ from struphy.utils.pyccel import Pyccelkernel
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(
-    "spl_kind",
-    [[False, False, True], [False, True, True], [True, False, True], [True, True, True]],
+    "spl_kind", [[False, False, True], [False, True, True], [True, False, True], [True, True, True]]
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -48,7 +47,6 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
 
     import copy
 
-    import cunumpy as xp
     from psydac.ddm.mpi import MockComm
     from psydac.ddm.mpi import mpi as MPI
 
@@ -58,7 +56,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     from struphy.pic.accumulation import accum_kernels
     from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
     from struphy.pic.particles import Particles6D
-    from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
+    from struphy.utils.arrays import xp as np
     from struphy.utils.clone_config import CloneConfig
 
     if isinstance(MPI.COMM_WORLD, MockComm):
@@ -77,7 +75,7 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
 
     params = {
         "grid": {"Nel": Nel},
-        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / xp.prod(Nel)}}},
+        "kinetic": {"test_particles": {"markers": {"Np": Np, "ppc": Np / np.prod(Nel)}}},
     }
     if mpi_comm is None:
         clone_config = None
@@ -106,16 +104,17 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         print("Domain decomposition according to", derham.domain_array)
 
     # load distributed markers first and use Send/Receive to make global marker copies for the legacy routines
-    loading_params = LoadingParameters(
-        Np=Np,
-        seed=1607,
-        moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0),
-        spatial="uniform",
-    )
+    loading_params = {
+        "seed": 1607,
+        "moments": [0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+        "spatial": "uniform",
+    }
 
     particles = Particles6D(
         comm_world=mpi_comm,
         clone_config=clone_config,
+        Np=Np,
+        bc=["periodic"] * 3,
         loading_params=loading_params,
         domain=domain,
         domain_decomp=domain_decomp,
@@ -130,12 +129,12 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
     _w0 = particles.weights
 
     print("Test weights:")
-    print(f"rank {mpi_rank}:", _w0.shape, xp.min(_w0), xp.max(_w0))
+    print(f"rank {mpi_rank}:", _w0.shape, np.min(_w0), np.max(_w0))
 
     _sqrtg = domain.jacobian_det(0.5, 0.5, 0.5)
 
-    assert xp.isclose(xp.min(_w0), _sqrtg)
-    assert xp.isclose(xp.max(_w0), _sqrtg)
+    assert np.isclose(np.min(_w0), _sqrtg)
+    assert np.isclose(np.max(_w0), _sqrtg)
 
     # mass operators
     mass_ops = WeightedMassOperators(derham, domain)
@@ -149,31 +148,31 @@ def test_accum_poisson(Nel, p, spl_kind, mapping, num_clones, Np=1000):
         domain.args_domain,
     )
 
-    acc()
+    acc(particles.vdim)
 
     # sum all MC integrals
-    _sum_within_clone = xp.empty(1, dtype=float)
-    _sum_within_clone[0] = xp.sum(acc.vectors[0].toarray())
+    _sum_within_clone = np.empty(1, dtype=float)
+    _sum_within_clone[0] = np.sum(acc.vectors[0].toarray())
     if clone_config is not None:
         clone_config.sub_comm.Allreduce(MPI.IN_PLACE, _sum_within_clone, op=MPI.SUM)
 
-    print(f"rank {mpi_rank}: {_sum_within_clone =}, {_sqrtg =}")
+    print(f"rank {mpi_rank}: {_sum_within_clone = }, {_sqrtg = }")
 
     # Check within clone
-    assert xp.isclose(_sum_within_clone, _sqrtg)
+    assert np.isclose(_sum_within_clone, _sqrtg)
 
     # Check for all clones
-    _sum_between_clones = xp.empty(1, dtype=float)
-    _sum_between_clones[0] = xp.sum(acc.vectors[0].toarray())
+    _sum_between_clones = np.empty(1, dtype=float)
+    _sum_between_clones[0] = np.sum(acc.vectors[0].toarray())
 
     if mpi_comm is not None:
         mpi_comm.Allreduce(MPI.IN_PLACE, _sum_between_clones, op=MPI.SUM)
         clone_config.inter_comm.Allreduce(MPI.IN_PLACE, _sqrtg, op=MPI.SUM)
 
-    print(f"rank {mpi_rank}: {_sum_between_clones =}, {_sqrtg =}")
+    print(f"rank {mpi_rank}: {_sum_between_clones = }, {_sqrtg = }")
 
     # Check within clone
-    assert xp.isclose(_sum_between_clones, _sqrtg)
+    assert np.isclose(_sum_between_clones, _sqrtg)
 
 
 if __name__ == "__main__":

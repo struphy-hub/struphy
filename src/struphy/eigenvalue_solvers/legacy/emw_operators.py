@@ -6,11 +6,11 @@
 Class for 2D/3D linear MHD projection operators.
 """
 
-import cunumpy as xp
 import scipy.sparse as spa
 
 import struphy.eigenvalue_solvers.kernels_3d as ker
 import struphy.eigenvalue_solvers.legacy.mass_matrices_3d_pre as mass_3d_pre
+from struphy.utils.arrays import xp as np
 
 
 class EMW_operators:
@@ -134,7 +134,7 @@ class EMW_operators:
                 Ni = self.SPACES.Nbase_1form[a]
                 Nj = self.SPACES.Nbase_1form[b]
 
-                M[a][b] = xp.zeros((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1), dtype=float)
+                M[a][b] = np.zeros((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1), dtype=float)
 
                 # evaluate metric tensor at quadrature points
                 if a == 1 and b == 2:
@@ -185,9 +185,9 @@ class EMW_operators:
                         mat_w,
                     )
                 # convert to sparse matrix
-                indices = xp.indices((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1))
+                indices = np.indices((Ni[0], Ni[1], Ni[2], 2 * p[0] + 1, 2 * p[1] + 1, 2 * p[2] + 1))
 
-                shift = [xp.arange(Ni) - p for Ni, p in zip(Ni, p)]
+                shift = [np.arange(Ni) - p for Ni, p in zip(Ni, p)]
 
                 row = (Ni[1] * Ni[2] * indices[0] + Ni[2] * indices[1] + indices[2]).flatten()
 
@@ -198,14 +198,12 @@ class EMW_operators:
                 col = Nj[1] * Nj[2] * col1 + Nj[2] * col2 + col3
 
                 M[a][b] = spa.csr_matrix(
-                    (M[a][b].flatten(), (row, col.flatten())),
-                    shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2]),
+                    (M[a][b].flatten(), (row, col.flatten())), shape=(Ni[0] * Ni[1] * Ni[2], Nj[0] * Nj[1] * Nj[2])
                 )
                 M[a][b].eliminate_zeros()
 
         M = spa.bmat(
-            [[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]],
-            format="csr",
+            [[M[0][0], M[0][1], M[0][2]], [M[1][0], M[1][1], M[1][2]], [M[2][0], M[2][1], M[2][2]]], format="csr"
         )
 
         self.R1_mat = -self.SPACES.E1_0.dot(M.dot(self.SPACES.E1_0.T)).tocsr()

@@ -248,43 +248,19 @@ def pusher_step3(
             for i in range(nbase_n[2]):
                 u[0] += (
                     eva2.evaluation_kernel_2d(
-                        pd1,
-                        pn2,
-                        bd1,
-                        bn2,
-                        span1 - 1,
-                        span2 - 0,
-                        nbase_d[0],
-                        nbase_n[1],
-                        u1[:, :, i],
+                        pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], u1[:, :, i]
                     )
                     * cs[i]
                 )
                 u[1] += (
                     eva2.evaluation_kernel_2d(
-                        pn1,
-                        pd2,
-                        bn1,
-                        bd2,
-                        span1 - 0,
-                        span2 - 1,
-                        nbase_n[0],
-                        nbase_d[1],
-                        u2[:, :, i],
+                        pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], u2[:, :, i]
                     )
                     * cs[i]
                 )
                 u[2] += (
                     eva2.evaluation_kernel_2d(
-                        pn1,
-                        pn2,
-                        bn1,
-                        bn2,
-                        span1 - 0,
-                        span2 - 0,
-                        nbase_n[0],
-                        nbase_n[1],
-                        u3[:, :, i],
+                        pn1, pn2, bn1, bn2, span1 - 0, span2 - 0, nbase_n[0], nbase_n[1], u3[:, :, i]
                     )
                     * cs[i]
                 )
@@ -298,43 +274,19 @@ def pusher_step3(
             for i in range(nbase_n[2]):
                 u[0] += (
                     eva2.evaluation_kernel_2d(
-                        pn1,
-                        pd2,
-                        bn1,
-                        bd2,
-                        span1 - 0,
-                        span2 - 1,
-                        nbase_n[0],
-                        nbase_d[1],
-                        u1[:, :, i],
+                        pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], u1[:, :, i]
                     )
                     * cs[i]
                 )
                 u[1] += (
                     eva2.evaluation_kernel_2d(
-                        pd1,
-                        pn2,
-                        bd1,
-                        bn2,
-                        span1 - 1,
-                        span2 - 0,
-                        nbase_d[0],
-                        nbase_n[1],
-                        u2[:, :, i],
+                        pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], u2[:, :, i]
                     )
                     * cs[i]
                 )
                 u[2] += (
                     eva2.evaluation_kernel_2d(
-                        pd1,
-                        pd2,
-                        bd1,
-                        bd2,
-                        span1 - 1,
-                        span2 - 1,
-                        nbase_d[0],
-                        nbase_d[1],
-                        u3[:, :, i],
+                        pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], u3[:, :, i]
                     )
                     * cs[i]
                 )
@@ -347,80 +299,32 @@ def pusher_step3(
 
         # equilibrium magnetic field (2-form)
         b[0] = eva2.evaluation_kernel_2d(
-            pn1,
-            pd2,
-            bn1,
-            bd2,
-            span1 - 0,
-            span2 - 1,
-            nbase_n[0],
-            nbase_d[1],
-            b_eq_1[:, :, 0],
+            pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_eq_1[:, :, 0]
         )
         b[1] = eva2.evaluation_kernel_2d(
-            pd1,
-            pn2,
-            bd1,
-            bn2,
-            span1 - 1,
-            span2 - 0,
-            nbase_d[0],
-            nbase_n[1],
-            b_eq_2[:, :, 0],
+            pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_eq_2[:, :, 0]
         )
         b[2] = eva2.evaluation_kernel_2d(
-            pd1,
-            pd2,
-            bd1,
-            bd2,
-            span1 - 1,
-            span2 - 1,
-            nbase_d[0],
-            nbase_d[1],
-            b_eq_3[:, :, 0],
+            pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_eq_3[:, :, 0]
         )
 
         # perturbed magnetic field (2-form)
         for i in range(nbase_n[2]):
             b[0] += (
                 eva2.evaluation_kernel_2d(
-                    pn1,
-                    pd2,
-                    bn1,
-                    bd2,
-                    span1 - 0,
-                    span2 - 1,
-                    nbase_n[0],
-                    nbase_d[1],
-                    b_p_1[:, :, i],
+                    pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_p_1[:, :, i]
                 )
                 * cs[i]
             )
             b[1] += (
                 eva2.evaluation_kernel_2d(
-                    pd1,
-                    pn2,
-                    bd1,
-                    bn2,
-                    span1 - 1,
-                    span2 - 0,
-                    nbase_d[0],
-                    nbase_n[1],
-                    b_p_2[:, :, i],
+                    pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_p_2[:, :, i]
                 )
                 * cs[i]
             )
             b[2] += (
                 eva2.evaluation_kernel_2d(
-                    pd1,
-                    pd2,
-                    bd1,
-                    bd2,
-                    span1 - 1,
-                    span2 - 1,
-                    nbase_d[0],
-                    nbase_d[1],
-                    b_p_3[:, :, i],
+                    pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_p_3[:, :, i]
                 )
                 * cs[i]
             )
@@ -434,26 +338,10 @@ def pusher_step3(
 
         # gradient of absolute value of magnetic field (1-form)
         b_grad[0] = eva2.evaluation_kernel_2d(
-            pn1,
-            pn2,
-            der1,
-            bn2,
-            span1,
-            span2,
-            nbase_n[0],
-            nbase_n[1],
-            b_norm[:, :, 0],
+            pn1, pn2, der1, bn2, span1, span2, nbase_n[0], nbase_n[1], b_norm[:, :, 0]
         )
         b_grad[1] = eva2.evaluation_kernel_2d(
-            pn1,
-            pn2,
-            bn1,
-            der2,
-            span1,
-            span2,
-            nbase_n[0],
-            nbase_n[1],
-            b_norm[:, :, 0],
+            pn1, pn2, bn1, der2, span1, span2, nbase_n[0], nbase_n[1], b_norm[:, :, 0]
         )
         b_grad[2] = 0.0
 
@@ -674,80 +562,32 @@ def pusher_step5(
 
         # equilibrium magnetic field (2-form)
         b[0] = eva2.evaluation_kernel_2d(
-            pn1,
-            pd2,
-            bn1,
-            bd2,
-            span1 - 0,
-            span2 - 1,
-            nbase_n[0],
-            nbase_d[1],
-            b_eq_1[:, :, 0],
+            pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_eq_1[:, :, 0]
         )
         b[1] = eva2.evaluation_kernel_2d(
-            pd1,
-            pn2,
-            bd1,
-            bn2,
-            span1 - 1,
-            span2 - 0,
-            nbase_d[0],
-            nbase_n[1],
-            b_eq_2[:, :, 0],
+            pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_eq_2[:, :, 0]
         )
         b[2] = eva2.evaluation_kernel_2d(
-            pd1,
-            pd2,
-            bd1,
-            bd2,
-            span1 - 1,
-            span2 - 1,
-            nbase_d[0],
-            nbase_d[1],
-            b_eq_3[:, :, 0],
+            pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_eq_3[:, :, 0]
         )
 
         # perturbed magnetic field (2-form)
         for i in range(nbase_n[2]):
             b[0] += (
                 eva2.evaluation_kernel_2d(
-                    pn1,
-                    pd2,
-                    bn1,
-                    bd2,
-                    span1 - 0,
-                    span2 - 1,
-                    nbase_n[0],
-                    nbase_d[1],
-                    b_p_1[:, :, i],
+                    pn1, pd2, bn1, bd2, span1 - 0, span2 - 1, nbase_n[0], nbase_d[1], b_p_1[:, :, i]
                 )
                 * cs[i]
             )
             b[1] += (
                 eva2.evaluation_kernel_2d(
-                    pd1,
-                    pn2,
-                    bd1,
-                    bn2,
-                    span1 - 1,
-                    span2 - 0,
-                    nbase_d[0],
-                    nbase_n[1],
-                    b_p_2[:, :, i],
+                    pd1, pn2, bd1, bn2, span1 - 1, span2 - 0, nbase_d[0], nbase_n[1], b_p_2[:, :, i]
                 )
                 * cs[i]
             )
             b[2] += (
                 eva2.evaluation_kernel_2d(
-                    pd1,
-                    pd2,
-                    bd1,
-                    bd2,
-                    span1 - 1,
-                    span2 - 1,
-                    nbase_d[0],
-                    nbase_d[1],
-                    b_p_3[:, :, i],
+                    pd1, pd2, bd1, bd2, span1 - 1, span2 - 1, nbase_d[0], nbase_d[1], b_p_3[:, :, i]
                 )
                 * cs[i]
             )
