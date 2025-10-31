@@ -5,58 +5,85 @@ Install
 
 .. _require:
 
-Requirements
-------------
+Prerequisites
+-------------
+
+**Basics:** 
 
 - Python >=3.10 
 - C or Fortran compiler like gcc, gfortran
 - Linear algebra packages BLAS and LAPACK
+
+**For parallel runs:**
+
 - An MPI library like open-mpi, mpich
 - OpenMP
-- **Struphy is not currently supported** with `Anaconda <https://www.anaconda.com/>`_.
 
-In order not to interfere with existing Python packages, 
-it is highly recommended to install Struphy in a `Virtual Python environment <https://pypi.org/project/virtualenv/>`_::
+**Interfaces to physics codes:**
 
-    python3 -m pip install -U virtualenv
+- Check the requirements for `GVEC <https://gvec.readthedocs.io/v1.0/user/install.html#prerequisites>`_.
 
-Create virtual environment::
 
-    python3 -m venv <name>
+Virtual environment
+-------------------
 
-Launch the virtual environment (from the location where created)::
+In order to not interfere with existing Python packages, 
+it is highly recommended to install Struphy in a `virtual environment <https://pypi.org/project/virtualenv/>`_::
 
-    source <name>/bin/activate
+    python -m pip install -U virtualenv
 
-Check the pre-installed packages and upgrade ``pip``::
+Then::
 
-    pip list
-    pip install --upgrade pip
-
-Continue with the Struphy installation; the quickest install is via :ref:`PyPI <pypi_install>`::
-    
-    pip install --no-cache-dir -U struphy
-    struphy compile
-
-When finished, you can deactivate the virtual environment::
-
-    deactivate
-
-The environment is stored in the folder ``<name>`` and can be re-activated any time for working with Struphy.
+    python -m venv struphy_env
+    source struphy_env/bin/activate
+    pip install -U pip
 
 
 .. _install_modes:
 
-Install modes
--------------
+Install and compile
+-------------------
 
-Struphy can be installed in the following ways:
+Base install::
 
-1. From :ref:`PyPI <pypi_install>`, for running the latest release
-2. From :ref:`source <source_install>`, for running or adding code 
-3. Using :ref:`Docker images <docker_install>`, also suited :ref:`for developers <docker_devs>`
+    pip install -U struphy
+    struphy compile --status
+    struphy compile
+    struphy -h
 
-In case you encounter problems during install, check out :ref:`trouble_shoot`.
+Install with Physics packages::
+
+    pip install -U struphy[phys]
+    struphy compile --status
+    struphy compile
+    struphy -h
+
+Install with MPI::
+
+    pip install -U struphy[mpi]
+    struphy compile --status
+    struphy compile
+    struphy -h
+
+Install for developers (from source, in editable mode)::
+
+    git clone git@github.com:struphy-hub/struphy.git
+    cd struphy
+    pip install -e .[dev,doc]
+    struphy compile --status
+    struphy compile
+    struphy -h
+
+Install everything (including advanced profiling)::
+
+    git clone git@github.com:struphy-hub/struphy.git
+    cd struphy
+    pip install -e .[all]
+    struphy compile --status
+    struphy compile
+    struphy -h
+
+In case you encounter problems during install visit :ref:`trouble_shoot`.
 
 
 .. _sample_envs:
@@ -164,9 +191,6 @@ Some Linux environments on which Struphy is continuously tested are:
             brew install git
             brew install pandoc
 
-More details on the continuous test environments can be found in `.gitlab-ci.yml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml>`_
-in the test stage.
-
 On **Windows systems** we recommend the use of a virtual machine, for instance the :ref:`multipass`.
 
 
@@ -179,7 +203,7 @@ Install problems
 ^^^^^^^^^^^^^^^^
 
 * Make sure that you can ``pip install -U mpi4py``.
-* `mpi4py>=4.1.0` `provides binaries <https://github.com/mpi4py/mpi4py/releases/tag/4.1.0>`_` for common platforms. In case of "exotic" platforms you might try `pip install -U mpi4py --no-binary mpi4py`
+* `mpi4py>=4.1.0 provides binaries <https://github.com/mpi4py/mpi4py/releases/tag/4.1.0>`_ for common platforms. In case of "exotic" platforms you might try ``pip install -U mpi4py --no-binary mpi4py``
 * In many cases installing ``apt install openmpi-devel`` solves a problem with missing headers.
 * On Mac OS, you can try to install the command line tools (160 MB) ``xcode-select --install``.
 * Struphy is not supported with Conda; however, in case you insist you might try::
@@ -204,113 +228,6 @@ Compilation problems
     pip install numpy==1.26.4
 
 
-.. _pypi_install:
-
-PyPI
-----
-
-Install package::
-
-    pip install --no-cache-dir -U struphy
-
-For running (parallel) tests:
-
-.. tab-set::
-
-    .. tab-item:: bash
-
-        .. code-block::
-
-            pip install --no-cache-dir -U struphy
-
-    .. tab-item:: zsh
-
-        .. code-block::
-
-            pip install --no-cache-dir -U struphy
-
-Compile kernels in ``c`` (default)::
-
-    struphy compile
-
-You can compile in Fortran via::
-    
-    struphy compile --language=fortran
-
-Other compile options can be accessed with::
-    
-    struphy compile -h
-
-
-.. _source_install:
-
-Source
-------
-
-Clone the `Struphy repository <https://gitlab.mpcdf.mpg.de/struphy/struphy>`_::
-
-    git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git
-    cd struphy
-
-Update pip::
-
-    pip install --upgrade pip
-
-Install Struphy:
-
-.. tab-set::
-
-    .. tab-item:: Development mode
-
-        .. code-block::
-
-            pip install --no-cache-dir -e .
-
-    .. tab-item:: Python environment
-
-        .. code-block::
-
-            pip install --no-cache-dir .
-
-    .. tab-item:: .local/lib
-
-        .. code-block::
-
-            pip install --no-cache-dir --user .
-
-Struphy features optional dependencies:
-
-.. tab-set::
-
-    .. tab-item:: bash
-
-        * ``pip install .[phys]`` enables some physics packages, see `pyproject.toml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/pyproject.toml?ref_type=heads>`_
-        * ``pip install .[dev]`` enables the development environment (testing, linting, formatting)
-        * ``pip install .[doc]`` enables :ref:`change_doc`
-
-        These can also be combined, as for example in ``pip install .[phys,dev,doc]``.
-
-    .. tab-item:: zsh
-
-        * ``pip install ."[phys]"`` enables some physics packages, see `pyproject.toml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/pyproject.toml?ref_type=heads>`_
-        * ``pip install ."[dev]"`` enables the development environment (testing, linting, formatting)
-        * ``pip install ."[doc]"`` enables :ref:`change_doc`
-
-        These can also be combined, as for example in ``pip install ."[phys,dev,doc]"``.
-
-Compile kernels in ``c`` (default)::
-
-    struphy compile
-
-You can compile in Fortran via::
-    
-    struphy compile --language=fortran
-
-Other compile options can be accessed with::
-    
-    struphy compile -h
-
-
 .. _args:
 
 Argument completion
@@ -331,14 +248,12 @@ and follow the instructions. For activation you need to restart your shell, for 
 Docker
 ------
 
-With this installation you will be able to run Struphy in a `docker container <https://www.docker.com/resources/what-container/>`_, 
+You can run Struphy in a `docker container <https://www.docker.com/resources/what-container/>`_, 
 encapsulated from your host machine.
 The container is launched from an `image <https://docs.docker.com/get-started/overview/#docker-objects>`_ 
 which you can download and run immediately, irrespective of your architecture and OS.
 
-`Link to Struphy's container registry <https://gitlab.mpcdf.mpg.de/struphy/struphy/container_registry>`
-
-Check out the `corresponding docker files <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/tree/devel/docker?ref_type=heads>`_.
+`Struphy's Github package registry <https://github.com/orgs/struphy-hub/packages>`_
 
 .. _user_install:
 
@@ -367,22 +282,17 @@ To use Struphy via docker, perform the following steps:
 
         It is recommended to read the `Windows permission requirements <https://docs.docker.com/desktop/windows/permission-requirements/>`_
 
-2. Login to the MPCDF Gitlab registry using a predefined Struphy user and token::
+2. Pull one of the availabale images listed above (< 1 GB in size), for instance::
 
-    TOKEN=glpat-YzkatDxAYT1JZtyj9KjS; echo "$TOKEN" | docker login gitlab-registry.mpcdf.mpg.de -u struphy-hub-read-registry --password-stdin
-    docker login gitlab-registry.mpcdf.mpg.de -u struphy-hub-read-registry -p glpat-YzkatDxAYT1JZtyj9KjS
+    docker pull ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
 
-3. Pull one of the availabale images listed above (< 1 GB in size), for instance::
+3. Run the container::
 
-    docker pull gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
-
-4. Run the container::
-
-    docker run -it gitlab-registry.mpcdf.mpg.de/struphy/struphy/struphy_ubuntu_python_3_11
+    docker run -it ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
 
 The option ``-i`` stands for interactive while ``-t`` gives you a terminal.
 
-5. Continue with one of the installation methods above (PyPI or source).
+4. Install Struphy.
 
 
 Important docker commands
@@ -406,10 +316,10 @@ Docker for devs
 ^^^^^^^^^^^^^^^
 
 Docker is well-suited for developers on any kind of platform. 
-In order to interact with ``gitlab.mpcdf`` you need to mirror your **private ssh key** into the container 
+In order to interact with Github you need to mirror your **private ssh key** into the container 
 with the ``-v`` option. For a ``rsa`` key this is done with::
 
-    docker run -it -v ~/.ssh/id_rsa:/root/.ssh/id_rsa gitlab-registry.mpcdf.mpg.de/struphy/struphy/ubuntu:latest
+    docker run -it -v ~/.ssh/id_rsa:/root/.ssh/id_rsa ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
 
 On OS other than Linux ``~/.ssh/id_rsa`` must be replaced with the path to the private rsa key.
 
