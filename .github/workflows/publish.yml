@@ -1,4 +1,4 @@
-# name: Publish Python Package
+name: Publish Struphy to PyPI
 
 on:
   push:
