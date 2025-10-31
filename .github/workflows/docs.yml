@@ -4,11 +4,10 @@ on:
   push:
     branches:
       - main
-      - devel
   # only for the PR:
   pull_request:
     branches:
-      - devel
+      - devel-clean
 
   workflow_dispatch:
 
