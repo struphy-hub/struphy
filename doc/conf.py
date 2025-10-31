@@ -62,6 +62,7 @@ extensions = [
     "sphinx.ext.graphviz",
     "myst_parser",
     "sphinx_design",
+    'sphinx_copybutton',
 ]
 
 nbsphinx_execute = "auto"
