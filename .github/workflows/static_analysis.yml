@@ -4,11 +4,11 @@ on:
   push:
     branches:
       - main
-      - devel
+      - devel-clean
   pull_request:
     branches:
       - main
-      - devel
+      - devel-clean
 
 # concurrency:
 #   group: ${{ github.ref }}
