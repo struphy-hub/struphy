@@ -802,7 +802,7 @@ def load_data(path: str) -> SimData:
                     raise NotImplementedError
 
     print("\nThe following data has been loaded:")
-    print("\ngrids:")
+    print(f"\ngrids:")
     print(f"{simdata.t_grid.shape =}")
     if simdata.grids_log is not None:
         print(f"{simdata.grids_log[0].shape =}")
@@ -812,22 +812,22 @@ def load_data(path: str) -> SimData:
         print(f"{simdata.grids_phy[0].shape =}")
         print(f"{simdata.grids_phy[1].shape =}")
         print(f"{simdata.grids_phy[2].shape =}")
-    print("\nsimdata.spline_values:")
+    print(f"\nsimdata.spline_values:")
     for k, v in simdata.spline_values.items():
         print(f"  {k}")
         for kk, vv in v.items():
             print(f"    {kk}")
-    print("\nsimdata.orbits:")
+    print(f"\nsimdata.orbits:")
     for k, v in simdata.orbits.items():
         print(f"  {k}")
-    print("\nsimdata.f:")
+    print(f"\nsimdata.f:")
     for k, v in simdata.f.items():
         print(f"  {k}")
         for kk, vv in v.items():
             print(f"    {kk}")
             for kkk, vvv in vv.items():
                 print(f"      {kkk}")
-    print("\nsimdata.n_sph:")
+    print(f"\nsimdata.n_sph:")
     for k, v in simdata.n_sph.items():
         print(f"  {k}")
         for kk, vv in v.items():

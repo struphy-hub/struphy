@@ -63,7 +63,7 @@ class LinOpWithTransp(LinearOperator):
             rank = comm.Get_rank()
             size = comm.Get_size()
 
-        if not is_sparse:
+        if is_sparse == False:
             if out is None:
                 # We declare the matrix form of our linear operator
                 out = xp.zeros([self.codomain.dimension, self.domain.dimension], dtype=self.dtype)
@@ -149,7 +149,7 @@ class LinOpWithTransp(LinearOperator):
                         # Compute to which column this iteration belongs
                         col = spoint
                         col += xp.ravel_multi_index(i, npts[h])
-                        if not is_sparse:
+                        if is_sparse == False:
                             result[:, col] = tmp2.toarray()
                         else:
                             aux = tmp2.toarray()
@@ -220,7 +220,7 @@ class LinOpWithTransp(LinearOperator):
                     self.dot(v, out=tmp2)
                     # Compute to which column this iteration belongs
                     col = xp.ravel_multi_index(i, npts)
-                    if not is_sparse:
+                    if is_sparse == False:
                         result[:, col] = tmp2.toarray()
                     else:
                         aux = tmp2.toarray()
@@ -237,7 +237,7 @@ class LinOpWithTransp(LinearOperator):
             # I cannot conceive any situation where this error should be thrown, but I put it here just in case something unexpected happens.
             raise Exception("Function toarray_struphy() only supports Stencil Vectors or Block Vectors.")
 
-        if not is_sparse:
+        if is_sparse == False:
             # Use Allreduce to perform addition reduction and give one copy of the result to all ranks.
             if comm is None or isinstance(comm, MockComm):
                 out[:] = result

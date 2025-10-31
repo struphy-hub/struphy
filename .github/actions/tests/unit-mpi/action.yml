@@ -1,0 +1,9 @@
+name: "Run unit tests with MPI"
+
+runs:
+  using: composite
+  steps:
+    - name: Run unit tests with MPI
+      shell: bash
+      run: |
+        struphy test unit --mpi 2

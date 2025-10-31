@@ -17,3 +17,6 @@ runs:
           struphy compile -d -y &&
           struphy compile -y --language ${{ matrix.compile-language }}
         )
+        struphy compile --status
+        struphy --refresh-models
+

@@ -142,7 +142,7 @@ class Particles6D(Particles):
             The 0-form sampling density.
         -------
         """
-        assert self.domain, "self.domain must be set to call the sampling density 0-form."
+        assert self.domain, f"self.domain must be set to call the sampling density 0-form."
 
         return self.domain.transform(
             self.svol(eta1, eta2, eta3, *v),

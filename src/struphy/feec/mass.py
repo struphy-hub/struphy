@@ -905,7 +905,7 @@ class WeightedMassOperators:
             if weights_rank2:
                 # if matrix exits
                 fun = []
-                if listinput and len(weights_rank2) == 1:
+                if listinput == True and len(weights_rank2) == 1:
                     for m in range(3):
                         fun += [[]]
                         for n in range(3):
@@ -2518,10 +2518,10 @@ class WeightedMassOperator(LinOpWithTransp):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".tosparse() only works without boundary conditions at the moment")
+                    assert bc == False, print(".tosparse() only works without boundary conditions at the moment")
             for bl in self._W_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".tosparse() only works without boundary conditions at the moment")
+                    assert bc == False, print(".tosparse() only works without boundary conditions at the moment")
 
             return self._mat.tosparse()
         elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):
@@ -2534,10 +2534,10 @@ class WeightedMassOperator(LinOpWithTransp):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".toarray() only works without boundary conditions at the moment")
+                    assert bc == False, print(".toarray() only works without boundary conditions at the moment")
             for bl in self._W_boundary_op.bc:
                 for bc in bl:
-                    assert not bc, print(".toarray() only works without boundary conditions at the moment")
+                    assert bc == False, print(".toarray() only works without boundary conditions at the moment")
 
             return self._mat.toarray()
         elif all(isinstance(op, IdentityOperator) for op in (self._W_extraction_op, self._V_extraction_op)):

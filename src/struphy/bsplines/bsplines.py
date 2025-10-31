@@ -164,7 +164,7 @@ def basis_funs(knots, degree, x, span, normalize=False):
             saved = left[j - r] * temp
         values[j + 1] = saved
 
-    if normalize:
+    if normalize == True:
         values = values * scaling_vector(knots, degree, span)
 
     return values
@@ -735,7 +735,7 @@ def basis_ders_on_quad_grid(knots, degree, quad_grid, nders, normalize=False):
             span = find_span(knots, degree, xq)
             ders = basis_funs_all_ders(knots, degree, xq, span, nders)
 
-            if normalize:
+            if normalize == True:
                 ders = ders * scaling_vector(knots, degree, span)
 
             basis[ie, :, :, iq] = ders.transpose()

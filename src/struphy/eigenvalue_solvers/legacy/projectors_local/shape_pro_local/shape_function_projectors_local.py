@@ -304,7 +304,7 @@ class projectors_local_3d:
         self.coeff_i = [0, 0, 0]
         self.coeff_h = [0, 0, 0]
         for a in range(3):
-            if self.bc[a]:
+            if self.bc[a] == True:
                 self.coeff_i[a] = xp.zeros(2 * self.p[a], dtype=float)
                 self.coeff_h[a] = xp.zeros(2 * self.p[a], dtype=float)
 
@@ -686,7 +686,7 @@ class projectors_local_3d:
         -------
         kernel_0 matrix
         """
-        if self.bc[0] and self.bc[1] and self.bc[2]:
+        if self.bc[0] == True and self.bc[1] == True and self.bc[2] == True:
             ker_loc.potential_kernel_0_form(
                 Np,
                 self.p,
@@ -733,7 +733,7 @@ class projectors_local_3d:
         kernel_0 matrix
         """
         self.kernel_0[:, :, :, :, :, :] = 0.0
-        if self.bc[0] and self.bc[1] and self.bc[2]:
+        if self.bc[0] == True and self.bc[1] == True and self.bc[2] == True:
             ker_loc.kernel_0_form(
                 Np,
                 self.p,
@@ -795,7 +795,7 @@ class projectors_local_3d:
         self.right_loc_2[:, :, :] = 0.0
         self.right_loc_3[:, :, :] = 0.0
 
-        if self.bc[0] and self.bc[1] and self.bc[2]:
+        if self.bc[0] == True and self.bc[1] == True and self.bc[2] == True:
             ker_loc.kernel_1_form(
                 self.right_loc_1,
                 self.right_loc_2,
@@ -882,7 +882,7 @@ class projectors_local_3d:
         self.right_loc_2[:, :, :] = 0.0
         self.right_loc_3[:, :, :] = 0.0
 
-        if self.bc[0] and self.bc[1] and self.bc[2]:
+        if self.bc[0] == True and self.bc[1] == True and self.bc[2] == True:
             ker_loc.kernel_01_form(
                 self.right_loc_1,
                 self.right_loc_2,
@@ -933,7 +933,7 @@ class projectors_local_3d:
             print("non-periodic case not implemented!!!")
 
     def vv_S1(self, particles_loc, Np, domain, index_label, accvv, dt, mpi_comm):
-        if self.bc[0] and self.bc[1] and self.bc[2]:
+        if self.bc[0] == True and self.bc[1] == True and self.bc[2] == True:
             if index_label == 1:
                 ker_loc.vv_1_form(
                     self.wts[0][0],

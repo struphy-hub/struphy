@@ -94,7 +94,7 @@ class BracketOperator(LinOpWithTransp):
         self.Pcoord3 = CoordinateProjector(2, derham.Vh_pol["v"], derham.Vh_pol["0"]) @ derham.boundary_ops["v"]
 
         # Initialize the BasisProjectionOperators
-        if derham._with_local_projectors:
+        if derham._with_local_projectors == True:
             self.PiuT = BasisProjectionOperatorLocal(
                 P0,
                 V1h,

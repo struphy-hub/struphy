@@ -19,7 +19,7 @@ class PolarDerhamSpace(VectorSpace):
     """
 
     def __init__(self, derham, space_id):
-        assert not derham.spl_kind[0], "Spline basis in eta1 must be clamped"
+        assert derham.spl_kind[0] == False, "Spline basis in eta1 must be clamped"
         assert derham.spl_kind[1], "Spline basis in eta2 must be periodic"
         assert (derham.Nel[1] / 3) % 1 == 0.0, "Number of elements in eta2 must be a multiple of 3"
 

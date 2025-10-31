@@ -2190,7 +2190,7 @@ class ShearAlfvenCurrentCoupling5D(Propagator):
         self._bf = self.derham.create_spline_function("bf", "Hdiv")
 
         # Initialize BasisProjectionOperator
-        if self.derham._with_local_projectors:
+        if self.derham._with_local_projectors == True:
             self._TB = BasisProjectionOperatorLocal(
                 P1,
                 Vh,
@@ -8638,7 +8638,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
             # _Anp[1] and _Anppre[1] remain unchanged
             _Anp = [A11np, A22np]
-            if self._preconditioner:
+            if self._preconditioner == True:
                 _A11prenp = self._M2np / dt  # + self._A11prenp_notimedependency
                 _Anppre = [_A11prenp, _A22prenp]
 
@@ -8675,7 +8675,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 _Fnp = [_F1np, _F2np]
 
             if self.rank == 0:
-                if self._preconditioner:
+                if self._preconditioner == True:
                     self._solver_UzawaNumpy.Apre = _Anppre
                 self._solver_UzawaNumpy.A = _Anp
                 self._solver_UzawaNumpy.F = _Fnp
@@ -8722,7 +8722,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 e = phi_temp.ends
                 phi_temp[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = phin.reshape(*dimphi)
             else:
-                print("TwoFluidQuasiNeutralFull is only running on one MPI.")
+                print(f"TwoFluidQuasiNeutralFull is only running on one MPI.")
 
             # write new coeffs into self.feec_vars
             max_du, max_due, max_dphi = self.update_feec_variables(u=u_temp, ue=ue_temp, phi=phi_temp)

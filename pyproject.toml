@@ -35,6 +35,7 @@ dependencies = [
     'argcomplete',
     'pytest',
     'pytest-mpi',
+    'pytest-testmon',
     'line_profiler',
 ]
 
@@ -133,6 +134,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 struphy = [
     "compile_struphy.mk",
     "psydac-2.5.0.dev0-py3-none-any.whl",
+    "conftest.py",
 ]
 
 [tool.autopep8]
@@ -154,7 +156,6 @@ max-line-length = 120
 
 [tool.ruff]
 line-length = 120
-# exclude = ["__pyccel__"]
 
 [tool.ruff.lint]
 ignore = [
@@ -172,7 +173,6 @@ ignore = [
     "F405",
     "D211",
     "D213",
-    "F841", # Ignore unused variables
 ]
 
 [tool.pytest.ini_options]
@@ -184,3 +184,5 @@ markers = [
     "hybrid",
     "single",
 ]
+
+

@@ -2385,7 +2385,7 @@ def find_relative_col(col, row, Nbasis, periodic):
         The relative column position of col with respect to the the current row of the StencilMatrix.
 
     """
-    if not periodic:
+    if periodic == False:
         relativecol = col - row
     # In the periodic case we must account for the possible looping of the basis functions when computing the relative row postion
     else:

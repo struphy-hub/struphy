@@ -106,7 +106,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         if MPI.COMM_WORLD.Get_rank() == 0 and self.verbose:
             print("\nDOMAIN:")
-            print("type:".ljust(25), self.domain.__class__.__name__)
+            print(f"type:".ljust(25), self.domain.__class__.__name__)
             for key, val in self.domain.params.items():
                 if key not in {"cx", "cy", "cz"}:
                     print((key + ":").ljust(25), val)
@@ -428,13 +428,13 @@ class StruphyModel(metaclass=ABCMeta):
         def setInDict(dataDict, mapList, value):
             # Loop over dicitionary and creaty empty dicts where the path does not exist
             for k in range(len(mapList)):
-                if mapList[k] not in getFromDict(dataDict, mapList[:k]).keys():
+                if not mapList[k] in getFromDict(dataDict, mapList[:k]).keys():
                     getFromDict(dataDict, mapList[:k])[mapList[k]] = {}
             getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
 
         # make sure that the base keys are top-level keys
         for base_key in ["em_fields", "fluid", "kinetic"]:
-            if base_key not in dct.keys():
+            if not base_key in dct.keys():
                 dct[base_key] = {}
 
         if isinstance(species, str):
@@ -721,7 +721,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         for name, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+            assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
             for _, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
                 obj = var.particles
@@ -746,7 +746,7 @@ class StruphyModel(metaclass=ABCMeta):
 
         for name, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+            assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
             for _, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
                 obj = var.particles
@@ -1107,7 +1107,7 @@ class StruphyModel(metaclass=ABCMeta):
         # save kinetic data in group 'kinetic/'
         for name, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
-            assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+            assert len(species.variables) == 1, f"More than 1 variable per kinetic species is not allowed."
             for varname, var in species.variables.items():
                 assert isinstance(var, PICVariable | SPHVariable)
                 obj = var.particles
@@ -1233,6 +1233,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         import yaml
 
+        import struphy
         import struphy.utils.utils as utils
 
         # Read struphy state file
@@ -1331,15 +1332,15 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
                 has_plasma = True
                 species_params += f"model.{sn}.set_phys_params()\n"
                 if isinstance(species, ParticleSpecies):
-                    particle_params += "\nloading_params = LoadingParameters()\n"
-                    particle_params += "weights_params = WeightsParameters()\n"
-                    particle_params += "boundary_params = BoundaryParameters()\n"
+                    particle_params += f"\nloading_params = LoadingParameters()\n"
+                    particle_params += f"weights_params = WeightsParameters()\n"
+                    particle_params += f"boundary_params = BoundaryParameters()\n"
                     particle_params += f"model.{sn}.set_markers(loading_params=loading_params,\n"
-                    txt = "weights_params=weights_params,\n"
+                    txt = f"weights_params=weights_params,\n"
                     particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                    txt = "boundary_params=boundary_params,\n"
+                    txt = f"boundary_params=boundary_params,\n"
                     particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
-                    txt = ")\n"
+                    txt = f")\n"
                     particle_params += indent(txt, " " * len(f"model.{sn}.set_markers("))
                     particle_params += f"model.{sn}.set_sorting_boxes()\n"
                     particle_params += f"model.{sn}.set_save_data()\n"
@@ -1360,40 +1361,38 @@ model.{sn}.{vn}.add_perturbation(perturbations.TorusModesCos(given_in_basis='v',
 
                 elif isinstance(var, PICVariable):
                     has_pic = True
-                    init_pert_pic = (
-                        "\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
-                    )
-                    init_pert_pic += "perturbation = perturbations.TorusModesCos()\n"
+                    init_pert_pic = f"\n# if .add_initial_condition is not called, the background is the kinetic initial condition\n"
+                    init_pert_pic += f"perturbation = perturbations.TorusModesCos()\n"
                     if "6D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
-                        init_bckgr_pic += "maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
-                        init_pert_pic += "maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
-                        init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
+                        init_bckgr_pic = f"maxwellian_1 = maxwellians.Maxwellian3D(n=(1.0, None))\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.Maxwellian3D(n=(0.1, None))\n"
+                        init_pert_pic += f"maxwellian_1pt = maxwellians.Maxwellian3D(n=(1.0, perturbation))\n"
+                        init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     elif "5D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
-                        init_bckgr_pic += "maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
+                        init_bckgr_pic = f"maxwellian_1 = maxwellians.GyroMaxwellian2D(n=(1.0, None), equil=equil)\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.GyroMaxwellian2D(n=(0.1, None), equil=equil)\n"
                         init_pert_pic += (
-                            "maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
+                            f"maxwellian_1pt = maxwellians.GyroMaxwellian2D(n=(1.0, perturbation), equil=equil)\n"
                         )
-                        init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
+                        init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
                     if "3D" in var.space:
-                        init_bckgr_pic = "maxwellian_1 = maxwellians.ColdPlasma(n=(1.0, None))\n"
-                        init_bckgr_pic += "maxwellian_2 = maxwellians.ColdPlasma(n=(0.1, None))\n"
-                        init_pert_pic += "maxwellian_1pt = maxwellians.ColdPlasma(n=(1.0, perturbation))\n"
-                        init_pert_pic += "init = maxwellian_1pt + maxwellian_2\n"
+                        init_bckgr_pic = f"maxwellian_1 = maxwellians.ColdPlasma(n=(1.0, None))\n"
+                        init_bckgr_pic += f"maxwellian_2 = maxwellians.ColdPlasma(n=(0.1, None))\n"
+                        init_pert_pic += f"maxwellian_1pt = maxwellians.ColdPlasma(n=(1.0, perturbation))\n"
+                        init_pert_pic += f"init = maxwellian_1pt + maxwellian_2\n"
                         init_pert_pic += f"model.{sn}.{vn}.add_initial_condition(init)\n"
-                    init_bckgr_pic += "background = maxwellian_1 + maxwellian_2\n"
+                    init_bckgr_pic += f"background = maxwellian_1 + maxwellian_2\n"
                     init_bckgr_pic += f"model.{sn}.{vn}.add_background(background)\n"
 
-                    exclude = "# model.....save_data = False\n"
+                    exclude = f"# model.....save_data = False\n"
 
                 elif isinstance(var, SPHVariable):
                     has_sph = True
-                    init_bckgr_sph = "background = equils.ConstantVelocity()\n"
+                    init_bckgr_sph = f"background = equils.ConstantVelocity()\n"
                     init_bckgr_sph += f"model.{sn}.{vn}.add_background(background)\n"
-                    init_pert_sph = "perturbation = perturbations.TorusModesCos()\n"
+                    init_pert_sph = f"perturbation = perturbations.TorusModesCos()\n"
                     init_pert_sph += f"model.{sn}.{vn}.add_perturbation(del_n=perturbation)\n"
                 exclude = f"# model.{sn}.{vn}.save_data = False\n"
 
@@ -1584,23 +1583,23 @@ You can now launch a simulation with 'python params_{self.__class__.__name__}.py
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print("\nPLASMA PARAMETERS:")
             print(
-                "Plasma volume:".ljust(25),
+                f"Plasma volume:".ljust(25),
                 "{:4.3e}".format(plasma_volume) + units_affix["plasma volume"],
             )
             print(
-                "Transit length:".ljust(25),
+                f"Transit length:".ljust(25),
                 "{:4.3e}".format(transit_length) + units_affix["transit length"],
             )
             print(
-                "Avg. magnetic field:".ljust(25),
+                f"Avg. magnetic field:".ljust(25),
                 "{:4.3e}".format(magnetic_field) + units_affix["magnetic field"],
             )
             print(
-                "Max magnetic field:".ljust(25),
+                f"Max magnetic field:".ljust(25),
                 "{:4.3e}".format(B_max) + units_affix["magnetic field"],
             )
             print(
-                "Min magnetic field:".ljust(25),
+                f"Min magnetic field:".ljust(25),
                 "{:4.3e}".format(B_min) + units_affix["magnetic field"],
             )
 

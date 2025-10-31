@@ -45,13 +45,13 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
 
     # print grid info
     print("\nGrid parameters:")
-    print("number of elements :", num_params["Nel"])
-    print("spline degrees     :", num_params["p"])
-    print("periodic bcs       :", num_params["spl_kind"])
-    print("hom. Dirichlet bc  :", num_params["bc"])
-    print("GL quad pts (L2)   :", num_params["nq_el"])
-    print("GL quad pts (hist) :", num_params["nq_pr"])
-    print("polar Ck           :", num_params["polar_ck"])
+    print(f"number of elements :", num_params["Nel"])
+    print(f"spline degrees     :", num_params["p"])
+    print(f"periodic bcs       :", num_params["spl_kind"])
+    print(f"hom. Dirichlet bc  :", num_params["bc"])
+    print(f"GL quad pts (L2)   :", num_params["nq_el"])
+    print(f"GL quad pts (hist) :", num_params["nq_pr"])
+    print(f"polar Ck           :", num_params["polar_ck"])
     print("")
 
     # extract numerical parameters

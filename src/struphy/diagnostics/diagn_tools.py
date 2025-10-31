@@ -683,7 +683,7 @@ def plots_videos_2d(
 
         df_binned = df_data[tuple(f_slicing)].squeeze()
 
-        assert t_grid.ndim == grid_1.ndim == grid_2.ndim == 1, "Input arrays must be 1D!"
+        assert t_grid.ndim == grid_1.ndim == grid_2.ndim == 1, f"Input arrays must be 1D!"
         assert df_binned.shape[0] == t_grid.size, f"{df_binned.shape =}, {t_grid.shape =}"
         assert df_binned.shape[1] == grid_1.size, f"{df_binned.shape =}, {grid_1.shape =}"
         assert df_binned.shape[2] == grid_2.size, f"{df_binned.shape =}, {grid_2.shape =}"

@@ -3,19 +3,17 @@ name: "Run unit tests"
 runs:
   using: composite
   steps:
-    - name: Run unit tests with MPI
-      shell: bash
-      run: |
-        struphy compile --status
-        struphy --refresh-models
-        struphy test unit --mpi 2
 
-    - name: Run unit tests
+    - name: Uninstall MPI
       shell: bash
       run: |
-        struphy compile --status
-        struphy --refresh-models
         pip show mpi4py
         pip uninstall -y mpi4py
         pip list
+
+    - name: Run unit tests without MPI
+      shell: bash
+      env:
+        TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-${{ matrix.test-type }}
+      run: |
         struphy test unit
