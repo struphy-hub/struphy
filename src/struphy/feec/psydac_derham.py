@@ -2,6 +2,7 @@
 import importlib.metadata
 
 import cunumpy as xp
+import numpy as np
 import psydac.core.bsplines as bsp
 from psydac.ddm.cart import DomainDecomposition
 from psydac.ddm.mpi import MockComm, MockMPI
@@ -117,7 +118,7 @@ class Derham:
         if dirichlet_bc is not None:
             assert len(dirichlet_bc) == 3
             # make sure that boundary conditions are compatible with spline space
-            assert xp.all([bc == (False, False) for i, bc in enumerate(dirichlet_bc) if spl_kind[i]])
+            assert xp.all(xp.array([bc == (False, False) for i, bc in enumerate(dirichlet_bc) if spl_kind[i]]))
 
         self._dirichlet_bc = dirichlet_bc
 
@@ -2789,12 +2790,17 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             union_breaks = space_1d.breaks[:-1]
 
         # Make union of Greville and break points
-        tmp = set(xp.round(space_1d.histopolation_grid, decimals=14)).union(
-            xp.round(union_breaks, decimals=14),
-        )
+        # tmp = set(xp.round(space_1d.histopolation_grid, decimals=14)).union(
+        #     xp.round(union_breaks, decimals=14),
+        # )
+        # tmp = list(tmp)
+        # tmp.sort()
+        # tmp_a = xp.array(tmp)
 
-        tmp = list(tmp)
-        tmp.sort()
+        tmp = set(xp.round(space_1d.histopolation_grid, decimals=14).tolist()).union(
+            xp.round(union_breaks, decimals=14).tolist()
+        )
+        tmp = sorted(tmp)
         tmp_a = xp.array(tmp)
 
         x_grid = tmp_a[
@@ -2822,7 +2828,13 @@ def get_pts_and_wts(space_1d, start, end, n_quad=None, polar_shift=False):
             # products of basis functions are integrated exactly
             n_quad = space_1d.degree + 1
 
-        pts_loc, wts_loc = xp.polynomial.legendre.leggauss(n_quad)
+        pts_loc, wts_loc = np.polynomial.legendre.leggauss(n_quad)
+
+        if "cupy" in xp.__name__:
+            import cupy as cp
+
+            pts_loc = cp.array(pts_loc)
+            wts_loc = cp.array(wts_loc)
 
         x, wts = bsp.quadrature_grid(x_grid, pts_loc, wts_loc)
 

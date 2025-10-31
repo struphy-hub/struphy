@@ -104,7 +104,7 @@ class PushEta(Propagator):
         import cunumpy as xp
 
         butcher._a = xp.diag(butcher.a, k=-1)
-        butcher._a = xp.array(list(butcher.a) + [0.0])
+        butcher._a = xp.concatenate([xp.asarray(butcher.a), xp.array([0.0])])
 
         args_kernel = (
             butcher.a,
@@ -867,7 +867,7 @@ class PushGuidingCenterBxEstar(Propagator):
             import cunumpy as xp
 
             butcher._a = xp.diag(butcher.a, k=-1)
-            butcher._a = xp.array(list(butcher.a) + [0.0])
+            butcher._a = xp.concatenate([xp.asarray(butcher.a), xp.array([0.0])])
 
             kernel = Pyccelkernel(pusher_kernels_gc.push_gc_bxEstar_explicit_multistage)
 
@@ -1315,7 +1315,7 @@ class PushGuidingCenterParallel(Propagator):
             import cunumpy as xp
 
             butcher._a = xp.diag(butcher.a, k=-1)
-            butcher._a = xp.array(list(butcher.a) + [0.0])
+            butcher._a = xp.concatenate([xp.asarray(butcher.a), xp.array([0.0])])
 
             kernel = Pyccelkernel(pusher_kernels_gc.push_gc_Bstar_explicit_multistage)
 
@@ -1778,7 +1778,7 @@ class PushVinSPHpressure(Propagator):
         self._pusher(dt)
 
 
-class PushVinViscousPotential2D(Propagator):
+class PushVinViscousPotential(Propagator):
     r"""For each marker :math:`p`, solves
 
     .. math::
@@ -1909,7 +1909,7 @@ class PushVinViscousPotential2D(Propagator):
         self._pusher(dt)
 
 
-class PushVinViscousPotential3D(Propagator):
+class PushVinViscousPotential(Propagator):
     r"""For each marker :math:`p`, solves
 
     .. math::

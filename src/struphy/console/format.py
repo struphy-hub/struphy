@@ -409,7 +409,7 @@ def parse_path(directory):
         for filename in files:
             if re.search(r"__\w+__", root):
                 continue
-            if (filename.endswith(".py") or filename.endswith(".ipynb")) and not re.search(r"__\w+__", filename):
+            if filename.endswith(".py") and not re.search(r"__\w+__", filename):
                 file_path = os.path.join(root, filename)
                 python_files.append(file_path)
     # exit()
@@ -484,9 +484,7 @@ def get_python_files(input_type, path=None):
 
         # python_files = [f for f in files if f.endswith(".py") and os.path.isfile(f)]
         python_files = [
-            os.path.join(repopath, f)
-            for f in files
-            if (f.endswith(".py") or f.endswith(".ipynb")) and os.path.isfile(os.path.join(repopath, f))
+            os.path.join(repopath, f) for f in files if f.endswith(".py") and os.path.isfile(os.path.join(repopath, f))
         ]
 
         if not python_files:

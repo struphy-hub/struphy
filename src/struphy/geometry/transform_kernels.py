@@ -43,7 +43,14 @@
 - 2-form --> vector : (a_1, a_2, a_3) =          (a^2_1, a^2_2, a^2_3) / |det(DF)|
 """
 
-from numpy import empty, shape, sqrt, zeros
+import cunumpy as np
+from cunumpy.xp import array_backend
+
+if array_backend.backend == "cupy":
+    from cupy import empty, shape, sqrt, zeros
+else:
+    from numpy import empty, shape, sqrt, zeros
+
 from pyccel.decorators import stack_array
 
 import struphy.geometry.evaluation_kernels as evaluation_kernels

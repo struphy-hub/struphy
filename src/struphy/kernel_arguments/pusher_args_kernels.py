@@ -1,5 +1,5 @@
 # from numpy import copy
-from numpy import empty
+import cunumpy as xp
 
 
 class MarkerArguments:
@@ -99,12 +99,12 @@ class DerhamArguments:
         self.tn3 = tn3
         self.starts = starts
 
-        self.bn1 = empty(pn[0] + 1, dtype=float)
-        self.bn2 = empty(pn[1] + 1, dtype=float)
-        self.bn3 = empty(pn[2] + 1, dtype=float)
-        self.bd1 = empty(pn[0], dtype=float)
-        self.bd2 = empty(pn[1], dtype=float)
-        self.bd3 = empty(pn[2], dtype=float)
+        self.bn1 = xp.empty(int(pn[0] + 1), dtype=float)
+        self.bn2 = xp.empty(int(pn[1] + 1), dtype=float)
+        self.bn3 = xp.empty(int(pn[2] + 1), dtype=float)
+        self.bd1 = xp.empty(int(pn[0]), dtype=float)
+        self.bd2 = xp.empty(int(pn[1]), dtype=float)
+        self.bd3 = xp.empty(int(pn[2]), dtype=float)
 
 
 class DomainArguments:

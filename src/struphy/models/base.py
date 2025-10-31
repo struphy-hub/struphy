@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 from functools import reduce
 from textwrap import indent
 
+import numpy as np
 import cunumpy as xp
 import yaml
 from line_profiler import profile
@@ -521,11 +522,12 @@ class StruphyModel(metaclass=ABCMeta):
 
         if summands is None:
             # Ensure the value is a float if there are no summands
-            assert isinstance(value, float)
-
-            # Create a numpy array to hold the scalar value
-            value_array = xp.array([value], dtype=xp.float64)
-
+            if isinstance(value, float):
+                # Create a numpy array to hold the scalar value
+                value_array = np.array([value])
+            else:
+                value_array = np.asarray(value)
+            value_array = np.array(value_array)
             # Perform MPI operations based on the compute flags
             if "sum_world" in compute_operations and not isinstance(MPI, MockMPI):
                 MPI.COMM_WORLD.Allreduce(
@@ -562,11 +564,14 @@ class StruphyModel(metaclass=ABCMeta):
 
             if "divide_n_mks" in compute_operations:
                 # Initialize the total number of markers
-                n_mks_tot = xp.array([variable.particles.Np])
+                n_mks_tot = np.array([variable.particles.Np])
                 value_array /= n_mks_tot
 
             # Update the scalar value
-            self._scalar_quantities[name]["value"][0] = value_array[0]
+            if value_array.ndim == 0:
+                self._scalar_quantities[name]["value"][0] = value_array.item()
+            else:
+                self._scalar_quantities[name]["value"][0] = value_array[0]
 
         else:
             # Sum the values of the summands
@@ -776,7 +781,7 @@ class StruphyModel(metaclass=ABCMeta):
                     h2 = 1 / obj.boxes_per_dim[1]
                     h3 = 1 / obj.boxes_per_dim[2]
 
-                    ndim = xp.count_nonzero([d > 1 for d in obj.boxes_per_dim])
+                    ndim = xp.count_nonzero(xp.array([d > 1 for d in obj.boxes_per_dim]))
                     if ndim == 0:
                         kernel_type = "gaussian_3d"
                     else:
@@ -1233,6 +1238,7 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
 
         import yaml
 
+        import struphy
         import struphy.utils.utils as utils
 
         # Read struphy state file
