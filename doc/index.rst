@@ -1,3 +1,7 @@
+Welcome to
+==========
+
+
 .. image:: pics/struphy_header_with_subs.png
     :align: center
     :scale: 80
