@@ -297,19 +297,7 @@ def naive_evaluation_meshgrid(
                 e2 = eta2[i, j, k]
                 e3 = eta3[i, j, k]
                 out[i, j, k] = naive_evaluation_kernel(
-                    args_markers,
-                    e1,
-                    e2,
-                    e3,
-                    holes,
-                    periodic1,
-                    periodic2,
-                    periodic3,
-                    index,
-                    kernel_type,
-                    h1,
-                    h2,
-                    h3,
+                    args_markers, e1, e2, e3, holes, periodic1, periodic2, periodic3, index, kernel_type, h1, h2, h3
                 )
 
 

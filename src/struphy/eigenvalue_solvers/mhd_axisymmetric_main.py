@@ -32,11 +32,11 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
     import os
     import time
 
-    import cunumpy as xp
     import scipy.sparse as spa
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    from struphy.utils.arrays import xp as np
 
     print("\nStart of eigenspectrum calculation for toroidal mode number", n_tor)
     print("")
@@ -45,13 +45,13 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
 
     # print grid info
     print("\nGrid parameters:")
-    print("number of elements :", num_params["Nel"])
-    print("spline degrees     :", num_params["p"])
-    print("periodic bcs       :", num_params["spl_kind"])
-    print("hom. Dirichlet bc  :", num_params["bc"])
-    print("GL quad pts (L2)   :", num_params["nq_el"])
-    print("GL quad pts (hist) :", num_params["nq_pr"])
-    print("polar Ck           :", num_params["polar_ck"])
+    print(f"number of elements :", num_params["Nel"])
+    print(f"spline degrees     :", num_params["p"])
+    print(f"periodic bcs       :", num_params["spl_kind"])
+    print(f"hom. Dirichlet bc  :", num_params["bc"])
+    print(f"GL quad pts (L2)   :", num_params["nq_el"])
+    print(f"GL quad pts (hist) :", num_params["nq_pr"])
+    print(f"polar Ck           :", num_params["polar_ck"])
     print("")
 
     # extract numerical parameters
@@ -72,12 +72,7 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
 
     # set up 2d tensor-product space
     space_2d = Tensor_spline_space(
-        [space_1d_1, space_1d_2],
-        polar_ck,
-        eq_mhd.domain.cx[:, :, 0],
-        eq_mhd.domain.cy[:, :, 0],
-        n_tor,
-        basis_tor,
+        [space_1d_1, space_1d_2], polar_ck, eq_mhd.domain.cx[:, :, 0], eq_mhd.domain.cy[:, :, 0], n_tor, basis_tor
     )
 
     # set up 2d projectors
@@ -146,14 +141,14 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
         .dot(
             EF.T.dot(space_2d.C0.conjugate().T.dot(M2_0.dot(space_2d.C0.dot(EF))))
             + mhd_ops.MJ_mat.dot(space_2d.C0.dot(EF))
-            - space_2d.D0.conjugate().T.dot(M3_0.dot(L)),
+            - space_2d.D0.conjugate().T.dot(M3_0.dot(L))
         )
         .toarray()
     )
 
     print("Assembly of final system matrix done --> start of eigenvalue calculation")
 
-    omega2, U2_eig = xp.linalg.eig(MAT)
+    omega2, U2_eig = np.linalg.eig(MAT)
 
     print("Eigenstates calculated")
 
@@ -166,9 +161,8 @@ def solve_mhd_ev_problem_2d(num_params, eq_mhd, n_tor, basis_tor="i", path_out=N
         else:
             n_tor_str = "+" + str(n_tor)
 
-        xp.save(
-            os.path.join(path_out, "spec_n_" + n_tor_str + ".npy"),
-            xp.vstack((omega2.reshape(1, omega2.size), U2_eig)),
+        np.save(
+            os.path.join(path_out, "spec_n_" + n_tor_str + ".npy"), np.vstack((omega2.reshape(1, omega2.size), U2_eig))
         )
 
     # or return eigenfrequencies, eigenvectors and system matrix
@@ -186,7 +180,7 @@ if __name__ == "__main__":
 
     # parse arguments
     parser = argparse.ArgumentParser(
-        description="Computes the complete eigenspectrum for a given axisymmetric MHD equilibrium.",
+        description="Computes the complete eigenspectrum for a given axisymmetric MHD equilibrium."
     )
 
     parser.add_argument("n_tor", type=int, help="the toroidal mode number")

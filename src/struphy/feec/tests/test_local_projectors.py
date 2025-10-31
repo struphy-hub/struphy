@@ -1,7 +1,6 @@
 import inspect
 import time
 
-import cunumpy as xp
 import matplotlib.pyplot as plt
 import pytest
 from psydac.ddm.mpi import MockComm
@@ -13,6 +12,54 @@ from struphy.feec.basis_projection_ops import BasisProjectionOperator, BasisProj
 from struphy.feec.local_projectors_kernels import fill_matrix_column
 from struphy.feec.psydac_derham import Derham
 from struphy.feec.utilities_local_projectors import get_one_spline, get_span_and_basis, get_values_and_indices_splines
+from struphy.utils.arrays import xp as np
+
+
+def get_span_and_basis(pts, space):
+    """Compute the knot span index and the values of p + 1 basis function at each point in pts.
+
+    Parameters
+    ----------
+    pts : np.array
+        2d array of points (ii, iq) = (interval, quadrature point).
+
+    space : SplineSpace
+        Psydac object, the 1d spline space to be projected.
+
+    Returns
+    -------
+    span : np.array
+        2d array indexed by (n, nq), where n is the interval and nq is the quadrature point in the interval.
+
+    basis : np.array
+        3d array of values of basis functions indexed by (n, nq, basis function).
+    """
+
+    import psydac.core.bsplines as bsp
+
+    # Extract knot vectors, degree and kind of basis
+    T = space.knots
+    p = space.degree
+
+    span = np.zeros(pts.shape, dtype=int)
+    basis = np.zeros((*pts.shape, p + 1), dtype=float)
+
+    for n in range(pts.shape[0]):
+        for nq in range(pts.shape[1]):
+            # avoid 1. --> 0. for clamped interpolation
+            x = pts[n, nq] % (1.0 + 1e-14)
+            span_tmp = bsp.find_span(T, p, x)
+            basis[n, nq, :] = bsp.basis_funs_all_ders(
+                T,
+                p,
+                x,
+                span_tmp,
+                0,
+                normalization=space.basis,
+            )
+            span[n, nq] = span_tmp  # % space.nbasis
+
+    return span, basis
 
 
 @pytest.mark.parametrize("Nel", [[14, 16, 18]])
@@ -32,15 +79,15 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
 
     # constant function
     def f(e1, e2, e3):
-        return xp.sin(2.0 * xp.pi * e1) * xp.cos(4.0 * xp.pi * e2) * xp.sin(6.0 * xp.pi * e3)
+        return np.sin(2.0 * np.pi * e1) * np.cos(4.0 * np.pi * e2) * np.sin(6.0 * np.pi * e3)
 
-    # f = lambda e1, e2, e3: xp.sin(2.0*xp.pi*e1) * xp.cos(4.0*xp.pi*e2)
+    # f = lambda e1, e2, e3: np.sin(2.0*np.pi*e1) * np.cos(4.0*np.pi*e2)
     # evaluation points
-    e1 = xp.linspace(0.0, 1.0, 10)
-    e2 = xp.linspace(0.0, 1.0, 9)
-    e3 = xp.linspace(0.0, 1.0, 8)
+    e1 = np.linspace(0.0, 1.0, 10)
+    e2 = np.linspace(0.0, 1.0, 9)
+    e3 = np.linspace(0.0, 1.0, 8)
 
-    ee1, ee2, ee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
+    ee1, ee2, ee3 = np.meshgrid(e1, e2, e3, indexing="ij")
 
     # loop over spaces
     for sp_id, sp_key in derham.space_to_form.items():
@@ -79,29 +126,29 @@ def test_local_projectors_compare_global(Nel, p, spl_kind):
         fieldg_vals = fieldg(e1, e2, e3)
 
         if sp_id in ("H1", "L2"):
-            err = xp.max(xp.abs(f_analytic(ee1, ee2, ee3) - field_vals))
+            err = np.max(np.abs(f_analytic(ee1, ee2, ee3) - field_vals))
             # Error comparing the global and local projectors
-            errg = xp.max(xp.abs(fieldg_vals - field_vals))
+            errg = np.max(np.abs(fieldg_vals - field_vals))
 
         else:
-            err = xp.zeros(3)
-            err[0] = xp.max(xp.abs(f(ee1, ee2, ee3) - field_vals[0]))
-            err[1] = xp.max(xp.abs(f(ee1, ee2, ee3) - field_vals[1]))
-            err[2] = xp.max(xp.abs(f(ee1, ee2, ee3) - field_vals[2]))
+            err = np.zeros(3)
+            err[0] = np.max(np.abs(f(ee1, ee2, ee3) - field_vals[0]))
+            err[1] = np.max(np.abs(f(ee1, ee2, ee3) - field_vals[1]))
+            err[2] = np.max(np.abs(f(ee1, ee2, ee3) - field_vals[2]))
 
             # Error comparing the global and local projectors
-            errg = xp.zeros(3)
-            errg[0] = xp.max(xp.abs(fieldg_vals[0] - field_vals[0]))
-            errg[1] = xp.max(xp.abs(fieldg_vals[1] - field_vals[1]))
-            errg[2] = xp.max(xp.abs(fieldg_vals[2] - field_vals[2]))
+            errg = np.zeros(3)
+            errg[0] = np.max(np.abs(fieldg_vals[0] - field_vals[0]))
+            errg[1] = np.max(np.abs(fieldg_vals[1] - field_vals[1]))
+            errg[2] = np.max(np.abs(fieldg_vals[2] - field_vals[2]))
 
-        print(f"{sp_id =}, {xp.max(err) =}, {xp.max(errg) =},{exectime =}")
+        print(f"{sp_id = }, {np.max(err) = }, {np.max(errg) = },{exectime = }")
         if sp_id in ("H1", "H1vec"):
-            assert xp.max(err) < 0.011
-            assert xp.max(errg) < 0.011
+            assert np.max(err) < 0.011
+            assert np.max(errg) < 0.011
         else:
-            assert xp.max(err) < 0.1
-            assert xp.max(errg) < 0.1
+            assert np.max(err) < 0.1
+            assert np.max(errg) < 0.1
 
 
 @pytest.mark.parametrize("direction", [0, 1, 2])
@@ -126,7 +173,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
     for n, Neli in enumerate(Nels):
         # test function
         def fun(eta):
-            return xp.cos(4 * xp.pi * eta)
+            return np.cos(4 * np.pi * eta)
 
         # create derham object, test functions and evaluation points
         e1 = 0.0
@@ -136,7 +183,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             Nel = [Neli, 1, 1]
             p = [pi, 1, 1]
             spl_kind = [spl_kindi, True, True]
-            e1 = xp.linspace(0.0, 1.0, 100)
+            e1 = np.linspace(0.0, 1.0, 100)
             e = e1
             c = 0
 
@@ -146,7 +193,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             Nel = [1, Neli, 1]
             p = [1, pi, 1]
             spl_kind = [True, spl_kindi, True]
-            e2 = xp.linspace(0.0, 1.0, 100)
+            e2 = np.linspace(0.0, 1.0, 100)
             e = e2
             c = 1
 
@@ -156,7 +203,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             Nel = [1, 1, Neli]
             p = [1, 1, pi]
             spl_kind = [True, True, spl_kindi]
-            e3 = xp.linspace(0.0, 1.0, 100)
+            e3 = np.linspace(0.0, 1.0, 100)
             e = e3
             c = 2
 
@@ -185,13 +232,13 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             field_vals = field(e1, e2, e3, squeeze_out=True)
 
             if sp_id in ("H1", "L2"):
-                err = xp.max(xp.abs(f_analytic(e1, e2, e3) - field_vals))
+                err = np.max(np.abs(f_analytic(e1, e2, e3) - field_vals))
                 f_plot = field_vals
             else:
-                err = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
+                err = [np.max(np.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
                 f_plot = field_vals[0]
 
-            errors[sp_id] += [xp.max(err)]
+            errors[sp_id] += [np.max(err)]
 
             if do_plot:
                 plt.figure(sp_id + ", Local-proj. convergence")
@@ -210,21 +257,21 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         line_for_rate_p1 = [Ne ** (-rate_p1) * errors[sp_id][0] / Nels[0] ** (-rate_p1) for Ne in Nels]
         line_for_rate_p0 = [Ne ** (-rate_p0) * errors[sp_id][0] / Nels[0] ** (-rate_p0) for Ne in Nels]
 
-        m, _ = xp.polyfit(xp.log(Nels), xp.log(errors[sp_id]), deg=1)
+        m, _ = np.polyfit(np.log(Nels), np.log(errors[sp_id]), deg=1)
 
         if sp_id in ("H1", "H1vec"):
             # Sometimes for very large number of elements the convergance rate falls of a bit since the error is already so small floating point impressions become relevant
             # for those cases is better to compute the convergance rate using only the information of Nel with smaller number
             if -m <= (pi + 1 - 0.1):
-                m = -xp.log2(errors[sp_id][1] / errors[sp_id][2])
-            print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
+                m = -np.log2(errors[sp_id][1] / errors[sp_id][2])
+            print(f"{sp_id = }, fitted convergence rate = {-m}, degree = {pi}")
             assert -m > (pi + 1 - 0.1)
         else:
             # Sometimes for very large number of elements the convergance rate falls of a bit since the error is already so small floating point impressions become relevant
             # for those cases is better to compute the convergance rate using only the information of Nel with smaller number
             if -m <= (pi - 0.1):
-                m = -xp.log2(errors[sp_id][1] / errors[sp_id][2])
-            print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
+                m = -np.log2(errors[sp_id][1] / errors[sp_id][2])
+            print(f"{sp_id = }, fitted convergence rate = {-m}, degree = {pi}")
             assert -m > (pi - 0.1)
 
         if do_plot:
@@ -235,7 +282,7 @@ def test_local_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             plt.loglog(Nels, line_for_rate_p0, "k--")
             plt.text(Nels[-2], line_for_rate_p1[-2], f"1/Nel^{rate_p1}")
             plt.text(Nels[-2], line_for_rate_p0[-2], f"1/Nel^{rate_p0}")
-            plt.title(f"{sp_id =}, degree = {pi}")
+            plt.title(f"{sp_id = }, degree = {pi}")
             plt.xlabel("Nel")
 
     if do_plot and rank == 0:
@@ -268,12 +315,12 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
     def make_basis_fun(i):
         def fun(etas, eta2, eta3):
             if isinstance(etas, float) or isinstance(etas, int):
-                etas = xp.array([etas])
-            out = xp.zeros_like(etas)
+                etas = np.array([etas])
+            out = np.zeros_like(etas)
             for j, eta in enumerate(etas):
                 span = find_span(T, p, eta)
-                inds = xp.arange(span - p, span + 1) % N
-                pos = xp.argwhere(inds == i)
+                inds = np.arange(span - p, span + 1) % N
+                pos = np.argwhere(inds == i)
                 # print(f'{pos = }')
                 if pos.size > 0:
                     pos = pos[0, 0]
@@ -288,18 +335,18 @@ def aux_test_replication_of_basis(Nel, plist, spl_kind):
         fun = make_basis_fun(j)
         lambdas = P_Loc(fun).toarray()
 
-        etas = xp.linspace(0.0, 1.0, 100)
-        fun_h = xp.zeros(100)
+        etas = np.linspace(0.0, 1.0, 100)
+        fun_h = np.zeros(100)
         for k, eta in enumerate(etas):
             span = find_span(T, p, eta)
-            ind1 = xp.arange(span - p, span + 1) % N
+            ind1 = np.arange(span - p, span + 1) % N
             basis = basis_funs(T, p, eta, span, normalize=normalize)
             fun_h[k] = evaluation_kernel_1d(p, basis, ind1, lambdas)
 
-        if xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)) >= 10.0**-10:
-            print(xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)))
-        assert xp.max(xp.abs(fun(etas, 0.0, 0.0) - fun_h)) < 10.0**-10
-        # print(f'{j = }, max error: {xp.max(xp.abs(fun(etas,0.0,0.0) - fun_h))}')
+        if np.max(np.abs(fun(etas, 0.0, 0.0) - fun_h)) >= 10.0**-10:
+            print(np.max(np.abs(fun(etas, 0.0, 0.0) - fun_h)))
+        assert np.max(np.abs(fun(etas, 0.0, 0.0) - fun_h)) < 10.0**-10
+        # print(f'{j = }, max error: {np.max(np.abs(fun(etas,0.0,0.0) - fun_h))}')
 
     # For D-splines
 
@@ -374,7 +421,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
     # Helper function to handle reshaping and getting spans and basis
     def process_eta(eta, w1d):
         if isinstance(eta, (float, int)):
-            eta = xp.array([eta])
+            eta = np.array([eta])
         if len(eta.shape) == 1:
             eta = eta.reshape((eta.shape[0], 1))
         spans, values = get_span_and_basis(eta, w1d)
@@ -387,7 +434,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
             eta = eta_map[dim_idx]
             w1d = W1ds[0][dim_idx] if is_B else V1ds[0][dim_idx]
 
-            out = xp.zeros_like(eta)
+            out = np.zeros_like(eta)
             for j1 in range(eta.shape[0]):
                 for j2 in range(eta.shape[1]):
                     for j3 in range(eta.shape[2]):
@@ -430,21 +477,21 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
     if out_sp_key == "0" or out_sp_key == "3":
         npts_out = derham.Vh[out_sp_key].npts
-        starts = xp.array(out.starts, dtype=int)
-        ends = xp.array(out.ends, dtype=int)
-        pds = xp.array(out.pads, dtype=int)
+        starts = np.array(out.starts, dtype=int)
+        ends = np.array(out.ends, dtype=int)
+        pds = np.array(out.pads, dtype=int)
         VFEM1ds = [VFEM.spaces]
-        nbasis_out = xp.array([VFEM1ds[0][0].nbasis, VFEM1ds[0][1].nbasis, VFEM1ds[0][2].nbasis])
+        nbasis_out = np.array([VFEM1ds[0][0].nbasis, VFEM1ds[0][1].nbasis, VFEM1ds[0][2].nbasis])
     else:
-        npts_out = xp.array([sp.npts for sp in P_Loc.coeff_space.spaces])
-        pds = xp.array([vi.pads for vi in P_Loc.coeff_space.spaces])
-        starts = xp.array([vi.starts for vi in P_Loc.coeff_space.spaces])
-        ends = xp.array([vi.ends for vi in P_Loc.coeff_space.spaces])
-        starts = xp.array(starts, dtype=int)
-        ends = xp.array(ends, dtype=int)
-        pds = xp.array(pds, dtype=int)
+        npts_out = np.array([sp.npts for sp in P_Loc.coeff_space.spaces])
+        pds = np.array([vi.pads for vi in P_Loc.coeff_space.spaces])
+        starts = np.array([vi.starts for vi in P_Loc.coeff_space.spaces])
+        ends = np.array([vi.ends for vi in P_Loc.coeff_space.spaces])
+        starts = np.array(starts, dtype=int)
+        ends = np.array(ends, dtype=int)
+        pds = np.array(pds, dtype=int)
         VFEM1ds = [comp.spaces for comp in VFEM.spaces]
-        nbasis_out = xp.array(
+        nbasis_out = np.array(
             [
                 [VFEM1ds[0][0].nbasis, VFEM1ds[0][1].nbasis, VFEM1ds[0][2].nbasis],
                 [
@@ -453,13 +500,13 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
                     VFEM1ds[1][2].nbasis,
                 ],
                 [VFEM1ds[2][0].nbasis, VFEM1ds[2][1].nbasis, VFEM1ds[2][2].nbasis],
-            ],
+            ]
         )
 
     if in_sp_key == "0" or in_sp_key == "3":
         npts_in = derham.Vh[in_sp_key].npts
     else:
-        npts_in = xp.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        npts_in = np.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
 
     def define_basis(in_sp_key):
         def wrapper(dim, index, h=None):
@@ -509,13 +556,13 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
             input[random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
     else:
-        npts_in = xp.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        npts_in = np.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
         random_h = random.randrange(0, 3)
         random_i0 = random.randrange(0, npts_in[random_h][0])
         random_i1 = random.randrange(0, npts_in[random_h][1])
         random_i2 = random.randrange(0, npts_in[random_h][2])
-        starts_in = xp.array([sp.starts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
-        ends_in = xp.array([sp.ends for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        starts_in = np.array([sp.starts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        ends_in = np.array([sp.ends for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
         if starts_in[random_h][0] <= random_i0 and random_i0 <= ends_in[random_h][0]:
             input[random_h][random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
@@ -523,84 +570,84 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
     # We define the matrix
     if out_sp_key == "0" or out_sp_key == "3":
         if in_sp_key == "0" or in_sp_key == "3":
-            matrix = xp.zeros((npts_out[0] * npts_out[1] * npts_out[2], npts_in[0] * npts_in[1] * npts_in[2]))
+            matrix = np.zeros((npts_out[0] * npts_out[1] * npts_out[2], npts_in[0] * npts_in[1] * npts_in[2]))
         else:
-            matrix = xp.zeros(
+            matrix = np.zeros(
                 (
                     npts_out[0] * npts_out[1] * npts_out[2],
                     npts_in[0][0] * npts_in[0][1] * npts_in[0][2]
                     + npts_in[1][0] * npts_in[1][1] * npts_in[1][2]
                     + npts_in[2][0] * npts_in[2][1] * npts_in[2][2],
-                ),
+                )
             )
 
     else:
         if in_sp_key == "0" or in_sp_key == "3":
-            matrix0 = xp.zeros((npts_out[0][0] * npts_out[0][1] * npts_out[0][2], npts_in[0] * npts_in[1] * npts_in[2]))
-            matrix1 = xp.zeros((npts_out[1][0] * npts_out[1][1] * npts_out[1][2], npts_in[0] * npts_in[1] * npts_in[2]))
-            matrix2 = xp.zeros((npts_out[2][0] * npts_out[2][1] * npts_out[2][2], npts_in[0] * npts_in[1] * npts_in[2]))
+            matrix0 = np.zeros((npts_out[0][0] * npts_out[0][1] * npts_out[0][2], npts_in[0] * npts_in[1] * npts_in[2]))
+            matrix1 = np.zeros((npts_out[1][0] * npts_out[1][1] * npts_out[1][2], npts_in[0] * npts_in[1] * npts_in[2]))
+            matrix2 = np.zeros((npts_out[2][0] * npts_out[2][1] * npts_out[2][2], npts_in[0] * npts_in[1] * npts_in[2]))
         else:
-            matrix00 = xp.zeros(
+            matrix00 = np.zeros(
                 (
                     npts_out[0][0] * npts_out[0][1] * npts_out[0][2],
                     npts_in[0][0] * npts_in[0][1] * npts_in[0][2],
-                ),
+                )
             )
-            matrix10 = xp.zeros(
+            matrix10 = np.zeros(
                 (
                     npts_out[1][0] * npts_out[1][1] * npts_out[1][2],
                     npts_in[0][0] * npts_in[0][1] * npts_in[0][2],
-                ),
+                )
             )
-            matrix20 = xp.zeros(
+            matrix20 = np.zeros(
                 (
                     npts_out[2][0] * npts_out[2][1] * npts_out[2][2],
                     npts_in[0][0] * npts_in[0][1] * npts_in[0][2],
-                ),
+                )
             )
 
-            matrix01 = xp.zeros(
+            matrix01 = np.zeros(
                 (
                     npts_out[0][0] * npts_out[0][1] * npts_out[0][2],
                     npts_in[1][0] * npts_in[1][1] * npts_in[1][2],
-                ),
+                )
             )
-            matrix11 = xp.zeros(
+            matrix11 = np.zeros(
                 (
                     npts_out[1][0] * npts_out[1][1] * npts_out[1][2],
                     npts_in[1][0] * npts_in[1][1] * npts_in[1][2],
-                ),
+                )
             )
-            matrix21 = xp.zeros(
+            matrix21 = np.zeros(
                 (
                     npts_out[2][0] * npts_out[2][1] * npts_out[2][2],
                     npts_in[1][0] * npts_in[1][1] * npts_in[1][2],
-                ),
+                )
             )
 
-            matrix02 = xp.zeros(
+            matrix02 = np.zeros(
                 (
                     npts_out[0][0] * npts_out[0][1] * npts_out[0][2],
                     npts_in[2][0] * npts_in[2][1] * npts_in[2][2],
-                ),
+                )
             )
-            matrix12 = xp.zeros(
+            matrix12 = np.zeros(
                 (
                     npts_out[1][0] * npts_out[1][1] * npts_out[1][2],
                     npts_in[2][0] * npts_in[2][1] * npts_in[2][2],
-                ),
+                )
             )
-            matrix22 = xp.zeros(
+            matrix22 = np.zeros(
                 (
                     npts_out[2][0] * npts_out[2][1] * npts_out[2][2],
                     npts_in[2][0] * npts_in[2][1] * npts_in[2][2],
-                ),
+                )
             )
 
     # We build the BasisProjectionOperator by hand
     if out_sp_key == "0" or out_sp_key == "3":
         if in_sp_key == "0" or in_sp_key == "3":
-            # def f_analytic(e1,e2,e3): return (xp.sin(2.0*xp.pi*e1)+xp.cos(4.0*xp.pi*e2))*basis1(random_i0)(e1,e2,e3)*basis2(random_i1)(e1,e2,e3)*basis3(random_i2)(e1,e2,e3)
+            # def f_analytic(e1,e2,e3): return (np.sin(2.0*np.pi*e1)+np.cos(4.0*np.pi*e2))*basis1(random_i0)(e1,e2,e3)*basis2(random_i1)(e1,e2,e3)*basis3(random_i2)(e1,e2,e3)
             # out = P_Loc(f_analytic)
 
             counter = 0
@@ -610,7 +657,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                         def f_analytic(e1, e2, e3):
                             return (
-                                (xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e2))
+                                (np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e2))
                                 * basis1(col0)(e1, e2, e3)
                                 * basis2(col1)(e1, e2, e3)
                                 * basis3(col2)(e1, e2, e3)
@@ -630,7 +677,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                             def f_analytic(e1, e2, e3):
                                 return (
-                                    (xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e2))
+                                    (np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e2))
                                     * basis1(col0, h)(e1, e2, e3)
                                     * basis2(col1, h)(e1, e2, e3)
                                     * basis3(col2, h)(e1, e2, e3)
@@ -649,7 +696,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                         def f_analytic1(e1, e2, e3):
                             return (
-                                (xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e2))
+                                (np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e2))
                                 * basis1(col0)(e1, e2, e3)
                                 * basis2(col1)(e1, e2, e3)
                                 * basis3(col2)(e1, e2, e3)
@@ -657,7 +704,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                         def f_analytic2(e1, e2, e3):
                             return (
-                                (xp.cos(2.0 * xp.pi * e2) + xp.cos(6.0 * xp.pi * e3))
+                                (np.cos(2.0 * np.pi * e2) + np.cos(6.0 * np.pi * e3))
                                 * basis1(col0)(e1, e2, e3)
                                 * basis2(col1)(e1, e2, e3)
                                 * basis3(col2)(e1, e2, e3)
@@ -665,7 +712,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                         def f_analytic3(e1, e2, e3):
                             return (
-                                (xp.sin(6.0 * xp.pi * e1) + xp.sin(4.0 * xp.pi * e3))
+                                (np.sin(6.0 * np.pi * e1) + np.sin(4.0 * np.pi * e3))
                                 * basis1(col0)(e1, e2, e3)
                                 * basis2(col1)(e1, e2, e3)
                                 * basis3(col2)(e1, e2, e3)
@@ -677,7 +724,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
                         fill_matrix_column(starts[2], ends[2], pds[2], counter, nbasis_out[2], matrix2, out[2]._data)
                         counter += 1
 
-            matrix = xp.vstack((matrix0, matrix1, matrix2))
+            matrix = np.vstack((matrix0, matrix1, matrix2))
 
         else:
             for h in range(3):
@@ -689,7 +736,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                                 def f_analytic0(e1, e2, e3):
                                     return (
-                                        (xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e2))
+                                        (np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e2))
                                         * basis1(col0, h)(e1, e2, e3)
                                         * basis2(col1, h)(e1, e2, e3)
                                         * basis3(col2, h)(e1, e2, e3)
@@ -697,7 +744,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                                 def f_analytic1(e1, e2, e3):
                                     return (
-                                        (xp.sin(10.0 * xp.pi * e1) + xp.cos(41.0 * xp.pi * e2))
+                                        (np.sin(10.0 * np.pi * e1) + np.cos(41.0 * np.pi * e2))
                                         * basis1(col0, h)(e1, e2, e3)
                                         * basis2(col1, h)(e1, e2, e3)
                                         * basis3(col2, h)(e1, e2, e3)
@@ -705,7 +752,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                                 def f_analytic2(e1, e2, e3):
                                     return (
-                                        (xp.sin(25.0 * xp.pi * e1) + xp.cos(49.0 * xp.pi * e2))
+                                        (np.sin(25.0 * np.pi * e1) + np.cos(49.0 * np.pi * e2))
                                         * basis1(col0, h)(e1, e2, e3)
                                         * basis2(col1, h)(e1, e2, e3)
                                         * basis3(col2, h)(e1, e2, e3)
@@ -715,7 +762,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                                 def f_analytic0(e1, e2, e3):
                                     return (
-                                        (xp.cos(2.0 * xp.pi * e2) + xp.cos(6.0 * xp.pi * e3))
+                                        (np.cos(2.0 * np.pi * e2) + np.cos(6.0 * np.pi * e3))
                                         * basis1(col0, h)(e1, e2, e3)
                                         * basis2(col1, h)(e1, e2, e3)
                                         * basis3(col2, h)(e1, e2, e3)
@@ -723,7 +770,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                                 def f_analytic1(e1, e2, e3):
                                     return (
-                                        (xp.cos(12.0 * xp.pi * e2) + xp.cos(62.0 * xp.pi * e3))
+                                        (np.cos(12.0 * np.pi * e2) + np.cos(62.0 * np.pi * e3))
                                         * basis1(col0, h)(e1, e2, e3)
                                         * basis2(col1, h)(e1, e2, e3)
                                         * basis3(col2, h)(e1, e2, e3)
@@ -731,7 +778,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                                 def f_analytic2(e1, e2, e3):
                                     return (
-                                        (xp.cos(25.0 * xp.pi * e2) + xp.cos(68.0 * xp.pi * e3))
+                                        (np.cos(25.0 * np.pi * e2) + np.cos(68.0 * np.pi * e3))
                                         * basis1(col0, h)(e1, e2, e3)
                                         * basis2(col1, h)(e1, e2, e3)
                                         * basis3(col2, h)(e1, e2, e3)
@@ -740,7 +787,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                                 def f_analytic0(e1, e2, e3):
                                     return (
-                                        (xp.sin(6.0 * xp.pi * e1) + xp.sin(4.0 * xp.pi * e3))
+                                        (np.sin(6.0 * np.pi * e1) + np.sin(4.0 * np.pi * e3))
                                         * basis1(col0, h)(e1, e2, e3)
                                         * basis2(col1, h)(e1, e2, e3)
                                         * basis3(col2, h)(e1, e2, e3)
@@ -748,7 +795,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                                 def f_analytic1(e1, e2, e3):
                                     return (
-                                        (xp.sin(16.0 * xp.pi * e1) + xp.sin(43.0 * xp.pi * e3))
+                                        (np.sin(16.0 * np.pi * e1) + np.sin(43.0 * np.pi * e3))
                                         * basis1(col0, h)(e1, e2, e3)
                                         * basis2(col1, h)(e1, e2, e3)
                                         * basis3(col2, h)(e1, e2, e3)
@@ -756,7 +803,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
 
                                 def f_analytic2(e1, e2, e3):
                                     return (
-                                        (xp.sin(65.0 * xp.pi * e1) + xp.sin(47.0 * xp.pi * e3))
+                                        (np.sin(65.0 * np.pi * e1) + np.sin(47.0 * np.pi * e3))
                                         * basis1(col0, h)(e1, e2, e3)
                                         * basis2(col1, h)(e1, e2, e3)
                                         * basis3(col2, h)(e1, e2, e3)
@@ -851,23 +898,23 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
                                 )
                             counter += 1
 
-            matrix0 = xp.hstack((matrix00, matrix01, matrix02))
-            matrix1 = xp.hstack((matrix10, matrix11, matrix12))
-            matrix2 = xp.hstack((matrix20, matrix21, matrix22))
-            matrix = xp.vstack((matrix0, matrix1, matrix2))
+            matrix0 = np.hstack((matrix00, matrix01, matrix02))
+            matrix1 = np.hstack((matrix10, matrix11, matrix12))
+            matrix2 = np.hstack((matrix20, matrix21, matrix22))
+            matrix = np.vstack((matrix0, matrix1, matrix2))
 
     # Now we build the same matrix using the BasisProjectionOperatorLocal
     if out_sp_key == "0" or out_sp_key == "3":
         if in_sp_key == "0" or in_sp_key == "3":
 
             def f_analytic(e1, e2, e3):
-                return xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e2)
+                return np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e2)
 
             matrix_new = BasisProjectionOperatorLocal(P_Loc, derham.Vh_fem[in_sp_key], [[f_analytic]], transposed=False)
         else:
 
             def f_analytic(e1, e2, e3):
-                return xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e2)
+                return np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e2)
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
@@ -882,13 +929,13 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
         if in_sp_key == "0" or in_sp_key == "3":
 
             def f_analytic1(e1, e2, e3):
-                return xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e2)
+                return np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e2)
 
             def f_analytic2(e1, e2, e3):
-                return xp.cos(2.0 * xp.pi * e2) + xp.cos(6.0 * xp.pi * e3)
+                return np.cos(2.0 * np.pi * e2) + np.cos(6.0 * np.pi * e3)
 
             def f_analytic3(e1, e2, e3):
-                return xp.sin(6.0 * xp.pi * e1) + xp.sin(4.0 * xp.pi * e3)
+                return np.sin(6.0 * np.pi * e1) + np.sin(4.0 * np.pi * e3)
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
@@ -905,31 +952,31 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
         else:
 
             def f_analytic00(e1, e2, e3):
-                return xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e2)
+                return np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e2)
 
             def f_analytic01(e1, e2, e3):
-                return xp.cos(2.0 * xp.pi * e2) + xp.cos(6.0 * xp.pi * e3)
+                return np.cos(2.0 * np.pi * e2) + np.cos(6.0 * np.pi * e3)
 
             def f_analytic02(e1, e2, e3):
-                return xp.sin(6.0 * xp.pi * e1) + xp.sin(4.0 * xp.pi * e3)
+                return np.sin(6.0 * np.pi * e1) + np.sin(4.0 * np.pi * e3)
 
             def f_analytic10(e1, e2, e3):
-                return xp.sin(10.0 * xp.pi * e1) + xp.cos(41.0 * xp.pi * e2)
+                return np.sin(10.0 * np.pi * e1) + np.cos(41.0 * np.pi * e2)
 
             def f_analytic11(e1, e2, e3):
-                return xp.cos(12.0 * xp.pi * e2) + xp.cos(62.0 * xp.pi * e3)
+                return np.cos(12.0 * np.pi * e2) + np.cos(62.0 * np.pi * e3)
 
             def f_analytic12(e1, e2, e3):
-                return xp.sin(16.0 * xp.pi * e1) + xp.sin(43.0 * xp.pi * e3)
+                return np.sin(16.0 * np.pi * e1) + np.sin(43.0 * np.pi * e3)
 
             def f_analytic20(e1, e2, e3):
-                return xp.sin(25.0 * xp.pi * e1) + xp.cos(49.0 * xp.pi * e2)
+                return np.sin(25.0 * np.pi * e1) + np.cos(49.0 * np.pi * e2)
 
             def f_analytic21(e1, e2, e3):
-                return xp.cos(25.0 * xp.pi * e2) + xp.cos(68.0 * xp.pi * e3)
+                return np.cos(25.0 * np.pi * e2) + np.cos(68.0 * np.pi * e3)
 
             def f_analytic22(e1, e2, e3):
-                return xp.sin(65.0 * xp.pi * e1) + xp.sin(47.0 * xp.pi * e3)
+                return np.sin(65.0 * np.pi * e1) + np.sin(47.0 * np.pi * e3)
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
@@ -946,7 +993,7 @@ def test_basis_projection_operator_local(Nel, plist, spl_kind, out_sp_key, in_sp
                 transposed=False,
             )
 
-    compare_arrays(matrix_new.dot(v), xp.matmul(matrix, varr), rank)
+    compare_arrays(matrix_new.dot(v), np.matmul(matrix, varr), rank)
 
     print("BasisProjectionOperatorLocal test passed.")
 
@@ -982,7 +1029,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
     # Helper function to handle reshaping and getting spans and basis
     def process_eta(eta, w1d):
         if isinstance(eta, (float, int)):
-            eta = xp.array([eta])
+            eta = np.array([eta])
         if len(eta.shape) == 1:
             eta = eta.reshape((eta.shape[0], 1))
         spans, values = get_span_and_basis(eta, w1d)
@@ -995,7 +1042,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
             eta = eta_map[dim_idx]
             w1d = W1ds[0][dim_idx] if is_B else V1ds[0][dim_idx]
 
-            out = xp.zeros_like(eta)
+            out = np.zeros_like(eta)
             for j1 in range(eta.shape[0]):
                 for j2 in range(eta.shape[1]):
                     for j3 in range(eta.shape[2]):
@@ -1072,22 +1119,22 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
             input[random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
     else:
-        npts_in = xp.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        npts_in = np.array([sp.npts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
         random_h = random.randrange(0, 3)
         random_i0 = random.randrange(0, npts_in[random_h][0])
         random_i1 = random.randrange(0, npts_in[random_h][1])
         random_i2 = random.randrange(0, npts_in[random_h][2])
-        starts = xp.array([sp.starts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
-        ends = xp.array([sp.ends for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        starts = np.array([sp.starts for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
+        ends = np.array([sp.ends for sp in derham.Vh_fem[in_sp_key].coeff_space.spaces])
         if starts[random_h][0] <= random_i0 and random_i0 <= ends[random_h][0]:
             input[random_h][random_i0, random_i1, random_i2] = 1.0
         input.update_ghost_regions()
 
-    etas1 = xp.linspace(0.0, 1.0, 1000)
-    etas2 = xp.array([0.5])
+    etas1 = np.linspace(0.0, 1.0, 1000)
+    etas2 = np.array([0.5])
 
-    etas3 = xp.array([0.5])
-    meshgrid = xp.meshgrid(*[etas1, etas2, etas3], indexing="ij")
+    etas3 = np.array([0.5])
+    meshgrid = np.meshgrid(*[etas1, etas2, etas3], indexing="ij")
 
     # Now we build the same matrix using the BasisProjectionOperatorLocal and BasisProjectionOperator
 
@@ -1095,7 +1142,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
         if in_sp_key == "0" or in_sp_key == "3":
 
             def f_analytic(e1, e2, e3):
-                return xp.sin(2.0 * xp.pi * e1) + xp.sin(4.0 * xp.pi * e1)
+                return np.sin(2.0 * np.pi * e1) + np.sin(4.0 * np.pi * e1)
 
             matrix_new = BasisProjectionOperatorLocal(P_Loc, derham.Vh_fem[in_sp_key], [[f_analytic]], transposed=False)
             matrix_global = BasisProjectionOperator(P, derham.Vh_fem[in_sp_key], [[f_analytic]], transposed=False)
@@ -1109,7 +1156,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
         else:
 
             def f_analytic(e1, e2, e3):
-                return xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e1)
+                return np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e1)
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
@@ -1139,13 +1186,13 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
         if in_sp_key == "0" or in_sp_key == "3":
 
             def f_analytic1(e1, e2, e3):
-                return xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e1)
+                return np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e1)
 
             def f_analytic2(e1, e2, e3):
-                return xp.cos(2.0 * xp.pi * e1) + xp.cos(6.0 * xp.pi * e1)
+                return np.cos(2.0 * np.pi * e1) + np.cos(6.0 * np.pi * e1)
 
             def f_analytic3(e1, e2, e3):
-                return xp.sin(6.0 * xp.pi * e1) + xp.sin(4.0 * xp.pi * e1)
+                return np.sin(6.0 * np.pi * e1) + np.sin(4.0 * np.pi * e1)
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
@@ -1172,7 +1219,7 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
                 transposed=False,
             )
 
-            analytic_vals = xp.array(
+            analytic_vals = np.array(
                 [
                     f_analytic1(*meshgrid)
                     * basis1(random_i0)(*meshgrid)
@@ -1186,36 +1233,36 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
                     * basis1(random_i0)(*meshgrid)
                     * basis2(random_i1)(*meshgrid)
                     * basis3(random_i2)(*meshgrid),
-                ],
+                ]
             )
         else:
 
             def f_analytic00(e1, e2, e3):
-                return xp.sin(2.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e1)
+                return np.sin(2.0 * np.pi * e1) + np.cos(4.0 * np.pi * e1)
 
             def f_analytic01(e1, e2, e3):
-                return xp.cos(2.0 * xp.pi * e1) + xp.cos(6.0 * xp.pi * e1)
+                return np.cos(2.0 * np.pi * e1) + np.cos(6.0 * np.pi * e1)
 
             def f_analytic02(e1, e2, e3):
-                return xp.sin(6.0 * xp.pi * e1) + xp.sin(4.0 * xp.pi * e1)
+                return np.sin(6.0 * np.pi * e1) + np.sin(4.0 * np.pi * e1)
 
             def f_analytic10(e1, e2, e3):
-                return xp.sin(3.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e1)
+                return np.sin(3.0 * np.pi * e1) + np.cos(4.0 * np.pi * e1)
 
             def f_analytic11(e1, e2, e3):
-                return xp.cos(2.0 * xp.pi * e1) + xp.cos(3.0 * xp.pi * e1)
+                return np.cos(2.0 * np.pi * e1) + np.cos(3.0 * np.pi * e1)
 
             def f_analytic12(e1, e2, e3):
-                return xp.sin(5.0 * xp.pi * e1) + xp.sin(3.0 * xp.pi * e1)
+                return np.sin(5.0 * np.pi * e1) + np.sin(3.0 * np.pi * e1)
 
             def f_analytic20(e1, e2, e3):
-                return xp.sin(5.0 * xp.pi * e1) + xp.cos(4.0 * xp.pi * e1)
+                return np.sin(5.0 * np.pi * e1) + np.cos(4.0 * np.pi * e1)
 
             def f_analytic21(e1, e2, e3):
-                return xp.cos(5.0 * xp.pi * e1) + xp.cos(6.0 * xp.pi * e1)
+                return np.cos(5.0 * np.pi * e1) + np.cos(6.0 * np.pi * e1)
 
             def f_analytic22(e1, e2, e3):
-                return xp.sin(5.0 * xp.pi * e1) + xp.sin(4.0 * xp.pi * e1)
+                return np.sin(5.0 * np.pi * e1) + np.sin(4.0 * np.pi * e1)
 
             matrix_new = BasisProjectionOperatorLocal(
                 P_Loc,
@@ -1253,14 +1300,14 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
             }
 
             # Use the map to get analytic values
-            analytic_vals = xp.array(
+            analytic_vals = np.array(
                 [
                     f_analytic_map[dim][random_h](*meshgrid)
                     * basis1(random_i0, random_h)(*meshgrid)
                     * basis2(random_i1, random_h)(*meshgrid)
                     * basis3(random_i2, random_h)(*meshgrid)
                     for dim in range(3)
-                ],
+                ]
             )
 
     FE_loc = matrix_new.dot(input)
@@ -1283,14 +1330,14 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
     fieldglo = derham.create_spline_function("fh", out_sp_id)
     fieldglo.vector = FE_glo
 
-    errorloc = xp.abs(fieldloc(*meshgrid) - analytic_vals)
-    errorglo = xp.abs(fieldglo(*meshgrid) - analytic_vals)
+    errorloc = np.abs(fieldloc(*meshgrid) - analytic_vals)
+    errorglo = np.abs(fieldglo(*meshgrid) - analytic_vals)
 
-    meanlocal = xp.mean(errorloc)
-    maxlocal = xp.max(errorloc)
+    meanlocal = np.mean(errorloc)
+    maxlocal = np.max(errorloc)
 
-    meanglobal = xp.mean(errorglo)
-    maxglobal = xp.max(errorglo)
+    meanglobal = np.mean(errorglo)
+    maxglobal = np.max(errorglo)
 
     if isinstance(comm, MockComm):
         reducemeanlocal = meanlocal
@@ -1320,10 +1367,10 @@ def test_basis_projection_operator_local_new(Nel, plist, spl_kind, out_sp_key, i
 
     if rank == 0:
         assert reducemeanlocal < 10.0 * reducemeanglobal or reducemeanlocal < 10.0**-5
-        print(f"{reducemeanlocal =}")
-        print(f"{reducemaxlocal =}")
-        print(f"{reducemeanglobal =}")
-        print(f"{reducemaxglobal =}")
+        print(f"{reducemeanlocal = }")
+        print(f"{reducemaxlocal = }")
+        print(f"{reducemeanglobal = }")
+        print(f"{reducemaxglobal = }")
 
     if do_plot:
         if out_sp_key == "0" or out_sp_key == "3":
@@ -1377,7 +1424,7 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
     # Helper function to handle reshaping and getting spans and basis
     def process_eta(eta, w1d):
         if isinstance(eta, (float, int)):
-            eta = xp.array([eta])
+            eta = np.array([eta])
         if len(eta.shape) == 1:
             eta = eta.reshape((eta.shape[0], 1))
         spans, values = get_span_and_basis(eta, w1d)
@@ -1390,7 +1437,7 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
             eta = eta_map[dim_idx]
             w1d = W1ds[0][dim_idx] if is_B else V1ds[0][dim_idx]
 
-            out = xp.zeros_like(eta)
+            out = np.zeros_like(eta)
             for j1 in range(eta.shape[0]):
                 for j2 in range(eta.shape[1]):
                     for j3 in range(eta.shape[2]):
@@ -1424,10 +1471,10 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
     fieldD = derham.create_spline_function("fh", "L2")
     npts_in_D = derham.Vh["3"].npts
 
-    etas1 = xp.linspace(0.0, 1.0, 20)
-    etas2 = xp.linspace(0.0, 1.0, 20)
-    etas3 = xp.linspace(0.0, 1.0, 20)
-    meshgrid = xp.meshgrid(*[etas1, etas2, etas3], indexing="ij")
+    etas1 = np.linspace(0.0, 1.0, 20)
+    etas2 = np.linspace(0.0, 1.0, 20)
+    etas3 = np.linspace(0.0, 1.0, 20)
+    meshgrid = np.meshgrid(*[etas1, etas2, etas3], indexing="ij")
 
     maxerrorB = 0.0
 
@@ -1440,7 +1487,7 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
                 fieldB.vector = inputB
 
                 def error(e1, e2, e3):
-                    return xp.abs(
+                    return np.abs(
                         fieldB(e1, e2, e3)
                         - (
                             make_basis_fun(True, 0, col0)(e1, e2, e3)
@@ -1449,13 +1496,13 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
                         ),
                     )
 
-                auxerror = xp.max(error(*meshgrid))
+                auxerror = np.max(error(*meshgrid))
 
                 if auxerror > maxerrorB:
                     maxerrorB = auxerror
                 inputB[col0, col1, col2] = 0.0
 
-    print(f"{maxerrorB =}")
+    print(f"{maxerrorB = }")
     assert maxerrorB < 10.0**-13
 
     maxerrorD = 0.0
@@ -1468,7 +1515,7 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
                 fieldD.vector = inputD
 
                 def error(e1, e2, e3):
-                    return xp.abs(
+                    return np.abs(
                         fieldD(e1, e2, e3)
                         - (
                             make_basis_fun(False, 0, col0)(e1, e2, e3)
@@ -1477,13 +1524,13 @@ def aux_test_spline_evaluation(Nel, plist, spl_kind):
                         ),
                     )
 
-                auxerror = xp.max(error(*meshgrid))
+                auxerror = np.max(error(*meshgrid))
 
                 if auxerror > maxerrorD:
                     maxerrorD = auxerror
                 inputD[col0, col1, col2] = 0.0
 
-    print(f"{maxerrorD =}")
+    print(f"{maxerrorD = }")
     assert maxerrorD < 10.0**-13
     print("Test spline evaluation passed.")
 

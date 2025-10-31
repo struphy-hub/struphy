@@ -1,6 +1,5 @@
 from copy import deepcopy
 
-import cunumpy as xp
 from psydac.linalg.basic import IdentityOperator, Vector
 from psydac.linalg.block import BlockVector
 from psydac.linalg.solvers import inverse
@@ -13,6 +12,7 @@ from struphy.feec.basis_projection_ops import (
 )
 from struphy.feec.linear_operators import LinOpWithTransp
 from struphy.feec.psydac_derham import Derham
+from struphy.utils.arrays import xp as np
 
 
 class BracketOperator(LinOpWithTransp):
@@ -94,7 +94,7 @@ class BracketOperator(LinOpWithTransp):
         self.Pcoord3 = CoordinateProjector(2, derham.Vh_pol["v"], derham.Vh_pol["0"]) @ derham.boundary_ops["v"]
 
         # Initialize the BasisProjectionOperators
-        if derham._with_local_projectors:
+        if derham._with_local_projectors == True:
             self.PiuT = BasisProjectionOperatorLocal(
                 P0,
                 V1h,
@@ -192,10 +192,10 @@ class BracketOperator(LinOpWithTransp):
 
         # Create tmps for later use in evaluating on the grid
         grid_shape = tuple([len(loc_grid) for loc_grid in interpolation_grid])
-        self._vf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._gvf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._gvf2_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._gvf3_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._vf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._gvf1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._gvf2_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._gvf3_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
 
         # gradient of the component of the vector field
         grad = derham.grad_bcfree
@@ -264,27 +264,19 @@ class BracketOperator(LinOpWithTransp):
         self.gv3f.vector = grad_3_v
 
         vf_values = self.vf.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            [self.interpolation_grid_bn] * 3,
-            out=self._vf_values,
+            self.interpolation_grid_spans, [self.interpolation_grid_bn] * 3, out=self._vf_values
         )
 
         gvf1_values = self.gv1f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            self.interpolation_grid_gradient,
-            out=self._gvf1_values,
+            self.interpolation_grid_spans, self.interpolation_grid_gradient, out=self._gvf1_values
         )
 
         gvf2_values = self.gv2f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            self.interpolation_grid_gradient,
-            out=self._gvf2_values,
+            self.interpolation_grid_spans, self.interpolation_grid_gradient, out=self._gvf2_values
         )
 
         gvf3_values = self.gv3f.eval_tp_fixed_loc(
-            self.interpolation_grid_spans,
-            self.interpolation_grid_gradient,
-            out=self._gvf3_values,
+            self.interpolation_grid_spans, self.interpolation_grid_gradient, out=self._gvf3_values
         )
 
         self.PiuT.update_weights([[vf_values[0], vf_values[1], vf_values[2]]])
@@ -386,13 +378,13 @@ class L2_transport_operator(LinOpWithTransp):
         )
 
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_0])
-        self._f_0_values = xp.zeros(grid_shape, dtype=float)
+        self._f_0_values = np.zeros(grid_shape, dtype=float)
 
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_1])
-        self._f_1_values = xp.zeros(grid_shape, dtype=float)
+        self._f_1_values = np.zeros(grid_shape, dtype=float)
 
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
-        self._f_2_values = xp.zeros(grid_shape, dtype=float)
+        self._f_2_values = np.zeros(grid_shape, dtype=float)
 
     @property
     def domain(self):
@@ -541,7 +533,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         )
 
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_0])
-        self._bf0_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._bf0_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
         self.hist_grid_0_b = [
             [self.hist_grid_0_bn[0], self.hist_grid_0_bd[1], self.hist_grid_0_bd[2]],
             [
@@ -552,7 +544,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
             [self.hist_grid_0_bd[0], self.hist_grid_0_bd[1], self.hist_grid_0_bn[2]],
         ]
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_1])
-        self._bf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._bf1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
         self.hist_grid_1_b = [
             [self.hist_grid_1_bn[0], self.hist_grid_1_bd[1], self.hist_grid_1_bd[2]],
             [
@@ -564,7 +556,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         ]
 
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_2])
-        self._bf2_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._bf2_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
         self.hist_grid_2_b = [
             [self.hist_grid_2_bn[0], self.hist_grid_2_bd[1], self.hist_grid_2_bd[2]],
             [
@@ -735,8 +727,8 @@ class Pressure_transport_operator(LinOpWithTransp):
         self._proj_p_metric = deepcopy(metric)
 
         grid_shape = tuple([len(loc_grid) for loc_grid in int_grid])
-        self._pf_values = xp.zeros(grid_shape, dtype=float)
-        self._mapped_pf_values = xp.zeros(grid_shape, dtype=float)
+        self._pf_values = np.zeros(grid_shape, dtype=float)
+        self._mapped_pf_values = np.zeros(grid_shape, dtype=float)
 
         # gradient of the component of the vector field
 
@@ -757,13 +749,13 @@ class Pressure_transport_operator(LinOpWithTransp):
         )
 
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_20])
-        self._pf_0_values = xp.zeros(grid_shape, dtype=float)
+        self._pf_0_values = np.zeros(grid_shape, dtype=float)
 
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_21])
-        self._pf_1_values = xp.zeros(grid_shape, dtype=float)
+        self._pf_1_values = np.zeros(grid_shape, dtype=float)
 
         grid_shape = tuple([len(loc_grid) for loc_grid in hist_grid_22])
-        self._pf_2_values = xp.zeros(grid_shape, dtype=float)
+        self._pf_2_values = np.zeros(grid_shape, dtype=float)
 
     @property
     def domain(self):
@@ -885,21 +877,21 @@ class InternalEnergyEvaluator:
         self.rhof1 = self._derham.create_spline_function("rhof1", "L2")
 
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
-        self._rhof_values = xp.zeros(grid_shape, dtype=float)
-        self._rhof1_values = xp.zeros(grid_shape, dtype=float)
-        self._sf_values = xp.zeros(grid_shape, dtype=float)
-        self._sf1_values = xp.zeros(grid_shape, dtype=float)
-        self._delta_values = xp.zeros(grid_shape, dtype=float)
-        self._rhof_mid_values = xp.zeros(grid_shape, dtype=float)
-        self._sf_mid_values = xp.zeros(grid_shape, dtype=float)
-        self._eta_values = xp.zeros(grid_shape, dtype=float)
-        self._en_values = xp.zeros(grid_shape, dtype=float)
-        self._en1_values = xp.zeros(grid_shape, dtype=float)
-        self._de_values = xp.zeros(grid_shape, dtype=float)
-        self._d2e_values = xp.zeros(grid_shape, dtype=float)
-        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
-        self._tmp_int_grid2 = xp.zeros(grid_shape, dtype=float)
-        self._DG_values = xp.zeros(grid_shape, dtype=float)
+        self._rhof_values = np.zeros(grid_shape, dtype=float)
+        self._rhof1_values = np.zeros(grid_shape, dtype=float)
+        self._sf_values = np.zeros(grid_shape, dtype=float)
+        self._sf1_values = np.zeros(grid_shape, dtype=float)
+        self._delta_values = np.zeros(grid_shape, dtype=float)
+        self._rhof_mid_values = np.zeros(grid_shape, dtype=float)
+        self._sf_mid_values = np.zeros(grid_shape, dtype=float)
+        self._eta_values = np.zeros(grid_shape, dtype=float)
+        self._en_values = np.zeros(grid_shape, dtype=float)
+        self._en1_values = np.zeros(grid_shape, dtype=float)
+        self._de_values = np.zeros(grid_shape, dtype=float)
+        self._d2e_values = np.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
+        self._tmp_int_grid2 = np.zeros(grid_shape, dtype=float)
+        self._DG_values = np.zeros(grid_shape, dtype=float)
 
     def ener(self, rho, s, out=None):
         r"""Themodynamical energy as a function of rho and s, usign the perfect gaz hypothesis.
@@ -909,13 +901,13 @@ class InternalEnergyEvaluator:
         """
         gam = self._gamma
         if out is None:
-            out = xp.power(rho, gam) * xp.exp(s / rho)
+            out = np.power(rho, gam) * np.exp(s / rho)
         else:
             out *= 0.0
             out += s
             out /= rho
-            xp.exp(out, out=out)
-            xp.power(rho, gam, out=self._tmp_int_grid)
+            np.exp(out, out=out)
+            np.power(rho, gam, out=self._tmp_int_grid)
             out *= self._tmp_int_grid
         return out
 
@@ -927,17 +919,17 @@ class InternalEnergyEvaluator:
         """
         gam = self._gamma
         if out is None:
-            out = (gam * xp.power(rho, gam - 1) - s * xp.power(rho, gam - 2)) * xp.exp(s / rho)
+            out = (gam * np.power(rho, gam - 1) - s * np.power(rho, gam - 2)) * np.exp(s / rho)
         else:
             out *= 0.0
             out += s
             out /= rho
-            xp.exp(out, out=out)
+            np.exp(out, out=out)
 
-            xp.power(rho, gam - 1, out=self._tmp_int_grid)
+            np.power(rho, gam - 1, out=self._tmp_int_grid)
             self._tmp_int_grid *= gam
 
-            xp.power(rho, gam - 2, out=self._tmp_int_grid2)
+            np.power(rho, gam - 2, out=self._tmp_int_grid2)
             self._tmp_int_grid2 *= s
 
             self._tmp_int_grid -= self._tmp_int_grid2
@@ -952,13 +944,13 @@ class InternalEnergyEvaluator:
         """
         gam = self._gamma
         if out is None:
-            out = xp.power(rho, gam - 1) * xp.exp(s / rho)
+            out = np.power(rho, gam - 1) * np.exp(s / rho)
         else:
             out *= 0.0
             out += s
             out /= rho
-            xp.exp(out, out=out)
-            xp.power(rho, gam - 1, out=self._tmp_int_grid)
+            np.exp(out, out=out)
+            np.power(rho, gam - 1, out=self._tmp_int_grid)
             out *= self._tmp_int_grid
         return out
 
@@ -971,25 +963,25 @@ class InternalEnergyEvaluator:
         gam = self._gamma
         if out is None:
             out = (
-                gam * (gam - 1) * xp.power(rho, gam - 2)
-                - s * 2 * (gam - 1) * xp.power(rho, gam - 3)
-                + s**2 * xp.power(rho, gam - 4)
-            ) * xp.exp(s / rho)
+                gam * (gam - 1) * np.power(rho, gam - 2)
+                - s * 2 * (gam - 1) * np.power(rho, gam - 3)
+                + s**2 * np.power(rho, gam - 4)
+            ) * np.exp(s / rho)
         else:
             out *= 0.0
             out += s
             out /= rho
-            xp.exp(out, out=out)
+            np.exp(out, out=out)
 
-            xp.power(rho, gam - 2, out=self._tmp_int_grid)
+            np.power(rho, gam - 2, out=self._tmp_int_grid)
             self._tmp_int_grid *= gam * (gam - 1)
 
-            xp.power(rho, gam - 3, out=self._tmp_int_grid2)
+            np.power(rho, gam - 3, out=self._tmp_int_grid2)
             self._tmp_int_grid2 *= s
             self._tmp_int_grid2 *= 2 * (gam - 1)
             self._tmp_int_grid -= self._tmp_int_grid2
 
-            xp.power(rho, gam - 4, out=self._tmp_int_grid2)
+            np.power(rho, gam - 4, out=self._tmp_int_grid2)
             self._tmp_int_grid2 *= s
             self._tmp_int_grid2 *= s
             self._tmp_int_grid += self._tmp_int_grid2
@@ -1004,27 +996,27 @@ class InternalEnergyEvaluator:
         """
         gam = self._gamma
         if out is None:
-            out = xp.power(rho, gam - 2) * xp.exp(s / rho)
+            out = np.power(rho, gam - 2) * np.exp(s / rho)
         else:
             out *= 0.0
             out += s
             out /= rho
-            xp.exp(out, out=out)
-            xp.power(rho, gam - 2, out=self._tmp_int_grid)
+            np.exp(out, out=out)
+            np.power(rho, gam - 2, out=self._tmp_int_grid)
             out *= self._tmp_int_grid
         return out
 
     def eta(self, delta_x, out=None):
         r"""Switch function :math:`\eta(\delta) = 1- \text{exp}((-\delta/10^{-5})^2)`."""
         if out is None:
-            out = 1.0 - xp.exp(-((delta_x / 1e-5) ** 2))
+            out = 1.0 - np.exp(-((delta_x / 1e-5) ** 2))
         else:
             out *= 0.0
             out += delta_x
             out /= 1e-5
             out **= 2
             out *= -1
-            xp.exp(out, out=out)
+            np.exp(out, out=out)
             out *= -1
             out += 1.0
         return out
@@ -1336,7 +1328,7 @@ class H1vecMassMatrix_density:
         )
 
         grid_shape = tuple([len(loc_grid) for loc_grid in integration_grid])
-        self._f_values = xp.zeros(grid_shape, dtype=float)
+        self._f_values = np.zeros(grid_shape, dtype=float)
 
         metric = domain.metric(*integration_grid)
         self._mass_metric_term = deepcopy(metric)
@@ -1391,12 +1383,7 @@ class H1vecMassMatrix_density:
             self._pc.update_mass_operator(self._massop)
 
     def _create_inv(
-        self,
-        type="pcg",
-        pc_type="MassMatrixDiagonalPreconditioner",
-        tol=1e-16,
-        maxiter=500,
-        verbose=False,
+        self, type="pcg", pc_type="MassMatrixDiagonalPreconditioner", tol=1e-16, maxiter=500, verbose=False
     ):
         """Inverse the  weighted mass matrix"""
         if pc_type is None:
@@ -1450,10 +1437,10 @@ class KineticEnergyEvaluator:
         self.uf = derham.create_spline_function("uf", "H1vec")
         self.uf1 = derham.create_spline_function("uf1", "H1vec")
 
-        self._uf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._uf1_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._Guf_values = [xp.zeros(grid_shape, dtype=float) for i in range(3)]
-        self._tmp_int_grid = xp.zeros(grid_shape, dtype=float)
+        self._uf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._uf1_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._Guf_values = [np.zeros(grid_shape, dtype=float) for i in range(3)]
+        self._tmp_int_grid = np.zeros(grid_shape, dtype=float)
 
         metric = domain.metric(
             *integration_grid,

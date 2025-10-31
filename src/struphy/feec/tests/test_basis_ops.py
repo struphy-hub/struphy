@@ -14,7 +14,6 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     """
     from time import time
 
-    import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
@@ -25,6 +24,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.equils import HomogenSlab
     from struphy.geometry import domains
+    from struphy.utils.arrays import xp as np
 
     # mpi communicator
     MPI_COMM = MPI.COMM_WORLD
@@ -119,13 +119,13 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     print(f"Rank {mpi_rank} | Init `projectors_dot_x` done ({time() - elapsed:.4f}s).")
 
     # Test vectors
-    x0 = xp.reshape(xp.arange(V0.nbasis), [space.nbasis for space in V0.spaces])
+    x0 = np.reshape(np.arange(V0.nbasis), [space.nbasis for space in V0.spaces])
 
-    x1 = [xp.reshape(xp.arange(comp.nbasis), [space.nbasis for space in comp.spaces]) for comp in V1.spaces]
+    x1 = [np.reshape(np.arange(comp.nbasis), [space.nbasis for space in comp.spaces]) for comp in V1.spaces]
 
-    x2 = [xp.reshape(xp.arange(comp.nbasis), [space.nbasis for space in comp.spaces]) for comp in V2.spaces]
+    x2 = [np.reshape(np.arange(comp.nbasis), [space.nbasis for space in comp.spaces]) for comp in V2.spaces]
 
-    x3 = xp.reshape(xp.arange(V3.nbasis), [space.nbasis for space in V3.spaces])
+    x3 = np.reshape(np.arange(V3.nbasis), [space.nbasis for space in V3.spaces])
 
     x0_st = StencilVector(V0.coeff_space)
     x1_st = BlockVector(V1.coeff_space, [StencilVector(comp) for comp in V1.coeff_space])
@@ -261,7 +261,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print("\nQ1 (V1 --> V2):")
 
     res_PSY = OPS_PSY.Q1.dot(x1_st)
-    res_STR = OPS_STR.Q1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
+    res_STR = OPS_STR.Q1_dot(np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
 
     MPI_COMM.Barrier()
@@ -284,7 +284,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
     Q1T = OPS_PSY.Q1.transpose()
     res_PSY = Q1T.dot(x2_st)
-    res_STR = OPS_STR.transpose_Q1_dot(xp.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
+    res_STR = OPS_STR.transpose_Q1_dot(np.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
 
     MPI_COMM.Barrier()
@@ -310,7 +310,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print("\nW1 (V1 --> V1, Identity operator in this case):")
 
     res_PSY = OPS_PSY.W1.dot(x1_st)
-    res_STR = OPS_STR.W1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
+    res_STR = OPS_STR.W1_dot(np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
 
     MPI_COMM.barrier()
@@ -333,7 +333,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
     W1T = OPS_PSY.W1.transpose()
     res_PSY = W1T.dot(x1_st)
-    res_STR = OPS_STR.transpose_W1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
+    res_STR = OPS_STR.transpose_W1_dot(np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
 
     MPI_COMM.barrier()
@@ -359,7 +359,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print("\nQ2 (V2 --> V2, Identity operator in this case):")
 
     res_PSY = OPS_PSY.Q2.dot(x2_st)
-    res_STR = OPS_STR.Q2_dot(xp.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
+    res_STR = OPS_STR.Q2_dot(np.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
 
     MPI_COMM.Barrier()
@@ -382,7 +382,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
     Q2T = OPS_PSY.Q2.transpose()
     res_PSY = Q2T.dot(x2_st)
-    res_STR = OPS_STR.transpose_Q2_dot(xp.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
+    res_STR = OPS_STR.transpose_Q2_dot(np.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
     res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
 
     MPI_COMM.Barrier()
@@ -408,7 +408,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print("\nX1 (V1 --> V0 x V0 x V0):")
 
     res_PSY = OPS_PSY.X1.dot(x1_st)
-    res_STR = OPS_STR.X1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
+    res_STR = OPS_STR.X1_dot(np.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
     res_STR_0 = SPACES.extract_0(res_STR[0])
     res_STR_1 = SPACES.extract_0(res_STR[1])
     res_STR_2 = SPACES.extract_0(res_STR[2])
@@ -460,11 +460,10 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 @pytest.mark.parametrize("spl_kind", [[False, True, True], [False, True, False]])
 @pytest.mark.parametrize(
     "dirichlet_bc",
-    [None, [(False, True), (False, False), (False, True)], [(False, False), (False, False), (True, False)]],
+    [None, [[False, True], [False, False], [False, True]], [[False, False], [False, False], [True, False]]],
 )
 @pytest.mark.parametrize("mapping", [["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}]])
 def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
-    import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
     from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
@@ -475,6 +474,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     from struphy.fields_background.equils import ScrewPinch
     from struphy.geometry import domains
     from struphy.polar.basic import PolarVector
+    from struphy.utils.arrays import xp as np
 
     mpi_comm = MPI.COMM_WORLD
     mpi_rank = mpi_comm.Get_rank()
@@ -503,7 +503,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
             "n2": 4.0,
             "na": 0.0,
             "beta": 0.1,
-        },
+        }
     )
 
     if show_plots:
@@ -515,11 +515,9 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     if dirichlet_bc is not None:
         for i, knd in enumerate(spl_kind):
             if knd:
-                dirichlet_bc[i] = (False, False)
+                dirichlet_bc[i] = [False, False]
     else:
-        dirichlet_bc = [(False, False)] * 3
-
-    dirichlet_bc = tuple(dirichlet_bc)
+        dirichlet_bc = [[False, False]] * 3
 
     # derham object
     nq_el = [p[0] + 1, p[1] + 1, p[2] + 1]
@@ -584,11 +582,11 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     x2_pol_psy.tp = x2_psy
     x3_pol_psy.tp = x3_psy
 
-    xp.random.seed(1607)
-    x0_pol_psy.pol = [xp.random.rand(x0_pol_psy.pol[0].shape[0], x0_pol_psy.pol[0].shape[1])]
-    x1_pol_psy.pol = [xp.random.rand(x1_pol_psy.pol[n].shape[0], x1_pol_psy.pol[n].shape[1]) for n in range(3)]
-    x2_pol_psy.pol = [xp.random.rand(x2_pol_psy.pol[n].shape[0], x2_pol_psy.pol[n].shape[1]) for n in range(3)]
-    x3_pol_psy.pol = [xp.random.rand(x3_pol_psy.pol[0].shape[0], x3_pol_psy.pol[0].shape[1])]
+    np.random.seed(1607)
+    x0_pol_psy.pol = [np.random.rand(x0_pol_psy.pol[0].shape[0], x0_pol_psy.pol[0].shape[1])]
+    x1_pol_psy.pol = [np.random.rand(x1_pol_psy.pol[n].shape[0], x1_pol_psy.pol[n].shape[1]) for n in range(3)]
+    x2_pol_psy.pol = [np.random.rand(x2_pol_psy.pol[n].shape[0], x2_pol_psy.pol[n].shape[1]) for n in range(3)]
+    x3_pol_psy.pol = [np.random.rand(x3_pol_psy.pol[0].shape[0], x3_pol_psy.pol[0].shape[1])]
 
     # apply boundary conditions to legacy vectors for right shape
     x0_pol_str = space.B0.dot(x0_pol_psy.toarray(True))
@@ -614,7 +612,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     r_str = mhd_ops_str.PR(x3_pol_str)
 
     print(f"Rank {mpi_rank} | Asserting MHD operator K3.")
-    xp.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
+    np.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
     print(f"Rank {mpi_rank} | Assertion passed.")
 
     mpi_comm.Barrier()
@@ -627,7 +625,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     r_str = mhd_ops_str.PR.T(x3_pol_str)
 
     print(f"Rank {mpi_rank} | Asserting transpose MHD operator K3.T.")
-    xp.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
+    np.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
     print(f"Rank {mpi_rank} | Assertion passed.")
 
     # ===== operator Q2 (V2 --> V2) ============
@@ -644,7 +642,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     r_str = mhd_ops_str.MF(x2_pol_str)
 
     print(f"Rank {mpi_rank} | Asserting MHD operator Q2.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
+    np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
     print(f"Rank {mpi_rank} | Assertion passed.")
 
     mpi_comm.Barrier()
@@ -657,7 +655,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     r_str = mhd_ops_str.MF.T(x2_pol_str)
 
     print(f"Rank {mpi_rank} | Asserting transposed MHD operator Q2.T.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
+    np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
     print(f"Rank {mpi_rank} | Assertion passed.")
 
     # ===== operator T2 (V2 --> V1) ============
@@ -674,7 +672,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     r_str = mhd_ops_str.EF(x2_pol_str)
 
     print(f"Rank {mpi_rank} | Asserting MHD operator T2.")
-    xp.allclose(space.B1.T.dot(r_str), r_psy.toarray(True))
+    np.allclose(space.B1.T.dot(r_str), r_psy.toarray(True))
     print(f"Rank {mpi_rank} | Assertion passed.")
 
     mpi_comm.Barrier()
@@ -687,7 +685,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     r_str = mhd_ops_str.EF.T(x1_pol_str)
 
     print(f"Rank {mpi_rank} | Asserting transposed MHD operator T2.T.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
+    np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
     print(f"Rank {mpi_rank} | Assertion passed.")
 
     # ===== operator S2 (V2 --> V2) ============
@@ -704,7 +702,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     r_str = mhd_ops_str.PF(x2_pol_str)
 
     print(f"Rank {mpi_rank} | Asserting MHD operator S2.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
+    np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
     print(f"Rank {mpi_rank} | Assertion passed.")
 
     mpi_comm.Barrier()
@@ -717,7 +715,7 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     r_str = mhd_ops_str.PF.T(x2_pol_str)
 
     print(f"Rank {mpi_rank} | Asserting transposed MHD operator S2.T.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
+    np.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
     print(f"Rank {mpi_rank} | Assertion passed.")
 
 
@@ -726,7 +724,7 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
     TODO
     """
 
-    import cunumpy as xp
+    from struphy.utils.arrays import xp as np
 
     if verbose:
         if MPI_COMM is not None:
@@ -789,8 +787,8 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
 
         print(
             f"Rank {mpi_rank} | Maximum absolute diference (result):\n",
-            xp.max(
-                xp.abs(
+            np.max(
+                np.abs(
                     res_PSY[
                         res_PSY.starts[0] : res_PSY.ends[0] + 1,
                         res_PSY.starts[1] : res_PSY.ends[1] + 1,
@@ -800,8 +798,8 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
                         res_PSY.starts[0] : res_PSY.ends[0] + 1,
                         res_PSY.starts[1] : res_PSY.ends[1] + 1,
                         res_PSY.starts[2] : res_PSY.ends[2] + 1,
-                    ],
-                ),
+                    ]
+                )
             ),
         )
 
@@ -809,7 +807,7 @@ def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
         MPI_COMM.Barrier()
 
     # Compare results. (Works only for Nel=[N, N, N] so far! TODO: Find this bug!)
-    assert xp.allclose(
+    assert np.allclose(
         res_PSY[
             res_PSY.starts[0] : res_PSY.ends[0] + 1,
             res_PSY.starts[1] : res_PSY.ends[1] + 1,
@@ -834,10 +832,5 @@ if __name__ == "__main__":
     #     mapping=["Cuboid", {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}],
     # )
     test_basis_ops_polar(
-        [6, 9, 7],
-        [2, 2, 3],
-        [False, True, True],
-        None,
-        ["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}],
-        False,
+        [6, 9, 7], [2, 2, 3], [False, True, True], None, ["IGAPolarCylinder", {"a": 1.0, "Lz": 3.0}], False
     )

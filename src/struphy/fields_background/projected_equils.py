@@ -1,6 +1,3 @@
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilVector
-
 from struphy.feec.psydac_derham import Derham
 from struphy.fields_background.base import (
     FluidEquilibrium,
@@ -103,7 +100,7 @@ class ProjectedFluidEquilibrium:
         return coeffs
 
     @property
-    def p3(self) -> StencilVector:
+    def p3(self):
         tmp = self._P3(self.equil.p3)
         coeffs = self._E3T.dot(tmp)
         coeffs.update_ghost_regions()
@@ -259,7 +256,7 @@ class ProjectedFluidEquilibriumWithB(ProjectedFluidEquilibrium):
     # 2-forms #
     # ---------#
     @property
-    def b2(self) -> BlockVector:
+    def b2(self):
         tmp = self._P2([self.equil.b2_1, self.equil.b2_2, self.equil.b2_3])
         coeffs = self._E2T.dot(tmp)
         coeffs.update_ghost_regions()

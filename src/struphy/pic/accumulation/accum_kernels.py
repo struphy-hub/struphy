@@ -33,6 +33,7 @@ def charge_density_0form(
     args_derham: "DerhamArguments",
     args_domain: "DomainArguments",
     vec: "float[:,:,:]",
+    vdim: "int",
 ):
     r"""
     Kernel for :class:`~struphy.pic.accumulation.particles_to_grid.AccumulatorVector` into V0 with the filling
@@ -44,7 +45,6 @@ def charge_density_0form(
 
     markers = args_markers.markers
     Np = args_markers.Np
-    weight_idx = args_markers.weight_idx
 
     # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
     # -- removed omp: #$ omp for reduction ( + :vec)
@@ -59,7 +59,7 @@ def charge_density_0form(
         eta3 = markers[ip, 2]
 
         # filling = w_p/N
-        filling = markers[ip, weight_idx] / Np
+        filling = markers[ip, 3 + vdim] / Np
 
         particle_to_mat_kernels.vec_fill_b_v0(
             args_derham,
@@ -482,6 +482,57 @@ def linear_vlasov_ampere(
             filling_v[0],
             filling_v[1],
             filling_v[2],
+        )
+
+    # -- removed omp: #$ omp end parallel
+
+
+def vlasov_maxwell_poisson(
+    args_markers: "MarkerArguments",
+    args_derham: "DerhamArguments",
+    args_domain: "DomainArguments",
+    vec: "float[:,:,:]",
+):
+    r"""
+    Accumulates the charge density in V0
+
+    .. math::
+
+        \rho_p^\mu = w_p \,.
+
+    Parameters
+    ----------
+
+    Note
+    ----
+        The above parameter list contains only the model specific input arguments.
+    """
+
+    markers = args_markers.markers
+    Np = args_markers.Np
+
+    # -- removed omp: #$ omp parallel private (ip, eta1, eta2, eta3, filling)
+    # -- removed omp: #$ omp for reduction ( + :vec)
+    for ip in range(shape(markers)[0]):
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+
+        # marker positions
+        eta1 = markers[ip, 0]
+        eta2 = markers[ip, 1]
+        eta3 = markers[ip, 2]
+
+        # filling = w_p
+        filling = markers[ip, 6] / Np
+
+        particle_to_mat_kernels.vec_fill_b_v0(
+            args_derham,
+            eta1,
+            eta2,
+            eta3,
+            vec,
+            filling,
         )
 
     # -- removed omp: #$ omp end parallel
@@ -1112,7 +1163,9 @@ def pc_lin_mhd_6d_full(
     vec1_3: "float[:,:,:]",
     vec2_3: "float[:,:,:]",
     vec3_3: "float[:,:,:]",
-    ep_scale: "float",
+    scale_mat: "float",
+    scale_vec: "float",
+    boundary_cut: "float",
 ):
     r"""Accumulates into V1 with the filling functions
 
@@ -1156,6 +1209,10 @@ def pc_lin_mhd_6d_full(
         if markers[ip, 0] == -1.0:
             continue
 
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1.0 - boundary_cut:
+            continue
+
         # marker positions
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
@@ -1186,8 +1243,8 @@ def pc_lin_mhd_6d_full(
 
         weight = markers[ip, 8]
 
-        filling_m[:, :] = weight * tmp1 / Np * ep_scale
-        filling_v[:] = weight * tmp_v / Np * ep_scale
+        filling_m[:, :] = weight * tmp1 / Np * scale_mat
+        filling_v[:] = weight * tmp_v / Np * scale_vec
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_v1_pressure_full(
@@ -1305,7 +1362,9 @@ def pc_lin_mhd_6d(
     vec1_3: "float[:,:,:]",
     vec2_3: "float[:,:,:]",
     vec3_3: "float[:,:,:]",
-    ep_scale: "float",
+    scale_mat: "float",
+    scale_vec: "float",
+    boundary_cut: "float",
 ):
     r"""Accumulates into V1 with the filling functions
 
@@ -1348,6 +1407,10 @@ def pc_lin_mhd_6d(
         if markers[ip, 0] == -1.0:
             continue
 
+        # boundary cut
+        if markers[ip, 0] < boundary_cut or markers[ip, 0] > 1.0 - boundary_cut:
+            continue
+
         # marker positions
         eta1 = markers[ip, 0]
         eta2 = markers[ip, 1]
@@ -1378,8 +1441,8 @@ def pc_lin_mhd_6d(
         linalg_kernels.matrix_matrix(df_inv, df_inv_t, tmp1)
         linalg_kernels.matrix_vector(df_inv, v, tmp_v)
 
-        filling_m[:, :] = weight * tmp1 * ep_scale
-        filling_v[:] = weight * tmp_v * ep_scale
+        filling_m[:, :] = weight * tmp1 * scale_mat
+        filling_v[:] = weight * tmp_v * scale_vec
 
         # call the appropriate matvec filler
         particle_to_mat_kernels.m_v_fill_v1_pressure(

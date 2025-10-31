@@ -227,49 +227,13 @@ def pusher_step3(
         # velocity field (0-form, push-forward with df)
         if basis_u == 0:
             u[0] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pn3,
-                bn1,
-                bn2,
-                bn3,
-                span1,
-                span2,
-                span3,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                u1,
+                pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pn3,
-                bn1,
-                bn2,
-                bn3,
-                span1,
-                span2,
-                span3,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                u2,
+                pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pn3,
-                bn1,
-                bn2,
-                bn3,
-                span1,
-                span2,
-                span3,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                u3,
+                pn1, pn2, pn3, bn1, bn2, bn3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], u3
             )
 
             linalg.matrix_vector(df, u, u_cart)
@@ -277,49 +241,13 @@ def pusher_step3(
         # velocity field (1-form, push forward with df^(-T))
         elif basis_u == 1:
             u[0] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pn3,
-                bd1,
-                bn2,
-                bn3,
-                span1 - 1,
-                span2,
-                span3,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_n[2],
-                u1,
+                pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, nbase_d[0], nbase_n[1], nbase_n[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pn3,
-                bn1,
-                bd2,
-                bn3,
-                span1,
-                span2 - 1,
-                span3,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_n[2],
-                u2,
+                pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, nbase_n[0], nbase_d[1], nbase_n[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pn1,
-                pn2,
-                pd3,
-                bn1,
-                bn2,
-                bd3,
-                span1,
-                span2,
-                span3 - 1,
-                nbase_n[0],
-                nbase_n[1],
-                nbase_d[2],
-                u3,
+                pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, nbase_n[0], nbase_n[1], nbase_d[2], u3
             )
 
             linalg.matrix_vector(dfinv_t, u, u_cart)
@@ -327,49 +255,13 @@ def pusher_step3(
         # velocity field (2-form, push forward with df/|det df|)
         elif basis_u == 2:
             u[0] = eva3.evaluation_kernel_3d(
-                pn1,
-                pd2,
-                pd3,
-                bn1,
-                bd2,
-                bd3,
-                span1,
-                span2 - 1,
-                span3 - 1,
-                nbase_n[0],
-                nbase_d[1],
-                nbase_d[2],
-                u1,
+                pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], u1
             )
             u[1] = eva3.evaluation_kernel_3d(
-                pd1,
-                pn2,
-                pd3,
-                bd1,
-                bn2,
-                bd3,
-                span1 - 1,
-                span2,
-                span3 - 1,
-                nbase_d[0],
-                nbase_n[1],
-                nbase_d[2],
-                u2,
+                pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], u2
             )
             u[2] = eva3.evaluation_kernel_3d(
-                pd1,
-                pd2,
-                pn3,
-                bd1,
-                bd2,
-                bn3,
-                span1 - 1,
-                span2 - 1,
-                span3,
-                nbase_d[0],
-                nbase_d[1],
-                nbase_n[2],
-                u3,
+                pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], u3
             )
 
             linalg.matrix_vector(df, u, u_cart)
@@ -380,49 +272,13 @@ def pusher_step3(
 
         # magnetic field (2-form)
         b[0] = eva3.evaluation_kernel_3d(
-            pn1,
-            pd2,
-            pd3,
-            bn1,
-            bd2,
-            bd3,
-            span1,
-            span2 - 1,
-            span3 - 1,
-            nbase_n[0],
-            nbase_d[1],
-            nbase_d[2],
-            b2_1,
+            pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1
         )
         b[1] = eva3.evaluation_kernel_3d(
-            pd1,
-            pn2,
-            pd3,
-            bd1,
-            bn2,
-            bd3,
-            span1 - 1,
-            span2,
-            span3 - 1,
-            nbase_d[0],
-            nbase_n[1],
-            nbase_d[2],
-            b2_2,
+            pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2
         )
         b[2] = eva3.evaluation_kernel_3d(
-            pd1,
-            pd2,
-            pn3,
-            bd1,
-            bd2,
-            bn3,
-            span1 - 1,
-            span2 - 1,
-            span3,
-            nbase_d[0],
-            nbase_d[1],
-            nbase_n[2],
-            b2_3,
+            pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3
         )
 
         # push-forward to physical domain
@@ -434,49 +290,13 @@ def pusher_step3(
 
         # gradient of absolute value of magnetic field (1-form)
         b_grad[0] = eva3.evaluation_kernel_3d(
-            pn1,
-            pn2,
-            pn3,
-            der1,
-            bn2,
-            bn3,
-            span1,
-            span2,
-            span3,
-            nbase_n[0],
-            nbase_n[1],
-            nbase_n[2],
-            b0,
+            pn1, pn2, pn3, der1, bn2, bn3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], b0
         )
         b_grad[1] = eva3.evaluation_kernel_3d(
-            pn1,
-            pn2,
-            pn3,
-            bn1,
-            der2,
-            bn3,
-            span1,
-            span2,
-            span3,
-            nbase_n[0],
-            nbase_n[1],
-            nbase_n[2],
-            b0,
+            pn1, pn2, pn3, bn1, der2, bn3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], b0
         )
         b_grad[2] = eva3.evaluation_kernel_3d(
-            pn1,
-            pn2,
-            pn3,
-            bn1,
-            bn2,
-            der3,
-            span1,
-            span2,
-            span3,
-            nbase_n[0],
-            nbase_n[1],
-            nbase_n[2],
-            b0,
+            pn1, pn2, pn3, bn1, bn2, der3, span1, span2, span3, nbase_n[0], nbase_n[1], nbase_n[2], b0
         )
 
         # push-forward to physical domain
@@ -717,49 +537,13 @@ def pusher_step5_old(
 
         # magnetic field (2-form)
         b[0] = eva3.evaluation_kernel_3d(
-            pn1,
-            pd2,
-            pd3,
-            bn1,
-            bd2,
-            bd3,
-            span1,
-            span2 - 1,
-            span3 - 1,
-            nbase_n[0],
-            nbase_d[1],
-            nbase_d[2],
-            b2_1,
+            pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1
         )
         b[1] = eva3.evaluation_kernel_3d(
-            pd1,
-            pn2,
-            pd3,
-            bd1,
-            bn2,
-            bd3,
-            span1 - 1,
-            span2,
-            span3 - 1,
-            nbase_d[0],
-            nbase_n[1],
-            nbase_d[2],
-            b2_2,
+            pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2
         )
         b[2] = eva3.evaluation_kernel_3d(
-            pd1,
-            pd2,
-            pn3,
-            bd1,
-            bd2,
-            bn3,
-            span1 - 1,
-            span2 - 1,
-            span3,
-            nbase_d[0],
-            nbase_d[1],
-            nbase_n[2],
-            b2_3,
+            pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3
         )
 
         b_prod[0, 1] = -b[2]
@@ -1010,49 +794,13 @@ def pusher_step5(
 
         # magnetic field (2-form)
         b[0] = eva3.evaluation_kernel_3d(
-            pn1,
-            pd2,
-            pd3,
-            bn1,
-            bd2,
-            bd3,
-            span1,
-            span2 - 1,
-            span3 - 1,
-            nbase_n[0],
-            nbase_d[1],
-            nbase_d[2],
-            b2_1,
+            pn1, pd2, pd3, bn1, bd2, bd3, span1, span2 - 1, span3 - 1, nbase_n[0], nbase_d[1], nbase_d[2], b2_1
         )
         b[1] = eva3.evaluation_kernel_3d(
-            pd1,
-            pn2,
-            pd3,
-            bd1,
-            bn2,
-            bd3,
-            span1 - 1,
-            span2,
-            span3 - 1,
-            nbase_d[0],
-            nbase_n[1],
-            nbase_d[2],
-            b2_2,
+            pd1, pn2, pd3, bd1, bn2, bd3, span1 - 1, span2, span3 - 1, nbase_d[0], nbase_n[1], nbase_d[2], b2_2
         )
         b[2] = eva3.evaluation_kernel_3d(
-            pd1,
-            pd2,
-            pn3,
-            bd1,
-            bd2,
-            bn3,
-            span1 - 1,
-            span2 - 1,
-            span3,
-            nbase_d[0],
-            nbase_d[1],
-            nbase_n[2],
-            b2_3,
+            pd1, pd2, pn3, bd1, bd2, bn3, span1 - 1, span2 - 1, span3, nbase_d[0], nbase_d[1], nbase_n[2], b2_3
         )
 
         # push-forward to physical domain

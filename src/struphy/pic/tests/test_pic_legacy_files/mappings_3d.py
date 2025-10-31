@@ -74,53 +74,17 @@ def f(
     if kind_map == 0:
         if component == 1:
             value = eva_3d.evaluate_n_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cx,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3
             )
 
         elif component == 2:
             value = eva_3d.evaluate_n_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cy,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3
             )
 
         elif component == 3:
             value = eva_3d.evaluate_n_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cz,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3
             )
 
     # ==== 2d spline (straight in 3rd direction) ===
@@ -146,7 +110,7 @@ def f(
     elif kind_map == 2:
         if component == 1:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * cos(
-                2 * pi * eta3,
+                2 * pi * eta3
             )
 
             if eta1 == 0.0 and cx[0, 0, 0] == cx[0, 1, 0]:
@@ -160,7 +124,7 @@ def f(
 
         elif component == 3:
             value = eva_2d.evaluate_n_n(tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2) * sin(
-                2 * pi * eta3,
+                2 * pi * eta3
             )
 
             if eta1 == 0.0 and cx[0, 0, 0] == cx[0, 1, 0]:
@@ -335,147 +299,39 @@ def df(
     if kind_map == 0:
         if component == 11:
             value = eva_3d.evaluate_diffn_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cx,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3
             )
         elif component == 12:
             value = eva_3d.evaluate_n_diffn_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cx,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3
             )
         elif component == 13:
             value = eva_3d.evaluate_n_n_diffn(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cx,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cx, eta1, eta2, eta3
             )
         elif component == 21:
             value = eva_3d.evaluate_diffn_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cy,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3
             )
         elif component == 22:
             value = eva_3d.evaluate_n_diffn_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cy,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3
             )
         elif component == 23:
             value = eva_3d.evaluate_n_n_diffn(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cy,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cy, eta1, eta2, eta3
             )
         elif component == 31:
             value = eva_3d.evaluate_diffn_n_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cz,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3
             )
         elif component == 32:
             value = eva_3d.evaluate_n_diffn_n(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cz,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3
             )
         elif component == 33:
             value = eva_3d.evaluate_n_n_diffn(
-                tn1,
-                tn2,
-                tn3,
-                pn[0],
-                pn[1],
-                pn[2],
-                nbase_n[0],
-                nbase_n[1],
-                nbase_n[2],
-                cz,
-                eta1,
-                eta2,
-                eta3,
+                tn1, tn2, tn3, pn[0], pn[1], pn[2], nbase_n[0], nbase_n[1], nbase_n[2], cz, eta1, eta2, eta3
             )
 
     # ==== 2d spline (straight in 3rd direction) ===
@@ -513,27 +369,11 @@ def df(
     elif kind_map == 2:
         if component == 11:
             value = eva_2d.evaluate_diffn_n(
-                tn1,
-                tn2,
-                pn[0],
-                pn[1],
-                nbase_n[0],
-                nbase_n[1],
-                cx[:, :, 0],
-                eta1,
-                eta2,
+                tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2
             ) * cos(2 * pi * eta3)
         elif component == 12:
             value = eva_2d.evaluate_n_diffn(
-                tn1,
-                tn2,
-                pn[0],
-                pn[1],
-                nbase_n[0],
-                nbase_n[1],
-                cx[:, :, 0],
-                eta1,
-                eta2,
+                tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2
             ) * cos(2 * pi * eta3)
 
             if eta1 == 0.0 and cx[0, 0, 0] == cx[0, 1, 0]:
@@ -557,27 +397,11 @@ def df(
             value = 0.0
         elif component == 31:
             value = eva_2d.evaluate_diffn_n(
-                tn1,
-                tn2,
-                pn[0],
-                pn[1],
-                nbase_n[0],
-                nbase_n[1],
-                cx[:, :, 0],
-                eta1,
-                eta2,
+                tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2
             ) * sin(2 * pi * eta3)
         elif component == 32:
             value = eva_2d.evaluate_n_diffn(
-                tn1,
-                tn2,
-                pn[0],
-                pn[1],
-                nbase_n[0],
-                nbase_n[1],
-                cx[:, :, 0],
-                eta1,
-                eta2,
+                tn1, tn2, pn[0], pn[1], nbase_n[0], nbase_n[1], cx[:, :, 0], eta1, eta2
             ) * sin(2 * pi * eta3)
 
             if eta1 == 0.0 and cx[0, 0, 0] == cx[0, 1, 0]:

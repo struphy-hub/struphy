@@ -7,12 +7,12 @@ def test_polar_splines_2D(plot=False):
 
     sys.path.append("..")
 
-    import cunumpy as xp
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
 
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.geometry import domains
+    from struphy.utils.arrays import xp as np
 
     # parameters
     # number of elements (number of elements in angular direction must be a multiple of 3)
@@ -42,8 +42,8 @@ def test_polar_splines_2D(plot=False):
     fig.set_figheight(10)
     fig.set_figwidth(10)
 
-    el_b_1 = xp.linspace(0.0, 1.0, Nel[0] + 1)
-    el_b_2 = xp.linspace(0.0, 1.0, Nel[1] + 1)
+    el_b_1 = np.linspace(0.0, 1.0, Nel[0] + 1)
+    el_b_2 = np.linspace(0.0, 1.0, Nel[1] + 1)
 
     grid_x = domain(el_b_1, el_b_2, 0.0, squeeze_out=True)[0]
     grid_y = domain(el_b_1, el_b_2, 0.0, squeeze_out=True)[1]
@@ -108,7 +108,7 @@ def test_polar_splines_2D(plot=False):
     )
 
     # plot three new polar splines in V0
-    etaplot = [xp.linspace(0.0, 1.0, 200), xp.linspace(0.0, 1.0, 200)]
+    etaplot = [np.linspace(0.0, 1.0, 200), np.linspace(0.0, 1.0, 200)]
     xplot = [
         domain(etaplot[0], etaplot[1], 0.0, squeeze_out=True)[0],
         domain(etaplot[0], etaplot[1], 0.0, squeeze_out=True)[1],
@@ -123,9 +123,9 @@ def test_polar_splines_2D(plot=False):
     ax3 = fig.add_subplot(133, projection="3d")
 
     # coeffs in polar basis
-    c0_pol1 = xp.zeros(space_2d.E0.shape[0], dtype=float)
-    c0_pol2 = xp.zeros(space_2d.E0.shape[0], dtype=float)
-    c0_pol3 = xp.zeros(space_2d.E0.shape[0], dtype=float)
+    c0_pol1 = np.zeros(space_2d.E0.shape[0], dtype=float)
+    c0_pol2 = np.zeros(space_2d.E0.shape[0], dtype=float)
+    c0_pol3 = np.zeros(space_2d.E0.shape[0], dtype=float)
 
     c0_pol1[0] = 1.0
     c0_pol2[1] = 1.0
@@ -134,7 +134,7 @@ def test_polar_splines_2D(plot=False):
     ax1.plot_surface(
         xplot[0],
         xplot[1],
-        space_2d.evaluate_NN(etaplot[0], etaplot[1], xp.array([0.0]), c0_pol1, "V0")[:, :, 0],
+        space_2d.evaluate_NN(etaplot[0], etaplot[1], np.array([0.0]), c0_pol1, "V0")[:, :, 0],
         cmap="jet",
     )
     ax1.set_xlabel("R [m]", labelpad=5)
@@ -144,7 +144,7 @@ def test_polar_splines_2D(plot=False):
     ax2.plot_surface(
         xplot[0],
         xplot[1],
-        space_2d.evaluate_NN(etaplot[0], etaplot[1], xp.array([0.0]), c0_pol2, "V0")[:, :, 0],
+        space_2d.evaluate_NN(etaplot[0], etaplot[1], np.array([0.0]), c0_pol2, "V0")[:, :, 0],
         cmap="jet",
     )
     ax2.set_xlabel("R [m]", labelpad=5)
@@ -154,7 +154,7 @@ def test_polar_splines_2D(plot=False):
     ax3.plot_surface(
         xplot[0],
         xplot[1],
-        space_2d.evaluate_NN(etaplot[0], etaplot[1], xp.array([0.0]), c0_pol3, "V0")[:, :, 0],
+        space_2d.evaluate_NN(etaplot[0], etaplot[1], np.array([0.0]), c0_pol3, "V0")[:, :, 0],
         cmap="jet",
     )
     ax3.set_xlabel("R [m]", labelpad=5)

@@ -6,8 +6,9 @@
 Modules to assemble discrete derivatives.
 """
 
-import cunumpy as xp
 import scipy.sparse as spa
+
+from struphy.utils.arrays import xp as np
 
 
 # ================== 1d incident matrix =======================
@@ -31,7 +32,7 @@ def grad_1d_matrix(spl_kind, NbaseN):
 
     NbaseD = NbaseN - 1 + spl_kind
 
-    grad = xp.zeros((NbaseD, NbaseN), dtype=float)
+    grad = np.zeros((NbaseD, NbaseN), dtype=float)
 
     for i in range(NbaseD):
         grad[i, i] = -1.0
@@ -79,9 +80,9 @@ def discrete_derivatives_3d(space):
             grad_1d_3 = 0 * spa.identity(1, format="csr")
         else:
             if space.basis_tor == "r":
-                grad_1d_3 = 2 * xp.pi * space.n_tor * spa.csr_matrix(xp.array([[0.0, 1.0], [-1.0, 0.0]]))
+                grad_1d_3 = 2 * np.pi * space.n_tor * spa.csr_matrix(np.array([[0.0, 1.0], [-1.0, 0.0]]))
             else:
-                grad_1d_3 = 1j * 2 * xp.pi * space.n_tor * spa.identity(1, format="csr")
+                grad_1d_3 = 1j * 2 * np.pi * space.n_tor * spa.identity(1, format="csr")
 
     # standard tensor-product derivatives
     if space.ck == -1:

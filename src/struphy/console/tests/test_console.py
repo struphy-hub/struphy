@@ -7,6 +7,7 @@ from unittest.mock import patch  # , MagicMock, mock_open
 import pytest
 
 # from psydac.ddm.mpi import mpi as MPI
+import struphy
 import struphy as struphy_lib
 from struphy.console.compile import struphy_compile
 from struphy.console.main import struphy
@@ -77,7 +78,7 @@ def split_command(command):
         # ["units", "Maxwell", "--input-abs", "/params.yml"],
         # Test cases for 'params' sub-command
         ["params", "Maxwell"],
-        ["params", "Vlasov"],
+        ["params", "Vlasov", "--options"],
         # ["params", "Maxwell", "-f", "params_Maxwell.yml"],
         # Test cases for 'profile' sub-command
         ["profile", "sim_1"],
@@ -92,7 +93,7 @@ def split_command(command):
         # Test cases for 'test' sub-command
         ["test", "models"],
         ["test", "unit"],
-        ["test", "Maxwell"],
+        ["test", "Maxwell", "--Tend", "1.0"],
         ["test", "hybrid", "--mpi", "8"],
     ],
 )
@@ -289,7 +290,7 @@ def test_struphy_compile(
         # Otherwise, we will not remove all the *_tmp.py files
         # We can not use the real os.remove becuase then
         # the state and all compiled files will be removed
-        print(f"{path =}")
+        print(f"{path = }")
         if "_tmp.py" in path:
             print("Not mock remove")
             os_remove(path)
@@ -317,19 +318,19 @@ def test_struphy_compile(
             time_execution=time_execution,
             yes=yes,
         )
-        print(f"{language =}")
-        print(f"{compiler =}")
-        print(f"{omp_pic =}")
-        print(f"{omp_feec =}")
-        print(f"{delete =}")
+        print(f"{language = }")
+        print(f"{compiler = }")
+        print(f"{omp_pic = }")
+        print(f"{omp_feec = }")
+        print(f"{delete = }")
         print(f"{status} = ")
-        print(f"{verbose =}")
-        print(f"{dependencies =}")
-        print(f"{time_execution =}")
-        print(f"{yes =}")
-        print(f"{mock_save_state.call_count =}")
-        print(f"{mock_subprocess_run.call_count =}")
-        print(f"{mock_os_remove.call_count =}")
+        print(f"{verbose = }")
+        print(f"{dependencies = }")
+        print(f"{time_execution = }")
+        print(f"{yes = }")
+        print(f"{mock_save_state.call_count = }")
+        print(f"{mock_subprocess_run.call_count = }")
+        print(f"{mock_os_remove.call_count = }")
 
         if delete:
             print("if delete")
@@ -359,9 +360,10 @@ def test_struphy_compile(
 @pytest.mark.parametrize("model", ["Maxwell"])
 @pytest.mark.parametrize("file", ["params_Maxwell.yml", "params_Maxwel2.yml"])
 @pytest.mark.parametrize("yes", [True])
-def test_struphy_params(tmp_path, model, file, yes):
+@pytest.mark.parametrize("options", [True, False])
+def test_struphy_params(tmp_path, model, file, yes, options):
     file_path = os.path.join(tmp_path, file)
-    struphy_params(model, str(file_path), yes=yes)
+    struphy_params(model, str(file_path), yes=yes, options=options)
 
 
 @pytest.mark.mpi_skip

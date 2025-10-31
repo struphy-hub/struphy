@@ -5,7 +5,7 @@
 PYTHON  := python3
 SO_EXT  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
 LIBDIR  := $(shell $(PYTHON) -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
-struphy_path := $(shell $(PYTHON) -c "import struphy; print(struphy.__path__[0])")
+struphy_path := $(shell $(PYTHON) -c "import struphy as _; print(_.__path__[0])")
 
 # Arguments to this script are: 
 STRUPHY_SOURCES := $(sources)

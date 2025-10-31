@@ -49,7 +49,7 @@ def test_pproc_codes(model: str = None, group: str = None):
     elif group == "toy":
         list_models = list_toy
     else:
-        raise ValueError(f"{group =} is not a valid group specification.")
+        raise ValueError(f"{group = } is not a valid group specification.")
 
     if comm.Get_rank() == 0:
         if model is None:

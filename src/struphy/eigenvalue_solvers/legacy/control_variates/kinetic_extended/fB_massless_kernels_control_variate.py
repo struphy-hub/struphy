@@ -584,49 +584,13 @@ def vv(
         bd3[:] = b3[pd3, :pn3] * d3[:]
 
         vel[0] = eva.evaluation_kernel(
-            pd1,
-            pn2,
-            pn3,
-            bd1,
-            bn2,
-            bn3,
-            span1 - 1,
-            span2,
-            span3,
-            NbaseD[0],
-            NbaseN[1],
-            NbaseN[2],
-            bb1,
+            pd1, pn2, pn3, bd1, bn2, bn3, span1 - 1, span2, span3, NbaseD[0], NbaseN[1], NbaseN[2], bb1
         )
         vel[1] = eva.evaluation_kernel(
-            pn1,
-            pd2,
-            pn3,
-            bn1,
-            bd2,
-            bn3,
-            span1,
-            span2 - 1,
-            span3,
-            NbaseN[0],
-            NbaseD[1],
-            NbaseN[2],
-            bb2,
+            pn1, pd2, pn3, bn1, bd2, bn3, span1, span2 - 1, span3, NbaseN[0], NbaseD[1], NbaseN[2], bb2
         )
         vel[2] = eva.evaluation_kernel(
-            pn1,
-            pn2,
-            pd3,
-            bn1,
-            bn2,
-            bd3,
-            span1,
-            span2,
-            span3 - 1,
-            NbaseN[0],
-            NbaseN[1],
-            NbaseD[2],
-            bb3,
+            pn1, pn2, pd3, bn1, bn2, bd3, span1, span2, span3 - 1, NbaseN[0], NbaseN[1], NbaseD[2], bb3
         )
         # ======= here we use the linear hat function ===========
         ie1 = int(eta1 * Nel[0])
