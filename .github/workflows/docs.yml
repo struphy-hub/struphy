@@ -72,8 +72,16 @@ jobs:
           CC: ${{ env.CC }}
           CXX: ${{ env.CXX }}
 
+      # - name: Install Struphy (dev-doc)
+      #   shell: bash
+      #   run: |
+      #     pip install --upgrade pip
+      #     pip install ".[dev,doc]"
+
       - name: Install Struphy (dev-doc)
-        uses: ./.github/actions/install/struphy-dev-doc
+        uses: ./.github/actions/install/install-struphy
+        with:
+          optional-deps: 'dev,doc'
 
       - name: Compile Struphy
         shell: bash
