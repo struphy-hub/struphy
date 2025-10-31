@@ -53,29 +53,12 @@ jobs:
           sudo apt update -y
           sudo apt install -y pandoc
 
-      # - name: Install TeX Live with pdflatex
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y texlive-full
-      #     sudo apt-get install -y texlive texlive-latex-base texlive-latex-extra texlive-fonts-recommended texlive-science
-
-      # - name: Check if pdflatex is available
-      #   run: |
-      #     which pdflatex
-      #     pdflatex --version
-
       - name: Install prerequisites (Ubuntu)
         uses: ./.github/actions/install/ubuntu-latest
         env:
           FC: ${{ env.FC }}
           CC: ${{ env.CC }}
           CXX: ${{ env.CXX }}
-
-      # - name: Install Struphy (dev-doc)
-      #   shell: bash
-      #   run: |
-      #     pip install --upgrade pip
-      #     pip install ".[dev,doc]"
 
       - name: Install Struphy (dev-doc)
         uses: ./.github/actions/install/install-struphy
