@@ -48,20 +48,8 @@ def struphy():
     utils.update_state(state=state)
     utils.save_state(state=state)
 
-    # Get paths from state
-    i_path, o_path, b_path = utils.get_paths(state=state)
-
-    # check parameter file in current input path:
-    params_files = get_params_files(i_path)
-
-    # check output folders in current output path:
-    out_folders = get_out_folders(o_path)
-
-    # check batch scripts in current batch path:
-    batch_files = get_batch_files(b_path)
-
     # Load the models and messages
-    model_message = "All models are listed on https://struphy.pages.mpcdf.de/struphy/sections/models.html"
+    model_message = "All models are listed on https://struphy-hub.github.io/struphy/sections/models.html"
     list_models = []
     ml_path = os.path.join(libpath, "models", "models_list")
     if not os.path.isfile(ml_path):
@@ -75,7 +63,7 @@ def struphy():
         )
 
     # 0. basic options
-    add_parser_basic_options(parser, i_path, o_path, b_path)
+    add_parser_basic_options(parser)
 
     # create sub-commands and save name of sub-command into variable "command"
     subparsers = parser.add_subparsers(
@@ -133,37 +121,6 @@ def struphy():
             print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
             sys.exit(0)
 
-    # Set default input path
-    if args.set_i:
-        set_path(state, args.set_i, "io/inp", "i_path")
-
-    # Set default output path
-    if args.set_o:
-        set_path(state, args.set_o, "io/out", "o_path")
-
-    # Set default batch path
-    if args.set_b:
-        set_path(state, args.set_b, "io/batch", "b_path")
-
-    # set paths for inp, out and batch (with io/inp etc. prefices)
-    if args.set_iob:
-        if args.set_iob == ".":
-            path = os.getcwd()
-        elif args.set_iob == "d":
-            path = libpath
-        else:
-            path = args.set_iob
-
-        i_path = os.path.join(path, "io/inp")
-        o_path = os.path.join(path, "io/out")
-        b_path = os.path.join(path, "io/batch")
-
-        set_path(state, i_path, "", "i_path", exit_on_set=False)
-        set_path(state, o_path, "", "o_path", exit_on_set=False)
-        set_path(state, b_path, "", "b_path", exit_on_set=False)
-
-        sys.exit(0)
-
     if args.refresh_models:
         utils.refresh_models()
 
@@ -174,11 +131,8 @@ def struphy():
         "format": ("struphy.console.format", "struphy_format"),
         "likwid_profile": ("struphy.console.likwid", "struphy_likwid_profile"),
         "params": ("struphy.console.params", "struphy_params"),
-        "pproc": ("struphy.console.pproc", "struphy_pproc"),
         "profile": ("struphy.console.profile", "struphy_profile"),
-        "run": ("struphy.console.run", "struphy_run"),
         "test": ("struphy.console.test", "struphy_test"),
-        "units": ("struphy.console.units", "struphy_units"),
     }
 
     # import struphy.console.MODULE.FUNC_NAME as func
@@ -197,10 +151,6 @@ def struphy():
         "kinetic",
         "hybrid",
         "toy",
-        "set_i",
-        "set_o",
-        "set_b",
-        "set_iob",
         "refresh_models",
         # These options are stored in kwargs.config
         "input_type",
@@ -217,61 +167,12 @@ def struphy():
     func(**kwargs)
 
 
-def get_params_files(i_path):
-    if os.path.exists(i_path) and os.path.isdir(i_path):
-        params_files = recursive_get_files(i_path, contains=(".yml", ".yaml", ".py"))
-    else:
-        print("Path to input files missing! Set it with `struphy --set-i PATH`")
-        params_files = []
-
-    return params_files
-
-
-def get_out_folders(o_path):
-    out_folders = []
-    if os.path.isdir(o_path):
-        with os.scandir(o_path) as entries:
-            out_folders = [entry.name for entry in entries if entry.is_dir()]
-    else:
-        print("Path to outputs directory missing! Set it with `struphy --set-o PATH`")
-
-    return out_folders
-
-
-def get_batch_files(b_path):
-    if os.path.exists(b_path) and os.path.isdir(b_path):
-        batch_files = recursive_get_files(
-            b_path,
-            contains=(".sh"),
-            out=[],
-            prefix=[],
-        )
-    else:
-        print("Path to batch files missing! Set it with `struphy --set-b PATH`")
-        batch_files = []
-
-    return batch_files
-
-
-def add_parser_basic_options(parser, i_path, o_path, b_path):
-    # path message
-    path_message = f"Struphy installation path: {libpath}\n"
-    path_message += f"current input:             {i_path}\n"
-    path_message += f"current output:            {o_path}\n"
-    path_message += f"current batch scripts:     {b_path}"
-
+def add_parser_basic_options(parser):
     parser.add_argument(
         "-v",
         "--version",
         action="version",
         version=version_message,
-    )
-    parser.add_argument(
-        "-p",
-        "--path",
-        action="version",
-        version=path_message,
-        help="default installations and i/o paths",
     )
     parser.add_argument(
         "-s",
@@ -303,30 +204,6 @@ def add_parser_basic_options(parser, i_path, o_path, b_path):
         "--refresh-models",
         help="refresh list of available model names",
         action="store_true",
-    )
-    parser.add_argument(
-        "--set-i",
-        type=str,
-        metavar="PATH",
-        help='make PATH the new default Input folder ("." to use cwd, "d" to use default <install-path>/io/inp/)',
-    )
-    parser.add_argument(
-        "--set-o",
-        type=str,
-        metavar="PATH",
-        help='make PATH the new default Output folder ("." to use cwd, "d" to use default <install-path>/io/out/)',
-    )
-    parser.add_argument(
-        "--set-b",
-        type=str,
-        metavar="PATH",
-        help='make PATH the new default Batch folder ("." to use cwd, "d" to use default <install-path>/io/batch/)',
-    )
-    parser.add_argument(
-        "--set-iob",
-        type=str,
-        metavar="PATH",
-        help='make PATH the new default folder for io/inp/, io/out and io/batch ("." to use cwd, "d" to use default <install-path>)',
     )
 
 
@@ -433,14 +310,6 @@ def add_parser_params(subparsers, list_models, model_message):
         choices=list_models,
         metavar="MODEL",
         help=model_message,
-    )
-
-    parser_params.add_argument(
-        "-p",
-        "--params-path",
-        type=str,
-        metavar="PATH",
-        help="Absolute path to the parameter file (default is getcwd()/params_MODEL.py)",
     )
 
     parser_params.add_argument(
@@ -733,27 +602,6 @@ def add_parser_format(subparsers):
             choices=["table", "plain", "report"],
             help="specify the format of the output: 'table' for tabular output, 'plain' for regular output, or 'report' for saving a html report",
         )
-
-
-def set_path(state, arg_value, default_subdir, state_key, exit_on_set=True):
-    if arg_value == ".":
-        path = os.getcwd()
-    elif arg_value == "d":
-        path = os.path.join(libpath, default_subdir)
-    else:
-        path = arg_value
-        try:
-            os.makedirs(path, exist_ok=True)
-        except Exception as e:
-            print(f"Warning: Could not create directory {path}: {e}")
-
-    path = os.path.abspath(path)
-    state[state_key] = path
-    utils.save_state(state)
-    print(f"New {state_key} has been set to {path}")
-
-    if exit_on_set:
-        sys.exit(0)
 
 
 def set_args_format_config(args, parser):
