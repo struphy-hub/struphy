@@ -32,7 +32,7 @@ def struphy():
 
     # create argument parser
     epilog_message = 'Type "struphy COMMAND --help" for more information on a command.\n\n'
-    epilog_message += "For more help on how to use Struphy, see https://struphy.pages.mpcdf.de/struphy/index.html"
+    epilog_message += "For more help on how to use Struphy, see https://struphy-hub.github.io/struphy/"
 
     parser = argparse.ArgumentParser(
         prog="struphy",
