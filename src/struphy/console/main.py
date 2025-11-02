@@ -37,7 +37,7 @@ def struphy():
     parser = argparse.ArgumentParser(
         prog="struphy",
         formatter_class=CustomFormatter,
-        description="Struphy: STRUcture-Preserving HYbrid codes for plasma physics.",
+        description="Struphy: STRUcture-Preserving HYbrid code for plasma physics.",
         epilog=epilog_message,
     )
 
@@ -212,7 +212,7 @@ def add_parser_compile(
 ):
     parser_compile = subparsers.add_parser(
         "compile",
-        help="compile computational kernels, install psydac (on first call only)",
+        help="compile computational kernels (including psydac)",
         description="Compile Struphy kernels using pyccel, https://github.com/pyccel/pyccel.",
     )
 
@@ -330,7 +330,7 @@ def add_parser_params(subparsers, list_models, model_message):
 def add_parser_profile(subparsers):
     parser_profile = subparsers.add_parser(
         "profile",
-        help="profile finished Struphy runs",
+        help="profile finished runs",
         description="Compare profiling data of finished Struphy runs. For each function in a predefined filter, displays: ncalls, tottime, percall and cumtime.",
     )
 
@@ -389,7 +389,7 @@ def add_parser_likwid_profile(subparsers):
     if add_likwid_parser:
         parser_likwid_profile = subparsers.add_parser(
             "likwid_profile",
-            help="Profile finished Struphy runs with likwid",
+            help="Profile finished runs with likwid",
             description="Compare profiling data of finished Struphy runs. Run the plot files script with a given directory.",
         )
 
@@ -459,7 +459,7 @@ def add_parser_test(subparsers, list_models):
                 prog,
                 max_help_position=30,
             ),
-            help="run Struphy tests",
+            help="run tests",
             description="Run available unit tests or test Struphy models.",
         )
 
