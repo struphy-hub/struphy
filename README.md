@@ -15,7 +15,7 @@ https://pypi.org/project/struphy/)
 
 **This is a Python package for solving partial differential equations (PDEs) mainly - but not exclusively - for plasma physics.**
 
-**STRUPHY** stands for "**STRU**cture in **PHY**sics" or "**STRU**cture-**P**reserving **HY**brid codes". The package provides off-the-shelf models for plasma physics problems, such as
+**STRUPHY** stands for **STRU**cture-**P**reserving **HY**brid code (or **STRU**cture-preserving **PHY**sics code). The package provides off-the-shelf models for plasma physics problems, such as
 
 * Maxwell's equations
 * Magneto-hydrodynamics (MHD)
@@ -51,7 +51,7 @@ struphy compile
 
 In case you face troubles with install/compile:
 
-1. check the [requirements](https://struphy-hub.github.io/struphy/sections/install.html#requirements)
+1. check the [prerequisites](https://struphy-hub.github.io/struphy/sections/install.html#requirements)
 2. visit [trouble shooting](https://struphy-hub.github.io/struphy/sections/install.html#trouble-shooting)
 
 
