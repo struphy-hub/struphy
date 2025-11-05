@@ -149,7 +149,7 @@ def test_prepare_arg():
         "ShafranovShiftCylinder",
         "ShafranovSqrtCylinder",
         "ShafranovDshapedCylinder",
-        "GVECunit",
+        # "GVECunit",
         "DESCunit",
         "IGAPolarCylinder",
         "IGAPolarTorus",

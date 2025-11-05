@@ -57,7 +57,7 @@ jobs:
           struphy test models 
           struphy test verification 
 
-      - name: Model tests with  MPI
+      - name: Model tests with MPI
         shell: bash
         run: |
           which python3

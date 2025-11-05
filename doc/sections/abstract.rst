@@ -5,36 +5,33 @@ Tl;dr
 
 **Struphy provides easy access to partial differential equations (PDEs) in plasma physics.
 The package combines** *performance* **(for HPC),** *flexibility* **(models and physics features)
-and** *usability* **(documentation).**  
+and** *usability* **(Python).**  
 
-*Performance* in Struphy is achieved using three building blocks:
+**Performance** in Struphy is achieved from three building blocks:
 
 * `numpy <https://numpy.org/>`_ (vectorization)
 * `mpi4py <https://pypi.org/project/mpi4py/>`_ (parallelization)
 * `pyccel <https://github.com/pyccel/pyccel>`_ (compilation)
 
-Heavy computational kernels are pre-compiled using the Python accelerator `pyccel <https://github.com/pyccel/pyccel>`_,
-which on average shows `better performance <https://github.com/pyccel/pyccel-benchmarks>`_ than *Pythran* or *Numba*.
+Heavy compute kernels are transpiled using the Python accelerator `pyccel <https://github.com/pyccel/pyccel>`_.
+You will thus enjoy the speed of Fortran or C while working in the familiar Python environment.
 
-*Flexibility* comes through the possibility of applying different :ref:`models` to a plasma physics problem.
+**Flexibility** comes through the possibility of applying different :ref:`models` to a plasma physics problem.
 Each model can be run on different :ref:`avail_mappings` and can load a variety of :ref:`equils`,
-:ref:`kinetic_backgrounds` and :ref:`avail_inits`.
+as well as other relevant physial inputs (such as initial conditions).
 
-*Usability* is guaranteed by Struphy's intuitive console interface (see for example :ref:`quickstart`).
-Moreover, an extensive, maintained documentation is provided. In addition, you can learn Struphy
-through a series of Jupyter notebook :ref:`tutorials`. 
+**Usability** is guaranteed by Python. 
+Struphy code can be handled in the familiar object-oriented way of Python.
 
-Struphy is an object-oriented code. The concept of `inheritance <https://www.w3schools.com/python/python_inheritance.asp>`_ 
-is heavily used in its basic design; it enables the streamlined addition of new models/features to Struphy.
-For details, please check
+Struphy is modular and allows you to add your own model, benefitting from the abstraction
+provided by the Struphy classes. Check out :ref:`add_model` to learn more.
 
-* :ref:`tutorials`
-* :ref:`add_model`
+At present, abstractions for the following numerical methods are available:
 
-Model discretization is based on finite element exterior calculus (FEEC) for the fluid/field quantities
-and particle-in-cell (PIC) methods for the kinetic species. An overview of these methods is given in :ref:`gempic`.
-For the FEEC spaces Struphy uses the open source library 
+* **Finite Element Exterior Calculus (FEEC)**, through `Psydac <https://github.com/pyccel/psydac>`_
+* **Particle-In-Cell (PIC)**
+* **Smoothed-Particle Hydrodynamics (SPH)**
 
-* `Psydac <https://github.com/pyccel/psydac>`_ (FEEC spaces)
+See :ref:`gempic` for more details on the numerical methods.
 
-You can visit the :ref:`gallery` to get some impressions of Struphy simulation results.
+If you are passionate about some of the above topics, `get in touch <https://github.com/struphy-hub/struphy/tree/32-publish-struphy-pages-on-github-clean?tab=readme-ov-file#get-in-touch>`_!
