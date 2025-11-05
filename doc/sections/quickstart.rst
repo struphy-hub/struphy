@@ -3,7 +3,8 @@
 Quickstart
 ==========
 
-Get familiar with Struphy objects using the notebook :ref:`tutorials`.
+Get familiar with Struphy right away through the tutorials on `mybinder <https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main>`_ - no installation needed.
+
 What follows is an introduction to the CLI (command line interface) of Struphy.
 For a more in-depth manual please go to :ref:`userguide`.
 
@@ -15,84 +16,60 @@ Check if kernels are compiled::
 
     struphy compile
 
-Check the current I/O paths::
+Display available kinetic models::
 
-    struphy -p
+    struphy --kinetic
 
-Set the I/O paths to the current working directory::
-
-    struphy --set-i .
-    struphy --set-o .
-
-Get a list of available Struphy models::
-
-    struphy run -h
-
-Let us generate default parameters for the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`::
+Generate default parameters for the model :class:`~struphy.models.kinetic.VlasovMaxwellOneSpecies`::
 
     struphy params VlasovMaxwellOneSpecies
 
-After hitting ``enter`` on prompt, the parameter file ``params_VlasovMaxwellOneSpecies.yml`` is created
-in the current input path (cwd). Let us rename it for convenience::
+After hitting enter on prompt, the default launch file ``params_VlasovMaxwellOneSpecies.py`` is created
+in the current working directory (cwd). Let us rename it for convenience::
 
-    mv params_VlasovMaxwellOneSpecies.yml test.yml
+    mv params_VlasovMaxwellOneSpecies.py test_struphy.py
 
-We can now run a simulation with these parameters and save the data to ``my_first_sim/``::
+The file ``test_struphy`` contains all information of a simulation with the above model. 
+We can change the parameters therein to our liking. 
+Then, we can now run a simulation simply with::
 
-    struphy run VlasovMaxwellOneSpecies -i test.yml -o my_first_sim
+    python test_struphy.py
 
-The produced data is in the expected folder in the current output path (cwd)::
+By default, the produced data is in ``sim_1`` in the cwd::
 
-    ls my_first_sim/ 
+    ls sim_1/ 
 
-Let us post-process the raw simulation data::
+The data can be accessed through the Struphy API. If ``ipython`` is installed::
 
-    struphy pproc my_first_sim
+    ipython
+    
+and then::
 
-The results of post-processing are stored under ``my_first_sim/post_processing/``. In particular, 
-the data of the FEEC-fields is stored under::
+    from struphy.main import pproc, load_data
+    import os
+    path = os.path.join(os.getcwd(), "sim_1")
+    pproc(path)
+    simdata = load_data(path)
 
-    ls my_first_sim/post_processing/fields_data/
+The variable ``simdata`` is of type :class:`~struphy.main.SimData` and holds grid and orbit information.
+You can deduce the kind of info held from the screen output. For instance, you have access several ``grids``
+as well as to, for instance::
 
-and the data of the kinetic particles is stored under::
+    print(simdata.spline_values["em_fields"]["e_field_log"].keys())
+    print(simdata.orbits["kinetic_ions"].shape)
+    print(simdata.f["kinetic_ions"]["e1"].keys())
 
-    ls my_first_sim/post_processing/kinetic_data/
+Under ``simdata.spline_values`` you find dictionaries holding splines values at the pre-defined ``simdata.grids_log``
+(or the physical grid); the keys are the time points of evaluation.
 
-Check out Tutorial 08 in :ref:`tutorials`
-for a deeper discussion on Struphy data and post processing.
+Under ``simdata.orbits`` you find numpy arrays holding orbit data, indexed by ``[time, particle, attribute]``.
 
-Our first simulation ran for just three time steps. Let us change the end-time of the simulation by opening the parameter file::
+Under ``simdata.f`` you find binning data, in this case a 1d binning plot in the first logical coordinate :math:`\eta_1`-direction.
+ 
+Parallel simulations can invoked from the same launch file for instance by::
 
-    vi test.yml
+    mpirun -n 4 struphy_test.py
 
-and setting ``time/Tend`` to ``0.1``. Save, quit and run again, but this time on 2 MPI processes, 
-and saving to a different folder::
-
-    struphy run VlasovMaxwellOneSpecies -i test.yml -o another_sim --mpi 2
-
-This time we ran for 20 time steps. The physical time unit of the run can be known via::
-
-    struphy units VlasovMaxwellOneSpecies -i test.yml
-
-For completeness, let us post-process the data of the second run::
-
-    struphy pproc another_sim
-
-Let us now double the number of markers used in the simulation:: 
-
-    vi test.yml
-
-by changing ``kinetic/electrons/markers/ppc`` from 10 to 20, and then running::
-
-    struphy run VlasovMaxwellOneSpecies -i test.yml -o sim_20 --mpi 2
-
-Finally, each Struphy model has some specific options to it, which in the case of ``VlasovMaxwellOneSpecies`` can be inspected via::
-
-    struphy params VlasovMaxwellOneSpecies --options
-
-These options can be set in the parameter file. They usually refer to different types of solvers or solution methods.
-
-If you want to learn more about using Struphy, please check out the :ref:`userguide`
-as well as the :ref:`tutorials`.
+If you want to learn more please check out the :ref:`userguide`.
 
             
