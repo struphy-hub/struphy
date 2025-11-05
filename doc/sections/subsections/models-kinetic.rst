@@ -5,9 +5,6 @@ Kinetic models
 
 The bulk plasma is kinetic, out of thermal equilibirum; there can be fluid components too (not bulk).
 
-.. inheritance-diagram:: struphy.models.kinetic
-    :parts: 1
-
 .. automodule:: struphy.models.kinetic
     :members:
     :undoc-members:
