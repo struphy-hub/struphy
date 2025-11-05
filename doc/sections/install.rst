@@ -44,44 +44,56 @@ Then::
 Install and compile
 -------------------
 
-Base install::
+.. tab-set::
 
-    pip install -U struphy
-    struphy compile --status
-    struphy compile
-    struphy -h
+    .. tab-item:: base install
 
-Install with Physics packages::
+        .. code-block::
 
-    pip install -U struphy[phys]
-    struphy compile --status
-    struphy compile
-    struphy -h
+            pip install -U struphy
+            struphy compile --status
+            struphy compile
+            struphy -h
 
-Install with MPI::
+    .. tab-item:: more Physics
 
-    pip install -U struphy[mpi]
-    struphy compile --status
-    struphy compile
-    struphy -h
+        .. code-block::
 
-Install for developers (from source, in editable mode)::
+            pip install -U struphy[phys]
+            struphy compile --status
+            struphy compile
+            struphy -h
 
-    git clone git@github.com:struphy-hub/struphy.git
-    cd struphy
-    pip install -e .[dev,doc]
-    struphy compile --status
-    struphy compile
-    struphy -h
+    .. tab-item:: with MPI
 
-Install everything (including advanced profiling)::
+        .. code-block::
 
-    git clone git@github.com:struphy-hub/struphy.git
-    cd struphy
-    pip install -e .[all]
-    struphy compile --status
-    struphy compile
-    struphy -h
+            pip install -U struphy[mpi]
+            struphy compile --status
+            struphy compile
+            struphy -h
+
+    .. tab-item:: for developers
+
+        .. code-block::
+
+            git clone git@github.com:struphy-hub/struphy.git
+            cd struphy
+            pip install -e .[dev,doc]
+            struphy compile --status
+            struphy compile
+            struphy -h
+
+    .. tab-item:: all options
+
+        .. code-block::
+
+            git clone git@github.com:struphy-hub/struphy.git
+            cd struphy
+            pip install -e .[all]
+            struphy compile --status
+            struphy compile
+            struphy -h
 
 In case you encounter problems during install visit :ref:`trouble_shoot`.
 
