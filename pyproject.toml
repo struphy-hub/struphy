@@ -76,6 +76,7 @@ doc = [
     "sphinx-design",
     "lxml_html_clean",
     "sphinxcontrib-napoleon",
+    "sphinx-copybutton",
     "pydata-sphinx-theme",
     "nbsphinx",
     "m2r2",

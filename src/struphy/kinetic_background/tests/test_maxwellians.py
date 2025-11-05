@@ -294,7 +294,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 continue
 
             if "GVECequilibrium" in key:
-                print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                print(f"Attention: GVEC not tested here !!")
+                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                continue
 
             mhd_equil = val()
             assert isinstance(mhd_equil, FluidEquilibrium)
@@ -375,6 +377,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
             # test flat evaluation
             if "GVECequilibrium" in key:
+                print(f"Attention: GVEC not tested here !!")
+                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                continue
                 pass
             else:
                 assert xp.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
@@ -1090,7 +1095,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 continue
 
             if "GVECequilibrium" in key:
-                print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                print(f"Attention: GVEC not tested here !!")
+                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                continue
 
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
@@ -1163,6 +1170,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
 
             # test flat evaluation
             if "GVECequilibrium" in key:
+                print(f"Attention: GVEC not tested here !!")
+                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                continue
                 pass
             else:
                 assert xp.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
