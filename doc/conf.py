@@ -40,7 +40,7 @@ extensions = [
     "sphinx.ext.graphviz",
     "myst_parser",
     "sphinx_design",
-    'sphinx_copybutton',
+    "sphinx_copybutton",
 ]
 
 nbsphinx_execute = "auto"
@@ -79,7 +79,10 @@ html_theme_options = {
     "external_links": [
         {"name": "Struphy repo", "url": "https://github.com/struphy-hub/struphy"},
         {"name": "Struphy LinkedIn", "url": "https://www.linkedin.com/company/struphy/"},
-        {"name": "Struphy MatrixChat", "url": "https://matrix.to/#/!wqjcJpsUvAbTPOUXen:mpg.de?via=mpg.de&via=academiccloud.de"},
+        {
+            "name": "Struphy MatrixChat",
+            "url": "https://matrix.to/#/!wqjcJpsUvAbTPOUXen:mpg.de?via=mpg.de&via=academiccloud.de",
+        },
     ],
 }
 
