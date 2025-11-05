@@ -29,9 +29,9 @@ in the current working directory (cwd). Let us rename it for convenience::
 
     mv params_VlasovMaxwellOneSpecies.py test_struphy.py
 
-The file ``test_struphy`` contains all information of a simulation with the above model. 
+The file ``test_struphy`` contains all information for a simulation with the above model. 
 We can change the parameters therein to our liking. 
-Then, we can now run a simulation simply with::
+Then, we can run a simulation simply with::
 
     python test_struphy.py
 
@@ -39,7 +39,7 @@ By default, the produced data is in ``sim_1`` in the cwd::
 
     ls sim_1/ 
 
-The data can be accessed through the Struphy API. If ``ipython`` is installed::
+The data can be accessed through the Struphy API. If ``ipython`` is installed, type::
 
     ipython
     
@@ -64,7 +64,8 @@ Under ``simdata.spline_values`` you find dictionaries holding splines values at 
 
 Under ``simdata.orbits`` you find numpy arrays holding orbit data, indexed by ``[time, particle, attribute]``.
 
-Under ``simdata.f`` you find binning data, in this case a 1d binning plot in the first logical coordinate :math:`\eta_1`-direction.
+Under ``simdata.f`` you find binning data, in this case a 1d binning plot in the first logical coordinate :math:`\eta_1`-direction
+(see :ref:`binning` for details).
  
 Parallel simulations can invoked from the same launch file for instance by::
 

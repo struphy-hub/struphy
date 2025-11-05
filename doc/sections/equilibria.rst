@@ -11,5 +11,5 @@ In Struphy they can be used for setting :ref:`initial_conditions`, or for provid
     :maxdepth: 2
     :caption: Contents:
 
-    subsections/mhd_equils
-    subsections/kinetic_backgrounds
+    subsections-old/mhd_equils
+    subsections-old/kinetic_backgrounds
