@@ -13,10 +13,9 @@ from struphy.console.main import struphy
 from struphy.console.params import struphy_params
 
 # from struphy.console.profile import struphy_profile
-from struphy.console.run import subp_run
+from struphy.utils.utils import subp_run
 
 # from struphy.console.test import struphy_test
-# from struphy.console.units import struphy_units
 from struphy.utils.utils import read_state
 
 libpath = struphy_lib.__path__[0]
@@ -315,40 +314,6 @@ def test_struphy_params(model, yes):
 #             mock_fig.savefig.assert_called_once_with(save_path)
 #         else:
 #             mock_fig.show.assert_called_once()
-
-# TODO: Fix error occuring when state is None in the CI
-# For now, I 've commented out test_struphy_units
-# it works locally, but I get errors in the CI,
-# maybe the state is altered in some other test
-# TODO: Parametrize all models here
-# @pytest.mark.parametrize("model", struphy_models)
-# @pytest.mark.parametrize("input", [None])  # , "parameters.yml"])
-# # , "src/struphy/io/inp/parameters.yml"])
-# @pytest.mark.parametrize("input_abs", [None])
-# def test_struphy_units(model, input, input_abs):
-
-#     # TODO: Fix this: AttributeError: type object 'KineticBackground' has no attribute 'generate_default_parameter_file'
-#     if model == "KineticBackground":
-#         return
-#     i_path = read_state()["i_path"]
-#     expected_input_abs = (
-#         input_abs if input_abs else os.path.join(i_path, input) if input else None
-#     )
-
-#     # Redirect stdout to capture print output
-#     captured_output = StringIO()
-#     sys.stdout = captured_output
-
-#     # Call the function with parameterized arguments
-#     struphy_units(model=model, input=input, input_abs=input_abs)
-
-#     # Read stdout
-#     sys.stdout = sys.__stdout__
-#     output = captured_output.getvalue()
-#     assert "UNITS:" in output, f"'UNITS:' not found in output: {output}"
-#     if model == "Maxwell":
-#         assert "Unit of length" in output
-#     # TODO: Add model specific units here
 
 
 if __name__ == "__main__":
