@@ -29,7 +29,7 @@ in the current working directory (cwd). Let us rename it for convenience::
 
     mv params_VlasovMaxwellOneSpecies.py test_struphy.py
 
-The file ``test_struphy`` contains all information for a simulation with the above model. 
+The file ``test_struphy.py`` contains all information for a simulation with the above model. 
 We can change the parameters therein to our liking. 
 Then, we can run a simulation simply with::
 

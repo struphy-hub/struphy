@@ -117,6 +117,14 @@ For :ref:`~struphy.models.variables.FEECVariable` and :ref:`~struphy.models.vari
 created as the sum of background + perturbation.
 
 
+Post-processing
+---------------
+
+.. automodule:: struphy.main
+    :members:
+    :exclude-members: run
+
+
 .. .. toctree::
 ..     :maxdepth: 1
 ..     :caption: Contents:
