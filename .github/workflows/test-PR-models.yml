@@ -14,9 +14,9 @@ defaults:
 permissions:
   contents: read
 
-# concurrency:
-#   group: "pages"
-#   cancel-in-progress: false
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   model-tests-in-container-with-struphy:
