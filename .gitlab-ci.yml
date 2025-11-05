@@ -397,7 +397,6 @@ stages:
     - pip install -U build
     - python3 -m build
   inspect_struphy:
-    - struphy -p
     - struphy -h
     - struphy --refresh-models
     - struphy run -h
@@ -424,7 +423,6 @@ stages:
     - struphy test verification --mpi 4 --nclones 2
     - struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2
   quickstart_tests:
-    - struphy -p
     - struphy -h
     - struphy params VlasovAmpereOneSpecies 
     - ls -1a
