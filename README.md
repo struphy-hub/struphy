@@ -25,6 +25,13 @@ https://pypi.org/project/struphy/)
 
 All models can be run on multiple cores through MPI (distributed memory) and OpenMP (shared memory). The compute-intensive parts of the code are translated and compiled ("transpiled") using [pyccel](https://github.com/pyccel/pyccel), giving you the speed of Fortran or C while working within the familiar Python environment. 
 
+Particles in a Tokamak <br> (model "Vlasov")             |  Toroidal Alfvén eigenmode <br> (model "LinearMHDDriftKineticCC") 
+:-------------------------:|:-------------------------:
+![](/doc/gallery/gallery_struphy_tracer6D.png)  |  ![](/doc/gallery/gallery_frontpage_bk.png) 
+**Strong Landau damping <br>(model "VlasovAmpereOneSpecies")** | **Anisotropic diffusion <br> (propagator "ImplicitDiffusion")**
+![](/doc/gallery/gallery_step_1496.png) | ![](/doc/gallery/gallery_struphy_heat.png)
+
+
 The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2025, Struphy developers, Max Planck Institute for Plasma Physics.
 
 <h1 align="center">
