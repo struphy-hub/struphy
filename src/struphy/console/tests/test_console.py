@@ -13,10 +13,8 @@ from struphy.console.main import struphy
 from struphy.console.params import struphy_params
 
 # from struphy.console.profile import struphy_profile
-from struphy.utils.utils import subp_run
-
 # from struphy.console.test import struphy_test
-from struphy.utils.utils import read_state
+from struphy.utils.utils import read_state, subp_run
 
 libpath = struphy_lib.__path__[0]
 state = read_state()
