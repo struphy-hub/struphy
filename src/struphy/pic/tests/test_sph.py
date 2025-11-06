@@ -947,7 +947,7 @@ def test_sph_velocity_evaluation(
     Lx = dom_params["r1"] - dom_params["l1"]
     
     def u_xyz(x, y, z):
-        ux = np.cos(2*np.pi/Lx*x)
+        ux = xp.cos(2*xp.pi/Lx*x)
         uy = 0.0*x
         uz = 0.0*x
         return (ux, uy, uz)
@@ -978,16 +978,16 @@ def test_sph_velocity_evaluation(
         verbose=True,
     )
 
-    eta1 = np.linspace(0, 1.0, eval_pts)
-    eta2 = np.array([0.0])
-    eta3 = np.array([0.0])
-    ee1, ee2, ee3 = np.meshgrid(eta1, eta2, eta3, indexing="ij")
+    eta1 = xp.linspace(0, 1.0, eval_pts)
+    eta2 = xp.array([0.0])
+    eta3 = xp.array([0.0])
+    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
 
     particles.draw_markers(sort=True, verbose=True)
     # particles.mpi_sort_markers()
     particles.initialize_weights()
     
-    v1_bins = np.linspace(0, 1.0, 200, endpoint=True)
+    v1_bins = xp.linspace(0, 1.0, 200, endpoint=True)
     dv = v1_bins[1] - v1_bins[0]
 
     binned_res, r2 = particles.binning(
@@ -997,7 +997,7 @@ def test_sph_velocity_evaluation(
     
     v1_plot = v1_bins[:-1] + dv / 2
 
-    #ana_res = 1.0 / np.sqrt(2.0 * np.pi) * np.exp(-(v1_plot**2) / 2.0)
+    #ana_res = 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-(v1_plot**2) / 2.0)
 
     if show_plot:
         #plt.plot(v1_plot, ana_res, label="Analytical result")
@@ -1027,9 +1027,9 @@ def test_sph_velocity_evaluation(
 
     # v1_exact, v2_exact, v3_exact = background.u_xyz(ee1, ee2, ee3)
 
-    # all_velo1 = np.zeros_like(v1)
-    # all_velo2 = np.zeros_like(v2)
-    # all_velo3 = np.zeros_like(v3)
+    # all_velo1 = xp.zeros_like(v1)
+    # all_velo2 = xp.zeros_like(v2)
+    # all_velo3 = xp.zeros_like(v3)
     # comm.Allreduce(v1, all_velo1, op=MPI.SUM)
     # comm.Allreduce(v2, all_velo2, op=MPI.SUM)
     # comm.Allreduce(v3, all_velo3, op=MPI.SUM)
@@ -1048,7 +1048,7 @@ def test_sph_velocity_evaluation(
     
     # all_velo = []
     # for i in range(3):
-    #     v_tmp = np.zeros_like(v[i])
+    #     v_tmp = xp.zeros_like(v[i])
     #     comm.Allreduce(v[i], v_tmp, op=MPI.SUM)
     #     all_velo.append(v_tmp)
 
@@ -1058,9 +1058,9 @@ def test_sph_velocity_evaluation(
     print(f"{v1_e.squeeze() = }")
     print(f"{all_velo1.squeeze() = }")
 
-    err_ux = np.max(np.abs(all_velo1 - v1_e)) / max(np.max(np.abs(v1_e)), 1e-12)
-    err_uy = np.max(np.abs(all_velo2 - v2_e)) / max(np.max(np.abs(v2_e)), 1e-12)
-    err_uz = np.max(np.abs(all_velo3 - v3_e)) / max(np.max(np.abs(v3_e)), 1e-12)
+    err_ux = xp.max(xp.abs(all_velo1 - v1_e)) / max(xp.max(xp.abs(v1_e)), 1e-12)
+    err_uy = xp.max(xp.abs(all_velo2 - v2_e)) / max(xp.max(xp.abs(v2_e)), 1e-12)
+    err_uz = xp.max(xp.abs(all_velo3 - v3_e)) / max(xp.max(xp.abs(v3_e)), 1e-12)
 
     if comm.Get_rank() == 0:
         print(f"\n{boxes_per_dim = }")
