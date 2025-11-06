@@ -10,11 +10,8 @@
 name: Publish to Docker Hub
 
 on:
-  release:
-    types: [published]
-  pull_request:
-    branches:
-      - devel
+  push:
+    branches: ['main']
 
 jobs:
   push_to_ubuntu-for-struphy:
