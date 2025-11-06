@@ -90,7 +90,8 @@ class Variable(metaclass=ABCMeta):
 
 
 class FEECVariable(Variable):
-    '''Variable discretized with :ref:`geomFE`.'''
+    """Variable discretized with :ref:`geomFE`."""
+
     def __init__(self, space: OptsFEECSpace = "H1"):
         check_option(space, OptsFEECSpace)
         self._space = space
@@ -146,7 +147,8 @@ class FEECVariable(Variable):
 
 
 class PICVariable(Variable):
-    '''Variable discretized with :ref:`particle_discrete`.'''
+    """Variable discretized with :ref:`particle_discrete`."""
+
     def __init__(self, space: OptsPICSpace = "Particles6D"):
         check_option(space, OptsPICSpace)
         self._space = space
@@ -280,7 +282,8 @@ class PICVariable(Variable):
 
 
 class SPHVariable(Variable):
-    '''Variable discretized with :ref:`sph_method`.'''
+    """Variable discretized with :ref:`sph_method`."""
+
     def __init__(self):
         self._space = "ParticlesSPH"
         self._n_as_volume_form = True
