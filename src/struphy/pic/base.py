@@ -1907,8 +1907,11 @@ class Particles(metaclass=ABCMeta):
         bin_edges : tuple[array]
             List of bin edges (resolution) having the length of True entries in components.
 
-        divide_by_jac : boll
+        divide_by_jac : bool
             Whether to divide the weights by the Jacobian determinant for binning.
+            
+        bin_vx : bool
+            Whether to bin the first velocity coordinate (self.velocities[:, 0]).
 
         Returns
         -------
