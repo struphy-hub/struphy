@@ -953,14 +953,7 @@ def test_sph_velocity_evaluation(
         return (ux, uy, uz)
 
     background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
-    # background = ConstantVelocity(
-    #     ux=1.0,
-    #     uy=0.0,
-    #     uz=0.0,
-    #     n=1.5,
-    #     density_profile="constant",
-    #     velocity_profile="step_function_velocity_y",
-    # )
+
     background.domain = domain
     
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
@@ -983,19 +976,19 @@ def test_sph_velocity_evaluation(
     eta3 = xp.array([0.0])
     ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
 
-    particles.draw_markers(sort=True, verbose=True)
+    particles.draw_markers(sort=False, verbose=True)
     # particles.mpi_sort_markers()
     particles.initialize_weights()
     
-    v1_bins = xp.linspace(0, 1.0, 200, endpoint=True)
-    dv = v1_bins[1] - v1_bins[0]
+    e1_bins = xp.linspace(0, 1.0, 200, endpoint=True)
+    dv = e1_bins[1] - e1_bins[0]
 
     binned_res, r2 = particles.binning(
         [True, False, False, False, False, False],
-        [v1_bins], bin_vx= True
+        [e1_bins], bin_vx= True
     )
     
-    v1_plot = v1_bins[:-1] + dv / 2
+    v1_plot = e1_bins[:-1] + dv / 2
 
     #ana_res = 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-(v1_plot**2) / 2.0)
 
@@ -1006,7 +999,6 @@ def test_sph_velocity_evaluation(
         plt.xlabel(r"$v_1$")
         plt.ylabel(r"$f(v_1)$")
         plt.legend()
-        plt.show()
         plt.savefig("Binning_v1.png")
 
     h1 = 1 / boxes_per_dim[0]
@@ -1076,8 +1068,8 @@ def test_sph_velocity_evaluation(
             plt.ylabel("Velocity (vx)")
             plt.legend()
             plt.grid(True)
-            plt.show()
             plt.savefig("image_test.png")
+            plt.show()
 
     
     # if tesselation:
@@ -1091,12 +1083,10 @@ if __name__ == "__main__":
     test_sph_velocity_evaluation(
         (24, 1, 1),
         "gaussian_1d",
-        # "gaussian_1d",
         0,
-        # "periodic",
         "periodic",
         16,
-        tesselation=False,
+        tesselation=True,
         show_plot=True,
     )
     
