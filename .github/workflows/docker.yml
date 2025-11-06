@@ -12,6 +12,9 @@ name: Publish Docker image
 on:
   release:
     types: [published]
+  pull_request:
+    branches:
+      - devel
   workflow_dispatch:
 
 jobs:
