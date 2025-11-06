@@ -30,9 +30,9 @@ All models can be run on multiple cores through MPI (distributed memory) and Ope
 
 Particles in a Tokamak <br> (model "Vlasov")             |  Toroidal Alfvén eigenmode <br> (model "LinearMHDDriftKineticCC") 
 :-------------------------:|:-------------------------:
-![](/doc/gallery/gallery_struphy_tracer6D.png)  |  ![](/doc/gallery/gallery_frontpage_bk.png) 
+![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_struphy_tracer6D.png)  |  ![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_frontpage_bk.png) 
 **Strong Landau damping <br>(model "VlasovAmpereOneSpecies")** | **Anisotropic diffusion <br> (propagator "ImplicitDiffusion")**
-![](/doc/gallery/gallery_step_1496.png) | ![](/doc/gallery/gallery_struphy_heat.png)
+![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_step_1496.png) | ![](https://raw.githubusercontent.com/struphy-hub/.github/refs/heads/main/profile/gallery_struphy_heat.png)
 
 
 The code is freely available under an [MIT license](https://github.com/struphy-hub/struphy/blob/devel/LICENSE) - Copyright (c) 2019-2025, Struphy developers, Max Planck Institute for Plasma Physics.
