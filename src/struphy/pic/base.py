@@ -33,6 +33,7 @@ from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian
 from struphy.pic import sampling_kernels, sobol_seq
+from struphy.pic.pushing import eval_kernels_gc
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
@@ -55,8 +56,6 @@ from struphy.pic.utilities import (
 )
 from struphy.utils import utils
 from struphy.utils.clone_config import CloneConfig
-from struphy.pic.pushing import eval_kernels_gc
-
 from struphy.utils.pyccel import Pyccelkernel
 
 
@@ -1895,7 +1894,7 @@ class Particles(metaclass=ABCMeta):
         components: tuple[bool],
         bin_edges: tuple[xp.ndarray],
         divide_by_jac: bool = True,
-        bin_vx: bool = False, 
+        bin_vx: bool = False,
     ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
         Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
@@ -1935,9 +1934,8 @@ class Particles(metaclass=ABCMeta):
         _weights0 = self.weights0
         _weights = self.weights
         if bin_vx:
-            _weights0 *= self.velocities[:,0]
-            _weights *= self.velocities[:,0] 
-        
+            _weights0 *= self.velocities[:, 0]
+            _weights *= self.velocities[:, 0]
 
         if divide_by_jac:
             _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
@@ -3738,7 +3736,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h3=h3,
             fast=fast,
         )
-        
+
     def eval_velocity(
         self,
         eta1,
@@ -3778,31 +3776,32 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         out : tuple[array-like]
             Velocity components, same size as eta1.
         """
-        
+
         first_free_idx = self.args_markers.first_free_idx
         comps = xp.array((0, 1, 2))
-        
+
         self.put_particles_in_boxes()
-        
+
         func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
-        
-        func(alpha = xp.array((0.0, 0.0, 0.0)), 
-            column_nr= first_free_idx,
+
+        func(
+            alpha=xp.array((0.0, 0.0, 0.0)),
+            column_nr=first_free_idx,
             comps=comps,
             args_markers=self.args_markers,
-            args_domain = self.domain.args_domain,
-            boxes= self.sorting_boxes.boxes,
-            neighbours = self.sorting_boxes.neighbours, 
-            holes= self.holes, 
-            periodic1 = self.boundary_params.bc_sph[0] == "periodic",
-            periodic2 = self.boundary_params.bc_sph[1] == "periodic",
-            periodic3 = self.boundary_params.bc_sph[2] == "periodic", 
-            kernel_type= self.ker_dct()[kernel_type], 
-            h1 = h1, 
-            h2= h2, 
-            h3= h3, 
-            )
-        
+            args_domain=self.domain.args_domain,
+            boxes=self.sorting_boxes.boxes,
+            neighbours=self.sorting_boxes.neighbours,
+            holes=self.holes,
+            periodic1=self.boundary_params.bc_sph[0] == "periodic",
+            periodic2=self.boundary_params.bc_sph[1] == "periodic",
+            periodic3=self.boundary_params.bc_sph[2] == "periodic",
+            kernel_type=self.ker_dct()[kernel_type],
+            h1=h1,
+            h2=h2,
+            h3=h3,
+        )
+
         v1 = self.eval_sph(
             eta1,
             eta2,
@@ -3815,17 +3814,17 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h3=h3,
             fast=fast,
         )
-        
+
         # print(f"{self.markers.shape = }")
         # print(f"{first_free_idx = }")
         # print(f"{self.markers[:, first_free_idx]}")
         # print(f"{v1.squeeze() = }")
-        
+
         v2 = self.eval_sph(
             eta1,
             eta2,
             eta3,
-            first_free_idx +1,
+            first_free_idx + 1,
             kernel_type=kernel_type,
             derivative=derivative,
             h1=h1,
@@ -3833,8 +3832,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h3=h3,
             fast=fast,
         )
-        
-        
+
         v3 = self.eval_sph(
             eta1,
             eta2,
@@ -3847,11 +3845,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h3=h3,
             fast=fast,
         )
-        
-        return v1, v2, v3
-    
-    
 
+        return v1, v2, v3
 
     def eval_sph(
         self,

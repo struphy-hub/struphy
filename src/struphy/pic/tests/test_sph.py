@@ -9,7 +9,7 @@ from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
 from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
-from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters, BinningPlot
+from struphy.pic.utilities import BinningPlot, BoundaryParameters, LoadingParameters, WeightsParameters
 
 
 @pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
@@ -910,8 +910,8 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
 
     if not tesselation:
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
-        
-    
+
+
 @pytest.mark.parametrize("boxes_per_dim", [(12, 1, 1)])
 @pytest.mark.parametrize("kernel", ["trigonometric_1d", "gaussian_1d", "linear_1d"])
 @pytest.mark.parametrize("derivative", [0, 1])
@@ -927,7 +927,6 @@ def test_sph_velocity_evaluation(
     tesselation,
     show_plot=False,
 ):
-    
     if isinstance(MPI.COMM_WORLD, MockComm):
         comm = None
         rank = 0
@@ -945,27 +944,27 @@ def test_sph_velocity_evaluation(
         ppb = 10
         loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
     else:
-        ppb = 400 
+        ppb = 400
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
     # test velocity profile
     Lx = dom_params["r1"] - dom_params["l1"]
-    
+
     def u_xyz(x, y, z):
-        ux = xp.cos(2*xp.pi/Lx*x)
-        uy = 0.0*x
-        uz = 0.0*x
+        ux = xp.cos(2 * xp.pi / Lx * x)
+        uy = 0.0 * x
+        uz = 0.0 * x
         return (ux, uy, uz)
-    
+
     def du_xyz(x, y, z):
-        ux = -2*xp.pi/Lx * xp.sin(2*xp.pi/Lx*x)
-        uy = 0.0*x
-        uz = 0.0*x
+        ux = -2 * xp.pi / Lx * xp.sin(2 * xp.pi / Lx * x)
+        uy = 0.0 * x
+        uz = 0.0 * x
         return (ux, uy, uz)
 
     background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
     background.domain = domain
-    
+
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
 
     particles = ParticlesSPH(
@@ -987,18 +986,15 @@ def test_sph_velocity_evaluation(
     ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
 
     particles.draw_markers(sort=False, verbose=False)
-    if comm is not None: 
+    if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
-    
+
     e1_bins = xp.linspace(0, 1.0, 200, endpoint=True)
     dv = e1_bins[1] - e1_bins[0]
 
-    binned_res, r2 = particles.binning(
-        [True, False, False, False, False, False],
-        [e1_bins], bin_vx= True
-    )
-    
+    binned_res, r2 = particles.binning([True, False, False, False, False, False], [e1_bins], bin_vx=True)
+
     v1_plot = e1_bins[:-1] + dv / 2
 
     if show_plot:
@@ -1023,12 +1019,12 @@ def test_sph_velocity_evaluation(
         kernel_type=kernel,
         derivative=derivative,
     )
-    
+
     if derivative == 0:
         v1_e, v2_e, v3_e = background.u_xyz(ee1, ee2, ee3)
     else:
         v1_e, v2_e, v3_e = du_xyz(ee1, ee2, ee3)
-    
+
     if comm is not None:
         all_velo1 = xp.zeros_like(v1)
         all_velo2 = xp.zeros_like(v2)
@@ -1065,7 +1061,6 @@ def test_sph_velocity_evaluation(
     else:
         assert err_ux < 1.84e-1
 
-    
 
 if __name__ == "__main__":
     test_sph_velocity_evaluation(
@@ -1077,7 +1072,7 @@ if __name__ == "__main__":
         tesselation=False,
         show_plot=True,
     )
-    
+
     # test_sph_evaluation_1d(
     #     (24, 1, 1),
     #     "trigonometric_1d",

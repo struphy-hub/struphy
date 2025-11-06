@@ -1796,6 +1796,7 @@ class PushVinViscousPotential2D(Propagator):
 
     * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
+
     class Variables:
         def __init__(self):
             self._fluid: SPHVariable = None
@@ -1841,9 +1842,9 @@ class PushVinViscousPotential2D(Propagator):
             for k, v in new.__dict__.items():
                 print(f"  {k}: {v}")
         self._options = new
-    
+
     @profile
-    def allocate(self): #ersetzt init 
+    def allocate(self):  # ersetzt init
         particles = self.variables.fluid.particles
 
         # init kernel for evaluating density etc. before each time step.

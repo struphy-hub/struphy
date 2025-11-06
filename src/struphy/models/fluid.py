@@ -2235,7 +2235,6 @@ class EulerSPH(StruphyModel):
             if with_B0:
                 self.push_vxb = propagators_markers.PushVxB()
             self.push_sph_p = propagators_markers.PushVinSPHpressure()
-            
 
     ## abstract methods
 
@@ -2256,8 +2255,7 @@ class EulerSPH(StruphyModel):
         if with_B0:
             self.propagators.push_vxb.variables.ions = self.euler_fluid.var
         self.propagators.push_sph_p.variables.fluid = self.euler_fluid.var
-        
-        
+
         # define scalars for update_scalar_quantities
         self.add_scalar("en_kin", compute="from_sph", variable=self.euler_fluid.var)
 
@@ -2431,8 +2429,6 @@ class ViscousEulerSPH(StruphyModel):
         with open(params_path, "w") as f:
             for line in new_file:
                 f.write(line)
-
-
 
 
 class HasegawaWakatani(StruphyModel):
