@@ -1909,7 +1909,7 @@ class Particles(metaclass=ABCMeta):
 
         divide_by_jac : bool
             Whether to divide the weights by the Jacobian determinant for binning.
-            
+
         bin_vx : bool
             Whether to bin the first velocity coordinate (self.velocities[:, 0]).
 
