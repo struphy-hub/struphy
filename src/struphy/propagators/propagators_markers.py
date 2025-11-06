@@ -1796,6 +1796,7 @@ class PushVinViscousPotential(Propagator):
 
     * Explicit from :class:`~struphy.ode.utils.ButcherTableau`
     """
+
     class Variables:
         def __init__(self):
             self._fluid: SPHVariable = None
