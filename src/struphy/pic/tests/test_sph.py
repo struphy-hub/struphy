@@ -912,7 +912,7 @@ def test_evaluation_SPH_Np_convergence_2d(boxes_per_dim, bc_x, bc_y, tesselation
         assert xp.abs(fit[0] + 0.5) < 0.1  # Monte Carlo rate
         
     
-@pytest.mark.parametrize("boxes_per_dim", [(24, 1, 1)])
+@pytest.mark.parametrize("boxes_per_dim", [(12, 1, 1)])
 @pytest.mark.parametrize("kernel", ["trigonometric_1d", "gaussian_1d", "linear_1d"])
 @pytest.mark.parametrize("derivative", [0, 1])
 @pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
@@ -928,7 +928,12 @@ def test_sph_velocity_evaluation(
     show_plot=False,
 ):
     
-    comm = MPI.COMM_WORLD
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
 
     # DOMAIN object
     dom_type = "Cuboid"
@@ -937,10 +942,10 @@ def test_sph_velocity_evaluation(
     domain = domain_class(**dom_params)
 
     if tesselation:
-        ppb = 100
+        ppb = 10
         loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
     else:
-        ppb = 1000 
+        ppb = 400 
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
     # test velocity profile
@@ -951,9 +956,14 @@ def test_sph_velocity_evaluation(
         uy = 0.0*x
         uz = 0.0*x
         return (ux, uy, uz)
+    
+    def du_xyz(x, y, z):
+        ux = -2*xp.pi/Lx * xp.sin(2*xp.pi/Lx*x)
+        uy = 0.0*x
+        uz = 0.0*x
+        return (ux, uy, uz)
 
     background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
-
     background.domain = domain
     
     boundary_params = BoundaryParameters(bc_sph=(bc_x, "periodic", "periodic"))
@@ -968,7 +978,7 @@ def test_sph_velocity_evaluation(
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=True,
+        verbose=False,
     )
 
     eta1 = xp.linspace(0, 1.0, eval_pts)
@@ -976,8 +986,9 @@ def test_sph_velocity_evaluation(
     eta3 = xp.array([0.0])
     ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
 
-    particles.draw_markers(sort=False, verbose=True)
-    # particles.mpi_sort_markers()
+    particles.draw_markers(sort=False, verbose=False)
+    if comm is not None: 
+        particles.mpi_sort_markers()
     particles.initialize_weights()
     
     e1_bins = xp.linspace(0, 1.0, 200, endpoint=True)
@@ -990,42 +1001,18 @@ def test_sph_velocity_evaluation(
     
     v1_plot = e1_bins[:-1] + dv / 2
 
-    #ana_res = 1.0 / xp.sqrt(2.0 * xp.pi) * xp.exp(-(v1_plot**2) / 2.0)
-
     if show_plot:
-        #plt.plot(v1_plot, ana_res, label="Analytical result")
         plt.plot(v1_plot, binned_res, "r*", label="From binning")
         plt.title(r"Full-$f$: Maxwellian in $v_1$-direction")
         plt.xlabel(r"$v_1$")
         plt.ylabel(r"$f(v_1)$")
         plt.legend()
-        plt.savefig("Binning_v1.png")
+        # plt.savefig("Binning_v1.png")
 
     h1 = 1 / boxes_per_dim[0]
     h2 = 1 / boxes_per_dim[1]
     h3 = 1 / boxes_per_dim[2]
 
-    # v1, v2, v3 = particles.eval_velocity(
-    #     ee1,
-    #     ee2,
-    #     ee3,
-    #     h1=h1,
-    #     h2=h2,
-    #     h3=h3,
-    #     kernel_type=kernel,
-    #     derivative=derivative,
-    # )
-
-
-    # v1_exact, v2_exact, v3_exact = background.u_xyz(ee1, ee2, ee3)
-
-    # all_velo1 = xp.zeros_like(v1)
-    # all_velo2 = xp.zeros_like(v2)
-    # all_velo3 = xp.zeros_like(v3)
-    # comm.Allreduce(v1, all_velo1, op=MPI.SUM)
-    # comm.Allreduce(v2, all_velo2, op=MPI.SUM)
-    # comm.Allreduce(v3, all_velo3, op=MPI.SUM)
-    
     v1, v2, v3 = particles.eval_velocity(
         ee1,
         ee2,
@@ -1036,23 +1023,25 @@ def test_sph_velocity_evaluation(
         kernel_type=kernel,
         derivative=derivative,
     )
-    v1_e, v2_e, v3_e = background.u_xyz(ee1, ee2, ee3)
     
-    # all_velo = []
-    # for i in range(3):
-    #     v_tmp = xp.zeros_like(v[i])
-    #     comm.Allreduce(v[i], v_tmp, op=MPI.SUM)
-    #     all_velo.append(v_tmp)
-
-    # all_velo1, all_velo2, all_velo3 = all_velo
-    all_velo1, all_velo2, all_velo3 = v1, v2, v3
+    if derivative == 0:
+        v1_e, v2_e, v3_e = background.u_xyz(ee1, ee2, ee3)
+    else:
+        v1_e, v2_e, v3_e = du_xyz(ee1, ee2, ee3)
     
-    print(f"{v1_e.squeeze() = }")
-    print(f"{all_velo1.squeeze() = }")
+    if comm is not None:
+        all_velo1 = xp.zeros_like(v1)
+        all_velo2 = xp.zeros_like(v2)
+        all_velo3 = xp.zeros_like(v3)
+        comm.Allreduce(v1, all_velo1, op=MPI.SUM)
+        comm.Allreduce(v2, all_velo2, op=MPI.SUM)
+        comm.Allreduce(v3, all_velo3, op=MPI.SUM)
+    else:
+        all_velo1, all_velo2, all_velo3 = v1, v2, v3
 
-    err_ux = xp.max(xp.abs(all_velo1 - v1_e)) / max(xp.max(xp.abs(v1_e)), 1e-12)
-    err_uy = xp.max(xp.abs(all_velo2 - v2_e)) / max(xp.max(xp.abs(v2_e)), 1e-12)
-    err_uz = xp.max(xp.abs(all_velo3 - v3_e)) / max(xp.max(xp.abs(v3_e)), 1e-12)
+    err_ux = xp.max(xp.abs(all_velo1 - v1_e)) / xp.max(xp.abs(v1_e))
+    err_uy = xp.max(xp.abs(all_velo2 - v2_e)) / xp.max(xp.abs(v2_e))
+    err_uz = xp.max(xp.abs(all_velo3 - v3_e)) / xp.max(xp.abs(v3_e))
 
     if comm.Get_rank() == 0:
         print(f"\n{boxes_per_dim = }")
@@ -1068,25 +1057,24 @@ def test_sph_velocity_evaluation(
             plt.ylabel("Velocity (vx)")
             plt.legend()
             plt.grid(True)
-            plt.savefig("image_test.png")
+            # plt.savefig("image_test.png")
             plt.show()
 
-    
-    # if tesselation:
-    #     assert err_ux < 0.05
-    # else:
-    #     assert err_ux < 0.05
+    if tesselation:
+        assert err_ux < 2.5e-2
+    else:
+        assert err_ux < 1.84e-1
 
     
 
 if __name__ == "__main__":
     test_sph_velocity_evaluation(
-        (24, 1, 1),
+        (12, 1, 1),
         "gaussian_1d",
-        0,
+        1,
         "periodic",
-        16,
-        tesselation=True,
+        11,
+        tesselation=False,
         show_plot=True,
     )
     

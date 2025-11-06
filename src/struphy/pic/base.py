@@ -3750,7 +3750,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         kernel_type="gaussian_1d",
         derivative=0,
         fast=True,
-    ):
+    ) -> tuple:
         """Density function as 0-form.
 
         Parameters
@@ -3775,9 +3775,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
 
         Returns
         -------
-        out : array-like
-            Same size as eta1.
-        -------
+        out : tuple[array-like]
+            Velocity components, same size as eta1.
         """
         
         first_free_idx = self.args_markers.first_free_idx
@@ -3786,6 +3785,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         self.put_particles_in_boxes()
         
         func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
+        
         func(alpha = xp.array((0.0, 0.0, 0.0)), 
             column_nr= first_free_idx,
             comps=comps,
@@ -3816,10 +3816,10 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             fast=fast,
         )
         
-        print(f"{self.markers.shape = }")
-        print(f"{first_free_idx = }")
-        print(f"{self.markers[:, first_free_idx]}")
-        print(f"{v1.squeeze() = }")
+        # print(f"{self.markers.shape = }")
+        # print(f"{first_free_idx = }")
+        # print(f"{self.markers[:, first_free_idx]}")
+        # print(f"{v1.squeeze() = }")
         
         v2 = self.eval_sph(
             eta1,
