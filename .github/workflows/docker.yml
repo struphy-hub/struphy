@@ -15,7 +15,6 @@ on:
   pull_request:
     branches:
       - devel
-  workflow_dispatch:
 
 jobs:
   push_to_ubuntu-for-struphy:
