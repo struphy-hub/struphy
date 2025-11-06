@@ -1039,7 +1039,7 @@ def test_sph_velocity_evaluation(
     err_uy = xp.max(xp.abs(all_velo2 - v2_e)) / xp.max(xp.abs(v2_e))
     err_uz = xp.max(xp.abs(all_velo3 - v3_e)) / xp.max(xp.abs(v3_e))
 
-    if comm.Get_rank() == 0:
+    if rank == 0:
         print(f"\n{boxes_per_dim = }")
         print(f"{kernel = }, {derivative = }")
         print(f"{bc_x = }, {eval_pts = }, {tesselation = }")
