@@ -32,6 +32,7 @@ The code is freely available under an `MIT license <https://github.com/struphy-h
    sections/domains
    sections/fluid-equils
    sections/kinetic-equils
+   sections/perturbations
    sections/propagators
 ..    sections/pic_classes
 ..    sections/feec_classes

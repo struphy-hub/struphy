@@ -8,7 +8,8 @@ This guide takes you through the classes used in Struphy launch files generated 
     struphy params MODEL
 
 for a valid ``MODEL`` from the list of :ref:`models`.
-All information for running simulations are contained in such launch (parameter) files.
+All information for running simulations are contained and can be altered in such launch (parameter) files.
+It is recommended to generate such a file and inspect it with an editor like VScode (using a type checker like "mypy").
 
 :ref:`pproc` is discussed at the end of this section.
 
@@ -32,7 +33,7 @@ See :ref:`avail_mappings`.
 Fluid backgrounds 
 -----------------
 
-See :ref:`equilibria`.
+See :ref:`equils_avail`.
 
 
 Grids 
@@ -54,10 +55,30 @@ Models
 See :ref:`models`.
 
 
-Setting species parameters
---------------------------
+Species types
+^^^^^^^^^^^^^
+
+Each Struphy model is a collection of species of one of the following types:
+
+.. autoclass:: struphy.models.species.FieldSpecies
+
+.. autoclass:: struphy.models.species.FluidSpecies
+
+.. autoclass:: struphy.models.species.ParticleSpecies
 
 .. automethod:: struphy.models.species.Species.set_phys_params
+
+
+Variable types
+^^^^^^^^^^^^^^
+
+Each species can contain multiple variables.
+
+.. autoclass:: struphy.models.variables.PICVariable
+
+.. autoclass:: struphy.models.variables.FEECVariable
+
+.. autoclass:: struphy.models.variables.SPHVariable
 
 
 Setting particle parameters
@@ -89,6 +110,8 @@ Setting backgrounds
 
 .. automethod:: struphy.models.variables.SPHVariable.add_background
 
+.. autoclass:: struphy.io.options.FieldsBackground
+
 
 Adding perturbations
 --------------------
@@ -97,15 +120,19 @@ Adding perturbations
 
 .. automethod:: struphy.models.variables.SPHVariable.add_perturbation
 
-For :ref:`~struphy.models.variables.PICVariable` the perturbation is added as part of the ``initial_condition`` (see below).
+
+.. autoclass:: struphy.initial.base.Perturbation
+
+See available :ref:`perturbations`.
 
 
-Setting kinetic initial conditions
-----------------------------------
+Setting initial conditions
+--------------------------
 
 .. automethod:: struphy.models.variables.PICVariable.add_initial_condition
 
-For :ref:`~struphy.models.variables.FEECVariable` and :ref:`~struphy.models.variables.SPHVariable` the initial condition is automatically
+
+For :class:`~struphy.models.variables.FEECVariable` and :class:`~struphy.models.variables.SPHVariable` the initial condition is automatically
 created as the sum of background + perturbation.
 
 

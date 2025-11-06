@@ -72,7 +72,8 @@ class Variable(metaclass=ABCMeta):
         return self._name
 
     def add_background(self, background, verbose=True):
-        """Type inference of added background done in sub class."""
+        """Add a static background for this variable.
+        Multiple backgrounds can be added up."""
         if not hasattr(self, "_backgrounds") or self.backgrounds is None:
             self._backgrounds = background
         else:
@@ -89,6 +90,7 @@ class Variable(metaclass=ABCMeta):
 
 
 class FEECVariable(Variable):
+    '''Variable discretized with :ref:`geomFE`.'''
     def __init__(self, space: OptsFEECSpace = "H1"):
         check_option(space, OptsFEECSpace)
         self._space = space
@@ -111,6 +113,8 @@ class FEECVariable(Variable):
         super().add_background(background, verbose=verbose)
 
     def add_perturbation(self, perturbation: Perturbation, verbose=True):
+        """Add an initial :class:`~struphy.initial.base.Perturbation` for this variable.
+        Multiple perturbations can be added up."""
         if not hasattr(self, "_perturbations") or self.perturbations is None:
             self._perturbations = perturbation
         else:
@@ -142,6 +146,7 @@ class FEECVariable(Variable):
 
 
 class PICVariable(Variable):
+    '''Variable discretized with :ref:`particle_discrete`.'''
     def __init__(self, space: OptsPICSpace = "Particles6D"):
         check_option(space, OptsPICSpace)
         self._space = space
@@ -275,6 +280,7 @@ class PICVariable(Variable):
 
 
 class SPHVariable(Variable):
+    '''Variable discretized with :ref:`sph_method`.'''
     def __init__(self):
         self._space = "ParticlesSPH"
         self._n_as_volume_form = True
@@ -314,6 +320,7 @@ class SPHVariable(Variable):
         del_u3: Perturbation = None,
         verbose=True,
     ):
+        """Add an initial :class:`~struphy.initial.base.Perturbation` for the fluid density and/or velocity."""
         self._perturbations = {}
         self._perturbations["n"] = del_n
         self._perturbations["u1"] = del_u1
