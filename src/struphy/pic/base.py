@@ -3781,8 +3781,8 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         """
         
         first_free_idx = self.args_markers.first_free_idx
-        comps = np.array((0, 1, 2))
-        eval_kernels_gc.sph_mean_velocity_coeffs(alpha = np.array((0.0, 0.0, 0.0)), 
+        comps = xp.array((0, 1, 2))
+        eval_kernels_gc.sph_mean_velocity_coeffs(alpha = xp.array((0.0, 0.0, 0.0)), 
                                                  column_nr= first_free_idx,
                                                  comps=comps,
                                                  args_markers=self.args_markers,
