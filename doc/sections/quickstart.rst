@@ -71,6 +71,6 @@ Parallel simulations can invoked from the same launch file for instance by::
 
     mpirun -n 4 struphy_test.py
 
-If you want to learn more please check out the :ref:`userguide`.
+If you want to learn more please check the :ref:`userguide`.
 
             

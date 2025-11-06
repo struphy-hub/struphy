@@ -8,21 +8,19 @@ This guide takes you through the classes used in Struphy launch files generated 
     struphy params MODEL
 
 for a valid ``MODEL`` from the list of :ref:`models`.
-
 All information for running simulations are contained in such launch (parameter) files.
+
+:ref:`pproc` is discussed at the end of this section.
 
 
 Basic options 
 -------------
 
 .. autoclass:: struphy.io.options.EnvironmentOptions
-    :show-inheritance:
 
 .. autoclass:: struphy.io.options.BaseUnits
-    :show-inheritance:
 
 .. autoclass:: struphy.io.options.Time
-    :show-inheritance:
 
 
 Simulation domains 
@@ -48,7 +46,6 @@ Derham complex
 --------------
 
 .. autoclass:: struphy.io.options.DerhamOptions
-    :show-inheritance:
 
 
 Models 
@@ -73,19 +70,14 @@ Setting particle parameters
 .. automethod:: struphy.models.species.ParticlesSpecies.set_save_data
 
 .. autoclass:: struphy.pic.utilities.LoadingParameters
-    :show-inheritance:
 
 .. autoclass:: struphy.pic.utilities.WeightsParameters
-    :show-inheritance:
 
 .. autoclass:: struphy.pic.utilities.BoundaryParameters
-    :show-inheritance:
 
 .. autoclass:: struphy.pic.utilities.BinningPlot
-    :show-inheritance:
 
 .. autoclass:: struphy.pic.utilities.KernelDensityPlot
-    :show-inheritance:
 
 
 Setting backgrounds
@@ -117,38 +109,11 @@ For :ref:`~struphy.models.variables.FEECVariable` and :ref:`~struphy.models.vari
 created as the sum of background + perturbation.
 
 
+.. _pproc:
+
 Post-processing
 ---------------
 
 .. automodule:: struphy.main
     :members:
     :exclude-members: run
-
-
-.. .. toctree::
-..     :maxdepth: 1
-..     :caption: Contents:
-
-..     subsections/struphy_cli
-..     subsections/parameters
-..     subsections/initial_conditions
-..     subsections/boundary_conditions
-..     subsections/profiling
-..     subsections/post_processing
-..     subsections/paraview
-
-
-
-
-
-
-
-
-   
-
-
-
-
-
-
-
