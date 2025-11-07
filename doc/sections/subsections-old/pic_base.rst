@@ -3,9 +3,6 @@
 Base modules 
 ------------
 
-.. inheritance-diagram:: struphy.pic.particles
-    :parts: 1
-
 .. automodule:: struphy.pic.base
     :members:
     :undoc-members:

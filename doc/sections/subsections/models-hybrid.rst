@@ -1,14 +1,11 @@
-.. _kinetic_models:
+.. _hybrid_models:
 
-Kinetic models
---------------
+Fluid-kinetic hybrid models
+---------------------------
 
-The bulk plasma is kinetic, out of thermal equilibirum; there can be fluid components too (not bulk).
+The bulk plasma is fluid, but there is also at least one kinetic species (e.g. energetic particles).
 
-.. inheritance-diagram:: struphy.models.kinetic
-    :parts: 1
-
-.. automodule:: struphy.models.kinetic
+.. automodule:: struphy.models.hybrid
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, velocity_scale, species, options, propagators_dct

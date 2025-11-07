@@ -17,8 +17,8 @@ expressed as :math:`a = 2 \cdot 1\, \textrm{meter}` or as
 of length was chosen to be 0.5 meter.
 
 The units :math:`\hat X` for a Struphy model
-can be influenced by the user through the :code:`parameter.yml` file.
-In particular, in the section :ref:`units` the user can set
+can be influenced by the user through :class:`~struphy.io.options.BaseUnits` in the launch file,
+where the user can set
 
 * the unit of **length** :math:`\hat x`, expressed in **Meter**,
 
@@ -58,7 +58,7 @@ There are four possibilities:
     \hat v = \sqrt{\frac{k_\textnormal{B} \hat T}{m_\textnormal{bulk}}}\,.
 
 Several additional units are derived internally from the above basic units, 
-in the function :func:`~struphy.io.setup.derive_units`. In particular,
+in the class :class:`~struphy.io.options.Units`. In particular,
 
 * the **time** unit in **Seconds**:
 
@@ -86,9 +86,39 @@ which is equal to :math:`\hat B^2/\mu_0` if the velocity scale is ``Alfvén``,
 
     \hat \jmath = q_\textnormal{bulk} \hat n \hat v\,. 
 
-The numerical values of these units, for any :code:`MODEL` with a parameter file :code:`FILE`, 
-can be inspected via::
-
-    struphy units MODEL -i FILE
-
 We refer to :ref:`disc_example` for an example of how to derive a normalization for a physics model.
+
+
+Units class
+-----------
+
+.. autoclass:: struphy.io.options.Units
+    :members:
+    :undoc-members:
+
+
+.. _equation_params:
+
+Equation parameters
+-------------------
+
+In Struphy models, the following equation parameters appear:
+
+.. math::
+
+        \alpha_\textrm{s} = \frac{\hat \Omega_\textnormal{ps}}{\hat \Omega_\textnormal{cs}}\,,\qquad \varepsilon_\textrm{s} = \frac{1}{\hat \Omega_\textnormal{cs} \hat t} \,,
+
+featuring the plasma- and cyclotron frequency of species :math:`\textrm{s}`, respectively,
+
+.. math::
+
+        \hat\Omega_\textnormal{ps} = \sqrt{\frac{\hat n (Z_\textrm{s}e)^2}{\epsilon_0 (A_\textrm{s} m_\textnormal{H})}} \,,\qquad \hat \Omega_{\textnormal{cs}} = \frac{(Z_\textrm{s}e) \hat B}{(A_\textrm{s} m_\textnormal{H})}\,,
+
+where :math:`Z_\textrm{s}` and :math:`A_\textrm{s}` stand for the species' charge and mass number, respectively.
+These equation parameters are defined in :class:`~struphy.models.species.Species.EquationParameters` and can be overridden
+in the launch file via :func:`~struphy.models.species.Species.set_phys_params`.
+
+.. autoclass:: struphy.models.species.Species.EquationParameters
+    :members:
+    :undoc-members:
+

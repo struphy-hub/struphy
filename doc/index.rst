@@ -30,12 +30,14 @@ The code is freely available under an `MIT license <https://github.com/struphy-h
    sections/numerics
    sections/models
    sections/domains
-   sections/equilibria
+   sections/fluid-equils
+   sections/kinetic-equils
+   sections/perturbations
    sections/propagators
-   sections/pic_classes
-   sections/feec_classes
-   sections/utilities
-   sections/developers
+..    sections/pic_classes
+..    sections/feec_classes
+..    sections/utilities
+..    sections/developers
 
 
 

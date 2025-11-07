@@ -1,14 +1,11 @@
-.. _toy_models:
+.. _kinetic_models:
 
-Toy models
-----------
+Kinetic models
+--------------
 
-Simple toy models for testing.
+The bulk plasma is kinetic, out of thermal equilibirum; there can be fluid components too (not bulk).
 
-.. inheritance-diagram:: struphy.models.toy
-    :parts: 1
-
-.. automodule:: struphy.models.toy
+.. automodule:: struphy.models.kinetic
     :members:
     :undoc-members:
     :exclude-members: propagators, scalar_quantities, update_scalar_quantities, bulk_species, velocity_scale, species, options, propagators_dct
