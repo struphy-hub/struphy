@@ -5,9 +5,6 @@ Fluid models
 
 Pure fluid models where all plasma species are considered in local thermal equilibirum.
 
-.. inheritance-diagram:: struphy.models.fluid
-    :parts: 1
-
 .. automodule:: struphy.models.fluid
     :members:
     :undoc-members:

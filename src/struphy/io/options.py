@@ -95,7 +95,7 @@ class Time:
 @dataclass
 class BaseUnits:
     """
-    Base units are passed to __init__, other units derive from these.
+    Base units from which other units are derived. See :ref:`normalization`.
 
     Parameters
     ----------
@@ -121,7 +121,7 @@ class BaseUnits:
 
 class Units:
     """
-    Colllects base units and derives other units from these.
+    Colllects base units and derives other units from these. See :ref:`normalization`.
     """
 
     def __init__(self, base: BaseUnits = None):
@@ -245,7 +245,7 @@ class Units:
 
 @dataclass
 class DerhamOptions:
-    """Options for the Derham spaces.
+    """Options for the Derham spaces. See :ref:`geomFE`.
 
     Parameters
     ----------
@@ -297,7 +297,7 @@ class FieldsBackground:
         Can be length 1 for scalar functions; must be length 3 for vector-valued functions.
 
     variable : str
-        Name of the function in FluidEquilibrium that should be the background.
+        Name of the method in :class:`~struphy.fields_background.base.FluidEquilibrium` that should be the background.
     """
 
     type: BackgroundTypes = "LogicalConst"
@@ -316,16 +316,16 @@ class EnvironmentOptions:
     Parameters
     ----------
     out_folders : str
-        The directory where all sim_folders are stored.
+        Absolute path to directory for ``sim_folder``.
 
     sim_folder : str
-        Folder in 'out_folders/' for the current simulation (default='sim_1').
+        Folder in ``out_folders/`` for the current simulation (default= ``sim_1/`` ).
         Will create the folder if it does not exist OR cleans the folder for new runs.
 
     restart : bool
         Whether to restart a run (default=False).
 
-    max_runtime : int,
+    max_runtime : int
         Maximum run time of simulation in minutes. Will finish the time integration once this limit is reached (default=300).
 
     save_step : int

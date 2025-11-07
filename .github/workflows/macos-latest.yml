@@ -1,4 +1,5 @@
-# name: MacOS
+name: MacOS
+
 on:
   push:
     branches:
