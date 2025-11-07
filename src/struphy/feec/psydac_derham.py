@@ -7,11 +7,13 @@ from psydac.ddm.cart import DomainDecomposition
 from psydac.ddm.mpi import MockComm, MockMPI
 from psydac.ddm.mpi import mpi as MPI
 from psydac.feec.derivatives import Curl3D, Divergence3D, Gradient3D
-from psydac.feec.global_geometric_projectors import (GlobalGeometricProjectorH1, 
-                                                     GlobalGeometricProjectorH1vec, 
-                                                     GlobalGeometricProjectorHcurl, 
-                                                     GlobalGeometricProjectorHdiv, 
-                                                     GlobalGeometricProjectorL2,)
+from psydac.feec.global_geometric_projectors import (
+    GlobalGeometricProjectorH1,
+    GlobalGeometricProjectorH1vec,
+    GlobalGeometricProjectorHcurl,
+    GlobalGeometricProjectorHdiv,
+    GlobalGeometricProjectorL2,
+)
 from psydac.fem.grid import FemAssemblyGrid
 from psydac.fem.partitioning import create_cart
 from psydac.fem.splines import SplineSpace
