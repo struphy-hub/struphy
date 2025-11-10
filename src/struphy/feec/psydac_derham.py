@@ -2588,7 +2588,7 @@ class DiscreteDerham:
     @property
     def derivatives_as_matrices(self):
         """Differential operators of the De Rham sequence as LinearOperator objects."""
-        return tuple(V.diff.matrix for V in self.spaces[:-1])
+        return tuple(V.diff.linop for V in self.spaces[:-1])
 
     @property
     def derivatives(self):
