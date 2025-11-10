@@ -7,16 +7,16 @@ on:
       - devel
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     shell: bash
 
 permissions:
   contents: read
-
-# concurrency:
-#   group: "pages"
-#   cancel-in-progress: false
 
 jobs:
   unit-tests-in-container-with-struphy:
