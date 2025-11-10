@@ -8,7 +8,7 @@ Projections into Derham
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: psydac.feec.global_projectors.GlobalProjector
+.. autoclass:: psydac.feec.global_geometric_projectors.GlobalGeometricProjector
     :members:
     :undoc-members:
     :show-inheritance:
