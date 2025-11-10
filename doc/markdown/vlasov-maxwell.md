@@ -378,7 +378,7 @@ B_p = -\frac{\alpha^2}{\varepsilon} \frac 1 N w_p\,.
 $$
 
 When writing an accumulation kernel, it is mandatory to follow the instructions in [a_documentation](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.accum_kernels.a_documentation).
-As an example, we can look at the kernel [poisson](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.accum_kernels.poisson) (see [source code](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels.py#L86)), which is needed in the present example and implements the above weights $B_p$. Inside of the particle loop, an accumulation kernel consists of three steps:
+As an example, we can look at the kernel [charge_density_0form](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/accumulation/accum_kernels.py), which is needed in the present example and implements the above weights $B_p$. Inside of the particle loop, an accumulation kernel consists of three steps:
 
 1. Extract the marker position $\boldsymbol \eta_p$ and other relevant marker quantities.
 2. Compute the "filling function", denoted $A^{\mu,\nu}_p$ or $B^\mu_p$ in the [Accumulator docstring](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.particles_to_grid.Accumulator).

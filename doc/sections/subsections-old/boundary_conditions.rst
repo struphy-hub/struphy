@@ -123,6 +123,6 @@ one has the following possibilities to set boundary conditions:
 * ``spl_kind = False`` and ``dirichlet_bc = True``: homogeneous Dirichlet bcs.
 * ``spl_kind = False`` and ``dirichlet_bc = False``: free bcs, possible "natural" Neumann boundary conditions through the equation.
 
-Check out `the Poisson unit test <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/propagators/tests/test_poisson.py?ref_type=heads>`_ for an example.
+Check out `the Poisson unit test <https://github.com/struphy-hub/struphy/blob/devel/src/struphy/propagators/tests/test_poisson.py>`_ for an example.
 
 More FEEC boundary conditions will be added in the future.
