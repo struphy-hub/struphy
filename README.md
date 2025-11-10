@@ -105,7 +105,7 @@ The doc is on [Github pages](https://struphy-hub.github.io/struphy/index.html), 
 * [Issues](https://github.com/struphy-hub/struphy/issues)
 * [Discussions](https://github.com/struphy-hub/struphy/discussions)
 * @spossann [stefan.possanner@ipp.mpg.de](mailto:spossann@ipp.mpg.de) (Maintainer)
-* @max-models [Max.Lindqvist@ipp.mpg.de](mailto:Max.Lindqvist@ipp.mpg.de) (Maintainer)
+* @max-models [max.lindqvist@ipp.mpg.de](mailto:Max.Lindqvist@ipp.mpg.de) (Maintainer)
 * [LinkedIn profile](https://www.linkedin.com/company/struphy/)
 
 
