@@ -98,11 +98,11 @@ all = [
 ]
 
 [project.urls]
-homepage = "https://struphy.pages.mpcdf.de/struphy/"
-documentation = "https://struphy.pages.mpcdf.de/struphy/"
-repository = "https://gitlab.mpcdf.mpg.de/struphy/struphy"
-changelog = "https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/CHANGELOG.md"
-"Bug Tracker" = "https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues"
+homepage = "https://struphy-hub.github.io/struphy/index.html"
+documentation = "https://struphy-hub.github.io/struphy/index.html"
+repository = "https://github.com/struphy-hub/struphy"
+changelog = "https://github.com/struphy-hub/struphy/blob/devel/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/struphy-hub/struphy/issues"
 
 [project.scripts]
 struphy = "struphy.console.main:struphy"
