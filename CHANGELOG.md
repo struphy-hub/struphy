@@ -1,4 +1,4 @@
-## Struphy 2.6.4-test
+## Struphy 2.5.0
 
 * [Struphy on PyPI](https://pypi.org/project/struphy/)
 * [Struphy pages](https://struphy-hub.github.io/struphy/index.html)
