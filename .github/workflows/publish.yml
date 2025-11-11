@@ -12,7 +12,7 @@ jobs:
 
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/struphy-test
+      url: https://test.pypi.org/p/struphy-test-2
 
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
@@ -37,7 +37,7 @@ jobs:
     - name: Publish package distributions to test-PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        repository-url: https://test.pypi.org/project/struphy-test
+        repository-url: https://test.pypi.org/project/struphy-test-2
 
 # jobs:
 #   build-and-publish:
