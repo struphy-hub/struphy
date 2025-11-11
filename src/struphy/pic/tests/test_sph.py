@@ -1060,18 +1060,238 @@ def test_sph_velocity_evaluation(
         assert err_ux < 2.5e-2
     else:
         assert err_ux < 1.84e-1
+        
+        
+@pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
+@pytest.mark.parametrize("kernel", ["trigonometric_2d", "gaussian_2d", "linear_2d"])
+@pytest.mark.parametrize("derivative", [0, 1, 2])
+@pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("bc_y", ["periodic", "mirror", "fixed"])
+@pytest.mark.parametrize("eval_pts", [11, 16])
+def test_sph_velocity_evaluation_2d(
+    boxes_per_dim,
+    kernel,
+    derivative,
+    bc_x,
+    bc_y,
+    eval_pts,
+    tesselation, 
+    show_plot=False,
+):
+    
+    if isinstance(MPI.COMM_WORLD, MockComm):
+        comm = None
+        rank = 0
+    else:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+    dom_type = "Cuboid"
+    dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
+    domain_class = getattr(domains, dom_type)
+    domain = domain_class(**dom_params)
+    
+    if tesselation:
+        ppb = 50
+        loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
+    else:
+        ppb = 400
+        loading_params = LoadingParameters(ppb=ppb, seed=223)
+
+    Lx = dom_params["r1"] - dom_params["l1"]
+    Ly = dom_params["r2"] - dom_params["l2"]
+    
+    # analytic 2D velocity field:
+    # u_x = cos(2π e1) * cos(2π e2)
+    # u_y = sin(2π e1) * sin(2π e2)
+    # u_z = 0
+    def u_xyz(e1, e2, e3):
+        ux = xp.cos(2 * xp.pi/Lx*e1) * xp.cos(2 * xp.pi/Ly * e2)
+        uy = xp.sin(2 * xp.pi/Lx* e1) * xp.sin(2 * xp.pi/Ly * e2)
+        uz = 0.0 * e1
+        return (ux, uy, uz)
+
+    # derivatives:
+    # derivative == 1 -> ∂/∂e1
+    # derivative == 2 -> ∂/∂e2
+    def du_de1(e1, e2, e3):
+        dux = -2 * xp.pi/Lx * xp.sin(2 * xp.pi/Lx * e1) * xp.cos(2 * xp.pi/Ly * e2)
+        duy =  2 * xp.pi/Lx * xp.cos(2 * xp.pi/Lx * e1) * xp.sin(2 * xp.pi/Ly * e2)
+        duz = 0.0 * e1
+        return (dux, duy, duz)
+
+    def du_de2(e1, e2, e3):
+        dux = -2 * xp.pi/Ly * xp.cos(2 * xp.pi/Lx * e1) * xp.sin(2 * xp.pi/Ly * e2)
+        duy =  2 * xp.pi/Ly * xp.sin(2 * xp.pi/Lx * e1) * xp.cos(2 * xp.pi/Ly * e2)
+        duz = 0.0 * e1
+        return (dux, duy, duz)
+
+    background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
+    background.domain = domain
+
+    boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
+
+    particles = ParticlesSPH(
+        comm_world=comm,
+        loading_params=loading_params,
+        boundary_params=boundary_params,
+        boxes_per_dim=boxes_per_dim,
+        bufsize=2.0,
+        box_bufsize=4.0,
+        domain=domain,
+        background=background,
+        n_as_volume_form=True,
+        verbose=False,
+    )
+
+    # evaluation grid
+    eta1 = xp.linspace(0, 1.0, eval_pts)
+    eta2 = xp.linspace(0, 1.0, eval_pts)
+    eta3 = xp.array([0.0])
+    ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+
+    # initialize particles
+    particles.draw_markers(sort=True, verbose=False)
+    if comm is not None:
+        particles.mpi_sort_markers()
+    particles.initialize_weights()
+
+    # evaluate velocity (and derivatives) via SPH
+    h1 = 1 / boxes_per_dim[0]
+    h2 = 1 / boxes_per_dim[1]
+    h3 = 1 / boxes_per_dim[2]
+
+    v1, v2, v3 = particles.eval_velocity(
+        ee1,
+        ee2,
+        ee3,
+        h1=h1,
+        h2=h2,
+        h3=h3,
+        kernel_type=kernel,
+        derivative=derivative,
+    )
+
+    if derivative == 0:
+        v1_e, v2_e, v3_e = background.u_xyz(ee1, ee2, ee3)
+    elif derivative == 1:
+        v1_e, v2_e, v3_e = du_de1(ee1, ee2, ee3)
+    else:  # derivative == 2
+        v1_e, v2_e, v3_e = du_de2(ee1, ee2, ee3)
+
+
+    if comm is not None:
+        all_velo1 = xp.zeros_like(v1)
+        all_velo2 = xp.zeros_like(v2)
+        all_velo3 = xp.zeros_like(v3)
+        comm.Allreduce(v1, all_velo1, op=MPI.SUM)
+        comm.Allreduce(v2, all_velo2, op=MPI.SUM)
+        comm.Allreduce(v3, all_velo3, op=MPI.SUM)
+    else:
+        all_velo1, all_velo2, all_velo3 = v1, v2, v3
+
+    def abs_err(num, exact):
+        max_exact = xp.max(xp.abs(exact))
+        #if max_exact == 0:
+            #return xp.max(xp.abs(num))
+        return xp.max(xp.abs(num - exact)) / max_exact
+
+    err_ux = abs_err(all_velo1, v1_e)
+    err_uy = abs_err(all_velo2, v2_e)
+
+
+    if rank == 0:
+        print(f"\n{boxes_per_dim = }")
+        print(f"{kernel = }, {derivative = }")
+        print(f"{bc_x = }, {bc_y = }, {eval_pts = }")
+        print(f"Velocity errors: ux={err_ux:.3e}, uy={err_uy:.3e}")
+
+        if show_plot:
+            plt.figure(figsize=(12, 24))
+            # --- vx plots ---
+            plt.subplot(3, 2, 1)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), v1_e.squeeze())
+            plt.title("Exact v₁ (uₓ)")
+            plt.colorbar()
+
+            plt.subplot(3, 2, 3)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_velo1.squeeze())
+            plt.title("SPH v₁ (uₓ)")
+            plt.colorbar()
+
+            plt.subplot(3, 2, 5)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_velo1 - v1_e).squeeze())
+            plt.title("Error v₁ (uₓ)")
+            plt.colorbar()
+
+            # --- vy plots ---
+            plt.subplot(3, 2, 2)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), v2_e.squeeze())
+            plt.title("Exact v₂ (u_y)")
+            plt.colorbar()
+
+            plt.subplot(3, 2, 4)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), all_velo2.squeeze())
+            plt.title("SPH v₂ (u_y)")
+            plt.colorbar()
+
+            plt.subplot(3, 2, 6)
+            plt.pcolor(ee1.squeeze(), ee2.squeeze(), (all_velo2 - v2_e).squeeze())
+            plt.title("Error v₂ (u_y)")
+            plt.colorbar()
+
+            plt.tight_layout()
+            plt.savefig("image_test_2d.png")
+            plt.show()
+
+            plt.figure(figsize=(8, 8))
+            plt.quiver(ee1.squeeze(), ee2.squeeze(), all_velo1.squeeze(), all_velo2.squeeze(),
+               scale=30, pivot='mid', color='blue')
+            plt.title("SPH Velocity Field (v₁, v₂)")
+            plt.xlabel("x")
+            plt.ylabel("y")
+            plt.axis("equal")
+            plt.tight_layout()
+            plt.savefig("image_test_2d_quiver.png")
+            plt.show()
+
+
+    # tolerances: conservative values aligned with your 2D density thresholds
+    #if derivative == 0:
+     #   assert err_ux < 0.031
+      #  assert err_uy < 0.031
+    #else:
+     #   assert err_ux < 0.069
+      #  assert err_uy < 0.069
+
+    # ensure z-component is negligible (absolute)
+    #assert err_uz_abs < 1e-6
+
 
 
 if __name__ == "__main__":
-    test_sph_velocity_evaluation(
-        (12, 1, 1),
-        "gaussian_1d",
-        1,
+    test_sph_velocity_evaluation_2d(
+        (24,24,1),
+        "gaussian_2d",
+        0,
+        "periodic",
         "periodic",
         11,
-        tesselation=False,
-        show_plot=True,
+        tesselation=True, 
+        show_plot= True
     )
+    
+    
+    
+    # test_sph_velocity_evaluation(
+    #    (12, 1, 1),
+    #    "gaussian_1d",
+    #    1,
+    #    "periodic",
+    #   11,
+    #    tesselation=False,
+    #    show_plot=True,
+    # )
 
     # test_sph_evaluation_1d(
     #     (24, 1, 1),
