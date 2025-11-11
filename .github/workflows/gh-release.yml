@@ -15,10 +15,6 @@ jobs:
       packages: write
       contents: write
 
-    env:
-      version: 0.0.1
-      version2: 0.0.2
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -49,7 +45,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v2.6.5-test
+          tag_name: $VERSION
           body_path: ${{ github.workspace }}/CHANGELOG.md
           prerelease: true 
               
