@@ -24,7 +24,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v2.6.0-test
-          body_path: ${{ github.repository.CHANGELOG }}
+          body_path: ${{ github.workspace }}/CHANGELOG.md
           prerelease: true
               
         
