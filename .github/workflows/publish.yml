@@ -1,4 +1,4 @@
-name: Publish Struphy to PyPI
+name: Publish Struphy to test-PyPI
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
 # .github/workflows/ci-cd.yml
 jobs:
   pypi-publish:
-    name: Upload release to PyPI
+    name: Upload release to test-PyPI
     runs-on: ubuntu-latest
     environment:
       name: testpypi
@@ -18,6 +18,8 @@ jobs:
 
     - name: Publish package distributions to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/project/struphy-test
 
 # jobs:
 #   build-and-publish:
