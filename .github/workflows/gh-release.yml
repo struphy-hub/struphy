@@ -36,10 +36,12 @@ jobs:
           VERSION_STR=${!index}
           echo $VERSION_STR
           echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')"
-          echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')" > ${{ env.version }}
-          echo ${{ env.version }}
-          echo "$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')" > ${{ env.version2 }}
-          echo ${{ env.version2 }}
+          echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')" >> "$GITHUB_ENV"
+
+      - name: Inspect version
+        shell: bash
+        run: |
+          echo "$VERSION"
 
       - name: Release
         uses: softprops/action-gh-release@v2
