@@ -1,4 +1,7 @@
-## Struphy 2.5.0
+## Struphy 2.6.4-test
+
+PyPI: https://pypi.org/project/struphy/
+Doc: https://struphy-hub.github.io/struphy/index.html
 
 ### Headlines
 
