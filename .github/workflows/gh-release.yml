@@ -3,7 +3,7 @@ name: Release Struphy on Github
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*.*.*'
 
 jobs:
   release:
