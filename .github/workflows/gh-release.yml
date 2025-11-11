@@ -19,34 +19,46 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Get version
-        shell: bash
-        run: |
-          var=$(<pyproject.toml)
-          echo $var
-          set -- $var
-          echo ${16}
-          for (( i=1; i <= "$#"; i++ )); do if (( ${i} < 30 )); then echo ${i}; echo ${!i}; fi done
-          for (( i=1; i <= "$#"; i++ )); do if [[ ${!i} == "version" ]]; then echo ${i}; echo ${!i}; index=$((${i} + 2)); fi done    
-          echo $index 
-          VERSION_STR=${!index}
-          echo $VERSION_STR
-          echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')"
-          echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')" >> "$GITHUB_ENV"
+      # - name: Get version
+      #   shell: bash
+      #   run: |
+      #     var=$(<pyproject.toml)
+      #     echo $var
+      #     set -- $var
+      #     echo ${16}
+      #     for (( i=1; i <= "$#"; i++ )); do if (( ${i} < 30 )); then echo ${i}; echo ${!i}; fi done
+      #     for (( i=1; i <= "$#"; i++ )); do if [[ ${!i} == "version" ]]; then echo ${i}; echo ${!i}; index=$((${i} + 2)); fi done    
+      #     echo $index 
+      #     VERSION_STR=${!index}
+      #     echo $VERSION_STR
+      #     echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')"
+      #     echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')" >> "$GITHUB_ENV"
 
-      - name: Inspect version
+      # - name: Inspect version
+      #   shell: bash
+      #   run: |
+      #     echo "$VERSION"
+
+      - name: Check pypi versions
+        uses: maybe-hello-world/pyproject-check-version@v4
+        id: versioncheck
+        with:
+          pyproject-path: "./pyproject.toml"    # default value
+      
+      - name: check output
         shell: bash
         run: |
-          echo "$VERSION"
+            echo "Output: ${{ steps.versioncheck.outputs.local_version_is_higher }}"  # 'true' or 'false
+            echo "Local version: ${{ steps.versioncheck.outputs.local_version }}"     # e.g., 0.1.1
+            echo "Public version: ${{ steps.versioncheck.outputs.public_version }}"   # e.g., 0.1.0
 
       - name: Release
         uses: softprops/action-gh-release@v2
         id: create_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CURRENT_VERSION: $VERSION
         with:
-          tag_name: ${{ env.CURRENT_VERSION }}
+          tag_name: ${{ steps.versioncheck.outputs.local_version }}
           body_path: ${{ github.workspace }}/CHANGELOG.md
           prerelease: true 
               
