@@ -2,8 +2,10 @@ name: Release Struphy on Github
 
 on:
   push:
-    tags:
-      - 'v*.*.*'
+    # branches: 
+      # - main
+    # tags:
+    #   - 'v*.*.*'
 
 jobs:
   release:
@@ -13,9 +15,31 @@ jobs:
       packages: write
       contents: write
 
+    env:
+      version: 0.0.1
+      version2: 0.0.2
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Get version
+        shell: bash
+        run: |
+          var=$(<pyproject.toml)
+          echo $var
+          set -- $var
+          echo ${16}
+          for (( i=1; i <= "$#"; i++ )); do if (( ${i} < 30 )); then echo ${i}; echo ${!i}; fi done
+          for (( i=1; i <= "$#"; i++ )); do if [[ ${!i} == "version" ]]; then echo ${i}; echo ${!i}; index=$((${i} + 2)); fi done    
+          echo $index 
+          VERSION_STR=${!index}
+          echo $VERSION_STR
+          echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')"
+          echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')" > ${{ env.version }}
+          echo ${{ env.version }}
+          echo "$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')" > ${{ env.version2 }}
+          echo ${{ env.version2 }}
 
       - name: Release
         uses: softprops/action-gh-release@v2
@@ -23,7 +47,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v2.6.4-test
+          tag_name: v2.6.5-test
           body_path: ${{ github.workspace }}/CHANGELOG.md
           prerelease: true 
               
