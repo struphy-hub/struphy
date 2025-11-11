@@ -19,26 +19,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # - name: Get version
-      #   shell: bash
-      #   run: |
-      #     var=$(<pyproject.toml)
-      #     echo $var
-      #     set -- $var
-      #     echo ${16}
-      #     for (( i=1; i <= "$#"; i++ )); do if (( ${i} < 30 )); then echo ${i}; echo ${!i}; fi done
-      #     for (( i=1; i <= "$#"; i++ )); do if [[ ${!i} == "version" ]]; then echo ${i}; echo ${!i}; index=$((${i} + 2)); fi done    
-      #     echo $index 
-      #     VERSION_STR=${!index}
-      #     echo $VERSION_STR
-      #     echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')"
-      #     echo "VERSION=$(echo $VERSION_STR | sed 's/^.//' | sed 's/.$//')" >> "$GITHUB_ENV"
-
-      # - name: Inspect version
-      #   shell: bash
-      #   run: |
-      #     echo "$VERSION"
-
       - name: Check pypi versions
         uses: maybe-hello-world/pyproject-check-version@v4
         id: versioncheck
@@ -58,7 +38,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.versioncheck.outputs.local_version }}
+          tag_name: v${{ steps.versioncheck.outputs.local_version }}-test
           body_path: ${{ github.workspace }}/CHANGELOG.md
           prerelease: true 
               
