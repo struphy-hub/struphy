@@ -12,7 +12,7 @@ jobs:
 
     environment:
       name: testpypi
-      url: https://test.pypi.org/project/struphy-test
+      url: https://test.pypi.org/p/struphy-test
 
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
