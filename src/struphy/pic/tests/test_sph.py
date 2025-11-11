@@ -1276,7 +1276,7 @@ if __name__ == "__main__":
         0,
         "periodic",
         "periodic",
-        11,
+        110,
         tesselation=True, 
         show_plot= True
     )
