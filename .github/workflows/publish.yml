@@ -2,32 +2,46 @@ name: Publish Struphy to PyPI
 
 on:
   push:
-    branches:
-      - main
 
+# .github/workflows/ci-cd.yml
 jobs:
-  build-and-publish:
+  pypi-publish:
+    name: Upload release to PyPI
     runs-on: ubuntu-latest
-
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/struphy-test
+    permissions:
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    # retrieve your distributions here
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
+    - name: Publish package distributions to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
 
-      - name: Install build tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install build twine
+# jobs:
+#   build-and-publish:
+#     runs-on: ubuntu-latest
 
-      - name: Build the package
-        run: python -m build
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v3
 
-      - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__ # Use API token
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload dist/*
+#       - name: Set up Python
+#         uses: actions/setup-python@v4
+#         with:
+#           python-version: "3.10"
+
+#       - name: Install build tools
+#         run: |
+#           python -m pip install --upgrade pip
+#           pip install build twine
+
+#       - name: Build the package
+#         run: python -m build
+
+#       - name: Publish to PyPI
+#         env:
+#           TWINE_USERNAME: __token__ # Use API token
+#           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+#         run: twine upload dist/*
