@@ -1,0 +1,26 @@
+name: Release Struphy on Github
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Create Release
+        uses: elgohr/Github-Release-Action@v5
+        id: create_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          title: MyReleaseMessage
+          body: |
+              ${{ steps.Changelog.outputs.changelog }}
