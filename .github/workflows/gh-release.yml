@@ -44,8 +44,9 @@ jobs:
         id: create_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT_VERSION: $VERSION
         with:
-          tag_name: ${{ github.env.VERSION }}
+          tag_name: ${{ env.CURRENT_VERSION }}
           body_path: ${{ github.workspace }}/CHANGELOG.md
           prerelease: true 
               
