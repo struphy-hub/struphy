@@ -23,8 +23,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v2.6.0-test
+          tag_name: v2.6.2-test
           body_path: ${{ github.workspace }}/CHANGELOG.md
           prerelease: true
+          files: |
+            https://pypi.org/project/struphy/
+            https://struphy-hub.github.io/struphy/index.html
               
         
