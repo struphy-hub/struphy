@@ -2,10 +2,8 @@ name: Release Struphy on Github
 
 on:
   push:
-    # branches: 
-      # - main
-    # tags:
-    #   - 'v*.*.*'
+    branches: 
+      - main
 
 jobs:
   release:
@@ -25,7 +23,7 @@ jobs:
         with:
           pyproject-path: "./pyproject.toml"    # default value
       
-      - name: check output
+      - name: Check output
         shell: bash
         run: |
             echo "Output: ${{ steps.versioncheck.outputs.local_version_is_higher }}"  # 'true' or 'false
@@ -38,8 +36,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.versioncheck.outputs.local_version }}-test
+          tag_name: v${{ steps.versioncheck.outputs.local_version }}
           body_path: ${{ github.workspace }}/CHANGELOG.md
-          prerelease: true 
               
         
