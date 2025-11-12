@@ -12,6 +12,7 @@ requires-python = ">=3.10"
 authors = [
     { name = "Max Planck Institute for Plasma Physics" },
     { email = "stefan.possanner@ipp.mpg.de" },
+    { email = "max.lindqvist@ipp.mpg.de" },
     { email = "eric.sonnendruecker@ipp.mpg.de" },
 ]
 description = "Multi-model plasma physics package"
