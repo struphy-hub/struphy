@@ -1,5 +1,8 @@
 ## Struphy 2.5.0
 
+* [Struphy on PyPI](https://pypi.org/project/struphy/)
+* [Struphy pages](https://struphy-hub.github.io/struphy/index.html)
+
 ### Headlines
 
 * Base install and run without `mpi4py` !775
