@@ -6,8 +6,8 @@ from psydac.ddm.mpi import mpi as MPI
 
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
-from struphy.geometry.base import Domain
 from struphy.geometry import domains
+from struphy.geometry.base import Domain
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
 from struphy.pic.utilities import BinningPlot, BoundaryParameters, LoadingParameters, WeightsParameters
@@ -1061,10 +1061,10 @@ def test_sph_velocity_evaluation(
         assert err_ux < 2.5e-2
     else:
         assert err_ux < 1.84e-1
-        
-        
+
+
 @pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
-@pytest.mark.parametrize("kernel", ["gaussian_2d"]) # "trigonometric_2d", "linear_2d"])
+@pytest.mark.parametrize("kernel", ["gaussian_2d"])  # "trigonometric_2d", "linear_2d"])
 @pytest.mark.parametrize("derivative", [0])
 @pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
 @pytest.mark.parametrize("bc_y", ["periodic", "mirror", "fixed"])
@@ -1077,10 +1077,9 @@ def test_sph_velocity_evaluation_2d(
     bc_x,
     bc_y,
     eval_pts,
-    tesselation, 
+    tesselation,
     show_plot=False,
 ):
-    
     if isinstance(MPI.COMM_WORLD, MockComm):
         comm = None
         rank = 0
@@ -1096,7 +1095,7 @@ def test_sph_velocity_evaluation_2d(
     dom_params = {"l1": l1, "r1": r1, "l2": l2, "r2": r2, "l3": 0.0, "r3": 1.0}
     domain_class = getattr(domains, dom_type)
     domain: Domain = domain_class(**dom_params)
-    
+
     if tesselation:
         ppb = 50
         loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
@@ -1106,14 +1105,14 @@ def test_sph_velocity_evaluation_2d(
 
     Lx = r1 - l1
     Ly = r2 - l2
-    
+
     # analytic 2D velocity field:
     # u_x = cos(2π e1) * cos(2π e2)
     # u_y = sin(2π e1) * sin(2π e2)
     # u_z = 0
     def u_xyz(x, y, z):
-        ux = xp.cos(2 * xp.pi/Lx * x) * xp.cos(2 * xp.pi/Ly * y)
-        uy = xp.cos(2 * xp.pi/Lx * x) * xp.cos(2 * xp.pi/Ly * y)
+        ux = xp.cos(2 * xp.pi / Lx * x) * xp.cos(2 * xp.pi / Ly * y)
+        uy = xp.cos(2 * xp.pi / Lx * x) * xp.cos(2 * xp.pi / Ly * y)
         uz = 0.0 * z
         return (ux, uy, uz)
 
@@ -1121,14 +1120,14 @@ def test_sph_velocity_evaluation_2d(
     # derivative == 1 -> ∂/∂e1
     # derivative == 2 -> ∂/∂e2
     def du_dx(x, y, z):
-        dux = -2 * xp.pi/Lx * xp.sin(2 * xp.pi/Lx * x) * xp.cos(2 * xp.pi/Ly * y)
-        duy = -2 * xp.pi/Lx * xp.sin(2 * xp.pi/Lx * x) * xp.cos(2 * xp.pi/Ly * y)
+        dux = -2 * xp.pi / Lx * xp.sin(2 * xp.pi / Lx * x) * xp.cos(2 * xp.pi / Ly * y)
+        duy = -2 * xp.pi / Lx * xp.sin(2 * xp.pi / Lx * x) * xp.cos(2 * xp.pi / Ly * y)
         duz = 0.0 * z
         return (dux, duy, duz)
 
     def du_dy(x, y, z):
-        dux = -2 * xp.pi/Ly * xp.cos(2 * xp.pi/Lx * x) * xp.sin(2 * xp.pi/Ly * y)
-        duy = -2 * xp.pi/Ly * xp.cos(2 * xp.pi/Lx * x) * xp.sin(2 * xp.pi/Ly * y)
+        dux = -2 * xp.pi / Ly * xp.cos(2 * xp.pi / Lx * x) * xp.sin(2 * xp.pi / Ly * y)
+        duy = -2 * xp.pi / Ly * xp.cos(2 * xp.pi / Lx * x) * xp.sin(2 * xp.pi / Ly * y)
         duz = 0.0 * z
         return (dux, duy, duz)
 
@@ -1155,7 +1154,7 @@ def test_sph_velocity_evaluation_2d(
     eta2 = xp.linspace(0, 1.0, eval_pts)
     eta3 = xp.array([0.0])
     ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
-    
+
     x = xp.linspace(l1, r1, eval_pts)
     y = xp.linspace(l2, r2, eval_pts)
     z = xp.array([0.0])
@@ -1193,7 +1192,6 @@ def test_sph_velocity_evaluation_2d(
     else:  # derivative == 2
         v1_e, v2_e, v3_e = du_dy(xx, yy, zz)
 
-
     if comm is not None:
         all_velo1 = xp.zeros_like(v1)
         all_velo2 = xp.zeros_like(v2)
@@ -1206,13 +1204,12 @@ def test_sph_velocity_evaluation_2d(
 
     def abs_err(num, exact):
         max_exact = xp.max(xp.abs(exact))
-        #if max_exact == 0:
-            #return xp.max(xp.abs(num))
+        # if max_exact == 0:
+        # return xp.max(xp.abs(num))
         return xp.max(xp.abs(num - exact)) / max_exact
 
     err_ux = abs_err(all_velo1, v1_e)
     err_uy = abs_err(all_velo2, v2_e)
-
 
     if rank == 0:
         print(f"\n{boxes_per_dim = }")
@@ -1259,8 +1256,15 @@ def test_sph_velocity_evaluation_2d(
             plt.show()
 
             plt.figure(figsize=(8, 8))
-            plt.quiver(ee1.squeeze(), ee2.squeeze(), all_velo1.squeeze(), all_velo2.squeeze(),
-               scale=30, pivot='mid', color='blue')
+            plt.quiver(
+                ee1.squeeze(),
+                ee2.squeeze(),
+                all_velo1.squeeze(),
+                all_velo2.squeeze(),
+                scale=30,
+                pivot="mid",
+                color="blue",
+            )
             plt.title("SPH Velocity Field (v₁, v₂)")
             plt.xlabel("x")
             plt.ylabel("y")
@@ -1269,34 +1273,23 @@ def test_sph_velocity_evaluation_2d(
             # plt.savefig("image_test_2d_quiver.png")
             plt.show()
 
-
     # tolerances: conservative values aligned with your 2D density thresholds
     if derivative == 0:
-       assert err_ux < 1.2e-1
-       assert err_uy < 1.2e-1
-    #else:
-     #   assert err_ux < 0.069
-      #  assert err_uy < 0.069
+        assert err_ux < 1.2e-1
+        assert err_uy < 1.2e-1
+    # else:
+    #   assert err_ux < 0.069
+    #  assert err_uy < 0.069
 
     # ensure z-component is negligible (absolute)
-    #assert err_uz_abs < 1e-6
-
+    # assert err_uz_abs < 1e-6
 
 
 if __name__ == "__main__":
     test_sph_velocity_evaluation_2d(
-        (12, 12, 1),
-        "gaussian_2d",
-        0,
-        "periodic",
-        "periodic",
-        110,
-        tesselation=False, 
-        show_plot= True
+        (12, 12, 1), "gaussian_2d", 0, "periodic", "periodic", 110, tesselation=False, show_plot=True
     )
-    
-    
-    
+
     # test_sph_velocity_evaluation(
     #    (12, 1, 1),
     #    "gaussian_1d",

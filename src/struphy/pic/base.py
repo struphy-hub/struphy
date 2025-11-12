@@ -1246,12 +1246,15 @@ class Particles(metaclass=ABCMeta):
             self._f_init = self.initial_condition
         else:
             assert isinstance(self.f0, FluidEquilibrium)
-            
+
             # get vector-field representation of the fluid velocity
             self._u_init = self.f0.uv
 
             if self.perturbations is not None:
-                for (moment, pert) in self.perturbations.items():  # only one perturbation is taken into account at the moment
+                for (
+                    moment,
+                    pert,
+                ) in self.perturbations.items():  # only one perturbation is taken into account at the moment
                     assert isinstance(moment, str)
                     if pert is None:
                         continue
