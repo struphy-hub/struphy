@@ -1249,7 +1249,7 @@ class Particles(metaclass=ABCMeta):
         else:
             # Get the initialization function and pass the correct arguments
             assert isinstance(self.f0, FluidEquilibrium)
-            self._u_init = self.f0.u_cart
+            self._u_init = self.f0.uv
 
             if self.perturbations is not None:
                 for (
@@ -1521,7 +1521,7 @@ class Particles(metaclass=ABCMeta):
             self._load_tesselation()
             if self.type == "sph":
                 self._set_initial_condition()
-                self.velocities = xp.array(self.u_init(self.positions)[0]).T
+                self.velocities = xp.array(self.u_init(self.positions)).T
             # set markers ID in last column
             self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
         else:
@@ -1611,7 +1611,7 @@ class Particles(metaclass=ABCMeta):
             # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
             if self.type == "sph":
                 self._set_initial_condition()
-                self.velocities = xp.array(self.u_init(self.positions)[0]).T
+                self.velocities = xp.array(self.u_init(self.positions)).T
             else:
                 # inverse transform sampling in velocity space
                 u_mean = xp.array(self.loading_params.moments[: self.vdim])
