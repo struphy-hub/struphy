@@ -10,6 +10,9 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    environment:
+      name: testpypi
+
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
 
@@ -33,7 +36,7 @@ jobs:
     - name: Publish package distributions to test-PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        repository-url: https://test.pypi.org/project/struphy-test-3
+        repository-url: https://test.pypi.org/legacy/
 
     # - name: Publish to test-PyPI
     #   env:
