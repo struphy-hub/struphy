@@ -21,7 +21,7 @@ keywords = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    ]
+]
 dependencies = [
     'numpy',
     'cunumpy',
@@ -44,8 +44,8 @@ file = "LICENSE"
 
 [project.optional-dependencies]
 phys = [
-    'gvec>=1.1.0',
-    'desc-opt',
+    "gvec<=1.2.0, >=1.1.0",
+    "desc-opt<=0.15.0",
 ]
 dev = [
     "struphy[mpi]",
@@ -66,7 +66,7 @@ dev = [
     "plotly",
 ]
 mpi = [
-    'mpi4py',
+    "mpi4py<=4.1.1",
 ]
 doc = [
     "struphy[phys]",
@@ -95,7 +95,6 @@ all = [
     "struphy[dev]",
     "struphy[mpi]",
     "struphy[doc]",
-    "struphy[likwid]",
 ]
 
 [project.urls]
