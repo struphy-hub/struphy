@@ -23,20 +23,19 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    'numpy',
-    'cunumpy',
-    'pyccel>=2.0',
-    'psydac @ git+https://github.com/struphy-hub/psydac-for-struphy.git@devel-tiny',
-    'scipy',
-    'h5py',
-    'matplotlib',
-    'pyyaml',
-    'vtk',
-    'tqdm',
-    'argcomplete',
-    'pytest',
-    'pytest-mpi',
-    'line_profiler',
+    "numpy<=2.2.6",
+    "cunumpy<=0.1",
+    "pyccel<=2.0.1, >=2.0",
+    "scipy<=1.15.3",
+    "h5py<=3.14.0",
+    "matplotlib<=3.10.5",
+    "pyyaml<=6.0.3",
+    "vtk<=9.5.2",
+    "tqdm<=4.67.1",
+    "argcomplete<=3.6.3",
+    "pytest<=9.0.1",
+    "pytest-mpi<=0.6",
+    "line_profiler<=5.0.0",
 ]
 
 [project.license]
@@ -49,42 +48,42 @@ phys = [
 ]
 dev = [
     "struphy[mpi]",
-    "notebook",
-    "autopep8",
-    "isort",
-    "flake8",
-    "pylint",
-    "ssort",
-    "add-trailing-comma",
-    "ruff>=0.9.1",
-    "pre-commit",
-    "nbstripout",
-    "tabulate",
-    "tomli-w",
-    "kaleido",
-    "pandas",
-    "plotly",
+    "notebook<=7.4.7",
+    "autopep8<=2.3.2",
+    "isort<=7.0.0",
+    "flake8<=7.3.0",
+    "pylint<=4.0.2",
+    "ssort<=0.15.0",
+    "add-trailing-comma<=4.0.0",
+    "ruff<=0.14.4, >=0.9.1",
+    "pre-commit<=4.4.0",
+    "nbstripout<=0.8.1",
+    "tabulate<=0.9.0",
+    "tomli-w<=1.2.0",
+    "kaleido<=1.2.0",
+    "pandas<=2.3.3",
+    "plotly<=6.3.0",
 ]
 mpi = [
     "mpi4py<=4.1.1",
 ]
 doc = [
     "struphy[phys]",
-    "jupyter",
-    "nbconvert",
-    "ipykernel",
-    "sphinx",
-    "sphinx-design",
-    "lxml_html_clean",
-    "sphinxcontrib-napoleon",
-    "sphinx-copybutton",
-    "pydata-sphinx-theme",
-    "nbsphinx",
-    "m2r2",
-    "myst-parser",
-    "mistune",
-    "docutils",
-    "ipyparallel",
+    "jupyter<=1.1.1",
+    "nbconvert<=6.5.4",
+    "ipykernel<=7.1.0",
+    "sphinx<=8.1.3",
+    "sphinx-design<=0.6.1",
+    "lxml_html_clean<=0.4.3",
+    "sphinxcontrib-napoleon<=0.7",
+    "sphinx-copybutton<=0.5.2",
+    "pydata-sphinx-theme<=0.16.1",
+    "nbsphinx<=0.9.7",
+    "m2r2<=0.3.4",
+    "myst-parser<=4.0.1",
+    "mistune<=0.8.4",
+    "docutils<=0.21.2",
+    "ipyparallel<=9.0.2",
 ]
 likwid = [
     "struphy[dev]",
@@ -145,17 +144,12 @@ ignore = [
 [tool.isort]
 profile = "black"
 line_length = 120
-# multi_line_output = 3
-# include_trailing_comma = true
-# force_grid_wrap = 0
-# combine_as_imports = true
 
 [tool.pylint]
 max-line-length = 120
 
 [tool.ruff]
 line-length = 120
-# exclude = ["__pyccel__"]
 
 [tool.ruff.lint]
 ignore = [
@@ -173,7 +167,7 @@ ignore = [
     "F405",
     "D211",
     "D213",
-    "F841", # Ignore unused variables
+    "F841",
 ]
 
 [tool.pytest.ini_options]
