@@ -5,8 +5,8 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "struphy-test-4"
-version = "2.6.2"
+name = "struphy"
+version = "2.6.1.dev"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -25,6 +25,7 @@ dependencies = [
     'numpy',
     'cunumpy',
     'pyccel>=2.0',
+    'psydac @ git+https://github.com/struphy-hub/psydac-for-struphy.git@devel-tiny',
     'scipy',
     'h5py',
     'matplotlib',
