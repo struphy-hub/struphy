@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.6.1.dev"
+version = "2.5.0"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
