@@ -63,9 +63,7 @@ class Particles(metaclass=ABCMeta):
     r"""
     Base class for particle species.
 
-    The marker information is stored in a 2D numpy array,
-    see `Tutorial on PIC data structures <https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#PIC-data-structures>`_.
-
+    The marker information is stored in a 2D numpy array.
     In ``markers[ip, j]`` The row index ``ip`` refers to a specific particle,
     the column index ``j`` to its attributes.
     The columns are indexed as follows:

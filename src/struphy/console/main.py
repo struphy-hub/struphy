@@ -118,7 +118,7 @@ def struphy():
     for flag, message in model_flags:
         if flag:
             print(message)
-            print("For more info on Struphy models, visit https://struphy.pages.mpcdf.de/struphy/sections/models.html")
+            print("For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html")
             sys.exit(0)
 
     if args.refresh_models:
