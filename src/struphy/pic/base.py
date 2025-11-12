@@ -1245,15 +1245,13 @@ class Particles(metaclass=ABCMeta):
         if self.type != "sph":
             self._f_init = self.initial_condition
         else:
-            # Get the initialization function and pass the correct arguments
             assert isinstance(self.f0, FluidEquilibrium)
+            
+            # get vector-field representation of the fluid velocity
             self._u_init = self.f0.uv
 
             if self.perturbations is not None:
-                for (
-                    moment,
-                    pert,
-                ) in self.perturbations.items():  # only one perturbation is taken into account at the moment
+                for (moment, pert) in self.perturbations.items():  # only one perturbation is taken into account at the moment
                     assert isinstance(moment, str)
                     if pert is None:
                         continue
@@ -1275,8 +1273,7 @@ class Particles(metaclass=ABCMeta):
                             comp=pert.comp,
                             domain=self.domain,
                         )
-                        _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
-                        self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
+                        self._u_init = lambda e1, e2, e3: self.f0.uv(e1, e2, e3) + _fun(e1, e2, e3)
                         # TODO: add other velocity components
             else:
                 _fun = None
@@ -1400,7 +1397,11 @@ class Particles(metaclass=ABCMeta):
         verbose: bool = True,
     ):
         r""" 
-        Drawing markers according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`.
+        Drawing markers 
+        
+        * for PIC: according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`
+        * for SPH: from unity/disc in space and according to the vector-field representation of the fluid velocity
+        
         In Struphy, the initial marker distribution :math:`s^\textrm{vol}_{\textnormal{in}}` is always of the form
 
         .. math::
