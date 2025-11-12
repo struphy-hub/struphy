@@ -1065,7 +1065,7 @@ def test_sph_velocity_evaluation(
 
 @pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
 @pytest.mark.parametrize("kernel", ["gaussian_2d"])  # "trigonometric_2d", "linear_2d"])
-@pytest.mark.parametrize("derivative", [0])
+@pytest.mark.parametrize("derivative", [0, 1, 2])
 @pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
 @pytest.mark.parametrize("bc_y", ["periodic", "mirror", "fixed"])
 @pytest.mark.parametrize("eval_pts", [11])
@@ -1116,6 +1116,12 @@ def test_sph_velocity_evaluation_2d(
         uz = 0.0 * z
         return (ux, uy, uz)
 
+    def u_eta(eta1, eta2, eta3):
+        u1 = 1 / Lx * xp.cos(2 * xp.pi * l1 / Lx + 2 * xp.pi * eta1) * xp.cos(2 * xp.pi * eta2 + 2 * xp.pi * l2 / Ly)
+        u2 = 1 / Ly * xp.cos(2 * xp.pi * l1 / Lx + 2 * xp.pi * eta1) * xp.cos(2 * xp.pi * eta2 + +2 * xp.pi * l2 / Ly)
+        u3 = 0.0 * z
+        return (u1, u2, u3)
+
     # derivatives:
     # derivative == 1 -> ∂/∂e1
     # derivative == 2 -> ∂/∂e2
@@ -1130,6 +1136,42 @@ def test_sph_velocity_evaluation_2d(
         duy = -2 * xp.pi / Ly * xp.cos(2 * xp.pi / Lx * x) * xp.sin(2 * xp.pi / Ly * y)
         duz = 0.0 * z
         return (dux, duy, duz)
+
+    def du_deta1(eta1, eta2, eta3):
+        du1 = (
+            -2
+            * xp.pi
+            / Lx
+            * xp.sin(2 * xp.pi * eta1 + 2 * xp.pi * l1 / Lx)
+            * xp.cos(2 * xp.pi * eta2 + 2 * xp.pi * l2 / Ly)
+        )
+        du2 = (
+            -2
+            * xp.pi
+            / Ly
+            * xp.sin(2 * xp.pi * eta1 + 2 * xp.pi * l1 / Lx)
+            * xp.cos(2 * xp.pi * eta2 + 2 * xp.pi * l2 / Ly)
+        )
+        du3 = 0.0 * z
+        return (du1, du2, du3)
+
+    def du_deta2(eta1, eta2, eta3):
+        du1 = (
+            -2
+            * xp.pi
+            / Lx
+            * xp.cos(2 * xp.pi * l1 / Lx + 2 * xp.pi * eta1)
+            * xp.sin(2 * xp.pi * l2 / Ly + 2 * xp.pi * eta2)
+        )
+        du2 = (
+            -2
+            * xp.pi
+            / Ly
+            * xp.cos(2 * xp.pi * eta1 + 2 * xp.pi * l1 / Lx)
+            * xp.sin(2 * xp.pi * l2 / Ly + 2 * xp.pi * eta2)
+        )
+        du3 = 0.0 * z
+        return (du1, du2, du3)
 
     background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
     background.domain = domain
@@ -1181,16 +1223,16 @@ def test_sph_velocity_evaluation_2d(
         kernel_type=kernel,
         derivative=derivative,
     )
-
-    # push-forward of vector field velocity
-    v1, v2, v3 = domain.push(v_log, ee1, ee2, ee3, kind="v")
+    v1, v2, v3 = v_log
 
     if derivative == 0:
+        # push-forward of vector field velocity
+        v1, v2, v3 = domain.push(v_log, ee1, ee2, ee3, kind="v")
         v1_e, v2_e, v3_e = background.u_xyz(xx, yy, zz)
     elif derivative == 1:
-        v1_e, v2_e, v3_e = du_dx(xx, yy, zz)
+        v1_e, v2_e, v3_e = du_deta1(ee1, ee2, ee3)  # du_dx(xx, yy, zz)
     else:  # derivative == 2
-        v1_e, v2_e, v3_e = du_dy(xx, yy, zz)
+        v1_e, v2_e, v3_e = du_deta2(ee1, ee2, ee3)  # du_dy(xx, yy, zz)
 
     if comm is not None:
         all_velo1 = xp.zeros_like(v1)
@@ -1208,8 +1250,21 @@ def test_sph_velocity_evaluation_2d(
         # return xp.max(xp.abs(num))
         return xp.max(xp.abs(num - exact)) / max_exact
 
-    err_ux = abs_err(all_velo1, v1_e)
-    err_uy = abs_err(all_velo2, v2_e)
+    if derivative == 0:
+        err_ux = abs_err(all_velo1, v1_e)
+        err_uy = abs_err(all_velo2, v2_e)
+    elif derivative == 1:
+        v1_e, v2_e, v3_e = du_deta1(ee1, ee2, ee3)
+        v1, v2, v3 = v_log
+
+        err_ux = abs_err(v1, v1_e)
+        err_uy = abs_err(v2, v2_e)
+    elif derivative == 2:
+        v1_e, v2_e, v3_e = du_deta2(ee1, ee2, ee3)
+        v1, v2, v3 = v_log
+
+        err_ux = abs_err(v1, v1_e)
+        err_uy = abs_err(v2, v2_e)
 
     if rank == 0:
         print(f"\n{boxes_per_dim = }")
@@ -1277,9 +1332,12 @@ def test_sph_velocity_evaluation_2d(
     if derivative == 0:
         assert err_ux < 1.2e-1
         assert err_uy < 1.2e-1
-    # else:
-    #   assert err_ux < 0.069
-    #  assert err_uy < 0.069
+    elif derivative == 1:
+        assert err_ux < 0.8709
+        assert err_uy < 0.8709
+    else:
+        assert err_ux < 0.716
+        assert err_uy < 0.716
 
     # ensure z-component is negligible (absolute)
     # assert err_uz_abs < 1e-6

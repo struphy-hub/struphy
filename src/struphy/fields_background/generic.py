@@ -1,4 +1,5 @@
 import copy
+
 import cunumpy as xp
 
 from struphy.fields_background.base import (
