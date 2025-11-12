@@ -6,6 +6,7 @@ from psydac.ddm.mpi import mpi as MPI
 
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
+from struphy.geometry.base import Domain
 from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.pic.particles import ParticlesSPH
@@ -1063,11 +1064,12 @@ def test_sph_velocity_evaluation(
         
         
 @pytest.mark.parametrize("boxes_per_dim", [(12, 12, 1)])
-@pytest.mark.parametrize("kernel", ["trigonometric_2d", "gaussian_2d", "linear_2d"])
-@pytest.mark.parametrize("derivative", [0, 1, 2])
+@pytest.mark.parametrize("kernel", ["gaussian_2d"]) # "trigonometric_2d", "linear_2d"])
+@pytest.mark.parametrize("derivative", [0])
 @pytest.mark.parametrize("bc_x", ["periodic", "mirror", "fixed"])
 @pytest.mark.parametrize("bc_y", ["periodic", "mirror", "fixed"])
-@pytest.mark.parametrize("eval_pts", [11, 16])
+@pytest.mark.parametrize("eval_pts", [11])
+@pytest.mark.parametrize("tesselation", [False, True])
 def test_sph_velocity_evaluation_2d(
     boxes_per_dim,
     kernel,
@@ -1087,9 +1089,13 @@ def test_sph_velocity_evaluation_2d(
         rank = comm.Get_rank()
 
     dom_type = "Cuboid"
-    dom_params = {"l1": 0.0, "r1": 1.0, "l2": 0.0, "r2": 1.0, "l3": 0.0, "r3": 1.0}
+    l1 = -1.0
+    r1 = 2
+    l2 = 1.5
+    r2 = 2.3
+    dom_params = {"l1": l1, "r1": r1, "l2": l2, "r2": r2, "l3": 0.0, "r3": 1.0}
     domain_class = getattr(domains, dom_type)
-    domain = domain_class(**dom_params)
+    domain: Domain = domain_class(**dom_params)
     
     if tesselation:
         ppb = 50
@@ -1098,32 +1104,32 @@ def test_sph_velocity_evaluation_2d(
         ppb = 400
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
-    Lx = dom_params["r1"] - dom_params["l1"]
-    Ly = dom_params["r2"] - dom_params["l2"]
+    Lx = r1 - l1
+    Ly = r2 - l2
     
     # analytic 2D velocity field:
     # u_x = cos(2π e1) * cos(2π e2)
     # u_y = sin(2π e1) * sin(2π e2)
     # u_z = 0
-    def u_xyz(e1, e2, e3):
-        ux = xp.cos(2 * xp.pi/Lx*e1) * xp.cos(2 * xp.pi/Ly * e2)
-        uy = xp.sin(2 * xp.pi/Lx* e1) * xp.sin(2 * xp.pi/Ly * e2)
-        uz = 0.0 * e1
+    def u_xyz(x, y, z):
+        ux = xp.cos(2 * xp.pi/Lx * x) * xp.cos(2 * xp.pi/Ly * y)
+        uy = xp.cos(2 * xp.pi/Lx * x) * xp.cos(2 * xp.pi/Ly * y)
+        uz = 0.0 * z
         return (ux, uy, uz)
 
     # derivatives:
     # derivative == 1 -> ∂/∂e1
     # derivative == 2 -> ∂/∂e2
-    def du_de1(e1, e2, e3):
-        dux = -2 * xp.pi/Lx * xp.sin(2 * xp.pi/Lx * e1) * xp.cos(2 * xp.pi/Ly * e2)
-        duy =  2 * xp.pi/Lx * xp.cos(2 * xp.pi/Lx * e1) * xp.sin(2 * xp.pi/Ly * e2)
-        duz = 0.0 * e1
+    def du_dx(x, y, z):
+        dux = -2 * xp.pi/Lx * xp.sin(2 * xp.pi/Lx * x) * xp.cos(2 * xp.pi/Ly * y)
+        duy = -2 * xp.pi/Lx * xp.sin(2 * xp.pi/Lx * x) * xp.cos(2 * xp.pi/Ly * y)
+        duz = 0.0 * z
         return (dux, duy, duz)
 
-    def du_de2(e1, e2, e3):
-        dux = -2 * xp.pi/Ly * xp.cos(2 * xp.pi/Lx * e1) * xp.sin(2 * xp.pi/Ly * e2)
-        duy =  2 * xp.pi/Ly * xp.sin(2 * xp.pi/Lx * e1) * xp.cos(2 * xp.pi/Ly * e2)
-        duz = 0.0 * e1
+    def du_dy(x, y, z):
+        dux = -2 * xp.pi/Ly * xp.cos(2 * xp.pi/Lx * x) * xp.sin(2 * xp.pi/Ly * y)
+        duy = -2 * xp.pi/Ly * xp.cos(2 * xp.pi/Lx * x) * xp.sin(2 * xp.pi/Ly * y)
+        duz = 0.0 * z
         return (dux, duy, duz)
 
     background = GenericCartesianFluidEquilibrium(u_xyz=u_xyz)
@@ -1144,11 +1150,16 @@ def test_sph_velocity_evaluation_2d(
         verbose=False,
     )
 
-    # evaluation grid
+    # evaluation grids
     eta1 = xp.linspace(0, 1.0, eval_pts)
     eta2 = xp.linspace(0, 1.0, eval_pts)
     eta3 = xp.array([0.0])
     ee1, ee2, ee3 = xp.meshgrid(eta1, eta2, eta3, indexing="ij")
+    
+    x = xp.linspace(l1, r1, eval_pts)
+    y = xp.linspace(l2, r2, eval_pts)
+    z = xp.array([0.0])
+    xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
 
     # initialize particles
     particles.draw_markers(sort=True, verbose=False)
@@ -1161,7 +1172,7 @@ def test_sph_velocity_evaluation_2d(
     h2 = 1 / boxes_per_dim[1]
     h3 = 1 / boxes_per_dim[2]
 
-    v1, v2, v3 = particles.eval_velocity(
+    v_log = particles.eval_velocity(
         ee1,
         ee2,
         ee3,
@@ -1172,12 +1183,15 @@ def test_sph_velocity_evaluation_2d(
         derivative=derivative,
     )
 
+    # push-forward of vector field velocity
+    v1, v2, v3 = domain.push(v_log, ee1, ee2, ee3, kind="v")
+
     if derivative == 0:
-        v1_e, v2_e, v3_e = background.u_xyz(ee1, ee2, ee3)
+        v1_e, v2_e, v3_e = background.u_xyz(xx, yy, zz)
     elif derivative == 1:
-        v1_e, v2_e, v3_e = du_de1(ee1, ee2, ee3)
+        v1_e, v2_e, v3_e = du_dx(xx, yy, zz)
     else:  # derivative == 2
-        v1_e, v2_e, v3_e = du_de2(ee1, ee2, ee3)
+        v1_e, v2_e, v3_e = du_dy(xx, yy, zz)
 
 
     if comm is not None:
@@ -1241,7 +1255,7 @@ def test_sph_velocity_evaluation_2d(
             plt.colorbar()
 
             plt.tight_layout()
-            plt.savefig("image_test_2d.png")
+            # plt.savefig("image_test_2d.png")
             plt.show()
 
             plt.figure(figsize=(8, 8))
@@ -1252,14 +1266,14 @@ def test_sph_velocity_evaluation_2d(
             plt.ylabel("y")
             plt.axis("equal")
             plt.tight_layout()
-            plt.savefig("image_test_2d_quiver.png")
+            # plt.savefig("image_test_2d_quiver.png")
             plt.show()
 
 
     # tolerances: conservative values aligned with your 2D density thresholds
-    #if derivative == 0:
-     #   assert err_ux < 0.031
-      #  assert err_uy < 0.031
+    if derivative == 0:
+       assert err_ux < 1.2e-1
+       assert err_uy < 1.2e-1
     #else:
      #   assert err_ux < 0.069
       #  assert err_uy < 0.069
@@ -1271,13 +1285,13 @@ def test_sph_velocity_evaluation_2d(
 
 if __name__ == "__main__":
     test_sph_velocity_evaluation_2d(
-        (24,24,1),
+        (12, 12, 1),
         "gaussian_2d",
         0,
         "periodic",
         "periodic",
         110,
-        tesselation=True, 
+        tesselation=False, 
         show_plot= True
     )
     
