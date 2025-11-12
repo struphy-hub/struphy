@@ -6,10 +6,6 @@ import subprocess
 import sys
 
 
-def _subp_run(cmd):
-    subprocess.run([sys.executable, "-m"] + cmd, check=True)
-
-
 def _install_psydac_if_needed():
     # Current directory is libpathe root of the project
     libpath = os.path.dirname(__file__)
@@ -61,15 +57,18 @@ def _install_psydac_if_needed():
                     psydac_file = filename
             if psydac_file is None:
                 raise FileNotFoundError("No psydac wheel file found.")
-            cmd = ["pip", "uninstall", "-y", "psydac"]
-            _subp_run(cmd)
+
+            # Uninstall psydac
+            subprocess.run(["pip", "uninstall", "-y", "psydac"], check=True)
+
+            # Install psydac
             print("\nInstalling Psydac ...")
             cmd = [
                 "pip",
                 "install",
                 os.path.join(libpath, psydac_file),
             ]
-            _subp_run(cmd)
+            subprocess.run(["pip", "uninstall", "-y", "psydac"], check=True)
 
 
 # Run on import
