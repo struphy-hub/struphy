@@ -68,7 +68,7 @@ def _install_psydac_if_needed():
                 "install",
                 os.path.join(libpath, psydac_file),
             ]
-            subprocess.run(["pip", "uninstall", "-y", "psydac"], check=True)
+            subprocess.run(cmd, check=True)
 
 
 # Run on import
