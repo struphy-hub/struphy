@@ -46,8 +46,6 @@ class Derham:
     """
     The discrete Derham sequence on the logical unit cube (3d).
 
-    Check out the corresponding `Struphy API <https://struphy.pages.mpcdf.de/struphy/api/discrete_derham.html>`_ for a hands-on introduction.
-
     The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_
     and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
 

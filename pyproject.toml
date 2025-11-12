@@ -6,12 +6,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.5.0"
+version = "2.6.0"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
     { name = "Max Planck Institute for Plasma Physics" },
     { email = "stefan.possanner@ipp.mpg.de" },
+    { email = "max.lindqvist@ipp.mpg.de" },
     { email = "eric.sonnendruecker@ipp.mpg.de" },
 ]
 description = "Multi-model plasma physics package"
@@ -98,11 +99,11 @@ all = [
 ]
 
 [project.urls]
-homepage = "https://struphy.pages.mpcdf.de/struphy/"
-documentation = "https://struphy.pages.mpcdf.de/struphy/"
-repository = "https://gitlab.mpcdf.mpg.de/struphy/struphy"
-changelog = "https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/CHANGELOG.md"
-"Bug Tracker" = "https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues"
+homepage = "https://struphy-hub.github.io/struphy/index.html"
+documentation = "https://struphy-hub.github.io/struphy/index.html"
+repository = "https://github.com/struphy-hub/struphy"
+changelog = "https://github.com/struphy-hub/struphy/blob/devel/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/struphy-hub/struphy/issues"
 
 [project.scripts]
 struphy = "struphy.console.main:struphy"
@@ -133,7 +134,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 ]
 struphy = [
     "compile_struphy.mk",
-    "psydac-2.5.0.dev0-py3-none-any.whl",
+    "psydac-2.6.0.dev0-py3-none-any.whl",
 ]
 
 [tool.autopep8]

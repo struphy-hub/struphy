@@ -1,37 +1,26 @@
-# Contact
-
-* [Mailing list](https://listserv.gwdg.de/mailman/listinfo/struphy)
-* [MatrixChat developer's channel](https://matrix.to/#/!wqjcJpsUvAbTPOUXen:mpg.de?via=mpg.de&via=academiccloud.de)
-* [Issue tracker](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues) (MPCDF account needed, contacts below)
-* [LinkedIn](https://www.linkedin.com/company/struphy/)
-* [stefan.possanner@ipp.mpg.de](mailto:spossann@ipp.mpg.de)
-* [eric.sonnendruecker@ipp.mpg.de](mailto:eric.sonnendruecker@ipp.mpg.de)
-* [xin.wang@ipp.mpg.de](mailto:xin.wang@ipp.mpg.de)
-
-
 # Repository
 
-Struphy has two main branches, **master** and **devel**. 
+Struphy has two protected branches, **main** and **devel**. 
 Nobody can push directly to these branches.
 
-The **master** branch holds the current release of the code. 
+The **main** branch holds the current release of the code. 
 
-**devel** is the main branch for developers. Feature branches must be checked out and merged into **devel**.
+**devel** is the branch for developers. Feature branches must be checked out and merged into **devel**.
 
 
 # Forking
 
-In case you are not a [member](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/project_members>) of the Struphy project,
-you can contribute code by [forking](https://docs.gitlab.com/ee/user/project/repository/forking_workflow.html>)the Struphy
-repository.
-
-You must create a **public fork** to be able to merge your code into Struphy!
+Please create a **public fork** to be able to merge your code into Struphy!
 
 You can create feature branches in your forked repo and create merge requests into the original Struphy repo.
 
-[Update your fork](https://docs.gitlab.com/ee/user/project/repository/forking_workflow.html#from-the-command-line)
-in case **devel** changes in the Struphy repo while you are working on your feature.
 
-# More info
+# Contact
 
-See the [Developer's guide](https://struphy.pages.mpcdf.de/struphy/sections/developers.html).
+* [Mailing list](https://listserv.gwdg.de/mailman/listinfo/struphy)
+* [MatrixChat developer's channel](https://matrix.to/#/!wqjcJpsUvAbTPOUXen:mpg.de?via=mpg.de&via=academiccloud.de)
+* [Issue tracker](https://github.com/struphy-hub/struphy/issues) 
+* [LinkedIn](https://www.linkedin.com/company/struphy/)
+* [stefan.possanner@ipp.mpg.de](mailto:spossann@ipp.mpg.de)
+* [max.lindqvist@ipp.mpg.de@ipp.mpg.de](mailto:max.lindqvist@ipp.mpg.de)
+* [xin.wang@ipp.mpg.de](mailto:xin.wang@ipp.mpg.de)

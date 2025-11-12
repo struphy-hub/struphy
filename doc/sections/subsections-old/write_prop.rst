@@ -189,13 +189,7 @@ Particle kernels
 ================
 
 A "kernel" is where the particle loops are written in Struphy.
-The following **kernel files** are available:
-
-* `pic/pushing/pusher_kernels.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py?ref_type=heads>`_ for general particle pushing
-* `pic/pushing/pusher_kernels_gc.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels_gc.py?ref_type=heads>`_ for guiding-center pushing
-* `pic/pushing/eval_kernels_gc.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/eval_kernels_gc.py?ref_type=heads>`_ for particle evaluation of specific functions
-* `pic/accumulation/accum_kernels.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels.py?ref_type=heads>`_ for general particle deposition 
-* `pic/accumulation/accum_kernels_gc.py <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels_gc.py?ref_type=heads>`_ for particle deposition in guiding-center models
+The available **kernel files** can be seen under :ref:`pic_modules`.
 
 These kernel files are compiled when the ``struphy compile`` command is executed from the console.
 
@@ -210,12 +204,12 @@ through the following module, imported at the top of the kernel files::
 
     import struphy.geometry.evaluation_kernels as evaluation_kernels
 
-This `provides callables to all things mapping <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/geometry/evaluation_kernels.py?ref_type=heads>`_.
+This `provides callables to all things mapping <https://github.com/struphy-hub/struphy/blob/devel/src/struphy/geometry/evaluation_kernels.py>`_.
 Linear algebra operations are available through the module::
 
     import struphy.linear_algebra.linalg_kernels as linalg_kernels
 
-which provides `products, transpose, inverse, etc. <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/linear_algebra/linalg_kernels.py?ref_type=heads>`_
+which provides `products, transpose, inverse, etc. <https://github.com/struphy-hub/struphy/blob/devel/src/struphy/linear_algebra/linalg_kernels.py>`_
 
 The evaluation of FEEC spline fields is managed through the following functions, 
 which are imported at the top of the kernel files as well::

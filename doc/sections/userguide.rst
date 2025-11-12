@@ -55,6 +55,8 @@ Models
 See :ref:`models`.
 
 
+.. _species:
+
 Species types
 ^^^^^^^^^^^^^
 

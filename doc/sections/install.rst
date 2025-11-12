@@ -318,10 +318,6 @@ Important docker commands
 * ``docker restart <container_name>`` restarts the container in detached mode.
 * ``docker attach <container_name>`` opens a terminal to a detached container.
 
-* Mirror default Struphy output to ``~/<dir>`` on the host machine::
-    
-    docker run -it -v ~/<dir>:<install_path>/io/out gitlab-registry.mpcdf.mpg.de/struphy/struphy/release
-
 .. _docker_devs:
 
 Docker for devs
@@ -358,8 +354,6 @@ MPCDF computing clusters
 ------------------------
 
 Struphy is periodically tested on the `MPCDF HPC facilities <https://docs.mpcdf.mpg.de/doc/computing/index.html>`_.
-Tests are performed with the `available MPCDF images <https://docs.mpcdf.mpg.de/doc/data/gitlab/gitlabrunners.html#docker-images-for-ci-with-mpcdf-environment-modules>`_.
-The modules loaded in these tests can be found in Struphy's `.gitlab-ci.yml <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/.gitlab-ci.yml?ref_type=heads#L82>`_.
 
 A common installation looks like this
 
