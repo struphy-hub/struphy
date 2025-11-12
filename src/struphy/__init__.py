@@ -30,6 +30,7 @@ def _install_psydac_if_needed():
         psydac_installed = False
 
     if source_install:
+        # If we are installing psydac from Github
         if psydac_installed:
             # only install (from .whl) if psydac not up-to-date
             if psydac_ver < struphy_ver:
@@ -41,6 +42,7 @@ def _install_psydac_if_needed():
             print("Psydac is not installed. To install it, please re-install struphy (e.g. pip install .)\n")
             sys.exit(1)
     else:
+        # If we are installing psydac from a wheel
         install_psydac = False
         if psydac_installed:
             # only install (from .whl) if psydac not up-to-date
