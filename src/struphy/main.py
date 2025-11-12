@@ -63,7 +63,7 @@ def run(
     Parameters
     ----------
     model : StruphyModel
-        The model to run. Check https://struphy.pages.mpcdf.de/struphy/sections/models.html for available models.
+        The model to run. Check https://struphy-hub.github.io/struphy/sections/models.html for available models.
 
     params_path : str
         Absolute path to .py parameter file.

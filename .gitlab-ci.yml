@@ -1160,6 +1160,6 @@ release_job:
     assets:
       links:
         - name: 'Documentation'
-          url: 'https://struphy.pages.mpcdf.de/struphy/index.html'
+          url: 'https://struphy-hub.github.io/struphy/index.html'
         - name: 'PyPI'
           url: 'https://pypi.org/project/struphy/'

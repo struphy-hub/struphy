@@ -166,7 +166,7 @@ which satisfy the complex property
 .. note::
 
     A struphy userguide for the operators :math:`\mathbb G`, :math:`\mathbb C` and :math:`\mathbb D` and for the projection
-    operators :math:`\Pi_n` is given in `this Jupyter notebook <https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/notebooks/derham_complex.ipynb>`_.
+    operators :math:`\Pi_n` is given in the `Tutorials <https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main>`_.
 
 The projectors :math:`\Pi_n,\, 0\leq n \leq 3` into the discrete spaces :math:`V_h^n,\, 0\leq n \leq 3` are constructed 
 such that the commuting relations :math:numref:`commute` hold. They are defined by **Degrees of freedom (DOFs)** 
