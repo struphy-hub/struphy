@@ -6,7 +6,6 @@ runs:
     - name: Model tests
       shell: bash
       run: |
-        struphy compile --status
         struphy test LinearMHD
         struphy test toy
         struphy test models 
@@ -14,7 +13,6 @@ runs:
     - name: Model tests with  MPI
       shell: bash
       run: |
-        struphy compile --status
         struphy test models 
         struphy test models --mpi 2
         struphy test verification --mpi 1

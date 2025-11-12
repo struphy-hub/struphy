@@ -42,7 +42,6 @@ jobs:
           which python3
           source /struphy_c_/env_c_/bin/activate
           which python3
-          struphy compile --status
           struphy compile
 
       - name: Run unit tests
@@ -51,7 +50,6 @@ jobs:
           which python3
           source /struphy_c_/env_c_/bin/activate
           which python3
-          struphy compile --status
           struphy --refresh-models
           pip show mpi4py
           pip uninstall -y mpi4py
@@ -63,7 +61,6 @@ jobs:
           which python3
           source /struphy_c_/env_c_/bin/activate
           which python3
-          struphy compile --status
           struphy --refresh-models
           pip install -U mpi4py
           struphy test unit --mpi 2
