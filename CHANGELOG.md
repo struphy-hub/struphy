@@ -5,6 +5,7 @@
 * [PyPI](https://pypi.org/project/struphy/3.0.0)
 * [Github pages](https://struphy-hub.github.io/struphy/index.html)
 * [Github release](https://github.com/struphy-hub/struphy/releases/tag/v3.0.0)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v2.5.0...v3.0.0)
 
 ### Headlines
 
@@ -54,6 +55,7 @@ These variables are updated by `Propagators`. All options for a simluation can b
 * [PyPI](https://pypi.org/project/struphy/2.6.0)
 * [Github pages](https://struphy-hub.github.io/struphy/index.html)
 * [Github release](https://github.com/struphy-hub/struphy/releases/tag/v2.6.0)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v2.5.0...v2.6.0)
 
 ### Headlines
 
