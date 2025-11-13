@@ -1,9 +1,8 @@
 from abc import ABCMeta, abstractmethod
 
+import cunumpy as xp
 from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
-
-from struphy.utils.arrays import xp as np
 
 
 class CoilMagneticField(metaclass=ABCMeta):
@@ -32,7 +31,7 @@ class CoilMagneticField(metaclass=ABCMeta):
     def absB0(self, *etas, squeeze_out=False):
         """0-form absolute value of equilibrium magnetic field on logical cube [0, 1]^3."""
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
-        return np.sqrt(b[0] ** 2 + b[1] ** 2 + b[2] ** 2)
+        return xp.sqrt(b[0] ** 2 + b[1] ** 2 + b[2] ** 2)
 
     def absB3(self, *etas, squeeze_out=False):
         """3-form absolute value of equilibrium magnetic field on logical cube [0, 1]^3."""
@@ -72,7 +71,11 @@ class CoilMagneticField(metaclass=ABCMeta):
     def b_cart(self, *etas, squeeze_out=False):
         """Cartesian components of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
         b_out = self.domain.push(
-            self.bv(*etas, squeeze_out=False), *etas, kind="v", a_kwargs={"squeeze_out": False}, squeeze_out=squeeze_out
+            self.bv(*etas, squeeze_out=False),
+            *etas,
+            kind="v",
+            a_kwargs={"squeeze_out": False},
+            squeeze_out=squeeze_out,
         )
         return b_out, self.domain(*etas, squeeze_out=squeeze_out)
 
@@ -92,7 +95,7 @@ class CoilMagneticField(metaclass=ABCMeta):
         """Unit vector Cartesian components of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
         b, xyz = self.b_cart(*etas, squeeze_out=squeeze_out)
         absB = self.absB0(*etas, squeeze_out=squeeze_out)
-        out = np.array([b[0] / absB, b[1] / absB, b[2] / absB], dtype=float)
+        out = xp.array([b[0] / absB, b[1] / absB, b[2] / absB], dtype=float)
         return out, xyz
 
 

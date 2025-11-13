@@ -1,8 +1,7 @@
+import cunumpy as xp
 import hylife.utilitis_FEEC.basics.kernels_3d as ker
 import hylife.utilitis_FEEC.control_variates.massless_kernels_control_variate as ker_cv
 import scipy.sparse as spa
-
-from struphy.utils.arrays import xp as np
 
 
 def bv_pre(u, uvalue, tensor_space_FEM, p, Nel, idnx, idny, idnz):
@@ -248,7 +247,7 @@ def bv_right(
     )
     # ========================= C.T ===========================
     return tensor_space_FEM.C.T.dot(
-        np.concatenate((temp_twoform1.flatten(), temp_twoform2.flatten(), temp_twoform3.flatten()))
+        xp.concatenate((temp_twoform1.flatten(), temp_twoform2.flatten(), temp_twoform3.flatten())),
     )
 
 
@@ -431,7 +430,7 @@ def uv_right(
     )
     # ========================= C.T ===========================
     temp_final = temp_final_0.flatten() + tensor_space_FEM.G.T.dot(
-        np.concatenate((temp_final_1.flatten(), temp_final_2.flatten(), temp_final_3.flatten()))
+        xp.concatenate((temp_final_1.flatten(), temp_final_2.flatten(), temp_final_3.flatten())),
     )
 
     return temp_final

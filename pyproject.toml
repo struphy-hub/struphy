@@ -6,12 +6,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "2.5.0"
+version = "2.6.0"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
     { name = "Max Planck Institute for Plasma Physics" },
     { email = "stefan.possanner@ipp.mpg.de" },
+    { email = "max.lindqvist@ipp.mpg.de" },
     { email = "eric.sonnendruecker@ipp.mpg.de" },
 ]
 description = "Multi-model plasma physics package"
@@ -23,6 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "numpy<=2.2.6",
+    "cunumpy<=0.1",
     "pyccel<=2.0.1, >=2.0",
     "scipy<=1.15.3",
     "h5py<=3.14.0",
@@ -30,9 +32,10 @@ dependencies = [
     "pyyaml<=6.0.3",
     "vtk<=9.5.2",
     "tqdm<=4.67.1",
-    "argcomplete<=3.6.2",
-    "pytest<=8.4.2",
+    "argcomplete<=3.6.3",
+    "pytest<=9.0.1",
     "pytest-mpi<=0.6",
+    "line_profiler<=5.0.0",
 ]
 
 [project.license]
@@ -44,19 +47,20 @@ phys = [
     "desc-opt<=0.15.0",
 ]
 dev = [
+    "struphy[mpi]",
     "notebook<=7.4.7",
     "autopep8<=2.3.2",
-    "isort<=6.0.1",
+    "isort<=7.0.0",
     "flake8<=7.3.0",
-    "pylint<=3.3.8",
+    "pylint<=4.0.2",
     "ssort<=0.15.0",
-    "add-trailing-comma<=3.2.0",
-    "ruff<=0.13.2, >=0.9.1",
-    "pre-commit<=4.3.0",
+    "add-trailing-comma<=4.0.0",
+    "ruff<=0.14.4, >=0.9.1",
+    "pre-commit<=4.4.0",
     "nbstripout<=0.8.1",
     "tabulate<=0.9.0",
     "tomli-w<=1.2.0",
-    "kaleido<=1.1.0",
+    "kaleido<=1.2.0",
     "pandas<=2.3.3",
     "plotly<=6.3.0",
 ]
@@ -65,10 +69,14 @@ mpi = [
 ]
 doc = [
     "struphy[phys]",
+    "jupyter<=1.1.1",
+    "nbconvert<=6.5.4",
+    "ipykernel<=7.1.0",
     "sphinx<=8.1.3",
     "sphinx-design<=0.6.1",
     "lxml_html_clean<=0.4.3",
     "sphinxcontrib-napoleon<=0.7",
+    "sphinx-copybutton<=0.5.2",
     "pydata-sphinx-theme<=0.16.1",
     "nbsphinx<=0.9.7",
     "m2r2<=0.3.4",
@@ -89,11 +97,11 @@ all = [
 ]
 
 [project.urls]
-homepage = "https://struphy.pages.mpcdf.de/struphy/"
-documentation = "https://struphy.pages.mpcdf.de/struphy/"
-repository = "https://gitlab.mpcdf.mpg.de/struphy/struphy"
-changelog = "https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/CHANGELOG.md"
-"Bug Tracker" = "https://gitlab.mpcdf.mpg.de/struphy/struphy/-/issues"
+homepage = "https://struphy-hub.github.io/struphy/index.html"
+documentation = "https://struphy-hub.github.io/struphy/index.html"
+repository = "https://github.com/struphy-hub/struphy"
+changelog = "https://github.com/struphy-hub/struphy/blob/devel/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/struphy-hub/struphy/issues"
 
 [project.scripts]
 struphy = "struphy.console.main:struphy"
@@ -124,7 +132,7 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 ]
 struphy = [
     "compile_struphy.mk",
-    "psydac-2.5.0.dev0-py3-none-any.whl",
+    "psydac-2.6.0.dev0-py3-none-any.whl",
 ]
 
 [tool.autopep8]
@@ -136,14 +144,9 @@ ignore = [
 [tool.isort]
 profile = "black"
 line_length = 120
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-combine_as_imports = true
 
 [tool.pylint]
 max-line-length = 120
-quote-style = "single"
 
 [tool.ruff]
 line-length = 120
@@ -164,4 +167,15 @@ ignore = [
     "F405",
     "D211",
     "D213",
+    "F841",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "models",
+    "toy",
+    "fluid",
+    "kinetic",
+    "hybrid",
+    "single",
 ]

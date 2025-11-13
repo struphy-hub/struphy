@@ -9,10 +9,6 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
 
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())
@@ -44,9 +40,10 @@ extensions = [
     "sphinx.ext.graphviz",
     "myst_parser",
     "sphinx_design",
+    "sphinx_copybutton",
 ]
 
-nbsphinx_execute = 'auto'
+nbsphinx_execute = "auto"
 
 napoleon_use_admonition_for_examples = True
 napoleon_use_admonition_for_notes = True
@@ -80,9 +77,12 @@ html_theme_options = {
     "header_links_before_dropdown": 8,
     "primary_sidebar_end": ["sidebar-ethical-ads"],
     "external_links": [
-        {"name": "Struphy repo", "url": "https://gitlab.mpcdf.mpg.de/struphy/struphy"},
+        {"name": "Struphy repo", "url": "https://github.com/struphy-hub/struphy"},
         {"name": "Struphy LinkedIn", "url": "https://www.linkedin.com/company/struphy/"},
-        {"name": "Struphy RocketChat", "url": "https://chat.gwdg.de/channel/struphy-developers"},
+        {
+            "name": "Struphy MatrixChat",
+            "url": "https://matrix.to/#/!wqjcJpsUvAbTPOUXen:mpg.de?via=mpg.de&via=academiccloud.de",
+        },
     ],
 }
 

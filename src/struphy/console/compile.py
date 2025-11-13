@@ -4,7 +4,17 @@ from struphy.utils.utils import subp_run
 
 
 def struphy_compile(
-    language, compiler, compiler_config, omp_pic, omp_feec, delete, status, verbose, dependencies, time_execution, yes
+    language,
+    compiler,
+    compiler_config,
+    omp_pic,
+    omp_feec,
+    delete,
+    status,
+    verbose,
+    dependencies,
+    time_execution,
+    yes,
 ):
     """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
@@ -187,9 +197,9 @@ def struphy_compile(
             deps = depmod.get_dependencies(ker.replace(".py", so_suffix))
             deps_li = deps.split(" ")
             print("-" * 28)
-            print(f"{ker = }")
+            print(f"{ker =}")
             for dep in deps_li:
-                print(f"{dep = }")
+                print(f"{dep =}")
 
     else:
         # struphy and psydac (change dir not to be in source path)
@@ -236,60 +246,6 @@ def struphy_compile(
         state["last_used_omp_feec"] = flag_omp_feec
 
         utils.save_state(state)
-
-        # install psydac from wheel if not there
-        source_install = False
-        for req in importlib.metadata.distribution("struphy").requires:
-            if "psydac" in req:
-                source_install = True
-
-        struphy_ver = importlib.metadata.version("struphy")
-
-        try:
-            import psydac
-
-            psydac_ver = importlib.metadata.version("psydac")
-            psydac_installed = True
-        except:
-            psydac_installed = False
-
-        if source_install:
-            if psydac_installed:
-                # only install (from .whl) if psydac not up-to-date
-                if psydac_ver < struphy_ver:
-                    print(
-                        f"You have psydac version {psydac_ver}, but version {struphy_ver} is available. Please re-install struphy (e.g. pip install .)\n"
-                    )
-                    sys.exit(1)
-            else:
-                print(f"Psydac is not installed. To install it, please re-install struphy (e.g. pip install .)\n")
-                sys.exit(1)
-
-        else:
-            install_psydac = False
-            if psydac_installed:
-                # only install (from .whl) if psydac not up-to-date
-                if ".".join(psydac_ver.split(".")[:3]) != ".".join(struphy_ver.split(".")[:3]):
-                    print(f"You have psydac version {psydac_ver}, but version {struphy_ver} is required.\n")
-                    install_psydac = True
-            else:
-                install_psydac = True
-
-            if install_psydac:
-                for filename in os.listdir(libpath):
-                    if re.match("psydac-", filename):
-                        psydac_file = filename
-
-                cmd = ["pip", "uninstall", "-y", "psydac"]
-                subp_run(cmd)
-                print("\nInstalling Psydac ...")
-                cmd = [
-                    "pip",
-                    "install",
-                    os.path.join(libpath, psydac_file),
-                ]
-                subp_run(cmd)
-                print("Done.")
 
         # Compile psydac kernels, note that this is a special function call in psydac-for-struphy.
         # Otherwise, psydac only allows for recompiling the kernels when installed in editable mode.

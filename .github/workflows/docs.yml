@@ -1,0 +1,74 @@
+name: Deploy docs to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  packages: read
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install prerequisites (Ubuntu)
+        uses: ./.github/actions/install/ubuntu-latest
+        env:
+          FC: ${{ env.FC }}
+          CC: ${{ env.CC }}
+          CXX: ${{ env.CXX }}
+
+      - name: Install Struphy (dev-doc)
+        uses: ./.github/actions/install/install-struphy
+        with:
+          optional-deps: 'dev,doc'
+
+      - name: Build Sphinx docs
+        run: |
+          cd doc
+          make html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload built docs
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: doc/_build/html/
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

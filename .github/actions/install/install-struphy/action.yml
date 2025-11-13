@@ -1,0 +1,19 @@
+name: "Clone and install struphy"
+
+inputs:
+  optional-deps:
+    required: true
+    default: 'dev'
+
+runs:
+  using: composite
+  steps:
+
+    - name: Install struphy
+      shell: bash
+      run: |
+        pip install --upgrade pip
+        pip install ".[${{ inputs.optional-deps }}]"
+        pip list
+        struphy -h
+        struphy --refresh-models

@@ -1,0 +1,70 @@
+name: PR - model tests in Container
+
+on:
+  pull_request:
+    branches:
+      - devel
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  model-tests-in-container-with-struphy:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+    steps:
+
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install Struphy in Container
+        uses: ./.github/actions/install/struphy_in_container
+
+      - name: Compile Struphy
+        run: |
+          which python3
+          source /struphy_c_/env_c_/bin/activate
+          which python3
+          struphy compile
+
+      - name: Model tests
+        shell: bash
+        run: |
+          which python3
+          source /struphy_c_/env_c_/bin/activate
+          which python3
+          struphy compile --status
+          struphy test LinearMHD
+          struphy test toy
+          struphy test models 
+          struphy test verification 
+
+      - name: Model tests with MPI
+        shell: bash
+        run: |
+          which python3
+          source /struphy_c_/env_c_/bin/activate
+          which python3
+          struphy compile --status
+          struphy test models 
+          struphy test models --mpi 2
+          struphy test verification --mpi 1
+          struphy test verification --mpi 4
+          struphy test verification --mpi 4 --nclones 2
+          struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2

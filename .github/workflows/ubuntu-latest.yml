@@ -1,0 +1,12 @@
+name: Ubuntu
+
+on:
+  schedule:
+    # run at 1 a.m. on Sunday
+    - cron: "0 1 * * 0" 
+
+jobs:
+  ubuntu-latest-build:
+    uses: ./.github/workflows/reusable-testing.yml
+    with:
+      os: ubuntu-latest

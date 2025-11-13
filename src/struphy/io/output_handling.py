@@ -1,9 +1,8 @@
 import ctypes
 import os
 
+import cunumpy as xp
 import h5py
-
-from struphy.utils.arrays import xp as np
 
 
 class DataContainer:
@@ -55,7 +54,7 @@ class DataContainer:
             dataset_keys = []
 
             self._file.visit(
-                lambda key: dataset_keys.append(key) if isinstance(self._file[key], h5py.Dataset) else None
+                lambda key: dataset_keys.append(key) if isinstance(self._file[key], h5py.Dataset) else None,
             )
 
             for key in dataset_keys:
@@ -83,11 +82,11 @@ class DataContainer:
         Parameters
         ----------
         data_dict : dict
-            Name-object pairs to save during time stepping, e.g. {key : val}. key must be a string and val must be a np.array of fixed shape. Scalar values (floats) must therefore be passed as 1d arrays of size 1.
+            Name-object pairs to save during time stepping, e.g. {key : val}. key must be a string and val must be a xp.array of fixed shape. Scalar values (floats) must therefore be passed as 1d arrays of size 1.
         """
 
         for key, val in data_dict.items():
-            assert isinstance(val, np.ndarray)
+            assert isinstance(val, xp.ndarray)
 
             # if dataset already exists, check for compatibility with given array
             if key in self._dset_dict:
@@ -111,7 +110,11 @@ class DataContainer:
                     self._file[key][0] = val[0]
                 else:
                     self._file.create_dataset(
-                        key, (1,) + val.shape, maxshape=(None,) + val.shape, dtype=val.dtype, chunks=True
+                        key,
+                        (1,) + val.shape,
+                        maxshape=(None,) + val.shape,
+                        dtype=val.dtype,
+                        chunks=True,
                     )
                     self._file[key][0] = val
 
