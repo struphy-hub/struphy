@@ -3,7 +3,6 @@ name: PR - model tests in Container
 on:
   pull_request:
     branches:
-      - main
       - devel
   workflow_dispatch:
 
