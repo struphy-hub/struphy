@@ -12,6 +12,10 @@ build:
   tools:
     python: "3.13"
   apt_packages:
+    - gcc
+    - libblas-dev
+    - git
+    - pandoc
     - graphviz
     - cmake
     - gfortran
@@ -20,6 +24,13 @@ build:
     - zlib1g-dev
     - libnetcdf-dev
     - libnetcdff-dev
+  jobs:
+    pre_build:
+      - ls
+      - which python
+      - which python3
+      - pip list
+      - pip install .[dev,doc]
 
 # Build documentation in the "doc/" directory with Sphinx
 sphinx:
