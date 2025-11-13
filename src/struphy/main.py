@@ -82,7 +82,6 @@ def run(
 
     if rank == 0:
         print("")
-    Barrier()
 
     # synchronize MPI processes to set same start time of simulation for all processes
     Barrier()
