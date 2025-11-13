@@ -226,7 +226,6 @@ def run(
     if rank < 32:
         if rank == 0:
             print("")
-        Barrier()
         print(f"Rank {rank}: executing main.run() for model {model_name} ...")
 
     if size > 32 and rank == 32:
