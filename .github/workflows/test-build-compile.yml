@@ -65,7 +65,7 @@ jobs:
           struphy params Maxwell -y
           python3 params_Maxwell.py
           pip install -U mpi4py
-          mpirun -n 4 python params_Maxwell.py --oversubscribe
+          mpirun --oversubscribe -n 4 python params_Maxwell.py 
 
 
       
