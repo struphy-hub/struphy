@@ -1,0 +1,70 @@
+name: Main branch - build, install and compile
+
+on:
+  push:
+  # pull_request:
+  #   branches:
+  #     - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  test-in-container-with-reqs:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+    steps:
+
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Build Struphy 
+        run: |
+          ls 
+          pip install -U build
+          python3 -m build
+          ls
+          ls dist/
+
+      - name: Install Struphy (according to README, but from .whl)
+        run: |
+          python3 -m venv struphy_env
+          source struphy_env/bin/activate
+          pip install -U pip
+          ls
+          ls dist/
+          pip install dist/*.whl
+          pip list
+
+      - name: Compile Struphy
+        run: |
+          source struphy_env/bin/activate
+          struphy compile
+
+      - name: Quick run (according to README)
+        shell: bash
+        run: |
+          source struphy_env/bin/activate
+          struphy params Maxwell -y
+          python3 params_Maxwell.py
+          pip install -U mpi4py
+          mpirun -n 4 python params_Maxwell.py
+
+
+      
