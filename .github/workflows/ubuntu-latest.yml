@@ -1,4 +1,5 @@
 name: Ubuntu
+
 on:
   schedule:
     # run at 1 a.m. on Sunday
