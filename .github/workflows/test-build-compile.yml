@@ -1,10 +1,9 @@
 name: Main branch - build, install and compile
 
 on:
-  push:
-  # pull_request:
-  #   branches:
-  #     - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
