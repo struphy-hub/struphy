@@ -11,7 +11,8 @@ name: Publish to Docker Hub
 
 on:
   push:
-    branches: ['main']
+    branches:
+      - main
 
 jobs:
   push_to_ubuntu-for-struphy:
