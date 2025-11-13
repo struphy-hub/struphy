@@ -1,3 +1,17 @@
+numpy
+cunumpy
+pyccel>=2.0
+psydac @ git+https://github.com/struphy-hub/psydac-for-struphy.git@devel-tiny
+scipy
+h5py
+matplotlib
+pyyaml
+vtk
+tqdm
+argcomplete
+pytest
+pytest-mpi
+line_profiler
 gvec>=1.1.0
 desc-opt
 jupyter
