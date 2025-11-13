@@ -55,7 +55,6 @@ python -m venv struphy_env
 source struphy_env/bin/activate
 pip install -U pip
 pip install -U struphy
-struphy compile --status
 struphy compile
 ```
 

@@ -51,7 +51,6 @@ Install and compile
         .. code-block::
 
             pip install -U struphy
-            struphy compile --status
             struphy compile
             struphy -h
 
@@ -60,7 +59,6 @@ Install and compile
         .. code-block::
 
             pip install -U struphy[phys]
-            struphy compile --status
             struphy compile
             struphy -h
 
@@ -69,7 +67,6 @@ Install and compile
         .. code-block::
 
             pip install -U struphy[mpi]
-            struphy compile --status
             struphy compile
             struphy -h
 
@@ -80,7 +77,6 @@ Install and compile
             git clone git@github.com:struphy-hub/struphy.git
             cd struphy
             pip install -e .[dev,doc]
-            struphy compile --status
             struphy compile
             struphy -h
 
@@ -91,7 +87,6 @@ Install and compile
             git clone git@github.com:struphy-hub/struphy.git
             cd struphy
             pip install -e .[all]
-            struphy compile --status
             struphy compile
             struphy -h
 

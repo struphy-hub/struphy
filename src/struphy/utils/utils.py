@@ -185,7 +185,6 @@ def refresh_models():
         )
 
     print("Done.")
-    sys.exit(0)
 
 
 def subp_run(cmd, cwd="libpath", check=True):

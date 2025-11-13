@@ -47,7 +47,6 @@ RUN git clone https://github.com/struphy-hub/struphy.git struphy_c_ \
     && . env_c_/bin/activate \
     && pip install -U pip \
     && pip install -e .[phys,mpi,doc] --no-cache-dir \
-    && struphy compile --status \
     && struphy compile \
     && deactivate
     
@@ -57,7 +56,6 @@ RUN git clone https://github.com/struphy-hub/struphy.git struphy_fortran_\
     && . env_fortran_/bin/activate \
     && pip install -U pip \
     && pip install -e .[phys,mpi,doc] --no-cache-dir \
-    && struphy compile --status \
     && struphy compile --language fortran -y \
     && deactivate 
 
@@ -67,7 +65,6 @@ RUN git clone https://github.com/struphy-hub/struphy.git struphy_fortran_--omp-p
     && . env_fortran_--omp-pic/bin/activate \
     && pip install -U pip \
     && pip install -e .[phys,mpi,doc] --no-cache-dir \
-    && struphy compile --status \
     && struphy compile --language fortran --omp-pic -y \
     && deactivate 
 

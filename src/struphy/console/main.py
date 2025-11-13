@@ -123,6 +123,7 @@ def struphy():
 
     if args.refresh_models:
         utils.refresh_models()
+        sys.exit(0)
 
     # load sub-command function
     command_map = {
