@@ -1116,27 +1116,6 @@ def test_sph_velocity_evaluation_2d(
         uz = 0.0 * z
         return (ux, uy, uz)
 
-    def u_eta(eta1, eta2, eta3):
-        u1 = 1 / Lx * xp.cos(2 * xp.pi * l1 / Lx + 2 * xp.pi * eta1) * xp.cos(2 * xp.pi * eta2 + 2 * xp.pi * l2 / Ly)
-        u2 = 1 / Ly * xp.cos(2 * xp.pi * l1 / Lx + 2 * xp.pi * eta1) * xp.cos(2 * xp.pi * eta2 + +2 * xp.pi * l2 / Ly)
-        u3 = 0.0 * z
-        return (u1, u2, u3)
-
-    # derivatives:
-    # derivative == 1 -> ∂/∂e1
-    # derivative == 2 -> ∂/∂e2
-    def du_dx(x, y, z):
-        dux = -2 * xp.pi / Lx * xp.sin(2 * xp.pi / Lx * x) * xp.cos(2 * xp.pi / Ly * y)
-        duy = -2 * xp.pi / Lx * xp.sin(2 * xp.pi / Lx * x) * xp.cos(2 * xp.pi / Ly * y)
-        duz = 0.0 * z
-        return (dux, duy, duz)
-
-    def du_dy(x, y, z):
-        dux = -2 * xp.pi / Ly * xp.cos(2 * xp.pi / Lx * x) * xp.sin(2 * xp.pi / Ly * y)
-        duy = -2 * xp.pi / Ly * xp.cos(2 * xp.pi / Lx * x) * xp.sin(2 * xp.pi / Ly * y)
-        duz = 0.0 * z
-        return (dux, duy, duz)
-
     def du_deta1(eta1, eta2, eta3):
         du1 = (
             -2
@@ -1246,23 +1225,15 @@ def test_sph_velocity_evaluation_2d(
 
     def abs_err(num, exact):
         max_exact = xp.max(xp.abs(exact))
-        # if max_exact == 0:
-        # return xp.max(xp.abs(num))
         return xp.max(xp.abs(num - exact)) / max_exact
 
     if derivative == 0:
         err_ux = abs_err(all_velo1, v1_e)
         err_uy = abs_err(all_velo2, v2_e)
     elif derivative == 1:
-        v1_e, v2_e, v3_e = du_deta1(ee1, ee2, ee3)
-        v1, v2, v3 = v_log
-
         err_ux = abs_err(v1, v1_e)
         err_uy = abs_err(v2, v2_e)
     elif derivative == 2:
-        v1_e, v2_e, v3_e = du_deta2(ee1, ee2, ee3)
-        v1, v2, v3 = v_log
-
         err_ux = abs_err(v1, v1_e)
         err_uy = abs_err(v2, v2_e)
 
