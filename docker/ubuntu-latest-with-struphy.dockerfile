@@ -40,7 +40,7 @@ RUN git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git struphy_c_ \
     && python3 -m venv env_c_ \
     && . env_c_/bin/activate \
     && pip install -U pip \
-    && pip install -e .[phys] --no-cache-dir \
+    && pip install -e .[phys,mpi,doc] --no-cache-dir \
     && struphy compile \
     && deactivate
     
@@ -49,7 +49,7 @@ RUN git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git struphy_fortran_\
     && python3 -m venv env_fortran_ \
     && . env_fortran_/bin/activate \
     && pip install -U pip \
-    && pip install -e .[phys] --no-cache-dir \
+    && pip install -e .[phys,mpi,doc] --no-cache-dir \
     && struphy compile --language fortran -y \
     && deactivate 
 
@@ -58,7 +58,7 @@ RUN git clone https://gitlab.mpcdf.mpg.de/struphy/struphy.git struphy_fortran_--
     && python3 -m venv env_fortran_--omp-pic \
     && . env_fortran_--omp-pic/bin/activate \
     && pip install -U pip \
-    && pip install -e .[phys] --no-cache-dir \
+    && pip install -e .[phys,mpi,doc] --no-cache-dir \
     && struphy compile --language fortran --omp-pic -y \
     && deactivate 
 

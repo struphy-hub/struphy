@@ -1,17 +1,12 @@
 name: Ubuntu
+
 on:
   push:
     branches:
-      - main
       - devel
-  pull_request:
-    branches:
-      - main
-      - devel
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  schedule:
+    # run at 1 a.m. on Sunday
+    - cron: "0 1 * * 0" 
 
 jobs:
   ubuntu-latest-build:
