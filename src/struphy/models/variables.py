@@ -204,7 +204,7 @@ class PICVariable(Variable):
     ):
         # assert isinstance(self.species, KineticSpecies)
         assert isinstance(self.backgrounds, KineticBackground), (
-            f"List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+            "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
         )
 
         if derham is None:
@@ -350,7 +350,7 @@ class SPHVariable(Variable):
         verbose: bool = False,
     ):
         assert isinstance(self.backgrounds, FluidEquilibrium), (
-            f"List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+            "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
         )
 
         self.backgrounds.domain = domain

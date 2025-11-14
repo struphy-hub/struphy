@@ -1778,7 +1778,7 @@ class PushVinSPHpressure(Propagator):
         self._pusher(dt)
 
 
-class PushVinViscousPotential(Propagator):
+class PushVinViscousPotential2D(Propagator):
     r"""For each marker :math:`p`, solves
 
     .. math::
@@ -1909,7 +1909,7 @@ class PushVinViscousPotential(Propagator):
         self._pusher(dt)
 
 
-class PushVinViscousPotential(Propagator):
+class PushVinViscousPotential3D(Propagator):
     r"""For each marker :math:`p`, solves
 
     .. math::

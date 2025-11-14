@@ -7,7 +7,7 @@ from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpa
 from psydac.linalg.direct_solvers import SparseSolver
 from psydac.linalg.solvers import inverse
 
-from struphy.tests.unit.linear_algebra.test_saddlepoint_massmatrices import _plot_residual_norms
+from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
 
 
 class SaddlePointSolver:
@@ -304,7 +304,7 @@ class SaddlePointSolver:
         elif self._variant == "Uzawa":
             info = {}
 
-            if self._spectralanalysis == True:
+            if self._spectralanalysis:
                 self._spectralresult = self._spectral_analysis()
             else:
                 self._spectralresult = []
@@ -333,9 +333,9 @@ class SaddlePointSolver:
                 self._rhs0np -= self._B1np.transpose().dot(self._Pnp)
                 self._rhs0np -= self._Anp.dot(self._Unp)
                 self._rhs0np += self._F[0]
-                if self._preconditioner == False:
+                if not self._preconditioner:
                     self._Unp += self._Anpinv.dot(self._rhs0np)
-                elif self._preconditioner == True:
+                elif self._preconditioner:
                     self._Unp += self._Anpinv.dot(self._A11npinv @ self._rhs0np)
 
                 R1 = self._B1np.dot(self._Unp)
@@ -344,9 +344,9 @@ class SaddlePointSolver:
                 self._rhs1np -= self._B2np.transpose().dot(self._Pnp)
                 self._rhs1np -= self._Aenp.dot(self._Uenp)
                 self._rhs1np += self._F[1]
-                if self._preconditioner == False:
+                if not self._preconditioner:
                     self._Uenp += self._Aenpinv.dot(self._rhs1np)
-                elif self._preconditioner == True:
+                elif self._preconditioner:
                     self._Uenp += self._Aenpinv.dot(self._A22npinv @ self._rhs1np)
 
                 R2 = self._B2np.dot(self._Uenp)
@@ -382,7 +382,7 @@ class SaddlePointSolver:
             # Return with info if maximum iterations reached
             info["success"] = False
             info["niter"] = iteration + 1
-            if self._verbose == True:
+            if self._verbose:
                 _plot_residual_norms(self._residual_norms)
             return self._Unp, self._Uenp, self._Pnp, info, self._residual_norms, self._spectralresult
 
@@ -523,7 +523,7 @@ class SaddlePointSolver:
         print(f"{specA22_bef_abs =}")
         print(f"{condA22_before =}")
 
-        if self._preconditioner == True:
+        if self._preconditioner:
             # A11 after preconditioning with its inverse
             if self._method_to_solve in ("DirectNPInverse", "InexactNPInverse"):
                 eigvalsA11_after_prec, eigvecs_after = xp.linalg.eig(self._A11npinv @ self._A[0])  # Implement this
