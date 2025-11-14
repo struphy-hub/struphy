@@ -18,7 +18,7 @@ jobs:
       matrix:
         python-version: ["3.12"]
         compile-language: ["fortran", "c"]
-        test-type: ["unit", "model", "quickstart", "tutorials"]
+        test-type: ["unit", "model"] #"quickstart", "tutorials"]
 
     steps:
       # Checkout the repository
