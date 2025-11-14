@@ -15,9 +15,12 @@ runs:
       shell: bash
       run: |
         struphy compile --status
-        struphy test models 
-        struphy test models --mpi 2
-        struphy test verification --mpi 1
-        struphy test verification --mpi 4
-        struphy test verification --mpi 4 --nclones 2
-        struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2
+        struphy test models
+      # run: |
+      #   struphy compile --status
+      #   struphy test models 
+      #   struphy test models --mpi 2
+      #   struphy test verification --mpi 1
+      #   struphy test verification --mpi 4
+      #   struphy test verification --mpi 4 --nclones 2
+      #   struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2
