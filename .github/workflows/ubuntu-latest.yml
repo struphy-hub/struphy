@@ -2,6 +2,8 @@ name: Ubuntu
 
 on:
   push:
+    branches:
+      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0" 
