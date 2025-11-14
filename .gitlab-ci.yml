@@ -105,6 +105,19 @@ stages:
     - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"
       when: always
 
+.rules_mr_to_master:
+  rules:
+    - if: $TEST_SCHEDULED == "true"
+      when: never
+    - if: $MAKE_PAGES == "true"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master" && $CI_COMMIT_REF_PROTECTED == "false"
+      when: always
+
 .rules_scheduled:
   rules:
     - if: $TEST_SCHEDULED == "true"
@@ -1090,7 +1103,7 @@ pages:
     - apt show pandoc
     - apt show graphviz
     - echo $CI_COMMIT_MESSAGE
-    - pip install .[doc]
+    - pip install .[all]
   script:
     - !reference [.scripts, inspect_struphy]
     - !reference [.scripts, compile]
