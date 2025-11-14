@@ -2,7 +2,9 @@ name: Deploy docs to GitHub Pages
 
 on:
   push:
-    branches: ["devel", "main"]
+    branches:
+      - main
+
   workflow_dispatch:
 
 defaults:
@@ -13,6 +15,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  packages: read
 
 concurrency:
   group: "pages"
@@ -21,17 +24,15 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    container:
-      image: texlive/texlive:latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
@@ -43,33 +44,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Install pandoc
-        run: |
-          apt-get update
-          apt-get install -y pandoc
+      - name: Install prerequisites (Ubuntu)
+        uses: ./.github/actions/install/ubuntu-latest
+        env:
+          FC: ${{ env.FC }}
+          CC: ${{ env.CC }}
+          CXX: ${{ env.CXX }}
 
-      # - name: Install TeX Live with pdflatex
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y texlive-full
-      #     sudo apt-get install -y texlive texlive-latex-base texlive-latex-extra texlive-fonts-recommended texlive-science
-
-      - name: Check if pdflatex is available
-        run: |
-          which pdflatex
-          pdflatex --version
-
-      - name: Set up virtual environment and install project
-        run: |
-          python -m venv env
-          source env/bin/activate
-          pip install --upgrade pip
-          pip install ".[test, dev, docs]"
+      - name: Install Struphy (dev-doc)
+        uses: ./.github/actions/install/install-struphy
+        with:
+          optional-deps: 'dev,doc'
 
       - name: Build Sphinx docs
         run: |
-          source env/bin/activate
-          cd docs
+          cd doc
           make html
 
       - name: Setup Pages
@@ -78,7 +67,7 @@ jobs:
       - name: Upload built docs
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/build/html/
+          path: doc/_build/html/
 
       - name: Deploy to GitHub Pages
         id: deployment

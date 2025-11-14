@@ -9,28 +9,6 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-import os
-import shutil
-
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
-
-
-def copy_tutorials(app):
-    src = os.path.abspath("../tutorials")
-    dst = os.path.abspath("source/tutorials")
-
-    # Remove existing target directory if it exists
-    if os.path.exists(dst):
-        shutil.rmtree(dst)
-
-    shutil.copytree(src, dst)
-
-
-def setup(app):
-    app.connect("builder-inited", copy_tutorials)
-
 
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())
@@ -62,6 +40,7 @@ extensions = [
     "sphinx.ext.graphviz",
     "myst_parser",
     "sphinx_design",
+    "sphinx_copybutton",
 ]
 
 nbsphinx_execute = "auto"
@@ -98,9 +77,12 @@ html_theme_options = {
     "header_links_before_dropdown": 8,
     "primary_sidebar_end": ["sidebar-ethical-ads"],
     "external_links": [
-        {"name": "Struphy repo", "url": "https://gitlab.mpcdf.mpg.de/struphy/struphy"},
+        {"name": "Struphy repo", "url": "https://github.com/struphy-hub/struphy"},
         {"name": "Struphy LinkedIn", "url": "https://www.linkedin.com/company/struphy/"},
-        {"name": "Struphy RocketChat", "url": "https://chat.gwdg.de/channel/struphy-developers"},
+        {
+            "name": "Struphy MatrixChat",
+            "url": "https://matrix.to/#/!wqjcJpsUvAbTPOUXen:mpg.de?via=mpg.de&via=academiccloud.de",
+        },
     ],
 }
 
