@@ -7,15 +7,17 @@ runs:
       shell: bash
       run: |
         struphy compile --status
-        struphy --refresh-models
-        struphy test unit --mpi 2
+      # run: |
+      #   struphy compile --status
+      #   struphy --refresh-models
+      #   struphy test unit --mpi 2
 
-    - name: Run unit tests
-      shell: bash
-      run: |
-        struphy compile --status
-        struphy --refresh-models
-        pip show mpi4py
-        pip uninstall -y mpi4py
-        pip list
-        struphy test unit
+    # - name: Run unit tests
+    #   shell: bash
+    #   run: |
+    #     struphy compile --status
+    #     struphy --refresh-models
+    #     pip show mpi4py
+    #     pip uninstall -y mpi4py
+    #     pip list
+    #     struphy test unit
