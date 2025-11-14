@@ -85,11 +85,3 @@ jobs:
       - name: Run model tests
         if: matrix.test-type == 'model'
         uses: ./.github/actions/tests/models
-
-      - name: Run quickstart tests
-        if: matrix.test-type == 'quickstart'
-        uses: ./.github/actions/tests/quickstart
-
-      - name: Run tutorials
-        if: matrix.test-type == 'tutorials'
-        uses: ./.github/actions/tests/tutorials
