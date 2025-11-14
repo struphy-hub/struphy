@@ -59,7 +59,8 @@ class Species(metaclass=ABCMeta):
         epsilon: float = None,
         kappa: float = None,
     ):
-        """Set charge- and mass number. Set equation parameters (alpha, epsilon, ...) to override units."""
+        """Set charge- and mass number of species.
+        Optional: Set equation parameters (alpha, epsilon, kappa) to override units."""
         self._charge_number = charge_number
         self._mass_number = mass_number
         self.alpha = alpha

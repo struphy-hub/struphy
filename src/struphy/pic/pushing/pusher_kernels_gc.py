@@ -1796,7 +1796,7 @@ def push_gc_cc_J1_H1vec(
     u2: "float[:,:,:]",
     u3: "float[:,:,:]",
 ):
-    r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
+    r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy-hub.github.io/struphy/sections/subsections/propagators-coupling.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
 
     Marker update :
 
@@ -1931,7 +1931,7 @@ def push_gc_cc_J1_Hcurl(
     u2: "float[:,:,:]",
     u3: "float[:,:,:]",
 ):
-    r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
+    r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy-hub.github.io/struphy/sections/subsections/propagators-coupling.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
 
     Marker update:
 
@@ -2079,7 +2079,7 @@ def push_gc_cc_J1_Hdiv(
     u3: "float[:,:,:]",
     boundary_cut: float,
 ):
-    r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
+    r"""Velocity update step for the `CurrentCoupling5DCurlb <https://struphy-hub.github.io/struphy/sections/subsections/propagators-coupling.html#struphy.propagators.propagators_coupling.CurrentCoupling5DCurlb>`_
 
     Marker update:
 
@@ -2246,7 +2246,7 @@ def push_gc_cc_J2_stage_H1vec(
     b: "float[:]",
     c: "float[:]",
 ):
-    r"""Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
+    r"""Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy-hub.github.io/struphy/sections/subsections/propagators-coupling.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
 
     Marker update:
 
@@ -2462,7 +2462,7 @@ def push_gc_cc_J2_stage_Hdiv(
     c: "float[:]",
     boundary_cut: float,
 ):
-    r"""Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy.pages.mpcdf.de/struphy/sections/propagators.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
+    r"""Single stage of a s-stage explicit pushing step for the `CurrentCoupling5DGradB <https://struphy-hub.github.io/struphy/sections/subsections/propagators-coupling.html#struphy.propagators.propagators_coupling.CurrentCoupling5DGradB>`_
 
     Marker update:
 

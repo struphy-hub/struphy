@@ -6,8 +6,16 @@ import psydac.core.bsplines as bsp
 from mpi4py import MPI
 from mpi4py.MPI import Intracomm
 from psydac.ddm.cart import DomainDecomposition
-from psydac.feec.derivatives import Curl_3D, Divergence_3D, Gradient_3D
-from psydac.feec.global_projectors import Projector_H1, Projector_H1vec, Projector_Hcurl, Projector_Hdiv, Projector_L2
+from psydac.ddm.mpi import MockComm, MockMPI
+from psydac.ddm.mpi import mpi as MPI
+from psydac.feec.derivatives import Curl3D, Divergence3D, Gradient3D
+from psydac.feec.global_geometric_projectors import (
+    GlobalGeometricProjectorH1,
+    GlobalGeometricProjectorH1vec,
+    GlobalGeometricProjectorHcurl,
+    GlobalGeometricProjectorHdiv,
+    GlobalGeometricProjectorL2,
+)
 from psydac.fem.grid import FemAssemblyGrid
 from psydac.fem.partitioning import create_cart
 from psydac.fem.splines import SplineSpace
@@ -39,8 +47,6 @@ from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearO
 class Derham:
     """
     The discrete Derham sequence on the logical unit cube (3d).
-
-    Check out the corresponding `Struphy API <https://struphy.pages.mpcdf.de/struphy/api/discrete_derham.html>`_ for a hands-on introduction.
 
     The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_
     and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
@@ -204,7 +210,7 @@ class Derham:
                 if "dev" in psydac_ver:
                     _h1vec_space.symbolic_space = "H1vec"
                 self._Vh_fem[sp_form] = _h1vec_space
-                self._P[sp_form] = Projector_H1vec(self.Vh_fem[sp_form])
+                self._P[sp_form] = GlobalGeometricProjectorH1vec(self.Vh_fem[sp_form])
             else:
                 self._Vh_fem[sp_form] = getattr(_derham, "V" + str(i))
                 self._P[sp_form] = _projectors[i]
@@ -2532,9 +2538,9 @@ class DiscreteDerham:
         self._spaces = spaces
         self._dim = 3
 
-        D0 = Gradient_3D(spaces[0], spaces[1])
-        D1 = Curl_3D(spaces[1], spaces[2])
-        D2 = Divergence_3D(spaces[2], spaces[3])
+        D0 = Gradient3D(spaces[0], spaces[1])
+        D1 = Curl3D(spaces[1], spaces[2])
+        D2 = Divergence3D(spaces[2], spaces[3])
 
         spaces[0].diff = spaces[0].grad = D0
         spaces[1].diff = spaces[1].curl = D1
@@ -2579,7 +2585,7 @@ class DiscreteDerham:
     @property
     def derivatives_as_matrices(self):
         """Differential operators of the De Rham sequence as LinearOperator objects."""
-        return tuple(V.diff.matrix for V in self.spaces[:-1])
+        return tuple(V.diff.linop for V in self.spaces[:-1])
 
     @property
     def derivatives(self):
@@ -2601,7 +2607,7 @@ class DiscreteDerham:
         kind : str
             Type of the projection : at the moment, only global is accepted and
             returns geometric commuting projectors based on interpolation/histopolation
-            for the De Rham sequence (GlobalProjector objects).
+            for the De Rham sequence (GlobalGeometricProjector objects).
 
         nquads : list(int) | tuple(int)
             Number of quadrature points along each direction, to be used in Gauss
@@ -2629,10 +2635,10 @@ class DiscreteDerham:
         assert all(isinstance(nq, int) for nq in nquads)
         assert all(nq >= 1 for nq in nquads)
 
-        P0 = Projector_H1(self.V0)
-        P1 = Projector_Hcurl(self.V1, nquads)
-        P2 = Projector_Hdiv(self.V2, nquads)
-        P3 = Projector_L2(self.V3, nquads)
+        P0 = GlobalGeometricProjectorH1(self.V0)
+        P1 = GlobalGeometricProjectorHcurl(self.V1, nquads)
+        P2 = GlobalGeometricProjectorHdiv(self.V2, nquads)
+        P3 = GlobalGeometricProjectorL2(self.V3, nquads)
 
         return P0, P1, P2, P3
 

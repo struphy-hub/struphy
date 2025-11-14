@@ -7,16 +7,13 @@ from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel
 
 
-def struphy_params(model_name: str, params_path: str, yes: bool = False, check_file: bool = False):
+def struphy_params(model_name: str, yes: bool = False, check_file: bool = False):
     """Create a model's default parameter file and save in current input path.
 
     Parameters
     ----------
     model_name : str
         The name of the Struphy model.
-
-    params_path : str
-        An alternative file name to the default params_<model>.yml.
 
     yes : bool
         If true, say yes on prompt to overwrite .yml FILE
@@ -45,4 +42,6 @@ def struphy_params(model_name: str, params_path: str, yes: bool = False, check_f
 
     else:
         prompt = not yes
-        model.generate_default_parameter_file(path=params_path, prompt=prompt)
+        model.generate_default_parameter_file(path=None, prompt=prompt)
+        # print(f"Generating default parameter file for {model_class}.")
+        # model_class().generate_default_parameter_file(path=params_path, prompt=prompt)

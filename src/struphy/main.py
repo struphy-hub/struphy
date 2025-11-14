@@ -62,7 +62,7 @@ def run(
     Parameters
     ----------
     model : StruphyModel
-        The model to run. Check https://struphy.pages.mpcdf.de/struphy/sections/models.html for available models.
+        The model to run. Check https://struphy-hub.github.io/struphy/sections/models.html for available models.
 
     params_path : str
         Absolute path to .py parameter file.
@@ -72,6 +72,11 @@ def run(
     rank = comm.Get_rank()
     size = comm.Get_size()
 
+    if rank == 0:
+        print("")
+
+    # synchronize MPI processes to set same start time of simulation for all processes
+    Barrier()
     start_simulation = time.time()
 
     # check model
@@ -225,7 +230,6 @@ def run(
     if rank < 32:
         if rank == 0:
             print("")
-        comm.Barrier()
         print(f"Rank {rank}: executing main.run() for model {model_name} ...")
 
     if size > 32 and rank == 32:

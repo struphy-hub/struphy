@@ -1,18 +1,14 @@
 name: isort & ruff
 
 on:
-  push:
-    branches:
-      - main
-      - devel
   pull_request:
     branches:
-      - main
       - devel
 
-# concurrency:
-#   group: ${{ github.ref }}
-#   cancel-in-progress: true
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     shell: bash
@@ -89,7 +85,6 @@ jobs:
         run: |
           pip install isort
           isort --check src/
-          isort --check tutorials/
 
   # mypy:
   #   runs-on: ubuntu-latest

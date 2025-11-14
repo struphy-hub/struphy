@@ -1,7 +1,8 @@
 import numpy as np
 from mpi4py import MPI
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-from psydac.feec.global_projectors import GlobalProjector
+from psydac.ddm.mpi import mpi as MPI
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjector
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
@@ -58,15 +59,15 @@ class CommutingProjector:
 
     * :math:`\mathbb B`: :class:`~struphy.feec.linear_operators.BoundaryOperator`,
     * :math:`\mathbb P`: :class:`~struphy.polar.linear_operators.PolarExtractionOperator` for degrees of freedom,
-    * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~psydac.feec.global_projectors.GlobalProjector`
+    * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~psydac.feec.global_geometric_projectors.GlobalGeometricProjector`
     * :math:`\mathbb E`: :class:`~struphy.polar.linear_operators.PolarExtractionOperator` for FE coefficients.
 
     :math:`\mathbb P` and :math:`\mathbb E` (and :math:`\mathbb B` in case of no boundary conditions) can be identity operators,
-    which gives the pure tensor-product Psydac :class:`~psydac.feec.global_projectors.GlobalProjector`.
+    which gives the pure tensor-product Psydac :class:`~psydac.feec.global_geometric_projectors.GlobalGeometricProjector`.
 
     Parameters
     ----------
-    projector_tensor : GlobalProjector
+    projector_tensor : GlobalGeometricProjector
         The pure tensor product projector.
 
     dofs_extraction_op : PolarExtractionOperator, optional
@@ -80,7 +81,11 @@ class CommutingProjector:
     """
 
     def __init__(
-        self, projector_tensor: GlobalProjector, dofs_extraction_op=None, base_extraction_op=None, boundary_op=None
+        self,
+        projector_tensor: GlobalGeometricProjector,
+        dofs_extraction_op=None,
+        base_extraction_op=None,
+        boundary_op=None,
     ):
         self._projector_tensor = projector_tensor
 
