@@ -21,11 +21,7 @@ units = Units()
 time_opts = Time()
 
 # geometry
-domain = domains.GVECunit()  # Tokamak(tor_period=3)
-
-domain.show3D_interactive(save_dir="3d.html")
-
-exit()
+domain = domains.Cuboid()
 
 # fluid equilibrium (can be used as part of initial conditions)
 equil = equils.HomogenSlab()
@@ -40,7 +36,7 @@ derham_opts = DerhamOptions()
 model = Model()
 
 # propagator options
-# model.propagators.maxwell.set_options()
+model.propagators.maxwell.set_options()
 
 # initial conditions (background + perturbation)
 model.em_fields.b_field.add_background(FieldsBackground())

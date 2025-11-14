@@ -1,7 +1,7 @@
 import sys
 
 import yaml
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel
@@ -25,6 +25,8 @@ def struphy_params(model_name: str, yes: bool = False, check_file: bool = False)
             model: StruphyModel = model_class()
         except AttributeError:
             pass
+
+    print(f"{model_name =}")
 
     # print units
     if check_file:

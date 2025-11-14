@@ -4,7 +4,7 @@ from struphy.utils.utils import subp_run
 def struphy_test(
     group: str,
     *,
-    mpi: int = 2,
+    mpi: int = 1,
     with_desc: bool = False,
     vrbose: bool = False,
     show_plots: bool = False,
@@ -19,7 +19,7 @@ def struphy_test(
         Test identifier: "unit", "models", "fluid", "kinetic", "hybrid", "toy", "verification" or a model name.
 
     mpi : int
-        Number of MPI processes used in tests (must be >1, default=2).
+        Number of MPI processes used in tests (default=1).
 
     with_desc : bool
         Whether to include DESC equilibrium in unit tests (mem consuming).
@@ -35,51 +35,57 @@ def struphy_test(
     """
 
     if "unit" in group:
-        # first run only tests that require single process
-        cmd = [
-            "pytest",
-            "-k",
-            "not _models and not _tutorial and not pproc",
-        ]
-        if with_desc:
-            cmd += ["--with-desc"]
-        if vrbose:
-            cmd += ["--vrbose"]
-        if show_plots:
-            cmd += ["--show-plots"]
-        subp_run(cmd)
+        if mpi > 1:
+            cmd = [
+                "mpirun",
+                "-n",
+                str(mpi),
+                "pytest",
+                "-k",
+                "not _models and not _tutorial and not pproc and not _verif_",
+                "--with-mpi",
+            ]
+        else:
+            cmd = [
+                "pytest",
+                "-k",
+                "not _models and not _tutorial and not pproc and not _verif_",
+            ]
 
-        # now run parallel unit tests
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
-            "-k",
-            "not _models and not _tutorial and not pproc",
-            "--with-mpi",
-        ]
         if with_desc:
             cmd += ["--with-desc"]
         if vrbose:
             cmd += ["--vrbose"]
         if show_plots:
             cmd += ["--show-plots"]
+
         subp_run(cmd)
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
-            "-k",
-            "_models",
-            "-m",
-            group,
-            "-s",
-            "--with-mpi",
-        ]
+        if mpi > 1:
+            cmd = [
+                "mpirun",
+                "--oversubscribe",
+                "-n",
+                str(mpi),
+                "pytest",
+                "-k",
+                "_models",
+                "-m",
+                group,
+                "-s",
+                "--with-mpi",
+            ]
+        else:
+            cmd = [
+                "pytest",
+                "-k",
+                "_models",
+                "-m",
+                group,
+                "-s",
+            ]
+
         if vrbose:
             cmd += ["--vrbose"]
         if nclones > 1:
@@ -89,16 +95,26 @@ def struphy_test(
         subp_run(cmd)
 
     elif "verification" in group:
-        cmd = [
-            "mpirun",
-            "-n",
-            str(mpi),
-            "pytest",
-            "-k",
-            "_verif_",
-            "-s",
-            "--with-mpi",
-        ]
+        if mpi > 1:
+            cmd = [
+                "mpirun",
+                "--oversubscribe",
+                "-n",
+                str(mpi),
+                "pytest",
+                "-k",
+                "_verif_",
+                "-s",
+                "--with-mpi",
+            ]
+        else:
+            cmd = [
+                "pytest",
+                "-k",
+                "_verif_",
+                "-s",
+            ]
+
         if vrbose:
             cmd += ["--vrbose"]
         if nclones > 1:
@@ -110,6 +126,7 @@ def struphy_test(
     else:
         cmd = [
             "mpirun",
+            "--oversubscribe",
             "-n",
             str(mpi),
             "pytest",

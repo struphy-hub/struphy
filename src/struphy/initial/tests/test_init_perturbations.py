@@ -4,7 +4,6 @@ from copy import deepcopy
 import pytest
 
 
-# @pytest.mark.mpi(min_size=2)
 # @pytest.mark.parametrize('combine_comps', [('f0', 'f1'), ('f0', 'f3'), ('f1', 'f2'), ('fvec', 'f3'), ('f1', 'fvec', 'f0')])
 @pytest.mark.parametrize("Nel", [[16, 16, 16]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
@@ -21,9 +20,9 @@ import pytest
 def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False):
     """Test the initialization Field.initialize_coeffs with all "Modes" classes in perturbations.py."""
 
-    import numpy as np
+    import cunumpy as xp
     from matplotlib import pyplot as plt
-    from mpi4py import MPI
+    from psydac.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains
@@ -51,10 +50,10 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
     form_vector = ["1", "2", "v", "norm", "physical_at_eta"]
 
     # evaluation points
-    e1 = np.linspace(0.0, 1.0, 30)
-    e2 = np.linspace(0.0, 1.0, 40)
-    e3 = np.linspace(0.0, 1.0, 50)
-    eee1, eee2, eee3 = np.meshgrid(e1, e2, e3, indexing="ij")
+    e1 = xp.linspace(0.0, 1.0, 30)
+    e2 = xp.linspace(0.0, 1.0, 40)
+    e3 = xp.linspace(0.0, 1.0, 50)
+    eee1, eee2, eee3 = xp.meshgrid(e1, e2, e3, indexing="ij")
 
     # mode paramters
     kwargs = {}
@@ -131,7 +130,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         field_vals_xyz = domain.push(field, e1, e2, e3, kind=form)
 
                         x, y, z = domain(e1, e2, e3)
-                        r = np.sqrt(x**2 + y**2)
+                        r = xp.sqrt(x**2 + y**2)
 
                         if fun_form == "physical":
                             fun_vals_xyz = perturbation_xyz(x, y, z)
@@ -140,7 +139,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         else:
                             fun_vals_xyz = domain.push(perturbation, eee1, eee2, eee3, kind=fun_form)
 
-                        error = np.max(np.abs(field_vals_xyz - fun_vals_xyz)) / np.max(np.abs(fun_vals_xyz))
+                        error = xp.max(xp.abs(field_vals_xyz - fun_vals_xyz)) / xp.max(xp.abs(fun_vals_xyz))
                         print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
 
@@ -170,7 +169,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                 plt.xlabel("x")
                                 plt.ylabel("y")
                             plt.colorbar()
-                            plt.title(f"exact function")
+                            plt.title("exact function")
                             ax = plt.gca()
                             ax.set_aspect("equal", adjustable="box")
 
@@ -199,7 +198,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                 plt.xlabel("x")
                                 plt.ylabel("z")
                             plt.colorbar()
-                            plt.title(f"exact function")
+                            plt.title("exact function")
                             ax = plt.gca()
                             ax.set_aspect("equal", adjustable="box")
 
@@ -223,7 +222,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         params = {
                             key: {
                                 "given_in_basis": [fun_form] * 3,
-                            }
+                            },
                         }
 
                         if "Modes" in key:
@@ -255,7 +254,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                         f_xyz = [f1_xyz, f2_xyz, f3_xyz]
 
                         x, y, z = domain(e1, e2, e3)
-                        r = np.sqrt(x**2 + y**2)
+                        r = xp.sqrt(x**2 + y**2)
 
                         # exact values
                         if fun_form == "physical":
@@ -268,19 +267,27 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                             fun3_xyz = perturbation(eee1, eee2, eee3)
                         elif fun_form == "norm":
                             tmp1, tmp2, tmp3 = domain.transform(
-                                [perturbation, perturbation, perturbation], eee1, eee2, eee3, kind=fun_form + "_to_v"
+                                [perturbation, perturbation, perturbation],
+                                eee1,
+                                eee2,
+                                eee3,
+                                kind=fun_form + "_to_v",
                             )
                             fun1_xyz, fun2_xyz, fun3_xyz = domain.push([tmp1, tmp2, tmp3], eee1, eee2, eee3, kind="v")
                         else:
                             fun1_xyz, fun2_xyz, fun3_xyz = domain.push(
-                                [perturbation, perturbation, perturbation], eee1, eee2, eee3, kind=fun_form
+                                [perturbation, perturbation, perturbation],
+                                eee1,
+                                eee2,
+                                eee3,
+                                kind=fun_form,
                             )
 
                         fun_xyz_vec = [fun1_xyz, fun2_xyz, fun3_xyz]
 
                         error = 0.0
                         for fi, funi in zip(f_xyz, fun_xyz_vec):
-                            error += np.max(np.abs(fi - funi)) / np.max(np.abs(funi))
+                            error += xp.max(xp.abs(fi - funi)) / xp.max(xp.abs(funi))
                         error /= 3.0
                         print(f"{rank=}, {key=}, {form=}, {fun_form=}, {error=}")
                         assert error < 0.02
@@ -300,7 +307,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                     plt.ylabel("y")
                                 plt.colorbar()
                                 plt.title(
-                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})"
+                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})",
                                 )
                                 ax = plt.gca()
                                 ax.set_aspect("equal", adjustable="box")
@@ -317,7 +324,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
                                     plt.ylabel("z")
                                 plt.colorbar()
                                 plt.title(
-                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})"
+                                    f"component {c + 1}, init was {fun_form}, (m,n)=({kwargs['ms'][0]},{kwargs['ns'][0]})",
                                 )
                                 ax = plt.gca()
                                 ax.set_aspect("equal", adjustable="box")

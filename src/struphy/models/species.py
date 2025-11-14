@@ -1,15 +1,10 @@
 import warnings
 from abc import ABCMeta, abstractmethod
-from copy import deepcopy
-from dataclasses import dataclass
-from typing import Callable
 
-import numpy as np
-from mpi4py import MPI
+import cunumpy as xp
+from psydac.ddm.mpi import mpi as MPI
 
-from struphy.fields_background.base import FluidEquilibrium
 from struphy.io.options import Units
-from struphy.kinetic_background.base import KineticBackground
 from struphy.models.variables import Variable
 from struphy.physics.physics import ConstantsOfNature
 from struphy.pic.utilities import (
@@ -88,7 +83,7 @@ class Species(metaclass=ABCMeta):
             con = ConstantsOfNature()
 
             # relevant frequencies
-            om_p = np.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
+            om_p = xp.sqrt(units.n * (Z * con.e) ** 2 / (con.eps0 * A * con.mH))
             om_c = Z * con.e * units.B / (A * con.mH)
 
             # compute equation parameters
@@ -96,19 +91,22 @@ class Species(metaclass=ABCMeta):
                 self.alpha = om_p / om_c
             else:
                 self.alpha = alpha
-                warnings.warn(f"Override equation parameter {self.alpha = }")
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    warnings.warn(f"Override equation parameter {self.alpha =}")
 
             if epsilon is None:
                 self.epsilon = 1.0 / (om_c * units.t)
             else:
                 self.epsilon = epsilon
-                warnings.warn(f"Override equation parameter {self.epsilon = }")
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    warnings.warn(f"Override equation parameter {self.epsilon =}")
 
             if kappa is None:
                 self.kappa = om_p * units.t
             else:
                 self.kappa = kappa
-                warnings.warn(f"Override equation parameter {self.kappa = }")
+                if MPI.COMM_WORLD.Get_rank() == 0:
+                    warnings.warn(f"Override equation parameter {self.kappa =}")
 
             if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                 print(f"\nSet normalization parameters for species {species.__class__.__name__}:")
@@ -142,8 +140,6 @@ class FieldSpecies(Species):
 
 class FluidSpecies(Species):
     """Single fluid species in 3d configuration space."""
-
-    pass
 
 
 class ParticleSpecies(Species):
@@ -214,5 +210,3 @@ class ParticleSpecies(Species):
 
 class DiagnosticSpecies(Species):
     """Diagnostic species (fields) without mass and charge."""
-
-    pass

@@ -4,7 +4,17 @@ from struphy.utils.utils import subp_run
 
 
 def struphy_compile(
-    language, compiler, compiler_config, omp_pic, omp_feec, delete, status, verbose, dependencies, time_execution, yes
+    language,
+    compiler,
+    compiler_config,
+    omp_pic,
+    omp_feec,
+    delete,
+    status,
+    verbose,
+    dependencies,
+    time_execution,
+    yes,
 ):
     """Compile Struphy kernels. All files that contain "kernels" are detected automatically and saved to state.yml.
 
@@ -187,9 +197,9 @@ def struphy_compile(
             deps = depmod.get_dependencies(ker.replace(".py", so_suffix))
             deps_li = deps.split(" ")
             print("-" * 28)
-            print(f"{ker = }")
+            print(f"{ker =}")
             for dep in deps_li:
-                print(f"{dep = }")
+                print(f"{dep =}")
 
     else:
         # struphy and psydac (change dir not to be in source path)

@@ -1,6 +1,6 @@
 "Analytical callables needed for the simulation of the Two-Fluid Quasi-Neutral Model by Restelli."
 
-import numpy as np
+import cunumpy as xp
 
 
 class RestelliForcingTerm:
@@ -74,9 +74,9 @@ class RestelliForcingTerm:
         self._eps_norm = eps
 
     def __call__(self, x, y, z):
-        R = np.sqrt(x**2 + y**2)
-        R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(-y, x)
+        R = xp.sqrt(x**2 + y**2)
+        R = xp.where(R == 0.0, 1e-9, R)
+        phi = xp.arctan2(-y, x)
         force_Z = self._nu * (
             self._alpha * (self._R0 - 4 * R) / (self._a * self._R0 * R)
             - self._beta * self._Bp * self._R0**2 / (self._B0 * self._a * R**3)
@@ -197,31 +197,31 @@ class ManufacturedSolutionForceterm:
     def __call__(self, x, y, z):
         A = self._alpha / (self._a * self._R0)
         C = self._beta * self._Bp * self._R0 / (self._B0 * self._a)
-        R = np.sqrt(x**2 + y**2)
-        R = np.where(R == 0.0, 1e-9, R)
-        phi = np.arctan2(-y, x)
+        R = xp.sqrt(x**2 + y**2)
+        R = xp.where(R == 0.0, 1e-9, R)
+        phi = xp.arctan2(-y, x)
         if self._species == "Ions":
             """Forceterm for ions on the right hand side."""
             if self._dimension == "2D":
                 fx = (
-                    -2.0 * np.pi * np.sin(2 * np.pi * x)
-                    + np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y) * self._B0 / self._eps_norm
-                    - self._nu * 8.0 * np.pi**2 * np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y)
+                    -2.0 * xp.pi * xp.sin(2 * xp.pi * x)
+                    + xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y) * self._B0 / self._eps_norm
+                    - self._nu * 8.0 * xp.pi**2 * xp.sin(2 * xp.pi * x) * xp.sin(2 * xp.pi * y)
                 )
                 fy = (
-                    2.0 * np.pi * np.cos(2 * np.pi * y)
-                    - np.sin(2 * np.pi * x) * np.sin(2 * np.pi * y) * self._B0 / self._eps_norm
-                    - self._nu * 8.0 * np.pi**2 * np.cos(2 * np.pi * x) * np.cos(2 * np.pi * y)
+                    2.0 * xp.pi * xp.cos(2 * xp.pi * y)
+                    - xp.sin(2 * xp.pi * x) * xp.sin(2 * xp.pi * y) * self._B0 / self._eps_norm
+                    - self._nu * 8.0 * xp.pi**2 * xp.cos(2 * xp.pi * x) * xp.cos(2 * xp.pi * y)
                 )
                 fz = 0.0 * x
 
             elif self._dimension == "1D":
                 fx = (
-                    2.0 * np.pi * np.cos(2 * np.pi * x)
-                    + self._nu * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
-                    + (np.sin(2 * np.pi * x) + 1.0) / self._dt
+                    2.0 * xp.pi * xp.cos(2 * xp.pi * x)
+                    + self._nu * 4.0 * xp.pi**2 * xp.sin(2 * xp.pi * x)
+                    + (xp.sin(2 * xp.pi * x) + 1.0) / self._dt
                 )
-                fy = (np.sin(2 * np.pi * x) + 1.0) * self._B0 / self._eps_norm
+                fy = (xp.sin(2 * xp.pi * x) + 1.0) * self._B0 / self._eps_norm
                 fz = 0.0 * x
 
             elif self._dimension == "Tokamak":
@@ -234,8 +234,8 @@ class ManufacturedSolutionForceterm:
                 fZ = self._alpha * self._B0 * z / self._a + A * self._R0 / R * ((R - self._R0) * self._B0)
                 fphi = A * self._R0 * self._Bp / (self._a * R**2) * ((R - self._R0) ** 2 + z**2)
 
-                fx = np.cos(phi) * fR - R * np.sin(phi) * fphi
-                fy = -np.sin(phi) * fR - R * np.cos(phi) * fphi
+                fx = xp.cos(phi) * fR - R * xp.sin(phi) * fphi
+                fy = -xp.sin(phi) * fR - R * xp.cos(phi) * fphi
                 fz = fZ
 
             if self._comp == "0":
@@ -251,26 +251,26 @@ class ManufacturedSolutionForceterm:
             """Forceterm for electrons on the right hand side."""
             if self._dimension == "2D":
                 fx = (
-                    2.0 * np.pi * np.sin(2 * np.pi * x)
-                    - np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y) * self._B0 / self._eps_norm
-                    - self._nu_e * 32.0 * np.pi**2 * np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y)
-                    - self._stab_sigma * (-np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y))
+                    2.0 * xp.pi * xp.sin(2 * xp.pi * x)
+                    - xp.cos(4 * xp.pi * x) * xp.cos(4 * xp.pi * y) * self._B0 / self._eps_norm
+                    - self._nu_e * 32.0 * xp.pi**2 * xp.sin(4 * xp.pi * x) * xp.sin(4 * xp.pi * y)
+                    - self._stab_sigma * (-xp.sin(4 * xp.pi * x) * xp.sin(4 * xp.pi * y))
                 )
                 fy = (
-                    -2.0 * np.pi * np.cos(2 * np.pi * y)
-                    + np.sin(4 * np.pi * x) * np.sin(4 * np.pi * y) * self._B0 / self._eps_norm
-                    - self._nu_e * 32.0 * np.pi**2 * np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y)
-                    - self._stab_sigma * (-np.cos(4 * np.pi * x) * np.cos(4 * np.pi * y))
+                    -2.0 * xp.pi * xp.cos(2 * xp.pi * y)
+                    + xp.sin(4 * xp.pi * x) * xp.sin(4 * xp.pi * y) * self._B0 / self._eps_norm
+                    - self._nu_e * 32.0 * xp.pi**2 * xp.cos(4 * xp.pi * x) * xp.cos(4 * xp.pi * y)
+                    - self._stab_sigma * (-xp.cos(4 * xp.pi * x) * xp.cos(4 * xp.pi * y))
                 )
                 fz = 0.0 * x
 
             elif self._dimension == "1D":
                 fx = (
-                    -2.0 * np.pi * np.cos(2 * np.pi * x)
-                    + self._nu_e * 4.0 * np.pi**2 * np.sin(2 * np.pi * x)
-                    - self._stab_sigma * np.sin(2 * np.pi * x)
+                    -2.0 * xp.pi * xp.cos(2 * xp.pi * x)
+                    + self._nu_e * 4.0 * xp.pi**2 * xp.sin(2 * xp.pi * x)
+                    - self._stab_sigma * xp.sin(2 * xp.pi * x)
                 )
-                fy = -np.sin(2 * np.pi * x) * self._B0 / self._eps_norm
+                fy = -xp.sin(2 * xp.pi * x) * self._B0 / self._eps_norm
                 fz = 0.0 * x
 
             elif self._dimension == "Tokamak":
@@ -283,8 +283,8 @@ class ManufacturedSolutionForceterm:
                 fZ = -self._alpha * self._B0 * z / self._a - A * self._R0 / R * ((R - self._R0) * self._B0)
                 fphi = -A * self._R0 * self._Bp / (self._a * R**2) * ((R - self._R0) ** 2 + z**2)
 
-                fx = np.cos(phi) * fR - R * np.sin(phi) * fphi
-                fy = -np.sin(phi) * fR - R * np.cos(phi) * fphi
+                fx = xp.cos(phi) * fR - R * xp.sin(phi) * fphi
+                fy = -xp.sin(phi) * fR - R * xp.cos(phi) * fphi
                 fz = fZ
 
             if self._comp == "0":

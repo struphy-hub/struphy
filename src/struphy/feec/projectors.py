@@ -1,5 +1,4 @@
-import numpy as np
-from mpi4py import MPI
+import cunumpy as xp
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.ddm.mpi import mpi as MPI
 from psydac.feec.global_geometric_projectors import GlobalGeometricProjector
@@ -581,24 +580,24 @@ class CommutingProjectorLocal:
     fem_space : FemSpace
         FEEC space into which the functions shall be projected.
 
-    pts : list of np.array
+    pts : list of xp.array
         3-list (or nested 3-list[3-list] for BlockVectors) of 2D arrays with the quasi-interpolation points 
         (or Gauss-Legendre quadrature points for histopolation). 
         In format [spatial direction](B-spline index, point) for StencilVector spaces 
         or [vector component][spatial direction](B-spline index, point) for BlockVector spaces.
 
-    wts : list of np.array
+    wts : list of xp.array
         3D (4D for BlockVectors) list of 2D array with the Gauss-Legendre quadrature weights 
         (full of ones for interpolation). 
         In format [spatial direction](B-spline index, point) for StencilVector spaces 
         or [vector component][spatial direction](B-spline index, point) for BlockVector spaces.
 
-    wij : list of np.array
+    wij : list of xp.array
         List of 2D arrays for the coefficients :math:`\omega_j^i` obtained by inverting the local collocation matrix. 
         Use for obtaining the FE coefficients of a function via interpolation. 
         In format [spatial direction](B-spline index, point).
 
-    whij : list of np.array
+    whij : list of xp.array
         List of 2D arrays for the coefficients :math:`\hat{\omega}_j^i` obtained from the :math:`\omega_j^i`. 
         Use for obtaining the FE coefficients of a function via histopolation. 
         In format [spatial direction](D-spline index, point).
@@ -644,64 +643,72 @@ class CommutingProjectorLocal:
 
         # FE space of zero forms. That means that we have B-splines in all three spatial directions.
         Bspaces_1d = [fem_space_B.spaces]
-        self._B_nbasis = np.array([space.nbasis for space in Bspaces_1d[0]])
+        self._B_nbasis = xp.array([space.nbasis for space in Bspaces_1d[0]])
 
         # Degree of the B-spline space, not to be confused with the degrees given by fem_space.spaces.degree since depending on the situation it will give the D-spline degree instead
-        self._p = np.zeros(3, dtype=int)
+        self._p = xp.zeros(3, dtype=int)
         for i, space in enumerate(fem_space_B.spaces):
             self._p[i] = space.degree
 
         # FE space of three forms. That means that we have D-splines in all three spatial directions.
         Dspaces_1d = [fem_space_D.spaces]
-        D_nbasis = np.array([space.nbasis for space in Dspaces_1d[0]])
+        D_nbasis = xp.array([space.nbasis for space in Dspaces_1d[0]])
 
         self._periodic = []
 
         for space in fem_space.spaces:
             self._periodic.append(space.periodic)
-        self._periodic = np.array(self._periodic)
+        self._periodic = xp.array(self._periodic)
 
         if isinstance(fem_space, TensorFemSpace):
             # The comm, rank and size are only necessary for debugging. In particular, for printing stuff
             self._comm = self._coeff_space.cart.comm
-            self._rank = self._comm.Get_rank()
-            self._size = self._comm.Get_size()
+            if self._comm is None:
+                self._rank = 0
+                self._size = 1
+            else:
+                self._rank = self._comm.Get_rank()
+                self._size = self._comm.Get_size()
 
             # We get the start and endpoint for each sublist in out
-            self._starts = np.array(self.coeff_space.starts)
-            self._ends = np.array(self.coeff_space.ends)
+            self._starts = xp.array(self.coeff_space.starts)
+            self._ends = xp.array(self.coeff_space.ends)
 
             # We compute the number of FE coefficients the current MPI rank is responsible for
-            self._loc_num_coeff = np.array([self._ends[i] + 1 - self._starts[i] for i in range(3)], dtype=int)
+            self._loc_num_coeff = xp.array([self._ends[i] + 1 - self._starts[i] for i in range(3)], dtype=int)
 
             # We get the pads
-            self._pds = np.array(self.coeff_space.pads)
+            self._pds = xp.array(self.coeff_space.pads)
             # We get the number of spaces we have
             self._nsp = 1
 
             self._localpts = []
             self._index_translation = []
             self._inv_index_translation = []
-            self._original_pts_size = np.zeros((3), dtype=int)
+            self._original_pts_size = xp.zeros((3), dtype=int)
 
         elif isinstance(fem_space, VectorFemSpace):
             # The comm, rank and size are only necessary for debugging. In particular, for printing stuff
             self._comm = self._coeff_space.spaces[0].cart.comm
-            self._rank = self._comm.Get_rank()
-            self._size = self._comm.Get_size()
+            if self._comm is None:
+                self._rank = 0
+                self._size = 1
+            else:
+                self._rank = self._comm.Get_rank()
+                self._size = self._comm.Get_size()
 
             # we collect all starts and ends in two big lists
-            self._starts = np.array([vi.starts for vi in self.coeff_space.spaces])
-            self._ends = np.array([vi.ends for vi in self.coeff_space.spaces])
+            self._starts = xp.array([vi.starts for vi in self.coeff_space.spaces])
+            self._ends = xp.array([vi.ends for vi in self.coeff_space.spaces])
 
             # We compute the number of FE coefficients the current MPI rank is responsible for
-            self._loc_num_coeff = np.array(
+            self._loc_num_coeff = xp.array(
                 [[self._ends[h][i] + 1 - self._starts[h][i] for i in range(3)] for h in range(3)],
                 dtype=int,
             )
 
             # We collect the pads
-            self._pds = np.array([vi.pads for vi in self.coeff_space.spaces])
+            self._pds = xp.array([vi.pads for vi in self.coeff_space.spaces])
             # We get the number of space we have
             self._nsp = len(self.coeff_space.spaces)
 
@@ -717,7 +724,7 @@ class CommutingProjectorLocal:
             self._localpts = [[], [], []]
 
             # Here we will store the global number of points for each block entry and for each spatial direction.
-            self._original_pts_size = [np.zeros((3), dtype=int), np.zeros((3), dtype=int), np.zeros((3), dtype=int)]
+            self._original_pts_size = [xp.zeros((3), dtype=int), xp.zeros((3), dtype=int), xp.zeros((3), dtype=int)]
 
             # This will be a list of three elements (the first one for the first block element, the second one for the second block element, ...), each one being a list with three arrays,
             # each array will contain the B-spline indices of the corresponding spatial direction for which this MPI rank has to store at least one non-zero FE coefficient for the storage of the
@@ -737,33 +744,33 @@ class CommutingProjectorLocal:
             self._are_zero_block_B_or_D_splines = [[], [], []]
 
             # self._Basis_function_indices_agreggated_B[i][j] = -1 if the jth B-spline is not necessary for any of the three block entries in the ith spatial direction, otherwise it is 0
-            self._Basis_function_indices_agreggated_B = [-1 * np.ones(nbasis, dtype=int) for nbasis in self._B_nbasis]
-            self._Basis_function_indices_agreggated_D = [-1 * np.ones(nbasis, dtype=int) for nbasis in D_nbasis]
+            self._Basis_function_indices_agreggated_B = [-1 * xp.ones(nbasis, dtype=int) for nbasis in self._B_nbasis]
+            self._Basis_function_indices_agreggated_D = [-1 * xp.ones(nbasis, dtype=int) for nbasis in D_nbasis]
 
             # List that will contain the LocalProjectorsArguments for each value of h = 0,1,2.
             self._solve_args = []
         else:
-            raise TypeError(f"{fem_space = } is not of type FemSpace.")
+            raise TypeError(f"{fem_space =} is not of type FemSpace.")
 
         if isinstance(fem_space, TensorFemSpace):
             if space_id == "H1":
                 # List of list that tell us for each spatial direction whether we have Interpolation or Histopolation.
                 IoH_for_indices = ["I", "I", "I"]
                 # Same list as before but with bools instead of chars
-                self._IoH = np.array([False, False, False], dtype=bool)
+                self._IoH = xp.array([False, False, False], dtype=bool)
                 # We make a list with the interpolation/histopolation weights we need for each block and each direction.
                 self._geo_weights = [self._wij[0], self._wij[1], self._wij[2]]
 
             elif space_id == "L2":
                 IoH_for_indices = ["H", "H", "H"]
-                self._IoH = np.array([True, True, True], dtype=bool)
+                self._IoH = xp.array([True, True, True], dtype=bool)
                 self._geo_weights = [self._whij[0], self._whij[1], self._whij[2]]
 
             lenj1, lenj2, lenj3 = get_local_problem_size(self._periodic, self._p, self._IoH)
 
             lenj = [lenj1, lenj2, lenj3]
 
-            self._shift = np.array([0, 0, 0], dtype=int)
+            self._shift = xp.array([0, 0, 0], dtype=int)
             compute_shifts(self._IoH, self._p, self._B_nbasis, self._shift)
 
             split_points(
@@ -785,7 +792,7 @@ class CommutingProjectorLocal:
             )
 
             # We want to build the meshgrid for the evaluation of the degrees of freedom so it only contains the evaluation points that each specific MPI rank is actually going to use.
-            self._meshgrid = np.meshgrid(
+            self._meshgrid = xp.meshgrid(
                 *[pt for pt in self._localpts],
                 indexing="ij",
             )
@@ -924,18 +931,18 @@ class CommutingProjectorLocal:
                 )
 
         elif isinstance(fem_space, VectorFemSpace):
-            self._shift = [np.array([0, 0, 0], dtype=int) for _ in range(3)]
+            self._shift = [xp.array([0, 0, 0], dtype=int) for _ in range(3)]
             if space_id == "H1vec":
                 # List of list that tell us for each block entry and for each spatial direction whether we have Interpolation or Histopolation.
                 IoH_for_indices = [["I", "I", "I"], ["I", "I", "I"], ["I", "I", "I"]]
                 # Same list as before but with bools instead of chars
                 self._IoH = [
-                    np.array([False, False, False], dtype=bool),
-                    np.array(
+                    xp.array([False, False, False], dtype=bool),
+                    xp.array(
                         [False, False, False],
                         dtype=bool,
                     ),
-                    np.array([False, False, False], dtype=bool),
+                    xp.array([False, False, False], dtype=bool),
                 ]
                 # We make a list with the interpolation/histopolation weights we need for each block and each direction.
                 self._geo_weights = [[self._wij[0], self._wij[1], self._wij[2]] for _ in range(3)]
@@ -943,12 +950,12 @@ class CommutingProjectorLocal:
             elif space_id == "Hcurl":
                 IoH_for_indices = [["H", "I", "I"], ["I", "H", "I"], ["I", "I", "H"]]
                 self._IoH = [
-                    np.array([True, False, False], dtype=bool),
-                    np.array(
+                    xp.array([True, False, False], dtype=bool),
+                    xp.array(
                         [False, True, False],
                         dtype=bool,
                     ),
-                    np.array([False, False, True], dtype=bool),
+                    xp.array([False, False, True], dtype=bool),
                 ]
                 self._geo_weights = [
                     [self._whij[0], self._wij[1], self._wij[2]],
@@ -963,12 +970,12 @@ class CommutingProjectorLocal:
             elif space_id == "Hdiv":
                 IoH_for_indices = [["I", "H", "H"], ["H", "I", "H"], ["H", "H", "I"]]
                 self._IoH = [
-                    np.array([False, True, True], dtype=bool),
-                    np.array(
+                    xp.array([False, True, True], dtype=bool),
+                    xp.array(
                         [True, False, True],
                         dtype=bool,
                     ),
-                    np.array([True, True, False], dtype=bool),
+                    xp.array([True, True, False], dtype=bool),
                 ]
                 self._geo_weights = [
                     [self._wij[0], self._whij[1], self._whij[2]],
@@ -1007,7 +1014,7 @@ class CommutingProjectorLocal:
 
                 # meshgrid for h component
                 self._meshgrid.append(
-                    np.meshgrid(
+                    xp.meshgrid(
                         *[pt for pt in self._localpts[h]],
                         indexing="ij",
                     ),
@@ -1325,9 +1332,9 @@ class CommutingProjectorLocal:
 
         if isinstance(self._fem_space, TensorFemSpace):
             if out is None:
-                out = np.zeros((self._loc_num_coeff[0], self._loc_num_coeff[1], self._loc_num_coeff[2]), dtype=float)
+                out = xp.zeros((self._loc_num_coeff[0], self._loc_num_coeff[1], self._loc_num_coeff[2]), dtype=float)
             else:
-                assert np.shape(out) == (self._loc_num_coeff[0], self._loc_num_coeff[1], self._loc_num_coeff[2])
+                assert xp.shape(out) == (self._loc_num_coeff[0], self._loc_num_coeff[1], self._loc_num_coeff[2])
 
             solve_local_main_loop_weighted(
                 self._solve_args,
@@ -1349,7 +1356,7 @@ class CommutingProjectorLocal:
                 out = []
                 for h in range(3):
                     out.append(
-                        np.zeros(
+                        xp.zeros(
                             (
                                 self._loc_num_coeff[h][0],
                                 self._loc_num_coeff[h][1],
@@ -1362,7 +1369,7 @@ class CommutingProjectorLocal:
             else:
                 assert len(out) == 3
                 for h in range(3):
-                    assert np.shape(out[h]) == (
+                    assert xp.shape(out[h]) == (
                         self._loc_num_coeff[h][0],
                         self._loc_num_coeff[h][1],
                         self._loc_num_coeff[h][2],
@@ -1372,7 +1379,7 @@ class CommutingProjectorLocal:
                 # the out block for which do_nothing tell us before hand they shall be zero.
                 for h in range(3):
                     if self._do_nothing[h] == 1:
-                        out[h] = np.zeros(
+                        out[h] = xp.zeros(
                             (
                                 self._loc_num_coeff[h][0],
                                 self._loc_num_coeff[h][1],
@@ -1422,12 +1429,12 @@ class CommutingProjectorLocal:
                     fh = fun(*self._meshgrid[h])[h]
                 # Case in which fun is a list of three functions, each one with one output.
                 else:
-                    assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+                    assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
                     # Evaluation of the function to compute the h component
                     fh = fun[h](*self._meshgrid[h])
 
                 # Array into which we will write the Dofs.
-                f_eval_aux = np.zeros(tuple(np.shape(dim)[0] for dim in self._localpts[h]))
+                f_eval_aux = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts[h]))
 
                 # For 1-forms
                 if self._space_key == "1":
@@ -1439,7 +1446,7 @@ class CommutingProjectorLocal:
                 f_eval.append(f_eval_aux)
 
         elif self._space_key == "3":
-            f_eval = np.zeros(tuple(np.shape(dim)[0] for dim in self._localpts))
+            f_eval = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts))
             # Evaluation of the function at all Gauss-Legendre quadrature points
             faux = fun(*self._meshgrid)
             get_dofs_local_3_form(self._solve_args, faux, f_eval)
@@ -1458,7 +1465,7 @@ class CommutingProjectorLocal:
                         fun,
                     )
                     == 3
-                ), f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+                ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
                 for h in range(3):
                     f_eval.append(fun[h](*self._meshgrid[h]))
 
@@ -1474,26 +1481,26 @@ class CommutingProjectorLocal:
         Builds 3D numpy array with the evaluation of the right-hand-side.
         """
         if self._space_key == "0":
-            if first_go == True:
+            if first_go:
                 pre_computed_dofs = [fun(*self._meshgrid)]
 
         elif self._space_key == "1" or self._space_key == "2":
-            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
 
-            self._do_nothing = np.zeros(3, dtype=int)
+            self._do_nothing = xp.zeros(3, dtype=int)
             f_eval = []
 
             # If this is the first time this rank has to evaluate the weights degrees of freedom we declare the list where to store them.
-            if first_go == True:
+            if first_go:
                 pre_computed_dofs = []
 
             for h in range(3):
                 # Evaluation of the function to compute the h component
-                if first_go == True:
+                if first_go:
                     pre_computed_dofs.append(fun[h](*self._meshgrid[h]))
 
                 # Array into which we will write the Dofs.
-                f_eval_aux = np.zeros(tuple(np.shape(dim)[0] for dim in self._localpts[h]))
+                f_eval_aux = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts[h]))
 
                 # We check if the current set of basis functions is not one of those we have to compute in the current MPI rank.
                 if (
@@ -1538,9 +1545,9 @@ class CommutingProjectorLocal:
                 f_eval.append(f_eval_aux)
 
         elif self._space_key == "3":
-            f_eval = np.zeros(tuple(np.shape(dim)[0] for dim in self._localpts))
+            f_eval = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts))
             # Evaluation of the function at all Gauss-Legendre quadrature points
-            if first_go == True:
+            if first_go:
                 pre_computed_dofs = [fun(*self._meshgrid)]
 
             get_dofs_local_3_form_weighted(
@@ -1558,9 +1565,9 @@ class CommutingProjectorLocal:
             )
 
         elif self._space_key == "v":
-            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
 
-            self._do_nothing = np.zeros(3, dtype=int)
+            self._do_nothing = xp.zeros(3, dtype=int)
             for h in range(3):
                 # We check if the current set of basis functions is not one of those we have to compute in the current MPI rank.
                 if (
@@ -1571,7 +1578,7 @@ class CommutingProjectorLocal:
                     # We should do nothing here
                     self._do_nothing[h] = 1
 
-            if first_go == True:
+            if first_go:
                 f_eval = []
                 for h in range(3):
                     f_eval.append(fun[h](*self._meshgrid[h]))
@@ -1581,7 +1588,7 @@ class CommutingProjectorLocal:
                 "Uknown space. It must be either H1, Hcurl, Hdiv, L2 or H1vec.",
             )
 
-        if first_go == True:
+        if first_go:
             if self._space_key == "0":
                 return pre_computed_dofs[0], pre_computed_dofs
             elif self._space_key == "v":
@@ -1638,23 +1645,23 @@ class CommutingProjectorLocal:
             set to false it means we computed it once already and we can reuse the dofs evaluation of the weights instead of
             recomputing them.
 
-        pre_computed_dofs : list of np.arrays
+        pre_computed_dofs : list of xp.arrays
             If we have already computed the evaluation of the weights at the dofs we can pass the arrays with their values here, so
             we do not have to compute them again.
 
         Returns
         -------
-        coeffs : psydac.linalg.basic.vector | np.array 3D
+        coeffs : psydac.linalg.basic.vector | xp.array 3D
             The FEM spline coefficients after projection.
         """
-        if weighted == False:
+        if not weighted:
             return self.solve(self.get_dofs(fun, dofs=dofs), out=out)
         else:
             # We set B_or_D and basis_indices as attributes of the projectors so we can easily access them in the get_rowstarts, get_rowends and get_values functions, where they are needed.
             self._B_or_D = B_or_D
             self._basis_indices = basis_indices
 
-            if first_go == True:
+            if first_go:
                 # rhs contains the evaluation over the degrees of freedom of the weights multiplied by the basis function
                 # rhs_weights contains the evaluation over the degrees of freedom of only the weights
                 rhs, rhs_weights = self.get_dofs_weighted(
@@ -1665,7 +1672,8 @@ class CommutingProjectorLocal:
                 return self.solve_weighted(rhs, out=out), rhs_weights
             else:
                 return self.solve_weighted(
-                    self.get_dofs_weighted(fun, dofs=dofs, first_go=False, pre_computed_dofs=pre_computed_dofs), out=out
+                    self.get_dofs_weighted(fun, dofs=dofs, first_go=False, pre_computed_dofs=pre_computed_dofs),
+                    out=out,
                 )
 
     def get_translation_b(self, i, h):
@@ -1855,7 +1863,7 @@ class L2Projector:
         self._quad_grid_pts = self.mass_ops.derham.quad_grid_pts[self.space_key]
 
         if space_id in ("H1", "L2"):
-            self._quad_grid_mesh = np.meshgrid(
+            self._quad_grid_mesh = xp.meshgrid(
                 *[pt.flatten() for pt in self.quad_grid_pts],
                 indexing="ij",
             )
@@ -1865,12 +1873,12 @@ class L2Projector:
             self._tmp = []  # tmp for matrix-vector product of geom_weights with fun
             for pts in self.quad_grid_pts:
                 self._quad_grid_mesh += [
-                    np.meshgrid(
+                    xp.meshgrid(
                         *[pt.flatten() for pt in pts],
                         indexing="ij",
                     ),
                 ]
-                self._tmp += [np.zeros_like(self.quad_grid_mesh[-1][0])]
+                self._tmp += [xp.zeros_like(self.quad_grid_mesh[-1][0])]
             # geometric weights evaluated at quadrature grid
             self._geom_weights = []
             # loop over rows (different meshes)
@@ -1881,7 +1889,7 @@ class L2Projector:
                     if weight is not None:
                         self._geom_weights[-1] += [weight(*mesh)]
                     else:
-                        self._geom_weights[-1] += [np.zeros_like(mesh[0])]
+                        self._geom_weights[-1] += [xp.zeros_like(mesh[0])]
 
         # other quad grid info
         if isinstance(self.space, TensorFemSpace):
@@ -2007,7 +2015,7 @@ class L2Projector:
         Parameters
         ----------
         fun : callable | list
-            Weight function(s) (callables or np.ndarrays) in a 1d list of shape corresponding to number of components.
+            Weight function(s) (callables or xp.ndarrays) in a 1d list of shape corresponding to number of components.
 
         dofs : StencilVector | BlockVector, optional
             The vector for the output.
@@ -2022,9 +2030,9 @@ class L2Projector:
         # evaluate fun at quad_grid or check array size
         if callable(fun):
             fun_weights = fun(*self._quad_grid_mesh)
-        elif isinstance(fun, np.ndarray):
+        elif isinstance(fun, xp.ndarray):
             assert fun.shape == self._quad_grid_mesh[0].shape, (
-                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape = } instead."
+                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape =} instead."
             )
             fun_weights = fun
         else:
@@ -2033,7 +2041,7 @@ class L2Projector:
                     fun,
                 )
                 == 3
-            ), f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+            ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
             fun_weights = []
             # loop over rows (different meshes)
             for mesh in self._quad_grid_mesh:
@@ -2042,12 +2050,12 @@ class L2Projector:
                 for f in fun:
                     if callable(f):
                         fun_weights[-1] += [f(*mesh)]
-                    elif isinstance(f, np.ndarray):
-                        assert f.shape == mesh[0].shape, f"Expected shape {mesh[0].shape}, got {f.shape = } instead."
+                    elif isinstance(f, xp.ndarray):
+                        assert f.shape == mesh[0].shape, f"Expected shape {mesh[0].shape}, got {f.shape =} instead."
                         fun_weights[-1] += [f]
                     else:
                         raise ValueError(
-                            f"Expected callable or numpy array, got {type(f) = } instead.",
+                            f"Expected callable or numpy array, got {type(f) =} instead.",
                         )
 
         # check output vector
@@ -2059,7 +2067,7 @@ class L2Projector:
 
         # compute matrix data for kernel, i.e. fun * geom_weight
         tot_weights = []
-        if isinstance(fun_weights, np.ndarray):
+        if isinstance(fun_weights, xp.ndarray):
             tot_weights += [fun_weights * self.geom_weights]
         else:
             # loop over rows (differnt meshes)

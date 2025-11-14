@@ -7,8 +7,8 @@ import random
 import re
 import sys
 
+import cunumpy as xp
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -196,16 +196,16 @@ def plot_roofline(
 
     fig.update_xaxes(
         type="log",  # Ensure the x-axis is logarithmic
-        range=[np.log10(xmin), np.log10(xmax)],
+        range=[xp.log10(xmin), xp.log10(xmax)],
         title="Operational intensity (FLOP/Byte)",
         tickvals=xtick_values,  # Set where ticks appear
         ticktext=[str(t) for t in xtick_values],
-        # ticktext=[f'$10^{{{int(np.log10(t))}}}$' for t in xtick_values]  # Set tick labels
+        # ticktext=[f'$10^{{{int(xp.log10(t))}}}$' for t in xtick_values]  # Set tick labels
     )
 
     fig.update_yaxes(
         type="log",  # Ensure the x-axis is logarithmic
-        range=[np.log10(ymin), np.log10(ymax)],
+        range=[xp.log10(ymin), xp.log10(ymax)],
         title="Performance [GFLOP/s]",
         tickvals=ytick_values,  # Set where ticks appear
         ticktext=[str(t) for t in ytick_values],
@@ -387,7 +387,7 @@ def plot_speedup(
 
     fig.update_layout(
         # xaxis_title='Job name',
-        xaxis_title=f"MPI tasks (#)",
+        xaxis_title="MPI tasks (#)",
         yaxis_title=re.sub(r"\[.*?\]", "[relative]", metric2),
         showlegend=True,
         xaxis_tickformat=".1f",
@@ -818,7 +818,7 @@ def load_projects(data_paths, procs_per_clone="any"):
             )
             if (procs_per_clone != "any") and (procs_per_clone != project.procs_per_clone):
                 print(
-                    f"Incorrect number of procs_per_clone: {project.procs_per_clone = } {procs_per_clone = }",
+                    f"Incorrect number of procs_per_clone: {project.procs_per_clone =} {procs_per_clone =}",
                 )
                 continue
             project.read_project()

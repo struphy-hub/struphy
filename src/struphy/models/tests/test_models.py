@@ -1,8 +1,9 @@
+import inspect
 import os
 from types import ModuleType
 
 import pytest
-from mpi4py import MPI
+from psydac.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.io.options import EnvironmentOptions
@@ -13,43 +14,33 @@ from struphy.models.base import StruphyModel
 rank = MPI.COMM_WORLD.Get_rank()
 
 # available models
-toy_models = [
-    "Maxwell",
-    "Vlasov",
-    "GuidingCenter",
-    "PressureLessSPH",
-]
-# for name, obj in inspect.getmembers(toy):
-#     if inspect.isclass(obj) and "models.toy" in obj.__module__:
-#         toy_models += [name]
+toy_models = []
+for name, obj in inspect.getmembers(toy):
+    if inspect.isclass(obj) and "models.toy" in obj.__module__:
+        toy_models += [name]
 if rank == 0:
-    print(f"\n{toy_models = }")
+    print(f"\n{toy_models =}")
 
-fluid_models = [
-    "LinearMHD",
-    "EulerSPH",
-]
-# for name, obj in inspect.getmembers(fluid):
-#     if inspect.isclass(obj) and "models.fluid" in obj.__module__:
-#         fluid_models += [name]
+fluid_models = []
+for name, obj in inspect.getmembers(fluid):
+    if inspect.isclass(obj) and "models.fluid" in obj.__module__:
+        fluid_models += [name]
 if rank == 0:
-    print(f"\n{fluid_models = }")
+    print(f"\n{fluid_models =}")
 
-kinetic_models = [
-    "VlasovAmpereOneSpecies",
-]
-# for name, obj in inspect.getmembers(kinetic):
-#     if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
-#         kinetic_models += [name]
+kinetic_models = []
+for name, obj in inspect.getmembers(kinetic):
+    if inspect.isclass(obj) and "models.kinetic" in obj.__module__:
+        kinetic_models += [name]
 if rank == 0:
-    print(f"\n{kinetic_models = }")
+    print(f"\n{kinetic_models =}")
 
 hybrid_models = []
-# for name, obj in inspect.getmembers(hybrid):
-#     if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
-#         hybrid_models += [name]
+for name, obj in inspect.getmembers(hybrid):
+    if inspect.isclass(obj) and "models.hybrid" in obj.__module__:
+        hybrid_models += [name]
 if rank == 0:
-    print(f"\n{hybrid_models = }")
+    print(f"\n{hybrid_models =}")
 
 
 # folder for test simulations
@@ -61,12 +52,17 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
     if rank == 0:
         print(f"\n*** Testing '{model_name}':")
 
+    # exceptions
+    if model_name == "TwoFluidQuasiNeutralToy" and MPI.COMM_WORLD.Get_size() > 1:
+        print(f"WARNING: Model {model_name} cannot be tested for {MPI.COMM_WORLD.Get_size() =}")
+        return
+
     if module is None:
         submods = [toy, fluid, kinetic, hybrid]
         for submod in submods:
             try:
                 model = getattr(submod, model_name)()
-            except:
+            except AttributeError:
                 continue
 
     else:
