@@ -1088,10 +1088,10 @@ def test_sph_velocity_evaluation_2d(
         rank = comm.Get_rank()
 
     dom_type = "Cuboid"
-    l1 = -1.0
-    r1 = 2
-    l2 = 1.5
-    r2 = 2.3
+    l1 = 0.0
+    r1 = 2.0
+    l2 = 0.0
+    r2 = 3.0
     dom_params = {"l1": l1, "r1": r1, "l2": l2, "r2": r2, "l3": 0.0, "r3": 1.0}
     domain_class = getattr(domains, dom_type)
     domain: Domain = domain_class(**dom_params)
@@ -1100,7 +1100,7 @@ def test_sph_velocity_evaluation_2d(
         ppb = 50
         loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
     else:
-        ppb = 400
+        ppb = 1200
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
     Lx = r1 - l1
@@ -1225,6 +1225,7 @@ def test_sph_velocity_evaluation_2d(
 
     def abs_err(num, exact):
         max_exact = xp.max(xp.abs(exact))
+
         return xp.max(xp.abs(num - exact)) / max_exact
 
     if derivative == 0:
@@ -1278,7 +1279,7 @@ def test_sph_velocity_evaluation_2d(
             plt.colorbar()
 
             plt.tight_layout()
-            # plt.savefig("image_test_2d.png")
+            plt.savefig("image_test_2d.png")
             plt.show()
 
             plt.figure(figsize=(8, 8))
@@ -1296,19 +1297,23 @@ def test_sph_velocity_evaluation_2d(
             plt.ylabel("y")
             plt.axis("equal")
             plt.tight_layout()
-            # plt.savefig("image_test_2d_quiver.png")
+            plt.savefig("image_test_2d_quiver.png")
             plt.show()
 
     # tolerances: conservative values aligned with your 2D density thresholds
     if derivative == 0:
         assert err_ux < 1.2e-1
         assert err_uy < 1.2e-1
+    elif derivative == 1 and ((bc_x == "periodic" and bc_y == "mirror") or (bc_x == "periodic" and bc_y == "fixed")):
+        assert err_ux < 4.389e-01
+        assert err_uy < 4.389e-01
     elif derivative == 1:
-        assert err_ux < 0.8709
-        assert err_uy < 0.8709
+        assert err_ux < 2.797e-01
+        assert err_uy < 2.797e-01
+
     else:
-        assert err_ux < 0.716
-        assert err_uy < 0.716
+        assert err_ux < 3.532e-01
+        assert err_uy < 3.532e-01
 
     # ensure z-component is negligible (absolute)
     # assert err_uz_abs < 1e-6
@@ -1316,7 +1321,7 @@ def test_sph_velocity_evaluation_2d(
 
 if __name__ == "__main__":
     test_sph_velocity_evaluation_2d(
-        (12, 12, 1), "gaussian_2d", 0, "periodic", "periodic", 110, tesselation=False, show_plot=True
+        (12, 12, 1), "gaussian_2d", 1, "periodic", "periodic", 101, tesselation=False, show_plot=True
     )
 
     # test_sph_velocity_evaluation(
