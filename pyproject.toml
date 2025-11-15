@@ -37,7 +37,7 @@ dependencies = [
     'pytest',
     'pytest-mpi',
     'line_profiler',
-    'scope-profiler',
+    'scope-profiler>=0.1.3',
 ]
 
 [project.license]
