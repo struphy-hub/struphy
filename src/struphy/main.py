@@ -14,6 +14,7 @@ from line_profiler import profile
 from psydac.ddm.mpi import MockMPI
 from psydac.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
+from scope_profiler import ProfileManager, ProfilingConfig
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.equils import HomogenSlab
@@ -36,7 +37,6 @@ from struphy.post_processing.post_processing_tools import (
     post_process_markers,
     post_process_n_sph,
 )
-from struphy.profiling.profiling import ProfileManager
 from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
@@ -842,12 +842,6 @@ if __name__ == "__main__":
 
     import struphy
     import struphy.utils.utils as utils
-    from struphy.profiling.profiling import (
-        ProfileManager,
-        ProfilingConfig,
-        pylikwid_markerclose,
-        pylikwid_markerinit,
-    )
 
     # Read struphy state file
     state = utils.read_state()
@@ -948,26 +942,13 @@ if __name__ == "__main__":
         action="store_true",
     )
 
-    parser.add_argument(
-        "--sample-duration",
-        help="Duration of samples when measuring time traces with ProfileManager",
-        default=1.0,
-    )
-
-    parser.add_argument(
-        "--sample-interval",
-        help="Time between samples when measuring time traces with ProfileManager",
-        default=1.0,
-    )
-
     args = parser.parse_args()
-    config = ProfilingConfig()
-    config.likwid = args.likwid
-    config.sample_duration = float(args.sample_duration)
-    config.sample_interval = float(args.sample_interval)
-    config.time_trace = args.time_trace
-    config.simulation_label = ""
-    pylikwid_markerinit()
+    config = ProfilingConfig(
+        profiling_activated=True,
+        use_likwid=args.likwid,
+        time_trace=args.time_trace,
+    )
+
     with ProfileManager.profile_region("main"):
         # solve the model
         run(
@@ -981,7 +962,9 @@ if __name__ == "__main__":
             sort_step=args.sort_step,
             num_clones=args.nclones,
         )
-    pylikwid_markerclose()
+
     if config.time_trace:
         ProfileManager.print_summary()
-        ProfileManager.save_to_pickle(os.path.join(args.output, "profiling_time_trace.pkl"))
+
+    # Finalize profiler
+    ProfileManager.finalize()

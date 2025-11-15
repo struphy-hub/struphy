@@ -4,6 +4,7 @@ import cunumpy as xp
 from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.block import BlockVector
 from psydac.linalg.stencil import StencilMatrix, StencilVector
+from scope_profiler import ProfileManager
 
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
@@ -12,7 +13,6 @@ from struphy.feec.psydac_derham import Derham
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.accumulation.filter import AccumFilter, FilterParameters
 from struphy.pic.base import Particles
-from struphy.profiling.profiling import ProfileManager
 from struphy.utils.pyccel import Pyccelkernel
 
 
