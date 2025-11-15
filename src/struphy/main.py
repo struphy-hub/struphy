@@ -14,7 +14,7 @@ from line_profiler import profile
 from psydac.ddm.mpi import MockMPI
 from psydac.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
-from scope_profiler import ProfileManager, ProfilingConfig
+from scope_profiler import ProfileManager
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.equils import HomogenSlab
@@ -68,6 +68,11 @@ def run(
     params_path : str
         Absolute path to .py parameter file.
     """
+
+    ProfileManager.setup(
+        profiling_activated=env.profiling_activated,
+        time_trace=env.profiling_trace,
+    )
 
     if isinstance(MPI, MockMPI):
         comm = None
@@ -407,6 +412,7 @@ def run(
     if clone_config is not None:
         clone_config.free()
 
+    ProfileManager.finalize()
 
 def pproc(
     path: str,
@@ -943,7 +949,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    config = ProfilingConfig(
+    ProfileManager.setup(
         profiling_activated=True,
         use_likwid=args.likwid,
         time_trace=args.time_trace,
@@ -962,9 +968,6 @@ if __name__ == "__main__":
             sort_step=args.sort_step,
             num_clones=args.nclones,
         )
-
-    if config.time_trace:
-        ProfileManager.print_summary()
 
     # Finalize profiler
     ProfileManager.finalize()
