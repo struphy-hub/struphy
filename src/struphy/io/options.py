@@ -336,10 +336,10 @@ class EnvironmentOptions:
 
     num_clones: int, optional
         Number of domain clones (default=1)
-    
+
     profiling_activated: bool, optional
         Activate profiling with scope-profiler (default=False)
-    
+
     profiling_trace: bool, optional
         Save time-trace of each profiling region (default=False)
     """
