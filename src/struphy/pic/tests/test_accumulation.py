@@ -2,6 +2,7 @@ import pytest
 
 from struphy.utils.pyccel import Pyccelkernel
 
+
 def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from time import time
 

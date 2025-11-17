@@ -8,6 +8,7 @@ import scipy.sparse as spa
 
 from struphy.eigenvalue_solvers.mhd_operators_core import MHDOperatorsCore
 
+
 class MHDOperators:
     """
     Class for degree of freedom matrices related to ideal MHD equations.

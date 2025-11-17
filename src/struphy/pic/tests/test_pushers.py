@@ -34,7 +34,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -45,7 +44,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -91,8 +90,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
         flattened=True,
     )
 
-    # create legacy struphy pusher and psydac based pusher
-
     pusher_psy = Pusher_psy(
         particles,
         Pyccelkernel(pusher_kernels.push_vxb_analytic),
@@ -110,8 +107,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     dt = 0.1
 
     pusher_psy(dt)
-
-    
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -145,7 +140,6 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -156,7 +150,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -189,8 +183,6 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     comm.Barrier()
     if show_plots:
         particles.show_physical()
-
-    
 
     # create random FEM coefficients for magnetic field and velocity field
     _, b2_eq_psy = create_equal_random_arrays(
@@ -227,14 +219,10 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
         alpha_in_kernel=1.0,
     )
 
-    
-
     # push markers
     dt = 0.1
 
     pusher_psy(dt)
-
-    
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -268,7 +256,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -279,7 +266,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -312,8 +299,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     comm.Barrier()
     if show_plots:
         particles.show_physical()
-
-    
 
     # create random FEM coefficients for magnetic field
     _, b2_eq_psy = create_equal_random_arrays(
@@ -355,8 +340,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy(dt)
 
-    
-
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
@@ -389,7 +372,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -400,7 +382,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -433,8 +415,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     comm.Barrier()
     if show_plots:
         particles.show_physical()
-
-    
 
     # create random FEM coefficients for magnetic field
     _, b2_eq_psy = create_equal_random_arrays(
@@ -476,8 +456,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     pusher_psy(dt)
 
-    
-
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
@@ -510,7 +488,6 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -521,7 +498,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -553,7 +530,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     particles.mpi_sort_markers()
     comm.Barrier()
     if show_plots:
-        particles.show_physical()   
+        particles.show_physical()
 
     # create random FEM coefficients for magnetic field
     _, b0_eq_psy = create_equal_random_arrays(
@@ -637,7 +614,6 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -649,7 +625,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -722,7 +698,6 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     comm.Barrier()
     comm.Allgatherv(xp.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
     comm.Barrier()
-
 
 
 if __name__ == "__main__":
