@@ -84,7 +84,7 @@ def compare_cprofile_data(path, list_of_funcs=None):
     with open(os.path.join(path, "profile_dict.sav"), "rb") as f:
         data_cprofile = pickle.load(f)
 
-    if list_of_funcs == None:
+    if list_of_funcs is None:
         print("-" * 76)
         print("function name".ljust(60), "cumulative time")
         print("-" * 76)
@@ -96,7 +96,7 @@ def compare_cprofile_data(path, list_of_funcs=None):
     counter = 0
     for k, v in data_cprofile.items():
         counter += 1
-        if list_of_funcs == None:
+        if list_of_funcs is None:
             print(k.ljust(60), v["cumtime"])
             if counter > 49:
                 break

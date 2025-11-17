@@ -322,7 +322,7 @@ class L2_transport_operator(LinOpWithTransp):
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
-        if weights == None:
+        if weights is None:
             weights = [[None] * 3] * 3
         self._weights = weights
         if self._transposed:
@@ -477,7 +477,7 @@ class Hdiv0_transport_operator(LinOpWithTransp):
         # Get the projector and the spaces
         self._derham = derham
         self._transposed = transposed
-        if weights == None:
+        if weights is None:
             weights = [[None] * 3] * 3
         self._weights = weights
         if self._transposed:
