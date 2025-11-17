@@ -27,7 +27,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
@@ -133,7 +133,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
@@ -249,7 +249,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
@@ -365,7 +365,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
@@ -481,7 +481,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
@@ -606,7 +606,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains

@@ -14,9 +14,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
-
-    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
     from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import RotationMatrix, compare_arrays, create_equal_random_arrays
@@ -394,9 +392,7 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
-
-    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays

@@ -19,7 +19,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.equils import HomogenSlab
@@ -287,9 +287,7 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
-
-    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
+    
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
