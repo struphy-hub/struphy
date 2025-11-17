@@ -41,7 +41,12 @@ from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
-
+from struphy.profiling.profiling import (
+        ProfileManager,
+        ProfilingConfig,
+        pylikwid_markerclose,
+        pylikwid_markerinit,
+    )
 
 @profile
 def run(
@@ -68,6 +73,16 @@ def run(
     params_path : str
         Absolute path to .py parameter file.
     """
+
+    time_trace = True
+    config = ProfilingConfig()
+    config.likwid = False
+    config.sample_duration = float(1.0)
+    config.sample_interval = float(1.0)
+    config.time_trace = time_trace
+    config.simulation_label = ""
+    pylikwid_markerinit()
+    
 
     if isinstance(MPI, MockMPI):
         comm = None
@@ -406,6 +421,11 @@ def run(
 
     if clone_config is not None:
         clone_config.free()
+    
+    pylikwid_markerclose()
+    if time_trace:
+        ProfileManager.print_summary()
+        ProfileManager.save_to_pickle(os.path.join(env.out_folders, "profiling_time_trace.pkl"))
 
 
 def pproc(

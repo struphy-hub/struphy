@@ -405,8 +405,10 @@ if __name__ == "__main__":
     # path = os.path.abspath(args.path)  # Convert to absolute path
     # simulations = parser.simulations
 
-    paths = [os.path.join(o_path, simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
+    # paths = [os.path.join(o_path, simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
+    paths = [os.path.join(simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
 
     # Plot the time trace
-    plot_time_vs_duration(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
-    plot_gantt_chart(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+    plot_gantt_chart_plotly(path=paths[0], output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+    # plot_time_vs_duration(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+    # plot_gantt_chart(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
