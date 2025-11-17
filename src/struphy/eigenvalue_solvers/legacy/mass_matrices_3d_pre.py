@@ -228,7 +228,7 @@ def get_M0_PRE_3(tensor_space_FEM, mats_pol=None):
     TODO
     """
 
-    if mats_pol == None:
+    if mats_pol is None:
         mat = tensor_space_FEM.B0_pol.dot(tensor_space_FEM.M0_pol_mat.dot(tensor_space_FEM.B0_pol.T))
     else:
         mat = mats_pol
@@ -255,7 +255,7 @@ def get_M1_PRE_3(tensor_space_FEM, mats_pol=None):
     TODO
     """
 
-    if mats_pol == None:
+    if mats_pol is None:
         mat = [
             tensor_space_FEM.B1_pol.dot(tensor_space_FEM.M1_pol_mat[0].dot(tensor_space_FEM.B1_pol.T)),
             tensor_space_FEM.B0_pol.dot(tensor_space_FEM.M1_pol_mat[1].dot(tensor_space_FEM.B0_pol.T)),
@@ -295,7 +295,7 @@ def get_M2_PRE_3(tensor_space_FEM, mats_pol=None):
     TODO
     """
 
-    if mats_pol == None:
+    if mats_pol is None:
         mat = [
             tensor_space_FEM.B2_pol.dot(tensor_space_FEM.M2_pol_mat[0].dot(tensor_space_FEM.B2_pol.T)),
             tensor_space_FEM.B3_pol.dot(tensor_space_FEM.M2_pol_mat[1].dot(tensor_space_FEM.B3_pol.T)),
@@ -335,7 +335,7 @@ def get_M3_PRE_3(tensor_space_FEM, mats_pol=None):
     TODO
     """
 
-    if mats_pol == None:
+    if mats_pol is None:
         mat = tensor_space_FEM.B3_pol.dot(tensor_space_FEM.M3_pol_mat.dot(tensor_space_FEM.B3_pol.T))
     else:
         mat = mats_pol
@@ -360,7 +360,7 @@ def get_Mv_PRE_3(tensor_space_FEM, mats_pol=None):
     TODO
     """
 
-    if mats_pol == None:
+    if mats_pol is None:
         mat = [
             tensor_space_FEM.Bv_pol.dot(tensor_space_FEM.Mv_pol_mat[0].dot(tensor_space_FEM.Bv_pol.T)),
             tensor_space_FEM.Mv_pol_mat[1],

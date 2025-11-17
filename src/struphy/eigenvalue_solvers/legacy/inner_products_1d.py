@@ -38,7 +38,7 @@ def inner_prod_V0(spline_space, fun, mapping=None):
     basisN = spline_space.basisN  # evaluated basis functions at quadrature points
 
     # evaluation of mapping at quadrature points
-    if mapping == None:
+    if mapping is None:
         mat_map = xp.ones(pts.shape, dtype=float)
     else:
         mat_map = mapping(pts.flatten()).reshape(pts.shape)
@@ -89,7 +89,7 @@ def inner_prod_V1(spline_space, fun, mapping=None):
     basisD = spline_space.basisD  # evaluated basis functions at quadrature points
 
     # evaluation of mapping at quadrature points
-    if mapping == None:
+    if mapping is None:
         mat_map = xp.ones(pts.shape, dtype=float)
     else:
         mat_map = 1 / mapping(pts.flatten()).reshape(pts.shape)

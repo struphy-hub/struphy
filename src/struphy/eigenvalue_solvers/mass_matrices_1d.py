@@ -46,7 +46,7 @@ def get_M(spline_space, phi_i=0, phi_j=0, fun=None):
     basisD = spline_space.basisD  # evaluated basis functions at quadrature points
 
     # evaluation of weight function at quadrature points (optional)
-    if fun == None:
+    if fun is None:
         mat_fun = xp.ones(pts.shape, dtype=float)
     else:
         mat_fun = fun(pts.flatten()).reshape(Nel, n_quad)
@@ -136,13 +136,13 @@ def get_M_gen(spline_space, phi_i=0, phi_j=0, fun=None, jac=None):
     basis_t = bsp.basis_ders_on_quad_grid(spline_space.t, p - 1, spline_space.pts, 0, normalize=False)
 
     # evaluation of weight function at quadrature points (optional)
-    if fun == None:
+    if fun is None:
         mat_fun = xp.ones(pts.shape, dtype=float)
     else:
         mat_fun = fun(pts.flatten()).reshape(Nel, n_quad)
 
     # evaluation of jacobian at quadrature points
-    if jac == None:
+    if jac is None:
         mat_jac = xp.ones(pts.shape, dtype=float)
     else:
         mat_jac = jac(pts.flatten()).reshape(Nel, n_quad)

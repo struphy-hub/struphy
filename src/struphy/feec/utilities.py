@@ -238,7 +238,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
     elif isinstance(arr_psy, BlockLinearOperator):
         for row_psy, row in zip(arr_psy.blocks, arr):
             for mat_psy, mat in zip(row_psy, row):
-                if mat_psy == None:
+                if mat_psy is None:
                     continue
 
                 s = mat_psy.codomain.starts
