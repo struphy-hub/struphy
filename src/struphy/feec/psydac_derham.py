@@ -1308,7 +1308,7 @@ class Derham:
             neigh_inds = xp.array(neigh_inds)
 
             # only use indices where information is present to find the neighbours rank
-            inds = xp.where(neigh_inds != None)
+            inds = xp.where(xp.not_equal(neigh_inds, None))
 
             # find ranks (row index of domain_array) which agree in start/end indices
             index_temp = xp.squeeze(self.index_array[:, inds])
@@ -2256,7 +2256,7 @@ class SplineFunction:
         sli = []
         gl_s = []
         for d in range(3):
-            if n == None:
+            if n is None:
                 sli += [slice(self._gl_s[d], self._gl_e[d] + 1)]
                 gl_s += [self._gl_s[d]]
                 vec = self._vector
@@ -2266,7 +2266,7 @@ class SplineFunction:
                 vec = self._vector[n]
 
         # local shape without ghost regions
-        if n == None:
+        if n is None:
             _shape = (
                 self._gl_e[0] + 1 - self._gl_s[0],
                 self._gl_e[1] + 1 - self._gl_s[1],
