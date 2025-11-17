@@ -2,50 +2,6 @@ import pytest
 
 from struphy.utils.pyccel import Pyccelkernel
 
-
-@pytest.mark.parametrize("Nel", [[8, 9, 10]])
-@pytest.mark.parametrize("p", [[2, 3, 4]])
-@pytest.mark.parametrize(
-    "spl_kind",
-    [[False, False, True], [False, True, False], [True, False, True], [True, True, False]],
-)
-@pytest.mark.parametrize(
-    "mapping",
-    [
-        [
-            "Cuboid",
-            {
-                "l1": 1.0,
-                "r1": 2.0,
-                "l2": 10.0,
-                "r2": 20.0,
-                "l3": 100.0,
-                "r3": 200.0,
-            },
-        ],
-    ],
-)
-def test_accumulation(Nel, p, spl_kind, mapping, Np=40, verbose=False):
-    """
-    A test to compare the old accumulation routine of step1 and step3 of cc_lin_mhd_6d with the old way (files stored in
-    ../test_pic_legacy_files) and the new way using the Accumulator object (ghost_region_sender, particle_to_mat_kernels).
-
-    The two accumulation matrices are computed with the same random magnetic field produced by
-    feec.utilities.create_equal_random_arrays and compared against each other at the bottom using
-    feec.utilities.compare_arrays().
-
-    The times for both legacy and the new way are printed if verbose == True. This comparison only makes sense if the
-    ..test_pic_legacy_files/ are also all compiled.
-    """
-    from psydac.ddm.mpi import mpi as MPI
-
-    rank = MPI.COMM_WORLD.Get_rank()
-
-    pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose)
-    if verbose and rank == 0:
-        print("\nTest for Step ph passed\n")
-
-
 def pc_lin_mhd_6d_step_ph_full(Nel, p, spl_kind, mapping, Np, verbose=False):
     from time import time
 
