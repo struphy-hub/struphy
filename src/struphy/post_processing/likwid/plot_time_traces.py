@@ -215,6 +215,13 @@ def plot_gantt_chart_plotly(
     # Create plotly figure
     fig = go.Figure()
     for bar in bars:
+        if 'kernel' in bar["Task"]:
+            color = 'blue'
+        elif 'prop' in bar["Task"]:
+            color = 'red'
+        else:
+            color = 'black'
+        # print(bar["Task"])
         fig.add_trace(
             go.Bar(
                 x=[bar["Duration"]],
@@ -222,7 +229,8 @@ def plot_gantt_chart_plotly(
                 base=[bar["Start"]],
                 orientation="h",
                 name=bar["Rank"],
-                marker_color=rank_color_map[bar["Rank"]],
+                # marker_color=rank_color_map[bar["Rank"]],
+                marker_color=color,
                 hovertemplate=f"Rank: {bar['Rank']}<br>Start: {bar['Start']:.3f}s<br>Duration: {bar['Duration']:.3f}s",
             ),
         )
