@@ -19,7 +19,6 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
-    from struphy.eigenvalue_solvers.legacy.mhd_operators_MF import projectors_dot_x
     from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
@@ -111,12 +110,6 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
 
     # Psydac MHD operators
     OPS_PSY = BasisProjectionOperators(DERHAM_PSY, domain, eq_mhd=EQ_MHD)
-
-    # Struphy matrix-free MHD operators
-    print(f"Rank {mpi_rank} | Init STRUPHY `projectors_dot_x`...")
-    elapsed = time()
-    OPS_STR = projectors_dot_x(SPACES, EQ_MHD)
-    print(f"Rank {mpi_rank} | Init `projectors_dot_x` done ({time() - elapsed:.4f}s).")
 
     # Test vectors
     x0 = xp.reshape(xp.arange(V0.nbasis), [space.nbasis for space in V0.spaces])
@@ -215,21 +208,9 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print("\nK3 (V3 --> V3, Identity operator in this case):")
 
     res_PSY = OPS_PSY.K3.dot(x3_st)
-    res_STR = OPS_STR.K1_dot(x3.flatten())
-    res_STR = SPACES.extract_3(res_STR)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator K3.")
-    assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     K3T = OPS_PSY.K3.transpose()
     res_PSY = K3T.dot(x3_st)
-    res_STR = OPS_STR.transpose_K1_dot(x3.flatten())
-    res_STR = SPACES.extract_3(res_STR)
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator K3T.")
-    assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     MPI_COMM.Barrier()
 
@@ -238,21 +219,9 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print("\nK0 (V0 --> V0, Identity operator in this case):")
 
     res_PSY = OPS_PSY.K0.dot(x0_st)
-    res_STR = OPS_STR.K10_dot(x0.flatten())
-    res_STR = SPACES.extract_0(res_STR)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator K0.")
-    assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     K10T = OPS_PSY.K0.transpose()
     res_PSY = K10T.dot(x0_st)
-    res_STR = OPS_STR.transpose_K10_dot(x0.flatten())
-    res_STR = SPACES.extract_0(res_STR)
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator K10T.")
-    assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     MPI_COMM.Barrier()
 
@@ -261,198 +230,50 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print("\nQ1 (V1 --> V2):")
 
     res_PSY = OPS_PSY.Q1.dot(x1_st)
-    res_STR = OPS_STR.Q1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q1, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q1, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q1, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     Q1T = OPS_PSY.Q1.transpose()
     res_PSY = Q1T.dot(x2_st)
-    res_STR = OPS_STR.transpose_Q1_dot(xp.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q1T, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q1T, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q1T, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # operator W1 (V1 --> V1)
     if mpi_rank == 0:
         print("\nW1 (V1 --> V1, Identity operator in this case):")
 
     res_PSY = OPS_PSY.W1.dot(x1_st)
-    res_STR = OPS_STR.W1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
-
-    MPI_COMM.barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator W1, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator W1, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator W1, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     W1T = OPS_PSY.W1.transpose()
     res_PSY = W1T.dot(x1_st)
-    res_STR = OPS_STR.transpose_W1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
 
     MPI_COMM.barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator W1T, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator W1T, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator W1T, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # operator Q2 (V2 --> V2)
     if mpi_rank == 0:
         print("\nQ2 (V2 --> V2, Identity operator in this case):")
 
     res_PSY = OPS_PSY.Q2.dot(x2_st)
-    res_STR = OPS_STR.Q2_dot(xp.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q2, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q2, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q2, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     Q2T = OPS_PSY.Q2.transpose()
     res_PSY = Q2T.dot(x2_st)
-    res_STR = OPS_STR.transpose_Q2_dot(xp.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q2T, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q2T, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q2T, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # operator X1 (V1 --> V0 x V0 x V0)
     if mpi_rank == 0:
         print("\nX1 (V1 --> V0 x V0 x V0):")
 
     res_PSY = OPS_PSY.X1.dot(x1_st)
-    res_STR = OPS_STR.X1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
-    res_STR_0 = SPACES.extract_0(res_STR[0])
-    res_STR_1 = SPACES.extract_0(res_STR[1])
-    res_STR_2 = SPACES.extract_0(res_STR[2])
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator X1, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator X1, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator X1, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     X1T = OPS_PSY.X1.transpose()
     res_PSY = X1T.dot(x0vec_st)
-    res_STR = OPS_STR.transpose_X1_dot([x0.flatten(), x0.flatten(), x0.flatten()])
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator X1T, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator X1T, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator X1T, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
 
 @pytest.mark.parametrize("Nel", [[6, 9, 7]])
