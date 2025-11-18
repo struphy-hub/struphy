@@ -16,7 +16,12 @@ import struphy
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import SplineFunction
-from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium, NumericalMHDequilibrium
+from struphy.fields_background.base import (
+    FluidEquilibrium,
+    FluidEquilibriumWithB,
+    MHDequilibrium,
+    NumericalMHDequilibrium,
+)
 from struphy.fields_background.equils import HomogenSlab
 from struphy.fields_background.projected_equils import (
     ProjectedFluidEquilibrium,
