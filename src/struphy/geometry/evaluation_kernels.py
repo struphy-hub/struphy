@@ -3,7 +3,7 @@ Module containing accelerated (pyccelized) functions for evaluating metric coeff
 corresponding to mappings (x, y, z) = F(eta_1, eta_2, eta_3).
 """
 
-from numpy import empty, shape, zeros
+from cupy import empty, shape, zeros
 from pyccel.decorators import stack_array
 
 import struphy.geometry.mappings_kernels as mappings_kernels

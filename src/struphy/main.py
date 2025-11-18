@@ -36,7 +36,12 @@ from struphy.post_processing.post_processing_tools import (
     post_process_markers,
     post_process_n_sph,
 )
-from struphy.profiling.profiling import ProfileManager
+from struphy.profiling.profiling import (
+    ProfileManager,
+    ProfilingConfig,
+    pylikwid_markerclose,
+    pylikwid_markerinit,
+)
 from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
@@ -68,6 +73,15 @@ def run(
     params_path : str
         Absolute path to .py parameter file.
     """
+
+    time_trace = True
+    config = ProfilingConfig()
+    config.likwid = False
+    config.sample_duration = float(1.0)
+    config.sample_interval = float(1.0)
+    config.time_trace = time_trace
+    config.simulation_label = ""
+    pylikwid_markerinit()
 
     if isinstance(MPI, MockMPI):
         comm = None
@@ -252,12 +266,25 @@ def run(
                 absB0 = model.equil.absB0(*grids_log)
                 pointData["absB0"] = absB0
 
-        gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
+        from cunumpy.xp import array_backend
+
+        print("calling gridToVTK")
+        if array_backend.backend == "numpy":
+            gridToVTK(os.path.join(path_out, "geometry"), *grids_phy, pointData=pointData)
+        else:
+            # cupy
+            grids_phy_cpu = [g.get() if isinstance(g, xp.ndarray) else g for g in grids_phy]
+
+            # Convert pointData values to NumPy
+            pointData_cpu = {k: (v.get() if isinstance(v, xp.ndarray) else v) for k, v in pointData.items()}
+
+            # Now call gridToVTK safely
+            gridToVTK(os.path.join(path_out, "geometry"), *grids_phy_cpu, pointData=pointData_cpu)
 
     # data object for saving (will either create new hdf5 files if restart==False or open existing files if restart==True)
     # use MPI.COMM_WORLD as communicator when storing the outputs
     data = DataContainer(path_out, comm=comm)
-
+    print("ccc")
     # time quantities (current time value, value in seconds and index)
     time_state = {}
     time_state["value"] = xp.zeros(1, dtype=float)
@@ -268,8 +295,17 @@ def run(
     for key, val in time_state.items():
         key_time = "time/" + key
         key_time_restart = "restart/time/" + key
-        data.add_data({key_time: val})
-        data.add_data({key_time_restart: val})
+        if array_backend.backend == "numpy":
+            data.add_data({key_time: val})
+            data.add_data({key_time_restart: val})
+        else:
+            val_cpu = val.get()  #  if isinstance(val, xp.ndarray) else val
+
+            # Then assign
+            print(f"{val_cpu = } {type(val_cpu) = }")
+            data.add_data({key_time: val_cpu})
+            # self._file[key][0] = val_cpu[0]
+            data.add_data({key_time_restart: val_cpu})
 
     # retrieve time parameters
     dt = time_opts.dt
@@ -406,6 +442,11 @@ def run(
 
     if clone_config is not None:
         clone_config.free()
+
+    pylikwid_markerclose()
+    if time_trace:
+        ProfileManager.print_summary()
+        ProfileManager.save_to_pickle(os.path.join(env.out_folders, "profiling_time_trace.pkl"))
 
 
 def pproc(

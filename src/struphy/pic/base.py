@@ -233,7 +233,7 @@ class Particles(metaclass=ABCMeta):
             assert all([nboxes % nproc == 0 for nboxes, nproc in zip(self.boxes_per_dim, self.nprocs)]), (
                 f"Number of boxes {self.boxes_per_dim =} must be divisible by number of processes {self.nprocs =} in each direction."
             )
-            n_boxes = xp.prod(self.boxes_per_dim, dtype=int) * self.num_clones
+            n_boxes = xp.prod(xp.array(self.boxes_per_dim), dtype=int) * self.num_clones
 
         # if verbose:
         #     print(f"\n{self.mpi_rank = }, {n_boxes = }")
@@ -1093,7 +1093,7 @@ class Particles(metaclass=ABCMeta):
         bufsize = self.bufsize + 1.0 / xp.sqrt(n_mks_load_loc)
 
         # allocate markers array (3 x positions, vdim x velocities, weight, s0, w0, ..., ID) with buffer
-        self._n_rows = round(n_mks_load_loc * (1 + bufsize))
+        self._n_rows = round(float(n_mks_load_loc * (1 + bufsize)))
         self._markers = xp.zeros((self.n_rows, self.n_cols), dtype=float)
 
         # allocate auxiliary arrays
@@ -1915,7 +1915,7 @@ class Particles(metaclass=ABCMeta):
             The reconstructed delta-f distribution function.
         """
 
-        assert xp.count_nonzero(components) == len(bin_edges)
+        assert xp.count_nonzero(xp.array(components)) == len(bin_edges)
 
         # volume of a bin
         bin_vol = 1.0
@@ -2422,7 +2422,7 @@ class Particles(metaclass=ABCMeta):
             n_particles = self._markers_shape[0]
             n_mkr = int(n_particles / n_box_in) + 1
             n_cols = round(
-                n_mkr * (1 + 1 / xp.sqrt(n_mkr) + self._box_bufsize),
+                float(n_mkr) * (1 + 1 / float(xp.sqrt(n_mkr)) + self._box_bufsize),
             )
 
             # cartesian boxes
@@ -2641,7 +2641,17 @@ class Particles(metaclass=ABCMeta):
         """Check whether the box array has enough columns (detect load imbalance wrt to sorting boxes),
         and then assigne the particles to boxes."""
 
-        bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))
+        from cunumpy.xp import array_backend
+
+        if array_backend.backend == "numpy":
+            bcount = xp.bincount(xp.int64(self.markers_wo_holes[:, -2]))
+        else:
+            import cupy as cp
+
+            indices = self.markers_wo_holes[:, -2]
+            indices = indices.astype(cp.int64)
+            bcount = cp.bincount(indices)
+
         max_in_box = xp.max(bcount)
         if max_in_box > self._sorting_boxes.boxes.shape[1]:
             warnings.warn(
@@ -4047,6 +4057,7 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
         _tmp[self.mpi_rank] = scalar
 
         if self.mpi_comm is not None:
+            print(f"{self.mpi_comm = }")
             self.mpi_comm.Allgather(
                 _tmp[self.mpi_rank],
                 _tmp,

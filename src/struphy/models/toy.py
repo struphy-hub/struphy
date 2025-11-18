@@ -1,4 +1,5 @@
 import cunumpy as xp
+import numpy as np
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
@@ -157,7 +158,7 @@ class Vlasov(StruphyModel):
         return "cyclotron"
 
     def allocate_helpers(self):
-        self._tmp = xp.empty(1, dtype=float)
+        self._tmp = np.empty(1, dtype=float)
 
     def update_scalar_quantities(self):
         particles = self.kinetic_ions.var.particles

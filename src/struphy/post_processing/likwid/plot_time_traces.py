@@ -4,7 +4,6 @@ import re
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
-import plotly.graph_objects as go
 import plotly.io as pio
 
 # pio.kaleido.scope.mathjax = None
@@ -17,31 +16,19 @@ def glob_to_regex(pat: str) -> str:
     return "^" + esc.replace(r"\*", ".*").replace(r"\?", ".") + "$"
 
 
-# def plot_region(region_name, groups_include=["*"], groups_skip=[]):
-#     # skips first
-#     for pat in groups_skip:
-#         rx = glob_to_regex(pat)
-#         if re.fullmatch(rx, region_name):
-#             return False
-
-#     # includes next
-#     for pat in groups_include:
-#         rx = glob_to_regex(pat)
-#         if re.fullmatch(rx, region_name):
-#             return True
-
-#     return False
-
-
 def plot_region(region_name, groups_include=["*"], groups_skip=[]):
-    from fnmatch import fnmatch
-
-    for pattern in groups_skip:
-        if fnmatch(region_name, pattern):
+    # skips first
+    for pat in groups_skip:
+        rx = glob_to_regex(pat)
+        if re.fullmatch(rx, region_name):
             return False
-    for pattern in groups_include:
-        if fnmatch(region_name, pattern):
+
+    # includes next
+    for pat in groups_include:
+        rx = glob_to_regex(pat)
+        if re.fullmatch(rx, region_name):
             return True
+
     return False
 
 
@@ -159,6 +146,21 @@ def plot_avg_duration_bar_chart(
     print(f"Saved average duration bar chart to: {figure_path}")
 
 
+import plotly.graph_objects as go
+
+
+def plot_region(region_name, groups_include=["*"], groups_skip=[]):
+    from fnmatch import fnmatch
+
+    for pattern in groups_skip:
+        if fnmatch(region_name, pattern):
+            return False
+    for pattern in groups_include:
+        if fnmatch(region_name, pattern):
+            return True
+    return False
+
+
 def plot_gantt_chart_plotly(
     path: str,
     output_path: str,
@@ -215,6 +217,13 @@ def plot_gantt_chart_plotly(
     # Create plotly figure
     fig = go.Figure()
     for bar in bars:
+        if "kernel" in bar["Task"]:
+            color = "blue"
+        elif "prop" in bar["Task"]:
+            color = "red"
+        else:
+            color = "black"
+        # print(bar["Task"])
         fig.add_trace(
             go.Bar(
                 x=[bar["Duration"]],
@@ -222,7 +231,8 @@ def plot_gantt_chart_plotly(
                 base=[bar["Start"]],
                 orientation="h",
                 name=bar["Rank"],
-                marker_color=rank_color_map[bar["Rank"]],
+                # marker_color=rank_color_map[bar["Rank"]],
+                marker_color=color,
                 hovertemplate=f"Rank: {bar['Rank']}<br>Start: {bar['Start']:.3f}s<br>Duration: {bar['Duration']:.3f}s",
             ),
         )
@@ -405,8 +415,10 @@ if __name__ == "__main__":
     # path = os.path.abspath(args.path)  # Convert to absolute path
     # simulations = parser.simulations
 
-    paths = [os.path.join(o_path, simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
+    # paths = [os.path.join(o_path, simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
+    paths = [os.path.join(simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
 
     # Plot the time trace
-    plot_time_vs_duration(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
-    plot_gantt_chart(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+    plot_gantt_chart_plotly(path=paths[0], output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+    # plot_time_vs_duration(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+    # plot_gantt_chart(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
