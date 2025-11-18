@@ -41,7 +41,12 @@ from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
-
+from struphy.profiling.profiling import (
+        ProfileManager,
+        ProfilingConfig,
+        pylikwid_markerclose,
+        pylikwid_markerinit,
+    )
 
 @profile
 def run(
@@ -63,11 +68,21 @@ def run(
     Parameters
     ----------
     model : StruphyModel
-        The model to run. Check https://struphy.pages.mpcdf.de/struphy/sections/models.html for available models.
+        The model to run. Check https://struphy-hub.github.io/struphy/sections/models.html for available models.
 
     params_path : str
         Absolute path to .py parameter file.
     """
+
+    time_trace = True
+    config = ProfilingConfig()
+    config.likwid = False
+    config.sample_duration = float(1.0)
+    config.sample_interval = float(1.0)
+    config.time_trace = time_trace
+    config.simulation_label = ""
+    pylikwid_markerinit()
+    
 
     if isinstance(MPI, MockMPI):
         comm = None
@@ -82,7 +97,6 @@ def run(
 
     if rank == 0:
         print("")
-    Barrier()
 
     # synchronize MPI processes to set same start time of simulation for all processes
     Barrier()
@@ -103,7 +117,7 @@ def run(
     save_step = env.save_step
     sort_step = env.sort_step
     num_clones = env.num_clones
-    use_mpi = (not comm is None,)
+    use_mpi = (comm is not None,)
 
     meta = {}
     meta["platform"] = sysconfig.get_platform()
@@ -226,7 +240,6 @@ def run(
     if rank < 32:
         if rank == 0:
             print("")
-        Barrier()
         print(f"Rank {rank}: executing main.run() for model {model_name} ...")
 
     if size > 32 and rank == 32:
@@ -430,6 +443,11 @@ def run(
 
     if clone_config is not None:
         clone_config.free()
+    
+    pylikwid_markerclose()
+    if time_trace:
+        ProfileManager.print_summary()
+        ProfileManager.save_to_pickle(os.path.join(env.out_folders, "profiling_time_trace.pkl"))
 
 
 def pproc(

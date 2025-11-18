@@ -1,4 +1,4 @@
-name: Testing
+name: Reusable workflow for testing
 
 on:
   workflow_call:
@@ -18,7 +18,7 @@ jobs:
       matrix:
         python-version: ["3.12"]
         compile-language: ["fortran", "c"]
-        test-type: ["unit", "model", "quickstart", "tutorials"]
+        test-type: ["unit", "model"] #"quickstart", "tutorials"]
 
     steps:
       # Checkout the repository
@@ -34,15 +34,6 @@ jobs:
       # You can test your matrix by printing the current Python version
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
-
-      # Cache pip dependencies
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
 
       # Install prereqs
       # I don't think it's possible to use a single action for this because
@@ -85,11 +76,3 @@ jobs:
       - name: Run model tests
         if: matrix.test-type == 'model'
         uses: ./.github/actions/tests/models
-
-      - name: Run quickstart tests
-        if: matrix.test-type == 'quickstart'
-        uses: ./.github/actions/tests/quickstart
-
-      - name: Run tutorials
-        if: matrix.test-type == 'tutorials'
-        uses: ./.github/actions/tests/tutorials

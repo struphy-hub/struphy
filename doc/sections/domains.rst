@@ -31,7 +31,7 @@ Only right-handed mappings (:math:`\textnormal{det}(DF) > 0`) are admitted.
     :maxdepth: 2
     :caption: Contents:
 
-    subsections/domains_avail
-    subsections/domains_base
-    subsections/domains_kernels
-    subsections/domains_utils
+    subsections/domains-avail
+    subsections/domains-base
+    subsections/domains-kernels
+    subsections/domains-utils

@@ -1,7 +1,7 @@
 import cunumpy as xp
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.ddm.mpi import mpi as MPI
-from psydac.feec.global_projectors import GlobalProjector
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjector
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
@@ -58,15 +58,15 @@ class CommutingProjector:
 
     * :math:`\mathbb B`: :class:`~struphy.feec.linear_operators.BoundaryOperator`,
     * :math:`\mathbb P`: :class:`~struphy.polar.linear_operators.PolarExtractionOperator` for degrees of freedom,
-    * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~psydac.feec.global_projectors.GlobalProjector`
+    * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~psydac.feec.global_geometric_projectors.GlobalGeometricProjector`
     * :math:`\mathbb E`: :class:`~struphy.polar.linear_operators.PolarExtractionOperator` for FE coefficients.
 
     :math:`\mathbb P` and :math:`\mathbb E` (and :math:`\mathbb B` in case of no boundary conditions) can be identity operators,
-    which gives the pure tensor-product Psydac :class:`~psydac.feec.global_projectors.GlobalProjector`.
+    which gives the pure tensor-product Psydac :class:`~psydac.feec.global_geometric_projectors.GlobalGeometricProjector`.
 
     Parameters
     ----------
-    projector_tensor : GlobalProjector
+    projector_tensor : GlobalGeometricProjector
         The pure tensor product projector.
 
     dofs_extraction_op : PolarExtractionOperator, optional
@@ -81,7 +81,7 @@ class CommutingProjector:
 
     def __init__(
         self,
-        projector_tensor: GlobalProjector,
+        projector_tensor: GlobalGeometricProjector,
         dofs_extraction_op=None,
         base_extraction_op=None,
         boundary_op=None,
@@ -1717,7 +1717,7 @@ class CommutingProjectorLocal:
             Array that tell us for which rows the basis function in the i-th direction produces non-zero entries in the BasisProjectionOperatorLocal matrix.
             This array contains the start indices of said regions.
         """
-        if h == None:
+        if h is None:
             rows_splines = getattr(self, f"_rows_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return rows_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1745,7 +1745,7 @@ class CommutingProjectorLocal:
             Array that tell us for which rows the basis function in the i-th direction produces non-zero entries in the BasisProjectionOperatorLocal matrix.
             This array contains the end indices of said regions.
         """
-        if h == None:
+        if h is None:
             rowe_splines = getattr(self, f"_rowe_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return rowe_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1772,7 +1772,7 @@ class CommutingProjectorLocal:
         self._values_B_or_D_splines_i[self._B_or_D[i]][self._translation_indices_B_or_D_splines_i[self._B_or_D[i]][self._basis_indices[i]]] : 1d float array
             Array with the evaluated basis function for the i-th direction.
         """
-        if h == None:
+        if h is None:
             values_splines = getattr(self, f"_values_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return values_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1800,7 +1800,7 @@ class CommutingProjectorLocal:
             Array of zeros or ones. A one at index j means that for the set of quadrature points found in self._localpts[i][j] the basis function is not zero
             for at least one of them.
         """
-        if h == None:
+        if h is None:
             are_zero_splines = getattr(self, f"_are_zero_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return are_zero_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
