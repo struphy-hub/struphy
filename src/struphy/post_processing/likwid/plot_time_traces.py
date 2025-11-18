@@ -217,12 +217,12 @@ def plot_gantt_chart_plotly(
     # Create plotly figure
     fig = go.Figure()
     for bar in bars:
-        if 'kernel' in bar["Task"]:
-            color = 'blue'
-        elif 'prop' in bar["Task"]:
-            color = 'red'
+        if "kernel" in bar["Task"]:
+            color = "blue"
+        elif "prop" in bar["Task"]:
+            color = "red"
         else:
-            color = 'black'
+            color = "black"
         # print(bar["Task"])
         fig.add_trace(
             go.Bar(

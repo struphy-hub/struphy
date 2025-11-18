@@ -36,17 +36,17 @@ from struphy.post_processing.post_processing_tools import (
     post_process_markers,
     post_process_n_sph,
 )
-from struphy.profiling.profiling import ProfileManager
+from struphy.profiling.profiling import (
+    ProfileManager,
+    ProfilingConfig,
+    pylikwid_markerclose,
+    pylikwid_markerinit,
+)
 from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
 from struphy.utils.utils import dict_to_yaml
-from struphy.profiling.profiling import (
-        ProfileManager,
-        ProfilingConfig,
-        pylikwid_markerclose,
-        pylikwid_markerinit,
-    )
+
 
 @profile
 def run(
@@ -82,7 +82,6 @@ def run(
     config.time_trace = time_trace
     config.simulation_label = ""
     pylikwid_markerinit()
-    
 
     if isinstance(MPI, MockMPI):
         comm = None
@@ -443,7 +442,7 @@ def run(
 
     if clone_config is not None:
         clone_config.free()
-    
+
     pylikwid_markerclose()
     if time_trace:
         ProfileManager.print_summary()

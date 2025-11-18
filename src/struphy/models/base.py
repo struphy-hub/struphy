@@ -5,8 +5,8 @@ from abc import ABCMeta, abstractmethod
 from functools import reduce
 from textwrap import indent
 
-import numpy as np
 import cunumpy as xp
+import numpy as np
 import yaml
 from line_profiler import profile
 from psydac.ddm.mpi import MockMPI

@@ -1,5 +1,5 @@
-import numpy as np
 import cunumpy as xp
+import numpy as np
 from psydac.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
