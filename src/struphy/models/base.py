@@ -16,7 +16,7 @@ import struphy
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import SplineFunction
-from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
+from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium, NumericalMHDequilibrium
 from struphy.fields_background.equils import HomogenSlab
 from struphy.fields_background.projected_equils import (
     ProjectedFluidEquilibrium,
@@ -95,7 +95,7 @@ class StruphyModel(metaclass=ABCMeta):
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
         if equil is not None:
             self._equil = equil
-            if "Numerical" in self.equil.__class__.__name__:
+            if isinstance(self.equil, NumericalMHDequilibrium):
                 self._domain = self.equil.domain
             else:
                 self._domain = domain
