@@ -215,6 +215,13 @@ def plot_gantt_chart_plotly(
     # Create plotly figure
     fig = go.Figure()
     for bar in bars:
+        if 'kernel' in bar["Task"]:
+            color = 'blue'
+        elif 'prop' in bar["Task"]:
+            color = 'red'
+        else:
+            color = 'black'
+        # print(bar["Task"])
         fig.add_trace(
             go.Bar(
                 x=[bar["Duration"]],
@@ -222,7 +229,8 @@ def plot_gantt_chart_plotly(
                 base=[bar["Start"]],
                 orientation="h",
                 name=bar["Rank"],
-                marker_color=rank_color_map[bar["Rank"]],
+                # marker_color=rank_color_map[bar["Rank"]],
+                marker_color=color,
                 hovertemplate=f"Rank: {bar['Rank']}<br>Start: {bar['Start']:.3f}s<br>Duration: {bar['Duration']:.3f}s",
             ),
         )
@@ -405,8 +413,10 @@ if __name__ == "__main__":
     # path = os.path.abspath(args.path)  # Convert to absolute path
     # simulations = parser.simulations
 
-    paths = [os.path.join(o_path, simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
+    # paths = [os.path.join(o_path, simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
+    paths = [os.path.join(simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
 
     # Plot the time trace
-    plot_time_vs_duration(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
-    plot_gantt_chart(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+    plot_gantt_chart_plotly(path=paths[0], output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+    # plot_time_vs_duration(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+    # plot_gantt_chart(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
