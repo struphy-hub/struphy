@@ -43,11 +43,11 @@ jobs:
           path: .testmondata-model
           key: testmon-model-${{ github.sha }} # Primary key: exact commit-specific cache
           restore-keys: |
-            testmon-model-${{ github.ref }}- # Fallback 1: includes full ref path (e.g., refs/heads/main or refs/pull/123/head)
-            testmon-model-${{ github.ref_name }}- # Fallback 2: branch or tag name only (e.g., main, devel)
-            testmon-model-refs/heads/devel- # Fallback 3: explicitly try the devel branch's cache
-            testmon-model-devel- # Fallback 4: broader devel prefix without full ref path
-            testmon-model- # Fallback 5: broadest match, any testmon-model cache
+            testmon-model-${{ github.ref }}-
+            testmon-model-${{ github.ref_name }}- 
+            testmon-model-refs/heads/devel- 
+            testmon-model-devel- 
+            testmon-model- 
 
       - name: Check .testmondata
         run: |

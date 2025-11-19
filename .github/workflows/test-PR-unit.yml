@@ -43,11 +43,11 @@ jobs:
           path: .testmondata-unit
           key: testmon-unit-${{ github.sha }} # Primary key: exact commit-specific cache
           restore-keys: |
-            testmon-unit-${{ github.ref }}- # Fallback 1: includes full ref path (e.g., refs/heads/main or refs/pull/123/head)
-            testmon-unit-${{ github.ref_name }}- # Fallback 2: branch or tag name only (e.g., main, devel)
-            testmon-unit-refs/heads/devel- # Fallback 3: explicitly try the devel branch's cache
-            testmon-unit-devel- # Fallback 4: broader devel prefix without full ref path
-            testmon-unit- # Fallback 5: broadest match, any testmon-model cache
+            testmon-unit-${{ github.ref }}- 
+            testmon-unit-${{ github.ref_name }}- 
+            testmon-unit-refs/heads/devel-
+            testmon-unit-devel-
+            testmon-unit-
 
       - name: Check .testmondata
         run: |
