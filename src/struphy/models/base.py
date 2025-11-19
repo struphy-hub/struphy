@@ -4,9 +4,9 @@ import os
 from abc import ABCMeta, abstractmethod
 from functools import reduce
 from textwrap import indent
-import h5py
 
 import cunumpy as xp
+import h5py
 import yaml
 from line_profiler import profile
 from psydac.ddm.mpi import MockMPI

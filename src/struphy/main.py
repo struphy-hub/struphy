@@ -318,7 +318,6 @@ def run(
         if break_cond_1 or break_cond_2:
             # save restart data (other data already saved below)
             data.save_data(keys=save_keys_end)
-            data.file.close()
             end_simulation = time.time()
             if rank == 0:
                 print(f"\nTime steps done: {time_state['index'][0]}")
