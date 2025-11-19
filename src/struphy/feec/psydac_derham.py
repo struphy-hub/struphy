@@ -1777,7 +1777,7 @@ class SplineFunction:
                     if self.space_id in {"H1", "L2"}:
                         if ptb.given_in_basis is None:
                             ptb.given_in_basis = "0"
-                            
+
                         fun = TransformedPformComponent(
                             ptb,
                             ptb.given_in_basis,

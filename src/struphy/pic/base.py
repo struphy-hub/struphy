@@ -1261,7 +1261,7 @@ class Particles(metaclass=ABCMeta):
                     if moment == "n":
                         if pert.given_in_basis is None:
                             pert.given_in_basis = "0"
-                            
+
                         _fun = TransformedPformComponent(
                             pert,
                             pert.given_in_basis,
