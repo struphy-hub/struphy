@@ -16,7 +16,6 @@ from struphy.topology import grids
 test_folder = os.path.join(os.getcwd(), "verification_tests")
 
 
-@pytest.mark.mpi(min_size=3)
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 def test_slab_waves_1d(algo: str, do_plot: bool = False):
     # import model, set verbosity
