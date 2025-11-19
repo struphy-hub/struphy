@@ -65,8 +65,7 @@ def struphy_test(
                 "pytest",
                 # "--testmon",
                 "--with-mpi",
-                f"{LIBPATH}/bsplines/tests/",
-            ]
+            ] + list_of_tests
         else:
             cmd = [
                 "pytest",
@@ -80,11 +79,14 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        # Run in the current directory
-        cwd = os.getcwd()
         subp_run(cmd)
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
+        
+        list_of_tests = [
+            f"{LIBPATH}/models/tests/default_params/",
+            ]
+        
         if mpi > 1:
             cmd = [
                 "mpirun",
@@ -97,17 +99,14 @@ def struphy_test(
                 "-s",
                 # "--testmon",
                 "--with-mpi",
-                f"{LIBPATH}/tests/models/",
-            ]
+            ] + list_of_tests
         else:
             cmd = [
                 "pytest",
                 "-m",
                 group,
-                "-s",
-                "--testmon",
-                f"{LIBPATH}/tests/models/",
-            ]
+                "--testmon-forceselect",
+            ] + list_of_tests
 
         if vrbose:
             cmd += ["--vrbose"]
@@ -116,11 +115,14 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        # Run in the current directory
-        cwd = os.getcwd()
         subp_run(cmd)
 
     elif "verification" in group:
+        
+        list_of_tests = [
+            f"{LIBPATH}/models/tests/verification/",
+            ]
+        
         if mpi > 1:
             cmd = [
                 "mpirun",
@@ -131,15 +133,12 @@ def struphy_test(
                 "-s",
                 # "--testmon",
                 "--with-mpi",
-                f"{LIBPATH}/tests/verification/",
-            ]
+            ] + list_of_tests
         else:
             cmd = [
                 "pytest",
-                "-s",
                 "--testmon",
-                f"{LIBPATH}/models/tests/verification/",
-            ]
+            ] + list_of_tests
 
         if vrbose:
             cmd += ["--vrbose"]
@@ -148,8 +147,6 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        # Run in the current directory
-        cwd = os.getcwd()
         subp_run(cmd)
 
     else:
@@ -162,7 +159,6 @@ def struphy_test(
             "-m",
             "single",
             "-s",
-            # "--testmon",
             "--with-mpi",
             "--model-name",
             group,
@@ -174,6 +170,4 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        # Run in the current directory
-        cwd = os.getcwd()
         subp_run(cmd)
