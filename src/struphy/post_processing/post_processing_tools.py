@@ -629,9 +629,6 @@ def post_process_f(
         meta = yaml.load(f, Loader=yaml.FullLoader)
     nproc = meta["MPI processes"]
 
-    with h5py.File(os.path.join(path_in, "data/data_proc0.hdf5"), "r") as file_0:
-        _f = file_0["kinetic/" + species + "/f"]
-
     # directory for .npy files
     path_distr = os.path.join(path_out, "distribution_function")
 
@@ -644,16 +641,16 @@ def post_process_f(
     print("Evaluation of distribution functions for " + str(species))
 
     # Create grids
-    for slice_name in tqdm(_f):
-        # create a new folder for each slice
-        path_slice = os.path.join(path_distr, slice_name)
-        os.mkdir(path_slice)
+    with h5py.File(os.path.join(path_in, "data/data_proc0.hdf5"), "r") as file_0:
+        for slice_name in tqdm(file_0["kinetic/" + species + "/f"]):
+            # create a new folder for each slice
+            path_slice = os.path.join(path_distr, slice_name)
+            os.mkdir(path_slice)
 
-        # Find out all names of slices
-        slice_names = slice_name.split("_")
+            # Find out all names of slices
+            slice_names = slice_name.split("_")
 
-        # save grid
-        with h5py.File(os.path.join(path_in, "data/data_proc0.hdf5"), "r") as file_0:
+            # save grid
             for n_gr, (_, grid) in enumerate(file_0["kinetic/" + species + "/f/" + slice_name].attrs.items()):
                 grid_path = os.path.join(
                     path_slice,
@@ -661,15 +658,14 @@ def post_process_f(
                 )
                 xp.save(grid_path, grid[:])
 
-    # compute distribution function
-    for slice_name in tqdm(_f):
-        # path to folder of slice
-        path_slice = os.path.join(path_distr, slice_name)
+        # compute distribution function
+        for slice_name in tqdm(file_0["kinetic/" + species + "/f"]):
+            # path to folder of slice
+            path_slice = os.path.join(path_distr, slice_name)
 
-        # Find out all names of slices
-        slice_names = slice_name.split("_")
+            # Find out all names of slices
+            slice_names = slice_name.split("_")
 
-        with h5py.File(os.path.join(path_in, "data/data_proc0.hdf5"), "r") as file_0:
             # load full-f data
             data = file_0["kinetic/" + species + "/f/" + slice_name][::step].copy()
             data_df = file_0["kinetic/" + species + "/df/" + slice_name][::step].copy()
@@ -678,88 +674,88 @@ def post_process_f(
                     data += file["kinetic/" + species + "/f/" + slice_name][::step]
                     data_df += file["kinetic/" + species + "/df/" + slice_name][::step]
 
-        # save distribution functions
-        xp.save(os.path.join(path_slice, "f_binned.npy"), data)
-        xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
+            # save distribution functions
+            xp.save(os.path.join(path_slice, "f_binned.npy"), data)
+            xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
 
-        if compute_bckgr:
-            # bckgr_params = params["kinetic"][species]["background"]
+            if compute_bckgr:
+                # bckgr_params = params["kinetic"][species]["background"]
 
-            # f_bckgr = None
-            # for fi, maxw_params in bckgr_params.items():
-            #     if fi[-2] == "_":
-            #         fi_type = fi[:-2]
-            #     else:
-            #         fi_type = fi
+                # f_bckgr = None
+                # for fi, maxw_params in bckgr_params.items():
+                #     if fi[-2] == "_":
+                #         fi_type = fi[:-2]
+                #     else:
+                #         fi_type = fi
 
-            #     if f_bckgr is None:
-            #         f_bckgr = getattr(maxwellians, fi_type)(
-            #             maxw_params=maxw_params,
-            #         )
-            #     else:
-            #         f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
-            #             maxw_params=maxw_params,
-            #         )
+                #     if f_bckgr is None:
+                #         f_bckgr = getattr(maxwellians, fi_type)(
+                #             maxw_params=maxw_params,
+                #         )
+                #     else:
+                #         f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
+                #             maxw_params=maxw_params,
+                #         )
 
-            spec: ParticleSpecies = getattr(params_in.model, species)
-            var: PICVariable = spec.var
-            f_bckgr: KineticBackground = var.backgrounds
+                spec: ParticleSpecies = getattr(params_in.model, species)
+                var: PICVariable = spec.var
+                f_bckgr: KineticBackground = var.backgrounds
 
-            # load all grids of the variables of f
-            grid_tot = []
-            factor = 1.0
+                # load all grids of the variables of f
+                grid_tot = []
+                factor = 1.0
 
-            # eta-grid
-            for comp in range(1, 4):
-                current_slice = "e" + str(comp)
-                filename = os.path.join(
-                    path_slice,
-                    "grid_" + current_slice + ".npy",
+                # eta-grid
+                for comp in range(1, 4):
+                    current_slice = "e" + str(comp)
+                    filename = os.path.join(
+                        path_slice,
+                        "grid_" + current_slice + ".npy",
+                    )
+
+                    # check if file exists and is in slice_name
+                    if os.path.exists(filename) and current_slice in slice_names:
+                        grid_tot += [xp.load(filename)]
+
+                    # otherwise evaluate at zero
+                    else:
+                        grid_tot += [xp.zeros(1)]
+
+                # v-grid
+                for comp in range(1, f_bckgr.vdim + 1):
+                    current_slice = "v" + str(comp)
+                    filename = os.path.join(
+                        path_slice,
+                        "grid_" + current_slice + ".npy",
+                    )
+
+                    # check if file exists and is in slice_name
+                    if os.path.exists(filename) and current_slice in slice_names:
+                        grid_tot += [xp.load(filename)]
+
+                    # otherwise evaluate at zero
+                    else:
+                        grid_tot += [xp.zeros(1)]
+                        # correct integrating out in v-direction, TODO: check for 5D Maxwellians
+                        factor *= xp.sqrt(2 * xp.pi)
+
+                grid_eval = xp.meshgrid(*grid_tot, indexing="ij")
+
+                data_bckgr = f_bckgr(*grid_eval).squeeze()
+
+                # correct integrating out in v-direction
+                data_bckgr *= factor
+
+                # Now all data is just the data for delta_f
+                data_delta_f = data_df
+
+                # save distribution function
+                xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_delta_f)
+                # add extra axis for data_bckgr since data_delta_f has axis for time series
+                xp.save(
+                    os.path.join(path_slice, "f_binned.npy"),
+                    data_delta_f + data_bckgr[tuple([None])],
                 )
-
-                # check if file exists and is in slice_name
-                if os.path.exists(filename) and current_slice in slice_names:
-                    grid_tot += [xp.load(filename)]
-
-                # otherwise evaluate at zero
-                else:
-                    grid_tot += [xp.zeros(1)]
-
-            # v-grid
-            for comp in range(1, f_bckgr.vdim + 1):
-                current_slice = "v" + str(comp)
-                filename = os.path.join(
-                    path_slice,
-                    "grid_" + current_slice + ".npy",
-                )
-
-                # check if file exists and is in slice_name
-                if os.path.exists(filename) and current_slice in slice_names:
-                    grid_tot += [xp.load(filename)]
-
-                # otherwise evaluate at zero
-                else:
-                    grid_tot += [xp.zeros(1)]
-                    # correct integrating out in v-direction, TODO: check for 5D Maxwellians
-                    factor *= xp.sqrt(2 * xp.pi)
-
-            grid_eval = xp.meshgrid(*grid_tot, indexing="ij")
-
-            data_bckgr = f_bckgr(*grid_eval).squeeze()
-
-            # correct integrating out in v-direction
-            data_bckgr *= factor
-
-            # Now all data is just the data for delta_f
-            data_delta_f = data_df
-
-            # save distribution function
-            xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_delta_f)
-            # add extra axis for data_bckgr since data_delta_f has axis for time series
-            xp.save(
-                os.path.join(path_slice, "f_binned.npy"),
-                data_delta_f + data_bckgr[tuple([None])],
-            )
 
 
 def post_process_n_sph(
