@@ -12,6 +12,7 @@ from line_profiler import profile
 from psydac.ddm.mpi import MockMPI
 from psydac.ddm.mpi import mpi as MPI
 from psydac.linalg.stencil import StencilVector
+from scope_profiler import ProfileManager
 
 import struphy
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
@@ -39,7 +40,6 @@ from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
 from struphy.pic import particles
 from struphy.pic.base import Particles
-from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
@@ -692,7 +692,7 @@ class StruphyModel(metaclass=ABCMeta):
             for propagator in self.prop_list:
                 prop_name = propagator.__class__.__name__
 
-                with ProfileManager.profile_region(prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name):
                     propagator(dt)
 
         # second order in time
@@ -701,17 +701,17 @@ class StruphyModel(metaclass=ABCMeta):
 
             for propagator in self.prop_list[:-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region(prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name):
                     propagator(dt / 2)
 
             propagator = self.prop_list[-1]
             prop_name = type(propagator).__name__
-            with ProfileManager.profile_region(prop_name):
+            with ProfileManager.profile_region("prop: " + prop_name):
                 propagator(dt)
 
             for propagator in self.prop_list[:-1][::-1]:
                 prop_name = type(propagator).__name__
-                with ProfileManager.profile_region(prop_name):
+                with ProfileManager.profile_region("prop: " + prop_name):
                     propagator(dt / 2)
 
         else:

@@ -3,10 +3,10 @@
 import cunumpy as xp
 from line_profiler import profile
 from psydac.ddm.mpi import mpi as MPI
+from scope_profiler import ProfileManager
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles
-from struphy.profiling.profiling import ProfileManager
 from struphy.utils.pyccel import Pyccelkernel
 
 
