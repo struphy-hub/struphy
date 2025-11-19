@@ -2513,7 +2513,6 @@ class WeightedMassOperator(LinOpWithTransp):
     def dtype(self):
         return self._dtype
 
-    @property
     def tosparse(self):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
@@ -2529,7 +2528,6 @@ class WeightedMassOperator(LinOpWithTransp):
         else:
             raise NotImplementedError()
 
-    @property
     def toarray(self):
         if all(op is None for op in (self._W_extraction_op, self._V_extraction_op)):
             for bl in self._V_boundary_op.bc:
@@ -3251,11 +3249,11 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
     @property
     def tosparse(self):
-        raise NotImplementedError()
+        return self.toarray_struphy(is_sparse=True)
 
     @property
     def toarray(self):
-        raise NotImplementedError()
+        return self.toarray_struphy(is_sparse=False)
 
     def transpose(self, conjugate=False):
         return StencilMatrixFreeMassOperator(

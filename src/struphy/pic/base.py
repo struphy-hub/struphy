@@ -1,4 +1,3 @@
-import copy
 import os
 import warnings
 from abc import ABCMeta, abstractmethod
