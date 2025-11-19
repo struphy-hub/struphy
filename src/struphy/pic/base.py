@@ -1259,6 +1259,9 @@ class Particles(metaclass=ABCMeta):
                     assert isinstance(pert, Perturbation)
 
                     if moment == "n":
+                        if pert.given_in_basis is None:
+                            pert.given_in_basis = "0"
+
                         _fun = TransformedPformComponent(
                             pert,
                             pert.given_in_basis,
@@ -1267,6 +1270,8 @@ class Particles(metaclass=ABCMeta):
                             domain=self.domain,
                         )
                     elif moment == "u1":
+                        if pert.given_in_basis is None:
+                            pert.given_in_basis = "v"
                         _fun = TransformedPformComponent(
                             pert,
                             pert.given_in_basis,
