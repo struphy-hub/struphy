@@ -65,7 +65,7 @@ jobs:
           which python3
           struphy compile
 
-      - name: Model tests
+      - name: LinearMHD test
         shell: bash
         run: |
           which python3
@@ -73,9 +73,30 @@ jobs:
           which python3
           struphy compile --status
           struphy test LinearMHD
+
+      - name: Toy test
+        shell: bash
+        run: |
+          which python3
+          source /struphy_c_/env_c_/bin/activate
+          which python3
           struphy test toy
+
+      - name: Model tests
+        shell: bash
+        run: |
+          which python3
+          source /struphy_c_/env_c_/bin/activate
+          which python3
           struphy test models 
-          struphy test verification 
+
+      - name: Verification tests
+        shell: bash
+        run: |
+          which python3
+          source /struphy_c_/env_c_/bin/activate
+          which python3
+          struphy test verification
 
       - name: Model tests with MPI
         shell: bash
