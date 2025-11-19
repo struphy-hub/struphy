@@ -61,32 +61,29 @@ def main(
         os.mkdir(path_pproc)
 
     # check for fields and kinetic data in hdf5 file that need post processing
-    file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
+    with h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r") as file:
+        # save time grid at which post-processing data is created
+        xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
-    # save time grid at which post-processing data is created
-    xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+        if "feec" in file.keys():
+            exist_fields = True
+        else:
+            exist_fields = False
 
-    if "feec" in file.keys():
-        exist_fields = True
-    else:
-        exist_fields = False
-
-    if "kinetic" in file.keys():
-        exist_kinetic = {"markers": False, "f": False, "n_sph": False}
-        for name in file["kinetic"].keys():
-            # check for saved markers
-            if "markers" in file["kinetic"][name]:
-                exist_kinetic["markers"] = True
-            # check for saved distribution function
-            if "f" in file["kinetic"][name]:
-                exist_kinetic["f"] = True
-            # check for saved sph density
-            if "n_sph" in file["kinetic"][name]:
-                exist_kinetic["n_sph"] = True
-    else:
-        exist_kinetic = None
-
-    file.close()
+        if "kinetic" in file.keys():
+            exist_kinetic = {"markers": False, "f": False, "n_sph": False}
+            for name in file["kinetic"].keys():
+                # check for saved markers
+                if "markers" in file["kinetic"][name]:
+                    exist_kinetic["markers"] = True
+                # check for saved distribution function
+                if "f" in file["kinetic"][name]:
+                    exist_kinetic["f"] = True
+                # check for saved sph density
+                if "n_sph" in file["kinetic"][name]:
+                    exist_kinetic["n_sph"] = True
+        else:
+            exist_kinetic = None
 
     # import parameters
     params_in = import_parameters_py(os.path.join(path, "parameters.py"))

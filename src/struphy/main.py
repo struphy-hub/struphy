@@ -280,9 +280,10 @@ def run(
     if restart:
         model.initialize_from_restart(data)
 
-        time_state["value"][0] = data.file["restart/time/value"][-1]
-        time_state["value_sec"][0] = data.file["restart/time/value_sec"][-1]
-        time_state["index"][0] = data.file["restart/time/index"][-1]
+        with h5py.File(data.file_path, "a") as file:
+            time_state["value"][0] = file["restart/time/value"][-1]
+            time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
+            time_state["index"][0] = file["restart/time/index"][-1]
 
         total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
     else:
@@ -317,7 +318,6 @@ def run(
         if break_cond_1 or break_cond_2:
             # save restart data (other data already saved below)
             data.save_data(keys=save_keys_end)
-            data.file.close()
             end_simulation = time.time()
             if rank == 0:
                 print(f"\nTime steps done: {time_state['index'][0]}")
@@ -474,37 +474,34 @@ def pproc(
         return
 
     # check for fields and kinetic data in hdf5 file that need post processing
-    file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
+    with h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r") as file:
+        # save time grid at which post-processing data is created
+        xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
-    # save time grid at which post-processing data is created
-    xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+        if "feec" in file.keys():
+            exist_fields = True
+        else:
+            exist_fields = False
 
-    if "feec" in file.keys():
-        exist_fields = True
-    else:
-        exist_fields = False
+        if "kinetic" in file.keys():
+            exist_kinetic = {"markers": False, "f": False, "n_sph": False}
+            kinetic_species = []
+            kinetic_kinds = []
+            for name in file["kinetic"].keys():
+                kinetic_species += [name]
+                kinetic_kinds += [next(iter(model.species[name].variables.values())).space]
 
-    if "kinetic" in file.keys():
-        exist_kinetic = {"markers": False, "f": False, "n_sph": False}
-        kinetic_species = []
-        kinetic_kinds = []
-        for name in file["kinetic"].keys():
-            kinetic_species += [name]
-            kinetic_kinds += [next(iter(model.species[name].variables.values())).space]
-
-            # check for saved markers
-            if "markers" in file["kinetic"][name]:
-                exist_kinetic["markers"] = True
-            # check for saved distribution function
-            if "f" in file["kinetic"][name]:
-                exist_kinetic["f"] = True
-            # check for saved sph density
-            if "n_sph" in file["kinetic"][name]:
-                exist_kinetic["n_sph"] = True
-    else:
-        exist_kinetic = None
-
-    file.close()
+                # check for saved markers
+                if "markers" in file["kinetic"][name]:
+                    exist_kinetic["markers"] = True
+                # check for saved distribution function
+                if "f" in file["kinetic"][name]:
+                    exist_kinetic["f"] = True
+                # check for saved sph density
+                if "n_sph" in file["kinetic"][name]:
+                    exist_kinetic["n_sph"] = True
+        else:
+            exist_kinetic = None
 
     # field post-processing
     if exist_fields:
