@@ -1365,7 +1365,8 @@ class Particles(metaclass=ABCMeta):
             data_path = self.loading_params.dir_particles_abs
 
         data = DataContainer(data_path, comm=self.mpi_comm)
-        self._markers[:, :] = data.file["restart/" + self.loading_params.restart_key][-1, :, :]
+        with h5py.File(data.file_path, "a") as file:
+            self._markers[:, :] = file["restart/" + self.loading_params.restart_key][-1, :, :]
 
     def _load_tesselation(self, n_quad: int = 1):
         """

@@ -280,9 +280,10 @@ def run(
     if restart:
         model.initialize_from_restart(data)
 
-        time_state["value"][0] = data.file["restart/time/value"][-1]
-        time_state["value_sec"][0] = data.file["restart/time/value_sec"][-1]
-        time_state["index"][0] = data.file["restart/time/index"][-1]
+        with h5py.File(data.file_path, "a") as file:
+            time_state["value"][0] = file["restart/time/value"][-1]
+            time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
+            time_state["index"][0] = file["restart/time/index"][-1]
 
         total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
     else:
