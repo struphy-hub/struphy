@@ -20,18 +20,40 @@ permissions:
 jobs:
   unit-tests-in-container-with-struphy:
     runs-on: ubuntu-latest
+
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
       credentials:
         username: spossann
         password: ${{ secrets.GHCR_TOKEN }}
-    steps:
 
+    env:
+      TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
+
+    steps:
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
 
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Setup cache for testmon
+        uses: actions/cache@v4
+        with:
+          path: .testmondata-unit
+          key: testmon-unit-${{ github.sha }}
+          restore-keys: |
+            testmon-unit-${{ github.ref }}-
+            testmon-unit-${{ github.ref_name }}-
+            testmon-unit-refs/heads/devel-
+            testmon-unit-devel-
+            testmon-unit-
+
+      - name: Check .testmondata
+        run: |
+          ls -a
+          ls -la testmon* || echo "No .testmondata"
+          ls -la .testmon* || echo "No .testmondata"
 
       - name: Install Struphy in Container
         uses: ./.github/actions/install/struphy_in_container
@@ -66,4 +88,9 @@ jobs:
           pip install -U mpi4py
           struphy test unit --mpi 2
 
-      
+      - name: Upload .testmondata as cache for later tests
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .testmondata-unit
+          key: testmon-unit-${{ github.sha }}
