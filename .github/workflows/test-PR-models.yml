@@ -52,6 +52,7 @@ jobs:
       - name: Check .testmondata
         run: |
           ls -a
+          ls -a *testmon* || echo "No .testmondata"
           ls -la ${{ github.workspace }}/struphy_c_/.testmon* || echo "No .testmondata"
 
       - name: Install Struphy in Container
