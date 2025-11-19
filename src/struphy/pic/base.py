@@ -1327,25 +1327,20 @@ class Particles(metaclass=ABCMeta):
             Cumulative sum of number of markers on each process at loading stage.
         """
         if self.mpi_rank == 0:
-            file = h5py.File(
-                self.loading_params.dir_external,
-                "r",
-            )
-            print(f"\nLoading markers from file: {file}")
+            with h5py.File(self.loading_params.dir_external, "r") as file:
+                print(f"\nLoading markers from file: {file}")
 
-            self._markers[
-                : n_mks_load_cum_sum[0],
-                :,
-            ] = file["markers"][: n_mks_load_cum_sum[0], :]
+                self._markers[
+                    : n_mks_load_cum_sum[0],
+                    :,
+                ] = file["markers"][: n_mks_load_cum_sum[0], :]
 
-            for i in range(1, self._mpi_size):
-                self._mpi_comm.Send(
-                    file["markers"][n_mks_load_cum_sum[i - 1] : n_mks_load_cum_sum[i], :],
-                    dest=i,
-                    tag=123,
-                )
-
-            file.close()
+                for i in range(1, self._mpi_size):
+                    self._mpi_comm.Send(
+                        file["markers"][n_mks_load_cum_sum[i - 1] : n_mks_load_cum_sum[i], :],
+                        dest=i,
+                        tag=123,
+                    )
         else:
             recvbuf = xp.zeros(
                 (n_mks_load_loc, self.markers.shape[1]),
