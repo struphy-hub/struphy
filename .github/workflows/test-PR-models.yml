@@ -20,18 +20,40 @@ permissions:
 jobs:
   model-tests-in-container-with-struphy:
     runs-on: ubuntu-latest
+
     container:
       image: ghcr.io/struphy-hub/struphy/ubuntu-with-struphy:latest
       credentials:
         username: spossann
         password: ${{ secrets.GHCR_TOKEN }}
-    steps:
 
+    env:
+      TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
+
+    steps:
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
 
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Setup cache for testmon
+        uses: actions/cache@v4
+        with:
+          path: .testmondata-model
+          key: testmon-model-${{ github.sha }}
+          restore-keys: |
+            testmon-model-${{ github.ref }}-
+            testmon-model-${{ github.ref_name }}-
+            testmon-model-refs/heads/devel-
+            testmon-model-devel-
+            testmon-model-
+
+      - name: Check .testmondata
+        run: |
+          ls -a
+          ls -la testmon* || echo "No .testmondata"
+          ls -la .testmon* || echo "No .testmondata"
 
       - name: Install Struphy in Container
         uses: ./.github/actions/install/struphy_in_container
@@ -68,3 +90,10 @@ jobs:
           struphy test verification --mpi 4
           struphy test verification --mpi 4 --nclones 2
           struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2
+
+      - name: Upload .testmondata as cache for later tests
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .testmondata-model
+          key: testmon-model-${{ github.sha }}
