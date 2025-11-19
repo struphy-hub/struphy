@@ -8,11 +8,11 @@ import warnings
 from time import time
 
 import cunumpy as xp
+from psydac.ddm.mpi import MockMPI
+from psydac.ddm.mpi import mpi as MPI
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
-from psydac.ddm.mpi import MockMPI
-from psydac.ddm.mpi import mpi as MPI
 
 import struphy
 from struphy.fields_background.base import (
@@ -34,10 +34,10 @@ from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 from struphy.utils.utils import read_state, subp_run
 
 if isinstance(MPI, MockMPI):
-        comm = None
-        rank = 0
-        size = 1
-        Barrier = lambda: None
+    comm = None
+    rank = 0
+    size = 1
+    Barrier = lambda: None
 else:
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()

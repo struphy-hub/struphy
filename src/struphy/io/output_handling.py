@@ -62,7 +62,7 @@ class DataContainer:
     def file_name(self):
         """The hdf5 file name."""
         return self._file_name
-    
+
     @property
     def file_path(self):
         """The absolute path to the hdf5 file."""
