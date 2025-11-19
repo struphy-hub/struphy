@@ -40,6 +40,23 @@ def struphy_test(
     """
 
     if "unit" in group:
+        
+        list_of_tests = [
+            f"{LIBPATH}/bsplines/tests/",
+            f"{LIBPATH}/console/tests/",
+            f"{LIBPATH}/feec/tests/",
+            f"{LIBPATH}/fields_background/tests/",
+            f"{LIBPATH}/geometry/tests/",
+            f"{LIBPATH}/initial/tests/",
+            f"{LIBPATH}/kinetic_background/tests/",
+            f"{LIBPATH}/linear_algebra/tests/",
+            f"{LIBPATH}/ode/tests/",
+            f"{LIBPATH}/pic/tests/",
+            f"{LIBPATH}/polar/tests/",
+            f"{LIBPATH}/post_processing/tests/",
+            f"{LIBPATH}/propagators/tests/",
+            ]
+        
         if mpi > 1:
             cmd = [
                 "mpirun",
@@ -48,14 +65,13 @@ def struphy_test(
                 "pytest",
                 # "--testmon",
                 "--with-mpi",
-                f"{LIBPATH}/tests/unit/",
+                f"{LIBPATH}/bsplines/tests/",
             ]
         else:
             cmd = [
                 "pytest",
                 "--testmon",
-                f"{LIBPATH}/tests/unit/",
-            ]
+            ] + list_of_tests
 
         if with_desc:
             cmd += ["--with-desc"]
