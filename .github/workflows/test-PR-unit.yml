@@ -78,8 +78,8 @@ jobs:
       #     pip install -U mpi4py
       #     struphy test unit --mpi 2
 
-      - name: Upload .testmondata as cache for later tests
-        uses: actions/cache/save@v4
-        with:
-          path: .testmondata-unit
-          key: testmon-unit-${{ github.event.number }}-${{ github.run_number }}
+      # - name: Upload .testmondata as cache for later tests
+      #   uses: actions/cache/save@v4
+      #   with:
+      #     path: .testmondata-unit
+      #     key: testmon-unit-${{ github.event.number }}-${{ github.run_number }}

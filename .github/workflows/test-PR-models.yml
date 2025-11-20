@@ -100,8 +100,8 @@ jobs:
       #     struphy test verification --mpi 4 --nclones 2
       #     struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2
 
-      - name: Upload .testmondata as cache for later tests
-        uses: actions/cache/save@v4
-        with:
-          path: .testmondata-model
-          key: testmon-model-${{ github.event.number }}-${{ github.run_number }}
+      # - name: Upload .testmondata as cache for later tests
+      #   uses: actions/cache/save@v4
+      #   with:
+      #     path: .testmondata-model
+      #     key: testmon-model-${{ github.event.number }}-${{ github.run_number }}
