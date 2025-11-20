@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .testmondata-model
-          key: testmon-model-${{ github.event.number }}-${{ github.run_attempt }}
+          key: testmon-model-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
             testmon-model-${{ github.event.number }}-
             testmon-model-
@@ -104,4 +104,4 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .testmondata-model
-          key: testmon-model-${{ github.event.number }}-${{ github.run_attempt }}
+          key: testmon-model-${{ github.event.number }}-${{ github.run_number }}
