@@ -27,8 +27,8 @@ jobs:
         username: spossann
         password: ${{ secrets.GHCR_TOKEN }}
 
-    env:
-      TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
+    # env:
+    #   TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
 
     steps:
       - name: Check for dockerenv file
@@ -44,7 +44,7 @@ jobs:
       - name: Setup cache for testmon
         uses: actions/cache@v4
         with:
-          path: .testmondata-unit
+          path: .testmondata
           key: testmon-unit-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
             testmon-unit-${{ github.event.number }}-
