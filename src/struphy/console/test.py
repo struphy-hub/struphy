@@ -103,10 +103,10 @@ def struphy_test(
         else:
             cmd = [
                 "pytest",
-                "--testmon",
-                # "-m",
-                # group,
-                # "--testmon-forceselect",
+                # "--testmon",
+                "-m",
+                group,
+                "--testmon-forceselect",
                 # "-s",
             ] + list_of_tests
 

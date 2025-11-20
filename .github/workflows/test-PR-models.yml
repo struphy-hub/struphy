@@ -49,6 +49,10 @@ jobs:
         run: |
           ls .testmon* || echo "No .testmondata"
 
+      - name: Remove .testmondata 
+        run: |
+          rm .testmon* || echo "No .testmondata"
+
       - name: Install sqlite
         shell: bash
         run: apt install -y sqlite3
