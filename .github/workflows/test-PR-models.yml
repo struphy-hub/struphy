@@ -37,6 +37,10 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Check .testmondata 1
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
       - name: Setup cache for testmon
         uses: actions/cache@v4
         with:
@@ -46,7 +50,7 @@ jobs:
             testmon-model-${{ github.event.number }}-
             testmon-model-
 
-      - name: Check .testmondata 
+      - name: Check .testmondata 2
         run: |
           ls .testmon* || echo "No .testmondata"
 

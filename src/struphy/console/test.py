@@ -47,7 +47,7 @@ def struphy_test(
             f"{LIBPATH}/feec/tests/",
             f"{LIBPATH}/fields_background/tests/",
             f"{LIBPATH}/geometry/tests/",
-            # f"{LIBPATH}/initial/tests/",
+            f"{LIBPATH}/initial/tests/",
             # f"{LIBPATH}/kinetic_background/tests/",
             # f"{LIBPATH}/linear_algebra/tests/",
             # f"{LIBPATH}/ode/tests/",
