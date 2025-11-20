@@ -77,7 +77,6 @@ jobs:
 
       - name: Upload .testmondata as cache for later tests
         uses: actions/cache/save@v4
-        if: always()
         with:
           path: .testmondata-unit
           key: testmon-unit-${{ github.event.number }}-2
