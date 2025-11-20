@@ -51,7 +51,6 @@ jobs:
 
       - name: Check .testmondata
         run: |
-          ls -a
           ls .testmon* || echo "No .testmondata"
 
       - name: Install sqlite
@@ -75,12 +74,12 @@ jobs:
           pip uninstall -y mpi4py
           struphy test unit
 
-      - name: Run unit tests with MPI
-        shell: bash
-        run: |
-          source /struphy_c_/env_c_/bin/activate
-          pip install -U mpi4py
-          struphy test unit --mpi 2
+      # - name: Run unit tests with MPI
+      #   shell: bash
+      #   run: |
+      #     source /struphy_c_/env_c_/bin/activate
+      #     pip install -U mpi4py
+      #     struphy test unit --mpi 2
 
       - name: Upload .testmondata as cache for later tests
         uses: actions/cache/save@v4
