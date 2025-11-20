@@ -41,12 +41,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .testmondata-model
-          key: testmon-model-${{ github.sha }}
+          key: testmon-model-${{ github.event.number }}
           restore-keys: |
-            testmon-model-${{ github.ref }}-
-            testmon-model-${{ github.ref_name }}- 
-            testmon-model-refs/heads/devel- 
-            testmon-model-devel- 
             testmon-model- 
 
       - name: Check .testmondata 
@@ -75,7 +71,6 @@ jobs:
         shell: bash
         run: |
           source /struphy_c_/env_c_/bin/activate
-          struphy test toy
           struphy test toy
 
       # - name: Model tests
@@ -109,4 +104,4 @@ jobs:
         if: always()
         with:
           path: .testmondata-model
-          key: testmon-model-${{ github.sha }}
+          key: testmon-model-${{ github.event.number }}

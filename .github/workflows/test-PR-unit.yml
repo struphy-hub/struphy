@@ -41,12 +41,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .testmondata-unit
-          key: testmon-unit-${{ github.sha }}
+          key: testmon-unit-${{ github.event.number }}
           restore-keys: |
-            testmon-unit-${{ github.ref }}- 
-            testmon-unit-${{ github.ref_name }}- 
-            testmon-unit-refs/heads/devel-
-            testmon-unit-devel-
             testmon-unit-
 
       - name: Check .testmondata
@@ -86,4 +82,4 @@ jobs:
         if: always()
         with:
           path: .testmondata-unit
-          key: testmon-unit-${{ github.sha }}
+          key: testmon-unit-${{ github.event.number }}
