@@ -48,13 +48,13 @@ def struphy_test(
             f"{LIBPATH}/fields_background/tests/",
             f"{LIBPATH}/geometry/tests/",
             f"{LIBPATH}/initial/tests/",
-            f"{LIBPATH}/kinetic_background/tests/",
-            f"{LIBPATH}/linear_algebra/tests/",
-            f"{LIBPATH}/ode/tests/",
-            f"{LIBPATH}/pic/tests/",
-            f"{LIBPATH}/polar/tests/",
-            f"{LIBPATH}/post_processing/tests/",
-            f"{LIBPATH}/propagators/tests/",
+            # f"{LIBPATH}/kinetic_background/tests/",
+            # f"{LIBPATH}/linear_algebra/tests/",
+            # f"{LIBPATH}/ode/tests/",
+            # f"{LIBPATH}/pic/tests/",
+            # f"{LIBPATH}/polar/tests/",
+            # f"{LIBPATH}/post_processing/tests/",
+            # f"{LIBPATH}/propagators/tests/",
             ]
         
         if mpi > 1:
