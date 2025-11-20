@@ -49,10 +49,6 @@ jobs:
         run: |
           ls .testmon* || echo "No .testmondata"
 
-      - name: Remove .testmondata 
-        run: |
-          rm .testmon* || echo "No .testmondata"
-
       - name: Install sqlite
         shell: bash
         run: apt install -y sqlite3
@@ -75,6 +71,7 @@ jobs:
         shell: bash
         run: |
           source /struphy_c_/env_c_/bin/activate
+          struphy test toy
           struphy test toy
 
       # - name: Model tests
