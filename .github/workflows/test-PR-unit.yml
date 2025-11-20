@@ -41,7 +41,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .testmondata-unit
-          key: testmon-unit-${{ github.event.number }}-2
+          key: testmon-unit-${{ github.event.number }}-${{ github.run_attempt }}
+          restore-keys: |
+            testmon-unit-${{ github.event.number }}-
+            testmon-unit-
 
       - name: Check .testmondata
         run: |
@@ -79,4 +82,4 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .testmondata-unit
-          key: testmon-unit-${{ github.event.number }}-2
+          key: testmon-unit-${{ github.event.number }}-${{ github.run_attempt }}
