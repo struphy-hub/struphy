@@ -28,7 +28,7 @@ jobs:
         password: ${{ secrets.GHCR_TOKEN }}
 
     env:
-      TESTMON_DATAFILE: ${{ github.workspace }}/struphy_c_/.testmondata-model
+      TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
 
     steps:
       - name: Check for dockerenv file
@@ -40,8 +40,8 @@ jobs:
       - name: Setup cache for testmon
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/struphy_c_/.testmondata-model
-          key: testmon-model-${{ github.sha }} # Primary key: exact commit-specific cache
+          path: .testmondata-model
+          key: testmon-model-${{ github.sha }}
           restore-keys: |
             testmon-model-${{ github.ref }}-
             testmon-model-${{ github.ref_name }}- 
@@ -53,7 +53,6 @@ jobs:
         run: |
           ls -a
           ls -a *testmon* || echo "No .testmondata"
-          ls -la ${{ github.workspace }}/struphy_c_/.testmon* || echo "No .testmondata"
 
       - name: Install Struphy in Container
         uses: ./.github/actions/install/struphy_in_container
@@ -116,5 +115,5 @@ jobs:
         uses: actions/cache/save@v4
         if: always()
         with:
-          path: ${{ github.workspace }}/struphy_c_/.testmondata-model
+          path: .testmondata-model
           key: testmon-model-${{ github.sha }}
