@@ -43,7 +43,7 @@ def struphy_test(
         
         list_of_tests = [
             f"{LIBPATH}/bsplines/tests/",
-            # f"{LIBPATH}/console/tests/",
+            f"{LIBPATH}/console/tests/",
             # f"{LIBPATH}/feec/tests/",
             # f"{LIBPATH}/fields_background/tests/",
             # f"{LIBPATH}/geometry/tests/",
@@ -106,6 +106,7 @@ def struphy_test(
                 "-m",
                 group,
                 "--testmon-forceselect",
+                "-s",
             ] + list_of_tests
 
         if vrbose:
