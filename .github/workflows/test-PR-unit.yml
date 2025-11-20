@@ -52,7 +52,7 @@ jobs:
       - name: Check .testmondata
         run: |
           ls -a
-          ls -a *testmon* || echo "No .testmondata"
+          ls .testmon* || echo "No .testmondata"
 
       - name: Install sqlite
         shell: bash
