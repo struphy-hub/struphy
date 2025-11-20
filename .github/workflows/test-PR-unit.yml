@@ -75,6 +75,13 @@ jobs:
           pip uninstall -y mpi4py
           struphy test unit
 
+      - name: Check .testmondata 3
+        run: |
+          ls -a
+          ls .testmon* || echo "No .testmondata"
+          pwd
+          pip show struphy
+
       # - name: Run unit tests with MPI
       #   shell: bash
       #   run: |

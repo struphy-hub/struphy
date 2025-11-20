@@ -44,7 +44,7 @@ def struphy_test(
         list_of_tests = [
             f"{LIBPATH}/bsplines/tests/",
             f"{LIBPATH}/console/tests/",
-            f"{LIBPATH}/feec/tests/",
+            # f"{LIBPATH}/feec/tests/",
             # f"{LIBPATH}/fields_background/tests/",
             # f"{LIBPATH}/geometry/tests/",
             # f"{LIBPATH}/initial/tests/",

@@ -78,6 +78,13 @@ jobs:
           source /struphy_c_/env_c_/bin/activate
           struphy test toy
 
+      - name: Check .testmondata 3
+        run: |
+          ls -a
+          ls .testmon* || echo "No .testmondata"
+          pwd
+          pip show struphy
+
       # - name: Model tests
       #   shell: bash
       #   run: |
