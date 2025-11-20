@@ -44,7 +44,10 @@ jobs:
       - name: Setup cache for testmon
         uses: actions/cache@v4
         with:
-          path: .testmondata-model
+          path: |
+            .testmondata-model
+            .testmondata-model-shm
+            .testmondata-model-wal
           key: testmon-model-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
             testmon-model-${{ github.event.number }}-
@@ -81,8 +84,6 @@ jobs:
 
       - name: Check .testmondata 3
         run: |
-          source /struphy_c_/env_c_/bin/activate
-          ls -a
           ls .testmon* || echo "No .testmondata"
           pwd
 
