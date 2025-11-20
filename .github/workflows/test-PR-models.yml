@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .testmondata-model
-          key: testmon-model-${{ github.event.number }}
+          key: testmon-model-${{ github.event.number }}-2
 
       - name: Check .testmondata 
         run: |
@@ -102,4 +102,4 @@ jobs:
         if: always()
         with:
           path: .testmondata-model
-          key: testmon-model-${{ github.event.number }}
+          key: testmon-model-${{ github.event.number }}-2
