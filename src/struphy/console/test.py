@@ -44,7 +44,7 @@ def struphy_test(
         list_of_tests = [
             f"{LIBPATH}/bsplines/tests/",
             f"{LIBPATH}/console/tests/",
-            # f"{LIBPATH}/feec/tests/",
+            f"{LIBPATH}/feec/tests/",
             # f"{LIBPATH}/fields_background/tests/",
             # f"{LIBPATH}/geometry/tests/",
             # f"{LIBPATH}/initial/tests/",
@@ -103,10 +103,11 @@ def struphy_test(
         else:
             cmd = [
                 "pytest",
-                "-m",
-                group,
-                "--testmon-forceselect",
-                "-s",
+                "--testmon",
+                # "-m",
+                # group,
+                # "--testmon-forceselect",
+                # "-s",
             ] + list_of_tests
 
         if vrbose:
