@@ -70,7 +70,6 @@ jobs:
         run: |
           source /struphy_c_/env_c_/bin/activate
           struphy test toy
-          struphy test toy
 
       # - name: Model tests
       #   shell: bash
