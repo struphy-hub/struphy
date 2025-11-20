@@ -103,9 +103,9 @@ def struphy_test(
         else:
             cmd = [
                 "pytest",
-                # "-m",
-                # group,
-                "--testmon",
+                "-m",
+                group,
+                "--testmon-forceselect",
             ] + list_of_tests
 
         if vrbose:
