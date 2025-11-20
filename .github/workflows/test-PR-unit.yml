@@ -77,6 +77,7 @@ jobs:
 
       - name: Check .testmondata 3
         run: |
+          source /struphy_c_/env_c_/bin/activate
           ls -a
           ls .testmon* || echo "No .testmondata"
           pwd

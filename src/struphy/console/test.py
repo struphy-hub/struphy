@@ -79,7 +79,7 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        subp_run(cmd)
+        subp_run(cmd, cwd=os.getcwd())
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
         
@@ -117,7 +117,7 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        subp_run(cmd)
+        subp_run(cmd, cwd=os.getcwd())
 
     elif "verification" in group:
         
