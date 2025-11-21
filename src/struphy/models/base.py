@@ -96,6 +96,8 @@ class StruphyModel(metaclass=ABCMeta):
         for _, species in self.particle_species.items():
             assert isinstance(species, ParticleSpecies)
             species.setup_equation_params(units=units, verbose=verbose)
+            
+        print("hi")
 
     def setup_domain_and_equil(self, domain: Domain, equil: FluidEquilibrium):
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
