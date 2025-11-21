@@ -65,14 +65,6 @@ jobs:
           source /struphy_c_/env_c_/bin/activate
           struphy compile
 
-      - name: Verification tests with 4 MPI
-        shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-clones
-        run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy test verification --mpi 4
-
       - name: Verification tests with clones
         shell: bash
         env:
