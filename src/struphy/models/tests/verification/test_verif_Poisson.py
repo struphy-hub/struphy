@@ -1,5 +1,6 @@
 import os
 import shutil
+import tempfile
 
 import cunumpy as xp
 from matplotlib import pyplot as plt
