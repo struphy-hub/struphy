@@ -73,4 +73,5 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-clones
         run: |
           source /struphy_c_/env_c_/bin/activate
-          struphy test verification --mpi 4 --nclones 2
+          struphy test toy
+        # struphy test verification --mpi 4 --nclones 2

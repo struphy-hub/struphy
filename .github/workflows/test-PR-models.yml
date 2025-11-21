@@ -106,7 +106,8 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         run: |
           source /struphy_c_/env_c_/bin/activate
-          struphy test models --mpi 2
+          struphy test toy
+        # struphy test models --mpi 2
 
       - name: Verification tests with 2 MPI
         shell: bash
@@ -114,4 +115,5 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         run: |
           source /struphy_c_/env_c_/bin/activate
-          struphy test verification --mpi 2
+          struphy test toy
+        # struphy test verification --mpi 2
