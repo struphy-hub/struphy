@@ -48,7 +48,7 @@ test_folder = os.path.join(os.getcwd(), "struphy_model_tests")
 
 
 # generic function for calling model tests
-def call_test(model_name: str, module: ModuleType = None, verbose=True):
+def call_test(model_name: str, module: ModuleType = None, test_pproc: bool = False, verbose=True,):
     if rank == 0:
         print(f"\n*** Testing '{model_name}':")
 
@@ -105,9 +105,10 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
         verbose=verbose,
     )
 
-    MPI.COMM_WORLD.Barrier()
-    if rank == 0:
-        path_out = os.path.join(test_folder, model_name)
-        main.pproc(path=path_out)
-        main.load_data(path=path_out)
-    MPI.COMM_WORLD.Barrier()
+    if test_pproc:
+        MPI.COMM_WORLD.Barrier()
+        if rank == 0:
+            path_out = os.path.join(test_folder, model_name)
+            main.pproc(path=path_out)
+            main.load_data(path=path_out)
+        MPI.COMM_WORLD.Barrier()
