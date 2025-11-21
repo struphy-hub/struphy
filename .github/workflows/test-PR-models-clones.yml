@@ -43,9 +43,11 @@ jobs:
         with:
           path: |
             .testmondata-clones
-          key: testmon-clones-${{ github.event.number }}-${{ github.run_number }}
+          key: testmon-clones-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
-            testmon-clones-${{ github.event.number }}-
+            testmon-clones-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-clones-${{ github.ref_name }}
+            testmon-clones-devel
             testmon-clones-
 
       - name: Check .testmondata 2

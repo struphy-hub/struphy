@@ -43,9 +43,11 @@ jobs:
         with:
           path: |
             .testmondata-pure-python
-          key: testmon-pure-python-${{ github.event.number }}-${{ github.run_number }}
+          key: testmon-pure-python-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
-            testmon-pure-python-${{ github.event.number }}-
+            testmon-pure-python-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-pure-python-${{ github.ref_name }}
+            testmon-pure-python-devel
             testmon-pure-python-
 
       - name: Check .testmondata 2

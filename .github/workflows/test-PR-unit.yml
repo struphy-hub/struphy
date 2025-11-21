@@ -44,9 +44,11 @@ jobs:
           path: |
             .testmondata-unit
             .testmondata-unit-mpi
-          key: testmon-unit-${{ github.event.number }}-${{ github.run_number }}
+          key: testmon-unit-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
-            testmon-unit-${{ github.event.number }}-
+            testmon-unit-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-unit-${{ github.ref_name }}
+            testmon-unit-devel
             testmon-unit-
 
       - name: Check .testmondata 2

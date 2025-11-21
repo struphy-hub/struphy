@@ -44,9 +44,11 @@ jobs:
           path: |
             .testmondata-model
             .testmondata-model-mpi
-          key: testmon-model-${{ github.event.number }}-${{ github.run_number }}
+          key: testmon-model-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
-            testmon-model-${{ github.event.number }}-
+            testmon-model-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-model-${{ github.ref_name }}
+            testmon-model-devel
             testmon-model-
 
       - name: Check .testmondata 2
