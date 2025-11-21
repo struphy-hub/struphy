@@ -1,6 +1,7 @@
 import inspect
 import os
 from types import ModuleType
+import shutil
 
 import pytest
 from psydac.ddm.mpi import mpi as MPI
@@ -43,12 +44,8 @@ if rank == 0:
     print(f"\n{hybrid_models =}")
 
 
-# folder for test simulations
-test_folder = os.path.join(os.getcwd(), "struphy_model_tests")
-
-
 # generic function for calling model tests
-def call_test(model_name: str, module: ModuleType = None, test_pproc: bool = True, verbose=True,):
+def call_test(model_name: str, module: ModuleType = None, verbose=True):
     if rank == 0:
         print(f"\n*** Testing '{model_name}':")
 
@@ -71,6 +68,7 @@ def call_test(model_name: str, module: ModuleType = None, test_pproc: bool = Tru
     assert isinstance(model, StruphyModel)
 
     # generate paramater file for testing
+    test_folder = os.path.join(os.getcwd(), "struphy_model_test")
     path = os.path.join(test_folder, f"params_{model_name}.py")
 
     if rank == 0:
@@ -105,10 +103,10 @@ def call_test(model_name: str, module: ModuleType = None, test_pproc: bool = Tru
         verbose=verbose,
     )
 
-    if test_pproc:
-        # MPI.COMM_WORLD.Barrier()
-        # if rank == 0:
+    MPI.COMM_WORLD.Barrier()
+    if rank == 0:
         path_out = os.path.join(test_folder, model_name)
         main.pproc(path=path_out)
         main.load_data(path=path_out)
-        # MPI.COMM_WORLD.Barrier()
+        shutil.rmtree(test_folder)
+    MPI.COMM_WORLD.Barrier()

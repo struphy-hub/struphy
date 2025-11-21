@@ -82,43 +82,6 @@ jobs:
         run: |
           source /struphy_c_/env_c_/bin/activate
           struphy test toy
-          struphy test toy
-
-      - name: Toy test 2
-        shell: bash
-        run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy test toy
-
-      - name: Upload .testmondata as cache for later tests
-        uses: actions/cache/save@v4
-        with:
-          path: .testmondata-model
-          key: testmon-model-${{ github.event.number }}-${{ github.sha }}
-
-      - name: Remove .testmondata 
-        run: |
-          rm .testmon* || echo "No .testmondata"
-
-      - name: Check .testmondata 3
-        run: |
-          ls .testmon* || echo "No .testmondata"
-
-      - name: Restore .testmondata as cache for later tests
-        uses: actions/cache/restore@v4
-        with:
-          path: .testmondata-model
-          key: testmon-model-${{ github.event.number }}-${{ github.sha }}
-
-      - name: Check .testmondata 4
-        run: |
-          ls .testmon* || echo "No .testmondata"
-
-      - name: Toy test 3
-        shell: bash
-        run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy test toy
 
       # - name: Model tests
       #   shell: bash
