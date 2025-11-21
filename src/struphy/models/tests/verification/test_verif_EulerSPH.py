@@ -160,7 +160,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         print(f"SPH sound wave {error =}.")
         assert error < 6e-4
         print("Assertion passed.")
-        
+
         shutil.rmtree(test_folder)
 
 

@@ -142,7 +142,7 @@ def test_poisson_1d(do_plot=False):
         plt.show()
         print(f"{err =}")
         assert err < 0.0057
-        
+
         shutil.rmtree(test_folder)
 
 

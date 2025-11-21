@@ -147,7 +147,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         print(f"{v_fast =}")
         assert xp.abs(coeffs[0][0] - v_slow) < 0.05
         assert xp.abs(coeffs[1][0] - v_fast) < 0.19
-        
+
         shutil.rmtree(test_folder)
 
 
