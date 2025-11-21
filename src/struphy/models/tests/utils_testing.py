@@ -77,7 +77,6 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
         model.generate_default_parameter_file(path=path, prompt=False)
         del model
     MPI.COMM_WORLD.Barrier()
-    return
 
     # set environment options
     env = EnvironmentOptions(out_folders=test_folder, sim_folder=f"{model_name}")
@@ -105,6 +104,7 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
         derham_opts=derham_opts,
         verbose=verbose,
     )
+    return
 
     MPI.COMM_WORLD.Barrier()
     if rank == 0:
