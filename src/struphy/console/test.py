@@ -40,7 +40,6 @@ def struphy_test(
     """
 
     if "unit" in group:
-        
         list_of_tests = [
             f"{LIBPATH}/bsplines/tests/",
             f"{LIBPATH}/console/tests/",
@@ -55,8 +54,8 @@ def struphy_test(
             f"{LIBPATH}/polar/tests/",
             f"{LIBPATH}/post_processing/tests/",
             f"{LIBPATH}/propagators/tests/",
-            ]
-        
+        ]
+
         if mpi > 1:
             cmd = [
                 "mpirun",
@@ -82,11 +81,10 @@ def struphy_test(
         subp_run(cmd)
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
-        
         list_of_tests = [
             f"{LIBPATH}/models/tests/default_params/",
-            ]
-        
+        ]
+
         if mpi > 1:
             cmd = [
                 "mpirun",
@@ -120,11 +118,10 @@ def struphy_test(
         subp_run(cmd)
 
     elif "verification" in group:
-        
         list_of_tests = [
             f"{LIBPATH}/models/tests/verification/",
-            ]
-        
+        ]
+
         if mpi > 1:
             cmd = [
                 "mpirun",

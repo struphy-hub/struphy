@@ -15,6 +15,7 @@ def test_toy(
 ):
     ut.call_test(model_name=model, module=ut.toy, verbose=vrbose)
 
+
 @pytest.mark.models
 @pytest.mark.fluid
 @pytest.mark.parametrize("model", ut.fluid_models)
@@ -25,6 +26,7 @@ def test_fluid(
     show_plots: bool,
 ):
     ut.call_test(model_name=model, module=ut.fluid, verbose=vrbose)
+
 
 @pytest.mark.models
 @pytest.mark.kinetic
@@ -37,6 +39,7 @@ def test_kinetic(
 ):
     ut.call_test(model_name=model, module=ut.kinetic, verbose=vrbose)
 
+
 @pytest.mark.models
 @pytest.mark.hybrid
 @pytest.mark.parametrize("model", ut.hybrid_models)
@@ -47,6 +50,7 @@ def test_hybrid(
     show_plots: bool,
 ):
     ut.call_test(model_name=model, module=ut.hybrid, verbose=vrbose)
+
 
 @pytest.mark.single
 def test_single_model(

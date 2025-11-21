@@ -1,7 +1,7 @@
 import inspect
 import os
-from types import ModuleType
 import shutil
+from types import ModuleType
 
 import pytest
 from psydac.ddm.mpi import mpi as MPI
