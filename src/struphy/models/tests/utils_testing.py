@@ -110,6 +110,5 @@ def call_test(model_name: str, module: ModuleType = None, test_pproc: bool = Tru
         # if rank == 0:
         path_out = os.path.join(test_folder, model_name)
         main.pproc(path=path_out)
-        return
         main.load_data(path=path_out)
         # MPI.COMM_WORLD.Barrier()
