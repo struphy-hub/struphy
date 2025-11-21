@@ -14,7 +14,6 @@ def test_toy(
     show_plots: bool,
 ):
     ut.call_test(model_name=model, module=ut.toy, verbose=vrbose)
-    # print("test 1")
 
 @pytest.mark.models
 @pytest.mark.fluid
@@ -25,8 +24,7 @@ def test_fluid(
     nclones: int,
     show_plots: bool,
 ):
-    # ut.call_test(model_name=model, module=ut.fluid, verbose=vrbose)
-    print("test 2")
+    ut.call_test(model_name=model, module=ut.fluid, verbose=vrbose)
 
 @pytest.mark.models
 @pytest.mark.kinetic
@@ -37,8 +35,7 @@ def test_kinetic(
     nclones: int,
     show_plots: bool,
 ):
-    # ut.call_test(model_name=model, module=ut.kinetic, verbose=vrbose)
-    print("test 3")
+    ut.call_test(model_name=model, module=ut.kinetic, verbose=vrbose)
 
 @pytest.mark.models
 @pytest.mark.hybrid
@@ -49,8 +46,7 @@ def test_hybrid(
     nclones: int,
     show_plots: bool,
 ):
-    # ut.call_test(model_name=model, module=ut.hybrid, verbose=vrbose)
-    print("test 4")
+    ut.call_test(model_name=model, module=ut.hybrid, verbose=vrbose)
 
 @pytest.mark.single
 def test_single_model(
@@ -59,8 +55,8 @@ def test_single_model(
     nclones: int,
     show_plots: bool,
 ):
-    # ut.call_test(model_name=model_name, module=None, verbose=vrbose)
-    print("test 5")
+    ut.call_test(model_name=model_name, module=None, verbose=vrbose)
+
 
 if __name__ == "__main__":
     test_toy("Maxwell")

@@ -83,11 +83,11 @@ jobs:
           source /struphy_c_/env_c_/bin/activate
           struphy test toy
 
-      # - name: Model tests
-      #   shell: bash
-      #   run: |
-      #     source /struphy_c_/env_c_/bin/activate
-      #     struphy test models 
+      - name: Model tests
+        shell: bash
+        run: |
+          source /struphy_c_/env_c_/bin/activate
+          struphy test models 
 
       # - name: Verification tests
       #   shell: bash
@@ -108,9 +108,3 @@ jobs:
       #     struphy test verification --mpi 4
       #     struphy test verification --mpi 4 --nclones 2
       #     struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2
-
-      # - name: Upload .testmondata as cache for later tests
-      #   uses: actions/cache/save@v4
-      #   with:
-      #     path: .testmondata-model
-      #     key: testmon-model-${{ github.event.number }}-${{ github.run_number }}
