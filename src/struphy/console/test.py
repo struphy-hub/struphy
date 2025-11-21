@@ -62,7 +62,7 @@ def struphy_test(
                 "-n",
                 str(mpi),
                 "pytest",
-                # "--testmon",
+                "--testmon",
                 "--with-mpi",
             ] + list_of_tests
         else:
@@ -94,18 +94,15 @@ def struphy_test(
                 "pytest",
                 "-m",
                 group,
-                "-s",
-                # "--testmon",
+                "--testmon-forceselect",
                 "--with-mpi",
             ] + list_of_tests
         else:
             cmd = [
                 "pytest",
-                # "--testmon",
                 "-m",
                 group,
                 "--testmon-forceselect",
-                # "-s",
             ] + list_of_tests
 
         if vrbose:
@@ -129,8 +126,7 @@ def struphy_test(
                 "-n",
                 str(mpi),
                 "pytest",
-                "-s",
-                # "--testmon",
+                "--testmon",
                 "--with-mpi",
             ] + list_of_tests
         else:
@@ -157,6 +153,7 @@ def struphy_test(
             "pytest",
             "-m",
             "single",
+            "--testmon-forceselect",
             "-s",
             "--with-mpi",
             "--model-name",

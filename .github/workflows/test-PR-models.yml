@@ -27,9 +27,6 @@ jobs:
         username: spossann
         password: ${{ secrets.GHCR_TOKEN }}
 
-    env:
-      TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
-
     steps:
       - name: Check for dockerenv file
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
@@ -46,6 +43,7 @@ jobs:
         with:
           path: |
             .testmondata-model
+            .testmondata-model-mpi
           key: testmon-model-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
             testmon-model-${{ github.event.number }}-
@@ -55,10 +53,7 @@ jobs:
         run: |
           ls .testmon* || echo "No .testmondata"
 
-      # - name: Remove .testmondata 
-      #   run: |
-      #     rm .testmon* || echo "No .testmondata"
-
+      # This step can be removed when the updated ghcr images are pushed
       - name: Install sqlite
         shell: bash
         run: apt install -y sqlite3
@@ -73,6 +68,8 @@ jobs:
 
       - name: LinearMHD test
         shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_c_/env_c_/bin/activate
           struphy test LinearMHD
@@ -95,16 +92,41 @@ jobs:
           source /struphy_c_/env_c_/bin/activate
           struphy test verification
 
-      # - name: Model tests with MPI
-      #   shell: bash
-      #   run: |
-      #     which python3
-      #     source /struphy_c_/env_c_/bin/activate
-      #     which python3
-      #     struphy compile --status
-      #     struphy test models 
-      #     struphy test models --mpi 2
-      #     struphy test verification --mpi 1
-      #     struphy test verification --mpi 4
-      #     struphy test verification --mpi 4 --nclones 2
-      #     struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2
+      - name: Model tests with MPI
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
+        run: |
+          source /struphy_c_/env_c_/bin/activate
+          struphy test models --mpi 2
+
+      - name: Verification tests with 2 MPI
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
+        run: |
+          source /struphy_c_/env_c_/bin/activate
+          struphy test verification --mpi 2
+
+      - name: Verification tests with 4 MPI
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
+        run: |
+          source /struphy_c_/env_c_/bin/activate
+          struphy test verification --mpi 4
+
+      - name: Verification tests with clones
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
+        run: |
+          source /struphy_c_/env_c_/bin/activate
+          struphy test verification --mpi 4 --nclones 2
+
+      - name: Single model test with 2 MPI and 2 clones
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
+        run: |
+          struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2
