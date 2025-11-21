@@ -46,8 +46,6 @@ jobs:
         with:
           path: |
             .testmondata-model
-            .testmondata-model-shm
-            .testmondata-model-wal
           key: testmon-model-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
             testmon-model-${{ github.event.number }}-
@@ -56,6 +54,10 @@ jobs:
       - name: Check .testmondata 2
         run: |
           ls .testmon* || echo "No .testmondata"
+
+      - name: Remove .testmondata 
+        run: |
+          rm .testmon* || echo "No .testmondata"
 
       - name: Install sqlite
         shell: bash
