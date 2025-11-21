@@ -76,18 +76,24 @@ jobs:
 
       - name: Toy test
         shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_c_/env_c_/bin/activate
           struphy test toy
 
       - name: Model tests
         shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_c_/env_c_/bin/activate
           struphy test models 
 
       - name: Verification tests
         shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_c_/env_c_/bin/activate
           struphy test verification
