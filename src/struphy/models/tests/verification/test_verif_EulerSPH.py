@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import cunumpy as xp
 import pytest
@@ -21,8 +22,6 @@ from struphy.pic.utilities import (
 )
 from struphy.topology import grids
 
-test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
-
 
 @pytest.mark.parametrize("nx", [12, 24])
 @pytest.mark.parametrize("plot_pts", [11, 32])
@@ -34,6 +33,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     from struphy.models.fluid import EulerSPH
 
     # environment options
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "EulerSPH")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="soundwave_1d")
 
@@ -160,6 +160,8 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
         print(f"SPH sound wave {error =}.")
         assert error < 6e-4
         print("Assertion passed.")
+        
+        shutil.rmtree(test_folder)
 
 
 if __name__ == "__main__":

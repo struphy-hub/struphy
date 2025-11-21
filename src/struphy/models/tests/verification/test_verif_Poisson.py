@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import cunumpy as xp
 from matplotlib import pyplot as plt
@@ -20,11 +21,10 @@ from struphy.pic.utilities import (
 )
 from struphy.topology import grids
 
-test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
-
 
 def test_poisson_1d(do_plot=False):
     # environment options
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "Poisson")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="time_source_1d")
 
@@ -142,6 +142,8 @@ def test_poisson_1d(do_plot=False):
         plt.show()
         print(f"{err =}")
         assert err < 0.0057
+        
+        shutil.rmtree(test_folder)
 
 
 if __name__ == "__main__":

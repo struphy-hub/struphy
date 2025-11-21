@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import cunumpy as xp
 import pytest
@@ -16,12 +17,11 @@ from struphy.kinetic_background import maxwellians
 from struphy.models.toy import Maxwell
 from struphy.topology import grids
 
-test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
-
 
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 def test_light_wave_1d(algo: str, do_plot: bool = False):
     # environment options
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="light_wave_1d")
 
@@ -97,6 +97,8 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
         # assert
         c_light_speed = 1.0
         assert xp.abs(coeffs[0][0] - c_light_speed) < 0.02
+        
+        shutil.rmtree(test_folder)
 
 
 def test_coaxial(do_plot: bool = False):
@@ -106,6 +108,7 @@ def test_coaxial(do_plot: bool = False):
     verbose = True
 
     # environment options
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "Maxwell")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="coaxial")
 
@@ -266,6 +269,8 @@ def test_coaxial(do_plot: bool = False):
         print(f"Assertion for electric field Maxwell passed ({rel_err_Etheta =}).")
         assert rel_err_Er < 0.0021, f"Assertion for electric (E_r) field Maxwell failed: {rel_err_Er =}"
         print(f"Assertion for electric field Maxwell passed ({rel_err_Er =}).")
+        
+        shutil.rmtree(test_folder)
 
 
 if __name__ == "__main__":

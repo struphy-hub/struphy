@@ -89,11 +89,11 @@ jobs:
           source /struphy_c_/env_c_/bin/activate
           struphy test models 
 
-      # - name: Verification tests
-      #   shell: bash
-      #   run: |
-      #     source /struphy_c_/env_c_/bin/activate
-      #     struphy test verification
+      - name: Verification tests
+        shell: bash
+        run: |
+          source /struphy_c_/env_c_/bin/activate
+          struphy test verification
 
       # - name: Model tests with MPI
       #   shell: bash
