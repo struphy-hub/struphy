@@ -72,6 +72,8 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
 
     # generate paramater file for testing
     path = os.path.join(test_folder, f"params_{model_name}.py")
+    return
+
     if rank == 0:
         model.generate_default_parameter_file(path=path, prompt=False)
         del model

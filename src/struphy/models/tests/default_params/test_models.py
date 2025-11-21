@@ -13,8 +13,8 @@ def test_toy(
     nclones: int,
     show_plots: bool,
 ):
-    # ut.call_test(model_name=model, module=ut.toy, verbose=vrbose)
-    print("test 1")
+    ut.call_test(model_name=model, module=ut.toy, verbose=vrbose)
+    # print("test 1")
 
 @pytest.mark.models
 @pytest.mark.fluid
