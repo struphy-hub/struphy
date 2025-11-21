@@ -74,7 +74,6 @@ jobs:
           pip show mpi4py
           pip uninstall -y mpi4py
           struphy test unit
-          struphy test unit
 
       - name: Check .testmondata 3
         run: |
