@@ -104,7 +104,6 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
         derham_opts=derham_opts,
         verbose=verbose,
     )
-    return
 
     MPI.COMM_WORLD.Barrier()
     if rank == 0:
