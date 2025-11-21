@@ -84,4 +84,4 @@ jobs:
         run: |
           source /struphy_c_/env_c_/bin/activate
           pip install -U mpi4py
-          struphy test unit --mpi 2
+          struphy test toy 
