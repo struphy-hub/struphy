@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - devel
+  push:
+    branches:
+      - devel
   workflow_dispatch:
 
 concurrency:
