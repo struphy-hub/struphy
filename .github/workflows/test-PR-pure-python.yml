@@ -110,8 +110,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-          struphy test toy
-        # struphy test Vlasov --mpi 2
+          struphy test Vlasov --mpi 2
 
       - name: GuidingCenter test MPI
         shell: bash
@@ -119,7 +118,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-        # struphy test GuidingCenter --mpi 2
+          struphy test GuidingCenter --mpi 2
 
       - name: VlasovAmpere test MPI
         shell: bash
@@ -127,7 +126,7 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-        #  struphy test VlasovAmpereOneSpecies --mpi 2
+          struphy test VlasovAmpereOneSpecies --mpi 2
 
       - name: EulerSPH test MPI
         shell: bash
@@ -135,4 +134,4 @@ jobs:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
         run: |
           source env/bin/activate
-        #  struphy test EulerSPH --mpi 2
+          struphy test EulerSPH --mpi 2
