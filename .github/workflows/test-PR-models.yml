@@ -69,7 +69,7 @@ jobs:
       - name: LinearMHD test
         shell: bash
         env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model
         run: |
           source /struphy_c_/env_c_/bin/activate
           struphy test LinearMHD
@@ -135,4 +135,5 @@ jobs:
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
         run: |
+          source /struphy_c_/env_c_/bin/activate
           struphy test VlasovAmpereOneSpecies --mpi 2 --nclones 2

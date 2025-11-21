@@ -1,0 +1,97 @@
+name: PR - pure Python tests in Container
+
+on:
+  pull_request:
+    branches:
+      - devel
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  model-tests-in-container-with-reqs:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/struphy-hub/struphy/ubuntu-with-reqs:latest
+      credentials:
+        username: spossann
+        password: ${{ secrets.GHCR_TOKEN }}
+
+    steps:
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Check .testmondata 1
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      - name: Setup cache for testmon
+        uses: actions/cache@v4
+        with:
+          path: |
+            .testmondata-pure-python
+          key: testmon-pure-python-${{ github.event.number }}-${{ github.run_number }}
+          restore-keys: |
+            testmon-pure-python-${{ github.event.number }}-
+            testmon-pure-python-
+
+      - name: Check .testmondata 2
+        run: |
+          ls .testmon* || echo "No .testmondata"
+
+      # This step can be removed when the updated ghcr images are pushed
+      - name: Install sqlite
+        shell: bash
+        run: apt install -y sqlite3
+
+      - name: Install Struphy
+        uses: ./.github/actions/install/install-struphy
+
+      - name: LinearMHD test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          struphy compile --status
+          struphy test LinearMHD
+
+      - name: Vlasov test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          struphy test Vlasov
+
+      - name: GuidingCenter test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          struphy test GuidingCenter
+
+      - name: VlasovAmpere test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          struphy test VlasovAmpereOneSpecies
+
+      - name: EulerSPH test
+        shell: bash
+        env:
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python
+        run: |
+          struphy test EulerSPH
