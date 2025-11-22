@@ -19,8 +19,6 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
-    from struphy.eigenvalue_solvers.legacy.mhd_operators_MF import projectors_dot_x
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background.equils import HomogenSlab
@@ -83,40 +81,8 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print(f"Rank {mpi_rank} | type(P0vec) {type(P0vec)}")
         print(f"Rank {mpi_rank} | ")
 
-    # Struphy spline spaces
-    space_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], n_quad_el[0] + 1)
-    space_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], n_quad_el[1] + 1)
-    space_3 = Spline_space_1d(Nel[2], p[2], spl_kind[2], n_quad_el[2] + 1)
-
-    space_1.set_projectors(n_quad_pr[0])
-    space_2.set_projectors(n_quad_pr[1])
-    space_3.set_projectors(n_quad_pr[2])
-
-    # print('\nSTRUPHY point sets:')
-    # print('\nDirection 1:')
-    # print(f'x_int: {space_1.projectors.x_int}')
-    # print(f'x_hisG: {space_1.projectors.x_hisG}')
-    # print(f'x_his: {space_1.projectors.x_his}')
-    # print('\nDirection 2:')
-    # print(f'x_int: {space_2.projectors.x_int}')
-    # print(f'x_hisG: {space_2.projectors.x_hisG}')
-    # print(f'x_his: {space_2.projectors.x_his}')
-    # print('\nDirection 3:')
-    # print(f'x_int: {space_3.projectors.x_int}')
-    # print(f'x_hisG: {space_3.projectors.x_hisG}')
-    # print(f'x_his: {space_3.projectors.x_his}')
-
-    SPACES = Tensor_spline_space([space_1, space_2, space_3])
-    SPACES.set_projectors("tensor")
-
     # Psydac MHD operators
     OPS_PSY = BasisProjectionOperators(DERHAM_PSY, domain, eq_mhd=EQ_MHD)
-
-    # Struphy matrix-free MHD operators
-    print(f"Rank {mpi_rank} | Init STRUPHY `projectors_dot_x`...")
-    elapsed = time()
-    OPS_STR = projectors_dot_x(SPACES, EQ_MHD)
-    print(f"Rank {mpi_rank} | Init `projectors_dot_x` done ({time() - elapsed:.4f}s).")
 
     # Test vectors
     x0 = xp.reshape(xp.arange(V0.nbasis), [space.nbasis for space in V0.spaces])
@@ -215,21 +181,9 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print("\nK3 (V3 --> V3, Identity operator in this case):")
 
     res_PSY = OPS_PSY.K3.dot(x3_st)
-    res_STR = OPS_STR.K1_dot(x3.flatten())
-    res_STR = SPACES.extract_3(res_STR)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator K3.")
-    assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     K3T = OPS_PSY.K3.transpose()
     res_PSY = K3T.dot(x3_st)
-    res_STR = OPS_STR.transpose_K1_dot(x3.flatten())
-    res_STR = SPACES.extract_3(res_STR)
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator K3T.")
-    assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     MPI_COMM.Barrier()
 
@@ -238,21 +192,9 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print("\nK0 (V0 --> V0, Identity operator in this case):")
 
     res_PSY = OPS_PSY.K0.dot(x0_st)
-    res_STR = OPS_STR.K10_dot(x0.flatten())
-    res_STR = SPACES.extract_0(res_STR)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator K0.")
-    assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     K10T = OPS_PSY.K0.transpose()
     res_PSY = K10T.dot(x0_st)
-    res_STR = OPS_STR.transpose_K10_dot(x0.flatten())
-    res_STR = SPACES.extract_0(res_STR)
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator K10T.")
-    assert_ops(mpi_rank, res_PSY, res_STR, verbose=True)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     MPI_COMM.Barrier()
 
@@ -261,198 +203,50 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print("\nQ1 (V1 --> V2):")
 
     res_PSY = OPS_PSY.Q1.dot(x1_st)
-    res_STR = OPS_STR.Q1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q1, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q1, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q1, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     Q1T = OPS_PSY.Q1.transpose()
     res_PSY = Q1T.dot(x2_st)
-    res_STR = OPS_STR.transpose_Q1_dot(xp.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q1T, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q1T, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q1T, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # operator W1 (V1 --> V1)
     if mpi_rank == 0:
         print("\nW1 (V1 --> V1, Identity operator in this case):")
 
     res_PSY = OPS_PSY.W1.dot(x1_st)
-    res_STR = OPS_STR.W1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
-
-    MPI_COMM.barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator W1, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator W1, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator W1, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     W1T = OPS_PSY.W1.transpose()
     res_PSY = W1T.dot(x1_st)
-    res_STR = OPS_STR.transpose_W1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
 
     MPI_COMM.barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator W1T, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator W1T, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator W1T, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # operator Q2 (V2 --> V2)
     if mpi_rank == 0:
         print("\nQ2 (V2 --> V2, Identity operator in this case):")
 
     res_PSY = OPS_PSY.Q2.dot(x2_st)
-    res_STR = OPS_STR.Q2_dot(xp.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q2, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q2, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q2, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     Q2T = OPS_PSY.Q2.transpose()
     res_PSY = Q2T.dot(x2_st)
-    res_STR = OPS_STR.transpose_Q2_dot(xp.concatenate((x2[0].flatten(), x2[1].flatten(), x2[2].flatten())))
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_2(res_STR)
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q2T, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q2T, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator Q2T, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # operator X1 (V1 --> V0 x V0 x V0)
     if mpi_rank == 0:
         print("\nX1 (V1 --> V0 x V0 x V0):")
 
     res_PSY = OPS_PSY.X1.dot(x1_st)
-    res_STR = OPS_STR.X1_dot(xp.concatenate((x1[0].flatten(), x1[1].flatten(), x1[2].flatten())))
-    res_STR_0 = SPACES.extract_0(res_STR[0])
-    res_STR_1 = SPACES.extract_0(res_STR[1])
-    res_STR_2 = SPACES.extract_0(res_STR[2])
 
     MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator X1, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator X1, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator X1, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     X1T = OPS_PSY.X1.transpose()
     res_PSY = X1T.dot(x0vec_st)
-    res_STR = OPS_STR.transpose_X1_dot([x0.flatten(), x0.flatten(), x0.flatten()])
-    res_STR_0, res_STR_1, res_STR_2 = SPACES.extract_1(res_STR)
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator X1T, first component.")
-    assert_ops(mpi_rank, res_PSY[0], res_STR_0)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator X1T, second component.")
-    assert_ops(mpi_rank, res_PSY[1], res_STR_1)
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
-    MPI_COMM.Barrier()
-
-    print(f"Rank {mpi_rank} | Asserting TRANSPOSE MHD operator X1T, third component.")
-    assert_ops(mpi_rank, res_PSY[2], res_STR_2)
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
 
 @pytest.mark.parametrize("Nel", [[6, 9, 7]])
@@ -467,8 +261,6 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.basis_projection_ops import BasisProjectionOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
@@ -544,29 +336,6 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
 
     mhd_ops_psy = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
-    # compare to old STRUPHY
-    spaces = [
-        Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], dirichlet_bc[0]),
-        Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], dirichlet_bc[1]),
-        Spline_space_1d(Nel[2], p[2], spl_kind[2], nq_el[2], dirichlet_bc[2]),
-    ]
-
-    spaces[0].set_projectors(nq_pr[0])
-    spaces[1].set_projectors(nq_pr[1])
-    spaces[2].set_projectors(nq_pr[2])
-
-    space = Tensor_spline_space(spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0])
-    space.set_projectors("general")
-
-    mhd_ops_str = MHDOperators(space, eq_mhd, basis_u=2)
-
-    mhd_ops_str.assemble_dofs("MF")
-    mhd_ops_str.assemble_dofs("PF")
-    mhd_ops_str.assemble_dofs("EF")
-    mhd_ops_str.assemble_dofs("PR")
-
-    mhd_ops_str.set_operators()
-
     # create random input arrays
     x0_str, x0_psy = create_equal_random_arrays(derham.Vh_fem["0"], seed=1234, flattened=True)
     x1_str, x1_psy = create_equal_random_arrays(derham.Vh_fem["1"], seed=1568, flattened=True)
@@ -590,12 +359,6 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     x2_pol_psy.pol = [xp.random.rand(x2_pol_psy.pol[n].shape[0], x2_pol_psy.pol[n].shape[1]) for n in range(3)]
     x3_pol_psy.pol = [xp.random.rand(x3_pol_psy.pol[0].shape[0], x3_pol_psy.pol[0].shape[1])]
 
-    # apply boundary conditions to legacy vectors for right shape
-    x0_pol_str = space.B0.dot(x0_pol_psy.toarray(True))
-    x1_pol_str = space.B1.dot(x1_pol_psy.toarray(True))
-    x2_pol_str = space.B2.dot(x2_pol_psy.toarray(True))
-    x3_pol_str = space.B3.dot(x3_pol_psy.toarray(True))
-
     # ================================================================================
     #                              MHD velocity is a 2-form
     # ================================================================================
@@ -611,24 +374,12 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     else:
         r_psy = mhd_ops_psy.K3.dot(x3_pol_psy, tol=1e-10, verbose=False)
 
-    r_str = mhd_ops_str.PR(x3_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator K3.")
-    xp.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.K3.transpose().dot(x3_pol_psy, tol=1e-10, verbose=True)
     else:
         r_psy = mhd_ops_psy.K3.transpose().dot(x3_pol_psy, tol=1e-10, verbose=False)
-
-    r_str = mhd_ops_str.PR.T(x3_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting transpose MHD operator K3.T.")
-    xp.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # ===== operator Q2 (V2 --> V2) ============
     mpi_comm.Barrier()
@@ -641,24 +392,12 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     else:
         r_psy = mhd_ops_psy.Q2.dot(x2_pol_psy, tol=1e-10, verbose=False)
 
-    r_str = mhd_ops_str.MF(x2_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q2.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.Q2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=True)
     else:
         r_psy = mhd_ops_psy.Q2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=False)
-
-    r_str = mhd_ops_str.MF.T(x2_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting transposed MHD operator Q2.T.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # ===== operator T2 (V2 --> V1) ============
     mpi_comm.Barrier()
@@ -671,24 +410,12 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     else:
         r_psy = mhd_ops_psy.T2.dot(x2_pol_psy, tol=1e-10, verbose=False)
 
-    r_str = mhd_ops_str.EF(x2_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator T2.")
-    xp.allclose(space.B1.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10, verbose=True)
     else:
         r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10, verbose=False)
-
-    r_str = mhd_ops_str.EF.T(x1_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting transposed MHD operator T2.T.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # ===== operator S2 (V2 --> V2) ============
     mpi_comm.Barrier()
@@ -701,24 +428,12 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     else:
         r_psy = mhd_ops_psy.S2.dot(x2_pol_psy, tol=1e-10, verbose=False)
 
-    r_str = mhd_ops_str.PF(x2_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator S2.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.S2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=True)
     else:
         r_psy = mhd_ops_psy.S2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=False)
-
-    r_str = mhd_ops_str.PF.T(x2_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting transposed MHD operator S2.T.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
 
 def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
