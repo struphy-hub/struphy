@@ -1,3 +1,11 @@
+import pytest
+
+
+def pytest_unconfigure(config):
+    if hasattr(config, "testmon_data"):
+        config.testmon_data.db.con.close()
+
+
 def pytest_addoption(parser):
     parser.addoption("--with-desc", action="store_true")
     parser.addoption("--vrbose", action="store_true")

@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import cunumpy as xp
 import pytest
@@ -13,10 +14,7 @@ from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Fie
 from struphy.kinetic_background import maxwellians
 from struphy.topology import grids
 
-test_folder = os.path.join(os.getcwd(), "verification_tests")
 
-
-@pytest.mark.mpi(min_size=3)
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 def test_slab_waves_1d(algo: str, do_plot: bool = False):
     # import model, set verbosity
@@ -25,6 +23,7 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
     verbose = True
 
     # environment options
+    test_folder = os.path.join(os.getcwd(), "verification_tests")
     out_folders = os.path.join(test_folder, "LinearMHD")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="slab_waves_1d")
 
@@ -148,6 +147,8 @@ def test_slab_waves_1d(algo: str, do_plot: bool = False):
         print(f"{v_fast =}")
         assert xp.abs(coeffs[0][0] - v_slow) < 0.05
         assert xp.abs(coeffs[1][0] - v_fast) < 0.19
+
+        shutil.rmtree(test_folder)
 
 
 if __name__ == "__main__":

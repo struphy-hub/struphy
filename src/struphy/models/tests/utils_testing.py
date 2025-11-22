@@ -1,5 +1,6 @@
 import inspect
 import os
+import shutil
 from types import ModuleType
 
 import pytest
@@ -43,10 +44,6 @@ if rank == 0:
     print(f"\n{hybrid_models =}")
 
 
-# folder for test simulations
-test_folder = os.path.join(os.getcwd(), "struphy_model_tests")
-
-
 # generic function for calling model tests
 def call_test(model_name: str, module: ModuleType = None, verbose=True):
     if rank == 0:
@@ -71,7 +68,9 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
     assert isinstance(model, StruphyModel)
 
     # generate paramater file for testing
+    test_folder = os.path.join(os.getcwd(), "struphy_model_test")
     path = os.path.join(test_folder, f"params_{model_name}.py")
+
     if rank == 0:
         model.generate_default_parameter_file(path=path, prompt=False)
         del model
@@ -109,68 +108,5 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
         path_out = os.path.join(test_folder, model_name)
         main.pproc(path=path_out)
         main.load_data(path=path_out)
+        shutil.rmtree(test_folder)
     MPI.COMM_WORLD.Barrier()
-
-
-# specific tests
-@pytest.mark.models
-@pytest.mark.toy
-@pytest.mark.parametrize("model", toy_models)
-def test_toy(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
-):
-    call_test(model_name=model, module=toy, verbose=vrbose)
-
-
-@pytest.mark.models
-@pytest.mark.fluid
-@pytest.mark.parametrize("model", fluid_models)
-def test_fluid(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
-):
-    call_test(model_name=model, module=fluid, verbose=vrbose)
-
-
-@pytest.mark.models
-@pytest.mark.kinetic
-@pytest.mark.parametrize("model", kinetic_models)
-def test_kinetic(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
-):
-    call_test(model_name=model, module=kinetic, verbose=vrbose)
-
-
-@pytest.mark.models
-@pytest.mark.hybrid
-@pytest.mark.parametrize("model", hybrid_models)
-def test_hybrid(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
-):
-    call_test(model_name=model, module=hybrid, verbose=vrbose)
-
-
-@pytest.mark.single
-def test_single_model(
-    model_name: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
-):
-    call_test(model_name=model_name, module=None, verbose=vrbose)
-
-
-if __name__ == "__main__":
-    test_toy("Maxwell")
-    test_fluid("LinearMHD")
