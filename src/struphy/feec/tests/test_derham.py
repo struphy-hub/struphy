@@ -12,7 +12,6 @@ def test_psydac_derham(Nel, p, spl_kind):
     from psydac.linalg.block import BlockVector
     from psydac.linalg.stencil import StencilVector
 
-    
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays
 
@@ -68,6 +67,7 @@ def test_psydac_derham(Nel, p, spl_kind):
     print(f"rank {rank} | pads  :", x3_PSY.pads)
     print(f"rank {rank} | shape (=dim):", x3_PSY.shape)
     print(f"rank {rank} | [:].shape (=shape):", x3_PSY[:].shape)
+
 
 if __name__ == "__main__":
     test_psydac_derham([8, 8, 12], [1, 2, 3], [False, False, True])

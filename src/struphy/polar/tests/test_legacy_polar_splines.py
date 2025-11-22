@@ -11,7 +11,6 @@ def test_polar_splines_2D(plot=False):
     import matplotlib.pyplot as plt
     from mpl_toolkits.mplot3d import Axes3D
 
-    
     from struphy.geometry import domains
 
     # parameters

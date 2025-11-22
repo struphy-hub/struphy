@@ -170,7 +170,6 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import compare_arrays, create_equal_random_arrays
     from struphy.geometry.domains import IGAPolarCylinder
@@ -280,7 +279,6 @@ def test_projectors(Nel, p, spl_kind):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry.domains import IGAPolarCylinder
 
