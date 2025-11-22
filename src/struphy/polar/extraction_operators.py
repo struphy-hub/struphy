@@ -1,5 +1,5 @@
 import cunumpy as xp
-
+from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
 
 # ============================= 2D polar splines (C1) ===================================
 class PolarExtractionBlocksC1:
