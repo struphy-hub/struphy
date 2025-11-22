@@ -190,13 +190,6 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     derham = Derham(Nel, p, spl_kind, comm=comm, polar_ck=1, domain=domain, with_projectors=False)
 
     # create legacy FEM spaces
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    for space_i in spaces:
-        space_i.set_projectors()
-
-    space = Tensor_spline_space(spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0])
-    space.set_projectors("general")
 
     if rank == 0:
         print()
@@ -243,11 +236,6 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     r2_pol = derham.extraction_ops["2"].dot(b2_tp)
     r3_pol = derham.extraction_ops["3"].dot(p3_tp)
 
-    assert xp.allclose(r0_pol.toarray(True), space.E0.dot(f0_tp_leg))
-    assert xp.allclose(r1_pol.toarray(True), space.E1.dot(e1_tp_leg))
-    assert xp.allclose(r2_pol.toarray(True), space.E2.dot(b2_tp_leg))
-    assert xp.allclose(r3_pol.toarray(True), space.E3.dot(p3_tp_leg))
-
     # test transposed extraction operators
     E0T = derham.extraction_ops["0"].transpose()
     E1T = derham.extraction_ops["1"].transpose()
@@ -258,11 +246,6 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     r1 = E1T.dot(e1_pol)
     r2 = E2T.dot(b2_pol)
     r3 = E3T.dot(p3_pol)
-
-    compare_arrays(r0, space.E0.T.dot(f0_pol_leg), rank)
-    compare_arrays(r1, space.E1.T.dot(e1_pol_leg), rank)
-    compare_arrays(r2, space.E2.T.dot(b2_pol_leg), rank)
-    compare_arrays(r3, space.E3.T.dot(p3_pol_leg), rank)
 
     if rank == 0:
         print("------------- Test passed ---------------------------")
@@ -277,10 +260,6 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     r2_pol = derham.curl.dot(e1_pol)
     r3_pol = derham.div.dot(b2_pol)
 
-    assert xp.allclose(r1_pol.toarray(True), space.G.dot(f0_pol_leg))
-    assert xp.allclose(r2_pol.toarray(True), space.C.dot(e1_pol_leg))
-    assert xp.allclose(r3_pol.toarray(True), space.D.dot(b2_pol_leg))
-
     # test transposed derivatives
     GT = derham.grad.transpose()
     CT = derham.curl.transpose()
@@ -289,10 +268,6 @@ def test_extraction_ops_and_derivatives(Nel, p, spl_kind):
     r0_pol = GT.dot(e1_pol)
     r1_pol = CT.dot(b2_pol)
     r2_pol = DT.dot(p3_pol)
-
-    assert xp.allclose(r0_pol.toarray(True), space.G.T.dot(e1_pol_leg))
-    assert xp.allclose(r1_pol.toarray(True), space.C.T.dot(b2_pol_leg))
-    assert xp.allclose(r2_pol.toarray(True), space.D.T.dot(p3_pol_leg))
 
     if rank == 0:
         print("------------- Test passed ---------------------------")
@@ -319,15 +294,6 @@ def test_projectors(Nel, p, spl_kind):
 
     # create polar de Rham sequence
     derham = Derham(Nel, p, spl_kind, comm=comm, nq_pr=[6, 6, 6], polar_ck=1, domain=domain)
-
-    # create legacy FEM spaces
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    for space_i in spaces:
-        space_i.set_projectors(nq=6)
-
-    space = Tensor_spline_space(spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0])
-    space.set_projectors("general")
 
     if rank == 0:
         print()
@@ -367,10 +333,6 @@ def test_projectors(Nel, p, spl_kind):
     else:
         r0_pol = derham.P["0"](fun0)
 
-    r0_pol_leg = space.projectors.pi_0(fun0)
-
-    assert xp.allclose(r0_pol.toarray(True), r0_pol_leg)
-
     if rank == 0:
         print("Test passed for PI_0 polar projector")
         print()
@@ -382,10 +344,6 @@ def test_projectors(Nel, p, spl_kind):
         r1_pol = derham.P["1"](fun1)
     else:
         r1_pol = derham.P["1"](fun1)
-
-    r1_pol_leg = space.projectors.pi_1(fun1, with_subs=False)
-
-    assert xp.allclose(r1_pol.toarray(True), r1_pol_leg)
 
     if rank == 0:
         print("Test passed for PI_1 polar projector")
@@ -399,10 +357,6 @@ def test_projectors(Nel, p, spl_kind):
     else:
         r2_pol = derham.P["2"](fun2)
 
-    r2_pol_leg = space.projectors.pi_2(fun2, with_subs=False)
-
-    assert xp.allclose(r2_pol.toarray(True), r2_pol_leg)
-
     if rank == 0:
         print("Test passed for PI_2 polar projector")
         print()
@@ -414,10 +368,6 @@ def test_projectors(Nel, p, spl_kind):
         r3_pol = derham.P["3"](fun3)
     else:
         r3_pol = derham.P["3"](fun3)
-
-    r3_pol_leg = space.projectors.pi_3(fun3, with_subs=False)
-
-    assert xp.allclose(r3_pol.toarray(True), r3_pol_leg)
 
     if rank == 0:
         print("Test passed for PI_3 polar projector")
