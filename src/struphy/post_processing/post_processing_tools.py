@@ -154,18 +154,17 @@ def create_femfields(
     )
 
     # get fields names, space IDs and time grid from 0-th rank hdf5 file
-    file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
-    space_ids = {}
-    print("\nReading hdf5 data of following species:")
-    for species, dset in file["feec"].items():
-        space_ids[species] = {}
-        print(f"{species}:")
-        for var, ddset in dset.items():
-            space_ids[species][var] = ddset.attrs["space_id"]
-            print(f"  {var}:", ddset)
+    with h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r") as file:
+        space_ids = {}
+        print("\nReading hdf5 data of following species:")
+        for species, dset in file["feec"].items():
+            space_ids[species] = {}
+            print(f"{species}:")
+            for var, ddset in dset.items():
+                space_ids[species][var] = ddset.attrs["space_id"]
+                print(f"  {var}:", ddset)
 
-    t_grid = file["time/value"][::step].copy()
-    file.close()
+        t_grid = file["time/value"][::step].copy()
 
     # create one FemField for each snapshot
     fields = {}
@@ -184,66 +183,57 @@ def create_femfields(
     print("")
     for rank in range(int(nproc)):
         # open hdf5 file
-        file = h5py.File(
-            os.path.join(
-                path,
-                "data/",
-                "data_proc" + str(rank) + ".hdf5",
-            ),
-            "r",
-        )
+        with h5py.File(os.path.join(path, "data/", f"data_proc{rank}.hdf5"), "r") as file:
+            for species, dset in file["feec"].items():
+                for var, ddset in tqdm(dset.items()):
+                    # get global start indices, end indices and pads
+                    gl_s = ddset.attrs["starts"]
+                    gl_e = ddset.attrs["ends"]
+                    pads = ddset.attrs["pads"]
 
-        for species, dset in file["feec"].items():
-            for var, ddset in tqdm(dset.items()):
-                # get global start indices, end indices and pads
-                gl_s = ddset.attrs["starts"]
-                gl_e = ddset.attrs["ends"]
-                pads = ddset.attrs["pads"]
+                    assert gl_s.shape == (3,) or gl_s.shape == (3, 3)
+                    assert gl_e.shape == (3,) or gl_e.shape == (3, 3)
+                    assert pads.shape == (3,) or pads.shape == (3, 3)
 
-                assert gl_s.shape == (3,) or gl_s.shape == (3, 3)
-                assert gl_e.shape == (3,) or gl_e.shape == (3, 3)
-                assert pads.shape == (3,) or pads.shape == (3, 3)
+                    # loop over time
+                    for n, t in enumerate(t_grid):
+                        # scalar field
+                        if gl_s.shape == (3,):
+                            s1, s2, s3 = gl_s
+                            e1, e2, e3 = gl_e
+                            p1, p2, p3 = pads
 
-                # loop over time
-                for n, t in enumerate(t_grid):
-                    # scalar field
-                    if gl_s.shape == (3,):
-                        s1, s2, s3 = gl_s
-                        e1, e2, e3 = gl_e
-                        p1, p2, p3 = pads
+                            data = ddset[n * step, p1:-p1, p2:-p2, p3:-p3].copy()
 
-                        data = ddset[n * step, p1:-p1, p2:-p2, p3:-p3].copy()
-
-                        fields[t][species][var].vector[
-                            s1 : e1 + 1,
-                            s2 : e2 + 1,
-                            s3 : e3 + 1,
-                        ] = data
-                        # update after each data addition, can be made more efficient
-                        fields[t][species][var].vector.update_ghost_regions()
-
-                    # vector-valued field
-                    else:
-                        for comp in range(3):
-                            s1, s2, s3 = gl_s[comp]
-                            e1, e2, e3 = gl_e[comp]
-                            p1, p2, p3 = pads[comp]
-
-                            data = ddset[str(comp + 1)][
-                                n * step,
-                                p1:-p1,
-                                p2:-p2,
-                                p3:-p3,
-                            ].copy()
-
-                            fields[t][species][var].vector[comp][
+                            fields[t][species][var].vector[
                                 s1 : e1 + 1,
                                 s2 : e2 + 1,
                                 s3 : e3 + 1,
                             ] = data
-                        # update after each data addition, can be made more efficient
-                        fields[t][species][var].vector.update_ghost_regions()
-        file.close()
+                            # update after each data addition, can be made more efficient
+                            fields[t][species][var].vector.update_ghost_regions()
+
+                        # vector-valued field
+                        else:
+                            for comp in range(3):
+                                s1, s2, s3 = gl_s[comp]
+                                e1, e2, e3 = gl_e[comp]
+                                p1, p2, p3 = pads[comp]
+
+                                data = ddset[str(comp + 1)][
+                                    n * step,
+                                    p1:-p1,
+                                    p2:-p2,
+                                    p3:-p3,
+                                ].copy()
+
+                                fields[t][species][var].vector[comp][
+                                    s1 : e1 + 1,
+                                    s2 : e2 + 1,
+                                    s3 : e3 + 1,
+                                ] = data
+                            # update after each data addition, can be made more efficient
+                            fields[t][species][var].vector.update_ghost_regions()
 
     print("Creation of Struphy Fields done.")
 
@@ -527,20 +517,9 @@ def post_process_markers(
     nproc = meta["MPI processes"]
 
     # open hdf5 files and get names and number of saved markers of kinetic species
-    files = [
-        h5py.File(
-            os.path.join(
-                path_in,
-                "data/",
-                f"data_proc{i}.hdf5",
-            ),
-            "r",
-        )
-        for i in range(int(nproc))
-    ]
-
-    # get number of time steps and markers
-    nt, n_markers, n_cols = files[0]["kinetic/" + species + "/markers"].shape
+    with h5py.File(os.path.join(path_in, "data/data_proc0.hdf5"), "r") as file_0:
+        # get number of time steps and markers
+        nt, n_markers, n_cols = file_0["kinetic/" + species + "/markers"].shape
 
     log_nt = int(xp.log10(int(((nt - 1) / step)))) + 1
 
@@ -581,11 +560,12 @@ def post_process_markers(
             species + "_{0:0{1}d}.txt".format(n, log_nt),
         )
 
-        for file in files:
-            markers = file["kinetic/" + species + "/markers"]
-            ids = markers[n * step, :, -1].astype("int")
-            ids = ids[ids != -1]  # exclude holes
-            temp[ids] = markers[n * step, : ids.size, save_index]
+        for i in range(int(nproc)):
+            with h5py.File(os.path.join(path_in, "data/", f"data_proc{i}.hdf5"), "r") as file:
+                markers = file["kinetic/" + species + "/markers"]
+                ids = markers[n * step, :, -1].astype("int")
+                ids = ids[ids != -1]  # exclude holes
+                temp[ids] = markers[n * step, : ids.size, save_index]
 
         # sorting out lost particles
         ids = temp[:, -1].astype("int")
@@ -611,10 +591,6 @@ def post_process_markers(
         # move ids to first column and save txt
         temp = xp.roll(temp, 1, axis=1)
         xp.savetxt(file_txt, temp[:, (0, 1, 2, 3, -1)], fmt="%12.6f", delimiter=", ")
-
-    # close hdf5 files
-    for file in files:
-        file.close()
 
 
 def post_process_f(
@@ -653,19 +629,6 @@ def post_process_f(
         meta = yaml.load(f, Loader=yaml.FullLoader)
     nproc = meta["MPI processes"]
 
-    # open hdf5 files and get names and number of saved markers of kinetic species
-    files = [
-        h5py.File(
-            os.path.join(
-                path_in,
-                "data/",
-                f"data_proc{i}.hdf5",
-            ),
-            "r",
-        )
-        for i in range(int(nproc))
-    ]
-
     # directory for .npy files
     path_distr = os.path.join(path_out, "distribution_function")
 
@@ -678,126 +641,121 @@ def post_process_f(
     print("Evaluation of distribution functions for " + str(species))
 
     # Create grids
-    for slice_name in tqdm(files[0]["kinetic/" + species + "/f"]):
-        # create a new folder for each slice
-        path_slice = os.path.join(path_distr, slice_name)
-        os.mkdir(path_slice)
+    with h5py.File(os.path.join(path_in, "data/data_proc0.hdf5"), "r") as file_0:
+        for slice_name in tqdm(file_0["kinetic/" + species + "/f"]):
+            # create a new folder for each slice
+            path_slice = os.path.join(path_distr, slice_name)
+            os.mkdir(path_slice)
 
-        # Find out all names of slices
-        slice_names = slice_name.split("_")
+            # Find out all names of slices
+            slice_names = slice_name.split("_")
 
-        # save grid
-        for n_gr, (_, grid) in enumerate(files[0]["kinetic/" + species + "/f/" + slice_name].attrs.items()):
-            grid_path = os.path.join(
-                path_slice,
-                "grid_" + slice_names[n_gr] + ".npy",
-            )
-            xp.save(grid_path, grid[:])
-
-    # compute distribution function
-    for slice_name in tqdm(files[0]["kinetic/" + species + "/f"]):
-        # path to folder of slice
-        path_slice = os.path.join(path_distr, slice_name)
-
-        # Find out all names of slices
-        slice_names = slice_name.split("_")
-
-        # load full-f data
-        data = files[0]["kinetic/" + species + "/f/" + slice_name][::step].copy()
-        for rank in range(1, int(nproc)):
-            data += files[rank]["kinetic/" + species + "/f/" + slice_name][::step]
-
-        # load delta-f data
-        data_df = files[0]["kinetic/" + species + "/df/" + slice_name][::step].copy()
-        for rank in range(1, int(nproc)):
-            data_df += files[rank]["kinetic/" + species + "/df/" + slice_name][::step]
-
-        # save distribution functions
-        xp.save(os.path.join(path_slice, "f_binned.npy"), data)
-        xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
-
-        if compute_bckgr:
-            # bckgr_params = params["kinetic"][species]["background"]
-
-            # f_bckgr = None
-            # for fi, maxw_params in bckgr_params.items():
-            #     if fi[-2] == "_":
-            #         fi_type = fi[:-2]
-            #     else:
-            #         fi_type = fi
-
-            #     if f_bckgr is None:
-            #         f_bckgr = getattr(maxwellians, fi_type)(
-            #             maxw_params=maxw_params,
-            #         )
-            #     else:
-            #         f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
-            #             maxw_params=maxw_params,
-            #         )
-
-            spec: ParticleSpecies = getattr(params_in.model, species)
-            var: PICVariable = spec.var
-            f_bckgr: KineticBackground = var.backgrounds
-
-            # load all grids of the variables of f
-            grid_tot = []
-            factor = 1.0
-
-            # eta-grid
-            for comp in range(1, 4):
-                current_slice = "e" + str(comp)
-                filename = os.path.join(
+            # save grid
+            for n_gr, (_, grid) in enumerate(file_0["kinetic/" + species + "/f/" + slice_name].attrs.items()):
+                grid_path = os.path.join(
                     path_slice,
-                    "grid_" + current_slice + ".npy",
+                    "grid_" + slice_names[n_gr] + ".npy",
                 )
+                xp.save(grid_path, grid[:])
 
-                # check if file exists and is in slice_name
-                if os.path.exists(filename) and current_slice in slice_names:
-                    grid_tot += [xp.load(filename)]
+        # compute distribution function
+        for slice_name in tqdm(file_0["kinetic/" + species + "/f"]):
+            # path to folder of slice
+            path_slice = os.path.join(path_distr, slice_name)
 
-                # otherwise evaluate at zero
-                else:
-                    grid_tot += [xp.zeros(1)]
+            # Find out all names of slices
+            slice_names = slice_name.split("_")
 
-            # v-grid
-            for comp in range(1, f_bckgr.vdim + 1):
-                current_slice = "v" + str(comp)
-                filename = os.path.join(
-                    path_slice,
-                    "grid_" + current_slice + ".npy",
+            # load full-f data
+            data = file_0["kinetic/" + species + "/f/" + slice_name][::step].copy()
+            data_df = file_0["kinetic/" + species + "/df/" + slice_name][::step].copy()
+            for rank in range(1, int(nproc)):
+                with h5py.File(os.path.join(path_in, "data/", f"data_proc{rank}.hdf5"), "r") as file:
+                    data += file["kinetic/" + species + "/f/" + slice_name][::step]
+                    data_df += file["kinetic/" + species + "/df/" + slice_name][::step]
+
+            # save distribution functions
+            xp.save(os.path.join(path_slice, "f_binned.npy"), data)
+            xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_df)
+
+            if compute_bckgr:
+                # bckgr_params = params["kinetic"][species]["background"]
+
+                # f_bckgr = None
+                # for fi, maxw_params in bckgr_params.items():
+                #     if fi[-2] == "_":
+                #         fi_type = fi[:-2]
+                #     else:
+                #         fi_type = fi
+
+                #     if f_bckgr is None:
+                #         f_bckgr = getattr(maxwellians, fi_type)(
+                #             maxw_params=maxw_params,
+                #         )
+                #     else:
+                #         f_bckgr = f_bckgr + getattr(maxwellians, fi_type)(
+                #             maxw_params=maxw_params,
+                #         )
+
+                spec: ParticleSpecies = getattr(params_in.model, species)
+                var: PICVariable = spec.var
+                f_bckgr: KineticBackground = var.backgrounds
+
+                # load all grids of the variables of f
+                grid_tot = []
+                factor = 1.0
+
+                # eta-grid
+                for comp in range(1, 4):
+                    current_slice = "e" + str(comp)
+                    filename = os.path.join(
+                        path_slice,
+                        "grid_" + current_slice + ".npy",
+                    )
+
+                    # check if file exists and is in slice_name
+                    if os.path.exists(filename) and current_slice in slice_names:
+                        grid_tot += [xp.load(filename)]
+
+                    # otherwise evaluate at zero
+                    else:
+                        grid_tot += [xp.zeros(1)]
+
+                # v-grid
+                for comp in range(1, f_bckgr.vdim + 1):
+                    current_slice = "v" + str(comp)
+                    filename = os.path.join(
+                        path_slice,
+                        "grid_" + current_slice + ".npy",
+                    )
+
+                    # check if file exists and is in slice_name
+                    if os.path.exists(filename) and current_slice in slice_names:
+                        grid_tot += [xp.load(filename)]
+
+                    # otherwise evaluate at zero
+                    else:
+                        grid_tot += [xp.zeros(1)]
+                        # correct integrating out in v-direction, TODO: check for 5D Maxwellians
+                        factor *= xp.sqrt(2 * xp.pi)
+
+                grid_eval = xp.meshgrid(*grid_tot, indexing="ij")
+
+                data_bckgr = f_bckgr(*grid_eval).squeeze()
+
+                # correct integrating out in v-direction
+                data_bckgr *= factor
+
+                # Now all data is just the data for delta_f
+                data_delta_f = data_df
+
+                # save distribution function
+                xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_delta_f)
+                # add extra axis for data_bckgr since data_delta_f has axis for time series
+                xp.save(
+                    os.path.join(path_slice, "f_binned.npy"),
+                    data_delta_f + data_bckgr[tuple([None])],
                 )
-
-                # check if file exists and is in slice_name
-                if os.path.exists(filename) and current_slice in slice_names:
-                    grid_tot += [xp.load(filename)]
-
-                # otherwise evaluate at zero
-                else:
-                    grid_tot += [xp.zeros(1)]
-                    # correct integrating out in v-direction, TODO: check for 5D Maxwellians
-                    factor *= xp.sqrt(2 * xp.pi)
-
-            grid_eval = xp.meshgrid(*grid_tot, indexing="ij")
-
-            data_bckgr = f_bckgr(*grid_eval).squeeze()
-
-            # correct integrating out in v-direction
-            data_bckgr *= factor
-
-            # Now all data is just the data for delta_f
-            data_delta_f = data_df
-
-            # save distribution function
-            xp.save(os.path.join(path_slice, "delta_f_binned.npy"), data_delta_f)
-            # add extra axis for data_bckgr since data_delta_f has axis for time series
-            xp.save(
-                os.path.join(path_slice, "f_binned.npy"),
-                data_delta_f + data_bckgr[tuple([None])],
-            )
-
-    # close hdf5 files
-    for file in files:
-        file.close()
 
 
 def post_process_n_sph(
@@ -831,19 +789,6 @@ def post_process_n_sph(
         meta = yaml.load(f, Loader=yaml.FullLoader)
     nproc = meta["MPI processes"]
 
-    # open hdf5 files
-    files = [
-        h5py.File(
-            os.path.join(
-                path_in,
-                "data/",
-                f"data_proc{i}.hdf5",
-            ),
-            "r",
-        )
-        for i in range(int(nproc))
-    ]
-
     # directory for .npy files
     path_n_sph = os.path.join(path_out, "n_sph")
 
@@ -855,34 +800,36 @@ def post_process_n_sph(
 
     print("Evaluation of sph density for " + str(species))
 
-    # Create grids
-    for i, view in enumerate(files[0]["kinetic/" + species + "/n_sph"]):
-        # create a new folder for each view
-        path_view = os.path.join(path_n_sph, view)
-        os.mkdir(path_view)
+    with h5py.File(os.path.join(path_in, "data/data_proc0.hdf5"), "r") as file_0:
+        # Create grids
+        for i, view in enumerate(file_0["kinetic/" + species + "/n_sph"]):
+            # create a new folder for each view
+            path_view = os.path.join(path_n_sph, view)
+            os.mkdir(path_view)
 
-        # build meshgrid and save
-        eta1 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta1"]
-        eta2 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta2"]
-        eta3 = files[0]["kinetic/" + species + "/n_sph/" + view].attrs["eta3"]
+            # build meshgrid and save
+            eta1 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta1"]
+            eta2 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta2"]
+            eta3 = file_0["kinetic/" + species + "/n_sph/" + view].attrs["eta3"]
 
-        ee1, ee2, ee3 = xp.meshgrid(
-            eta1,
-            eta2,
-            eta3,
-            indexing="ij",
-        )
+            ee1, ee2, ee3 = xp.meshgrid(
+                eta1,
+                eta2,
+                eta3,
+                indexing="ij",
+            )
 
-        grid_path = os.path.join(
-            path_view,
-            "grid_n_sph.npy",
-        )
-        xp.save(grid_path, (ee1, ee2, ee3))
+            grid_path = os.path.join(
+                path_view,
+                "grid_n_sph.npy",
+            )
+            xp.save(grid_path, (ee1, ee2, ee3))
 
-        # load n_sph data
-        data = files[0]["kinetic/" + species + "/n_sph/" + view][::step].copy()
-        for rank in range(1, int(nproc)):
-            data += files[rank]["kinetic/" + species + "/n_sph/" + view][::step]
+            # load n_sph data
+            data = file_0["kinetic/" + species + "/n_sph/" + view][::step].copy()
+            for rank in range(1, int(nproc)):
+                with h5py.File(os.path.join(path_in, "data/", f"data_proc{rank}.hdf5"), "r") as file:
+                    data += file["kinetic/" + species + "/n_sph/" + view][::step]
 
-        # save distribution functions
-        xp.save(os.path.join(path_view, "n_sph.npy"), data)
+            # save distribution functions
+            xp.save(os.path.join(path_view, "n_sph.npy"), data)
