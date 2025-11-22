@@ -107,8 +107,10 @@ jobs:
         shell: bash
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-model-mpi
+        # init .testmondata with non-MPI call
         run: |
           source /struphy_c_/env_c_/bin/activate
+          struphy test Maxwell
           struphy test models --mpi 2
 
       - name: Verification tests with 2 MPI

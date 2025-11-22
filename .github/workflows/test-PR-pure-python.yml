@@ -111,8 +111,10 @@ jobs:
         shell: bash
         env:
           TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-pure-python-mpi
+        # init .testmondata with non-MPI call
         run: |
           source env/bin/activate
+          struphy test Maxwell
           struphy test Vlasov --mpi 2
 
       - name: GuidingCenter test MPI
