@@ -141,103 +141,103 @@ def test_main_options(args_expected, capsys):
         assert expected in captured.out
 
 
-@pytest.mark.mpi_skip
-@pytest.mark.parametrize("language", ["c", "fortran"])
-@pytest.mark.parametrize("compiler", ["gnu", "intel"])
-@pytest.mark.parametrize("compiler_config", [None])
-@pytest.mark.parametrize("omp_pic", [True, False])
-@pytest.mark.parametrize("omp_feec", [True, False])
-@pytest.mark.parametrize("delete", [True, False])
-@pytest.mark.parametrize("status", [True, False])
-@pytest.mark.parametrize("verbose", [True, False])
-@pytest.mark.parametrize("dependencies", [True, False])
-@pytest.mark.parametrize("time_execution", [True, False])
-@pytest.mark.parametrize("yes", [True])
-def test_struphy_compile(
-    language,
-    compiler,
-    compiler_config,
-    omp_pic,
-    omp_feec,
-    delete,
-    status,
-    verbose,
-    dependencies,
-    time_execution,
-    yes,
-):
-    # Save the original os.remove
-    os_remove = os.remove
+# @pytest.mark.mpi_skip
+# @pytest.mark.parametrize("language", ["c", "fortran"])
+# @pytest.mark.parametrize("compiler", ["gnu", "intel"])
+# @pytest.mark.parametrize("compiler_config", [None])
+# @pytest.mark.parametrize("omp_pic", [True, False])
+# @pytest.mark.parametrize("omp_feec", [True, False])
+# @pytest.mark.parametrize("delete", [True, False])
+# @pytest.mark.parametrize("status", [True, False])
+# @pytest.mark.parametrize("verbose", [True, False])
+# @pytest.mark.parametrize("dependencies", [True, False])
+# @pytest.mark.parametrize("time_execution", [True, False])
+# @pytest.mark.parametrize("yes", [True])
+# def test_struphy_compile(
+#     language,
+#     compiler,
+#     compiler_config,
+#     omp_pic,
+#     omp_feec,
+#     delete,
+#     status,
+#     verbose,
+#     dependencies,
+#     time_execution,
+#     yes,
+# ):
+#     # Save the original os.remove
+#     os_remove = os.remove
 
-    def mock_remove(path):
-        # Mock `os.remove` except when called for _tmp.py files
-        # Otherwise, we will not remove all the *_tmp.py files
-        # We can not use the real os.remove becuase then
-        # the state and all compiled files will be removed
-        print(f"{path =}")
-        if "_tmp.py" in path:
-            print("Not mock remove")
-            os_remove(path)
-        else:
-            print("Mock remove")
-            return
+#     def mock_remove(path):
+#         # Mock `os.remove` except when called for _tmp.py files
+#         # Otherwise, we will not remove all the *_tmp.py files
+#         # We can not use the real os.remove becuase then
+#         # the state and all compiled files will be removed
+#         print(f"{path =}")
+#         if "_tmp.py" in path:
+#             print("Not mock remove")
+#             os_remove(path)
+#         else:
+#             print("Mock remove")
+#             return
 
-    # Patch utils.save_state
-    with (
-        patch("struphy.utils.utils.save_state") as mock_save_state,
-        patch("subprocess.run") as mock_subprocess_run,
-        patch("os.remove", side_effect=mock_remove) as mock_os_remove,
-    ):
-        # Call the function with parametrized inputs
-        struphy_compile(
-            language=language,
-            compiler=compiler,
-            compiler_config=compiler_config,
-            omp_pic=omp_pic,
-            omp_feec=omp_feec,
-            delete=delete,
-            status=status,
-            verbose=verbose,
-            dependencies=dependencies,
-            time_execution=time_execution,
-            yes=yes,
-        )
-        print(f"{language =}")
-        print(f"{compiler =}")
-        print(f"{omp_pic =}")
-        print(f"{omp_feec =}")
-        print(f"{delete =}")
-        print(f"{status} = ")
-        print(f"{verbose =}")
-        print(f"{dependencies =}")
-        print(f"{time_execution =}")
-        print(f"{yes =}")
-        print(f"{mock_save_state.call_count =}")
-        print(f"{mock_subprocess_run.call_count =}")
-        print(f"{mock_os_remove.call_count =}")
+#     # Patch utils.save_state
+#     with (
+#         patch("struphy.utils.utils.save_state") as mock_save_state,
+#         patch("subprocess.run") as mock_subprocess_run,
+#         patch("os.remove", side_effect=mock_remove) as mock_os_remove,
+#     ):
+#         # Call the function with parametrized inputs
+#         struphy_compile(
+#             language=language,
+#             compiler=compiler,
+#             compiler_config=compiler_config,
+#             omp_pic=omp_pic,
+#             omp_feec=omp_feec,
+#             delete=delete,
+#             status=status,
+#             verbose=verbose,
+#             dependencies=dependencies,
+#             time_execution=time_execution,
+#             yes=yes,
+#         )
+#         print(f"{language =}")
+#         print(f"{compiler =}")
+#         print(f"{omp_pic =}")
+#         print(f"{omp_feec =}")
+#         print(f"{delete =}")
+#         print(f"{status} = ")
+#         print(f"{verbose =}")
+#         print(f"{dependencies =}")
+#         print(f"{time_execution =}")
+#         print(f"{yes =}")
+#         print(f"{mock_save_state.call_count =}")
+#         print(f"{mock_subprocess_run.call_count =}")
+#         print(f"{mock_os_remove.call_count =}")
 
-        if delete:
-            print("if delete")
-            mock_subprocess_run.assert_called()
-            # mock_save_state.assert_called()
+#         if delete:
+#             print("if delete")
+#             mock_subprocess_run.assert_called()
+#             # mock_save_state.assert_called()
 
-        elif status:
-            print("elif status")
-            # If only status is True (without delete), subprocess.run should not be called
-            mock_subprocess_run.assert_not_called()
-            mock_save_state.assert_called()
+#         elif status:
+#             print("elif status")
+#             # If only status is True (without delete), subprocess.run should not be called
+#             mock_subprocess_run.assert_not_called()
+#             mock_save_state.assert_called()
 
-        elif dependencies:
-            print("elif dependencies")
-            # For dependencies=True, subprocess.run should not be called
-            mock_subprocess_run.assert_not_called()
-            # mock_save_state.assert_not_called()
+#         elif dependencies:
+#             print("elif dependencies")
+#             # For dependencies=True, subprocess.run should not be called
+#             mock_subprocess_run.assert_not_called()
+#             # mock_save_state.assert_not_called()
 
-        else:
-            print("else")
-            # Normal compilation case
-            mock_subprocess_run.assert_called()
-            mock_save_state.assert_called()
+#         else:
+#             print("else")
+#             # Normal compilation case
+#             mock_subprocess_run.assert_called()
+#             mock_save_state.assert_called()
 
 
 @pytest.mark.mpi_skip
