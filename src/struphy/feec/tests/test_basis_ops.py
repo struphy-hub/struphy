@@ -336,29 +336,6 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
 
     mhd_ops_psy = BasisProjectionOperators(derham, domain, eq_mhd=eq_mhd)
 
-    # compare to old STRUPHY
-    spaces = [
-        Spline_space_1d(Nel[0], p[0], spl_kind[0], nq_el[0], dirichlet_bc[0]),
-        Spline_space_1d(Nel[1], p[1], spl_kind[1], nq_el[1], dirichlet_bc[1]),
-        Spline_space_1d(Nel[2], p[2], spl_kind[2], nq_el[2], dirichlet_bc[2]),
-    ]
-
-    spaces[0].set_projectors(nq_pr[0])
-    spaces[1].set_projectors(nq_pr[1])
-    spaces[2].set_projectors(nq_pr[2])
-
-    space = Tensor_spline_space(spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0])
-    space.set_projectors("general")
-
-    mhd_ops_str = MHDOperators(space, eq_mhd, basis_u=2)
-
-    mhd_ops_str.assemble_dofs("MF")
-    mhd_ops_str.assemble_dofs("PF")
-    mhd_ops_str.assemble_dofs("EF")
-    mhd_ops_str.assemble_dofs("PR")
-
-    mhd_ops_str.set_operators()
-
     # create random input arrays
     x0_str, x0_psy = create_equal_random_arrays(derham.Vh_fem["0"], seed=1234, flattened=True)
     x1_str, x1_psy = create_equal_random_arrays(derham.Vh_fem["1"], seed=1568, flattened=True)
@@ -382,11 +359,6 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     x2_pol_psy.pol = [xp.random.rand(x2_pol_psy.pol[n].shape[0], x2_pol_psy.pol[n].shape[1]) for n in range(3)]
     x3_pol_psy.pol = [xp.random.rand(x3_pol_psy.pol[0].shape[0], x3_pol_psy.pol[0].shape[1])]
 
-    # apply boundary conditions to legacy vectors for right shape
-    x0_pol_str = space.B0.dot(x0_pol_psy.toarray(True))
-    x1_pol_str = space.B1.dot(x1_pol_psy.toarray(True))
-    x2_pol_str = space.B2.dot(x2_pol_psy.toarray(True))
-    x3_pol_str = space.B3.dot(x3_pol_psy.toarray(True))
 
     # ================================================================================
     #                              MHD velocity is a 2-form
@@ -403,24 +375,12 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     else:
         r_psy = mhd_ops_psy.K3.dot(x3_pol_psy, tol=1e-10, verbose=False)
 
-    r_str = mhd_ops_str.PR(x3_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator K3.")
-    xp.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.K3.transpose().dot(x3_pol_psy, tol=1e-10, verbose=True)
     else:
         r_psy = mhd_ops_psy.K3.transpose().dot(x3_pol_psy, tol=1e-10, verbose=False)
-
-    r_str = mhd_ops_str.PR.T(x3_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting transpose MHD operator K3.T.")
-    xp.allclose(space.B3.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # ===== operator Q2 (V2 --> V2) ============
     mpi_comm.Barrier()
@@ -433,24 +393,12 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     else:
         r_psy = mhd_ops_psy.Q2.dot(x2_pol_psy, tol=1e-10, verbose=False)
 
-    r_str = mhd_ops_str.MF(x2_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator Q2.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.Q2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=True)
     else:
         r_psy = mhd_ops_psy.Q2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=False)
-
-    r_str = mhd_ops_str.MF.T(x2_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting transposed MHD operator Q2.T.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # ===== operator T2 (V2 --> V1) ============
     mpi_comm.Barrier()
@@ -463,24 +411,12 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     else:
         r_psy = mhd_ops_psy.T2.dot(x2_pol_psy, tol=1e-10, verbose=False)
 
-    r_str = mhd_ops_str.EF(x2_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator T2.")
-    xp.allclose(space.B1.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10, verbose=True)
     else:
         r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10, verbose=False)
-
-    r_str = mhd_ops_str.EF.T(x1_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting transposed MHD operator T2.T.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
 
     # ===== operator S2 (V2 --> V2) ============
     mpi_comm.Barrier()
@@ -493,25 +429,12 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     else:
         r_psy = mhd_ops_psy.S2.dot(x2_pol_psy, tol=1e-10, verbose=False)
 
-    r_str = mhd_ops_str.PF(x2_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting MHD operator S2.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
     mpi_comm.Barrier()
 
     if mpi_rank == 0:
         r_psy = mhd_ops_psy.S2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=True)
     else:
         r_psy = mhd_ops_psy.S2.transpose().dot(x2_pol_psy, tol=1e-10, verbose=False)
-
-    r_str = mhd_ops_str.PF.T(x2_pol_str)
-
-    print(f"Rank {mpi_rank} | Asserting transposed MHD operator S2.T.")
-    xp.allclose(space.B2.T.dot(r_str), r_psy.toarray(True))
-    print(f"Rank {mpi_rank} | Assertion passed.")
-
 
 def assert_ops(mpi_rank, res_PSY, res_STR, verbose=False, MPI_COMM=None):
     """
