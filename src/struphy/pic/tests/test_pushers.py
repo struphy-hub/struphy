@@ -54,10 +54,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
 
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
-
     # particle loading and sorting
     seed = 1234
     loading_params = LoadingParameters(ppc=2, seed=seed, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
@@ -159,10 +155,6 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
-
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
     seed = 1234
@@ -276,10 +268,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
 
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
-
     # particle loading and sorting
     seed = 1234
     loading_params = LoadingParameters(ppc=2, seed=seed, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
@@ -392,10 +380,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
 
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
-
     # particle loading and sorting
     seed = 1234
     loading_params = LoadingParameters(ppc=2, seed=seed, moments=(0.0, 0.0, 0.0, 1.0, 1.0, 1.0), spatial="uniform")
@@ -507,10 +491,6 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
-
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
     seed = 1234
@@ -634,10 +614,6 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
-
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
     seed = 1234
