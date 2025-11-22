@@ -133,8 +133,6 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
             else:
                 bc_old[i][j] = "f"
 
-    
-
     # create random input arrays
     x0_str, x0_psy = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)
     x1_str, x1_psy = create_equal_random_arrays(fem_spaces[1], seed=1568, flattened=True)
