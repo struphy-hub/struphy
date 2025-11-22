@@ -82,32 +82,6 @@ def test_some_basis_ops(Nel, p, spl_kind, mapping):
         print(f"Rank {mpi_rank} | type(P0vec) {type(P0vec)}")
         print(f"Rank {mpi_rank} | ")
 
-    # Struphy spline spaces
-    space_1 = Spline_space_1d(Nel[0], p[0], spl_kind[0], n_quad_el[0] + 1)
-    space_2 = Spline_space_1d(Nel[1], p[1], spl_kind[1], n_quad_el[1] + 1)
-    space_3 = Spline_space_1d(Nel[2], p[2], spl_kind[2], n_quad_el[2] + 1)
-
-    space_1.set_projectors(n_quad_pr[0])
-    space_2.set_projectors(n_quad_pr[1])
-    space_3.set_projectors(n_quad_pr[2])
-
-    # print('\nSTRUPHY point sets:')
-    # print('\nDirection 1:')
-    # print(f'x_int: {space_1.projectors.x_int}')
-    # print(f'x_hisG: {space_1.projectors.x_hisG}')
-    # print(f'x_his: {space_1.projectors.x_his}')
-    # print('\nDirection 2:')
-    # print(f'x_int: {space_2.projectors.x_int}')
-    # print(f'x_hisG: {space_2.projectors.x_hisG}')
-    # print(f'x_his: {space_2.projectors.x_his}')
-    # print('\nDirection 3:')
-    # print(f'x_int: {space_3.projectors.x_int}')
-    # print(f'x_hisG: {space_3.projectors.x_hisG}')
-    # print(f'x_his: {space_3.projectors.x_his}')
-
-    SPACES = Tensor_spline_space([space_1, space_2, space_3])
-    SPACES.set_projectors("tensor")
-
     # Psydac MHD operators
     OPS_PSY = BasisProjectionOperators(DERHAM_PSY, domain, eq_mhd=EQ_MHD)
 
