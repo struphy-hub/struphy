@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import cunumpy as xp
 import h5py
@@ -21,8 +22,6 @@ from struphy.pic.utilities import (
 )
 from struphy.topology import grids
 
-test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
-
 
 def test_weak_Landau(do_plot: bool = False):
     """Verification test for weak Landau damping.
@@ -32,6 +31,7 @@ def test_weak_Landau(do_plot: bool = False):
     from struphy.models.kinetic import VlasovAmpereOneSpecies
 
     # environment options
+    test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
     out_folders = os.path.join(test_folder, "VlasovAmpereOneSpecies")
     env = EnvironmentOptions(out_folders=out_folders, sim_folder="weak_Landau")
 
@@ -161,6 +161,8 @@ def test_weak_Landau(do_plot: bool = False):
         rel_error = xp.abs(gamma_num - gamma) / xp.abs(gamma)
         assert rel_error < 0.22, f"Assertion for weak Landau damping failed: {gamma_num =} vs. {gamma =}."
         print(f"Assertion for weak Landau damping passed ({rel_error =}).")
+
+        shutil.rmtree(test_folder)
 
 
 if __name__ == "__main__":
