@@ -1,13 +1,8 @@
 name: isort & ruff
 
 on:
-  push:
-    branches:
-      - main
-      - devel
   pull_request:
     branches:
-      - main
       - devel
 
 concurrency:
@@ -46,15 +41,6 @@ jobs:
       # You can test your matrix by printing the current Python version
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
-
-      # Cache pip dependencies
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
 
       - name: Install prerequisites (Ubuntu)
         uses: ./.github/actions/install/ubuntu-latest

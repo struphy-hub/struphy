@@ -6,6 +6,7 @@ from functools import reduce
 from textwrap import indent
 
 import cunumpy as xp
+import h5py
 import yaml
 from line_profiler import profile
 from psydac.ddm.mpi import MockMPI
@@ -16,7 +17,12 @@ import struphy
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
 from struphy.feec.psydac_derham import SplineFunction
-from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB, MHDequilibrium
+from struphy.fields_background.base import (
+    FluidEquilibrium,
+    FluidEquilibriumWithB,
+    MHDequilibrium,
+    NumericalMHDequilibrium,
+)
 from struphy.fields_background.equils import HomogenSlab
 from struphy.fields_background.projected_equils import (
     ProjectedFluidEquilibrium,
@@ -95,7 +101,7 @@ class StruphyModel(metaclass=ABCMeta):
         """If a numerical equilibirum is used, the domain is taken from this equilibirum."""
         if equil is not None:
             self._equil = equil
-            if "Numerical" in self.equil.__class__.__name__:
+            if isinstance(self.equil, NumericalMHDequilibrium):
                 self._domain = self.equil.domain
             else:
                 self._domain = domain
@@ -971,7 +977,7 @@ class StruphyModel(metaclass=ABCMeta):
     #                         threshold=obj.weights_params["threshold"],
     #                     )
 
-    def initialize_from_restart(self, data):
+    def initialize_from_restart(self, data: DataContainer):
         """
         Set initial conditions for FE coefficients (electromagnetic and fluid) and markers from restart group in hdf5 files.
 
@@ -981,41 +987,42 @@ class StruphyModel(metaclass=ABCMeta):
             The data object that links to the hdf5 files.
         """
 
-        # initialize em fields
-        if len(self.em_fields) > 0:
-            for key, val in self.em_fields.items():
-                if "params" in key:
-                    continue
-                else:
-                    obj = val["obj"]
-                    assert isinstance(obj, SplineFunction)
-                    obj.initialize_coeffs_from_restart_file(data.file)
-
-        # initialize fields
-        if len(self.fluid) > 0:
-            for species, val in self.fluid.items():
-                for variable, subval in val.items():
-                    if "params" in variable:
+        with h5py.File(data.file_path, "a") as file:
+            # initialize em fields
+            if len(self.em_fields) > 0:
+                for key, val in self.em_fields.items():
+                    if "params" in key:
                         continue
                     else:
-                        obj = subval["obj"]
+                        obj = val["obj"]
                         assert isinstance(obj, SplineFunction)
-                        obj.initialize_coeffs_from_restart_file(
-                            data.file,
-                            species,
-                        )
+                        obj.initialize_coeffs_from_restart_file(file)
 
-        # initialize particles
-        if len(self.kinetic) > 0:
-            for key, val in self.kinetic.items():
-                obj = val["obj"]
-                assert isinstance(obj, Particles)
-                obj.draw_markers(verbose=self.verbose)
-                obj._markers[:, :] = data.file["restart/" + key][-1, :, :]
+            # initialize fields
+            if len(self.fluid) > 0:
+                for species, val in self.fluid.items():
+                    for variable, subval in val.items():
+                        if "params" in variable:
+                            continue
+                        else:
+                            obj = subval["obj"]
+                            assert isinstance(obj, SplineFunction)
+                            obj.initialize_coeffs_from_restart_file(
+                                file,
+                                species,
+                            )
 
-                # important: sets holes attribute of markers!
-                if self.comm_world is not None:
-                    obj.mpi_sort_markers(do_test=True)
+            # initialize particles
+            if len(self.kinetic) > 0:
+                for key, val in self.kinetic.items():
+                    obj = val["obj"]
+                    assert isinstance(obj, Particles)
+                    obj.draw_markers(verbose=self.verbose)
+                    obj._markers[:, :] = file["restart/" + key][-1, :, :]
+
+                    # important: sets holes attribute of markers!
+                    if self.comm_world is not None:
+                        obj.mpi_sort_markers(do_test=True)
 
     def initialize_data_output(self, data: DataContainer, size):
         """
@@ -1044,111 +1051,112 @@ class StruphyModel(metaclass=ABCMeta):
             key_scalar = "scalar/" + key
             data.add_data({key_scalar: val})
 
-        # store grid_info only for runs with 512 ranks or smaller
-        if self._scalar_quantities and self.derham is not None:
-            if size <= 512:
-                data.file["scalar"].attrs["grid_info"] = self.derham.domain_array
+        with h5py.File(data.file_path, "a") as file:
+            # store grid_info only for runs with 512 ranks or smaller
+            if self._scalar_quantities and self.derham is not None:
+                if size <= 512:
+                    file["scalar"].attrs["grid_info"] = self.derham.domain_array
+                else:
+                    file["scalar"].attrs["grid_info"] = self.derham.domain_array[0]
             else:
-                data.file["scalar"].attrs["grid_info"] = self.derham.domain_array[0]
-        else:
-            pass
+                pass
 
-        # save feec data in group 'feec/'
-        feec_species = self.field_species | self.fluid_species | self.diagnostic_species
-        for species, val in feec_species.items():
-            assert isinstance(val, Species)
+            # save feec data in group 'feec/'
+            feec_species = self.field_species | self.fluid_species | self.diagnostic_species
+            for species, val in feec_species.items():
+                assert isinstance(val, Species)
 
-            species_path = os.path.join("feec", species)
-            species_path_restart = os.path.join("restart", species)
+                species_path = os.path.join("feec", species)
+                species_path_restart = os.path.join("restart", species)
 
-            for variable, subval in val.variables.items():
-                assert isinstance(subval, FEECVariable)
-                spline = subval.spline
+                for variable, subval in val.variables.items():
+                    assert isinstance(subval, FEECVariable)
+                    spline = subval.spline
 
-                # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
-                spline.extract_coeffs(update_ghost_regions=False)
+                    # in-place extraction of FEM coefficients from field.vector --> field.vector_stencil!
+                    spline.extract_coeffs(update_ghost_regions=False)
 
-                # save numpy array to be updated each time step.
-                if subval.save_data:
-                    key_field = os.path.join(species_path, variable)
+                    # save numpy array to be updated each time step.
+                    if subval.save_data:
+                        key_field = os.path.join(species_path, variable)
+
+                        if isinstance(spline.vector_stencil, StencilVector):
+                            data.add_data(
+                                {key_field: spline.vector_stencil._data},
+                            )
+
+                        else:
+                            for n in range(3):
+                                key_component = os.path.join(key_field, str(n + 1))
+                                data.add_data(
+                                    {key_component: spline.vector_stencil[n]._data},
+                                )
+
+                        # save field meta data
+                        file[key_field].attrs["space_id"] = spline.space_id
+                        file[key_field].attrs["starts"] = spline.starts
+                        file[key_field].attrs["ends"] = spline.ends
+                        file[key_field].attrs["pads"] = spline.pads
+
+                    # save numpy array to be updated only at the end of the simulation for restart.
+                    key_field_restart = os.path.join(species_path_restart, variable)
 
                     if isinstance(spline.vector_stencil, StencilVector):
                         data.add_data(
-                            {key_field: spline.vector_stencil._data},
+                            {key_field_restart: spline.vector_stencil._data},
                         )
-
                     else:
                         for n in range(3):
-                            key_component = os.path.join(key_field, str(n + 1))
+                            key_component_restart = os.path.join(key_field_restart, str(n + 1))
                             data.add_data(
-                                {key_component: spline.vector_stencil[n]._data},
+                                {key_component_restart: spline.vector_stencil[n]._data},
                             )
 
-                    # save field meta data
-                    data.file[key_field].attrs["space_id"] = spline.space_id
-                    data.file[key_field].attrs["starts"] = spline.starts
-                    data.file[key_field].attrs["ends"] = spline.ends
-                    data.file[key_field].attrs["pads"] = spline.pads
+            # save kinetic data in group 'kinetic/'
+            for name, species in self.particle_species.items():
+                assert isinstance(species, ParticleSpecies)
+                assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
+                for varname, var in species.variables.items():
+                    assert isinstance(var, PICVariable | SPHVariable)
+                    obj = var.particles
+                    assert isinstance(obj, Particles)
 
-                # save numpy array to be updated only at the end of the simulation for restart.
-                key_field_restart = os.path.join(species_path_restart, variable)
+                key_spec = os.path.join("kinetic", name)
+                key_spec_restart = os.path.join("restart", name)
 
-                if isinstance(spline.vector_stencil, StencilVector):
-                    data.add_data(
-                        {key_field_restart: spline.vector_stencil._data},
-                    )
-                else:
-                    for n in range(3):
-                        key_component_restart = os.path.join(key_field_restart, str(n + 1))
-                        data.add_data(
-                            {key_component_restart: spline.vector_stencil[n]._data},
-                        )
+                # restart data
+                data.add_data({key_spec_restart: obj.markers})
 
-        # save kinetic data in group 'kinetic/'
-        for name, species in self.particle_species.items():
-            assert isinstance(species, ParticleSpecies)
-            assert len(species.variables) == 1, "More than 1 variable per kinetic species is not allowed."
-            for varname, var in species.variables.items():
-                assert isinstance(var, PICVariable | SPHVariable)
-                obj = var.particles
-                assert isinstance(obj, Particles)
+                # marker data
+                key_mks = os.path.join(key_spec, "markers")
+                data.add_data({key_mks: var.saved_markers})
 
-            key_spec = os.path.join("kinetic", name)
-            key_spec_restart = os.path.join("restart", name)
+                # binning plot data
+                for bin_plot in species.binning_plots:
+                    key_f = os.path.join(key_spec, "f", bin_plot.slice)
+                    key_df = os.path.join(key_spec, "df", bin_plot.slice)
 
-            # restart data
-            data.add_data({key_spec_restart: obj.markers})
+                    data.add_data({key_f: bin_plot.f})
+                    data.add_data({key_df: bin_plot.df})
 
-            # marker data
-            key_mks = os.path.join(key_spec, "markers")
-            data.add_data({key_mks: var.saved_markers})
+                    for dim, be in enumerate(bin_plot.bin_edges):
+                        file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = be[:-1] + (be[1] - be[0]) / 2
 
-            # binning plot data
-            for bin_plot in species.binning_plots:
-                key_f = os.path.join(key_spec, "f", bin_plot.slice)
-                key_df = os.path.join(key_spec, "df", bin_plot.slice)
+                for i, kd_plot in enumerate(species.kernel_density_plots):
+                    key_n = os.path.join(key_spec, "n_sph", f"view_{i}")
 
-                data.add_data({key_f: bin_plot.f})
-                data.add_data({key_df: bin_plot.df})
+                    data.add_data({key_n: kd_plot.n_sph})
+                    # save 1d point values, not meshgrids, because attrs size is limited
+                    eta1 = kd_plot.plot_pts[0][:, 0, 0]
+                    eta2 = kd_plot.plot_pts[1][0, :, 0]
+                    eta3 = kd_plot.plot_pts[2][0, 0, :]
+                    file[key_n].attrs["eta1"] = eta1
+                    file[key_n].attrs["eta2"] = eta2
+                    file[key_n].attrs["eta3"] = eta3
 
-                for dim, be in enumerate(bin_plot.bin_edges):
-                    data.file[key_f].attrs["bin_centers" + "_" + str(dim + 1)] = be[:-1] + (be[1] - be[0]) / 2
-
-            for i, kd_plot in enumerate(species.kernel_density_plots):
-                key_n = os.path.join(key_spec, "n_sph", f"view_{i}")
-
-                data.add_data({key_n: kd_plot.n_sph})
-                # save 1d point values, not meshgrids, because attrs size is limited
-                eta1 = kd_plot.plot_pts[0][:, 0, 0]
-                eta2 = kd_plot.plot_pts[1][0, :, 0]
-                eta3 = kd_plot.plot_pts[2][0, 0, :]
-                data.file[key_n].attrs["eta1"] = eta1
-                data.file[key_n].attrs["eta2"] = eta2
-                data.file[key_n].attrs["eta3"] = eta3
-
-            # TODO: maybe add other data
-            # else:
-            #     data.add_data({key_dat: val1})
+                # TODO: maybe add other data
+                # else:
+                #     data.add_data({key_dat: val1})
 
         # keys to be saved at each time step and only at end (restart)
         save_keys_all = []

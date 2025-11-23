@@ -429,7 +429,7 @@ class EfieldWeights(Propagator):
         # ================================
 
         # Preconditioner
-        if self.options.precond == None:
+        if self.options.precond is None:
             pc = None
         else:
             pc_class = getattr(preconditioner, self.options.precond)
