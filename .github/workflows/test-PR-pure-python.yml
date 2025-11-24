@@ -63,6 +63,11 @@ jobs:
         shell: bash
         run: apt install -y sqlite3
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
       - name: Install Struphy
         uses: ./.github/actions/install/install-struphy
 
