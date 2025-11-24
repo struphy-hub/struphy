@@ -1,9 +1,6 @@
 name: MacOS
 
 on:
-  push:
-    branches:
-      - devel
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0" 
@@ -13,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  macos-latest-build:
-    uses: ./.github/workflows/hello_world_reusable_wf.yml
+  ubuntu-latest-build:
+    uses: ./.github/workflows/reusable-testing.yml
     with:
       os: macos-latest
