@@ -60,11 +60,6 @@ jobs:
         run: |
           ls .testmon* || echo "No .testmondata"
 
-      # This step can be removed when the updated ghcr images are pushed
-      - name: Install sqlite
-        shell: bash
-        run: apt install -y sqlite3
-
       - name: Install Struphy in Container
         uses: ./.github/actions/install/struphy_in_container
 
