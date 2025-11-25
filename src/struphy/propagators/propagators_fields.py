@@ -1639,22 +1639,23 @@ class FaradayExtended(Propagator):
             _RHS2 = HybridM1.dot(self._RHS) + self._rhs
 
             # TODO: unknown function 'pcg', use new solver API
-            a_new, info = pcg(
-                _LHS,
-                _RHS2,
-                self._pc,
-                x0=self._a,
-                tol=self._solver_params["tol"],
-                maxiter=self._solver_params["maxiter"],
-                verbose=self._solver_params["verbose"],
-            )
+            raise NotImplementedError("pcg solver not available, use new solver API!")
+            # a_new, info = pcg(
+            #     _LHS,
+            #     _RHS2,
+            #     self._pc,
+            #     x0=self._a,
+            #     tol=self._solver_params["tol"],
+            #     maxiter=self._solver_params["maxiter"],
+            #     verbose=self._solver_params["verbose"],
+            # )
 
             # write new coeffs into Propagator.variables
-            max_da = self.feec_vars_update(a_new)
-            print("++++====check_iteration_error=====+++++", max_da)
+            # max_da = self.feec_vars_update(a_new)
+            # print("++++====check_iteration_error=====+++++", max_da)
             # we can modify the diff function in in_place_update to get another type errors
-            if max_da[0] < 10 ** (-6):
-                break
+            # if max_da[0] < 10 ** (-6):
+            #     break
 
     @classmethod
     def options(cls):
