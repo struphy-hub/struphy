@@ -7860,6 +7860,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
         solver_params = self.options.solver_params
 
+        u = self.variables.u.spline.vector
+
         # Lifting for nontrivial boundary conditions
         # derham had boundary conditions in eta1 direction, the following is in space Hdiv_0
         if self._lifting:
