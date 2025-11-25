@@ -10,18 +10,21 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
+
 with open("../src/struphy/console/main.py") as f:
     exec(f.read())
 
 # -- Project information -----------------------------------------------------
+import importlib.metadata
+__version__ = importlib.metadata.version("struphy")
 
 project = "struphy"
 copyright = "2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics"
 author = "Struphy dev team | Max Planck Institute for Plasma Physics"
-# version = __version__
+version = __version__
 
 # The full version, including alpha/beta/rc tags
-# release = __version__
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 
