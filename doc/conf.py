@@ -18,10 +18,10 @@ with open("../src/struphy/console/main.py") as f:
 project = "struphy"
 copyright = "2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics"
 author = "Struphy dev team | Max Planck Institute for Plasma Physics"
-version = __version__
+# version = __version__
 
 # The full version, including alpha/beta/rc tags
-release = __version__
+# release = __version__
 
 # -- General configuration ---------------------------------------------------
 
