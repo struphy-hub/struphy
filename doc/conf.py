@@ -16,6 +16,7 @@ with open("../src/struphy/console/main.py") as f:
 
 # -- Project information -----------------------------------------------------
 import importlib.metadata
+
 __version__ = importlib.metadata.version("struphy")
 
 project = "struphy"
@@ -81,7 +82,10 @@ html_theme_options = {
     "primary_sidebar_end": ["sidebar-ethical-ads"],
     "external_links": [
         {"name": "Struphy repo", "url": "https://github.com/struphy-hub/struphy"},
-        {"name": "Struphy LinkedIn", "url": "https://www.linkedin.com/company/struphy/"},
+        {
+            "name": "Struphy LinkedIn",
+            "url": "https://www.linkedin.com/company/struphy/",
+        },
         {
             "name": "Struphy MatrixChat",
             "url": "https://matrix.to/#/!wqjcJpsUvAbTPOUXen:mpg.de?via=mpg.de&via=academiccloud.de",
@@ -124,9 +128,21 @@ html_logo = "dog-cartoon-struphy.jpg"
 # }
 
 # inheritance diagrams
-inheritance_graph_attrs = dict(rankdir="LR", ratio="auto", size='"4.0, 20.0"', fontsize="8", resolution=300.0)
+inheritance_graph_attrs = dict(
+    rankdir="LR",
+    ratio="auto",
+    size='"4.0, 20.0"',
+    fontsize="8",
+    resolution=300.0,
+)
 
-inheritance_node_attrs = dict(shape="ellipse", fontsize="8", height=0.25, color="maroon4", style="filled")
+inheritance_node_attrs = dict(
+    shape="ellipse",
+    fontsize="8",
+    height=0.25,
+    color="maroon4",
+    style="filled",
+)
 
 # markdown parsing
 myst_enable_extensions = [
