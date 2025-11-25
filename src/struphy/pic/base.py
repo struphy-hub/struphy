@@ -33,6 +33,7 @@ from struphy.io.output_handling import DataContainer
 from struphy.kernel_arguments.pusher_args_kernels import MarkerArguments
 from struphy.kinetic_background.base import KineticBackground, Maxwellian
 from struphy.pic import sampling_kernels, sobol_seq
+from struphy.pic.pushing import eval_kernels_gc
 from struphy.pic.pushing.pusher_utilities_kernels import reflect
 from struphy.pic.sorting_kernels import (
     assign_box_to_each_particle,
@@ -1244,9 +1245,10 @@ class Particles(metaclass=ABCMeta):
         if self.type != "sph":
             self._f_init = self.initial_condition
         else:
-            # Get the initialization function and pass the correct arguments
             assert isinstance(self.f0, FluidEquilibrium)
-            self._u_init = self.f0.u_cart
+
+            # get vector-field representation of the fluid velocity
+            self._u_init = self.f0.uv
 
             if self.perturbations is not None:
                 for (
@@ -1279,8 +1281,7 @@ class Particles(metaclass=ABCMeta):
                             comp=pert.comp,
                             domain=self.domain,
                         )
-                        _fun_cart = lambda e1, e2, e3: self.domain.push(_fun, e1, e2, e3, kind="v")
-                        self._u_init = lambda e1, e2, e3: self.f0.u_cart(e1, e2, e3)[0] + _fun_cart(e1, e2, e3)
+                        self._u_init = lambda e1, e2, e3: self.f0.uv(e1, e2, e3) + _fun(e1, e2, e3)
                         # TODO: add other velocity components
             else:
                 _fun = None
@@ -1400,7 +1401,11 @@ class Particles(metaclass=ABCMeta):
         verbose: bool = True,
     ):
         r""" 
-        Drawing markers according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`.
+        Drawing markers 
+        
+        * for PIC: according to the volume density :math:`s^\textrm{vol}_{\textnormal{in}}`
+        * for SPH: from unity/disc in space and according to the vector-field representation of the fluid velocity
+        
         In Struphy, the initial marker distribution :math:`s^\textrm{vol}_{\textnormal{in}}` is always of the form
 
         .. math::
@@ -1519,7 +1524,7 @@ class Particles(metaclass=ABCMeta):
             self._load_tesselation()
             if self.type == "sph":
                 self._set_initial_condition()
-                self.velocities = xp.array(self.u_init(self.positions)[0]).T
+                self.velocities = xp.array(self.u_init(self.positions)).T
             # set markers ID in last column
             self.marker_ids = _first_marker_id + xp.arange(n_mks_load_loc, dtype=float)
         else:
@@ -1609,7 +1614,7 @@ class Particles(metaclass=ABCMeta):
             # initial velocities - SPH case: v(0) = u(x(0)) for given velocity u(x)
             if self.type == "sph":
                 self._set_initial_condition()
-                self.velocities = xp.array(self.u_init(self.positions)[0]).T
+                self.velocities = xp.array(self.u_init(self.positions)).T
             else:
                 # inverse transform sampling in velocity space
                 u_mean = xp.array(self.loading_params.moments[: self.vdim])
@@ -1892,6 +1897,7 @@ class Particles(metaclass=ABCMeta):
         components: tuple[bool],
         bin_edges: tuple[xp.ndarray],
         divide_by_jac: bool = True,
+        bin_vx: bool = False,
     ):
         r"""Computes full-f and delta-f distribution functions via marker binning in logical space.
         Numpy's histogramdd is used, following the algorithm outlined in :ref:`binning`.
@@ -1904,8 +1910,11 @@ class Particles(metaclass=ABCMeta):
         bin_edges : tuple[array]
             List of bin edges (resolution) having the length of True entries in components.
 
-        divide_by_jac : boll
+        divide_by_jac : bool
             Whether to divide the weights by the Jacobian determinant for binning.
+
+        bin_vx : bool
+            Whether to bin the first velocity coordinate (self.velocities[:, 0]).
 
         Returns
         -------
@@ -1930,6 +1939,9 @@ class Particles(metaclass=ABCMeta):
         # compute weights of histogram:
         _weights0 = self.weights0
         _weights = self.weights
+        if bin_vx:
+            _weights0 *= self.velocities[:, 0]
+            _weights *= self.velocities[:, 0]
 
         if divide_by_jac:
             _weights /= self.domain.jacobian_det(self.positions, remove_outside=False)
@@ -3730,6 +3742,117 @@ Increasing the value of "bufsize" in the markers parameters for the next run.',
             h3=h3,
             fast=fast,
         )
+
+    def eval_velocity(
+        self,
+        eta1,
+        eta2,
+        eta3,
+        h1,
+        h2,
+        h3,
+        kernel_type="gaussian_1d",
+        derivative=0,
+        fast=True,
+    ) -> tuple:
+        """Density function as 0-form.
+
+        Parameters
+        ----------
+        eta1, eta2, eta3 : array_like
+            Logical evaluation points (flat or meshgrid evaluation).
+
+        h1, h2, h3 : float
+            Support radius of the smoothing kernel in each dimension.
+
+        kernel_type : str
+            Name of the smoothing kernel to be used.
+
+        derivative: int
+            0: no kernel derivative
+            1: first component of grad
+            2: second component of grad
+            3: third component of grad
+
+        fast : bool
+            True: box-based evaluation, False: naive evaluation.
+
+        Returns
+        -------
+        out : tuple[array-like]
+            Velocity components, same size as eta1.
+        """
+
+        first_free_idx = self.args_markers.first_free_idx
+        comps = xp.array((0, 1, 2))
+
+        self.put_particles_in_boxes()
+
+        func = Pyccelkernel(eval_kernels_gc.sph_mean_velocity_coeffs)
+
+        func(
+            alpha=xp.array((0.0, 0.0, 0.0)),
+            column_nr=first_free_idx,
+            comps=comps,
+            args_markers=self.args_markers,
+            args_domain=self.domain.args_domain,
+            boxes=self.sorting_boxes.boxes,
+            neighbours=self.sorting_boxes.neighbours,
+            holes=self.holes,
+            periodic1=self.boundary_params.bc_sph[0] == "periodic",
+            periodic2=self.boundary_params.bc_sph[1] == "periodic",
+            periodic3=self.boundary_params.bc_sph[2] == "periodic",
+            kernel_type=self.ker_dct()[kernel_type],
+            h1=h1,
+            h2=h2,
+            h3=h3,
+        )
+
+        v1 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+
+        # print(f"{self.markers.shape = }")
+        # print(f"{first_free_idx = }")
+        # print(f"{self.markers[:, first_free_idx]}")
+        # print(f"{v1.squeeze() = }")
+
+        v2 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx + 1,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+
+        v3 = self.eval_sph(
+            eta1,
+            eta2,
+            eta3,
+            first_free_idx + 2,
+            kernel_type=kernel_type,
+            derivative=derivative,
+            h1=h1,
+            h2=h2,
+            h3=h3,
+            fast=fast,
+        )
+
+        return v1, v2, v3
 
     def eval_sph(
         self,
