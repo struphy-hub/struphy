@@ -10,6 +10,7 @@ runs:
         export PATH="/opt/homebrew/bin:$PATH"
         brew update
         brew install gcc
+        brew install gfortran
         brew install openblas
         brew install lapack
         brew install open-mpi
