@@ -9,8 +9,7 @@ runs:
         set -euo pipefail
         export PATH="/opt/homebrew/bin:$PATH"
         brew update
-        brew install gcc
-        brew install gfortran
+        brew reinstall gcc
         brew install openblas
         brew install lapack
         brew install open-mpi
