@@ -76,17 +76,17 @@ jobs:
       #   run: |
       #     struphy test unit
 
-      # - name: Run unit tests with MPI
-      #   if: matrix.test-type == 'unit'
-      #   shell: bash
-      #   run: |
-      #     struphy test unit --mpi 2
-
-      - name: Run model tests
-        if: matrix.test-type == 'model'
+      - name: Run unit tests with MPI
+        if: matrix.test-type == 'unit'
         shell: bash
         run: |
-          struphy test models
+          struphy test unit --mpi 2
+
+      # - name: Run model tests
+      #   if: matrix.test-type == 'model'
+      #   shell: bash
+      #   run: |
+      #     struphy test models
 
       - name: Run model tests with MPI
         if: matrix.test-type == 'model'
@@ -100,8 +100,8 @@ jobs:
       #   run: |
       #     struphy test verification
 
-      # - name: Run verification tests with MPI
-      #   if: matrix.test-type == 'verification'
-      #   shell: bash
-      #   run: |
-      #     struphy test verification --mpi 2
+      - name: Run verification tests with MPI
+        if: matrix.test-type == 'verification'
+        shell: bash
+        run: |
+          struphy test verification --mpi 2
