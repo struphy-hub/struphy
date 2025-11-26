@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  ubuntu-latest-build:
+  ubuntu-install-test:
     uses: ./.github/workflows/reusable-testing.yml
     with:
       os: ubuntu-latest

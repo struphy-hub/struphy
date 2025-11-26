@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ubuntu-latest-build:
+  macos-install-test:
     uses: ./.github/workflows/reusable-testing.yml
     with:
       os: macos-latest
