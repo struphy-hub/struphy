@@ -107,11 +107,10 @@ jobs:
       - name: Checkout the code
         uses: actions/checkout@v4
 
-      # TODO: Remove --select I once all errors are fixed
-      - name: ruff check --select I
+      - name: Code formatting with ruff
         run: |
           pip install ruff
-          ruff check --select I
+          ruff check
       
       - name: ruff format --check
         run: |
