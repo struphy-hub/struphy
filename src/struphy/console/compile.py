@@ -89,7 +89,6 @@ def struphy_compile(
                     and ".py" in file
                     and "_tmp.py" not in file
                     and "test" not in file
-                    and "legacy" not in subdir
                     and "__pycache__" not in subdir
                 ):
                     state["kernels"] += [os.path.join(subdir, file)]
