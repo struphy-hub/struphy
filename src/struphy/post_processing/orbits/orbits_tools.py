@@ -47,7 +47,7 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         params = yaml.load(f, Loader=yaml.FullLoader)
 
     # create domain for calculating markers' physical coordinates
-    domain, equil = setup_domain_and_equil(params)
+    domain, equil = model.setup_domain_and_equil(params)
 
     # path for orbit data
     path_orbits = os.path.join(path_kinetics_species, "orbits")
