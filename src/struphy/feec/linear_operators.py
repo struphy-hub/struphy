@@ -448,11 +448,11 @@ class BoundaryOperator(LinOpWithTransp):
 
     @property
     def tosparse(self):
-        raise NotImplementedError()
+        return self.toarray_struphy(is_sparse=True)
 
     @property
     def toarray(self):
-        raise NotImplementedError()
+        return self.toarray_struphy(is_sparse=False)
 
     @property
     def bc(self):
