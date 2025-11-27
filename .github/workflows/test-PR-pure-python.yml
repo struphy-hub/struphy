@@ -7,6 +7,9 @@ on:
   push:
     branches:
       - devel
+  schedule:
+    # run at 1 a.m. on Sunday
+    - cron: "0 1 * * 0"
   workflow_dispatch:
 
 concurrency:
@@ -58,13 +61,12 @@ jobs:
         run: |
           ls .testmon* || echo "No .testmondata"
 
-      # This step can be removed when the updated ghcr images are pushed
-      - name: Install sqlite
-        shell: bash
-        run: apt install -y sqlite3
-
       - name: Install Struphy
-        uses: ./.github/actions/install/install-struphy
+        shell: bash
+        run: |
+          python3 -m venv env
+          source env/bin/activate
+          pip install .[dev]
 
       - name: LinearMHD test
         shell: bash
