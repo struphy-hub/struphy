@@ -80,6 +80,7 @@ jobs:
         if: matrix.test-type == 'unit'
         shell: bash
         run: |
+          struphy test Maxwell
           struphy test unit --mpi 2
 
       # - name: Run model tests
