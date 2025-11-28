@@ -1283,7 +1283,7 @@ class CurrentCoupling5DCurlb(Propagator):
 
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
-        curl_unit_b1 = self.projected_equil.curl_unit_b1
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
         self._b2 = self.projected_equil.b2
 
         # magnetic field
@@ -1318,9 +1318,9 @@ class CurrentCoupling5DCurlb(Propagator):
             unit_b1[0]._data,
             unit_b1[1]._data,
             unit_b1[2]._data,
-            curl_unit_b1[0]._data,
-            curl_unit_b1[1]._data,
-            curl_unit_b1[2]._data,
+            curl_unit_b2[0]._data,
+            curl_unit_b2[1]._data,
+            curl_unit_b2[2]._data,
             self._u_form_int,
         )
 
@@ -1345,9 +1345,9 @@ class CurrentCoupling5DCurlb(Propagator):
             unit_b1[0]._data,
             unit_b1[1]._data,
             unit_b1[2]._data,
-            curl_unit_b1[0]._data,
-            curl_unit_b1[1]._data,
-            curl_unit_b1[2]._data,
+            curl_unit_b2[0]._data,
+            curl_unit_b2[1]._data,
+            curl_unit_b2[2]._data,
             self._u_avg[0]._data,
             self._u_avg[1]._data,
             self._u_avg[2]._data,
@@ -1567,7 +1567,7 @@ class CurrentCoupling5DGradB(Propagator):
         )
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
-        curl_unit_b1 = self.projected_equil.curl_unit_b1
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
         self._b2 = self.projected_equil.b2
         gradB1 = self.projected_equil.gradB1
         absB0 = self.projected_equil.absB0
@@ -1608,12 +1608,15 @@ class CurrentCoupling5DGradB(Propagator):
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
-                curl_unit_b1[0]._data,
-                curl_unit_b1[1]._data,
-                curl_unit_b1[2]._data,
+                curl_unit_b2[0]._data,
+                curl_unit_b2[1]._data,
+                curl_unit_b2[2]._data,
                 self._grad_PB_b[0]._data,
                 self._grad_PB_b[1]._data,
                 self._grad_PB_b[2]._data,
+                gradB1[0]._data,
+                gradB1[1]._data,
+                gradB1[2]._data,
                 self._u_form_int,
             )
 
@@ -1644,9 +1647,9 @@ class CurrentCoupling5DGradB(Propagator):
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
-                curl_unit_b1[0]._data,
-                curl_unit_b1[1]._data,
-                curl_unit_b1[2]._data,
+                curl_unit_b2[0]._data,
+                curl_unit_b2[1]._data,
+                curl_unit_b2[2]._data,
                 self._u_temp[0]._data,
                 self._u_temp[1]._data,
                 self._u_temp[2]._data,
@@ -1685,9 +1688,9 @@ class CurrentCoupling5DGradB(Propagator):
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
-                curl_unit_b1[0]._data,
-                curl_unit_b1[1]._data,
-                curl_unit_b1[2]._data,
+                curl_unit_b2[0]._data,
+                curl_unit_b2[1]._data,
+                curl_unit_b2[2]._data,
                 self._grad_PB_b[0]._data,
                 self._grad_PB_b[1]._data,
                 self._grad_PB_b[2]._data,
@@ -1736,9 +1739,9 @@ class CurrentCoupling5DGradB(Propagator):
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
-                curl_unit_b1[0]._data,
-                curl_unit_b1[1]._data,
-                curl_unit_b1[2]._data,
+                curl_unit_b2[0]._data,
+                curl_unit_b2[1]._data,
+                curl_unit_b2[2]._data,
                 self.variables.u.spline.vector[0]._data,
                 self.variables.u.spline.vector[1]._data,
                 self.variables.u.spline.vector[2]._data,
@@ -1754,9 +1757,9 @@ class CurrentCoupling5DGradB(Propagator):
                 unit_b1[0]._data,
                 unit_b1[1]._data,
                 unit_b1[2]._data,
-                curl_unit_b1[0]._data,
-                curl_unit_b1[1]._data,
-                curl_unit_b1[2]._data,
+                curl_unit_b2[0]._data,
+                curl_unit_b2[1]._data,
+                curl_unit_b2[2]._data,
                 self._u_mid[0]._data,
                 self._u_mid[1]._data,
                 self._u_mid[2]._data,
@@ -1793,12 +1796,13 @@ class CurrentCoupling5DGradB(Propagator):
         b_full.update_ghost_regions()
 
         if self.options.algo == "explicit":
-            PB_b = self._PB.dot(b_full, out=self._PB_b)
+            PB_b = self._PB.dot(self._b_tilde, out=self._PB_b)
             grad_PB_b = self.derham.grad.dot(PB_b, out=self._grad_PB_b)
             grad_PB_b.update_ghost_regions()
 
             # save old u
             u_new = un.copy(out=self._u_new)
+            u_temp = un.copy(out=self._u_temp)
 
             for stage in range(self.options.butcher.n_stages):
                 # accumulate

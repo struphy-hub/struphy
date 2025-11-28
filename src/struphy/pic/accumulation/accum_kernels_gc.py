@@ -604,6 +604,7 @@ def cc_lin_mhd_5d_M(
     "curl_norm_b",
     "norm_b1",
     "grad_PB",
+    "grad_PBeq",
 )
 def cc_lin_mhd_5d_gradB(
     args_markers: "MarkerArguments",
@@ -632,6 +633,9 @@ def cc_lin_mhd_5d_gradB(
     grad_PB1: "float[:,:,:]",
     grad_PB2: "float[:,:,:]",
     grad_PB3: "float[:,:,:]",
+    grad_PBeq1: "float[:,:,:]",
+    grad_PBeq2: "float[:,:,:]",
+    grad_PBeq3: "float[:,:,:]",
     basis_u: "int",
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`.
@@ -664,7 +668,9 @@ def cc_lin_mhd_5d_gradB(
     """
 
     markers = args_markers.markers
+    n_markers = args_markers.n_markers
     Np = args_markers.Np
+    first_init_idx = args_markers.first_init_idx
 
     # allocate for magnetic field evaluation
     b = empty(3, dtype=float)
@@ -674,6 +680,7 @@ def cc_lin_mhd_5d_gradB(
     curl_norm_b = empty(3, dtype=float)
     norm_b1 = empty(3, dtype=float)
     grad_PB = empty(3, dtype=float)
+    grad_PBeq = empty(3, dtype=float)
 
     # allocate for metric coeffs
     dfm = empty((3, 3), dtype=float)
@@ -687,12 +694,13 @@ def cc_lin_mhd_5d_gradB(
 
     tmp_v = empty(3, dtype=float)
 
-    # get number of markers
-    n_markers_loc = shape(markers)[0]
-
-    for ip in range(n_markers_loc):
+    for ip in range(n_markers):
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
+            continue
+        
+        # if particle is refilled
+        if markers[ip, first_init_idx] == -1.0:
             continue
 
         # marker positions
@@ -730,6 +738,9 @@ def cc_lin_mhd_5d_gradB(
         # grad_PB; 1form
         eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PB1, grad_PB2, grad_PB3, grad_PB)
 
+        # grad_PBeq; 1form
+        eval_1form_spline_mpi(span1, span2, span3, args_derham, grad_PBeq1, grad_PBeq2, grad_PBeq3, grad_PBeq)
+
         # b_star; 2form transformed into H1vec
         b_star[:] = b + curl_norm_b * v * epsilon
 
@@ -763,6 +774,8 @@ def cc_lin_mhd_5d_gradB(
             )
 
         elif basis_u == 2:
+            grad_PB += grad_PBeq
+
             linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 

@@ -2470,7 +2470,11 @@ def push_gc_cc_J2_stage_Hdiv(
         last = 0.0
 
     for ip in range(n_markers):
-        # check if marker is a hole
+        # only do something if particle is a "true" particle (i.e. not a hole)
+        if markers[ip, 0] == -1.0:
+            continue
+        
+        # if particle is refilled
         if markers[ip, first_init_idx] == -1.0:
             continue
 

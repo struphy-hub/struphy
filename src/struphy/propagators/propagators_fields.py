@@ -2409,7 +2409,7 @@ class CurrentCoupling5DDensity(Propagator):
 
         # magnetic equilibrium field
         unit_b1 = self.projected_equil.unit_b1
-        curl_unit_b1 = self.projected_equil.curl_unit_b1
+        curl_unit_b2 = self.projected_equil.curl_unit_b2
         self._b2 = self.projected_equil.b2
 
         # scaling factor
@@ -2441,9 +2441,9 @@ class CurrentCoupling5DDensity(Propagator):
             unit_b1[0]._data,
             unit_b1[1]._data,
             unit_b1[2]._data,
-            curl_unit_b1[0]._data,
-            curl_unit_b1[1]._data,
-            curl_unit_b1[2]._data,
+            curl_unit_b2[0]._data,
+            curl_unit_b2[1]._data,
+            curl_unit_b2[2]._data,
             self._u_form_int,
         )
 
