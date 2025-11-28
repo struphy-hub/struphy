@@ -60,6 +60,8 @@ jobs:
       # Clone struphy-ci-testing
       - name: Install struphy
         uses: ./.github/actions/install/install-struphy
+        with:
+          optional-deps: 'phys'
         env:
           FC: ${{ env.FC }}
           CC: ${{ env.CC }}
