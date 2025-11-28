@@ -60,6 +60,8 @@ jobs:
       # Clone struphy-ci-testing
       - name: Install struphy
         uses: ./.github/actions/install/install-struphy
+        with:
+          optional-deps: 'phys,mpi'
         env:
           FC: ${{ env.FC }}
           CC: ${{ env.CC }}
@@ -80,6 +82,7 @@ jobs:
         if: matrix.test-type == 'unit'
         shell: bash
         run: |
+          struphy test Maxwell
           struphy test unit --mpi 2
 
       # - name: Run model tests
