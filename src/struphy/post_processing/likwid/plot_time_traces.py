@@ -6,6 +6,7 @@ import cunumpy as xp
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.io as pio
+from scope_profiler.h5reader import ProfilingH5Reader
 
 # pio.kaleido.scope.mathjax = None
 import struphy.post_processing.likwid.maxplotlylib as mply
@@ -15,22 +16,6 @@ def glob_to_regex(pat: str) -> str:
     # Escape all regex metachars, then convert \* → .* and \? → .
     esc = re.escape(pat)
     return "^" + esc.replace(r"\*", ".*").replace(r"\?", ".") + "$"
-
-
-# def plot_region(region_name, groups_include=["*"], groups_skip=[]):
-#     # skips first
-#     for pat in groups_skip:
-#         rx = glob_to_regex(pat)
-#         if re.fullmatch(rx, region_name):
-#             return False
-
-#     # includes next
-#     for pat in groups_include:
-#         rx = glob_to_regex(pat)
-#         if re.fullmatch(rx, region_name):
-#             return True
-
-#     return False
 
 
 def plot_region(region_name, groups_include=["*"], groups_skip=[]):
@@ -160,107 +145,149 @@ def plot_avg_duration_bar_chart(
 
 
 def plot_gantt_chart_plotly(
-    path: str,
+    reader: ProfilingH5Reader,
     output_path: str,
     groups_include: list = ["*"],
     groups_skip: list = [],
     show: bool = False,
 ):
-    # print(f'Parsing {path}...')
-    with open(path, "rb") as file:
-        profiling_data = pickle.load(file)
+    """
+    Plot an interactive Plotly Gantt chart using the new:
+        _region_dict[region][rank] = RegionData(start_times, end_times)
+    structure.
 
+    Each rank gets its own horizontal lane, only one y-axis label per region,
+    and regions are sorted by the earliest start time.
+    """
+
+    import os
+
+    import numpy as np
+    import plotly.graph_objects as go
+
+    # ---- Compute earliest start time per region ----
     region_start_times = {}
-    for rank_data in profiling_data["rank_data"].values():
-        for region_name, info in rank_data.items():
-            first_start_time = xp.min(info["start_times"])
-            if region_name not in region_start_times or first_start_time < region_start_times[region_name]:
-                region_start_times[region_name] = first_start_time
+    for region_name, region in reader._region_dict.items():
+        earliest = np.inf
+        for rank_data in region.values():
+            if len(rank_data.start_times) > 0:
+                earliest = min(earliest, min(rank_data.start_times))
+        region_start_times[region_name] = earliest
 
+    # ---- Sort regions by earliest start time ----
     region_names = sorted(region_start_times, key=region_start_times.get)
-    rank_names = list(profiling_data["rank_data"].keys())
-    num_ranks = len(rank_names)
 
+    if len(region_names) == 0:
+        print("No regions found.")
+        return
+
+    # ---- Determine number of ranks ----
+    first_region = reader._region_dict[region_names[0]]
+    n_ranks = len(first_region.keys())
+    rank_names = list(range(n_ranks))
+
+    # ---- Collect bars for Plotly ----
     bars = []
+    y_positions = []
 
-    for region_idx, region_name in enumerate(region_names):
+    for i, region_name in enumerate(region_names):
         if not plot_region(region_name, groups_include, groups_skip):
             continue
 
-        for rank_idx, (rank_name, rank_data) in enumerate(profiling_data["rank_data"].items()):
-            if region_name in rank_data:
-                info = rank_data[region_name]
-                start_times = info["start_times"]
-                end_times = info["end_times"]
-                durations = end_times - start_times
+        region = reader._region_dict[region_name]
 
-                for i in range(len(start_times)):
-                    bars.append(
-                        dict(
-                            Task=region_name,
-                            Rank=rank_name,
-                            Start=start_times[i],
-                            Finish=end_times[i],
-                            Duration=durations[i],
-                        ),
+        for r in rank_names:
+            y = i * n_ranks + r
+            y_positions.append(y)
+
+            if r not in region:
+                continue
+
+            region_data = region[r]
+            starts = region_data.start_times
+            ends = region_data.end_times
+            durations = ends - starts
+
+            for s, e, d in zip(starts, ends, durations):
+                bars.append(
+                    dict(
+                        y=y,
+                        region=region_name,
+                        rank=r,
+                        start=float(s),
+                        duration=float(d),
                     )
+                )
 
     if len(bars) == 0:
         print("No regions matched the filter.")
         return
 
-    # Create a color map per rank
-    rank_color_map = {rank: f"hsl({360 * i / max(1, num_ranks)}, 70%, 50%)" for i, rank in enumerate(rank_names)}
-
-    # Create plotly figure
+    # ---- Create Plotly figure ----
     fig = go.Figure()
+
     for bar in bars:
-        if "kernel" in bar["Task"]:
+        if "kernel" in bar["region"]:
             color = "blue"
-        elif "prop" in bar["Task"]:
+        elif "prop" in bar["region"]:
             color = "red"
         else:
             color = "black"
-        # print(bar["Task"])
+
         fig.add_trace(
             go.Bar(
-                x=[bar["Duration"]],
-                y=[bar["Task"]],
-                base=[bar["Start"]],
+                x=[bar["duration"]],
+                y=[bar["y"]],
+                base=[bar["start"]],
                 orientation="h",
-                name=bar["Rank"],
-                # marker_color=rank_color_map[bar["Rank"]],
                 marker_color=color,
-                hovertemplate=f"Rank: {bar['Rank']}<br>Start: {bar['Start']:.3f}s<br>Duration: {bar['Duration']:.3f}s",
-            ),
+                hovertemplate=(
+                    f"Region: {bar['region']}<br>"
+                    f"Rank: {bar['rank']}<br>"
+                    f"Start: {bar['start']:.6f}s<br>"
+                    f"Duration: {bar['duration']:.6f}s"
+                ),
+                showlegend=False,
+            )
         )
 
+    # ---- Label only first rank of each region ----
+    yticks = []
+    yticklabels = []
+    for i, region_name in enumerate(region_names):
+        y_first_rank = i * n_ranks
+        yticks.append(y_first_rank)
+        yticklabels.append(region_name)
+
+    # ---- Layout ----
     fig.update_layout(
-        barmode="stack",
-        # title="Gantt Chart of Profiling Regions",
-        xaxis_title="Elapsed Time (s)",
-        yaxis_title="Profiling Regions",
-        height=600 + 20 * len(region_names),
-        # legend_title="MPI Ranks",
-        margin=dict(t=0, b=0, l=0, r=0),
+        barmode="overlay",
+        xaxis_title="Time (s)",
+        yaxis=dict(
+            tickmode="array",
+            tickvals=yticks,
+            ticktext=yticklabels,
+        ),
+        height=300 + len(y_positions) * 12,
+        margin=dict(t=10, b=10, l=10, r=10),
         showlegend=False,
     )
 
+    # ---- Formatting helpers ----
     mply.format_axes(fig)
     mply.format_font(fig)
     mply.format_grid(fig)
     mply.format_size(fig, width=1600, height=800)
 
-    # Save the plot as HTML
-    figure_path = os.path.join(output_path, "gantt_chart_plotly.html")
-    figure_path_pdf = os.path.join(output_path, "gantt_chart_plotly.pdf")
+    # ---- Save ----
+    os.makedirs(output_path, exist_ok=True)
+    out_html = os.path.join(output_path, "gantt_chart_plotly.html")
+    fig.write_html(out_html)
 
     if show:
         fig.show()
-    fig.write_html(figure_path)
 
-    # fig.write_image(figure_path_pdf)
-    print(f"Saved interactive gantt chart to: {figure_path}")
+    print(f"Saved interactive gantt chart to: {out_html}")
 
 
 def plot_gantt_chart(
@@ -413,10 +440,18 @@ if __name__ == "__main__":
     # path = os.path.abspath(args.path)  # Convert to absolute path
     # simulations = parser.simulations
 
+    for simulation in args.simulations:
+        reader = ProfilingH5Reader(os.path.join(simulation, "profiling_data.h5"))
+        plot_gantt_chart_plotly(reader, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+
+        # Call the plotting functions with the appropriate arguments
+        # reader.plot_gantt(show = True)#regions=, filepath=gantt_path, show=args.show)
+        # reader.plot_durations(show = True)#regions=regions, filepath=durations_path, show=args.show)
+
     # paths = [os.path.join(o_path, simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
-    paths = [os.path.join(simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
+    # paths = [os.path.join(simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
 
     # Plot the time trace
-    plot_gantt_chart_plotly(path=paths[0], output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+    # plot_gantt_chart_plotly(path=paths[0], output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
     # plot_time_vs_duration(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
     # plot_gantt_chart(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
