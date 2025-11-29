@@ -31,7 +31,7 @@ def plot_region(region_name, groups_include=["*"], groups_skip=[]):
 
 
 def plot_time_vs_duration(
-    paths,
+    reader,
     output_path,
     groups_include=["*"],
     groups_skip=[],
@@ -39,61 +39,68 @@ def plot_time_vs_duration(
 ):
     """
     Plot start times versus durations for all profiling regions from all MPI ranks,
-    with each region using the same color across ranks.
+    using the new _region_dict[region][rank] = RegionData structure.
 
     Parameters
     ----------
-    path: str
-        Path to the file where profiling data is saved.
+    reader : ProfilingH5Reader
+        The profiling reader object with _region_dict.
     """
 
-    if isinstance(paths, str):
-        paths = [paths]
+    import os
+
+    import matplotlib.pyplot as plt
+    import numpy as np
 
     plt.figure(figsize=(10, 6))
-    for path in paths:
-        print(f"{path =}")
-        with open(path, "rb") as file:
-            profiling_data = pickle.load(file)
 
-        # Create a color map for each unique region
-        unique_regions = set(
-            region_name for rank_data in profiling_data["rank_data"].values() for region_name in rank_data
-        )
-        color_map = {region_name: plt.cm.tab10(i % 10) for i, region_name in enumerate(unique_regions)}
+    # Collect all unique region names for color mapping
+    unique_regions = list(reader._region_dict.keys())
+    color_map = {region_name: plt.cm.tab10(i % 10) for i, region_name in enumerate(unique_regions)}
 
-        # Iterate through each rank's data
-        for rank_name, rank_data in profiling_data["rank_data"].items():
-            for region_name, info in rank_data.items():
-                if plot_region(region_name=region_name, groups_include=groups_include, groups_skip=groups_skip):
-                    start_times = info["start_times"]
-                    durations = info["durations"]
+    # Iterate over regions and ranks
+    for region_name, region in reader._region_dict.items():
+        if not plot_region(region_name=region_name, groups_include=groups_include, groups_skip=groups_skip):
+            continue
 
-                    # Use the color from the color_map for each region
-                    color = color_map[region_name]
-                    label = f"{region_name}" if rank_name == "rank_0" else None
-                    if len(paths) > 1:
-                        label += f" ({path.split('/')[-2]})"
-                    plt.plot(start_times, durations, "x-", color=color, label=label)
-        xmax = max(start_times)
-        x = 0
-        if show_spans:
-            while x < xmax:
-                xa = x + info["config"]["sample_duration"]
-                xb = xa + (info["config"]["sample_interval"] - info["config"]["sample_duration"])
-                plt.axvspan(xa, xb, alpha=0.5, color="red", zorder=1)
-                x += info["config"]["sample_interval"]
+        color = color_map[region_name]
+
+        for rank_idx, rank_data in region.items():
+            start_times = rank_data.start_times
+            durations = rank_data.end_times - rank_data.start_times
+
+            # Only label the first rank for legend
+            label = region_name if rank_idx == 0 else None
+
+            plt.plot(start_times, durations, "x-", color=color, label=label)
+
+            # Optionally show sampling spans
+            if show_spans and hasattr(rank_data, "config"):
+                x = 0
+                xmax = np.max(start_times) if len(start_times) > 0 else 0
+                while x < xmax:
+                    sample_duration = rank_data.config["sample_duration"]
+                    sample_interval = rank_data.config["sample_interval"]
+                    plt.axvspan(
+                        x + sample_duration,
+                        x + sample_interval,
+                        alpha=0.5,
+                        color="red",
+                        zorder=1,
+                    )
+                    x += sample_interval
 
     plt.title("Time vs. Duration for Profiling Regions")
     plt.xlabel("Start Time (s)")
     plt.ylabel("Duration (s)")
-    plt.legend()
     plt.grid(visible=True, linestyle="--", alpha=0.5)
+    plt.legend()
     plt.tight_layout()
-    # plt.show()
+
+    os.makedirs(output_path, exist_ok=True)
     figure_path = os.path.join(output_path, "time_vs_duration.pdf")
     plt.savefig(figure_path)
-    print(f"Saved time trace to:{figure_path}")
+    print(f"Saved time trace to: {figure_path}")
 
 
 def plot_avg_duration_bar_chart(
@@ -365,5 +372,9 @@ if __name__ == "__main__":
             groups_include=args.groups,
             groups_skip=args.groups_skip,
         )
-        # plot_time_vs_duration(reader, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
-        # plot_gantt_chart(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+        plot_time_vs_duration(
+            reader,
+            output_path=o_path,
+            groups_include=args.groups,
+            groups_skip=args.groups_skip,
+        )
