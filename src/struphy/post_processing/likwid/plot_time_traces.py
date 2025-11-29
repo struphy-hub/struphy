@@ -97,39 +97,54 @@ def plot_time_vs_duration(
 
 
 def plot_avg_duration_bar_chart(
-    path,
+    reader,
     output_path,
     groups_include=["*"],
     groups_skip=[],
 ):
-    with open(path, "rb") as file:
-        profiling_data = pickle.load(file)
+    """
+    Plot average duration per profiling region across all ranks.
+    Uses the new data structure:
+        reader._region_dict[region][rank] = RegionData(start_times, end_times)
+    """
+
+    import os
+
+    import matplotlib.pyplot as plt
+    import numpy as np
 
     region_durations = {}
 
     # Gather all durations per region across all ranks
-    for rank_data in profiling_data["rank_data"].values():
-        for region_name, info in rank_data.items():
-            if any(skip in region_name for skip in groups_skip):
-                continue
-            if groups_include != ["*"] and not any(inc in region_name for inc in groups_include):
-                continue
-            durations = info["durations"]
+    for region_name, region in reader._region_dict.items():
+        if any(skip in region_name for skip in groups_skip):
+            continue
+        if groups_include != ["*"] and not any(inc in region_name for inc in groups_include):
+            continue
+
+        for rank_data in region.values():
+            durations = rank_data.end_times - rank_data.start_times
             region_durations.setdefault(region_name, []).extend(durations)
+
+    if len(region_durations) == 0:
+        print("No regions matched the filter.")
+        return
 
     # Compute statistics per region
     regions = sorted(region_durations.keys())
-    avg_durations = [xp.mean(region_durations[r]) for r in regions]
-    min_durations = [xp.min(region_durations[r]) for r in regions]
-    max_durations = [xp.max(region_durations[r]) for r in regions]
+    avg_durations = [np.mean(region_durations[r]) for r in regions]
+    min_durations = [np.min(region_durations[r]) for r in regions]
+    max_durations = [np.max(region_durations[r]) for r in regions]
+
+    # Error bars (min-max)
     yerr = [
         [avg - min_ for avg, min_ in zip(avg_durations, min_durations)],
         [max_ - avg for avg, max_ in zip(avg_durations, max_durations)],
     ]
 
-    # Plot bar chart with error bars (min-max spans)
+    # ---- Plot ----
     plt.figure(figsize=(12, 6))
-    x = xp.arange(len(regions))
+    x = np.arange(len(regions))
     plt.bar(x, avg_durations, yerr=yerr, capsize=5, color="skyblue", edgecolor="k")
     plt.yscale("log")
     plt.xticks(x, regions, rotation=45, ha="right")
@@ -138,7 +153,8 @@ def plot_avg_duration_bar_chart(
     plt.grid(True, linestyle="--", alpha=0.5)
     plt.tight_layout()
 
-    # Save the figure
+    # ---- Save ----
+    os.makedirs(output_path, exist_ok=True)
     figure_path = os.path.join(output_path, "avg_duration_per_region.pdf")
     plt.savefig(figure_path)
     print(f"Saved average duration bar chart to: {figure_path}")
@@ -335,16 +351,19 @@ if __name__ == "__main__":
 
     for simulation in args.simulations:
         reader = ProfilingH5Reader(os.path.join(simulation, "profiling_data.h5"))
-        plot_gantt_chart_plotly(reader, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
 
-        # Call the plotting functions with the appropriate arguments
-        # reader.plot_gantt(show = True)#regions=, filepath=gantt_path, show=args.show)
-        # reader.plot_durations(show = True)#regions=regions, filepath=durations_path, show=args.show)
-
-    # paths = [os.path.join(o_path, simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
-    # paths = [os.path.join(simulation, "profiling_time_trace.pkl") for simulation in args.simulations]
-
-    # Plot the time trace
-    # plot_gantt_chart_plotly(path=paths[0], output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
-    # plot_time_vs_duration(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
-    # plot_gantt_chart(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+        # Plot the time traces
+        plot_gantt_chart_plotly(
+            reader=reader,
+            output_path=o_path,
+            groups_include=args.groups,
+            groups_skip=args.groups_skip,
+        )
+        plot_avg_duration_bar_chart(
+            reader=reader,
+            output_path=o_path,
+            groups_include=args.groups,
+            groups_skip=args.groups_skip,
+        )
+        # plot_time_vs_duration(reader, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
+        # plot_gantt_chart(paths=paths, output_path=o_path, groups_include=args.groups, groups_skip=args.groups_skip)
