@@ -981,41 +981,58 @@ class StruphyModel(metaclass=ABCMeta):
             The data object that links to the hdf5 files.
         """
 
-        # initialize em fields
-        if len(self.em_fields) > 0:
-            for key, val in self.em_fields.items():
-                if "params" in key:
-                    continue
-                else:
-                    obj = val["obj"]
-                    assert isinstance(obj, SplineFunction)
-                    obj.initialize_coeffs_from_restart_file(data.file)
+        for sn, species in self.species.items():
+            for vn, var in species.variables.items():
+                if isinstance(var, FEECVariable):
+                    print("speciesname", sn)
+                    print("varname", vn)
+                    var.spline.initialize_coeffs_from_restart_file(
+                        data.file,
+                        species=sn,
+                        var=vn)
 
-        # initialize fields
-        if len(self.fluid) > 0:
-            for species, val in self.fluid.items():
-                for variable, subval in val.items():
-                    if "params" in variable:
-                        continue
-                    else:
-                        obj = subval["obj"]
-                        assert isinstance(obj, SplineFunction)
-                        obj.initialize_coeffs_from_restart_file(
-                            data.file,
-                            species,
-                        )
+                elif isinstance(var, PICVariable):
+                    print("speciesname", sn)
+                    print("varname", vn)
+                    var.particles._markers[:, :] = data.file["restart/" + sn][-1, :, :]
 
-        # initialize particles
-        if len(self.kinetic) > 0:
-            for key, val in self.kinetic.items():
-                obj = val["obj"]
-                assert isinstance(obj, Particles)
-                obj.draw_markers(verbose=self.verbose)
-                obj._markers[:, :] = data.file["restart/" + key][-1, :, :]
+                    if MPI.COMM_WORLD.Get_size() != 1:
+                        var.particles.mpi_sort_markers(do_test=True)
 
-                # important: sets holes attribute of markers!
-                if self.comm_world is not None:
-                    obj.mpi_sort_markers(do_test=True)
+        # if len(self.em_fields) > 0:
+        #     for key, val in self.em_fields.items():
+        #         if "params" in key:
+        #             continue
+        #         else:
+        #             obj = val["obj"]
+        #             assert isinstance(obj, SplineFunction)
+        #             obj.initialize_coeffs_from_restart_file(data.file)
+
+        # # initialize fields
+        # if len(self.fluid) > 0:
+        #     for species, val in self.fluid.items():
+        #         for variable, subval in val.items():
+        #             if "params" in variable:
+        #                 continue
+        #             else:
+        #                 obj = subval["obj"]
+        #                 assert isinstance(obj, SplineFunction)
+        #                 obj.initialize_coeffs_from_restart_file(
+        #                     data.file,
+        #                     species,
+        #                 )
+
+        # # initialize particles
+        # if len(self.kinetic) > 0:
+        #     for key, val in self.kinetic.items():
+        #         obj = val["obj"]
+        #         assert isinstance(obj, Particles)
+        #         obj.draw_markers(verbose=self.verbose)
+        #         obj._markers[:, :] = data.file["restart/" + key][-1, :, :]
+
+        #         # important: sets holes attribute of markers!
+        #         if self.comm_world is not None:
+        #             obj.mpi_sort_markers(do_test=True)
 
     def initialize_data_output(self, data: DataContainer, size):
         """

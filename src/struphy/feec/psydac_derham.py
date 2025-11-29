@@ -1838,15 +1838,15 @@ class SplineFunction:
         # update ghost regions
         self._vector.update_ghost_regions()
 
-    def initialize_coeffs_from_restart_file(self, file, species=None):
+    def initialize_coeffs_from_restart_file(self, file, species, var=None):
         """
         TODO
         """
-
-        if species is None:
-            key = "restart/" + self.name
+        print(self.name)
+        if var is None:
+            key = "restart/" + species + "/" + self.name
         else:
-            key = "restart/" + species + "_" + self.name
+            key = "restart/" + species + "/" + var
 
         if isinstance(self.vector, StencilVector):
             self.vector._data[:] = file[key][-1]
