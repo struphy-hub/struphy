@@ -1,4 +1,4 @@
-name: "Clone and install struphy"
+name: "Install struphy in env"
 
 inputs:
   optional-deps:

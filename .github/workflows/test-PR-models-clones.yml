@@ -1,4 +1,4 @@
-name: PR - unit tests in Container
+name: PR - domain cloning in Container
 
 on:
   pull_request:
@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 jobs:
-  unit-tests-in-container-with-struphy:
+  model-tests-in-container-with-struphy:
     runs-on: ubuntu-latest
 
     container:
@@ -48,14 +48,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            .testmondata-unit
-            .testmondata-unit-mpi
-          key: testmon-unit-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+            .testmondata-clones
+          key: testmon-clones-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
-            testmon-unit-${{ github.ref_name }}-${{ github.event.number }}-
-            testmon-unit-${{ github.ref_name }}
-            testmon-unit-devel
-            testmon-unit-
+            testmon-clones-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-clones-${{ github.ref_name }}
+            testmon-clones-devel
+            testmon-clones-
 
       - name: Check .testmondata 2
         run: |
@@ -69,24 +68,12 @@ jobs:
           source /struphy_c_/env_c_/bin/activate
           struphy compile
 
-      - name: Run unit tests
+      - name: Verification tests with clones
         shell: bash
         env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
-        run: |
-          source /struphy_c_/env_c_/bin/activate
-          struphy compile --status
-          pip show mpi4py
-          pip uninstall -y mpi4py
-          struphy test unit
-
-      - name: Run unit tests with MPI
-        shell: bash
-        env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-mpi
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-clones
         # init .testmondata with non-MPI call
         run: |
           source /struphy_c_/env_c_/bin/activate
           struphy test Maxwell
-          pip install -U mpi4py
-          struphy test unit --mpi 2
+          struphy test verification --mpi 4 --nclones 2

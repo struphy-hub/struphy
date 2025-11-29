@@ -36,6 +36,7 @@ dependencies = [
     'argcomplete',
     'pytest',
     'pytest-mpi',
+    'pytest-testmon',
     'line_profiler',
     'scope-profiler==0.1.6',
 ]

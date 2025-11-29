@@ -18,7 +18,7 @@ jobs:
       matrix:
         python-version: ["3.12"]
         compile-language: ["fortran", "c"]
-        test-type: ["unit", "model"] #"quickstart", "tutorials"]
+        test-type: ["unit", "model", "verification"] #"quickstart", "tutorials"]
 
     steps:
       # Checkout the repository
@@ -48,6 +48,7 @@ jobs:
 
       # Check that mpirun oversubscribing works, doesn't work unless OMPI_MCA_rmaps_base_oversubscribe==1
       - name: Test mpirun
+        shell: bash
         run: |
           echo $OMPI_MCA_rmaps_base_oversubscribe
           echo $PRRTE_MCA_rmaps_base_oversubscribe
@@ -69,10 +70,38 @@ jobs:
         uses: ./.github/actions/compile
 
       # Run tests
-      - name: Run unit tests
-        if: matrix.test-type == 'unit'
-        uses: ./.github/actions/tests/unit
+      # - name: Run unit tests
+      #   if: matrix.test-type == 'unit'
+      #   shell: bash
+      #   run: |
+      #     struphy test unit
 
-      - name: Run model tests
+      - name: Run unit tests with MPI
+        if: matrix.test-type == 'unit'
+        shell: bash
+        run: |
+          struphy test unit --mpi 2
+
+      # - name: Run model tests
+      #   if: matrix.test-type == 'model'
+      #   shell: bash
+      #   run: |
+      #     struphy test models
+
+      - name: Run model tests with MPI
         if: matrix.test-type == 'model'
-        uses: ./.github/actions/tests/models
+        shell: bash
+        run: |
+          struphy test models --mpi 2
+
+      # - name: Run verification tests
+      #   if: matrix.test-type == 'verification'
+      #   shell: bash
+      #   run: |
+      #     struphy test verification
+
+      - name: Run verification tests with MPI
+        if: matrix.test-type == 'verification'
+        shell: bash
+        run: |
+          struphy test verification --mpi 2

@@ -27,14 +27,12 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -45,7 +43,7 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -54,10 +52,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
 
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
-
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
     seed = 1234
@@ -79,37 +73,16 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     if show_plots:
         particles.show_physical()
 
-    # make copy of markers (legacy struphy uses transposed markers!)
-    markers_str = particles.markers.copy().T
-
-    # create random FEM coefficients for magnetic field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["0"],
-        seed=1234,
-        flattened=True,
-    )
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(
+    _, b2_eq_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=2345,
         flattened=True,
     )
 
-    b2_str, b2_psy = create_equal_random_arrays(
+    _, b2_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=3456,
         flattened=True,
-    )
-
-    # create legacy struphy pusher and psydac based pusher
-    pusher_str = Pusher_str(
-        domain,
-        space,
-        space.extract_0(
-            b0_eq_str,
-        ),
-        space.extract_2(b2_eq_str),
-        basis_u=2,
-        bc_pos=0,
     )
 
     pusher_psy = Pusher_psy(
@@ -125,18 +98,10 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
         alpha_in_kernel=1.0,
     )
 
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
     # push markers
     dt = 0.1
 
-    pusher_str.push_step5(markers_str, dt, b2_str)
-
     pusher_psy(dt)
-
-    # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -163,14 +128,12 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -181,7 +144,7 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -190,10 +153,6 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
 
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
-
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
     seed = 1234
@@ -215,45 +174,23 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     if show_plots:
         particles.show_physical()
 
-    # make copy of markers (legacy struphy uses transposed markers!)
-    markers_str = particles.markers.copy().T
-
     # create random FEM coefficients for magnetic field and velocity field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["0"],
-        seed=1234,
-        flattened=True,
-    )
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(
+    _, b2_eq_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=2345,
         flattened=True,
     )
 
-    b2_str, b2_psy = create_equal_random_arrays(
+    _, b2_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=3456,
         flattened=True,
     )
-    u2_str, u2_psy = create_equal_random_arrays(
+    _, u2_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=4567,
         flattened=True,
     )
-
-    # create legacy struphy pusher and psydac based pusher
-    pusher_str = Pusher_str(
-        domain,
-        space,
-        space.extract_0(
-            b0_eq_str,
-        ),
-        space.extract_2(b2_eq_str),
-        basis_u=2,
-        bc_pos=0,
-    )
-    mu0_str = xp.zeros(markers_str.shape[1], dtype=float)
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -272,18 +209,10 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
         alpha_in_kernel=1.0,
     )
 
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
     # push markers
     dt = 0.1
 
-    pusher_str.push_step3(markers_str, dt, b2_str, u2_str, mu0_str, pow_str)
-
     pusher_psy(dt)
-
-    # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -310,14 +239,12 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -328,7 +255,7 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -337,10 +264,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
 
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
-
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
     seed = 1234
@@ -362,45 +285,23 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     if show_plots:
         particles.show_physical()
 
-    # make copy of markers (legacy struphy uses transposed markers!)
-    markers_str = particles.markers.copy().T
-
     # create random FEM coefficients for magnetic field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["0"],
-        seed=1234,
-        flattened=True,
-    )
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(
+    _, b2_eq_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=2345,
         flattened=True,
     )
 
-    b2_str, b2_psy = create_equal_random_arrays(
+    _, b2_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=3456,
         flattened=True,
     )
-    u1_str, u1_psy = create_equal_random_arrays(
+    _, u1_psy = create_equal_random_arrays(
         derham.Vh_fem["1"],
         seed=4567,
         flattened=True,
     )
-
-    # create legacy struphy pusher and psydac based pusher
-    pusher_str = Pusher_str(
-        domain,
-        space,
-        space.extract_0(
-            b0_eq_str,
-        ),
-        space.extract_2(b2_eq_str),
-        basis_u=1,
-        bc_pos=0,
-    )
-    mu0_str = xp.zeros(markers_str.shape[1], dtype=float)
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -419,18 +320,10 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
         alpha_in_kernel=1.0,
     )
 
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
     # push markers
     dt = 0.1
 
-    pusher_str.push_step3(markers_str, dt, b2_str, u1_str, mu0_str, pow_str)
-
     pusher_psy(dt)
-
-    # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -457,14 +350,12 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -475,7 +366,7 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -484,10 +375,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
 
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
-
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
     seed = 1234
@@ -509,45 +396,23 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     if show_plots:
         particles.show_physical()
 
-    # make copy of markers (legacy struphy uses transposed markers!)
-    markers_str = particles.markers.copy().T
-
     # create random FEM coefficients for magnetic field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["0"],
-        seed=1234,
-        flattened=True,
-    )
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(
+    _, b2_eq_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=2345,
         flattened=True,
     )
 
-    b2_str, b2_psy = create_equal_random_arrays(
+    _, b2_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=3456,
         flattened=True,
     )
-    uv_str, uv_psy = create_equal_random_arrays(
+    _, uv_psy = create_equal_random_arrays(
         derham.Vh_fem["v"],
         seed=4567,
         flattened=True,
     )
-
-    # create legacy struphy pusher and psydac based pusher
-    pusher_str = Pusher_str(
-        domain,
-        space,
-        space.extract_0(
-            b0_eq_str,
-        ),
-        space.extract_2(b2_eq_str),
-        basis_u=0,
-        bc_pos=0,
-    )
-    mu0_str = xp.zeros(markers_str.shape[1], dtype=float)
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -566,18 +431,10 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
         alpha_in_kernel=1.0,
     )
 
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
     # push markers
     dt = 0.1
 
-    pusher_str.push_step3(markers_str, dt, b2_str, uv_str, mu0_str, pow_str)
-
     pusher_psy(dt)
-
-    # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -604,14 +461,12 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -622,7 +477,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -631,10 +486,6 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
 
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
-
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
     seed = 1234
@@ -656,45 +507,30 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     if show_plots:
         particles.show_physical()
 
-    # make copy of markers (legacy struphy uses transposed markers!)
-    markers_str = particles.markers.copy().T
-
     # create random FEM coefficients for magnetic field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(
+    _, b0_eq_psy = create_equal_random_arrays(
         derham.Vh_fem["0"],
         seed=1234,
         flattened=True,
     )
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(
+    _, b2_eq_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=2345,
         flattened=True,
     )
 
-    b2_str, b2_psy = create_equal_random_arrays(
+    _, b2_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=3456,
         flattened=True,
     )
-    u2_str, u2_psy = create_equal_random_arrays(
+    _, u2_psy = create_equal_random_arrays(
         derham.Vh_fem["2"],
         seed=4567,
         flattened=True,
     )
 
-    # create legacy struphy pusher and psydac based pusher
-    pusher_str = Pusher_str(
-        domain,
-        space,
-        space.extract_0(
-            b0_eq_str,
-        ),
-        space.extract_2(b2_eq_str),
-        basis_u=2,
-        bc_pos=0,
-    )
-    mu0_str = xp.random.rand(markers_str.shape[1])
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
+    mu0 = xp.zeros(particles.markers.copy().T.shape[1], dtype=float)
 
     pusher_psy = Pusher_psy(
         particles,
@@ -709,24 +545,16 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
             u2_psy[1]._data,
             u2_psy[2]._data,
             b0_eq_psy._data,
-            mu0_str,
+            mu0,
         ),
         domain.args_domain,
         alpha_in_kernel=1.0,
     )
 
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
     # push markers
     dt = 0.1
 
-    pusher_str.push_step3(markers_str, dt, b2_str, u2_str, mu0_str, pow_str)
-
     pusher_psy(dt)
-
-    # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
@@ -753,7 +581,6 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
     from struphy.geometry import domains
@@ -761,7 +588,6 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -773,7 +599,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     domain_class = getattr(domains, mapping[0])
     domain = domain_class(**mapping[1])
 
-    # discrete Derham sequence (psydac and legacy struphy)
+    # discrete Derham sequence (psydac)
     derham = Derham(Nel, p, spl_kind, comm=comm)
 
     domain_array = derham.domain_array
@@ -782,10 +608,6 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
 
     if rank == 0:
         print("Domain decomposition : \n", derham.domain_array)
-
-    spaces = [Spline_space_1d(Nel, p, spl_kind) for Nel, p, spl_kind in zip(Nel, p, spl_kind)]
-
-    space = Tensor_spline_space(spaces)
 
     # particle loading and sorting
     seed = 1234
@@ -807,32 +629,7 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     if show_plots:
         particles.show_physical()
 
-    # make copy of markers (legacy struphy uses transposed markers!)
-    markers_str = particles.markers.copy().T
-
-    # create random FEM coefficients for magnetic field
-    b0_eq_str, b0_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["0"],
-        seed=1234,
-        flattened=True,
-    )
-    b2_eq_str, b2_eq_psy = create_equal_random_arrays(
-        derham.Vh_fem["2"],
-        seed=2345,
-        flattened=True,
-    )
-
     # create legacy struphy pusher and psydac based pusher
-    pusher_str = Pusher_str(
-        domain,
-        space,
-        space.extract_0(
-            b0_eq_str,
-        ),
-        space.extract_2(b2_eq_str),
-        basis_u=0,
-        bc_pos=0,
-    )
 
     butcher = ButcherTableau("rk4")
     # temp fix due to refactoring of ButcherTableau:
@@ -848,13 +645,9 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
         n_stages=butcher.n_stages,
     )
 
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
     # push markers
     dt = 0.1
 
-    pusher_str.push_step4(markers_str, dt)
     pusher_psy(dt)
 
     n_mks_load = xp.zeros(size, dtype=int)
@@ -871,17 +664,10 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
         accum_sendcounts += sendcounts[i]
 
     all_particles_psy = xp.zeros((int(accum_sendcounts) * 3,), dtype=float)
-    all_particles_str = xp.zeros((int(accum_sendcounts) * 3,), dtype=float)
 
     comm.Barrier()
     comm.Allgatherv(xp.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
-    comm.Allgatherv(xp.array(markers_str.T[:, :3]), [all_particles_str, sendcounts, displacements, MPI.DOUBLE])
     comm.Barrier()
-
-    unique_psy = xp.unique(all_particles_psy)
-    unique_str = xp.unique(all_particles_str)
-
-    assert xp.allclose(unique_psy, unique_str)
 
 
 if __name__ == "__main__":
