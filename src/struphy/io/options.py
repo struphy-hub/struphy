@@ -336,6 +336,12 @@ class EnvironmentOptions:
 
     num_clones: int, optional
         Number of domain clones (default=1)
+
+    profiling_activated: bool, optional
+        Activate profiling with scope-profiler (default=False)
+
+    profiling_trace: bool, optional
+        Save time-trace of each profiling region (default=False)
     """
 
     out_folders: str = os.getcwd()
@@ -345,6 +351,8 @@ class EnvironmentOptions:
     save_step: int = 1
     sort_step: int = 0
     num_clones: int = 1
+    profiling_activated: bool = False
+    profiling_trace: bool = False
 
     def __post_init__(self):
         self.path_out: str = os.path.join(self.out_folders, self.sim_folder)

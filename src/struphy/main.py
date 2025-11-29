@@ -14,6 +14,7 @@ from line_profiler import profile
 from psydac.ddm.mpi import MockMPI
 from psydac.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
+from scope_profiler import ProfileManager
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB
 from struphy.fields_background.equils import HomogenSlab
@@ -36,7 +37,6 @@ from struphy.post_processing.post_processing_tools import (
     post_process_markers,
     post_process_n_sph,
 )
-from struphy.profiling.profiling import ProfileManager
 from struphy.topology import grids
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
@@ -68,6 +68,17 @@ def run(
     params_path : str
         Absolute path to .py parameter file.
     """
+
+    ProfileManager.setup(
+        profiling_activated=env.profiling_activated,
+        time_trace=env.profiling_trace,
+        use_likwid=False,
+        file_path=os.path.join(
+            env.out_folders,
+            env.sim_folder,
+            "profiling_data.h5",
+        ),
+    )
 
     if isinstance(MPI, MockMPI):
         comm = None
@@ -406,6 +417,8 @@ def run(
 
     if clone_config is not None:
         clone_config.free()
+
+    ProfileManager.finalize()
 
 
 def pproc(
@@ -831,154 +844,3 @@ def load_data(path: str) -> SimData:
                 print(f"      {kkk}")
 
     return simdata
-
-
-if __name__ == "__main__":
-    import argparse
-    import os
-
-    import struphy
-    import struphy.utils.utils as utils
-    from struphy.profiling.profiling import (
-        ProfileManager,
-        ProfilingConfig,
-        pylikwid_markerclose,
-        pylikwid_markerinit,
-    )
-
-    # Read struphy state file
-    state = utils.read_state()
-    o_path = state["o_path"]
-
-    parser = argparse.ArgumentParser(description="Run an Struphy model.")
-
-    # model
-    parser.add_argument(
-        "model",
-        type=str,
-        nargs="?",
-        default=None,
-        metavar="MODEL",
-        help="the name of the model to run (default: None)",
-    )
-
-    # input (absolute path)
-    parser.add_argument(
-        "-i",
-        "--input",
-        type=str,
-        metavar="FILE",
-        help="absolute path of parameter file",
-    )
-
-    # output (absolute path)
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=str,
-        metavar="DIR",
-        help="absolute path of output folder (default=<out_path>/sim_1)",
-        default=os.path.join(o_path, "sim_1"),
-    )
-
-    # restart
-    parser.add_argument(
-        "-r",
-        "--restart",
-        help="restart the simulation in the output folder specified under -o",
-        action="store_true",
-    )
-
-    # max_runtime
-    parser.add_argument(
-        "--max-runtime",
-        type=int,
-        metavar="N",
-        help="maximum wall-clock time of program in minutes (default=300)",
-        default=300,
-    )
-
-    # save step
-    parser.add_argument(
-        "-s",
-        "--save-step",
-        type=int,
-        metavar="N",
-        help="how often to skip data saving (default=1, which means data is saved every time step)",
-        default=1,
-    )
-
-    # sort step
-    parser.add_argument(
-        "--sort-step",
-        type=int,
-        metavar="N",
-        help="sort markers in memory every N time steps (default=0, which means markers are sorted only at the start of simulation)",
-        default=0,
-    )
-
-    parser.add_argument(
-        "--nclones",
-        type=int,
-        metavar="N",
-        help="number of domain clones (default=1)",
-        default=1,
-    )
-
-    # verbosity (screen output)
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        help="supress screen output during time integration",
-        action="store_true",
-    )
-
-    parser.add_argument(
-        "--likwid",
-        help="run with Likwid",
-        action="store_true",
-    )
-
-    parser.add_argument(
-        "--time-trace",
-        help="Measure time traces for each call of the regions measured with ProfileManager",
-        action="store_true",
-    )
-
-    parser.add_argument(
-        "--sample-duration",
-        help="Duration of samples when measuring time traces with ProfileManager",
-        default=1.0,
-    )
-
-    parser.add_argument(
-        "--sample-interval",
-        help="Time between samples when measuring time traces with ProfileManager",
-        default=1.0,
-    )
-
-    args = parser.parse_args()
-    config = ProfilingConfig()
-    config.likwid = args.likwid
-    config.sample_duration = float(args.sample_duration)
-    config.sample_interval = float(args.sample_interval)
-    config.time_trace = args.time_trace
-    config.simulation_label = ""
-    pylikwid_markerinit()
-    with ProfileManager.profile_region("main"):
-        # solve the model
-        run(
-            args.model,
-            args.input,
-            args.output,
-            restart=args.restart,
-            runtime=args.runtime,
-            save_step=args.save_step,
-            verbose=args.verbose,
-            sort_step=args.sort_step,
-            num_clones=args.nclones,
-        )
-    pylikwid_markerclose()
-    if config.time_trace:
-        ProfileManager.print_summary()
-        ProfileManager.save_to_pickle(os.path.join(args.output, "profiling_time_trace.pkl"))
