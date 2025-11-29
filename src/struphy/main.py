@@ -73,6 +73,11 @@ def run(
         profiling_activated=env.profiling_activated,
         time_trace=env.profiling_trace,
         use_likwid=False,
+        file_path=os.path.join(
+            env.out_folders,
+            env.sim_folder,
+            "profiling_data.h5",
+        ),
     )
 
     if isinstance(MPI, MockMPI):
