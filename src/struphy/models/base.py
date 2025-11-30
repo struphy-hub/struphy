@@ -988,41 +988,24 @@ class StruphyModel(metaclass=ABCMeta):
         """
 
         with h5py.File(data.file_path, "a") as file:
-            # initialize em fields
-            if len(self.em_fields) > 0:
-                for key, val in self.em_fields.items():
-                    if "params" in key:
-                        continue
-                    else:
-                        obj = val["obj"]
-                        assert isinstance(obj, SplineFunction)
-                        obj.initialize_coeffs_from_restart_file(file)
 
-            # initialize fields
-            if len(self.fluid) > 0:
-                for species, val in self.fluid.items():
-                    for variable, subval in val.items():
-                        if "params" in variable:
-                            continue
-                        else:
-                            obj = subval["obj"]
-                            assert isinstance(obj, SplineFunction)
-                            obj.initialize_coeffs_from_restart_file(
-                                file,
-                                species,
-                            )
+            for species, val in self.species.items():
+                for variable, subval in val.variables.items():
 
-            # initialize particles
-            if len(self.kinetic) > 0:
-                for key, val in self.kinetic.items():
-                    obj = val["obj"]
-                    assert isinstance(obj, Particles)
-                    obj.draw_markers(verbose=self.verbose)
-                    obj._markers[:, :] = file["restart/" + key][-1, :, :]
+                    # initialize feec variables
+                    if isinstance(subval, FEECVariable):
+                        key_restart = os.path.join("restart", species, variable)
+                        subval.spline.initialize_coeffs_from_restart_file(
+                            file,
+                            key=key_restart,)
 
-                    # important: sets holes attribute of markers!
-                    if self.comm_world is not None:
-                        obj.mpi_sort_markers(do_test=True)
+                    # initialize pic variables
+                    elif isinstance(subval, PICVariable):
+                        key_restart = os.path.join("restart", species)
+                        subval.particles._markers[:, :] = file[key_restart][-1, :, :]
+
+                        if MPI.COMM_WORLD.Get_size() > 1:
+                            subval.particles.mpi_sort_markers(do_test=True)
 
     def initialize_data_output(self, data: DataContainer, size):
         """
