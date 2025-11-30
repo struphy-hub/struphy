@@ -988,16 +988,15 @@ class StruphyModel(metaclass=ABCMeta):
         """
 
         with h5py.File(data.file_path, "a") as file:
-
             for species, val in self.species.items():
                 for variable, subval in val.variables.items():
-
                     # initialize feec variables
                     if isinstance(subval, FEECVariable):
                         key_restart = os.path.join("restart", species, variable)
                         subval.spline.initialize_coeffs_from_restart_file(
                             file,
-                            key=key_restart,)
+                            key=key_restart,
+                        )
 
                     # initialize pic variables
                     elif isinstance(subval, PICVariable):
