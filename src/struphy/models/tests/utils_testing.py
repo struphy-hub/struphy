@@ -119,7 +119,6 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
         verbose=verbose,
     )
 
-
     MPI.COMM_WORLD.Barrier()
     if rank == 0:
         path_out = os.path.join(test_folder, model_name)
