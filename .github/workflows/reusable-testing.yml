@@ -95,6 +95,7 @@ jobs:
         if: matrix.test-type == 'model'
         shell: bash
         run: |
+          struphy test Maxwell
           struphy test models --mpi 2
 
       # - name: Run verification tests
@@ -107,4 +108,5 @@ jobs:
         if: matrix.test-type == 'verification'
         shell: bash
         run: |
+          struphy test Maxwell
           struphy test verification --mpi 2
