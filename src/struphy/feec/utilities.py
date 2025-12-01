@@ -467,23 +467,19 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
 
     for aa, wspace in enumerate(derham.Vh_fem["2"].spaces):
         # knot span indices of elements of local domain
-        spans_out = [
-            quad_grid[nquad].spans for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace), derham.nquads)
-        ]
+        spans_out = [quad_grid[nquad].spans for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
         # global start spline index on process
         starts_out = [int(start) for start in wspace.coeff_space.starts]
 
         # Iniitialize hybrid linear operators
         # global quadrature points (flattened) and weights in format (local element, local weight)
-        pts = [quad_grid[nquad].points for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace), derham.nquads)]
-        wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace), derham.nquads)]
+        pts = [quad_grid[nquad].points for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
+        wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
 
         p = wspace.degree
 
         # evaluated basis functions at quadrature points of the space
-        basis_o = [
-            quad_grid[nquad].basis for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace), derham.nquads)
-        ]
+        basis_o = [quad_grid[nquad].basis for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
 
         pads_out = wspace.coeff_space.pads
 

@@ -173,6 +173,8 @@ def field_line_tracing(
     R = xp.zeros((s_gr.size, x_gr.size), dtype=float)
     Z = xp.zeros((s_gr.size, x_gr.size), dtype=float)
 
+    r_flux_surface = None
+
     # function whose root must be found
     for j, x in enumerate(x_gr):
         for i, s in enumerate(s_gr):
