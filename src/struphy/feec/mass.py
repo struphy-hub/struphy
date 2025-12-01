@@ -2997,8 +2997,7 @@ class WeightedMassOperator(LinOpWithTransp):
         else:
             return LinOpWithTransp.__sub__(self, M)
 
-    @staticmethod
-    def eval_quad(W, coeffs, out=None):
+    def eval_quad(self, W, coeffs, out=None):
         """
         Evaluates a given FEM field defined by its coefficients at the L2 quadrature points.
 
