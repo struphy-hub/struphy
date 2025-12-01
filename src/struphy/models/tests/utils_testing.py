@@ -103,6 +103,23 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
         verbose=verbose,
     )
 
+    # Restart and run one more timestep
+    env.restart = True
+    time_opts.Tend += time_opts.dt
+    main.run(
+        model,
+        params_path=path,
+        env=env,
+        base_units=base_units,
+        time_opts=time_opts,
+        domain=domain,
+        equil=equil,
+        grid=grid,
+        derham_opts=derham_opts,
+        verbose=verbose,
+    )
+
+
     MPI.COMM_WORLD.Barrier()
     if rank == 0:
         path_out = os.path.join(test_folder, model_name)
