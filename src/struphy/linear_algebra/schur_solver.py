@@ -76,7 +76,7 @@ class SchurSolver:
         # initialize solver with dummy matrix A
         self._solver_name = solver_name
 
-        kwargs = solver_params.__dict__
+        kwargs = solver_params.__dict__.copy()
         kwargs.pop("info")
         if precond is not None:
             kwargs["pc"] = precond
