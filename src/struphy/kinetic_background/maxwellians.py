@@ -385,6 +385,15 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         """
         return self._equil
 
+    def check_maxw_params(self):
+        for k, v in self.maxw_params.items():
+            assert isinstance(k, str)
+            assert isinstance(v, tuple), f"Maxwallian parameter {k} must be tuple, but is {v}"
+            assert len(v) == 2
+
+            assert isinstance(v[0], (float, int, Callable))
+            assert isinstance(v[1], Perturbation) or v[1] is None
+
     def velocity_jacobian_det(self, eta1, eta2, eta3, energy):
         r"""TODO"""
         # collect arguments
@@ -474,6 +483,17 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         """Thermal velocities."""
         out = self._evaluate_moment(psic, name="vth")
         return out * self.moment_factors["vth"]
+
+    @property
+    def add_perturbation(self) -> bool:
+        if not hasattr(self, "_add_perturbation"):
+            self._add_perturbation = True
+        return self._add_perturbation
+
+    @add_perturbation.setter
+    def add_perturbation(self, new):
+        assert isinstance(new, bool)
+        self._add_perturbation = new
 
     @property
     def add_perturbation(self) -> bool:

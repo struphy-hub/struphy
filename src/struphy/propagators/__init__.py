@@ -44,7 +44,12 @@
 #     PushRandomDiffusion,
 #     PushVinEfield,
 #     PushVinSPHpressure,
+<<<<<<< HEAD
 #     PushVinViscousPotential,
+=======
+#     PushVinViscousPotential2D,
+#     PushVinViscousPotential3D,
+>>>>>>> devel
 #     PushVxB,
 #     StepStaticEfield,
 # )
@@ -92,5 +97,10 @@
 #     "PushDeterministicDiffusion",
 #     "PushRandomDiffusion",
 #     "PushVinSPHpressure",
+<<<<<<< HEAD
 #     "PushVinViscousPotential",
+=======
+#     "PushVinViscousPotential2D",
+#     "PushVinViscousPotential3D",
+>>>>>>> devel
 # ]

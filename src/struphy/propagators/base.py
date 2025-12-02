@@ -259,7 +259,7 @@ class Propagator(metaclass=ABCMeta):
                 column_nr,
                 comps,
                 args_init,
-            )
+            ),
         ]
 
     def add_eval_kernel(
@@ -314,5 +314,5 @@ class Propagator(metaclass=ABCMeta):
                 column_nr,
                 comps,
                 args_eval,
-            )
+            ),
         ]

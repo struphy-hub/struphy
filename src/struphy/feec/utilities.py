@@ -45,7 +45,7 @@ class RotationMatrix:
             [
                 [self._cross_mask[m][n] * fun(e1, e2, e3) for n, fun in enumerate(row)]
                 for m, row in enumerate(self._funs)
-            ]
+            ],
         )
 
         # numpy operates on the last two indices with @
@@ -99,7 +99,9 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
         e = arr_psy.ends
 
         arr_psy[s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = arr[-1][
-            s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1
+            s[0] : e[0] + 1,
+            s[1] : e[1] + 1,
+            s[2] : e[2] + 1,
         ]
 
         if flattened:
@@ -117,7 +119,9 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
             e = block.ends
 
             arr_psy[d][s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1] = arr[-1][
-                s[0] : e[0] + 1, s[1] : e[1] + 1, s[2] : e[2] + 1
+                s[0] : e[0] + 1,
+                s[1] : e[1] + 1,
+                s[2] : e[2] + 1,
             ]
 
         if flattened:
@@ -126,7 +130,7 @@ def create_equal_random_arrays(V, seed=123, flattened=False):
                     arr[0].flatten(),
                     arr[1].flatten(),
                     arr[2].flatten(),
-                )
+                ),
             )
 
     arr_psy.update_ghost_regions()
@@ -234,7 +238,7 @@ def compare_arrays(arr_psy, arr, rank, atol=1e-14, verbose=False):
     elif isinstance(arr_psy, BlockLinearOperator):
         for row_psy, row in zip(arr_psy.blocks, arr):
             for mat_psy, mat in zip(row_psy, row):
-                if mat_psy == None:
+                if mat_psy is None:
                     continue
 
                 s = mat_psy.codomain.starts
@@ -463,23 +467,19 @@ def create_weight_weightedmatrix_hybrid(b, weight_pre, derham, accum_density, do
 
     for aa, wspace in enumerate(derham.Vh_fem["2"].spaces):
         # knot span indices of elements of local domain
-        spans_out = [
-            quad_grid[nquad].spans for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace), derham.nquads)
-        ]
+        spans_out = [quad_grid[nquad].spans for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
         # global start spline index on process
         starts_out = [int(start) for start in wspace.coeff_space.starts]
 
         # Iniitialize hybrid linear operators
         # global quadrature points (flattened) and weights in format (local element, local weight)
-        pts = [quad_grid[nquad].points for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace), derham.nquads)]
-        wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace), derham.nquads)]
+        pts = [quad_grid[nquad].points for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
+        wts = [quad_grid[nquad].weights for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
 
         p = wspace.degree
 
         # evaluated basis functions at quadrature points of the space
-        basis_o = [
-            quad_grid[nquad].basis for quad_grid, nquad in zip(self.derham.get_quad_grids(wspace), derham.nquads)
-        ]
+        basis_o = [quad_grid[nquad].basis for quad_grid, nquad in zip(derham.get_quad_grids(wspace), derham.nquads)]
 
         pads_out = wspace.coeff_space.pads
 

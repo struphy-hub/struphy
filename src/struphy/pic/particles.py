@@ -43,13 +43,20 @@ class Particles6D(Particles):
             kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diag")
-        self._n_cols_aux = kwargs.pop("n_cols_aux")
-
-        # equation_params
-        self._equation_params = kwargs.pop("equation_params")
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
+        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
 
         super().__init__(**kwargs)
+
+        # call projected mhd equilibrium in case of CanonicalMaxwellian
+        if isinstance(kwargs["background"], maxwellians.CanonicalMaxwellian):
+            assert isinstance(self.equil, FluidEquilibriumWithB), (
+                "CanonicalMaxwellian needs background with magnetic field."
+            )
+            self._absB0_h = self.projected_equil.absB0
+            self._b2_h = self.projected_equil.b2
+            self._derham = self.projected_equil.derham
+            self._epsilon = self.equation_params["epsilon"]
 
     @property
     def vdim(self):
@@ -140,7 +147,7 @@ class Particles6D(Particles):
             The 0-form sampling density.
         -------
         """
-        assert self.domain, f"self.domain must be set to call the sampling density 0-form."
+        assert self.domain, "self.domain must be set to call the sampling density 0-form."
 
         return self.domain.transform(
             self.svol(eta1, eta2, eta3, *v),
@@ -217,7 +224,8 @@ class Particles6D(Particles):
 
         # send particles to the guiding center positions
         self.markers[~self.holes, self.first_pusher_idx : self.first_pusher_idx + 3] = self.markers[
-            ~self.holes, slice_gc
+            ~self.holes,
+            slice_gc,
         ]
         if self.mpi_comm is not None:
             self.mpi_sort_markers(alpha=1)

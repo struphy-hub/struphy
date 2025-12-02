@@ -8,6 +8,8 @@ import warnings
 from time import time
 
 import cunumpy as xp
+from psydac.ddm.mpi import MockMPI
+from psydac.ddm.mpi import mpi as MPI
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize
@@ -30,6 +32,17 @@ from struphy.fields_background.base import (
 )
 from struphy.fields_background.mhd_equil.eqdsk import readeqdsk
 from struphy.utils.utils import read_state, subp_run
+
+if isinstance(MPI, MockMPI):
+    comm = None
+    rank = 0
+    size = 1
+    Barrier = lambda: None
+else:
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    Barrier = comm.Barrier
 
 
 class HomogenSlab(CartesianMHDequilibrium):
@@ -1748,7 +1761,8 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
         # default input file
         if file is None:
             file = "AUGNLED_g031213.00830.high"
-            print(f"EQDSK: taking default file {file}.")
+            if rank == 0:
+                print(f"EQDSK: taking default file {file}.")
 
         # no rescaling if units are not provided
         if units is None:
@@ -1759,7 +1773,7 @@ class EQDSKequilibrium(AxisymmMHDequilibrium):
             units["p"] = 1.0
             units["n"] = 1e20
             warnings.warn(
-                f"{units = }, no rescaling performed in EQDSK output.",
+                f"{units =}, no rescaling performed in EQDSK output.",
             )
 
         self._units = units
@@ -2131,9 +2145,11 @@ class GVECequilibrium(NumericalMHDequilibrium):
             import pytest
 
             with pytest.raises(SystemExit) as exc:
-                print("Simulation aborted, gvec must be installed (pip install gvec)!")
+                if rank == 0:
+                    print("Simulation aborted, gvec must be installed (pip install gvec)!")
                 sys.exit(1)
-            print(f"{exc.value.code = }")
+            if rank == 0:
+                print(f"{exc.value.code =}")
 
         import gvec
 
@@ -2148,7 +2164,7 @@ class GVECequilibrium(NumericalMHDequilibrium):
             units["p"] = 1.0
             units["n"] = 1e20
             warnings.warn(
-                f"{units = }, no rescaling performed in GVEC output.",
+                f"{units =}, no rescaling performed in GVEC output.",
             )
 
         self._units = units
@@ -2410,13 +2426,15 @@ class DESCequilibrium(NumericalMHDequilibrium):
         desc_spec = importlib.util.find_spec("desc")
 
         if desc_spec is None:
-            print("Simulation aborted, desc-opt must be installed!")
-            print("Install with:\npip install desc-opt")
+            if rank == 0:
+                print("Simulation aborted, desc-opt must be installed!")
+                print("Install with:\npip install desc-opt")
             sys.exit(1)
 
         import desc
 
-        print(f"DESC import: {time() - t} seconds")
+        if rank == 0:
+            print(f"DESC import: {time() - t} seconds")
         from struphy.geometry.domains import DESCunit
 
         # no rescaling if units are not provided
@@ -2428,7 +2446,7 @@ class DESCequilibrium(NumericalMHDequilibrium):
             units["p"] = 1.0
             units["n"] = 1e20
             warnings.warn(
-                f"{units = }, no rescaling performed in DESC output.",
+                f"{units =}, no rescaling performed in DESC output.",
             )
 
         self._units = units
@@ -2449,7 +2467,8 @@ class DESCequilibrium(NumericalMHDequilibrium):
         else:
             self._eq = desc.io.load(eq_name)
 
-        print(f"Eq. load: {time() - t} seconds")
+        if rank == 0:
+            print(f"Eq. load: {time() - t} seconds")
         self._rmin = self.params["rmin"]
         self._use_nfp = self.params["use_nfp"]
 
@@ -2878,29 +2897,30 @@ class DESCequilibrium(NumericalMHDequilibrium):
         assert xp.all(theta == theta1)
         assert xp.all(zeta == zeta1)
 
-        if verbose:
+        if verbose and rank == 0:
             # import sys
-            print(f"\n{nfp = }")
-            print(f"{self.eq.axis = }")
-            print(f"{rho.size = }")
-            print(f"{theta.size = }")
-            print(f"{zeta.size = }")
-            print(f"{grid_3d.num_rho = }")
-            print(f"{grid_3d.num_theta = }")
-            print(f"{grid_3d.num_zeta = }")
+            print(f"\n{nfp =}")
+            print(f"{self.eq.axis =}")
+            print(f"{rho.size =}")
+            print(f"{theta.size =}")
+            print(f"{zeta.size =}")
+            print(f"{grid_3d.num_rho =}")
+            print(f"{grid_3d.num_theta =}")
+            print(f"{grid_3d.num_zeta =}")
             # print(f'\n{grid_3d.nodes[:, 0] = }')
             # print(f'\n{grid_3d.nodes[:, 1] = }')
             # print(f'\n{grid_3d.nodes[:, 2] = }')
-            print(f"\n{rho = }")
-            print(f"{rho1 = }")
-            print(f"\n{theta = }")
-            print(f"{theta1 = }")
-            print(f"\n{zeta = }")
-            print(f"{zeta1 = }")
+            print(f"\n{rho =}")
+            print(f"{rho1 =}")
+            print(f"\n{theta =}")
+            print(f"{theta1 =}")
+            print(f"\n{zeta =}")
+            print(f"{zeta1 =}")
 
         # make c-contiguous
         out = xp.ascontiguousarray(out)
-        print(f"desc_eval for {var}: {time() - ttime} seconds")
+        if rank == 0:
+            print(f"desc_eval for {var}: {time() - ttime} seconds")
         return out
 
 

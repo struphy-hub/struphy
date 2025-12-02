@@ -72,7 +72,8 @@ class Variable(metaclass=ABCMeta):
         return self._name
 
     def add_background(self, background, verbose=True):
-        """Type inference of added background done in sub class."""
+        """Add a static background for this variable.
+        Multiple backgrounds can be added up."""
         if not hasattr(self, "_backgrounds") or self.backgrounds is None:
             self._backgrounds = background
         else:
@@ -82,13 +83,15 @@ class Variable(metaclass=ABCMeta):
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added background '{background.__class__.__name__}' with:"
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added background '{background.__class__.__name__}' with:",
             )
             for k, v in background.__dict__.items():
                 print(f"  {k}: {v}")
 
 
 class FEECVariable(Variable):
+    """Variable discretized with :ref:`geomFE`."""
+
     def __init__(self, space: OptsFEECSpace = "H1"):
         check_option(space, OptsFEECSpace)
         self._space = space
@@ -111,6 +114,8 @@ class FEECVariable(Variable):
         super().add_background(background, verbose=verbose)
 
     def add_perturbation(self, perturbation: Perturbation, verbose=True):
+        """Add an initial :class:`~struphy.initial.base.Perturbation` for this variable.
+        Multiple perturbations can be added up."""
         if not hasattr(self, "_perturbations") or self.perturbations is None:
             self._perturbations = perturbation
         else:
@@ -120,7 +125,7 @@ class FEECVariable(Variable):
 
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:"
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added perturbation '{perturbation.__class__.__name__}' with:",
             )
             for k, v in perturbation.__dict__.items():
                 print(f"  {k}: {v}")
@@ -142,6 +147,8 @@ class FEECVariable(Variable):
 
 
 class PICVariable(Variable):
+    """Variable discretized with :ref:`particle_discrete`."""
+
     def __init__(self, space: OptsPICSpace = "Particles6D"):
         check_option(space, OptsPICSpace)
         self._space = space
@@ -175,7 +182,7 @@ class PICVariable(Variable):
         self._initial_condition = init
         if verbose and MPI.COMM_WORLD.Get_rank() == 0:
             print(
-                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added initial condition '{init.__class__.__name__}' with:"
+                f"\nVariable '{self.__name__}' of species '{self.species.__class__.__name__}' - added initial condition '{init.__class__.__name__}' with:",
             )
             for k, v in init.__dict__.items():
                 print(f"  {k}: {v}")
@@ -197,7 +204,7 @@ class PICVariable(Variable):
     ):
         # assert isinstance(self.species, KineticSpecies)
         assert isinstance(self.backgrounds, KineticBackground), (
-            f"List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+            "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
         )
 
         if derham is None:
@@ -256,7 +263,7 @@ class PICVariable(Variable):
             self._n_to_save = n_markers
 
         assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
+            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(
@@ -277,6 +284,8 @@ class PICVariable(Variable):
 
 
 class SPHVariable(Variable):
+    """Variable discretized with :ref:`sph_method`."""
+
     def __init__(self):
         self._space = "ParticlesSPH"
         self._n_as_volume_form = True
@@ -316,6 +325,7 @@ class SPHVariable(Variable):
         del_u3: Perturbation = None,
         verbose=True,
     ):
+        """Add an initial :class:`~struphy.initial.base.Perturbation` for the fluid density and/or velocity."""
         self._perturbations = {}
         self._perturbations["n"] = del_n
         self._perturbations["u1"] = del_u1
@@ -342,7 +352,7 @@ class SPHVariable(Variable):
         verbose: bool = False,
     ):
         assert isinstance(self.backgrounds, FluidEquilibrium), (
-            f"List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
+            "List input not allowed, you can sum Kineticbackgrounds before passing them to add_background."
         )
 
         self.backgrounds.domain = domain
@@ -397,7 +407,7 @@ class SPHVariable(Variable):
             self._n_to_save = n_markers
 
         assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
+            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(

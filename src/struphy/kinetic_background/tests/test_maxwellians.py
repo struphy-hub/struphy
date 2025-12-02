@@ -287,27 +287,39 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and val.__module__ == equils.__name__:
-            print(f"{key = }")
+            print(f"{key =}")
 
             if "DESCequilibrium" in key and not with_desc:
-                print(f"Attention: {with_desc = }, DESC not tested here !!")
+                print(f"Attention: {with_desc =}, DESC not tested here !!")
                 continue
 
             if "GVECequilibrium" in key:
-                print(f"Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                print("Attention: GVEC not tested here !!")
+                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                continue
 
             mhd_equil = val()
             assert isinstance(mhd_equil, FluidEquilibrium)
+<<<<<<< HEAD
             print(f"{mhd_equil.params = }")
+=======
+            print(f"{mhd_equil.params =}")
+>>>>>>> devel
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
-                    a1=1e-3, a2=mhd_equil.params["a"], R0=mhd_equil.params["R0"], tor_period=1
+                    a1=1e-3,
+                    a2=mhd_equil.params["a"],
+                    R0=mhd_equil.params["R0"],
+                    tor_period=1,
                 )
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
             elif "CircularTokamak" in key:
                 mhd_equil.domain = domains.HollowTorus(
-                    a1=1e-3, a2=mhd_equil.params["a"], R0=mhd_equil.params["R0"], tor_period=1
+                    a1=1e-3,
+                    a2=mhd_equil.params["a"],
+                    R0=mhd_equil.params["R0"],
+                    tor_period=1,
                 )
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
@@ -319,11 +331,19 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 )
             elif "ShearFluid" in key:
                 mhd_equil.domain = domains.Cuboid(
-                    r1=mhd_equil.params["a"], r2=mhd_equil.params["b"], r3=mhd_equil.params["c"]
+                    r1=mhd_equil.params["a"],
+                    r2=mhd_equil.params["b"],
+                    r3=mhd_equil.params["c"],
                 )
             elif "ScrewPinch" in key:
                 mhd_equil.domain = domains.HollowCylinder(
+<<<<<<< HEAD
                     a1=1e-3, a2=mhd_equil.params["a"], Lz=mhd_equil.params["R0"] * 2 * xp.pi
+=======
+                    a1=1e-3,
+                    a2=mhd_equil.params["a"],
+                    Lz=mhd_equil.params["R0"] * 2 * xp.pi,
+>>>>>>> devel
                 )
             else:
                 try:
@@ -354,15 +374,28 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
             # test meshgrid evaluation
             n0 = mhd_equil.n0(*e_meshgrids)
             assert xp.allclose(
+<<<<<<< HEAD
                 maxwellian(*meshgrids)[:, :, :, 0, 0, 0], n0 * maxwellian_1(*meshgrids)[:, :, :, 0, 0, 0]
             )
 
             assert xp.allclose(
                 maxwellian(*meshgrids)[:, :, :, 0, 1, 2], n0 * maxwellian_1(*meshgrids)[:, :, :, 0, 1, 2]
+=======
+                maxwellian(*meshgrids)[:, :, :, 0, 0, 0],
+                n0 * maxwellian_1(*meshgrids)[:, :, :, 0, 0, 0],
+            )
+
+            assert xp.allclose(
+                maxwellian(*meshgrids)[:, :, :, 0, 1, 2],
+                n0 * maxwellian_1(*meshgrids)[:, :, :, 0, 1, 2],
+>>>>>>> devel
             )
 
             # test flat evaluation
             if "GVECequilibrium" in key:
+                print("Attention: GVEC not tested here !!")
+                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                continue
                 pass
             else:
                 assert xp.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
@@ -378,7 +411,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
             # plotting moments
             if show_plot:
-                plt.figure(f"{mhd_equil = }", figsize=(24, 16))
+                plt.figure(f"{mhd_equil =}", figsize=(24, 16))
                 x, y, z = mhd_equil.domain(*e_meshgrids)
 
                 # density plots
@@ -390,14 +423,20 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :], n_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :], z[:, Nel[1] // 2 - 1, :], n_cart[:, Nel[1] // 2, :], levels=levels
+                        x[:, Nel[1] // 2, :],
+                        z[:, Nel[1] // 2 - 1, :],
+                        n_cart[:, Nel[1] // 2, :],
+                        levels=levels,
                     )
                     plt.xlabel("x")
                     plt.ylabel("z")
                 else:
                     plt.contourf(x[:, 0, :], y[:, 0, :], n_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :], y[:, Nel[1] // 2 - 1, :], n_cart[:, Nel[1] // 2, :], levels=levels
+                        x[:, Nel[1] // 2, :],
+                        y[:, Nel[1] // 2 - 1, :],
+                        n_cart[:, Nel[1] // 2, :],
+                        levels=levels,
                     )
                     plt.xlabel("x")
                     plt.ylabel("y")
@@ -459,20 +498,26 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :], vth_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :], z[:, Nel[1] // 2 - 1, :], vth_cart[:, Nel[1] // 2, :], levels=levels
+                        x[:, Nel[1] // 2, :],
+                        z[:, Nel[1] // 2 - 1, :],
+                        vth_cart[:, Nel[1] // 2, :],
+                        levels=levels,
                     )
                     plt.xlabel("x")
                     plt.ylabel("z")
                 else:
                     plt.contourf(x[:, 0, :], y[:, 0, :], vth_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :], y[:, Nel[1] // 2 - 1, :], vth_cart[:, Nel[1] // 2, :], levels=levels
+                        x[:, Nel[1] // 2, :],
+                        y[:, Nel[1] // 2 - 1, :],
+                        vth_cart[:, Nel[1] // 2, :],
+                        levels=levels,
                     )
                     plt.xlabel("x")
                     plt.ylabel("y")
                 plt.axis("equal")
                 plt.colorbar()
-                plt.title(f"Maxwellian thermal velocity $v_t$, top view (e1-e3)")
+                plt.title("Maxwellian thermal velocity $v_t$, top view (e1-e3)")
                 plt.subplot(2, 5, 10)
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, :, 0], y[:, :, 0], vth_cart[:, :, 0], levels=levels)
@@ -484,7 +529,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                     plt.ylabel("z")
                 plt.axis("equal")
                 plt.colorbar()
-                plt.title(f"Maxwellian thermal velocity $v_t$, poloidal view (e1-e2)")
+                plt.title("Maxwellian thermal velocity $v_t$, poloidal view (e1-e2)")
 
                 plt.show()
 
@@ -496,7 +541,11 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                     if inspect.isclass(val_2) and val_2.__module__ == perturbations.__name__:
                         pert = val_2()
                         assert isinstance(pert, Perturbation)
+<<<<<<< HEAD
                         print(f"{pert = }")
+=======
+                        print(f"{pert =}")
+>>>>>>> devel
                         if isinstance(pert, perturbations.Noise):
                             continue
 
@@ -550,14 +599,20 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                             if "Slab" in key or "Pinch" in key:
                                 plt.contourf(x[:, 0, :], z[:, 0, :], n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :], z[:, Nel[1] // 2, :], n_cart[:, Nel[1] // 2, :], levels=levels
+                                    x[:, Nel[1] // 2, :],
+                                    z[:, Nel[1] // 2, :],
+                                    n_cart[:, Nel[1] // 2, :],
+                                    levels=levels,
                                 )
                                 plt.xlabel("x")
                                 plt.ylabel("z")
                             else:
                                 plt.contourf(x[:, 0, :], y[:, 0, :], n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :], y[:, Nel[1] // 2, :], n_cart[:, Nel[1] // 2, :], levels=levels
+                                    x[:, Nel[1] // 2, :],
+                                    y[:, Nel[1] // 2, :],
+                                    n_cart[:, Nel[1] // 2, :],
+                                    levels=levels,
                                 )
                                 plt.xlabel("x")
                                 plt.ylabel("y")
@@ -586,14 +641,20 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                                 if "Slab" in key or "Pinch" in key:
                                     plt.contourf(x[:, 0, :], z[:, 0, :], u[:, 0, :], levels=levels)
                                     plt.contourf(
-                                        x[:, Nel[1] // 2, :], z[:, Nel[1] // 2, :], u[:, Nel[1] // 2, :], levels=levels
+                                        x[:, Nel[1] // 2, :],
+                                        z[:, Nel[1] // 2, :],
+                                        u[:, Nel[1] // 2, :],
+                                        levels=levels,
                                     )
                                     plt.xlabel("x")
                                     plt.ylabel("z")
                                 else:
                                     plt.contourf(x[:, 0, :], y[:, 0, :], u[:, 0, :], levels=levels)
                                     plt.contourf(
-                                        x[:, Nel[1] // 2, :], y[:, Nel[1] // 2, :], u[:, Nel[1] // 2, :], levels=levels
+                                        x[:, Nel[1] // 2, :],
+                                        y[:, Nel[1] // 2, :],
+                                        u[:, Nel[1] // 2, :],
+                                        levels=levels,
                                     )
                                     plt.xlabel("x")
                                     plt.ylabel("y")
@@ -642,7 +703,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                                 plt.ylabel("y")
                             plt.axis("equal")
                             plt.colorbar()
-                            plt.title(f"Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)")
+                            plt.title("Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)")
                             plt.subplot(2, 5, 10)
                             if "Slab" in key or "Pinch" in key:
                                 plt.contourf(x[:, :, 0], y[:, :, 0], vth_cart[:, :, 0], levels=levels)
@@ -654,7 +715,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                                 plt.ylabel("z")
                             plt.axis("equal")
                             plt.colorbar()
-                            plt.title(f"Maxwellian perturbed thermal velocity $v_t$, poloidal view (e1-e2)")
+                            plt.title("Maxwellian perturbed thermal velocity $v_t$, poloidal view (e1-e2)")
 
                             plt.show()
 
@@ -1047,29 +1108,37 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
 
     for key, val in inspect.getmembers(equils):
         if inspect.isclass(val) and val.__module__ == equils.__name__:
-            print(f"{key = }")
+            print(f"{key =}")
 
             if "DESCequilibrium" in key and not with_desc:
-                print(f"Attention: {with_desc = }, DESC not tested here !!")
+                print(f"Attention: {with_desc =}, DESC not tested here !!")
                 continue
 
             if "GVECequilibrium" in key:
-                print(f"Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                print("Attention: GVEC not tested here !!")
+                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                continue
 
             mhd_equil = val()
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
                 continue
 
-            print(f"{mhd_equil.params = }")
+            print(f"{mhd_equil.params =}")
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
-                    a1=1e-3, a2=mhd_equil.params["a"], R0=mhd_equil.params["R0"], tor_period=1
+                    a1=1e-3,
+                    a2=mhd_equil.params["a"],
+                    R0=mhd_equil.params["R0"],
+                    tor_period=1,
                 )
             elif "EQDSKequilibrium" in key:
                 mhd_equil.domain = domains.Tokamak(equilibrium=mhd_equil)
             elif "CircularTokamak" in key:
                 mhd_equil.domain = domains.HollowTorus(
-                    a1=1e-3, a2=mhd_equil.params["a"], R0=mhd_equil.params["R0"], tor_period=1
+                    a1=1e-3,
+                    a2=mhd_equil.params["a"],
+                    R0=mhd_equil.params["R0"],
+                    tor_period=1,
                 )
             elif "HomogenSlab" in key:
                 mhd_equil.domain = domains.Cuboid()
@@ -1081,11 +1150,19 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 )
             elif "ShearFluid" in key:
                 mhd_equil.domain = domains.Cuboid(
-                    r1=mhd_equil.params["a"], r2=mhd_equil.params["b"], r3=mhd_equil.params["c"]
+                    r1=mhd_equil.params["a"],
+                    r2=mhd_equil.params["b"],
+                    r3=mhd_equil.params["c"],
                 )
             elif "ScrewPinch" in key:
                 mhd_equil.domain = domains.HollowCylinder(
+<<<<<<< HEAD
                     a1=1e-3, a2=mhd_equil.params["a"], Lz=mhd_equil.params["R0"] * 2 * xp.pi
+=======
+                    a1=1e-3,
+                    a2=mhd_equil.params["a"],
+                    Lz=mhd_equil.params["R0"] * 2 * xp.pi,
+>>>>>>> devel
                 )
             else:
                 try:
@@ -1117,6 +1194,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
 
             # test flat evaluation
             if "GVECequilibrium" in key:
+                print("Attention: GVEC not tested here !!")
+                # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
+                continue
                 pass
             else:
                 assert xp.allclose(maxwellian(*args_fl), mhd_equil.n0(e_args_fl) * maxwellian_1(*args_fl))
@@ -1135,7 +1215,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
 
             # plotting moments
             if show_plot:
-                plt.figure(f"{mhd_equil = }", figsize=(24, 16))
+                plt.figure(f"{mhd_equil =}", figsize=(24, 16))
                 x, y, z = mhd_equil.domain(*e_meshgrids)
 
                 # density plots
@@ -1147,14 +1227,20 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :], n_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :], z[:, Nel[1] // 2 - 1, :], n_cart[:, Nel[1] // 2, :], levels=levels
+                        x[:, Nel[1] // 2, :],
+                        z[:, Nel[1] // 2 - 1, :],
+                        n_cart[:, Nel[1] // 2, :],
+                        levels=levels,
                     )
                     plt.xlabel("x")
                     plt.ylabel("z")
                 else:
                     plt.contourf(x[:, 0, :], y[:, 0, :], n_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :], y[:, Nel[1] // 2 - 1, :], n_cart[:, Nel[1] // 2, :], levels=levels
+                        x[:, Nel[1] // 2, :],
+                        y[:, Nel[1] // 2 - 1, :],
+                        n_cart[:, Nel[1] // 2, :],
+                        levels=levels,
                     )
                     plt.xlabel("x")
                     plt.ylabel("y")
@@ -1216,20 +1302,26 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, 0, :], z[:, 0, :], vth_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :], z[:, Nel[1] // 2 - 1, :], vth_cart[:, Nel[1] // 2, :], levels=levels
+                        x[:, Nel[1] // 2, :],
+                        z[:, Nel[1] // 2 - 1, :],
+                        vth_cart[:, Nel[1] // 2, :],
+                        levels=levels,
                     )
                     plt.xlabel("x")
                     plt.ylabel("z")
                 else:
                     plt.contourf(x[:, 0, :], y[:, 0, :], vth_cart[:, 0, :], levels=levels)
                     plt.contourf(
-                        x[:, Nel[1] // 2, :], y[:, Nel[1] // 2 - 1, :], vth_cart[:, Nel[1] // 2, :], levels=levels
+                        x[:, Nel[1] // 2, :],
+                        y[:, Nel[1] // 2 - 1, :],
+                        vth_cart[:, Nel[1] // 2, :],
+                        levels=levels,
                     )
                     plt.xlabel("x")
                     plt.ylabel("y")
                 plt.axis("equal")
                 plt.colorbar()
-                plt.title(f"Maxwellian thermal velocity $v_t$, top view (e1-e3)")
+                plt.title("Maxwellian thermal velocity $v_t$, top view (e1-e3)")
                 plt.subplot(2, 4, 8)
                 if "Slab" in key or "Pinch" in key:
                     plt.contourf(x[:, :, 0], y[:, :, 0], vth_cart[:, :, 0], levels=levels)
@@ -1241,7 +1333,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                     plt.ylabel("z")
                 plt.axis("equal")
                 plt.colorbar()
-                plt.title(f"Maxwellian density $v_t$, poloidal view (e1-e2)")
+                plt.title("Maxwellian density $v_t$, poloidal view (e1-e2)")
 
                 plt.show()
 
@@ -1250,7 +1342,11 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 for key_2, val_2 in inspect.getmembers(perturbations):
                     if inspect.isclass(val_2) and val_2.__module__ == perturbations.__name__:
                         pert = val_2()
+<<<<<<< HEAD
                         print(f"{pert = }")
+=======
+                        print(f"{pert =}")
+>>>>>>> devel
                         assert isinstance(pert, Perturbation)
 
                         if isinstance(pert, perturbations.Noise):
@@ -1301,14 +1397,20 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                             if "Slab" in key or "Pinch" in key:
                                 plt.contourf(x[:, 0, :], z[:, 0, :], n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :], z[:, Nel[1] // 2, :], n_cart[:, Nel[1] // 2, :], levels=levels
+                                    x[:, Nel[1] // 2, :],
+                                    z[:, Nel[1] // 2, :],
+                                    n_cart[:, Nel[1] // 2, :],
+                                    levels=levels,
                                 )
                                 plt.xlabel("x")
                                 plt.ylabel("z")
                             else:
                                 plt.contourf(x[:, 0, :], y[:, 0, :], n_cart[:, 0, :], levels=levels)
                                 plt.contourf(
-                                    x[:, Nel[1] // 2, :], y[:, Nel[1] // 2, :], n_cart[:, Nel[1] // 2, :], levels=levels
+                                    x[:, Nel[1] // 2, :],
+                                    y[:, Nel[1] // 2, :],
+                                    n_cart[:, Nel[1] // 2, :],
+                                    levels=levels,
                                 )
                                 plt.xlabel("x")
                                 plt.ylabel("y")
@@ -1337,14 +1439,20 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                                 if "Slab" in key or "Pinch" in key:
                                     plt.contourf(x[:, 0, :], z[:, 0, :], u[:, 0, :], levels=levels)
                                     plt.contourf(
-                                        x[:, Nel[1] // 2, :], z[:, Nel[1] // 2, :], u[:, Nel[1] // 2, :], levels=levels
+                                        x[:, Nel[1] // 2, :],
+                                        z[:, Nel[1] // 2, :],
+                                        u[:, Nel[1] // 2, :],
+                                        levels=levels,
                                     )
                                     plt.xlabel("x")
                                     plt.ylabel("z")
                                 else:
                                     plt.contourf(x[:, 0, :], y[:, 0, :], u[:, 0, :], levels=levels)
                                     plt.contourf(
-                                        x[:, Nel[1] // 2, :], y[:, Nel[1] // 2, :], u[:, Nel[1] // 2, :], levels=levels
+                                        x[:, Nel[1] // 2, :],
+                                        y[:, Nel[1] // 2, :],
+                                        u[:, Nel[1] // 2, :],
+                                        levels=levels,
                                     )
                                     plt.xlabel("x")
                                     plt.ylabel("y")
@@ -1393,7 +1501,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                                 plt.ylabel("y")
                             plt.axis("equal")
                             plt.colorbar()
-                            plt.title(f"Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)")
+                            plt.title("Maxwellian perturbed thermal velocity $v_t$, top view (e1-e3)")
                             plt.subplot(2, 4, 8)
                             if "Slab" in key or "Pinch" in key:
                                 plt.contourf(x[:, :, 0], y[:, :, 0], vth_cart[:, :, 0], levels=levels)
@@ -1405,7 +1513,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                                 plt.ylabel("z")
                             plt.axis("equal")
                             plt.colorbar()
-                            plt.title(f"Maxwellian perturbed density $v_t$, poloidal view (e1-e2)")
+                            plt.title("Maxwellian perturbed density $v_t$, poloidal view (e1-e2)")
 
                             plt.show()
 

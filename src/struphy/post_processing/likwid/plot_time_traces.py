@@ -4,6 +4,7 @@ import re
 
 import cunumpy as xp
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import plotly.io as pio
 
 # pio.kaleido.scope.mathjax = None
@@ -16,19 +17,31 @@ def glob_to_regex(pat: str) -> str:
     return "^" + esc.replace(r"\*", ".*").replace(r"\?", ".") + "$"
 
 
+# def plot_region(region_name, groups_include=["*"], groups_skip=[]):
+#     # skips first
+#     for pat in groups_skip:
+#         rx = glob_to_regex(pat)
+#         if re.fullmatch(rx, region_name):
+#             return False
+
+#     # includes next
+#     for pat in groups_include:
+#         rx = glob_to_regex(pat)
+#         if re.fullmatch(rx, region_name):
+#             return True
+
+#     return False
+
+
 def plot_region(region_name, groups_include=["*"], groups_skip=[]):
-    # skips first
-    for pat in groups_skip:
-        rx = glob_to_regex(pat)
-        if re.fullmatch(rx, region_name):
+    from fnmatch import fnmatch
+
+    for pattern in groups_skip:
+        if fnmatch(region_name, pattern):
             return False
-
-    # includes next
-    for pat in groups_include:
-        rx = glob_to_regex(pat)
-        if re.fullmatch(rx, region_name):
+    for pattern in groups_include:
+        if fnmatch(region_name, pattern):
             return True
-
     return False
 
 
@@ -54,7 +67,7 @@ def plot_time_vs_duration(
 
     plt.figure(figsize=(10, 6))
     for path in paths:
-        print(f"{path = }")
+        print(f"{path =}")
         with open(path, "rb") as file:
             profiling_data = pickle.load(file)
 
@@ -146,21 +159,6 @@ def plot_avg_duration_bar_chart(
     print(f"Saved average duration bar chart to: {figure_path}")
 
 
-import plotly.graph_objects as go
-
-
-def plot_region(region_name, groups_include=["*"], groups_skip=[]):
-    from fnmatch import fnmatch
-
-    for pattern in groups_skip:
-        if fnmatch(region_name, pattern):
-            return False
-    for pattern in groups_include:
-        if fnmatch(region_name, pattern):
-            return True
-    return False
-
-
 def plot_gantt_chart_plotly(
     path: str,
     output_path: str,
@@ -204,7 +202,7 @@ def plot_gantt_chart_plotly(
                             Start=start_times[i],
                             Finish=end_times[i],
                             Duration=durations[i],
-                        )
+                        ),
                     )
 
     if len(bars) == 0:
@@ -226,7 +224,7 @@ def plot_gantt_chart_plotly(
                 name=bar["Rank"],
                 marker_color=rank_color_map[bar["Rank"]],
                 hovertemplate=f"Rank: {bar['Rank']}<br>Start: {bar['Start']:.3f}s<br>Duration: {bar['Duration']:.3f}s",
-            )
+            ),
         )
 
     fig.update_layout(

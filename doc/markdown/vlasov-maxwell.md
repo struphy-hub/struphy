@@ -161,7 +161,7 @@ $$ (eq:spaces)
 (pullback)=
 ### Pull-back to the logical domain
 
-All PDE models in Struphy are discretized on the unit cube $(0,1)^3$, called the "logical domain". The mapping to the actual problem domain, a torus for instance, called "physical" or Cartesian domain and denoted by $\Omega$, is described in the [Domain base class](https://struphy.pages.mpcdf.de/struphy/sections/subsections/domains.html#struphy.geometry.base.Domain). Briefly, logical coordinates are curvi-linear and denoted by $\boldsymbol \eta \in (0, 1)^3$, whereas physical Cartesian coordinates are denoted by $\mathbf x \in \Omega$. The mapping $F: (0, 1)^3 \to \Omega, \boldsymbol \eta \mapsto \mathbf x$ is one-to-one and differentiable, with Jacobian matrix $DF: (0, 1)^3 \to \mathbb R^{3\times 3}$, metric tensor $G = DF^\top DF$ and determinant $\sqrt g = |\textrm{det} DF|$. In Struphy, only right-handed mappings with $\textrm{det} DF > 0$ are allowed.
+All PDE models in Struphy are discretized on the unit cube $(0,1)^3$, called the "logical domain". The mapping to the actual problem domain, a torus for instance, called "physical" or Cartesian domain and denoted by $\Omega$, is described under [Geometry](https://struphy-hub.github.io/struphy/sections/domains.html). Briefly, logical coordinates are curvi-linear and denoted by $\boldsymbol \eta \in (0, 1)^3$, whereas physical Cartesian coordinates are denoted by $\mathbf x \in \Omega$. The mapping $F: (0, 1)^3 \to \Omega, \boldsymbol \eta \mapsto \mathbf x$ is one-to-one and differentiable, with Jacobian matrix $DF: (0, 1)^3 \to \mathbb R^{3\times 3}$, metric tensor $G = DF^\top DF$ and determinant $\sqrt g = |\textrm{det} DF|$. In Struphy, only right-handed mappings with $\textrm{det} DF > 0$ are allowed.
 
 Usually, any text book model equations are described in Cartesian (physical) coordinates $\mathbf x$, and this is also true for our model {eq}`eq:spaces`. Hence, as a next step we have to transform our model to logical, curvi-linear coordinates $\boldsymbol \eta$. This process is also called the "pull-back" to the logical domain. There are different possible "representations" of a pulled-back variable on the logical domain:
 
@@ -189,7 +189,7 @@ The connection of differential $p$-forms to the {ref}`Struphy de Rham spaces <ge
 * Elements of $H$(div) are proxy functions of $2$-forms
 * Elements of $L^2$ are proxy functions of $3$-forms.
 
-A proxy function is the representation of a differential form in a particular basis defined by a map $F$. This means nothing else than the above pullbacks have to be applied for the respective spaces. Note that there is no space for vector fields in the de Rham diagram, however [vector fields are implemented in Struphy](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.psydac_derham.Derham.create_spline_function) as elements of $(H^1)^3$ with the correct vector field pullback.  
+A proxy function is the representation of a differential form in a particular basis defined by a map $F$. This means nothing else than the above pullbacks have to be applied for the respective spaces. Note that there is no space for vector fields in the de Rham diagram, however [vector fields are implemented in Struphy](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_derham.html#struphy.feec.psydac_derham.Derham.create_spline_function) as elements of $(H^1)^3$ with the correct vector field pullback.  
 
 The grad-, curl- and div-operators transform as follows:
 
@@ -292,7 +292,7 @@ $$
 \end{align}
 $$
 
-There appear a couple of mass matrices that are already [predefined in Struphy](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.mass.WeightedMassOperators.M1), for any mapping:
+There appear a couple of mass matrices that are already [predefined in Struphy](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_weightedmass.html), for any mapping:
 
 $$
 \begin{aligned}
@@ -302,7 +302,7 @@ $$
 \end{aligned}
 $$
 
-These are 3x3 block matrices (implemented as [BlockLinearOperators](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#FEEC-data-structures)), where the blocks are indexed by $(\mu, \nu)$. We remark that the weak equations must hold for any choice of $\mathbf f = (\mathbf f_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$ and $ \boldsymbol \psi \in \mathbb R^{N_0}$, respectively, which means that these can be factored out to lead to a system of equations. Besides, all basis functions are linearly independent such that the coefficients in the third and fifth equation must vanish separately. This leads to the much more compact notation
+These are 3x3 block matrices (implemented as [BlockLinearOperators](https://github.com/struphy-hub/psydac-for-struphy/blob/d9d81cb2104cbff990e129c8785cf4a7cb2dc54b/psydac/linalg/block.py#L492)), where the blocks are indexed by $(\mu, \nu)$. We remark that the weak equations must hold for any choice of $\mathbf f = (\mathbf f_\mu)_{\mu=1}^3 \in \mathbb R^{N_1}$ and $ \boldsymbol \psi \in \mathbb R^{N_0}$, respectively, which means that these can be factored out to lead to a system of equations. Besides, all basis functions are linearly independent such that the coefficients in the third and fifth equation must vanish separately. This leads to the much more compact notation
 
 $$
 \begin{align}
@@ -337,7 +337,7 @@ $$
 \end{align}
 $$
 
-Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particle index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/pushing/pusher_kernels.py?ref_type=heads) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel (see our [Tl:dr](https://struphy.pages.mpcdf.de/struphy/sections/abstract.html)) to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://struphy.pages.mpcdf.de/struphy/sections/subsections/pic_base.html#pusher-modules) that provides some syntactic sugar for calling the kernels. 
+Since the number of particles in PIC simulations is usually very large (on the order of millions or even billions), an efficient solution loop over $p$ (sometimes also $k$ is used as the particle index) is absolutely mandatory here. Therefore, specific [pusher kernels](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/pushing/pusher_kernels.py) must be written for each particle pushing step, which are then accelerated (compiled) with Pyccel (see our [Tl:dr](https://struphy-hub.github.io/struphy/sections/abstract.html)) to enable C- or Fortran execution speed. In Struphy models, the pusher kernels are integrated via the [Pusher class](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/pushing/pusher.py) that provides some syntactic sugar for calling the kernels. 
 See {ref}`prop_kernels` for more details.
 
 Now that we know how to discretize the kinetic equation by means of a Lagrangian particle method, it remains to tackle the right-hand sides of Ampère's law and of Poisson's equation in {eq}`eq:compact`. In the latter, there is the source term
@@ -346,7 +346,7 @@ $$
  \boldsymbol \rho_\textrm{i0} := \frac{\alpha^2}{\varepsilon}\int \hat \rho_\textrm{i0}\,\mathbf \Lambda^0 \sqrt g\,\textrm d \boldsymbol \eta = \left(\frac{\alpha^2}{\varepsilon} \rho_\textrm{i0}\,, \, \boldsymbol\Lambda^0\right)_{L^2} \qquad \in \mathbb R^{N_0}\,,
 $$
 
-coming from the static ion charge density $\rho_\textrm{i0}$. This term can be viewed as the right-hand side of an [L2Projection](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.projectors.L2Projector) into $V_h^0$ and computed with the method [L2Projector.get_dofs](https://struphy.pages.mpcdf.de/struphy/sections/subsections/feec_classes.html#struphy.feec.projectors.L2Projector.get_dofs). 
+coming from the static ion charge density $\rho_\textrm{i0}$. This term can be viewed as the right-hand side of an [L2Projection](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.projectors.L2Projector) into $V_h^0$ and computed with the method [L2Projector.get_dofs](https://struphy-hub.github.io/struphy/sections/subsections-old/feec_projectors.html#struphy.feec.projectors.L2Projector.get_dofs). 
 
 Finally, let us consider the **particle-to-grid coupling terms**. In the Poisson equation we have the coupling term
 
@@ -358,7 +358,7 @@ $$
  \end{aligned}
 $$
 
-where we inserted the PIC ansatz {eq}`eq:pic` in the last line. The result is a vector $\mathbf S = (S_{ijk}) \in \mathbb R^{N_0}$, that can be stored as a distributed [StencilVector](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#FEEC-data-structures) of the space $V_h^0$. We can write this in more compact notation by introducing the rectangular matrix
+where we inserted the PIC ansatz {eq}`eq:pic` in the last line. The result is a vector $\mathbf S = (S_{ijk}) \in \mathbb R^{N_0}$, that can be stored as a distributed [StencilVector](https://github.com/struphy-hub/psydac-for-struphy/blob/d9d81cb2104cbff990e129c8785cf4a7cb2dc54b/psydac/linalg/stencil.py#L429) of the space $V_h^0$. We can write this in more compact notation by introducing the rectangular matrix
 
 $$
  \mathbb L^0 \in \mathbb R^{N_0 \times N}\,,\qquad \mathbb L^0_{ijk,p} = \Lambda^0_{ijk}(\boldsymbol \eta_p) \in \mathbb R\,,
@@ -370,18 +370,17 @@ $$
  \mathbf S = - \frac{\alpha^2}{\varepsilon}\mathbb L^0\mathbf w\,.
 $$
 
-Here again, because of the large number of particles in a PIC simulation, the sum over $p$ must be very efficient and accelerated with Pyccel, see our [Tl:dr](https://struphy.pages.mpcdf.de/struphy/sections/abstract.html), to enable C- or Fortran execution speed. The integration of these [accumulation kernels](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#module-struphy.pic.accumulation.accum_kernels) in Struphy is done through the [Accumulator base classes](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#module-struphy.pic.accumulation.particles_to_grid), which provide some syntactic sugar for calling the kernels.
-The above expression can be assembled with [AccumulatorVector](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.particles_to_grid.AccumulatorVector), where in the kernel the weight is 
+Here again, because of the large number of particles in a PIC simulation, the sum over $p$ must be very efficient and accelerated with Pyccel, see our [Tl:dr](https://struphy-hub.github.io/struphy/sections/abstract.html), to enable C- or Fortran execution speed. The integration of these [accumulation kernels](https://struphy-hub.github.io/struphy/sections/subsections-old/pic_accumulation.html#module-struphy.pic.accumulation.accum_kernels) in Struphy is done through the [Accumulator base classes](https://struphy-hub.github.io/struphy/sections/subsections-old/pic_base.html#module-struphy.pic.accumulation.particles_to_grid), which provide some syntactic sugar for calling the kernels.
+The above expression can be assembled with [AccumulatorVector](https://struphy-hub.github.io/struphy/sections/subsections-old/pic_base.html#struphy.pic.accumulation.particles_to_grid.AccumulatorVector), where in the kernel the weight is 
 
 $$
 B_p = -\frac{\alpha^2}{\varepsilon} \frac 1 N w_p\,.
 $$
 
-When writing an accumulation kernel, it is mandatory to follow the instructions in [a_documentation](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.accum_kernels.a_documentation).
-As an example, we can look at the kernel [poisson](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.accum_kernels.poisson) (see [source code](https://gitlab.mpcdf.mpg.de/struphy/struphy/-/blob/devel/src/struphy/pic/accumulation/accum_kernels.py#L86)), which is needed in the present example and implements the above weights $B_p$. Inside of the particle loop, an accumulation kernel consists of three steps:
+As an example, we can look at the kernel [charge_density_0form](https://github.com/struphy-hub/struphy/blob/devel/src/struphy/pic/accumulation/accum_kernels.py), which is needed in the present example and implements the above weights $B_p$. Inside of the particle loop, an accumulation kernel consists of three steps:
 
 1. Extract the marker position $\boldsymbol \eta_p$ and other relevant marker quantities.
-2. Compute the "filling function", denoted $A^{\mu,\nu}_p$ or $B^\mu_p$ in the [Accumulator docstring](https://struphy.pages.mpcdf.de/struphy/sections/subsections/accumulators.html#struphy.pic.accumulation.particles_to_grid.Accumulator).
+2. Compute the "filling function", denoted $A^{\mu,\nu}_p$ or $B^\mu_p$ in the [Accumulator docstring](https://struphy-hub.github.io/struphy/sections/subsections-old/pic_base.html#struphy.pic.accumulation.particles_to_grid.Accumulator).
 3. Accumulate the contributions of the particle into the array by calling the correct kernel from the module:
 
         import struphy.pic.accumulation.particle_to_mat_kernels as particle_to_mat_kernels
@@ -396,7 +395,7 @@ $$
 \end{aligned}
 $$
 
-where we inserted the PIC ansatz {eq}`eq:pic` in the last line. Here, it is important to realize that $\vec \Lambda^1_{\mu, ijk} \in \mathbb R^3$ is vector-valued, as defined in {ref}`geomFE`, and contracted with $DF^{-1}(\boldsymbol \eta_p) \, \mathbf v_p \in \mathbb R^3$ for each $\mu \in \{1, 2, 3\}$. The result of this is a vector $\mathbf S = (S^1_{ijk}, S^2_{ijk}, S^3_{ijk}) \in \mathbb R^{N_1}$, that can be stored as a distributed [BlockVector](https://struphy.pages.mpcdf.de/struphy/tutorials/tutorial_08_data_structures.html#FEEC-data-structures) of the space $V_h^1$.
+where we inserted the PIC ansatz {eq}`eq:pic` in the last line. Here, it is important to realize that $\vec \Lambda^1_{\mu, ijk} \in \mathbb R^3$ is vector-valued, as defined in {ref}`geomFE`, and contracted with $DF^{-1}(\boldsymbol \eta_p) \, \mathbf v_p \in \mathbb R^3$ for each $\mu \in \{1, 2, 3\}$. The result of this is a vector $\mathbf S = (S^1_{ijk}, S^2_{ijk}, S^3_{ijk}) \in \mathbb R^{N_1}$, that can be stored as a distributed [BlockVector](https://github.com/struphy-hub/psydac-for-struphy/blob/d9d81cb2104cbff990e129c8785cf4a7cb2dc54b/psydac/linalg/block.py#L192) of the space $V_h^1$.
  We can write this in more compact notation by introducing the matrix
 
 $$

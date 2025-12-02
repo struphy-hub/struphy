@@ -6,8 +6,14 @@ import psydac.core.bsplines as bsp
 from psydac.ddm.cart import DomainDecomposition
 from psydac.ddm.mpi import MockComm, MockMPI
 from psydac.ddm.mpi import mpi as MPI
-from psydac.feec.derivatives import Curl_3D, Divergence_3D, Gradient_3D
-from psydac.feec.global_projectors import Projector_H1, Projector_H1vec, Projector_Hcurl, Projector_Hdiv, Projector_L2
+from psydac.feec.derivatives import Curl3D, Divergence3D, Gradient3D
+from psydac.feec.global_geometric_projectors import (
+    GlobalGeometricProjectorH1,
+    GlobalGeometricProjectorH1vec,
+    GlobalGeometricProjectorHcurl,
+    GlobalGeometricProjectorHdiv,
+    GlobalGeometricProjectorL2,
+)
 from psydac.fem.grid import FemAssemblyGrid
 from psydac.fem.partitioning import create_cart
 from psydac.fem.splines import SplineSpace
@@ -39,8 +45,6 @@ from struphy.polar.linear_operators import PolarExtractionOperator, PolarLinearO
 class Derham:
     """
     The discrete Derham sequence on the logical unit cube (3d).
-
-    Check out the corresponding `Struphy API <https://struphy.pages.mpcdf.de/struphy/api/discrete_derham.html>`_ for a hands-on introduction.
 
     The tensor-product discrete deRham complex is loaded using the `Psydac API <https://github.com/pyccel/psydac>`_
     and then augmented with polar sub-spaces (indicated by a bar) and boundary operators.
@@ -204,7 +208,7 @@ class Derham:
                 if "dev" in psydac_ver:
                     _h1vec_space.symbolic_space = "H1vec"
                 self._Vh_fem[sp_form] = _h1vec_space
-                self._P[sp_form] = Projector_H1vec(self.Vh_fem[sp_form])
+                self._P[sp_form] = GlobalGeometricProjectorH1vec(self.Vh_fem[sp_form])
             else:
                 self._Vh_fem[sp_form] = getattr(_derham, "V" + str(i))
                 self._P[sp_form] = _projectors[i]
@@ -356,7 +360,7 @@ class Derham:
                     self._spline_types_pyccel[sp_form],
                 )
             else:
-                raise TypeError(f"{fem_space = } is not a valid type.")
+                raise TypeError(f"{fem_space =} is not a valid type.")
 
         # break points
         self._breaks = [space.breaks for space in _derham.spaces[0].spaces]
@@ -1093,7 +1097,7 @@ class Derham:
         elif V == "L2":
             Wh = Vh.reduce_degree(axes=[0, 1, 2], multiplicity=Vh.multiplicity, basis=basis)
         else:
-            raise ValueError(f"V must be one of H1, Hcurl, Hdiv or L2, but is {V = }.")
+            raise ValueError(f"V must be one of H1, Hcurl, Hdiv or L2, but is {V =}.")
 
         Wh.symbolic_space = V
         for key in Wh._refined_space:
@@ -1270,7 +1274,7 @@ class Derham:
 
         # if only one process: check if comp is neighbour in non-peridic directions, if this is not the case then return the rank as neighbour id
         if size == 1:
-            if (comp[kinds == False] == 1).all():
+            if (comp[~kinds] == 1).all():
                 return rank
 
         # multiple processes
@@ -1304,7 +1308,7 @@ class Derham:
             neigh_inds = xp.array(neigh_inds)
 
             # only use indices where information is present to find the neighbours rank
-            inds = xp.where(neigh_inds != None)
+            inds = xp.where(xp.not_equal(neigh_inds, None))
 
             # find ranks (row index of domain_array) which agree in start/end indices
             index_temp = xp.squeeze(self.index_array[:, inds])
@@ -1573,7 +1577,9 @@ class SplineFunction:
                     e1, e2, e3 = self.ends
 
                     self._vector.tp[s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1] = value[1][
-                        s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1
+                        s1 : e1 + 1,
+                        s2 : e2 + 1,
+                        s3 : e3 + 1,
                     ]
                 else:
                     for n in range(3):
@@ -1589,7 +1595,9 @@ class SplineFunction:
                         e1, e2, e3 = self.ends[n]
 
                         self._vector.tp[n][s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1] = value[n][1][
-                            s1 : e1 + 1, s2 : e2 + 1, s3 : e3 + 1
+                            s1 : e1 + 1,
+                            s2 : e2 + 1,
+                            s3 : e3 + 1,
                         ]
 
         self._vector.update_ghost_regions()
@@ -1732,13 +1740,13 @@ class SplineFunction:
                 else:
                     assert equil is not None
                     var = fb.variable
-                    assert var in dir(MHDequilibrium), f"{var = } is not an attribute of any fields background."
+                    assert var in dir(MHDequilibrium), f"{var =} is not an attribute of any fields background."
 
                     if self.space_id in {"H1", "L2"}:
                         fun = getattr(equil, var)
                     else:
                         assert (var + "_1") in dir(MHDequilibrium), (
-                            f"{(var + '_1') = } is not an attribute of any fields background."
+                            f"{(var + '_1') =} is not an attribute of any fields background."
                         )
                         fun = [
                             getattr(equil, var + "_1"),
@@ -1767,6 +1775,9 @@ class SplineFunction:
                 # perturbation class
                 elif isinstance(ptb, Perturbation):
                     if self.space_id in {"H1", "L2"}:
+                        if ptb.given_in_basis is None:
+                            ptb.given_in_basis = "0"
+
                         fun = TransformedPformComponent(
                             ptb,
                             ptb.given_in_basis,
@@ -1777,6 +1788,8 @@ class SplineFunction:
                         fun_vec = [None] * 3
                         fun_vec[ptb.comp] = ptb
 
+                        if ptb.given_in_basis is None:
+                            ptb.given_in_basis = "v"
                         # pullback callable for each component
                         fun = []
                         for comp in range(3):
@@ -2051,7 +2064,7 @@ class SplineFunction:
                 )
 
             if self.derham.comm is not None:
-                if local == False:
+                if not local:
                     self.derham.comm.Allreduce(
                         MPI.IN_PLACE,
                         tmp,
@@ -2122,7 +2135,7 @@ class SplineFunction:
                     )
 
                 if self.derham.comm is not None:
-                    if local == False:
+                    if not local:
                         self.derham.comm.Allreduce(
                             MPI.IN_PLACE,
                             tmp,
@@ -2248,7 +2261,7 @@ class SplineFunction:
         sli = []
         gl_s = []
         for d in range(3):
-            if n == None:
+            if n is None:
                 sli += [slice(self._gl_s[d], self._gl_e[d] + 1)]
                 gl_s += [self._gl_s[d]]
                 vec = self._vector
@@ -2258,7 +2271,7 @@ class SplineFunction:
                 vec = self._vector[n]
 
         # local shape without ghost regions
-        if n == None:
+        if n is None:
             _shape = (
                 self._gl_e[0] + 1 - self._gl_s[0],
                 self._gl_e[1] + 1 - self._gl_s[1],
@@ -2531,9 +2544,9 @@ class DiscreteDerham:
         self._spaces = spaces
         self._dim = 3
 
-        D0 = Gradient_3D(spaces[0], spaces[1])
-        D1 = Curl_3D(spaces[1], spaces[2])
-        D2 = Divergence_3D(spaces[2], spaces[3])
+        D0 = Gradient3D(spaces[0], spaces[1])
+        D1 = Curl3D(spaces[1], spaces[2])
+        D2 = Divergence3D(spaces[2], spaces[3])
 
         spaces[0].diff = spaces[0].grad = D0
         spaces[1].diff = spaces[1].curl = D1
@@ -2578,7 +2591,7 @@ class DiscreteDerham:
     @property
     def derivatives_as_matrices(self):
         """Differential operators of the De Rham sequence as LinearOperator objects."""
-        return tuple(V.diff.matrix for V in self.spaces[:-1])
+        return tuple(V.diff.linop for V in self.spaces[:-1])
 
     @property
     def derivatives(self):
@@ -2600,7 +2613,7 @@ class DiscreteDerham:
         kind : str
             Type of the projection : at the moment, only global is accepted and
             returns geometric commuting projectors based on interpolation/histopolation
-            for the De Rham sequence (GlobalProjector objects).
+            for the De Rham sequence (GlobalGeometricProjector objects).
 
         nquads : list(int) | tuple(int)
             Number of quadrature points along each direction, to be used in Gauss
@@ -2628,10 +2641,10 @@ class DiscreteDerham:
         assert all(isinstance(nq, int) for nq in nquads)
         assert all(nq >= 1 for nq in nquads)
 
-        P0 = Projector_H1(self.V0)
-        P1 = Projector_Hcurl(self.V1, nquads)
-        P2 = Projector_Hdiv(self.V2, nquads)
-        P3 = Projector_L2(self.V3, nquads)
+        P0 = GlobalGeometricProjectorH1(self.V0)
+        P1 = GlobalGeometricProjectorHcurl(self.V1, nquads)
+        P2 = GlobalGeometricProjectorHdiv(self.V2, nquads)
+        P3 = GlobalGeometricProjectorL2(self.V3, nquads)
 
         return P0, P1, P2, P3
 

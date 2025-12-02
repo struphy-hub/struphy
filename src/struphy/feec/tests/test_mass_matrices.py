@@ -15,8 +15,6 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.mass import WeightedMassOperators, WeightedMassOperatorsOldForTesting
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import RotationMatrix, compare_arrays, create_equal_random_arrays
@@ -56,7 +54,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
     elif mapping[0] == "Colella":
@@ -71,7 +69,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
         if show_plots:
@@ -89,7 +87,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
         if show_plots:
@@ -106,7 +104,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
         dirichlet_bc = [(False, False)] * 3
 
     dirichlet_bc = tuple(dirichlet_bc)
-    print(f"{dirichlet_bc = }")
+    print(f"{dirichlet_bc =}")
 
     # derham object
     derham = Derham(Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc)
@@ -124,7 +122,7 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     # test calling the diagonal method
     aaa = mass_mats.M0.matrix.diagonal()
     bbb = mass_mats.M1.matrix.diagonal()
-    print(f"{aaa = }, {bbb[0, 0] = }, {bbb[0, 1] = }")
+    print(f"{aaa =}, {bbb[0, 0] =}, {bbb[0, 1] =}")
 
     # compare to old STRUPHY
     bc_old = [[None, None], [None, None], [None, None]]
@@ -135,32 +133,6 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
             else:
                 bc_old[i][j] = "f"
 
-    spaces = [
-        Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_old[0]),
-        Spline_space_1d(Nel[1], p[1], spl_kind[1], p[1] + 1, bc_old[1]),
-        Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_old[2]),
-    ]
-
-    spaces[0].set_projectors()
-    spaces[1].set_projectors()
-    spaces[2].set_projectors()
-
-    space = Tensor_spline_space(spaces)
-    space.set_projectors("general")
-
-    space.assemble_Mk(domain, "V0")
-    space.assemble_Mk(domain, "V1")
-    space.assemble_Mk(domain, "V2")
-    space.assemble_Mk(domain, "V3")
-    space.assemble_Mk(domain, "Vv")
-
-    mhd_ops_str = MHDOperators(space, eq_mhd, 2)
-
-    mhd_ops_str.assemble_Mn()
-    mhd_ops_str.assemble_MJ()
-
-    mhd_ops_str.set_operators()
-
     # create random input arrays
     x0_str, x0_psy = create_equal_random_arrays(fem_spaces[0], seed=1234, flattened=True)
     x1_str, x1_psy = create_equal_random_arrays(fem_spaces[1], seed=1568, flattened=True)
@@ -168,30 +140,10 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     x3_str, x3_psy = create_equal_random_arrays(fem_spaces[3], seed=8196, flattened=True)
     xv_str, xv_psy = create_equal_random_arrays(fem_spaces[4], seed=2038, flattened=True)
 
-    x0_str0 = space.B0.dot(x0_str)
-    x1_str0 = space.B1.dot(x1_str)
-    x2_str0 = space.B2.dot(x2_str)
-    x3_str0 = space.B3.dot(x3_str)
-    xv_str0 = space.Bv.dot(xv_str)
-
     # Test toarray and tosparse
     all_false = all(not bc for bl in dirichlet_bc for bc in bl)
     if all_false:
-        r2str_toarray = mass_mats.M2.toarray.dot(x2_str)
         r2psy_compare = mass_mats.M2.dot(x2_psy)
-        r2str_tosparse = mass_mats.M2.tosparse.dot(x2_str)
-        compare_arrays(r2psy_compare, r2str_toarray, mpi_rank, atol=1e-14)
-        compare_arrays(r2psy_compare, r2str_tosparse, mpi_rank, atol=1e-14)
-
-    # perfrom matrix-vector products (with boundary conditions)
-    r0_str = space.B0.T.dot(space.M0_0(x0_str0))
-    r1_str = space.B1.T.dot(space.M1_0(x1_str0))
-    r2_str = space.B2.T.dot(space.M2_0(x2_str0))
-    r3_str = space.B3.T.dot(space.M3_0(x3_str0))
-    rv_str = space.Bv.T.dot(space.Mv_0(xv_str0))
-
-    rn_str = space.B2.T.dot(mhd_ops_str.Mn(x2_str0))
-    rJ_str = space.B2.T.dot(mhd_ops_str.MJ(x2_str0))
 
     r0_psy = mass_mats.M0.dot(x0_psy, apply_bc=True)
     r1_psy = mass_mats.M1.dot(x1_psy, apply_bc=True)
@@ -220,7 +172,11 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     # Change order of input in callable
     rM1ninvswitch_psy = mass_mats.create_weighted_mass(
-        "Hcurl", "Hcurl", weights=["sqrt_g", "1/eq_n0", "Ginv"], name="M1ninv", assemble=True
+        "Hcurl",
+        "Hcurl",
+        weights=["sqrt_g", "1/eq_n0", "Ginv"],
+        name="M1ninv",
+        assemble=True,
     ).dot(x1_psy, apply_bc=True)
 
     rot_B = RotationMatrix(
@@ -229,7 +185,11 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
         mass_mats.weights[mass_mats.selected_weight].b2_3,
     )
     rM1Bninvswitch_psy = mass_mats.create_weighted_mass(
-        "Hcurl", "Hcurl", weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"], name="M1Bninv", assemble=True
+        "Hcurl",
+        "Hcurl",
+        weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"],
+        name="M1Bninv",
+        assemble=True,
     ).dot(x1_psy, apply_bc=True)
 
     # Test matrix free operators
@@ -255,7 +215,11 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     # Change order of input in callable
     rM1ninvswitch_fre = mass_mats_free.create_weighted_mass(
-        "Hcurl", "Hcurl", weights=["sqrt_g", "1/eq_n0", "Ginv"], name="M1ninvswitch", assemble=True
+        "Hcurl",
+        "Hcurl",
+        weights=["sqrt_g", "1/eq_n0", "Ginv"],
+        name="M1ninvswitch",
+        assemble=True,
     ).dot(x1_psy, apply_bc=True)
     rot_B = RotationMatrix(
         mass_mats_free.weights[mass_mats_free.selected_weight].b2_1,
@@ -264,29 +228,14 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     )
 
     rM1Bninvswitch_fre = mass_mats_free.create_weighted_mass(
-        "Hcurl", "Hcurl", weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"], name="M1Bninvswitch", assemble=True
+        "Hcurl",
+        "Hcurl",
+        weights=["1/eq_n0", "sqrt_g", "Ginv", rot_B, "Ginv"],
+        name="M1Bninvswitch",
+        assemble=True,
     ).dot(x1_psy, apply_bc=True)
 
     # compare output arrays
-    compare_arrays(r0_psy, r0_str, mpi_rank, atol=1e-14)
-    compare_arrays(r1_psy, r1_str, mpi_rank, atol=1e-14)
-    compare_arrays(r2_psy, r2_str, mpi_rank, atol=1e-14)
-    compare_arrays(r3_psy, r3_str, mpi_rank, atol=1e-14)
-    compare_arrays(rv_psy, rv_str, mpi_rank, atol=1e-14)
-
-    compare_arrays(rn_psy, rn_str, mpi_rank, atol=1e-14)
-    compare_arrays(rJ_psy, rJ_str, mpi_rank, atol=1e-14)
-
-    compare_arrays(r1J_psy, r1Jold_psy.toarray(), mpi_rank, atol=1e-14)
-
-    compare_arrays(r0_fre, r0_str, mpi_rank, atol=1e-14)
-    compare_arrays(r1_fre, r1_str, mpi_rank, atol=1e-14)
-    compare_arrays(r2_fre, r2_str, mpi_rank, atol=1e-14)
-    compare_arrays(r3_fre, r3_str, mpi_rank, atol=1e-14)
-    compare_arrays(rv_fre, rv_str, mpi_rank, atol=1e-14)
-
-    compare_arrays(rn_fre, rn_str, mpi_rank, atol=1e-14)
-    compare_arrays(rJ_fre, rJ_str, mpi_rank, atol=1e-14)
 
     compare_arrays(rM1Bninv_psy, rM1Bninvold_psy.toarray(), mpi_rank, atol=1e-14)
     compare_arrays(rM1Bninv_fre, rM1Bninvold_fre.toarray(), mpi_rank, atol=1e-14)
@@ -310,11 +259,6 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     compare_arrays(rM1perp_fre, rM1perpold_fre.toarray(), mpi_rank, atol=1e-14)
 
     # perfrom matrix-vector products (without boundary conditions)
-    r0_str = space.M0(x0_str)
-    r1_str = space.M1(x1_str)
-    r2_str = space.M2(x2_str)
-    r3_str = space.M3(x3_str)
-    rv_str = space.Mv(xv_str)
 
     r0_psy = mass_mats.M0.dot(x0_psy, apply_bc=False)
     r1_psy = mass_mats.M1.dot(x1_psy, apply_bc=False)
@@ -343,18 +287,6 @@ def test_mass(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     rM1ninvold_fre = mass_matsold_free.M1ninv.dot(x1_psy, apply_bc=False)
 
     # compare output arrays
-    compare_arrays(r0_psy, r0_str, mpi_rank, atol=1e-14)
-    compare_arrays(r1_psy, r1_str, mpi_rank, atol=1e-14)
-    compare_arrays(r2_psy, r2_str, mpi_rank, atol=1e-14)
-    compare_arrays(r3_psy, r3_str, mpi_rank, atol=1e-14)
-    compare_arrays(rv_psy, rv_str, mpi_rank, atol=1e-14)
-
-    compare_arrays(r0_fre, r0_str, mpi_rank, atol=1e-14)
-    compare_arrays(r1_fre, r1_str, mpi_rank, atol=1e-14)
-    compare_arrays(r2_fre, r2_str, mpi_rank, atol=1e-14)
-    compare_arrays(r3_fre, r3_str, mpi_rank, atol=1e-14)
-    compare_arrays(rv_fre, rv_str, mpi_rank, atol=1e-14)
-
     compare_arrays(rM1Bninv_psy, rM1Bninvold_psy.toarray(), mpi_rank, atol=1e-14)
     compare_arrays(rM1Bninv_fre, rM1Bninvold_fre.toarray(), mpi_rank, atol=1e-14)
     compare_arrays(rM0ad_psy, rM0adold_psy.toarray(), mpi_rank, atol=1e-14)
@@ -379,8 +311,6 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     import cunumpy as xp
     from psydac.ddm.mpi import mpi as MPI
 
-    from struphy.eigenvalue_solvers.mhd_operators import MHDOperators
-    from struphy.eigenvalue_solvers.spline_space import Spline_space_1d, Tensor_spline_space
     from struphy.feec.mass import WeightedMassOperators
     from struphy.feec.psydac_derham import Derham
     from struphy.feec.utilities import create_equal_random_arrays
@@ -420,7 +350,7 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
             "n2": 4.0,
             "na": 0.0,
             "beta": 0.1,
-        }
+        },
     )
 
     if show_plots:
@@ -440,7 +370,14 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
 
     # derham object
     derham = Derham(
-        Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc, with_projectors=False, polar_ck=1, domain=domain
+        Nel,
+        p,
+        spl_kind,
+        comm=mpi_comm,
+        dirichlet_bc=dirichlet_bc,
+        with_projectors=False,
+        polar_ck=1,
+        domain=domain,
     )
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))
@@ -456,31 +393,6 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
                 bc_old[i][j] = "d"
             else:
                 bc_old[i][j] = "f"
-
-    spaces = [
-        Spline_space_1d(Nel[0], p[0], spl_kind[0], p[0] + 1, bc_old[0]),
-        Spline_space_1d(Nel[1], p[1], spl_kind[1], p[1] + 1, bc_old[1]),
-        Spline_space_1d(Nel[2], p[2], spl_kind[2], p[2] + 1, bc_old[2]),
-    ]
-
-    spaces[0].set_projectors()
-    spaces[1].set_projectors()
-    spaces[2].set_projectors()
-
-    space = Tensor_spline_space(spaces, ck=1, cx=domain.cx[:, :, 0], cy=domain.cy[:, :, 0])
-    space.set_projectors("general")
-
-    space.assemble_Mk(domain, "V0")
-    space.assemble_Mk(domain, "V1")
-    space.assemble_Mk(domain, "V2")
-    space.assemble_Mk(domain, "V3")
-
-    mhd_ops_str = MHDOperators(space, eq_mhd, 2)
-
-    mhd_ops_str.assemble_Mn()
-    mhd_ops_str.assemble_MJ()
-
-    mhd_ops_str.set_operators()
 
     # create random input arrays
     x0_str, x0_psy = create_equal_random_arrays(derham.Vh_fem["0"], seed=1234, flattened=True)
@@ -511,20 +423,6 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     x2_pol_str = x2_pol_psy.toarray(True)
     x3_pol_str = x3_pol_psy.toarray(True)
 
-    x0_pol_str0 = space.B0.dot(x0_pol_str)
-    x1_pol_str0 = space.B1.dot(x1_pol_str)
-    x2_pol_str0 = space.B2.dot(x2_pol_str)
-    x3_pol_str0 = space.B3.dot(x3_pol_str)
-
-    # perfrom matrix-vector products (with boundary conditions)
-    r0_pol_str = space.B0.T.dot(space.M0_0(x0_pol_str0))
-    r1_pol_str = space.B1.T.dot(space.M1_0(x1_pol_str0))
-    r2_pol_str = space.B2.T.dot(space.M2_0(x2_pol_str0))
-    r3_pol_str = space.B3.T.dot(space.M3_0(x3_pol_str0))
-
-    rn_pol_str = space.B2.T.dot(mhd_ops_str.Mn(x2_pol_str0))
-    rJ_pol_str = space.B2.T.dot(mhd_ops_str.MJ(x2_pol_str0))
-
     r0_pol_psy = mass_mats.M0.dot(x0_pol_psy, apply_bc=True)
     r1_pol_psy = mass_mats.M1.dot(x1_pol_psy, apply_bc=True)
     r2_pol_psy = mass_mats.M2.dot(x2_pol_psy, apply_bc=True)
@@ -533,30 +431,11 @@ def test_mass_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=False):
     rn_pol_psy = mass_mats.M2n.dot(x2_pol_psy, apply_bc=True)
     rJ_pol_psy = mass_mats.M2J.dot(x2_pol_psy, apply_bc=True)
 
-    assert xp.allclose(r0_pol_str, r0_pol_psy.toarray(True))
-    assert xp.allclose(r1_pol_str, r1_pol_psy.toarray(True))
-    assert xp.allclose(r2_pol_str, r2_pol_psy.toarray(True))
-    assert xp.allclose(r3_pol_str, r3_pol_psy.toarray(True))
-    assert xp.allclose(rn_pol_str, rn_pol_psy.toarray(True))
-    assert xp.allclose(rJ_pol_str, rJ_pol_psy.toarray(True))
-
     # perfrom matrix-vector products (without boundary conditions)
-    r0_pol_str = space.M0(x0_pol_str)
-    r1_pol_str = space.M1(x1_pol_str)
-    r2_pol_str = space.M2(x2_pol_str)
-    r3_pol_str = space.M3(x3_pol_str)
-
     r0_pol_psy = mass_mats.M0.dot(x0_pol_psy, apply_bc=False)
     r1_pol_psy = mass_mats.M1.dot(x1_pol_psy, apply_bc=False)
     r2_pol_psy = mass_mats.M2.dot(x2_pol_psy, apply_bc=False)
     r3_pol_psy = mass_mats.M3.dot(x3_pol_psy, apply_bc=False)
-
-    assert xp.allclose(r0_pol_str, r0_pol_psy.toarray(True))
-    assert xp.allclose(r1_pol_str, r1_pol_psy.toarray(True))
-    assert xp.allclose(r2_pol_str, r2_pol_psy.toarray(True))
-    assert xp.allclose(r3_pol_str, r3_pol_psy.toarray(True))
-    assert xp.allclose(rn_pol_str, rn_pol_psy.toarray(True))
-    assert xp.allclose(rJ_pol_str, rJ_pol_psy.toarray(True))
 
     print(f"Rank {mpi_rank} | All tests passed!")
 
@@ -619,7 +498,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
     elif mapping[0] == "Colella":
@@ -634,7 +513,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
         if show_plots:
@@ -652,7 +531,7 @@ def test_mass_preconditioner(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots
                 "n2": 4.0,
                 "na": 0.0,
                 "beta": 0.1,
-            }
+            },
         )
 
         if show_plots:
@@ -926,7 +805,7 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
             "n2": 4.0,
             "na": 0.0,
             "beta": 0.1,
-        }
+        },
     )
 
     if show_plots:
@@ -946,7 +825,14 @@ def test_mass_preconditioner_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show
 
     # derham object
     derham = Derham(
-        Nel, p, spl_kind, comm=mpi_comm, dirichlet_bc=dirichlet_bc, with_projectors=False, polar_ck=1, domain=domain
+        Nel,
+        p,
+        spl_kind,
+        comm=mpi_comm,
+        dirichlet_bc=dirichlet_bc,
+        with_projectors=False,
+        polar_ck=1,
+        domain=domain,
     )
 
     print(f"Rank {mpi_rank} | Local domain : " + str(derham.domain_array[mpi_rank]))

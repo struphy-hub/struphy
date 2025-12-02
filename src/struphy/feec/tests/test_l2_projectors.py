@@ -15,7 +15,7 @@ from struphy.geometry import domains
 @pytest.mark.parametrize("p", [[2, 1, 1], [3, 2, 1]])
 @pytest.mark.parametrize("spl_kind", [[False, True, True]])
 @pytest.mark.parametrize("array_input", [False, True])
-def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plot=False):
+def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_gvec=False, with_desc=False, do_plot=False):
     """Tests the L2-projectors for all available mappings.
 
     Both callable and array inputs to the projectors are tested.
@@ -47,11 +47,15 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plo
 
     for dom_type, dom_class in zip(dom_types, dom_classes):
         print("#" * 80)
-        print(f"Testing {dom_class = }")
+        print(f"Testing {dom_class =}")
         print("#" * 80)
 
+        if "GVEC" in dom_type and not with_gvec:
+            print(f"Attention: {with_gvec =}, GVEC not tested here !!")
+            continue
+
         if "DESC" in dom_type and not with_desc:
-            print(f"Attention: {with_desc = }, DESC not tested here !!")
+            print(f"Attention: {with_desc =}, DESC not tested here !!")
             continue
 
         domain = dom_class()
@@ -103,7 +107,11 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_desc, do_plo
                 err = [xp.max(xp.abs(exact(ee1, ee2, ee3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
                 f_plot = field_vals[0]
 
+<<<<<<< HEAD
             print(f"{sp_id = }, {xp.max(err) = }")
+=======
+            print(f"{sp_id =}, {xp.max(err) =}")
+>>>>>>> devel
             if sp_id in ("H1", "H1vec"):
                 assert xp.max(err) < 0.004
             else:
@@ -233,7 +241,11 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         line_for_rate_p0 = [Ne ** (-rate_p0) * errors[sp_id][0] / Nels[0] ** (-rate_p0) for Ne in Nels]
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors[sp_id]), deg=1)
+<<<<<<< HEAD
         print(f"{sp_id = }, fitted convergence rate = {-m}, degree = {pi}")
+=======
+        print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
+>>>>>>> devel
         if sp_id in ("H1", "H1vec"):
             assert -m > (pi + 1 - 0.05)
         else:
@@ -247,7 +259,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
             plt.loglog(Nels, line_for_rate_p0, "k--")
             plt.text(Nels[-2], line_for_rate_p1[-2], f"1/Nel^{rate_p1}")
             plt.text(Nels[-2], line_for_rate_p0[-2], f"1/Nel^{rate_p0}")
-            plt.title(f"{sp_id = }, degree = {pi}")
+            plt.title(f"{sp_id =}, degree = {pi}")
             plt.xlabel("Nel")
 
     if do_plot and rank == 0:
@@ -260,5 +272,5 @@ if __name__ == "__main__":
     spl_kind = [False, True, True]
     array_input = True
     test_l2_projectors_mappings(Nel, p, spl_kind, array_input, do_plot=False, with_desc=False)
-    # test_l2_projectors_convergence(0, 1, True, do_plot=True)
+    test_l2_projectors_convergence(0, 1, True, do_plot=False)
     # test_l2_projectors_convergence(1, 1, False, do_plot=True)

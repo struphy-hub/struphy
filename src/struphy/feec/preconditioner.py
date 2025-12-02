@@ -319,11 +319,6 @@ class MassMatrixPreconditioner(LinearOperator):
         return self._solver
 
     @property
-    def domain(self):
-        """The domain of the linear operator - an element of Vectorspace"""
-        return self._space
-
-    @property
     def codomain(self):
         """The codomain of the linear operator - an element of Vectorspace"""
         return self._codomain
@@ -704,9 +699,6 @@ class MassMatrixDiagonalPreconditioner(LinearOperator):
     def solver(self):
         """KroneckerLinearSolver or BlockDiagonalSolver for exactly inverting the approximate mass matrix self.matrix."""
         return self._solver
-
-    @property
-    def domain(self):
         """The domain of the linear operator - an element of Vectorspace"""
         return self._space
 
@@ -915,7 +907,7 @@ class FFTSolver(BandedSolver):
                 out[:] = solve_circulant(self._column, rhs.T).T
             except xp.linalg.LinAlgError:
                 eps = 1e-4
-                print(f"Stabilizing singular preconditioning FFTSolver with {eps = }:")
+                print(f"Stabilizing singular preconditioning FFTSolver with {eps =}:")
                 self._column[0] *= 1.0 + eps
                 out[:] = solve_circulant(self._column, rhs.T).T
 

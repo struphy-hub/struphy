@@ -1,4 +1,9 @@
+import os
+
+import struphy
 from struphy.utils.utils import subp_run
+
+LIBPATH = struphy.__path__[0]
 
 
 def struphy_test(
@@ -35,22 +40,36 @@ def struphy_test(
     """
 
     if "unit" in group:
+        list_of_tests = [
+            f"{LIBPATH}/bsplines/tests/",
+            f"{LIBPATH}/console/tests/",
+            f"{LIBPATH}/feec/tests/",
+            f"{LIBPATH}/fields_background/tests/",
+            f"{LIBPATH}/geometry/tests/",
+            f"{LIBPATH}/initial/tests/",
+            f"{LIBPATH}/kinetic_background/tests/",
+            f"{LIBPATH}/linear_algebra/tests/",
+            f"{LIBPATH}/ode/tests/",
+            f"{LIBPATH}/pic/tests/",
+            f"{LIBPATH}/polar/tests/",
+            f"{LIBPATH}/post_processing/tests/",
+            f"{LIBPATH}/propagators/tests/",
+        ]
+
         if mpi > 1:
             cmd = [
                 "mpirun",
                 "-n",
                 str(mpi),
                 "pytest",
-                "-k",
-                "not _models and not _tutorial and not pproc",
+                "--testmon",
                 "--with-mpi",
-            ]
+            ] + list_of_tests
         else:
             cmd = [
                 "pytest",
-                "-k",
-                "not _models and not _tutorial and not pproc",
-            ]
+                "--testmon",
+            ] + list_of_tests
 
         if with_desc:
             cmd += ["--with-desc"]
@@ -62,6 +81,13 @@ def struphy_test(
         subp_run(cmd)
 
     elif group in {"models", "fluid", "kinetic", "hybrid", "toy"}:
+<<<<<<< HEAD
+=======
+        list_of_tests = [
+            f"{LIBPATH}/models/tests/default_params/",
+        ]
+
+>>>>>>> devel
         if mpi > 1:
             cmd = [
                 "mpirun",
@@ -69,22 +95,35 @@ def struphy_test(
                 "-n",
                 str(mpi),
                 "pytest",
+<<<<<<< HEAD
                 "-k",
                 "_models",
                 "-m",
                 group,
                 "-s",
+=======
+                "-m",
+                group,
+                "--testmon-forceselect",
+>>>>>>> devel
                 "--with-mpi",
-            ]
+            ] + list_of_tests
         else:
             cmd = [
                 "pytest",
+<<<<<<< HEAD
                 "-k",
                 "_models",
                 "-m",
                 group,
                 "-s",
             ]
+=======
+                "-m",
+                group,
+                "--testmon-forceselect",
+            ] + list_of_tests
+>>>>>>> devel
 
         if vrbose:
             cmd += ["--vrbose"]
@@ -92,9 +131,17 @@ def struphy_test(
             cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
+
         subp_run(cmd)
 
     elif "verification" in group:
+<<<<<<< HEAD
+=======
+        list_of_tests = [
+            f"{LIBPATH}/models/tests/verification/",
+        ]
+
+>>>>>>> devel
         if mpi > 1:
             cmd = [
                 "mpirun",
@@ -102,6 +149,7 @@ def struphy_test(
                 "-n",
                 str(mpi),
                 "pytest",
+<<<<<<< HEAD
                 "-k",
                 "_verif_",
                 "-s",
@@ -114,6 +162,16 @@ def struphy_test(
                 "_verif_",
                 "-s",
             ]
+=======
+                "--testmon",
+                "--with-mpi",
+            ] + list_of_tests
+        else:
+            cmd = [
+                "pytest",
+                "--testmon",
+            ] + list_of_tests
+>>>>>>> devel
 
         if vrbose:
             cmd += ["--vrbose"]
@@ -121,6 +179,10 @@ def struphy_test(
             cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
+<<<<<<< HEAD
+=======
+
+>>>>>>> devel
         subp_run(cmd)
 
     else:
@@ -130,10 +192,16 @@ def struphy_test(
             "-n",
             str(mpi),
             "pytest",
+<<<<<<< HEAD
             "-k",
             "_models",
             "-m",
             "single",
+=======
+            "-m",
+            "single",
+            "--testmon-forceselect",
+>>>>>>> devel
             "-s",
             "--with-mpi",
             "--model-name",
@@ -145,4 +213,5 @@ def struphy_test(
             cmd += ["--nclones", f"{nclones}"]
         if show_plots:
             cmd += ["--show-plots"]
+
         subp_run(cmd)

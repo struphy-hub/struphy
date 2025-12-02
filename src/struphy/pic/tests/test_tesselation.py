@@ -176,7 +176,11 @@ def test_cell_average(ppb, nx, ny, nz, n_quad, show_plot=False):
         plt.show()
 
     # test
+<<<<<<< HEAD
     print(f"\n{rank = }, {xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) = }")
+=======
+    print(f"\n{rank =}, {xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) =}")
+>>>>>>> devel
     assert xp.max(xp.abs(particles.weights - particles.f_init(particles.positions))) < 0.012
 
 

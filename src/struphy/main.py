@@ -63,7 +63,7 @@ def run(
     Parameters
     ----------
     model : StruphyModel
-        The model to run. Check https://struphy.pages.mpcdf.de/struphy/sections/models.html for available models.
+        The model to run. Check https://struphy-hub.github.io/struphy/sections/models.html for available models.
 
     params_path : str
         Absolute path to .py parameter file.
@@ -82,7 +82,6 @@ def run(
 
     if rank == 0:
         print("")
-    Barrier()
 
     # synchronize MPI processes to set same start time of simulation for all processes
     Barrier()
@@ -103,7 +102,7 @@ def run(
     save_step = env.save_step
     sort_step = env.sort_step
     num_clones = env.num_clones
-    use_mpi = (not comm is None,)
+    use_mpi = (comm is not None,)
 
     meta = {}
     meta["platform"] = sysconfig.get_platform()
@@ -281,9 +280,10 @@ def run(
     if restart:
         model.initialize_from_restart(data)
 
-        time_state["value"][0] = data.file["restart/time/value"][-1]
-        time_state["value_sec"][0] = data.file["restart/time/value_sec"][-1]
-        time_state["index"][0] = data.file["restart/time/index"][-1]
+        with h5py.File(data.file_path, "a") as file:
+            time_state["value"][0] = file["restart/time/value"][-1]
+            time_state["value_sec"][0] = file["restart/time/value_sec"][-1]
+            time_state["index"][0] = file["restart/time/index"][-1]
 
         total_steps = str(int(round((Tend - time_state["value"][0]) / dt)))
     else:
@@ -318,7 +318,6 @@ def run(
         if break_cond_1 or break_cond_2:
             # save restart data (other data already saved below)
             data.save_data(keys=save_keys_end)
-            data.file.close()
             end_simulation = time.time()
             if rank == 0:
                 print(f"\nTime steps done: {time_state['index'][0]}")
@@ -337,7 +336,8 @@ def run(
             t1 = time.time()
             if rank == 0 and verbose:
                 message = "Particles sorted | wall clock [s]: {0:8.4f} | sorting duration [s]: {1:8.4f}".format(
-                    run_time_now * 60, t1 - t0
+                    run_time_now * 60,
+                    t1 - t0,
                 )
                 print(message, end="\n")
                 print()
@@ -382,10 +382,12 @@ def run(
                 message = "time step: " + step + "/" + str(total_steps)
                 message += " | " + "time: {0:10.5f}/{1:10.5f}".format(time_state["value"][0], Tend)
                 message += " | " + "phys. time [s]: {0:12.10f}/{1:12.10f}".format(
-                    time_state["value_sec"][0], Tend * model.units.t
+                    time_state["value_sec"][0],
+                    Tend * model.units.t,
                 )
                 message += " | " + "wall clock [s]: {0:8.4f} | last step duration [s]: {1:8.4f}".format(
-                    run_time_now * 60, t1 - t0
+                    run_time_now * 60,
+                    t1 - t0,
                 )
 
                 print(message, end="\n")
@@ -472,37 +474,34 @@ def pproc(
         return
 
     # check for fields and kinetic data in hdf5 file that need post processing
-    file = h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r")
+    with h5py.File(os.path.join(path, "data/", "data_proc0.hdf5"), "r") as file:
+        # save time grid at which post-processing data is created
+        xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
 
-    # save time grid at which post-processing data is created
-    xp.save(os.path.join(path_pproc, "t_grid.npy"), file["time/value"][::step].copy())
+        if "feec" in file.keys():
+            exist_fields = True
+        else:
+            exist_fields = False
 
-    if "feec" in file.keys():
-        exist_fields = True
-    else:
-        exist_fields = False
+        if "kinetic" in file.keys():
+            exist_kinetic = {"markers": False, "f": False, "n_sph": False}
+            kinetic_species = []
+            kinetic_kinds = []
+            for name in file["kinetic"].keys():
+                kinetic_species += [name]
+                kinetic_kinds += [next(iter(model.species[name].variables.values())).space]
 
-    if "kinetic" in file.keys():
-        exist_kinetic = {"markers": False, "f": False, "n_sph": False}
-        kinetic_species = []
-        kinetic_kinds = []
-        for name in file["kinetic"].keys():
-            kinetic_species += [name]
-            kinetic_kinds += [next(iter(model.species[name].variables.values())).space]
-
-            # check for saved markers
-            if "markers" in file["kinetic"][name]:
-                exist_kinetic["markers"] = True
-            # check for saved distribution function
-            if "f" in file["kinetic"][name]:
-                exist_kinetic["f"] = True
-            # check for saved sph density
-            if "n_sph" in file["kinetic"][name]:
-                exist_kinetic["n_sph"] = True
-    else:
-        exist_kinetic = None
-
-    file.close()
+                # check for saved markers
+                if "markers" in file["kinetic"][name]:
+                    exist_kinetic["markers"] = True
+                # check for saved distribution function
+                if "f" in file["kinetic"][name]:
+                    exist_kinetic["f"] = True
+                # check for saved sph density
+                if "n_sph" in file["kinetic"][name]:
+                    exist_kinetic["n_sph"] = True
+        else:
+            exist_kinetic = None
 
     # field post-processing
     if exist_fields:
@@ -512,7 +511,10 @@ def pproc(
 
         if physical:
             point_data_phy, grids_log, grids_phy = eval_femfields(
-                params_in, fields, celldivide=[celldivide] * 3, physical=True
+                params_in,
+                fields,
+                celldivide=[celldivide] * 3,
+                physical=True,
             )
 
         # directory for field data
@@ -698,7 +700,7 @@ def load_data(path: str) -> SimData:
     path_pproc = os.path.join(path, "post_processing")
     assert os.path.exists(path_pproc), f"Path {path_pproc} does not exist, run 'pproc' first?"
     print("\n*** Loading post-processed simulation data:")
-    print(f"{path = }")
+    print(f"{path =}")
 
     simdata = SimData(path)
 
@@ -737,7 +739,7 @@ def load_data(path: str) -> SimData:
     if os.path.exists(path_kinetic):
         # species folders
         species = next(os.walk(path_kinetic))[1]
-        print(f"{species = }")
+        print(f"{species =}")
         for spec in species:
             path_spec = os.path.join(path_kinetic, spec)
             wlk = os.walk(path_spec)
@@ -791,36 +793,36 @@ def load_data(path: str) -> SimData:
                             simdata._n_sph[spec][sli][name] = tmp
 
                 else:
-                    print(f"{folder = }")
+                    print(f"{folder =}")
                     raise NotImplementedError
 
     print("\nThe following data has been loaded:")
-    print(f"\ngrids:")
-    print(f"{simdata.t_grid.shape = }")
+    print("\ngrids:")
+    print(f"{simdata.t_grid.shape =}")
     if simdata.grids_log is not None:
-        print(f"{simdata.grids_log[0].shape = }")
-        print(f"{simdata.grids_log[1].shape = }")
-        print(f"{simdata.grids_log[2].shape = }")
+        print(f"{simdata.grids_log[0].shape =}")
+        print(f"{simdata.grids_log[1].shape =}")
+        print(f"{simdata.grids_log[2].shape =}")
     if simdata.grids_phy is not None:
-        print(f"{simdata.grids_phy[0].shape = }")
-        print(f"{simdata.grids_phy[1].shape = }")
-        print(f"{simdata.grids_phy[2].shape = }")
-    print(f"\nsimdata.spline_values:")
+        print(f"{simdata.grids_phy[0].shape =}")
+        print(f"{simdata.grids_phy[1].shape =}")
+        print(f"{simdata.grids_phy[2].shape =}")
+    print("\nsimdata.spline_values:")
     for k, v in simdata.spline_values.items():
         print(f"  {k}")
         for kk, vv in v.items():
             print(f"    {kk}")
-    print(f"\nsimdata.orbits:")
+    print("\nsimdata.orbits:")
     for k, v in simdata.orbits.items():
         print(f"  {k}")
-    print(f"\nsimdata.f:")
+    print("\nsimdata.f:")
     for k, v in simdata.f.items():
         print(f"  {k}")
         for kk, vv in v.items():
             print(f"    {kk}")
             for kkk, vvv in vv.items():
                 print(f"      {kkk}")
-    print(f"\nsimdata.n_sph:")
+    print("\nsimdata.n_sph:")
     for k, v in simdata.n_sph.items():
         print(f"  {k}")
         for kk, vv in v.items():

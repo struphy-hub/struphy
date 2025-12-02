@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
+import pandas as pd
 from matplotlib import pyplot as plt
 from pyevtk.hl import gridToVTK
 
@@ -71,7 +72,11 @@ class CoilMagneticField(metaclass=ABCMeta):
     def b_cart(self, *etas, squeeze_out=False):
         """Cartesian components of equilibrium magnetic field evaluated on logical cube [0, 1]^3. Returns also (x,y,z)."""
         b_out = self.domain.push(
-            self.bv(*etas, squeeze_out=False), *etas, kind="v", a_kwargs={"squeeze_out": False}, squeeze_out=squeeze_out
+            self.bv(*etas, squeeze_out=False),
+            *etas,
+            kind="v",
+            a_kwargs={"squeeze_out": False},
+            squeeze_out=squeeze_out,
         )
         return b_out, self.domain(*etas, squeeze_out=squeeze_out)
 

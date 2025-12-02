@@ -5834,7 +5834,12 @@ def m_v_fill_v2_full(
 
 
 def mat_fill_b_v0(
-    args_derham: "DerhamArguments", eta1: float, eta2: float, eta3: float, mat: "float[:,:,:,:,:,:]", fill: float
+    args_derham: "DerhamArguments",
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    mat: "float[:,:,:,:,:,:]",
+    fill: float,
 ):
     """
     Adds the contribution of one particle to the elements of an accumulation matrix V0 -> V0. The result is returned in mat.
@@ -5969,7 +5974,12 @@ def m_v_fill_b_v0(
 
 
 def mat_fill_b_v3(
-    args_derham: "DerhamArguments", eta1: float, eta2: float, eta3: float, mat: "float[:,:,:,:,:,:]", fill: float
+    args_derham: "DerhamArguments",
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    mat: "float[:,:,:,:,:,:]",
+    fill: float,
 ):
     """
     Adds the contribution of one particle to the elements of an accumulation matrix V3 -> V3. The result is returned in mat.
@@ -6112,7 +6122,12 @@ def m_v_fill_b_v3(
 
 
 def mat_fill_v0(
-    args_derham: "DerhamArguments", span1: int, span2: int, span3: int, mat: "float[:,:,:,:,:,:]", fill: float
+    args_derham: "DerhamArguments",
+    span1: int,
+    span2: int,
+    span3: int,
+    mat: "float[:,:,:,:,:,:]",
+    fill: float,
 ):
     """
     Adds the contribution of one particle to the elements of an accumulation matrix V0 -> V0. The result is returned in mat.
@@ -6239,7 +6254,12 @@ def m_v_fill_v0(
 
 
 def mat_fill_v3(
-    args_derham: "DerhamArguments", span1: int, span2: int, span3: int, mat: "float[:,:,:,:,:,:]", fill: float
+    args_derham: "DerhamArguments",
+    span1: int,
+    span2: int,
+    span3: int,
+    mat: "float[:,:,:,:,:,:]",
+    fill: float,
 ):
     """
     Adds the contribution of one particle to the elements of an accumulation block matrix V3 -> V3. The result is returned in mat.
@@ -12949,7 +12969,12 @@ def vec_fill_v0vec(
 
 
 def vec_fill_b_v0(
-    args_derham: "DerhamArguments", eta1: float, eta2: float, eta3: float, vec: "float[:,:,:]", fill: float
+    args_derham: "DerhamArguments",
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    vec: "float[:,:,:]",
+    fill: float,
 ):
     """TODO"""
 
@@ -13127,7 +13152,12 @@ def vec_fill_b_v2(
 
 
 def vec_fill_b_v3(
-    args_derham: "DerhamArguments", eta1: float, eta2: float, eta3: float, vec: "float[:,:,:]", fill: float
+    args_derham: "DerhamArguments",
+    eta1: float,
+    eta2: float,
+    eta3: float,
+    vec: "float[:,:,:]",
+    fill: float,
 ):
     """TODO"""
 

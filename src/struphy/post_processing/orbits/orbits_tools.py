@@ -6,6 +6,10 @@ import h5py
 import yaml
 from tqdm import tqdm
 
+<<<<<<< HEAD
+=======
+from struphy.io.setup import import_parameters_py
+>>>>>>> devel
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
 
 
@@ -43,11 +47,12 @@ def post_process_orbit_guiding_center(path_in, path_kinetics_species, species):
         Name of the species for which the post processing should be performed.
     """
 
-    with open(os.path.join(path_in, "parameters.yml"), "r") as f:
-        params = yaml.load(f, Loader=yaml.FullLoader)
+    # import parameters
+    params_in = import_parameters_py(os.path.join(path_in, "parameters.py"))
 
     # create domain for calculating markers' physical coordinates
-    domain, equil = setup_domain_and_equil(params)
+    domain = params_in.domain
+    equil = params_in.equil
 
     # path for orbit data
     path_orbits = os.path.join(path_kinetics_species, "orbits")

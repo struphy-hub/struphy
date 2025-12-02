@@ -185,7 +185,6 @@ def refresh_models():
         )
 
     print("Done.")
-    sys.exit(0)
 
 
 def subp_run(cmd, cwd="libpath", check=True):
@@ -203,6 +202,6 @@ if __name__ == "__main__":
     for k, val in state.items():
         print(k, val)
     i_path, o_path, b_path = get_paths(state)
-    print(f"{i_path = }")
-    print(f"{o_path = }")
-    print(f"{b_path = }")
+    print(f"{i_path =}")
+    print(f"{o_path =}")
+    print(f"{b_path =}")

@@ -1,5 +1,7 @@
 import cunumpy as xp
 
+from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
+
 
 # ============================= 2D polar splines (C1) ===================================
 class PolarExtractionBlocksC1:
@@ -36,8 +38,6 @@ class PolarExtractionBlocksC1:
     def __init__(self, domain, derham):
         from scipy.sparse import csr_matrix as csr
 
-        from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
-
         # get control points
         cx = domain.cx[:, :, 0]
         cy = domain.cy[:, :, 0]
@@ -72,7 +72,7 @@ class PolarExtractionBlocksC1:
                 ((self.cx[1] - self.pole[0]) * (-2)).max(),
                 ((self.cx[1] - self.pole[0]) - xp.sqrt(3) * (self.cy[1] - self.pole[1])).max(),
                 ((self.cx[1] - self.pole[0]) + xp.sqrt(3) * (self.cy[1] - self.pole[1])).max(),
-            ]
+            ],
         )
 
         # barycentric coordinates
@@ -514,8 +514,6 @@ class PolarSplines_C0_2D:
     def __init__(self, n0, n1):
         import scipy.sparse as spa
 
-        from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
-
         d0 = n0 - 1
         d1 = n1 - 0
 
@@ -657,8 +655,6 @@ class PolarSplines_C1_2D:
     def __init__(self, cx, cy):
         import scipy.sparse as spa
 
-        from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
-
         n0, n1 = cx.shape
 
         d0 = n0 - 1
@@ -692,7 +688,7 @@ class PolarSplines_C1_2D:
                 (-2 * (cx[1] - self.x0)).max(),
                 ((cx[1] - self.x0) - xp.sqrt(3) * (cy[1] - self.y0)).max(),
                 ((cx[1] - self.x0) + xp.sqrt(3) * (cy[1] - self.y0)).max(),
-            ]
+            ],
         ).max()
 
         self.Xi_0 = xp.zeros((3, n1), dtype=float)
@@ -947,8 +943,6 @@ class PolarSplines:
     def __init__(self, tensor_space, cx, cy):
         import scipy.sparse as spa
 
-        from struphy.eigenvalue_solvers.derivatives import grad_1d_matrix
-
         n0, n1, n2 = tensor_space.NbaseN
         d0, d1, d2 = tensor_space.NbaseD
 
@@ -966,7 +960,7 @@ class PolarSplines:
 
         # size of control triangle
         self.tau = xp.array(
-            [(-2 * cx[1]).max(), (cx[1] - xp.sqrt(3) * cy[1]).max(), (cx[1] + xp.sqrt(3) * cy[1]).max()]
+            [(-2 * cx[1]).max(), (cx[1] - xp.sqrt(3) * cy[1]).max(), (cx[1] + xp.sqrt(3) * cy[1]).max()],
         ).max()
 
         self.Xi_0 = xp.zeros((3, n1), dtype=float)
@@ -982,7 +976,8 @@ class PolarSplines:
         # =========== extraction operators for discrete 0-forms ==================
         # extraction operator for basis functions
         self.E0_pol = spa.bmat(
-            [[xp.hstack((self.Xi_0, self.Xi_1)), None], [None, spa.identity((n0 - 2) * n1)]], format="csr"
+            [[xp.hstack((self.Xi_0, self.Xi_1)), None], [None, spa.identity((n0 - 2) * n1)]],
+            format="csr",
         )
         self.E0 = spa.kron(self.E0_pol, spa.identity(n2), format="csr")
 
@@ -1215,7 +1210,7 @@ class PolarSplines:
             [
                 [None, -spa.kron(spa.identity((n0 - 2) * d1 + 2), grad_1d_3)],
                 [spa.kron(spa.identity((d0 - 1) * n1), grad_1d_3), None],
-            ]
+            ],
         )
 
         # total polar curl

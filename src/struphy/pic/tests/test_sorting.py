@@ -14,7 +14,7 @@ from struphy.pic.utilities import BoundaryParameters, LoadingParameters, Weights
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-def test_flattening(nx, ny, nz, algo):
+def test_flattening_1(nx, ny, nz, algo):
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -34,7 +34,11 @@ def test_flattening(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
+<<<<<<< HEAD
 def test_flattening(nx, ny, nz, algo):
+=======
+def test_flattening_2(nx, ny, nz, algo):
+>>>>>>> devel
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -54,7 +58,11 @@ def test_flattening(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
+<<<<<<< HEAD
 def test_flattening(nx, ny, nz, algo):
+=======
+def test_flattening_3(nx, ny, nz, algo):
+>>>>>>> devel
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -73,7 +81,8 @@ def test_flattening(nx, ny, nz, algo):
 @pytest.mark.parametrize("Nel", [[8, 9, 10]])
 @pytest.mark.parametrize("p", [[2, 3, 4]])
 @pytest.mark.parametrize(
-    "spl_kind", [[False, False, True], [False, True, False], [True, False, True], [True, True, False]]
+    "spl_kind",
+    [[False, False, True], [False, True, False], [True, False, True], [True, True, False]],
 )
 @pytest.mark.parametrize(
     "mapping",
@@ -135,7 +144,7 @@ def test_sorting(Nel, p, spl_kind, mapping, Np, verbose=False):
 
 
 if __name__ == "__main__":
-    test_flattening(8, 8, 8, "c_orderwding")
+    test_flattening_1(8, 8, 8, "c_orderwding")
     # test_sorting(
     #     [8, 9, 10],
     #     [2, 3, 4],

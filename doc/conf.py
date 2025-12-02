@@ -9,12 +9,6 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-import os
-import shutil
-
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
 
 
 def copy_tutorials(app):
@@ -36,6 +30,9 @@ with open("../src/struphy/console/main.py") as f:
     exec(f.read())
 
 # -- Project information -----------------------------------------------------
+import importlib.metadata
+
+__version__ = importlib.metadata.version("struphy")
 
 project = "struphy"
 copyright = "2019-2025 (c) Struphy dev team | Max Planck Institute for Plasma Physics"
@@ -62,6 +59,7 @@ extensions = [
     "sphinx.ext.graphviz",
     "myst_parser",
     "sphinx_design",
+    "sphinx_copybutton",
 ]
 
 nbsphinx_execute = "auto"
@@ -98,9 +96,15 @@ html_theme_options = {
     "header_links_before_dropdown": 8,
     "primary_sidebar_end": ["sidebar-ethical-ads"],
     "external_links": [
-        {"name": "Struphy repo", "url": "https://gitlab.mpcdf.mpg.de/struphy/struphy"},
-        {"name": "Struphy LinkedIn", "url": "https://www.linkedin.com/company/struphy/"},
-        {"name": "Struphy RocketChat", "url": "https://chat.gwdg.de/channel/struphy-developers"},
+        {"name": "Struphy repo", "url": "https://github.com/struphy-hub/struphy"},
+        {
+            "name": "Struphy LinkedIn",
+            "url": "https://www.linkedin.com/company/struphy/",
+        },
+        {
+            "name": "Struphy MatrixChat",
+            "url": "https://matrix.to/#/!wqjcJpsUvAbTPOUXen:mpg.de?via=mpg.de&via=academiccloud.de",
+        },
     ],
 }
 
@@ -139,9 +143,21 @@ html_logo = "dog-cartoon-struphy.jpg"
 # }
 
 # inheritance diagrams
-inheritance_graph_attrs = dict(rankdir="LR", ratio="auto", size='"4.0, 20.0"', fontsize="8", resolution=300.0)
+inheritance_graph_attrs = dict(
+    rankdir="LR",
+    ratio="auto",
+    size='"4.0, 20.0"',
+    fontsize="8",
+    resolution=300.0,
+)
 
-inheritance_node_attrs = dict(shape="ellipse", fontsize="8", height=0.25, color="maroon4", style="filled")
+inheritance_node_attrs = dict(
+    shape="ellipse",
+    fontsize="8",
+    height=0.25,
+    color="maroon4",
+    style="filled",
+)
 
 # markdown parsing
 myst_enable_extensions = [

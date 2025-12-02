@@ -93,11 +93,11 @@ def main():
         + "ncalls".ljust(15)
         + "totime".ljust(15)
         + "percall".ljust(15)
-        + "cumtime".ljust(15)
+        + "cumtime".ljust(15),
     )
     print("-" * 154)
     for position, key in enumerate(dicts[0].keys()):
-        if list_of_funcs == None:
+        if list_of_funcs is None:
             for dict, sim_name, n, dim in zip(dicts, sim_names, nproc, Nel):
                 string = f"{sim_name}".ljust(20) + f"{n}".ljust(7) + f"{position:2d}".ljust(5) + str(key.ljust(70))
                 for value in dict[key].values():
@@ -157,7 +157,7 @@ def main():
                 plt.xlabel("mpi_size")
                 plt.ylabel("time [s]")
                 plt.title(
-                    "Weak scaling for cells/mpi_size=" + str(xp.prod(val["Nel"][0]) / val["mpi_size"][0]) + "=const."
+                    "Weak scaling for cells/mpi_size=" + str(xp.prod(val["Nel"][0]) / val["mpi_size"][0]) + "=const.",
                 )
                 plt.legend(loc="upper left")
                 # plt.loglog(val['mpi_size'], val['time'][0]*xp.ones_like(val['time']), 'k--', alpha=0.3)

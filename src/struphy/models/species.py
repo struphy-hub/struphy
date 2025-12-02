@@ -54,7 +54,8 @@ class Species(metaclass=ABCMeta):
         epsilon: float = None,
         kappa: float = None,
     ):
-        """Set charge- and mass number. Set equation parameters (alpha, epsilon, ...) to override units."""
+        """Set charge- and mass number of species.
+        Optional: Set equation parameters (alpha, epsilon, kappa) to override units."""
         self._charge_number = charge_number
         self._mass_number = mass_number
         self.alpha = alpha
@@ -91,21 +92,21 @@ class Species(metaclass=ABCMeta):
             else:
                 self.alpha = alpha
                 if MPI.COMM_WORLD.Get_rank() == 0:
-                    warnings.warn(f"Override equation parameter {self.alpha = }")
+                    warnings.warn(f"Override equation parameter {self.alpha =}")
 
             if epsilon is None:
                 self.epsilon = 1.0 / (om_c * units.t)
             else:
                 self.epsilon = epsilon
                 if MPI.COMM_WORLD.Get_rank() == 0:
-                    warnings.warn(f"Override equation parameter {self.epsilon = }")
+                    warnings.warn(f"Override equation parameter {self.epsilon =}")
 
             if kappa is None:
                 self.kappa = om_p * units.t
             else:
                 self.kappa = kappa
                 if MPI.COMM_WORLD.Get_rank() == 0:
-                    warnings.warn(f"Override equation parameter {self.kappa = }")
+                    warnings.warn(f"Override equation parameter {self.kappa =}")
 
             if verbose and MPI.COMM_WORLD.Get_rank() == 0:
                 print(f"\nSet normalization parameters for species {species.__class__.__name__}:")

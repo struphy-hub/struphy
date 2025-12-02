@@ -120,19 +120,19 @@ def power_spectrum_2d(
         temp[n, :, :, :] = snapshot[component]
 
     # Extract 2d data (t, eta) for fft
-    if slice_at[0] == None:
+    if slice_at[0] is None:
         data = temp[:, :, slice_at[1], slice_at[2]]
         grid = grids[0]
         if grids_mapped is not None:
             grid = grids_mapped[0][:, slice_at[1], slice_at[2]]
 
-    elif slice_at[1] == None:
+    elif slice_at[1] is None:
         data = temp[:, slice_at[0], :, slice_at[2]]
         grid = grids[1]
         if grids_mapped is not None:
             grid = grids_mapped[1][slice_at[0], :, slice_at[2]]
 
-    elif slice_at[2] == None:
+    elif slice_at[2] is None:
         data = temp[:, slice_at[0], slice_at[1], :]
         grid = grids[2].flatten()
         if grids_mapped is not None:
@@ -173,7 +173,7 @@ def power_spectrum_2d(
             # print(f"{intersec = }")
             # print(f"{[omega[intersec[n]] for n in range(fit_branches)]}")
             assert len(intersec) == fit_branches, (
-                f"Number of found branches {len(intersec)} is not {fit_branches = }! \
+                f"Number of found branches {len(intersec)} is not {fit_branches =}! \
                 Try to lower 'noise_level' or increase 'extr_order'."
             )
             k_fit += [k]
@@ -184,7 +184,7 @@ def power_spectrum_2d(
         coeffs = []
         for m, om in omega_fit.items():
             coeffs += [xp.polyfit(k_fit, om, deg=fit_degree[n])]
-        print(f"\nFitted {coeffs = }")
+        print(f"\nFitted {coeffs =}")
 
     if do_plot:
         _, ax = plt.subplots(1, 1, figsize=(10, 10))
@@ -683,7 +683,7 @@ def plots_videos_2d(
 
         df_binned = df_data[tuple(f_slicing)].squeeze()
 
-        assert t_grid.ndim == grid_1.ndim == grid_2.ndim == 1, f"Input arrays must be 1D!"
+        assert t_grid.ndim == grid_1.ndim == grid_2.ndim == 1, "Input arrays must be 1D!"
         assert df_binned.shape[0] == t_grid.size, f"{df_binned.shape =}, {t_grid.shape =}"
         assert df_binned.shape[1] == grid_1.size, f"{df_binned.shape =}, {grid_1.shape =}"
         assert df_binned.shape[2] == grid_2.size, f"{df_binned.shape =}, {grid_2.shape =}"

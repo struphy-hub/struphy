@@ -81,7 +81,7 @@ def main():
 
     print(
         f"rank {rank} | markers not on correct process: {xp.nonzero(xp.logical_and(~stay, ~holes))} \
-            \n corresponding positions:\n {error_mks[:, :3]}"
+            \n corresponding positions:\n {error_mks[:, :3]}",
     )
 
     assert error_mks.size == 0

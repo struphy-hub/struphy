@@ -234,13 +234,13 @@ def test_eval_field(Nel, p, spl_kind):
     m_vals_ref_3 = E1(0.0, 0.0, eta3, squeeze_out=True)
 
     assert xp.all(
-        [xp.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)]
+        [xp.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)],
     )
     assert xp.all(
-        [xp.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)]
+        [xp.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)],
     )
     assert xp.all(
-        [xp.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
+        [xp.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)],
     )
 
     ######
@@ -354,13 +354,13 @@ def test_eval_field(Nel, p, spl_kind):
     m_vals_ref_3 = B2(0.0, 0.0, eta3, squeeze_out=True)
 
     assert xp.all(
-        [xp.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)]
+        [xp.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)],
     )
     assert xp.all(
-        [xp.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)]
+        [xp.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)],
     )
     assert xp.all(
-        [xp.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
+        [xp.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)],
     )
 
     ######
@@ -526,13 +526,13 @@ def test_eval_field(Nel, p, spl_kind):
     m_vals_ref_3 = uv(0.0, 0.0, eta3, squeeze_out=True)
 
     assert xp.all(
-        [xp.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)]
+        [xp.allclose(m_vals_1_i, m_vals_ref_1_i) for m_vals_1_i, m_vals_ref_1_i in zip(m_vals_1, m_vals_ref_1)],
     )
     assert xp.all(
-        [xp.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)]
+        [xp.allclose(m_vals_2_i, m_vals_ref_2_i) for m_vals_2_i, m_vals_ref_2_i in zip(m_vals_2, m_vals_ref_2)],
     )
     assert xp.all(
-        [xp.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)]
+        [xp.allclose(m_vals_3_i, m_vals_ref_3_i) for m_vals_3_i, m_vals_ref_3_i in zip(m_vals_3, m_vals_ref_3)],
     )
 
     print("\nAll assertions passed.")

@@ -1,7 +1,7 @@
 import cunumpy as xp
 from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
 from psydac.ddm.mpi import mpi as MPI
-from psydac.feec.global_projectors import GlobalProjector
+from psydac.feec.global_geometric_projectors import GlobalGeometricProjector
 from psydac.fem.basic import FemSpace
 from psydac.fem.tensor import TensorFemSpace
 from psydac.fem.vector import VectorFemSpace
@@ -58,15 +58,15 @@ class CommutingProjector:
 
     * :math:`\mathbb B`: :class:`~struphy.feec.linear_operators.BoundaryOperator`,
     * :math:`\mathbb P`: :class:`~struphy.polar.linear_operators.PolarExtractionOperator` for degrees of freedom,
-    * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~psydac.feec.global_projectors.GlobalProjector`
+    * :math:`\mathcal I`: Kronecker product inter-/histopolation matrix, from :class:`~psydac.feec.global_geometric_projectors.GlobalGeometricProjector`
     * :math:`\mathbb E`: :class:`~struphy.polar.linear_operators.PolarExtractionOperator` for FE coefficients.
 
     :math:`\mathbb P` and :math:`\mathbb E` (and :math:`\mathbb B` in case of no boundary conditions) can be identity operators,
-    which gives the pure tensor-product Psydac :class:`~psydac.feec.global_projectors.GlobalProjector`.
+    which gives the pure tensor-product Psydac :class:`~psydac.feec.global_geometric_projectors.GlobalGeometricProjector`.
 
     Parameters
     ----------
-    projector_tensor : GlobalProjector
+    projector_tensor : GlobalGeometricProjector
         The pure tensor product projector.
 
     dofs_extraction_op : PolarExtractionOperator, optional
@@ -80,7 +80,11 @@ class CommutingProjector:
     """
 
     def __init__(
-        self, projector_tensor: GlobalProjector, dofs_extraction_op=None, base_extraction_op=None, boundary_op=None
+        self,
+        projector_tensor: GlobalGeometricProjector,
+        dofs_extraction_op=None,
+        base_extraction_op=None,
+        boundary_op=None,
     ):
         self._projector_tensor = projector_tensor
 
@@ -746,7 +750,7 @@ class CommutingProjectorLocal:
             # List that will contain the LocalProjectorsArguments for each value of h = 0,1,2.
             self._solve_args = []
         else:
-            raise TypeError(f"{fem_space = } is not of type FemSpace.")
+            raise TypeError(f"{fem_space =} is not of type FemSpace.")
 
         if isinstance(fem_space, TensorFemSpace):
             if space_id == "H1":
@@ -1425,7 +1429,7 @@ class CommutingProjectorLocal:
                     fh = fun(*self._meshgrid[h])[h]
                 # Case in which fun is a list of three functions, each one with one output.
                 else:
-                    assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+                    assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
                     # Evaluation of the function to compute the h component
                     fh = fun[h](*self._meshgrid[h])
 
@@ -1461,7 +1465,7 @@ class CommutingProjectorLocal:
                         fun,
                     )
                     == 3
-                ), f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+                ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
                 for h in range(3):
                     f_eval.append(fun[h](*self._meshgrid[h]))
 
@@ -1477,22 +1481,22 @@ class CommutingProjectorLocal:
         Builds 3D numpy array with the evaluation of the right-hand-side.
         """
         if self._space_key == "0":
-            if first_go == True:
+            if first_go:
                 pre_computed_dofs = [fun(*self._meshgrid)]
 
         elif self._space_key == "1" or self._space_key == "2":
-            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
 
             self._do_nothing = xp.zeros(3, dtype=int)
             f_eval = []
 
             # If this is the first time this rank has to evaluate the weights degrees of freedom we declare the list where to store them.
-            if first_go == True:
+            if first_go:
                 pre_computed_dofs = []
 
             for h in range(3):
                 # Evaluation of the function to compute the h component
-                if first_go == True:
+                if first_go:
                     pre_computed_dofs.append(fun[h](*self._meshgrid[h]))
 
                 # Array into which we will write the Dofs.
@@ -1543,7 +1547,7 @@ class CommutingProjectorLocal:
         elif self._space_key == "3":
             f_eval = xp.zeros(tuple(xp.shape(dim)[0] for dim in self._localpts))
             # Evaluation of the function at all Gauss-Legendre quadrature points
-            if first_go == True:
+            if first_go:
                 pre_computed_dofs = [fun(*self._meshgrid)]
 
             get_dofs_local_3_form_weighted(
@@ -1561,7 +1565,7 @@ class CommutingProjectorLocal:
             )
 
         elif self._space_key == "v":
-            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+            assert len(fun) == 3, f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
 
             self._do_nothing = xp.zeros(3, dtype=int)
             for h in range(3):
@@ -1574,7 +1578,7 @@ class CommutingProjectorLocal:
                     # We should do nothing here
                     self._do_nothing[h] = 1
 
-            if first_go == True:
+            if first_go:
                 f_eval = []
                 for h in range(3):
                     f_eval.append(fun[h](*self._meshgrid[h]))
@@ -1584,7 +1588,7 @@ class CommutingProjectorLocal:
                 "Uknown space. It must be either H1, Hcurl, Hdiv, L2 or H1vec.",
             )
 
-        if first_go == True:
+        if first_go:
             if self._space_key == "0":
                 return pre_computed_dofs[0], pre_computed_dofs
             elif self._space_key == "v":
@@ -1650,14 +1654,14 @@ class CommutingProjectorLocal:
         coeffs : psydac.linalg.basic.vector | xp.array 3D
             The FEM spline coefficients after projection.
         """
-        if weighted == False:
+        if not weighted:
             return self.solve(self.get_dofs(fun, dofs=dofs), out=out)
         else:
             # We set B_or_D and basis_indices as attributes of the projectors so we can easily access them in the get_rowstarts, get_rowends and get_values functions, where they are needed.
             self._B_or_D = B_or_D
             self._basis_indices = basis_indices
 
-            if first_go == True:
+            if first_go:
                 # rhs contains the evaluation over the degrees of freedom of the weights multiplied by the basis function
                 # rhs_weights contains the evaluation over the degrees of freedom of only the weights
                 rhs, rhs_weights = self.get_dofs_weighted(
@@ -1668,7 +1672,8 @@ class CommutingProjectorLocal:
                 return self.solve_weighted(rhs, out=out), rhs_weights
             else:
                 return self.solve_weighted(
-                    self.get_dofs_weighted(fun, dofs=dofs, first_go=False, pre_computed_dofs=pre_computed_dofs), out=out
+                    self.get_dofs_weighted(fun, dofs=dofs, first_go=False, pre_computed_dofs=pre_computed_dofs),
+                    out=out,
                 )
 
     def get_translation_b(self, i, h):
@@ -1712,7 +1717,7 @@ class CommutingProjectorLocal:
             Array that tell us for which rows the basis function in the i-th direction produces non-zero entries in the BasisProjectionOperatorLocal matrix.
             This array contains the start indices of said regions.
         """
-        if h == None:
+        if h is None:
             rows_splines = getattr(self, f"_rows_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return rows_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1740,7 +1745,7 @@ class CommutingProjectorLocal:
             Array that tell us for which rows the basis function in the i-th direction produces non-zero entries in the BasisProjectionOperatorLocal matrix.
             This array contains the end indices of said regions.
         """
-        if h == None:
+        if h is None:
             rowe_splines = getattr(self, f"_rowe_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return rowe_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1767,7 +1772,7 @@ class CommutingProjectorLocal:
         self._values_B_or_D_splines_i[self._B_or_D[i]][self._translation_indices_B_or_D_splines_i[self._B_or_D[i]][self._basis_indices[i]]] : 1d float array
             Array with the evaluated basis function for the i-th direction.
         """
-        if h == None:
+        if h is None:
             values_splines = getattr(self, f"_values_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return values_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -1795,7 +1800,7 @@ class CommutingProjectorLocal:
             Array of zeros or ones. A one at index j means that for the set of quadrature points found in self._localpts[i][j] the basis function is not zero
             for at least one of them.
         """
-        if h == None:
+        if h is None:
             are_zero_splines = getattr(self, f"_are_zero_B_or_D_splines_{i}")
             translation_indices = getattr(self, f"_translation_indices_B_or_D_splines_{i}")
             return are_zero_splines[self._B_or_D[i]][translation_indices[self._B_or_D[i]][self._basis_indices[i]]]
@@ -2027,7 +2032,7 @@ class L2Projector:
             fun_weights = fun(*self._quad_grid_mesh)
         elif isinstance(fun, xp.ndarray):
             assert fun.shape == self._quad_grid_mesh[0].shape, (
-                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape = } instead."
+                f"Expected shape {self._quad_grid_mesh[0].shape}, got {fun.shape =} instead."
             )
             fun_weights = fun
         else:
@@ -2036,7 +2041,7 @@ class L2Projector:
                     fun,
                 )
                 == 3
-            ), f"List input only for vector-valued spaces of size 3, but {len(fun) = }."
+            ), f"List input only for vector-valued spaces of size 3, but {len(fun) =}."
             fun_weights = []
             # loop over rows (different meshes)
             for mesh in self._quad_grid_mesh:
@@ -2046,11 +2051,11 @@ class L2Projector:
                     if callable(f):
                         fun_weights[-1] += [f(*mesh)]
                     elif isinstance(f, xp.ndarray):
-                        assert f.shape == mesh[0].shape, f"Expected shape {mesh[0].shape}, got {f.shape = } instead."
+                        assert f.shape == mesh[0].shape, f"Expected shape {mesh[0].shape}, got {f.shape =} instead."
                         fun_weights[-1] += [f]
                     else:
                         raise ValueError(
-                            f"Expected callable or numpy array, got {type(f) = } instead.",
+                            f"Expected callable or numpy array, got {type(f) =} instead.",
                         )
 
         # check output vector

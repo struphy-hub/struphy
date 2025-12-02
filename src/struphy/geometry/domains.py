@@ -743,11 +743,11 @@ class HollowTorus(Domain):
         self.params = copy.deepcopy(locals())
         self.params_numpy = self.get_params_numpy()
 
-        assert a2 <= R0, f"The minor radius must be smaller or equal than the major radius! {a2 = }, {R0 = }"
+        assert a2 <= R0, f"The minor radius must be smaller or equal than the major radius! {a2 =}, {R0 =}"
 
         if sfl:
             assert pol_period == 1, (
-                f"Piece-of-cake is only implemented for torus coordinates, not for straight field line coordinates!"
+                "Piece-of-cake is only implemented for torus coordinates, not for straight field line coordinates!"
             )
 
         # periodicity in eta3-direction and pole at eta1=0

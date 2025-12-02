@@ -387,7 +387,7 @@ def plot_speedup(
 
     fig.update_layout(
         # xaxis_title='Job name',
-        xaxis_title=f"MPI tasks (#)",
+        xaxis_title="MPI tasks (#)",
         yaxis_title=re.sub(r"\[.*?\]", "[relative]", metric2),
         showlegend=True,
         xaxis_tickformat=".1f",
@@ -818,7 +818,7 @@ def load_projects(data_paths, procs_per_clone="any"):
             )
             if (procs_per_clone != "any") and (procs_per_clone != project.procs_per_clone):
                 print(
-                    f"Incorrect number of procs_per_clone: {project.procs_per_clone = } {procs_per_clone = }",
+                    f"Incorrect number of procs_per_clone: {project.procs_per_clone =} {procs_per_clone =}",
                 )
                 continue
             project.read_project()

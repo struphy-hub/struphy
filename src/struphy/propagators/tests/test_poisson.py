@@ -73,9 +73,9 @@ def test_poisson_1d(
         errors = []
         h_vec = []
         if show_plot:
-            plt.figure(f"degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }", figsize=(24, 16))
-            plt.figure(f"degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }", figsize=(24, 16))
-            plt.figure(f"degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }", figsize=(24, 16))
+            plt.figure(f"degree {pi =}, {direction + 1 =}, {bc_type =}, {mapping[0] =}", figsize=(24, 16))
+            plt.figure(f"degree {pi =}, {direction + 1 =}, {bc_type =}, {mapping[0] =}", figsize=(24, 16))
+            plt.figure(f"degree {pi =}, {direction + 1 =}, {bc_type =}, {mapping[0] =}", figsize=(24, 16))
 
         for n, Neli in enumerate(Nels):
             # boundary conditions (overwritten below)
@@ -222,7 +222,7 @@ def test_poisson_1d(
             analytic_value1 = sol1_xyz(x, y, z)
 
             if show_plot:
-                plt.figure(f"degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }")
+                plt.figure(f"degree {pi =}, {direction + 1 =}, {bc_type =}, {mapping[0] =}")
                 plt.subplot(2, 3, n + 1)
                 if direction == 0:
                     plt.plot(x[:, 0, 0], sol_val1[:, 0, 0], "ob", label="numerical")
@@ -236,24 +236,33 @@ def test_poisson_1d(
                     plt.plot(z[0, 0, :], sol_val1[0, 0, :], "ob", label="numerical")
                     plt.plot(z[0, 0, :], analytic_value1[0, 0, :], "r--", label="exact")
                     plt.xlabel("z")
-                plt.title(f"{Nel = }")
+                plt.title(f"{Nel =}")
                 plt.legend()
 
             error = xp.max(xp.abs(analytic_value1 - sol_val1))
+<<<<<<< HEAD
             print(f"{direction = }, {pi = }, {Neli = }, {error=}")
+=======
+            print(f"{direction =}, {pi =}, {Neli =}, {error=}")
+>>>>>>> devel
 
             errors.append(error)
             h = 1 / (Neli)
             h_vec.append(h)
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
+<<<<<<< HEAD
         print(f"For {pi = }, solution converges in {direction=} with rate {-m = } ")
+=======
+        print(f"For {pi =}, solution converges in {direction=} with rate {-m =} ")
+>>>>>>> devel
         assert -m > (pi + 1 - 0.07)
 
         # Plot convergence in 1D
         if show_plot:
             plt.figure(
-                f"Convergence for degree {pi = }, {direction + 1 = }, {bc_type = }, {mapping[0] = }", figsize=(12, 8)
+                f"Convergence for degree {pi =}, {direction + 1 =}, {bc_type =}, {mapping[0] =}",
+                figsize=(12, 8),
             )
             plt.plot(h_vec, errors, "o", label=f"p={p[direction]}")
             plt.plot(
@@ -266,7 +275,7 @@ def test_poisson_1d(
             plt.xscale("log")
             plt.xlabel("Grid Spacing h")
             plt.ylabel("Error")
-            plt.title(f"Poisson solver")
+            plt.title("Poisson solver")
             plt.legend()
 
     if show_plot and rank == 0:
@@ -485,7 +494,11 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
         spl_kind = [False, True, True]
         dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
         dirichlet_bc = tuple(dirichlet_bc)
+<<<<<<< HEAD
         print(f"{dirichlet_bc = }")
+=======
+        print(f"{dirichlet_bc =}")
+>>>>>>> devel
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
@@ -628,9 +641,9 @@ def test_poisson_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=False):
     error1 = xp.max(xp.abs(analytic_value1 - sol_val1))
     error2 = xp.max(xp.abs(analytic_value2 - sol_val2))
 
-    print(f"{p = }, {bc_type = }, {mapping = }")
-    print(f"{error1 = }")
-    print(f"{error2 = }")
+    print(f"{p =}, {bc_type =}, {mapping =}")
+    print(f"{error1 =}")
+    print(f"{error2 =}")
     print("")
 
     if show_plot and rank == 0:

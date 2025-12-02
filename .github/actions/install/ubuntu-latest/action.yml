@@ -1,0 +1,21 @@
+name: "Install ubuntu prereqs"
+
+runs:
+  using: composite
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        sudo apt install -y software-properties-common
+        sudo add-apt-repository -y ppa:deadsnakes/ppa
+        sudo apt update -y
+        sudo apt install -y python3-pip
+        sudo apt install -y python3-venv
+        sudo apt install -y gfortran gcc
+        sudo apt install -y liblapack-dev libopenmpi-dev
+        sudo apt install -y libblas-dev openmpi-bin
+        sudo apt install -y libomp-dev libomp5
+        sudo apt install -y git
+        sudo apt install -y pandoc
+        sudo apt install -y libnetcdf-dev
+        sudo apt install -y g++ liblapack3 cmake cmake-curses-gui zlib1g-dev libnetcdf-dev libnetcdff-dev
