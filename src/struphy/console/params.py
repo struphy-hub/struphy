@@ -15,9 +15,6 @@ def struphy_params(model_name: str, yes: bool = False, check_file: bool = False)
     model_name : str
         The name of the Struphy model.
 
-    params_path : str
-        An alternative file name to the default params_<model>.yml.
-
     yes : bool
         If true, say yes on prompt to overwrite .yml FILE
     """

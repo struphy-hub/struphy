@@ -300,11 +300,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
             mhd_equil = val()
             assert isinstance(mhd_equil, FluidEquilibrium)
-<<<<<<< HEAD
-            print(f"{mhd_equil.params = }")
-=======
             print(f"{mhd_equil.params =}")
->>>>>>> devel
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
                     a1=1e-3,
@@ -337,13 +333,9 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 )
             elif "ScrewPinch" in key:
                 mhd_equil.domain = domains.HollowCylinder(
-<<<<<<< HEAD
-                    a1=1e-3, a2=mhd_equil.params["a"], Lz=mhd_equil.params["R0"] * 2 * xp.pi
-=======
                     a1=1e-3,
                     a2=mhd_equil.params["a"],
                     Lz=mhd_equil.params["R0"] * 2 * xp.pi,
->>>>>>> devel
                 )
             else:
                 try:
@@ -374,13 +366,6 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
             # test meshgrid evaluation
             n0 = mhd_equil.n0(*e_meshgrids)
             assert xp.allclose(
-<<<<<<< HEAD
-                maxwellian(*meshgrids)[:, :, :, 0, 0, 0], n0 * maxwellian_1(*meshgrids)[:, :, :, 0, 0, 0]
-            )
-
-            assert xp.allclose(
-                maxwellian(*meshgrids)[:, :, :, 0, 1, 2], n0 * maxwellian_1(*meshgrids)[:, :, :, 0, 1, 2]
-=======
                 maxwellian(*meshgrids)[:, :, :, 0, 0, 0],
                 n0 * maxwellian_1(*meshgrids)[:, :, :, 0, 0, 0],
             )
@@ -388,7 +373,6 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
             assert xp.allclose(
                 maxwellian(*meshgrids)[:, :, :, 0, 1, 2],
                 n0 * maxwellian_1(*meshgrids)[:, :, :, 0, 1, 2],
->>>>>>> devel
             )
 
             # test flat evaluation
@@ -541,11 +525,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                     if inspect.isclass(val_2) and val_2.__module__ == perturbations.__name__:
                         pert = val_2()
                         assert isinstance(pert, Perturbation)
-<<<<<<< HEAD
-                        print(f"{pert = }")
-=======
                         print(f"{pert =}")
->>>>>>> devel
                         if isinstance(pert, perturbations.Noise):
                             continue
 
@@ -1156,13 +1136,9 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 )
             elif "ScrewPinch" in key:
                 mhd_equil.domain = domains.HollowCylinder(
-<<<<<<< HEAD
-                    a1=1e-3, a2=mhd_equil.params["a"], Lz=mhd_equil.params["R0"] * 2 * xp.pi
-=======
                     a1=1e-3,
                     a2=mhd_equil.params["a"],
                     Lz=mhd_equil.params["R0"] * 2 * xp.pi,
->>>>>>> devel
                 )
             else:
                 try:
@@ -1342,11 +1318,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 for key_2, val_2 in inspect.getmembers(perturbations):
                     if inspect.isclass(val_2) and val_2.__module__ == perturbations.__name__:
                         pert = val_2()
-<<<<<<< HEAD
-                        print(f"{pert = }")
-=======
                         print(f"{pert =}")
->>>>>>> devel
                         assert isinstance(pert, Perturbation)
 
                         if isinstance(pert, perturbations.Noise):

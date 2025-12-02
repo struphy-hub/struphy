@@ -33,10 +33,6 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-<<<<<<< HEAD
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-=======
->>>>>>> devel
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -102,23 +98,11 @@ def test_push_vxb_analytic(Nel, p, spl_kind, mapping, show_plots=False):
         alpha_in_kernel=1.0,
     )
 
-<<<<<<< HEAD
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
-=======
->>>>>>> devel
     # push markers
     dt = 0.1
 
     pusher_psy(dt)
 
-<<<<<<< HEAD
-    # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
-
-=======
->>>>>>> devel
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
@@ -150,10 +134,6 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-<<<<<<< HEAD
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-=======
->>>>>>> devel
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -212,23 +192,6 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
         flattened=True,
     )
 
-<<<<<<< HEAD
-    # create legacy struphy pusher and psydac based pusher
-    pusher_str = Pusher_str(
-        domain,
-        space,
-        space.extract_0(
-            b0_eq_str,
-        ),
-        space.extract_2(b2_eq_str),
-        basis_u=2,
-        bc_pos=0,
-    )
-    mu0_str = xp.zeros(markers_str.shape[1], dtype=float)
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
-
-=======
->>>>>>> devel
     pusher_psy = Pusher_psy(
         particles,
         Pyccelkernel(pusher_kernels.push_bxu_Hdiv),
@@ -246,23 +209,11 @@ def test_push_bxu_Hdiv(Nel, p, spl_kind, mapping, show_plots=False):
         alpha_in_kernel=1.0,
     )
 
-<<<<<<< HEAD
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
-=======
->>>>>>> devel
     # push markers
     dt = 0.1
 
     pusher_psy(dt)
 
-<<<<<<< HEAD
-    # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
-
-=======
->>>>>>> devel
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
@@ -294,10 +245,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-<<<<<<< HEAD
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-=======
->>>>>>> devel
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -356,23 +303,6 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
         flattened=True,
     )
 
-<<<<<<< HEAD
-    # create legacy struphy pusher and psydac based pusher
-    pusher_str = Pusher_str(
-        domain,
-        space,
-        space.extract_0(
-            b0_eq_str,
-        ),
-        space.extract_2(b2_eq_str),
-        basis_u=1,
-        bc_pos=0,
-    )
-    mu0_str = xp.zeros(markers_str.shape[1], dtype=float)
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
-
-=======
->>>>>>> devel
     pusher_psy = Pusher_psy(
         particles,
         Pyccelkernel(pusher_kernels.push_bxu_Hcurl),
@@ -390,23 +320,11 @@ def test_push_bxu_Hcurl(Nel, p, spl_kind, mapping, show_plots=False):
         alpha_in_kernel=1.0,
     )
 
-<<<<<<< HEAD
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
-=======
->>>>>>> devel
     # push markers
     dt = 0.1
 
     pusher_psy(dt)
 
-<<<<<<< HEAD
-    # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
-
-=======
->>>>>>> devel
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
@@ -438,10 +356,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-<<<<<<< HEAD
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-=======
->>>>>>> devel
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -500,23 +414,6 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
         flattened=True,
     )
 
-<<<<<<< HEAD
-    # create legacy struphy pusher and psydac based pusher
-    pusher_str = Pusher_str(
-        domain,
-        space,
-        space.extract_0(
-            b0_eq_str,
-        ),
-        space.extract_2(b2_eq_str),
-        basis_u=0,
-        bc_pos=0,
-    )
-    mu0_str = xp.zeros(markers_str.shape[1], dtype=float)
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
-
-=======
->>>>>>> devel
     pusher_psy = Pusher_psy(
         particles,
         Pyccelkernel(pusher_kernels.push_bxu_H1vec),
@@ -534,23 +431,11 @@ def test_push_bxu_H1vec(Nel, p, spl_kind, mapping, show_plots=False):
         alpha_in_kernel=1.0,
     )
 
-<<<<<<< HEAD
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
-=======
->>>>>>> devel
     # push markers
     dt = 0.1
 
     pusher_psy(dt)
 
-<<<<<<< HEAD
-    # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
-
-=======
->>>>>>> devel
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
@@ -582,10 +467,6 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-<<<<<<< HEAD
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-=======
->>>>>>> devel
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -649,23 +530,7 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
         flattened=True,
     )
 
-<<<<<<< HEAD
-    # create legacy struphy pusher and psydac based pusher
-    pusher_str = Pusher_str(
-        domain,
-        space,
-        space.extract_0(
-            b0_eq_str,
-        ),
-        space.extract_2(b2_eq_str),
-        basis_u=2,
-        bc_pos=0,
-    )
-    mu0_str = xp.random.rand(markers_str.shape[1])
-    pow_str = xp.zeros(markers_str.shape[1], dtype=float)
-=======
     mu0 = xp.zeros(particles.markers.copy().T.shape[1], dtype=float)
->>>>>>> devel
 
     pusher_psy = Pusher_psy(
         particles,
@@ -686,23 +551,11 @@ def test_push_bxu_Hdiv_pauli(Nel, p, spl_kind, mapping, show_plots=False):
         alpha_in_kernel=1.0,
     )
 
-<<<<<<< HEAD
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
-=======
->>>>>>> devel
     # push markers
     dt = 0.1
 
     pusher_psy(dt)
 
-<<<<<<< HEAD
-    # compare if markers are the same AFTER push
-    assert xp.allclose(particles.markers[:, :6], markers_str.T[:, :6])
-
-=======
->>>>>>> devel
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])
 @pytest.mark.parametrize("p", [[2, 3, 1], [1, 2, 3]])
@@ -735,10 +588,6 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
     from struphy.pic.particles import Particles6D
     from struphy.pic.pushing import pusher_kernels
     from struphy.pic.pushing.pusher import Pusher as Pusher_psy
-<<<<<<< HEAD
-    from struphy.pic.tests.test_pic_legacy_files.pusher import Pusher as Pusher_str
-=======
->>>>>>> devel
     from struphy.pic.utilities import BoundaryParameters, LoadingParameters, WeightsParameters
 
     comm = MPI.COMM_WORLD
@@ -796,12 +645,6 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
         n_stages=butcher.n_stages,
     )
 
-<<<<<<< HEAD
-    # compare if markers are the same BEFORE push
-    assert xp.allclose(particles.markers, markers_str.T)
-
-=======
->>>>>>> devel
     # push markers
     dt = 0.1
 
@@ -821,26 +664,11 @@ def test_push_eta_rk4(Nel, p, spl_kind, mapping, show_plots=False):
         accum_sendcounts += sendcounts[i]
 
     all_particles_psy = xp.zeros((int(accum_sendcounts) * 3,), dtype=float)
-<<<<<<< HEAD
-    all_particles_str = xp.zeros((int(accum_sendcounts) * 3,), dtype=float)
-
-    comm.Barrier()
-    comm.Allgatherv(xp.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
-    comm.Allgatherv(xp.array(markers_str.T[:, :3]), [all_particles_str, sendcounts, displacements, MPI.DOUBLE])
-    comm.Barrier()
-
-    unique_psy = xp.unique(all_particles_psy)
-    unique_str = xp.unique(all_particles_str)
-
-    assert xp.allclose(unique_psy, unique_str)
-
-=======
 
     comm.Barrier()
     comm.Allgatherv(xp.array(particles.markers[:, :3]), [all_particles_psy, sendcounts, displacements, MPI.DOUBLE])
     comm.Barrier()
 
->>>>>>> devel
 
 if __name__ == "__main__":
     test_push_vxb_analytic(

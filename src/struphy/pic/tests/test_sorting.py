@@ -34,11 +34,7 @@ def test_flattening_1(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-<<<<<<< HEAD
-def test_flattening(nx, ny, nz, algo):
-=======
 def test_flattening_2(nx, ny, nz, algo):
->>>>>>> devel
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)
@@ -58,11 +54,7 @@ def test_flattening_2(nx, ny, nz, algo):
 @pytest.mark.parametrize("ny", [16, 80])
 @pytest.mark.parametrize("nz", [32, 90])
 @pytest.mark.parametrize("algo", ["fortran_ordering", "c_ordering"])
-<<<<<<< HEAD
-def test_flattening(nx, ny, nz, algo):
-=======
 def test_flattening_3(nx, ny, nz, algo):
->>>>>>> devel
     from struphy.pic.sorting_kernels import flatten_index, unflatten_index
 
     n1s = xp.array(xp.random.rand(10) * (nx + 1), dtype=int)

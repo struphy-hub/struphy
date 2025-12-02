@@ -6,10 +6,7 @@ import h5py
 import yaml
 from tqdm import tqdm
 
-<<<<<<< HEAD
-=======
 from struphy.io.setup import import_parameters_py
->>>>>>> devel
 from struphy.post_processing.orbits.orbits_kernels import calculate_guiding_center_from_6d
 
 
