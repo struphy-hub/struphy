@@ -261,7 +261,7 @@ class PICVariable(Variable):
             self._n_to_save = n_markers
 
         assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
+            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(
@@ -405,7 +405,7 @@ class SPHVariable(Variable):
             self._n_to_save = n_markers
 
         assert self._n_to_save <= self.particles.Np, (
-            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={obj.Np})"
+            f"The number of markers for which data should be stored (={self._n_to_save}) murst be <= than the total number of markers (={self.particles.Np})"
         )
         if self._n_to_save > 0:
             self._saved_markers = xp.zeros(
