@@ -7,7 +7,7 @@ import cunumpy as xp
 from struphy.fields_background.base import FluidEquilibriumWithB
 from struphy.fields_background.equils import set_defaults
 from struphy.initial.base import Perturbation
-from struphy.kinetic_background.base import Maxwellian, CanonicalMaxwellian
+from struphy.kinetic_background.base import CanonicalMaxwellian, Maxwellian
 
 
 class Maxwellian3D(Maxwellian):
@@ -252,7 +252,7 @@ class GyroMaxwellian2D(Maxwellian):
         assert isinstance(v[0], xp.ndarray)
         assert isinstance(v[1], xp.ndarray)
         assert eta1.shape == eta2.shape == eta3.shape == v[0].shape == v[1].shape
-        assert eta1.ndim == 1, 'Input arguments must be a marker array.'
+        assert eta1.ndim == 1, "Input arguments must be a marker array."
 
         etas = [
             xp.concatenate(
@@ -402,7 +402,7 @@ class CanonicalMaxwellian2D(CanonicalMaxwellian):
         assert isinstance(eta3, xp.ndarray)
         assert isinstance(energy, xp.ndarray)
         assert eta1.shape == eta2.shape == eta3.shape == energy.shape
-        assert eta1.ndim == 1, 'Input arguments must be a marker array.'
+        assert eta1.ndim == 1, "Input arguments must be a marker array."
 
         etas = [
             xp.concatenate(

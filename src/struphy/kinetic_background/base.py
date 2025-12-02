@@ -607,7 +607,7 @@ class CanonicalMaxwellian(KineticBackground):
     .. math::
 
         F(\psi_c, \epsilon, \mu) = \frac{n(\psi_c)}{(2\pi)^{3/2}v_\text{th}³(\psi_c)} \text{exp}\left[ - \frac{\epsilon}{v_\text{th}²(\psi_c)}\right].
-    
+
     """
 
     @abstractmethod

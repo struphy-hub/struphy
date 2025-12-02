@@ -77,7 +77,7 @@ class Particles6D(Particles):
     def coords(self):
         """Coordinates of the Particles6D, :math:`(v_1, v_2, v_3)`."""
         return "cartesian"
-    
+
     @property
     def equation_params(self):
         """Parameters appearing in model equation due to Struphy normalization."""
@@ -412,10 +412,7 @@ class Particles5D(Particles):
             "vth_perp": (self.loading_params.moments[3], None),
         }
 
-        self._svol = maxwellians.GyroMaxwellian2D(
-            **maxw_params,
-            equil=self.equil
-            )
+        self._svol = maxwellians.GyroMaxwellian2D(**maxw_params, equil=self.equil)
 
         if self.spatial == "uniform":
             out = self._svol(eta1, eta2, eta3, *v)
