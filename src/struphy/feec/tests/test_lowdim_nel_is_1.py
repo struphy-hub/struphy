@@ -161,11 +161,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     # a) projection error
     err_f0 = xp.max(xp.abs(f(e1, e2, e3) - field_f0_vals))
-<<<<<<< HEAD
-    print(f"\n{err_f0 = }")
-=======
     print(f"\n{err_f0 =}")
->>>>>>> devel
     assert err_f0 < 1e-2
 
     # b) commuting property
@@ -178,11 +174,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_df0_vals = field_df0(e1, e2, e3, squeeze_out=True)
 
     err_df0 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(grad_f, field_df0_vals)]
-<<<<<<< HEAD
-    print(f"{err_df0 = }")
-=======
     print(f"{err_df0 =}")
->>>>>>> devel
     assert xp.max(err_df0) < 0.64
 
     # d) plotting
@@ -211,11 +203,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     # a) projection error
     err_f1 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip([f, f, f], field_f1_vals)]
-<<<<<<< HEAD
-    print(f"{err_f1 = }")
-=======
     print(f"{err_f1 =}")
->>>>>>> devel
     assert xp.max(err_f1) < 0.09
 
     # b) commuting property
@@ -228,11 +216,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_df1_vals = field_df1(e1, e2, e3, squeeze_out=True)
 
     err_df1 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip(curl_f, field_df1_vals)]
-<<<<<<< HEAD
-    print(f"{err_df1 = }")
-=======
     print(f"{err_df1 =}")
->>>>>>> devel
     assert xp.max(err_df1) < 0.64
 
     # d) plotting
@@ -266,11 +250,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     # a) projection error
     err_f2 = [xp.max(xp.abs(exact(e1, e2, e3) - field_v)) for exact, field_v in zip([f, f, f], field_f2_vals)]
-<<<<<<< HEAD
-    print(f"{err_f2 = }")
-=======
     print(f"{err_f2 =}")
->>>>>>> devel
     assert xp.max(err_f2) < 0.09
 
     # b) commuting property
@@ -283,11 +263,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
     field_df2_vals = field_df2(e1, e2, e3, squeeze_out=True)
 
     err_df2 = xp.max(xp.abs(div_f(e1, e2, e3) - field_df2_vals))
-<<<<<<< HEAD
-    print(f"{err_df2 = }")
-=======
     print(f"{err_df2 =}")
->>>>>>> devel
     assert xp.max(err_df2) < 0.64
 
     # d) plotting
@@ -316,11 +292,7 @@ def test_lowdim_derham(Nel, p, spl_kind, do_plot=False):
 
     # a) projection error
     err_f3 = xp.max(xp.abs(f(e1, e2, e3) - field_f3_vals))
-<<<<<<< HEAD
-    print(f"{err_f3 = }")
-=======
     print(f"{err_f3 =}")
->>>>>>> devel
     assert err_f3 < 0.09
 
     # d) plotting

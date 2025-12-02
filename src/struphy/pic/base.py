@@ -567,11 +567,6 @@ class Particles(metaclass=ABCMeta):
         return self._initial_condition
 
     @property
-    def initial_condition(self) -> KineticBackground:
-        """Kinetic initial condition"""
-        return self._initial_condition
-
-    @property
     def f_init(self):
         """Callable initial condition (background + perturbation).
         For kinetic models this is a Maxwellian.

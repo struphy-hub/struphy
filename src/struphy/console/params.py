@@ -7,11 +7,7 @@ from struphy.models import fluid, hybrid, kinetic, toy
 from struphy.models.base import StruphyModel
 
 
-<<<<<<< HEAD
-def struphy_params(model_name: str, params_path: str, yes: bool = False, check_file: bool = False):
-=======
 def struphy_params(model_name: str, yes: bool = False, check_file: bool = False):
->>>>>>> devel
     """Create a model's default parameter file and save in current input path.
 
     Parameters
@@ -33,11 +29,7 @@ def struphy_params(model_name: str, yes: bool = False, check_file: bool = False)
         except AttributeError:
             pass
 
-<<<<<<< HEAD
-    print(f"{model_name = }")
-=======
     print(f"{model_name =}")
->>>>>>> devel
 
     # print units
     if check_file:
@@ -55,10 +47,6 @@ def struphy_params(model_name: str, yes: bool = False, check_file: bool = False)
 
     else:
         prompt = not yes
-<<<<<<< HEAD
-        model.generate_default_parameter_file(path=params_path, prompt=prompt)
-=======
         model.generate_default_parameter_file(path=None, prompt=prompt)
->>>>>>> devel
         # print(f"Generating default parameter file for {model_class}.")
         # model_class().generate_default_parameter_file(path=params_path, prompt=prompt)

@@ -40,11 +40,7 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
             background = FieldsBackground(type="LogicalConst", values=(val,))
             field.initialize_coeffs(backgrounds=background)
             print(
-<<<<<<< HEAD
-                f"\n{rank = }, {space = }, after init:\n {xp.max(xp.abs(field(*meshgrids) - val)) = }",
-=======
                 f"\n{rank =}, {space =}, after init:\n {xp.max(xp.abs(field(*meshgrids) - val)) =}",
->>>>>>> devel
             )
             # print(f'{field(*meshgrids) = }')
             assert xp.allclose(field(*meshgrids), val)
@@ -54,11 +50,7 @@ def test_bckgr_init_const(Nel, p, spl_kind, spaces, vec_comps):
             for j, val in enumerate(background.values):
                 if val is not None:
                     print(
-<<<<<<< HEAD
-                        f"\n{rank = }, {space = }, after init:\n {j = }, {xp.max(xp.abs(field(*meshgrids)[j] - val)) = }",
-=======
                         f"\n{rank =}, {space =}, after init:\n {j =}, {xp.max(xp.abs(field(*meshgrids)[j] - val)) =}",
->>>>>>> devel
                     )
                     # print(f'{field(*meshgrids)[i] = }')
                     assert xp.allclose(field(*meshgrids)[j], val)
@@ -117,11 +109,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             if not isinstance(mhd_equil, FluidEquilibriumWithB):
                 continue
 
-<<<<<<< HEAD
-            print(f"{mhd_equil.params = }")
-=======
             print(f"{mhd_equil.params =}")
->>>>>>> devel
 
             if "AdhocTorus" in key:
                 mhd_equil.domain = domains.HollowTorus(
@@ -198,11 +186,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
 
             # scalar spaces
             print(
-<<<<<<< HEAD
-                f"{xp.max(xp.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids))) / xp.max(xp.abs(mhd_equil.p3(*meshgrids)))}"
-=======
                 f"{xp.max(xp.abs(field_3(*meshgrids) - mhd_equil.p3(*meshgrids))) / xp.max(xp.abs(mhd_equil.p3(*meshgrids)))}",
->>>>>>> devel
             )
             assert (
                 xp.max(
@@ -214,11 +198,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
 
             if isinstance(mhd_equil, FluidEquilibriumWithB):
                 print(
-<<<<<<< HEAD
-                    f"{xp.max(xp.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))) / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))}"
-=======
                     f"{xp.max(xp.abs(field_0(*meshgrids) - mhd_equil.absB0(*meshgrids))) / xp.max(xp.abs(mhd_equil.absB0(*meshgrids)))}",
->>>>>>> devel
                 )
                 assert (
                     xp.max(
@@ -236,11 +216,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             else:
                 denom = xp.max(xp.abs(ref[0]))
             print(
-<<<<<<< HEAD
-                f"{xp.max(xp.abs(field_1(*meshgrids)[0] - ref[0])) / denom = }",
-=======
                 f"{xp.max(xp.abs(field_1(*meshgrids)[0] - ref[0])) / denom =}",
->>>>>>> devel
             )
             assert xp.max(xp.abs(field_1(*meshgrids)[0] - ref[0])) / denom < 0.28
             if xp.max(xp.abs(ref[1])) < 1e-11:
@@ -248,11 +224,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             else:
                 denom = xp.max(xp.abs(ref[1]))
             print(
-<<<<<<< HEAD
-                f"{xp.max(xp.abs(field_1(*meshgrids)[1] - ref[1])) / denom = }",
-=======
                 f"{xp.max(xp.abs(field_1(*meshgrids)[1] - ref[1])) / denom =}",
->>>>>>> devel
             )
             assert xp.max(xp.abs(field_1(*meshgrids)[1] - ref[1])) / denom < 0.33
             if xp.max(xp.abs(ref[2])) < 1e-11:
@@ -260,11 +232,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             else:
                 denom = xp.max(xp.abs(ref[2]))
             print(
-<<<<<<< HEAD
-                f"{xp.max(xp.abs(field_1(*meshgrids)[2] - ref[2])) / denom = }",
-=======
                 f"{xp.max(xp.abs(field_1(*meshgrids)[2] - ref[2])) / denom =}",
->>>>>>> devel
             )
             assert (
                 xp.max(
@@ -283,11 +251,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             else:
                 denom = xp.max(xp.abs(ref[0]))
             print(
-<<<<<<< HEAD
-                f"{xp.max(xp.abs(field_2(*meshgrids)[0] - ref[0])) / denom = }",
-=======
                 f"{xp.max(xp.abs(field_2(*meshgrids)[0] - ref[0])) / denom =}",
->>>>>>> devel
             )
             assert xp.max(xp.abs(field_2(*meshgrids)[0] - ref[0])) / denom < 0.86
             if xp.max(xp.abs(ref[1])) < 1e-11:
@@ -295,11 +259,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             else:
                 denom = xp.max(xp.abs(ref[1]))
             print(
-<<<<<<< HEAD
-                f"{xp.max(xp.abs(field_2(*meshgrids)[1] - ref[1])) / denom = }",
-=======
                 f"{xp.max(xp.abs(field_2(*meshgrids)[1] - ref[1])) / denom =}",
->>>>>>> devel
             )
             assert (
                 xp.max(
@@ -315,11 +275,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             else:
                 denom = xp.max(xp.abs(ref[2]))
             print(
-<<<<<<< HEAD
-                f"{xp.max(xp.abs(field_2(*meshgrids)[2] - ref[2])) / denom = }",
-=======
                 f"{xp.max(xp.abs(field_2(*meshgrids)[2] - ref[2])) / denom =}",
->>>>>>> devel
             )
             assert xp.max(xp.abs(field_2(*meshgrids)[2] - ref[2])) / denom < 0.21
             print("u2 asserts passed.")
@@ -330,11 +286,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             else:
                 denom = xp.max(xp.abs(ref[0]))
             print(
-<<<<<<< HEAD
-                f"{xp.max(xp.abs(field_4(*meshgrids)[0] - ref[0])) / denom = }",
-=======
                 f"{xp.max(xp.abs(field_4(*meshgrids)[0] - ref[0])) / denom =}",
->>>>>>> devel
             )
             assert xp.max(xp.abs(field_4(*meshgrids)[0] - ref[0])) / denom < 0.6
             if xp.max(xp.abs(ref[1])) < 1e-11:
@@ -342,11 +294,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             else:
                 denom = xp.max(xp.abs(ref[1]))
             print(
-<<<<<<< HEAD
-                f"{xp.max(xp.abs(field_4(*meshgrids)[1] - ref[1])) / denom = }",
-=======
                 f"{xp.max(xp.abs(field_4(*meshgrids)[1] - ref[1])) / denom =}",
->>>>>>> devel
             )
             assert (
                 xp.max(
@@ -362,11 +310,7 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
             else:
                 denom = xp.max(xp.abs(ref[2]))
             print(
-<<<<<<< HEAD
-                f"{xp.max(xp.abs(field_4(*meshgrids)[2] - ref[2])) / denom = }",
-=======
                 f"{xp.max(xp.abs(field_4(*meshgrids)[2] - ref[2])) / denom =}",
->>>>>>> devel
             )
             assert (
                 xp.max(
@@ -1218,14 +1162,10 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
 
     field_0 = derham.create_spline_function("name_0", "H1", backgrounds=bckgr_0, perturbations=[f_sin_0, f_cos_0])
     field_1 = derham.create_spline_function(
-<<<<<<< HEAD
-        "name_1", "Hcurl", backgrounds=bckgr_1, perturbations=[f_sin_11, f_sin_13, f_cos_11, f_cos_12]
-=======
         "name_1",
         "Hcurl",
         backgrounds=bckgr_1,
         perturbations=[f_sin_11, f_sin_13, f_cos_11, f_cos_12],
->>>>>>> devel
     )
     field_2 = derham.create_spline_function("name_2", "Hdiv", backgrounds=bckgr_2, perturbations=[f_cos_22])
 
@@ -1252,15 +1192,6 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     f1_h = field_1(*meshgrids)
     f2_h = field_2(*meshgrids)
 
-<<<<<<< HEAD
-    print(f"{xp.max(xp.abs(fun_0 - f0_h)) = }")
-    print(f"{xp.max(xp.abs(fun_1[0] - f1_h[0])) = }")
-    print(f"{xp.max(xp.abs(fun_1[1] - f1_h[1])) = }")
-    print(f"{xp.max(xp.abs(fun_1[2] - f1_h[2])) = }")
-    print(f"{xp.max(xp.abs(fun_2[0] - f2_h[0])) = }")
-    print(f"{xp.max(xp.abs(fun_2[1] - f2_h[1])) = }")
-    print(f"{xp.max(xp.abs(fun_2[2] - f2_h[2])) = }")
-=======
     print(f"{xp.max(xp.abs(fun_0 - f0_h)) =}")
     print(f"{xp.max(xp.abs(fun_1[0] - f1_h[0])) =}")
     print(f"{xp.max(xp.abs(fun_1[1] - f1_h[1])) =}")
@@ -1268,7 +1199,6 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     print(f"{xp.max(xp.abs(fun_2[0] - f2_h[0])) =}")
     print(f"{xp.max(xp.abs(fun_2[1] - f2_h[1])) =}")
     print(f"{xp.max(xp.abs(fun_2[2] - f2_h[2])) =}")
->>>>>>> devel
 
     assert xp.max(xp.abs(fun_0 - f0_h)) < 3e-5
     assert xp.max(xp.abs(fun_1[0] - f1_h[0])) < 3e-5

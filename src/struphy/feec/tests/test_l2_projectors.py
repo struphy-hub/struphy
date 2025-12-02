@@ -107,11 +107,7 @@ def test_l2_projectors_mappings(Nel, p, spl_kind, array_input, with_gvec=False, 
                 err = [xp.max(xp.abs(exact(ee1, ee2, ee3) - field_v)) for exact, field_v in zip(f_analytic, field_vals)]
                 f_plot = field_vals[0]
 
-<<<<<<< HEAD
-            print(f"{sp_id = }, {xp.max(err) = }")
-=======
             print(f"{sp_id =}, {xp.max(err) =}")
->>>>>>> devel
             if sp_id in ("H1", "H1vec"):
                 assert xp.max(err) < 0.004
             else:
@@ -241,11 +237,7 @@ def test_l2_projectors_convergence(direction, pi, spl_kindi, do_plot=False):
         line_for_rate_p0 = [Ne ** (-rate_p0) * errors[sp_id][0] / Nels[0] ** (-rate_p0) for Ne in Nels]
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors[sp_id]), deg=1)
-<<<<<<< HEAD
-        print(f"{sp_id = }, fitted convergence rate = {-m}, degree = {pi}")
-=======
         print(f"{sp_id =}, fitted convergence rate = {-m}, degree = {pi}")
->>>>>>> devel
         if sp_id in ("H1", "H1vec"):
             assert -m > (pi + 1 - 0.05)
         else:

@@ -417,6 +417,15 @@ def test_basis_ops_polar(Nel, p, spl_kind, dirichlet_bc, mapping, show_plots=Fal
     else:
         r_psy = mhd_ops_psy.T2.transpose().dot(x1_pol_psy, tol=1e-10, verbose=False)
 
+    # ===== operator S2 (V2 --> V2) ============
+    mpi_comm.Barrier()
+
+    if mpi_rank == 0:
+        print("\nOperator S2 (V2 --> V2):")
+
+    if mpi_rank == 0:
+        r_psy = mhd_ops_psy.S2.dot(x2_pol_psy, tol=1e-10, verbose=True)
+    else:
         r_psy = mhd_ops_psy.S2.dot(x2_pol_psy, tol=1e-10, verbose=False)
 
     mpi_comm.Barrier()

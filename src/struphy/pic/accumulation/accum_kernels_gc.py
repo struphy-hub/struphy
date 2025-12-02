@@ -669,12 +669,9 @@ def cc_lin_mhd_5d_gradB(
     grad_PB1: "float[:,:,:]",
     grad_PB2: "float[:,:,:]",
     grad_PB3: "float[:,:,:]",
-<<<<<<< HEAD
     grad_PBeq1: "float[:,:,:]",
     grad_PBeq2: "float[:,:,:]",
     grad_PBeq3: "float[:,:,:]",
-=======
->>>>>>> devel
     basis_u: "int",
 ):
     r"""Accumulation kernel for the propagator :class:`~struphy.propagators.propagators_coupling.CurrentCoupling5DGradB`.
@@ -733,14 +730,7 @@ def cc_lin_mhd_5d_gradB(
 
     tmp_v = empty(3, dtype=float)
 
-<<<<<<< HEAD
     for ip in range(n_markers):
-=======
-    # get number of markers
-    n_markers_loc = shape(markers)[0]
-
-    for ip in range(n_markers_loc):
->>>>>>> devel
         # only do something if particle is a "true" particle (i.e. not a hole)
         if markers[ip, 0] == -1.0:
             continue
@@ -816,7 +806,6 @@ def cc_lin_mhd_5d_gradB(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v0vec(
-<<<<<<< HEAD
                 args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
             )
 
@@ -1038,25 +1027,6 @@ def cc_lin_mhd_5d_gradB_dg_init(
             linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
 
             filling_v[:] += weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
-=======
-                args_derham,
-                span1,
-                span2,
-                span3,
-                vec1,
-                vec2,
-                vec3,
-                filling_v[0],
-                filling_v[1],
-                filling_v[2],
-            )
-
-        elif basis_u == 2:
-            linalg_kernels.matrix_matrix(b_prod, norm_b_prod, tmp)
-            linalg_kernels.matrix_vector(tmp, grad_PB, tmp_v)
-
-            filling_v[:] = weight * tmp_v * mu / abs_b_star_para / det_df * ep_scale
->>>>>>> devel
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v2(
@@ -1497,20 +1467,7 @@ def cc_lin_mhd_5d_gradB_dg(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v0vec(
-<<<<<<< HEAD
                 args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
-=======
-                args_derham,
-                span1,
-                span2,
-                span3,
-                vec1,
-                vec2,
-                vec3,
-                filling_v[0],
-                filling_v[1],
-                filling_v[2],
->>>>>>> devel
             )
 
         elif basis_u == 2:
@@ -1548,20 +1505,7 @@ def cc_lin_mhd_5d_gradB_dg(
 
             # call the appropriate matvec filler
             particle_to_mat_kernels.vec_fill_v2(
-<<<<<<< HEAD
                 args_derham, span1, span2, span3, vec1, vec2, vec3, filling_v[0], filling_v[1], filling_v[2]
-=======
-                args_derham,
-                span1,
-                span2,
-                span3,
-                vec1,
-                vec2,
-                vec3,
-                filling_v[0],
-                filling_v[1],
-                filling_v[2],
->>>>>>> devel
             )
 
     vec1 /= Np

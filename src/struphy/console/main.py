@@ -49,11 +49,7 @@ def struphy():
     utils.save_state(state=state)
 
     # Load the models and messages
-<<<<<<< HEAD
-    model_message = "All models are listed on https://struphy.pages.mpcdf.de/struphy/sections/models.html"
-=======
     model_message = "All models are listed on https://struphy-hub.github.io/struphy/sections/models.html"
->>>>>>> devel
     list_models = []
     ml_path = os.path.join(libpath, "models", "models_list")
     if not os.path.isfile(ml_path):
@@ -172,53 +168,7 @@ def struphy():
     func(**kwargs)
 
 
-<<<<<<< HEAD
-def get_params_files(i_path):
-    if os.path.exists(i_path) and os.path.isdir(i_path):
-        params_files = recursive_get_files(i_path, contains=(".yml", ".yaml", ".py"))
-    else:
-        print("Path to input files missing! Set it with `struphy --set-i PATH`")
-        params_files = []
-
-    return params_files
-
-
-def get_out_folders(o_path):
-    out_folders = []
-    if os.path.isdir(o_path):
-        with os.scandir(o_path) as entries:
-            out_folders = [entry.name for entry in entries if entry.is_dir()]
-    else:
-        print("Path to outputs directory missing! Set it with `struphy --set-o PATH`")
-
-    return out_folders
-
-
-def get_batch_files(b_path):
-    if os.path.exists(b_path) and os.path.isdir(b_path):
-        batch_files = recursive_get_files(
-            b_path,
-            contains=(".sh"),
-            out=[],
-            prefix=[],
-        )
-    else:
-        print("Path to batch files missing! Set it with `struphy --set-b PATH`")
-        batch_files = []
-
-    return batch_files
-
-
-def add_parser_basic_options(parser, i_path, o_path, b_path):
-    # path message
-    path_message = f"Struphy installation path: {libpath}\n"
-    path_message += f"current input:             {i_path}\n"
-    path_message += f"current output:            {o_path}\n"
-    path_message += f"current batch scripts:     {b_path}"
-
-=======
 def add_parser_basic_options(parser):
->>>>>>> devel
     parser.add_argument(
         "-v",
         "--version",
@@ -364,17 +314,6 @@ def add_parser_params(subparsers, list_models, model_message):
     )
 
     parser_params.add_argument(
-<<<<<<< HEAD
-        "-p",
-        "--params-path",
-        type=str,
-        metavar="PATH",
-        help="Absolute path to the parameter file (default is getcwd()/params_MODEL.py)",
-    )
-
-    parser_params.add_argument(
-=======
->>>>>>> devel
         "--check-file",
         type=str,
         metavar="FILE",

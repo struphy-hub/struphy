@@ -187,13 +187,3 @@ markers = [
     "hybrid",
     "single",
 ]
-
-[tool.pytest.ini_options]
-markers = [
-    "models",
-    "toy",
-    "fluid",
-    "kinetic",
-    "hybrid",
-    "single",
-]

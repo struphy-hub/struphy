@@ -122,11 +122,7 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 print("Direction should be either 0 or 1")
 
             # create derham object
-<<<<<<< HEAD
-            print(f"{dirichlet_bc = }")
-=======
             print(f"{dirichlet_bc =}")
->>>>>>> devel
             derham = Derham(Nel, p, spl_kind, dirichlet_bc=dirichlet_bc, comm=comm)
 
             # mass matrices
@@ -201,22 +197,14 @@ def test_poisson_M1perp_1d(direction, bc_type, mapping, projected_rhs, show_plot
                 plt.legend()
 
             error = xp.max(xp.abs(analytic_value1 - sol_val1))
-<<<<<<< HEAD
-            print(f"{direction = }, {pi = }, {Neli = }, {error=}")
-=======
             print(f"{direction =}, {pi =}, {Neli =}, {error=}")
->>>>>>> devel
 
             errors.append(error)
             h = 1 / (Neli)
             h_vec.append(h)
 
         m, _ = xp.polyfit(xp.log(Nels), xp.log(errors), deg=1)
-<<<<<<< HEAD
-        print(f"For {pi = }, solution converges in {direction=} with rate {-m = } ")
-=======
         print(f"For {pi =}, solution converges in {direction=} with rate {-m =} ")
->>>>>>> devel
         assert -m > (pi + 1 - 0.07)
 
         # Plot convergence in 1D
@@ -300,11 +288,7 @@ def test_poisson_M1perp_2d(Nel, p, bc_type, mapping, projected_rhs, show_plot=Fa
         spl_kind = [False, True, True]
         dirichlet_bc = [(not kd,) * 2 for kd in spl_kind]
         dirichlet_bc = tuple(dirichlet_bc)
-<<<<<<< HEAD
-        print(f"{dirichlet_bc = }")
-=======
         print(f"{dirichlet_bc =}")
->>>>>>> devel
 
         # manufactured solution in 2D
         def sol2_xyz(x, y, z):
