@@ -8504,7 +8504,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
             self._solver_GMRES.A = _A
             self._solver_GMRES.B = _B
             self._solver_GMRES.F = _F
-            
+
             if self._lifting:
                 (
                     _sol1,
@@ -8514,13 +8514,13 @@ class TwoFluidQuasiNeutralFull(Propagator):
 
                 un_temp = self.derham.create_spline_function("u", space_id="Hdiv")
                 un_temp.vector = _sol1[0] + u_prime.vector
-                
+
                 uen_temp = self.derham.create_spline_function("ue", space_id="Hdiv")
                 uen_temp.vector = _sol1[1] + ue_prime.vector
-                
+
                 phin_temp = self.derham.create_spline_function("phi", space_id="L2")
                 phin_temp.vector = _sol2
-                
+
                 un = un_temp.vector
                 uen = uen_temp.vector
                 phin = phin_temp.vector
