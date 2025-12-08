@@ -1184,7 +1184,7 @@ def test_sph_velocity_evaluation_2d(
     xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
 
     # initialize particles
-    particles.draw_markers(sort=True, verbose=verbose)
+    particles.draw_markers(sort=False, verbose=verbose)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -1234,11 +1234,11 @@ def test_sph_velocity_evaluation_2d(
         err_ux = abs_err(all_velo1, v1_e)
         err_uy = abs_err(all_velo2, v2_e)
     elif derivative == 1:
-        err_ux = abs_err(v1, v1_e)
-        err_uy = abs_err(v2, v2_e)
+        err_ux = abs_err(all_velo1, v1_e)
+        err_uy = abs_err(all_velo2, v2_e)
     elif derivative == 2:
-        err_ux = abs_err(v1, v1_e)
-        err_uy = abs_err(v2, v2_e)
+        err_ux = abs_err(all_velo1, v1_e)
+        err_uy = abs_err(all_velo2, v2_e)
 
     if rank == 0:
         print(f"\n{boxes_per_dim = }")
