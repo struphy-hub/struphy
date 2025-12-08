@@ -140,9 +140,7 @@ class SaddlePointSolver:
         self._verbose = solver_params["verbose"]
 
         if self._variant == "Inverse_Solver":
-            self._BT = B.transpose()
 
-            # initialize solver with dummy matrix A
             self._block_domainM = BlockVectorSpace(self._A.domain, self._B.transpose().domain)
             self._block_codomainM = self._block_domainM
             self._blocks = [[self._A, self._B.T], [self._B, None]]

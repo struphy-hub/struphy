@@ -7767,7 +7767,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 self.derham.p,
                 self.derham.spl_kind,
                 domain=self.domain,
-                dirichlet_bc=[[True, True], [False, False], [False, False]],
+                dirichlet_bc=((True, True), (False, False), (False, False)),
             )
 
             self._mass_opsv0 = WeightedMassOperators(
@@ -8387,7 +8387,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 pc=None,
             )
             # Allocate memory for call
-            self._untemp = u.space.zeros()
+            self._untemp = self.variables.u.spline.vector.space.zeros()
 
         elif self._variant == "Uzawa":
             self._solver_UzawaNumpy = SaddlePointSolver(
@@ -8504,16 +8504,27 @@ class TwoFluidQuasiNeutralFull(Propagator):
             self._solver_GMRES.A = _A
             self._solver_GMRES.B = _B
             self._solver_GMRES.F = _F
-
+            
             if self._lifting:
                 (
                     _sol1,
                     _sol2,
                     info,
-                ) = self._solver_GMRES(u0.vector, ue0.vector, phinfeec)
-                un = _sol1[0] + u_prime.vector
-                uen = _sol1[1] + ue_prime.vector
-                phin = _sol2
+                ) = self._solver_GMRES(u0.vector, ue0.vector, phinfeeccopy.vector)
+
+                un_temp = self.derham.create_spline_function("u", space_id="Hdiv")
+                un_temp.vector = _sol1[0] + u_prime.vector
+                
+                uen_temp = self.derham.create_spline_function("ue", space_id="Hdiv")
+                uen_temp.vector = _sol1[1] + ue_prime.vector
+                
+                phin_temp = self.derham.create_spline_function("phi", space_id="L2")
+                phin_temp.vector = _sol2
+                
+                un = un_temp.vector
+                uen = uen_temp.vector
+                phin = phin_temp.vector
+
             else:
                 (
                     _sol1,
@@ -8524,6 +8535,7 @@ class TwoFluidQuasiNeutralFull(Propagator):
                 uen = _sol1[1]
                 phin = _sol2
             # write new coeffs into self.feec_vars
+
             max_du, max_due, max_dphi = self.update_feec_variables(u=un, ue=uen, phi=phin)
 
         elif self._variant == "Uzawa":
