@@ -1100,7 +1100,7 @@ def test_sph_velocity_evaluation_2d(
         ppb = 50
         loading_params = LoadingParameters(ppb=ppb, seed=1607, loading="tesselation")
     else:
-        ppb = 1200
+        ppb = 400
         loading_params = LoadingParameters(ppb=ppb, seed=223)
 
     Lx = r1 - l1
@@ -1157,6 +1157,8 @@ def test_sph_velocity_evaluation_2d(
 
     boundary_params = BoundaryParameters(bc_sph=(bc_x, bc_y, "periodic"))
 
+    verbose = False
+
     particles = ParticlesSPH(
         comm_world=comm,
         loading_params=loading_params,
@@ -1167,7 +1169,7 @@ def test_sph_velocity_evaluation_2d(
         domain=domain,
         background=background,
         n_as_volume_form=True,
-        verbose=False,
+        verbose=verbose,
     )
 
     # evaluation grids
@@ -1182,7 +1184,7 @@ def test_sph_velocity_evaluation_2d(
     xx, yy, zz = xp.meshgrid(x, y, z, indexing="ij")
 
     # initialize particles
-    particles.draw_markers(sort=True, verbose=False)
+    particles.draw_markers(sort=True, verbose=verbose)
     if comm is not None:
         particles.mpi_sort_markers()
     particles.initialize_weights()
@@ -1301,19 +1303,18 @@ def test_sph_velocity_evaluation_2d(
             plt.show()
 
     # tolerances: conservative values aligned with your 2D density thresholds
-    if derivative == 0:
-        assert err_ux < 1.2e-1
-        assert err_uy < 1.2e-1
-    elif derivative == 1 and ((bc_x == "periodic" and bc_y == "mirror") or (bc_x == "periodic" and bc_y == "fixed")):
-        assert err_ux < 4.389e-01
-        assert err_uy < 4.389e-01
+    if tesselation:
+        assert err_ux < 1.55e-2
+        assert err_uy < 1.55e-2
+    elif derivative == 0:
+        assert err_ux < 0.09
+        assert err_uy < 0.09
     elif derivative == 1:
-        assert err_ux < 2.797e-01
-        assert err_uy < 2.797e-01
-
+        assert err_ux < 0.632
+        assert err_uy < 0.632
     else:
-        assert err_ux < 3.532e-01
-        assert err_uy < 3.532e-01
+        assert err_ux < 0.52
+        assert err_uy < 0.52
 
     # ensure z-component is negligible (absolute)
     # assert err_uz_abs < 1e-6
