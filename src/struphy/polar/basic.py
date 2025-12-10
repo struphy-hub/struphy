@@ -1,8 +1,8 @@
 import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.basic import Vector, VectorSpace
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilVector
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.basic import Vector, VectorSpace
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilVector
 
 
 class PolarDerhamSpace(VectorSpace):

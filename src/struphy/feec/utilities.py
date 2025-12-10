@@ -1,10 +1,10 @@
 import cunumpy as xp
-from psydac.api.essential_bc import apply_essential_bc_stencil
-from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.basic import Vector
-from psydac.linalg.block import BlockLinearOperator, BlockVector
-from psydac.linalg.stencil import StencilMatrix, StencilVector
+from feectools.api.essential_bc import apply_essential_bc_stencil
+from feectools.fem.tensor import TensorFemSpace
+from feectools.fem.vector import VectorFemSpace
+from feectools.linalg.basic import Vector
+from feectools.linalg.block import BlockLinearOperator, BlockVector
+from feectools.linalg.stencil import StencilMatrix, StencilVector
 
 import struphy.feec.utilities_kernels as kernels
 from struphy.feec import banded_to_stencil_kernels as bts

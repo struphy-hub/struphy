@@ -2,26 +2,26 @@
 import importlib.metadata
 
 import cunumpy as xp
-import psydac.core.bsplines as bsp
-from psydac.ddm.cart import DomainDecomposition
-from psydac.ddm.mpi import MockComm, MockMPI
-from psydac.ddm.mpi import mpi as MPI
-from psydac.feec.derivatives import Curl3D, Divergence3D, Gradient3D
-from psydac.feec.global_geometric_projectors import (
+import feectools.core.bsplines as bsp
+from feectools.ddm.cart import DomainDecomposition
+from feectools.ddm.mpi import MockComm, MockMPI
+from feectools.ddm.mpi import mpi as MPI
+from feectools.feec.derivatives import Curl3D, Divergence3D, Gradient3D
+from feectools.feec.global_geometric_projectors import (
     GlobalGeometricProjectorH1,
     GlobalGeometricProjectorH1vec,
     GlobalGeometricProjectorHcurl,
     GlobalGeometricProjectorHdiv,
     GlobalGeometricProjectorL2,
 )
-from psydac.fem.grid import FemAssemblyGrid
-from psydac.fem.partitioning import create_cart
-from psydac.fem.splines import SplineSpace
-from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.basic import IdentityOperator
-from psydac.linalg.block import BlockVector, BlockVectorSpace
-from psydac.linalg.stencil import StencilVector, StencilVectorSpace
+from feectools.fem.grid import FemAssemblyGrid
+from feectools.fem.partitioning import create_cart
+from feectools.fem.splines import SplineSpace
+from feectools.fem.tensor import TensorFemSpace
+from feectools.fem.vector import VectorFemSpace
+from feectools.linalg.basic import IdentityOperator
+from feectools.linalg.block import BlockVector, BlockVectorSpace
+from feectools.linalg.stencil import StencilVector, StencilVectorSpace
 
 from struphy.bsplines import evaluation_kernels_3d as eval_3d
 from struphy.bsplines.evaluation_kernels_3d import eval_spline_mpi_tensor_product_fixed
@@ -147,12 +147,19 @@ class Derham:
         self._polar_ck = polar_ck
 
         # derham sequence
+        try:
+            import psydac
+        except ModuleNotFoundError:
+            pass
+        use_feectools = True
+
         _derham = self.init_derham(
             Nel,
             self.p,
             self.spl_kind,
             comm=self.comm,
             mpi_dims_mask=mpi_dims_mask,
+            use_feectools=use_feectools,
         )
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
@@ -196,7 +203,6 @@ class Derham:
         self._quad_grid_bases = {}
 
         # i is an int that represents the id of the p-form space. For instance, for V_0, i = 0.
-        psydac_ver = importlib.metadata.version("psydac")
         for i, sp_form in enumerate(self.space_to_form.values()):
             # FEM space and projector
             if sp_form == "v":
@@ -205,7 +211,7 @@ class Derham:
                     _derham.V0,
                     _derham.V0,
                 )
-                if "dev" in psydac_ver:
+                if use_feectools:
                     _h1vec_space.symbolic_space = "H1vec"
                 self._Vh_fem[sp_form] = _h1vec_space
                 self._P[sp_form] = GlobalGeometricProjectorH1vec(self.Vh_fem[sp_form])
@@ -804,8 +810,9 @@ class Derham:
         spl_kind: tuple | list,
         comm=None,
         mpi_dims_mask: tuple | list = None,
+        use_feectools: bool = True,
     ):
-        """Discretize the Derahm complex. Allows for the use of tiny-psydac.
+        """Discretize the Derahm complex. Allows for the use of tiny-feectools.
 
         Parameters
         ----------
@@ -824,12 +831,12 @@ class Derham:
         mpi_dims_mask: list of bool
             True if the dimension is to be used in the domain decomposition (=default for each dimension).
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+
+        use_feectools: bool
+            Use slimmed-down fork `feectools` of Psydac.
         """
 
-        psydac_ver = importlib.metadata.version("psydac")
-
-        if "dev" in psydac_ver:
-            # use tiny-psydac version
+        if use_feectools:
             self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
 
             _derham = self._discretize_derham(
@@ -838,7 +845,9 @@ class Derham:
                 spl_kind=spl_kind,
                 ddm=self.domain_decomposition,
             )
+
         else:
+            import psydac
             from psydac.api.discretization import discretize
             from sympde.topology import Cube
             from sympde.topology import Derham as Derham_psy
@@ -965,7 +974,7 @@ class Derham:
         spl_kind: tuple | list,
         ddm: DomainDecomposition = None,
     ):
-        """Call routines copied and simplified from psydac.
+        """Call routines copied and simplified from feectools.
 
         Parameters
         ----------
@@ -1534,7 +1543,7 @@ class SplineFunction:
 
     @property
     def vector(self):
-        """psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector or struphy.polar.basic.PolarVector."""
+        """feectools.linalg.stencil.StencilVector or feectools.linalg.block.BlockVector or struphy.polar.basic.PolarVector."""
         return self._vector
 
     @vector.setter

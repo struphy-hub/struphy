@@ -8,8 +8,8 @@ import warnings
 from time import time
 
 import cunumpy as xp
-from psydac.ddm.mpi import MockMPI
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import MockMPI
+from feectools.ddm.mpi import mpi as MPI
 from scipy.integrate import odeint, quad
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
 from scipy.optimize import fsolve, minimize

@@ -534,7 +534,7 @@ def elements_spans(knots, degree):
     Examples
     --------
     >>> import numpy as np
-    >>> from psydac.core.bsplines import make_knots, elements_spans
+    >>> from feectools.core.bsplines import make_knots, elements_spans
 
     >>> p = 3 ; n = 8
     >>> grid  = xp.arange( n-p+1 )

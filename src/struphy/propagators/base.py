@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilVector
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilVector
 
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators

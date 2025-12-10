@@ -2,11 +2,11 @@ import itertools
 from abc import abstractmethod
 
 import cunumpy as xp
-from psydac.ddm.mpi import MockComm
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.basic import LinearOperator, Vector, VectorSpace
-from psydac.linalg.block import BlockVectorSpace
-from psydac.linalg.stencil import StencilVectorSpace
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.basic import LinearOperator, Vector, VectorSpace
+from feectools.linalg.block import BlockVectorSpace
+from feectools.linalg.stencil import StencilVectorSpace
 from scipy import sparse
 
 from struphy.feec.utilities import apply_essential_bc_to_array
@@ -303,7 +303,7 @@ class BoundaryOperator(LinOpWithTransp):
 
     Parameters
     ----------
-    vector_space : psydac.linalg.basic.VectorSpace
+    vector_space : feectools.linalg.basic.VectorSpace
         The vector space associated to the operator.
 
     space_id : str
@@ -476,15 +476,15 @@ class BoundaryOperator(LinOpWithTransp):
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             The input (domain) vector.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the output will be written in-place into this vector.
 
         Returns
         -------
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             The output (codomain) vector.
         """
 
