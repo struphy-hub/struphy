@@ -147,12 +147,19 @@ class Derham:
         self._polar_ck = polar_ck
 
         # derham sequence
+        try:
+            import psydac
+        except ModuleNotFoundError:
+            pass
+        use_feectools = True
+        
         _derham = self.init_derham(
             Nel,
             self.p,
             self.spl_kind,
             comm=self.comm,
             mpi_dims_mask=mpi_dims_mask,
+            use_feectools=use_feectools,
         )
         self._grad, self._curl, self._div = _derham.derivatives_as_matrices
 
@@ -196,12 +203,6 @@ class Derham:
         self._quad_grid_bases = {}
 
         # i is an int that represents the id of the p-form space. For instance, for V_0, i = 0.
-        try:
-            import psydac
-        except ModuleNotFoundError:
-            pass
-        use_feectools = True
-
         for i, sp_form in enumerate(self.space_to_form.values()):
             # FEM space and projector
             if sp_form == "v":
@@ -809,6 +810,7 @@ class Derham:
         spl_kind: tuple | list,
         comm=None,
         mpi_dims_mask: tuple | list = None,
+        use_feectools: bool = True,
     ):
         """Discretize the Derahm complex. Allows for the use of tiny-feectools.
 
@@ -829,9 +831,22 @@ class Derham:
         mpi_dims_mask: list of bool
             True if the dimension is to be used in the domain decomposition (=default for each dimension).
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
+            
+        use_feectools: bool
+            Use slimmed-down fork `feectools` of Psydac.
         """
 
-        try:
+        if use_feectools:
+            self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
+
+            _derham = self._discretize_derham(
+                Nel=Nel,
+                p=p,
+                spl_kind=spl_kind,
+                ddm=self.domain_decomposition,
+            )
+            
+        else:
             import psydac
             from psydac.api.discretization import discretize
             from sympde.topology import Cube
@@ -863,17 +878,6 @@ class Derham:
                 self._domain_log_h,
                 degree=p,
             )  # , nquads=self.nquads) # nquads can no longer be passed to a call to discretize on a FemSpace #403
-
-        except ModuleNotFoundError:
-            # use feectools
-            self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
-
-            _derham = self._discretize_derham(
-                Nel=Nel,
-                p=p,
-                spl_kind=spl_kind,
-                ddm=self.domain_decomposition,
-            )
 
         return _derham
 
