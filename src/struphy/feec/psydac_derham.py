@@ -201,7 +201,7 @@ class Derham:
         except ModuleNotFoundError:
             pass
         use_feectools = True
-            
+
         for i, sp_form in enumerate(self.space_to_form.values()):
             # FEM space and projector
             if sp_form == "v":
@@ -863,7 +863,7 @@ class Derham:
                 self._domain_log_h,
                 degree=p,
             )  # , nquads=self.nquads) # nquads can no longer be passed to a call to discretize on a FemSpace #403
-            
+
         except ModuleNotFoundError:
             # use feectools
             self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
