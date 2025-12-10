@@ -152,7 +152,7 @@ class Derham:
         except ModuleNotFoundError:
             pass
         use_feectools = True
-        
+
         _derham = self.init_derham(
             Nel,
             self.p,
@@ -831,7 +831,7 @@ class Derham:
         mpi_dims_mask: list of bool
             True if the dimension is to be used in the domain decomposition (=default for each dimension).
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
-            
+
         use_feectools: bool
             Use slimmed-down fork `feectools` of Psydac.
         """
@@ -845,7 +845,7 @@ class Derham:
                 spl_kind=spl_kind,
                 ddm=self.domain_decomposition,
             )
-            
+
         else:
             import psydac
             from psydac.api.discretization import discretize
