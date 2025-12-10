@@ -199,7 +199,8 @@ class Derham:
         try:
             import psydac
         except ModuleNotFoundError:
-            use_feectools = True
+            pass
+        use_feectools = True
             
         for i, sp_form in enumerate(self.space_to_form.values()):
             # FEM space and projector
