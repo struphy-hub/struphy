@@ -196,7 +196,11 @@ class Derham:
         self._quad_grid_bases = {}
 
         # i is an int that represents the id of the p-form space. For instance, for V_0, i = 0.
-        psydac_ver = importlib.metadata.version("psydac")
+        try:
+            import psydac
+        except ModuleNotFoundError:
+            use_feectools = True
+            
         for i, sp_form in enumerate(self.space_to_form.values()):
             # FEM space and projector
             if sp_form == "v":
@@ -205,7 +209,7 @@ class Derham:
                     _derham.V0,
                     _derham.V0,
                 )
-                if "dev" in psydac_ver:
+                if use_feectools:
                     _h1vec_space.symbolic_space = "H1vec"
                 self._Vh_fem[sp_form] = _h1vec_space
                 self._P[sp_form] = GlobalGeometricProjectorH1vec(self.Vh_fem[sp_form])
@@ -826,20 +830,9 @@ class Derham:
             If mpi_dims_mask[i]=False, the i-th dimension will not be decomposed.
         """
 
-        psydac_ver = importlib.metadata.version("psydac")
-
-        if "dev" in psydac_ver:
-            # use tiny-psydac version
-            self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
-
-            _derham = self._discretize_derham(
-                Nel=Nel,
-                p=p,
-                spl_kind=spl_kind,
-                ddm=self.domain_decomposition,
-            )
-        else:
-            from feectools.api.discretization import discretize
+        try:
+            import psydac
+            from psydac.api.discretization import discretize
             from sympde.topology import Cube
             from sympde.topology import Derham as Derham_psy
 
@@ -869,6 +862,17 @@ class Derham:
                 self._domain_log_h,
                 degree=p,
             )  # , nquads=self.nquads) # nquads can no longer be passed to a call to discretize on a FemSpace #403
+            
+        except ModuleNotFoundError:
+            # use feectools
+            self._domain_decomposition = DomainDecomposition(Nel, spl_kind, comm=comm, mpi_dims_mask=mpi_dims_mask)
+
+            _derham = self._discretize_derham(
+                Nel=Nel,
+                p=p,
+                spl_kind=spl_kind,
+                ddm=self.domain_decomposition,
+            )
 
         return _derham
 
