@@ -22,7 +22,7 @@ def test_init_modes(Nel, p, spl_kind, mapping, combine_comps=None, do_plot=False
 
     import cunumpy as xp
     from matplotlib import pyplot as plt
-    from psydac.ddm.mpi import mpi as MPI
+    from feectools.ddm.mpi import mpi as MPI
 
     from struphy.feec.psydac_derham import Derham
     from struphy.geometry import domains

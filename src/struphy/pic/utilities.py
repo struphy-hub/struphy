@@ -242,7 +242,7 @@ def get_kinetic_energy_particles(fe_coeffs, derham, domain, particles):
 
     Parameters
     ----------
-        fe_coeffs : psydac.linalg.stencil.StencilVector or psydac.linalg.block.BlockVector
+        fe_coeffs : feectools.linalg.stencil.StencilVector or feectools.linalg.block.BlockVector
             FE coefficients of 1 form, i.e., vector potential.
 
         derham : struphy.feec.psydac_derham.Derham
@@ -278,7 +278,7 @@ def get_electron_thermal_energy(density_0_form, derham, domain, nel1, nel2, nel3
 
     Parameters
     ----------
-        density_0_form : psydac.linalg.stencil.StencilVector
+        density_0_form : feectools.linalg.stencil.StencilVector
             values of density at quadrature points, 3-form.
 
         derham : struphy.feec.psydac_derham.Derham

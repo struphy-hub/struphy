@@ -3,7 +3,7 @@ import shutil
 
 import cunumpy as xp
 from matplotlib import pyplot as plt
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.fields_background import equils

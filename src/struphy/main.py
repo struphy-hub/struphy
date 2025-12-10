@@ -11,8 +11,8 @@ from typing import Optional, TypedDict
 import cunumpy as xp
 import h5py
 from line_profiler import profile
-from psydac.ddm.mpi import MockMPI
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import MockMPI
+from feectools.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB

@@ -4,7 +4,7 @@ import shutil
 from types import ModuleType
 
 import pytest
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.io.options import EnvironmentOptions

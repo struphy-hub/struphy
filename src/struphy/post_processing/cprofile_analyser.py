@@ -123,7 +123,7 @@ def replace_keys(d):
     import struphy
 
     struphy_path = struphy.__path__[0]
-    psydac_path = psydac.__path__[0]
+    psydac_path = feectools.__path__[0]
 
     key_list = []
     for key in d.keys():

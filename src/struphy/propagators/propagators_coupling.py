@@ -5,10 +5,10 @@ from typing import Literal
 
 import cunumpy as xp
 from line_profiler import profile
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.block import BlockVector
-from psydac.linalg.solvers import inverse
-from psydac.linalg.stencil import StencilVector
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.block import BlockVector
+from feectools.linalg.solvers import inverse
+from feectools.linalg.stencil import StencilVector
 
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp

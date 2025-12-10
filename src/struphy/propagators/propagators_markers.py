@@ -7,10 +7,10 @@ from typing import Callable, Literal, get_args
 import cunumpy as xp
 from line_profiler import profile
 from numpy import array, polynomial, random
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.basic import LinearOperator
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilVector
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.basic import LinearOperator
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilVector
 
 from struphy.feec.mass import WeightedMassOperators
 from struphy.fields_background.base import MHDequilibrium

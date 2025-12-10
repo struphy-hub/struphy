@@ -5,7 +5,7 @@ import cunumpy as xp
 import h5py
 from matplotlib import pyplot as plt
 from matplotlib.ticker import FormatStrFormatter
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.fields_background import equils

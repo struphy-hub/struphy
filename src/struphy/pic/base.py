@@ -16,8 +16,8 @@ except ModuleNotFoundError:
 
 import cunumpy as xp
 from line_profiler import profile
-from psydac.ddm.mpi import MockComm
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 from sympy.ntheory import factorint
 
 from struphy.bsplines.bsplines import quadrature_grid

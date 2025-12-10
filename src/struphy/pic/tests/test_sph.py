@@ -1,8 +1,8 @@
 import cunumpy as xp
 import pytest
 from matplotlib import pyplot as plt
-from psydac.ddm.mpi import MockComm
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy.fields_background.equils import ConstantVelocity
 from struphy.fields_background.generic import GenericCartesianFluidEquilibrium
