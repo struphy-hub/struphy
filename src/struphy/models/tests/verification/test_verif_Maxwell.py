@@ -3,8 +3,8 @@ import shutil
 
 import cunumpy as xp
 import pytest
-from matplotlib import pyplot as plt
 from feectools.ddm.mpi import mpi as MPI
+from matplotlib import pyplot as plt
 from scipy.special import jv, yn
 
 from struphy import main

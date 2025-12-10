@@ -10,9 +10,9 @@ from typing import Optional, TypedDict
 
 import cunumpy as xp
 import h5py
-from line_profiler import profile
 from feectools.ddm.mpi import MockMPI
 from feectools.ddm.mpi import mpi as MPI
+from line_profiler import profile
 from pyevtk.hl import gridToVTK
 
 from struphy.fields_background.base import FluidEquilibrium, FluidEquilibriumWithB

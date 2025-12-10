@@ -65,8 +65,8 @@ def test_bckgr_init_mhd(Nel, p, spl_kind, with_desc=False, with_gvec=False, show
     import inspect
 
     import cunumpy as xp
-    from matplotlib import pyplot as plt
     from feectools.ddm.mpi import mpi as MPI
+    from matplotlib import pyplot as plt
 
     from struphy.feec.psydac_derham import Derham
     from struphy.fields_background import equils
@@ -1084,8 +1084,8 @@ def test_sincos_init_const(Nel, p, spl_kind, show_plot=False):
     """Test field perturbation with ModesSin + ModesCos on top of of "LogicalConst" with multiple fields in params."""
 
     import cunumpy as xp
-    from matplotlib import pyplot as plt
     from feectools.ddm.mpi import mpi as MPI
+    from matplotlib import pyplot as plt
 
     from struphy.feec.psydac_derham import Derham
     from struphy.initial.perturbations import ModesCos, ModesSin

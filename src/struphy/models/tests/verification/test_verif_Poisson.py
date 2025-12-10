@@ -2,8 +2,8 @@ import os
 import shutil
 
 import cunumpy as xp
-from matplotlib import pyplot as plt
 from feectools.ddm.mpi import mpi as MPI
+from matplotlib import pyplot as plt
 
 from struphy import main
 from struphy.fields_background import equils

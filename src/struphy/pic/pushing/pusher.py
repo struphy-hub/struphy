@@ -1,8 +1,8 @@
 "Accelerated particle pushing."
 
 import cunumpy as xp
-from line_profiler import profile
 from feectools.ddm.mpi import mpi as MPI
+from line_profiler import profile
 
 from struphy.kernel_arguments.pusher_args_kernels import DerhamArguments, DomainArguments
 from struphy.pic.base import Particles

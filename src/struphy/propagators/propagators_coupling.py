@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from typing import Literal
 
 import cunumpy as xp
-from line_profiler import profile
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 from feectools.linalg.solvers import inverse
 from feectools.linalg.stencil import StencilVector
+from line_profiler import profile
 
 from struphy.feec import preconditioner
 from struphy.feec.linear_operators import LinOpWithTransp
