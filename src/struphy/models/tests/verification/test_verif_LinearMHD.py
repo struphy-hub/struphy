@@ -3,7 +3,7 @@ import shutil
 
 import cunumpy as xp
 import pytest
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy import main
 from struphy.diagnostics.diagn_tools import power_spectrum_2d

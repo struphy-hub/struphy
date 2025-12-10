@@ -1,7 +1,7 @@
 import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilVector
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilVector
 
 from struphy.feec.projectors import L2Projector
 from struphy.feec.variational_utilities import H1vecMassMatrix_density, InternalEnergyEvaluator

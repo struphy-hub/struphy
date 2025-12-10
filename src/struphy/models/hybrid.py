@@ -1,5 +1,5 @@
 import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy.models.base import StruphyModel
 from struphy.models.species import FieldSpecies, FluidSpecies, ParticleSpecies

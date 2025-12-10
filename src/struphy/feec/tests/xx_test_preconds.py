@@ -13,9 +13,9 @@ import pytest
 )
 def test_mass_preconditioner(Nel, p, spl_kind, mapping):
     import cunumpy as xp
-    from psydac.ddm.mpi import mpi as MPI
-    from psydac.linalg.block import BlockVector
-    from psydac.linalg.stencil import StencilVector
+    from feectools.ddm.mpi import mpi as MPI
+    from feectools.linalg.block import BlockVector
+    from feectools.linalg.stencil import StencilVector
 
     from struphy.feec.linear_operators import InverseLinearOperator
     from struphy.feec.mass import WeightedMassOperators

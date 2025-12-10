@@ -2,7 +2,7 @@ import os
 
 import cunumpy as xp
 import yaml
-from psydac.api.discretization import discretize
+from feectools.api.discretization import discretize
 from sympde.topology import Derham, Line
 
 from struphy.fields_background.equils import set_defaults

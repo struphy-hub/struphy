@@ -2,14 +2,14 @@ import inspect
 from copy import deepcopy
 
 import cunumpy as xp
-from psydac.api.settings import PSYDAC_BACKEND_GPYCCEL
-from psydac.ddm.mpi import mpi as MPI
-from psydac.fem.tensor import TensorFemSpace
-from psydac.fem.vector import VectorFemSpace
-from psydac.linalg.basic import IdentityOperator, LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator, BlockVector
-from psydac.linalg.solvers import inverse
-from psydac.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
+from feectools.api.settings import PSYDAC_BACKEND_GPYCCEL
+from feectools.ddm.mpi import mpi as MPI
+from feectools.fem.tensor import TensorFemSpace
+from feectools.fem.vector import VectorFemSpace
+from feectools.linalg.basic import IdentityOperator, LinearOperator, Vector
+from feectools.linalg.block import BlockLinearOperator, BlockVector
+from feectools.linalg.solvers import inverse
+from feectools.linalg.stencil import StencilDiagonalMatrix, StencilMatrix, StencilVector
 
 from struphy.feec import mass_kernels
 from struphy.feec.linear_operators import BoundaryOperator, LinOpWithTransp
@@ -2065,10 +2065,10 @@ class WeightedMassOperator(LinOpWithTransp):
         Struphy Derham object.
 
     V : TensorFemSpace | VectorFemSpace
-        Tensor product spline space from psydac.fem.tensor (domain, input space).
+        Tensor product spline space from feectools.fem.tensor (domain, input space).
 
     W : TensorFemSpace | VectorFemSpace
-        Tensor product spline space from psydac.fem.tensor (codomain, output space).
+        Tensor product spline space from feectools.fem.tensor (codomain, output space).
 
     name : str
         Name of the operator.
@@ -2577,10 +2577,10 @@ class WeightedMassOperator(LinOpWithTransp):
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             The input (domain) vector.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the output will be written in-place into this vector.
 
         apply_bc : bool
@@ -2588,7 +2588,7 @@ class WeightedMassOperator(LinOpWithTransp):
 
         Returns
         -------
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             The output (codomain) vector.
         """
 
@@ -3004,7 +3004,7 @@ class WeightedMassOperator(LinOpWithTransp):
         Parameters
         ----------
         W : TensorFemSpace | VectorFemSpace
-            Tensor product spline space from psydac.fem.tensor.
+            Tensor product spline space from feectools.fem.tensor.
 
         coeffs : StencilVector | BlockVector
             The coefficient vector corresponding to the FEM field. Ghost regions must be up-to-date!
@@ -3279,10 +3279,10 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         Parameters
         ----------
-        v : psydac.linalg.basic.Vector
+        v : feectools.linalg.basic.Vector
             The input (domain) vector.
 
-        out : psydac.linalg.basic.Vector, optional
+        out : feectools.linalg.basic.Vector, optional
             If given, the output will be written in-place into this vector.
 
         apply_bc : bool
@@ -3290,7 +3290,7 @@ class StencilMatrixFreeMassOperator(LinOpWithTransp):
 
         Returns
         -------
-        out : psydac.linalg.basic.Vector
+        out : feectools.linalg.basic.Vector
             The output (codomain) vector.
         """
 
