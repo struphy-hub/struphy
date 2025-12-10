@@ -26,7 +26,7 @@ dependencies = [
     'numpy',
     'cunumpy',
     'pyccel>=2.0',
-    'feectools @ git+https://github.com/struphy-hub/psydac-for-struphy.git@feec-for-struphy',
+    'feectools',
     'scipy',
     'h5py',
     'matplotlib',
