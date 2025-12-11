@@ -19,86 +19,12 @@ Prerequisites
 - An MPI library like open-mpi, mpich
 - OpenMP
 
-**Interfaces to physics codes:**
-
-- Check the requirements for `GVEC <https://gvec.readthedocs.io/v1.0/user/install.html#prerequisites>`_.
-
-
-Virtual environment
--------------------
-
-In order to not interfere with existing Python packages, 
-it is highly recommended to install Struphy in a `virtual environment <https://pypi.org/project/virtualenv/>`_::
-
-    python -m pip install -U virtualenv
-
-Then::
-
-    python -m venv struphy_env
-    source struphy_env/bin/activate
-    pip install -U pip
-
-
-.. _install_modes:
-
-Install and compile
--------------------
-
-.. tab-set::
-
-    .. tab-item:: base install
-
-        .. code-block::
-
-            pip install -U struphy
-            struphy compile
-            struphy -h
-
-    .. tab-item:: more Physics
-
-        .. code-block::
-
-            pip install -U struphy[phys]
-            struphy compile
-            struphy -h
-
-    .. tab-item:: with MPI
-
-        .. code-block::
-
-            pip install -U struphy[mpi]
-            struphy compile
-            struphy -h
-
-    .. tab-item:: for developers
-
-        .. code-block::
-
-            git clone git@github.com:struphy-hub/struphy.git
-            cd struphy
-            pip install -e .[dev]
-            struphy compile
-            struphy -h
-
-    .. tab-item:: all options
-
-        .. code-block::
-
-            git clone git@github.com:struphy-hub/struphy.git
-            cd struphy
-            pip install -e .[all]
-            struphy compile
-            struphy -h
-
-In case you encounter problems during install visit :ref:`trouble_shoot`.
-
-
 .. _sample_envs:
 
 Sample environments
 -------------------
 
-Some Linux environments on which Struphy is continuously tested are:
+Some Linux/MacOS environments on which Struphy is continuously tested are:
 
 .. tab-set::
 
@@ -207,6 +133,79 @@ Some Linux environments on which Struphy is continuously tested are:
 
 On **Windows systems** we recommend the use of a virtual machine, for instance the :ref:`multipass`.
 
+
+**Interfaces to physics codes:**
+
+- Check the requirements for `GVEC <https://gvec.readthedocs.io/v1.0/user/install.html#prerequisites>`_.
+
+
+Virtual environment
+-------------------
+
+In order to not interfere with existing Python packages, 
+it is highly recommended to install Struphy in a `virtual environment <https://pypi.org/project/virtualenv/>`_::
+
+    python -m pip install -U virtualenv
+
+Then::
+
+    python -m venv struphy_env
+    source struphy_env/bin/activate
+    pip install -U pip
+
+
+.. _install_modes:
+
+Install and compile
+-------------------
+
+.. tab-set::
+
+    .. tab-item:: base install
+
+        .. code-block::
+
+            pip install -U struphy
+            struphy compile
+            struphy -h
+
+    .. tab-item:: more Physics
+
+        .. code-block::
+
+            pip install -U struphy[phys]
+            struphy compile
+            struphy -h
+
+    .. tab-item:: with MPI
+
+        .. code-block::
+
+            pip install -U struphy[mpi]
+            struphy compile
+            struphy -h
+
+    .. tab-item:: for developers
+
+        .. code-block::
+
+            git clone git@github.com:struphy-hub/struphy.git
+            cd struphy
+            pip install -e .[dev]
+            struphy compile
+            struphy -h
+
+    .. tab-item:: all options
+
+        .. code-block::
+
+            git clone git@github.com:struphy-hub/struphy.git
+            cd struphy
+            pip install -e .[all]
+            struphy compile
+            struphy -h
+
+In case you encounter problems during install visit :ref:`trouble_shoot`.
 
 .. _trouble_shoot:
 
