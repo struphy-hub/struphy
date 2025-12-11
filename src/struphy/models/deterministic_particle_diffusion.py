@@ -1,4 +1,3 @@
-
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector

@@ -6,6 +6,7 @@ import struphy.models.fluid as fluid
 import struphy.models.hybrid as hybrid
 import struphy.models.kinetic as kinetic
 import struphy.models.toy as toy
+
 from struphy.models.base import StruphyModel
 
 

@@ -1,4 +1,3 @@
-
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
@@ -12,6 +11,7 @@ from struphy.feec.variational_utilities import (
 from struphy.kinetic_background.base import KineticBackground
 from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.models.base import StruphyModel
+from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
@@ -28,8 +28,6 @@ from struphy.propagators import (
     propagators_markers,
 )
 from struphy.utils.pyccel import Pyccelkernel
-from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
-
 
 rank = MPI.COMM_WORLD.Get_rank()
 
