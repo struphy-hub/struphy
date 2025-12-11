@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "3.0.0"
+version = "3.0.1"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -126,16 +126,8 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
 "struphy.io" = [
     "batch/*.sh",
 ]
-"struphy.io.inp" = [
-    "parameters.yml",
-    "tests/*.yml",
-    "tutorials/*.yml",
-    "longer_examples/*.yml",
-    "verification/*.yml",
-]
 struphy = [
     "compile_struphy.mk",
-    "psydac-3.0.0.dev0-py3-none-any.whl",
 ]
 
 [tool.autopep8]
