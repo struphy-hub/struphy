@@ -3,7 +3,6 @@ import os
 import shutil
 from types import ModuleType
 
-import pytest
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy import main

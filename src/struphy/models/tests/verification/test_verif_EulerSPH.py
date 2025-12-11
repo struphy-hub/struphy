@@ -11,8 +11,7 @@ from struphy import main
 from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
-from struphy.kinetic_background import maxwellians
+from struphy.io.options import BaseUnits, EnvironmentOptions, Time
 from struphy.pic.utilities import (
     BinningPlot,
     BoundaryParameters,
@@ -20,7 +19,6 @@ from struphy.pic.utilities import (
     LoadingParameters,
     WeightsParameters,
 )
-from struphy.topology import grids
 
 
 @pytest.mark.parametrize("nx", [12, 24])

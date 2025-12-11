@@ -13,37 +13,31 @@ from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 
-import struphy
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
 from struphy.feec.mass import WeightedMassOperators
-from struphy.feec.psydac_derham import SplineFunction
 from struphy.fields_background.base import (
     FluidEquilibrium,
     FluidEquilibriumWithB,
     MHDequilibrium,
     NumericalMHDequilibrium,
 )
-from struphy.fields_background.equils import HomogenSlab
 from struphy.fields_background.projected_equils import (
     ProjectedFluidEquilibrium,
     ProjectedFluidEquilibriumWithB,
     ProjectedMHDequilibrium,
 )
 from struphy.geometry.base import Domain
-from struphy.geometry.domains import Cuboid
-from struphy.io.options import BaseUnits, DerhamOptions, Time, Units
+from struphy.io.options import DerhamOptions, Units
 from struphy.io.output_handling import DataContainer
-from struphy.io.setup import descend_options_dict, setup_derham
-from struphy.kinetic_background import maxwellians
+from struphy.io.setup import setup_derham
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
 from struphy.models.variables import FEECVariable, PICVariable, SPHVariable
-from struphy.pic import particles
 from struphy.pic.base import Particles
 from struphy.profiling.profiling import ProfileManager
 from struphy.propagators.base import Propagator
 from struphy.topology.grids import TensorProductGrid
 from struphy.utils.clone_config import CloneConfig
-from struphy.utils.utils import dict_to_yaml, read_state
+from struphy.utils.utils import dict_to_yaml
 
 
 class StruphyModel(metaclass=ABCMeta):
@@ -1221,7 +1215,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
     def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
         import os
 
-        import yaml
 
         import struphy.utils.utils as utils
 

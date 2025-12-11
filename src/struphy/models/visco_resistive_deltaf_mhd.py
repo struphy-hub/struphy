@@ -1,32 +1,18 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
-from feectools.linalg.block import BlockVector
-from feectools.linalg.stencil import StencilVector
 
 from struphy.feec.projectors import L2Projector
-from struphy.feec.variational_utilities import (
-    H1vecMassMatrix_density,
-    InternalEnergyEvaluator,
-)
-from struphy.kinetic_background.base import KineticBackground
-from struphy.kinetic_background.maxwellians import Maxwellian3D
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     DiagnosticSpecies,
     FieldSpecies,
     FluidSpecies,
-    ParticleSpecies,
 )
-from struphy.models.variables import FEECVariable, PICVariable, SPHVariable, Variable
-from struphy.pic.accumulation import accum_kernels, accum_kernels_gc
-from struphy.pic.accumulation.particles_to_grid import AccumulatorVector
+from struphy.models.variables import FEECVariable
 from struphy.polar.basic import PolarVector
 from struphy.propagators import (
-    propagators_coupling,
     propagators_fields,
-    propagators_markers,
 )
-from struphy.utils.pyccel import Pyccelkernel
 
 rank = MPI.COMM_WORLD.Get_rank()
 

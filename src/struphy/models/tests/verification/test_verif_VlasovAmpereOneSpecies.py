@@ -5,18 +5,15 @@ import cunumpy as xp
 import h5py
 from feectools.ddm.mpi import mpi as MPI
 from matplotlib import pyplot as plt
-from matplotlib.ticker import FormatStrFormatter
 
 from struphy import main
-from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
+from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.kinetic_background import maxwellians
 from struphy.pic.utilities import (
     BinningPlot,
     BoundaryParameters,
-    KernelDensityPlot,
     LoadingParameters,
     WeightsParameters,
 )

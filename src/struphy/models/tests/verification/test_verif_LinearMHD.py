@@ -10,8 +10,7 @@ from struphy.diagnostics.diagn_tools import power_spectrum_2d
 from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.initial import perturbations
-from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, FieldsBackground, Time
-from struphy.kinetic_background import maxwellians
+from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
 from struphy.topology import grids
 
 
