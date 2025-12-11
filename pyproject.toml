@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "struphy"
-version = "3.0.0"
+version = "3.0.1"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
@@ -25,7 +25,8 @@ classifiers = [
 dependencies = [
     "numpy<=2.2.6",
     "cunumpy<=0.1",
-    "pyccel<=2.0.1, >=2.0",
+    "pyccel<=2.1.0, >=2.0",
+    "feectools<=0.1.0",
     "scipy<=1.15.3",
     "h5py<=3.14.0",
     "matplotlib<=3.10.5",
@@ -33,8 +34,9 @@ dependencies = [
     "vtk<=9.5.2",
     "tqdm<=4.67.1",
     "argcomplete<=3.6.3",
-    "pytest<=9.0.1",
+    "pytest<=9.0.2",
     "pytest-mpi<=0.6",
+    "pytest-testmon<=2.2.0",
     "line_profiler<=5.0.0",
 ]
 
@@ -120,19 +122,8 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
     "run_03/*.ini",
     "run_03/*.nc",
 ]
-"struphy.io" = [
-    "batch/*.sh",
-]
-"struphy.io.inp" = [
-    "parameters.yml",
-    "tests/*.yml",
-    "tutorials/*.yml",
-    "longer_examples/*.yml",
-    "verification/*.yml",
-]
 struphy = [
     "compile_struphy.mk",
-    "psydac-3.0.0.dev0-py3-none-any.whl",
 ]
 
 [tool.autopep8]

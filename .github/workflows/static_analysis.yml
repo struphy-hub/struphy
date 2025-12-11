@@ -42,15 +42,6 @@ jobs:
       - name: Display Python version
         run: python -c "import sys; print(sys.version)"
 
-      # Cache pip dependencies
-      - name: Cache pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
       - name: Install prerequisites (Ubuntu)
         uses: ./.github/actions/install/ubuntu-latest
 
@@ -116,11 +107,10 @@ jobs:
       - name: Checkout the code
         uses: actions/checkout@v4
 
-      # TODO: Remove --select I once all errors are fixed
-      - name: ruff check --select I
+      - name: Code formatting with ruff
         run: |
           pip install ruff
-          ruff check --select I
+          ruff check
       
       - name: ruff format --check
         run: |

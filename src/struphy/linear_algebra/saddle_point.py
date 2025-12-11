@@ -2,10 +2,10 @@ from typing import Union
 
 import cunumpy as xp
 import scipy as sc
-from psydac.linalg.basic import LinearOperator, Vector
-from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.direct_solvers import SparseSolver
-from psydac.linalg.solvers import inverse
+from feectools.linalg.basic import LinearOperator, Vector
+from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from feectools.linalg.direct_solvers import SparseSolver
+from feectools.linalg.solvers import inverse
 
 from struphy.linear_algebra.tests.test_saddlepoint_massmatrices import _plot_residual_norms
 
@@ -27,7 +27,7 @@ class SaddlePointSolver:
             f \cr 0
         } \right)
 
-    using either the Uzawa iteration :math:`BA^{-1}B^{\top} y = BA^{-1} f` or using on of the solvers given in :mod:`psydac.linalg.solvers`. The prefered solver is GMRES.
+    using either the Uzawa iteration :math:`BA^{-1}B^{\top} y = BA^{-1} f` or using on of the solvers given in :mod:`feectools.linalg.solvers`. The prefered solver is GMRES.
     The decission which variant to use is given by the type of A. If A is of type list of xp.ndarrays or sc.sparse.csr_matrices, then this class uses the Uzawa algorithm.
     If A is of type LinearOperator or BlockLinearOperator, a solver is used for the inverse.
     Using the Uzawa algorithm, solution is given by:
@@ -44,8 +44,8 @@ class SaddlePointSolver:
         Either the entries on the diagonals of block A are given as list of xp.ndarray or sc.sparse.csr_matrix.
         Alternative: Give whole matrice A as LinearOperator or BlockLinearOperator.
         list: Uzawa algorithm is used.
-        LinearOperator: A solver given in :mod:`psydac.linalg.solvers` is used. Specified by solver_name.
-        BlockLinearOperator: A solver given in :mod:`psydac.linalg.solvers` is used. Specified by solver_name.
+        LinearOperator: A solver given in :mod:`feectools.linalg.solvers` is used. Specified by solver_name.
+        BlockLinearOperator: A solver given in :mod:`feectools.linalg.solvers` is used. Specified by solver_name.
 
     B : list, LinearOperator or BlockLinearOperator
         Lower left block.
@@ -94,7 +94,7 @@ class SaddlePointSolver:
         max_iter: int = 1000,
         **solver_params,
     ):
-        assert type(A) == type(B)
+        assert type(A) is type(B)
         if isinstance(A, list):
             self._variant = "Uzawa"
             for i in A:

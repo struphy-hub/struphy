@@ -121,14 +121,14 @@ def add_plot_flop(
     theoretical_max_gflops=3072.0,
     xmax=1e3,
 ):
-    if label == None:
+    if label is None:
         legend_label = f"{round(gflops)} GFLOP/s, {round(gflops / theoretical_max_gflops * 100, 2)} % of theoretical"
     else:
         legend_label = (
             f"{label}({round(gflops)} GFLOP/s, {round(gflops / theoretical_max_gflops * 100, 2)} % of theoretical)"
         )
 
-    if color == None:
+    if color is None:
         # line, = mfig.axs.loglog([xmin,xmax],[gflops,gflops],linestyle=linestyle)#,label = legend_label)
         line = mfig.axs.axhline(y=gflops, linestyle=linestyle)
     else:

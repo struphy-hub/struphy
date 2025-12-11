@@ -69,7 +69,8 @@ Under ``simdata.f`` you find binning data, in this case a 1d binning plot in the
  
 Parallel simulations can invoked from the same launch file for instance by::
 
-    mpirun -n 4 struphy_test.py
+    pip install -U mpi4py
+    mpirun -n 4 python struphy_test.py
 
 If you want to learn more please check the :ref:`userguide`.
 

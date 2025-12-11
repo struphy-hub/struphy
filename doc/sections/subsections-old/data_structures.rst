@@ -13,17 +13,17 @@ FEEC variables
 Struphy uses the FEEC data structures provided by the open source package `Psydac <https://github.com/pyccel/psydac>`_ for its
 fluid/EM-fields variables. FE coefficients are stores as
 
-* a :class:`StencilVector <psydac.linalg.stencil.StencilVector>` for scalar-valued variables (:code:`H1` or :code:`L2`)
-* a :class:`BlockVector <psydac.linalg.block.BlockVector>` for vector-valued variables (:code:`Hcurl`, :code:`Hdiv` or :code:`H1vec`)
+* a :class:`StencilVector <feectools.linalg.stencil.StencilVector>` for scalar-valued variables (:code:`H1` or :code:`L2`)
+* a :class:`BlockVector <feectools.linalg.block.BlockVector>` for vector-valued variables (:code:`Hcurl`, :code:`Hdiv` or :code:`H1vec`)
 
 A BlockVector is just a 3-list of StencilVectors. 
 
-.. autoclass:: psydac.linalg.stencil.StencilVector
+.. autoclass:: feectools.linalg.stencil.StencilVector
     :members:
     :undoc-members:
     :show-inheritance:
 
-.. autoclass:: psydac.linalg.block.BlockVector
+.. autoclass:: feectools.linalg.block.BlockVector
     :members:
     :undoc-members:
     :show-inheritance:

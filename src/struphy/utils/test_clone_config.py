@@ -1,6 +1,6 @@
 import pytest
-from psydac.ddm.mpi import MockComm
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import MockComm
+from feectools.ddm.mpi import mpi as MPI
 
 
 @pytest.mark.parametrize("Nel", [[8, 9, 5], [7, 8, 9]])

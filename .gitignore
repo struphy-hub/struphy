@@ -71,6 +71,7 @@ __epyccel__/
 *.vts
 *acquisition.lock
 *.json
+.testmondata*
 .output*
 
 # Default simulations and diagnostics

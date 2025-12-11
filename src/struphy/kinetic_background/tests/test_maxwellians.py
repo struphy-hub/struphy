@@ -294,7 +294,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
                 continue
 
             if "GVECequilibrium" in key:
-                print(f"Attention: GVEC not tested here !!")
+                print("Attention: GVEC not tested here !!")
                 # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
 
@@ -377,7 +377,7 @@ def test_maxwellian_3d_mhd(Nel, with_desc, show_plot=False):
 
             # test flat evaluation
             if "GVECequilibrium" in key:
-                print(f"Attention: GVEC not tested here !!")
+                print("Attention: GVEC not tested here !!")
                 # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
                 pass
@@ -1095,7 +1095,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
                 continue
 
             if "GVECequilibrium" in key:
-                print(f"Attention: GVEC not tested here !!")
+                print("Attention: GVEC not tested here !!")
                 # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
 
@@ -1170,7 +1170,7 @@ def test_maxwellian_2d_mhd(Nel, with_desc, show_plot=False):
 
             # test flat evaluation
             if "GVECequilibrium" in key:
-                print(f"Attention: GVEC not tested here !!")
+                print("Attention: GVEC not tested here !!")
                 # print("Attention: flat (marker) evaluation not tested for GVEC at the moment.")
                 continue
                 pass

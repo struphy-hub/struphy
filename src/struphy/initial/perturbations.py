@@ -31,7 +31,7 @@ class Noise(Perturbation):
     amp: float = 0.0001
     seed: int = None
     comp: int = 0
-    given_in_basis: GivenInBasis = "0"
+    given_in_basis: GivenInBasis = None
 
     def __post_init__(
         self,
@@ -111,7 +111,7 @@ class ModesSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -247,7 +247,7 @@ class ModesCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -448,7 +448,7 @@ class ModesCosCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -553,7 +553,7 @@ class ModesSinSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
         if ls is not None:
@@ -658,7 +658,7 @@ class ModesSinCos(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
         # number of modes
@@ -765,7 +765,7 @@ class ModesCosSin(Perturbation):
         Lx=1.0,
         Ly=1.0,
         Lz=1.0,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
         # number of modes
@@ -902,10 +902,11 @@ class TorusModesSin(Perturbation):
         amps=(1e-4,),
         pfuns=("sin",),
         pfun_params=None,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis
 
         if ms is not None:
             n_modes = len(ms)
@@ -1034,10 +1035,11 @@ class TorusModesCos(Perturbation):
         amps: tuple = (0.1,),
         pfuns: tuple = ("sin",),
         pfun_params=None,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis
 
         if ms is not None:
             n_modes = len(ms)
@@ -1144,10 +1146,11 @@ class Shear_x(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
         self._amp = amp
         self._delta = delta
@@ -1190,10 +1193,11 @@ class Shear_y(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
         self._amp = amp
         self._delta = delta
@@ -1236,10 +1240,11 @@ class Shear_z(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
         self._amp = amp
         self._delta = delta
@@ -1282,10 +1287,11 @@ class Erf_z(Perturbation):
         self,
         amp=1e-4,
         delta=1 / 15,
-        given_in_basis: GivenInBasis = "0",
+        given_in_basis: GivenInBasis = None,
         comp: int = 0,
     ):
-        assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
+        if given_in_basis is not None:
+            assert "physical" not in given_in_basis, f"Perturbation {self.__name__} can only be used in logical space."
 
         self._amp = amp
         self._delta = delta
@@ -1970,7 +1976,6 @@ class ITPA_density(Perturbation):
         self,
         n0: float = 0.00720655,
         c: tuple = (0.491230, 0.298228, 0.198739, 0.521298),
-        given_in_basis: GivenInBasis = "0",
         comp: int = 0,
     ):
         """
