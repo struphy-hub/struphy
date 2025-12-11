@@ -3,9 +3,8 @@ import sys
 import yaml
 from feectools.ddm.mpi import mpi as MPI
 
-from struphy.models import fluid, hybrid, kinetic, toy
+import struphy.models as models
 from struphy.models.base import StruphyModel
-
 
 def struphy_params(model_name: str, yes: bool = False, check_file: bool = False):
     """Create a model's default parameter file and save in current input path.
@@ -18,13 +17,12 @@ def struphy_params(model_name: str, yes: bool = False, check_file: bool = False)
     yes : bool
         If true, say yes on prompt to overwrite .yml FILE
     """
-    objs = [fluid, kinetic, hybrid, toy]
-    for obj in objs:
-        try:
-            model_class = getattr(obj, model_name)
-            model: StruphyModel = model_class()
-        except AttributeError:
-            pass
+
+    try:
+        model_class = getattr(models, model_name)
+        model: StruphyModel = model_class()
+    except AttributeError:
+        raise ModuleNotFoundError(f"{model_name} not found!")
 
     print(f"{model_name =}")
 

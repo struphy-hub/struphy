@@ -106,7 +106,8 @@ def refresh_models():
     import inspect
     import pickle
 
-    from struphy.models import fluid, hybrid, kinetic, toy
+    
+    import struphy.models as models
 
     list_fluid = []
     fluid_string = ""
