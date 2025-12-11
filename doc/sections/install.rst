@@ -194,9 +194,16 @@ Some Linux environments on which Struphy is continuously tested are:
             brew install openblas
             brew install lapack
             brew install open-mpi
+            brew install pkgconf
             brew install libomp
             brew install git
             brew install pandoc
+            brew install hdf5
+            brew install netcdf-fortran
+            brew install cmake
+            export "FC=$(which gfortran)" # for gvec
+            export "CC=$(which gcc)" >> # for gvec
+            export "CXX=$(which g++)" >> # for gvec
 
 On **Windows systems** we recommend the use of a virtual machine, for instance the :ref:`multipass`.
 
