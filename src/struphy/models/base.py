@@ -1215,7 +1215,6 @@ Available options stand in lists as dict values.\nThe first entry of a list deno
     def write_parameters_to_file(cls, parameters=None, file=None, save=True, prompt=True):
         import os
 
-
         import struphy.utils.utils as utils
 
         # Read struphy state file
