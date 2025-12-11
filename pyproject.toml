@@ -123,9 +123,6 @@ kinetic-diagnostics = "struphy.diagnostics.console_diagn:main"
     "run_03/*.ini",
     "run_03/*.nc",
 ]
-"struphy.io" = [
-    "batch/*.sh",
-]
 struphy = [
     "compile_struphy.mk",
 ]
