@@ -76,7 +76,7 @@ Install and compile
 
             git clone git@github.com:struphy-hub/struphy.git
             cd struphy
-            pip install -e .[dev,doc]
+            pip install -e .[dev]
             struphy compile
             struphy -h
 
