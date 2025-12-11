@@ -17,7 +17,7 @@ from struphy.topology import grids
 @pytest.mark.parametrize("algo", ["implicit", "explicit"])
 def test_slab_waves_1d(algo: str, do_plot: bool = False):
     # import model, set verbosity
-    from struphy.models.fluid import LinearMHD
+    from struphy.models import LinearMHD
 
     verbose = True
 

@@ -13,7 +13,7 @@ from struphy.fields_background import equils
 from struphy.geometry import domains
 from struphy.initial import perturbations
 from struphy.io.options import BaseUnits, DerhamOptions, EnvironmentOptions, Time
-from struphy.models.toy import Maxwell
+from struphy.models import Maxwell
 from struphy.topology import grids
 
 
@@ -102,7 +102,7 @@ def test_light_wave_1d(algo: str, do_plot: bool = False):
 
 def test_coaxial(do_plot: bool = False):
     # import model, set verbosity
-    from struphy.models.toy import Maxwell
+    from struphy.models import Maxwell
 
     verbose = True
 

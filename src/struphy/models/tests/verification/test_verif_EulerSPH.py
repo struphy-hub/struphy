@@ -28,7 +28,7 @@ def test_soundwave_1d(nx: int, plot_pts: int, do_plot: bool = False):
     A standing sound wave with c_s=1 traveserses the domain once.
     """
     # import model
-    from struphy.models.fluid import EulerSPH
+    from struphy.models import EulerSPH
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")

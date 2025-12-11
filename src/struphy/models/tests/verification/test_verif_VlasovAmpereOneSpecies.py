@@ -25,7 +25,7 @@ def test_weak_Landau(do_plot: bool = False):
     The computed damping rate is compared to the analytical rate.
     """
     # import model
-    from struphy.models.kinetic import VlasovAmpereOneSpecies
+    from struphy.models import VlasovAmpereOneSpecies
 
     # environment options
     test_folder = os.path.join(os.getcwd(), "struphy_verification_tests")
