@@ -1,6 +1,9 @@
 name: MacOS
 
 on:
+  pull_request:
+    branches:
+      - main
   schedule:
     # run at 1 a.m. on Sunday
     - cron: "0 1 * * 0" 
