@@ -28,6 +28,8 @@ from struphy.propagators import (
     propagators_markers,
 )
 from struphy.utils.pyccel import Pyccelkernel
+from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
+
 
 rank = MPI.COMM_WORLD.Get_rank()
 
