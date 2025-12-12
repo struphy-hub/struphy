@@ -1503,7 +1503,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     from struphy.fields_background import equils
     from struphy.geometry import domains
     from struphy.initial import perturbations
-    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian
+    from struphy.kinetic_background.maxwellians import CanonicalMaxwellian2D
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
     e2 = xp.linspace(0.0, 1.0, Nel[1])
@@ -1563,7 +1563,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     # ===========================================================
     maxw_params = {"n": 2.0, "vth": 1.0}
 
-    maxwellian = CanonicalMaxwellian(n=(2.0, None), vth=(1.0, None))
+    maxwellian = CanonicalMaxwellian2D(n=(2.0, None), vth=(1.0, None))
 
     # Test constant value at v_para = v_perp = 0.01
     res = maxwellian(energy, mu, psic).squeeze()
@@ -1673,7 +1673,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     }
     pert = perturbations.ITPA_density(n0=n0, c=c)
 
-    maxwellian = CanonicalMaxwellian(n=(0.0, pert), equil=mhd_equil, volume_form=False)
+    maxwellian = CanonicalMaxwellian2D(n=(0.0, pert), equil=mhd_equil, volume_form=False)
 
     e1 = xp.linspace(0.0, 1.0, Nel[0])
     e2 = xp.linspace(0.0, 1.0, Nel[1])
@@ -1704,7 +1704,7 @@ def test_canonical_maxwellian_uniform(Nel, show_plot=False):
     res = maxwellian(energy, mu, psic).squeeze()
 
     # calculate rc
-    rc = maxwellian.rc(psic)
+    rc = maxwellian.psic_to_eta(psic)
 
     ana_res = n0 * c[3] * xp.exp(-c[2] / c[1] * xp.tanh((rc - c[0]) / c[2]))
     ana_res *= 2 * xp.sqrt(energy / xp.pi) / maxw_params["vth"] ** 3 * xp.exp(-energy / maxw_params["vth"] ** 2)
