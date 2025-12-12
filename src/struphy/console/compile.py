@@ -107,6 +107,11 @@ def struphy_compile(
     if delete:
         # (change dir not to be in source path)
         print("\nDeleting .f90/.c and .so files ...")
+        # TODO: for using pyccel clean in the future
+        # cmd = [
+        #     "pyccel",
+        #     "clean",
+        # ]
         cmd = [
             "make",
             "clean",
@@ -272,6 +277,15 @@ def struphy_compile(
 
         # compilation
         print("\nCompiling Struphy kernels ...")
+        kernel_file = os.path.join(libpath, "kernels.txt")
+        # TODO: for using pyccel make in the future
+        # cmd = [
+        #     "pyccel",
+        #     "make",
+        #     "-d",
+        #     kernel_file,
+        #     "-v",
+        # ]
         cmd = [
             "make",
             "-f",
