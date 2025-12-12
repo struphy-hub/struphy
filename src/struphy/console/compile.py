@@ -107,18 +107,18 @@ def struphy_compile(
     if delete:
         # (change dir not to be in source path)
         print("\nDeleting .f90/.c and .so files ...")
-        cmd = [
-            "pyccel",
-            "clean",
-            # "-s",
-        ]
+        # TODO: for using pyccel clean in the future
         # cmd = [
-        #     "make",
+        #     "pyccel",
         #     "clean",
-        #     "-f",
-        #     "compile_struphy.mk",
-        #     "sources=" + sources,
         # ]
+        cmd = [
+            "make",
+            "clean",
+            "-f",
+            "compile_struphy.mk",
+            "sources=" + sources,
+        ]
         subp_run(cmd)
         print("Done.")
 
@@ -278,25 +278,23 @@ def struphy_compile(
         # compilation
         print("\nCompiling Struphy kernels ...")
         kernel_file = os.path.join(libpath, "kernels.txt")
-        cmd = [
-            "pyccel",
-            "make",
-            "-d",
-            kernel_file,
-            "-v",
-            # "flags=" + flags,
-            # "flags_openmp_pic=" + flag_omp_pic,
-            # "flags_openmp_mhd=" + flag_omp_feec,
-        ]
+        # TODO: for using pyccel make in the future
         # cmd = [
+        #     "pyccel",
         #     "make",
-        #     "-f",
-        #     "compile_struphy.mk",
-        #     "sources=" + sources,
-        #     "flags=" + flags,
-        #     "flags_openmp_pic=" + flag_omp_pic,
-        #     "flags_openmp_mhd=" + flag_omp_feec,
+        #     "-d",
+        #     kernel_file,
+        #     "-v",
         # ]
+        cmd = [
+            "make",
+            "-f",
+            "compile_struphy.mk",
+            "sources=" + sources,
+            "flags=" + flags,
+            "flags_openmp_pic=" + flag_omp_pic,
+            "flags_openmp_mhd=" + flag_omp_feec,
+        ]
         subp_run(cmd)
         print("Done.")
 
