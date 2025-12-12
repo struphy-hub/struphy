@@ -1,4 +1,4 @@
-name: PR - unit tests serial in Container
+name: PR - unit tests with MPI in Container
 
 on:
   pull_request:
@@ -48,13 +48,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            .testmondata-unit
-          key: testmon-unit-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
+            .testmondata-unit-mpi
+          key: testmon-unit-mpi-${{ github.ref_name }}-${{ github.event.number }}-${{ github.run_number }}
           restore-keys: |
-            testmon-unit-${{ github.ref_name }}-${{ github.event.number }}-
-            testmon-unit-${{ github.ref_name }}
-            testmon-unit-devel
-            testmon-unit-
+            testmon-unit-mpi-${{ github.ref_name }}-${{ github.event.number }}-
+            testmon-unit-mpi-${{ github.ref_name }}
+            testmon-unit-mpi-devel
+            testmon-unit-mpi-
 
       - name: Check .testmondata 2
         run: |
@@ -68,13 +68,12 @@ jobs:
           source /struphy_c_/env_c_/bin/activate
           struphy compile
 
-      - name: Run unit tests
+      - name: Run unit tests with MPI
         shell: bash
         env:
-          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit
+          TESTMON_DATAFILE: ${{ github.workspace }}/.testmondata-unit-mpi
+        # init .testmondata with non-MPI call
         run: |
           source /struphy_c_/env_c_/bin/activate
-          struphy compile --status
-          pip show mpi4py
-          pip uninstall -y mpi4py
-          struphy test unit
+          struphy test Maxwell
+          struphy test unit --mpi 2
