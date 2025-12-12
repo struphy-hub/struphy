@@ -43,8 +43,11 @@ class Particles6D(Particles):
             kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diagn", 0)
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 0)
         self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
+
+        # equation_params
+        self._equation_params = kwargs.pop("equation_params", None)
 
         super().__init__(**kwargs)
 
@@ -56,7 +59,6 @@ class Particles6D(Particles):
             self._absB0_h = self.projected_equil.absB0
             self._b2_h = self.projected_equil.b2
             self._derham = self.projected_equil.derham
-            self._epsilon = self.equation_params["epsilon"]
 
     @property
     def vdim(self):
@@ -327,7 +329,7 @@ class Particles5D(Particles):
         self._n_cols_aux = kwargs.pop("n_cols_aux", 12)
 
         # equation_params
-        self._equation_params = kwargs.pop("equation_params")
+        self._equation_params = kwargs.pop("equation_params", None)
 
         super().__init__(
             projected_equil=projected_equil,
@@ -638,6 +640,9 @@ class Particles3D(Particles):
         self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 0)
         self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
 
+        # equation_params
+        self._equation_params = kwargs.pop("equation_params", None)
+
         super().__init__(**kwargs)
 
     @property
@@ -654,6 +659,11 @@ class Particles3D(Particles):
     def n_cols_aux(self):
         """Number of the auxiliary columns."""
         return self._n_cols_aux
+
+    @property
+    def equation_params(self):
+        """Parameters appearing in model equation due to Struphy normalization."""
+        return self._equation_params
 
     @property
     def coords(self):

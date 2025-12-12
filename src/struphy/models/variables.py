@@ -385,7 +385,6 @@ class SPHVariable(Variable):
             background=self.backgrounds,
             n_as_volume_form=self.n_as_volume_form,
             perturbations=self.perturbations,
-            equation_params=self.species.equation_params,
             verbose=verbose,
         )
 

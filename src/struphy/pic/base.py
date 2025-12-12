@@ -1799,8 +1799,8 @@ class Particles(metaclass=ABCMeta):
             if self.type != "sph":
                 self._set_initial_condition()
 
-            if self.f_init.coords == "constants_of_motion":
-                self.save_constants_of_motion()
+                if self.f_init.coords == "constants_of_motion":
+                    self.save_constants_of_motion()
 
             # evaluate initial distribution function
             if self.type == "sph":
@@ -2201,7 +2201,7 @@ class Particles(metaclass=ABCMeta):
         assert xp.all(xp.isclose(v_perp, v - norm_b_cart * v_parallel))
 
         # calculate Larmor radius
-        Larmor_r = xp.cross(norm_b_cart, v_perp, axis=0) / absB0 * self._epsilon
+        Larmor_r = xp.cross(norm_b_cart, v_perp, axis=0) / absB0 * self.equation_params.epsilon
 
         # transform cartesian coordinates to logical coordinates
         # TODO: currently only possible with the geomoetry where its inverse map is defined.
