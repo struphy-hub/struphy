@@ -20,6 +20,9 @@ OptsVecSpace = Literal["Hcurl", "Hdiv", "H1vec"]
 # fields background
 BackgroundTypes = Literal["LogicalConst", "FluidEquilibrium"]
 
+# models
+ModelTypes = Literal["Toy", "Kinetic", "Fluid", "Hybrid"]
+
 # perturbations
 NoiseDirections = Literal["e1", "e2", "e3", "e1e2", "e1e3", "e2e3", "e1e2e3"]
 GivenInBasis = Literal["0", "1", "2", "3", "v", "physical", "physical_at_eta", "norm", None]

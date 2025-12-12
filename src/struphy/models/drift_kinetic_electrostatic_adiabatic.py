@@ -2,6 +2,7 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
+from struphy.io.options import ModelTypes
 from struphy.kinetic_background.base import KineticBackground
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
@@ -68,6 +69,8 @@ class DriftKineticElectrostaticAdiabatic(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+
+    model_type: ModelTypes = "Kinetic"
 
     ## species
 

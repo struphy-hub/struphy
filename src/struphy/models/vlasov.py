@@ -1,6 +1,7 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     ParticleSpecies,
@@ -33,6 +34,8 @@ class Vlasov(StruphyModel):
     1. :class:`~struphy.propagators.propagators_markers.PushVxB`
     2. :class:`~struphy.propagators.propagators_markers.PushEta`
     """
+
+    model_type: ModelTypes = "Kinetic"
 
     ## species
 

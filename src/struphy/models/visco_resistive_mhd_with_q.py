@@ -2,6 +2,7 @@ import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
 from struphy.feec.projectors import L2Projector
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     DiagnosticSpecies,
@@ -52,6 +53,8 @@ class ViscoResistiveMHD_with_q(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+
+    model_type: ModelTypes = "Fluid"
 
     ## species
 

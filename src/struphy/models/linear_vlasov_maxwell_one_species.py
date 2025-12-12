@@ -1,5 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.io.options import ModelTypes
 from struphy.models.linear_vlasov_ampere_one_species import LinearVlasovAmpereOneSpecies
 from struphy.models.species import (
     FieldSpecies,
@@ -84,6 +85,8 @@ class LinearVlasovMaxwellOneSpecies(LinearVlasovAmpereOneSpecies):
 
     :ref:`Model info <add_model>`:
     """
+
+    model_type: ModelTypes = "Kinetic"
 
     ## species
 

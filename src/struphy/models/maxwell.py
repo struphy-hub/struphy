@@ -1,5 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -33,6 +34,8 @@ class Maxwell(StruphyModel):
 
     1. :class:`~struphy.propagators.propagators_fields.Maxwell`
     """
+
+    model_type: ModelTypes = "Fluid"
 
     ## species
 

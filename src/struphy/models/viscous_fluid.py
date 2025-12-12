@@ -5,6 +5,7 @@ from struphy.feec.projectors import L2Projector
 from struphy.feec.variational_utilities import (
     InternalEnergyEvaluator,
 )
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FluidSpecies,
@@ -49,6 +50,8 @@ class ViscousFluid(StruphyModel):
 
     :ref:`Model info <add_model>`:
     """
+
+    model_type: ModelTypes = "Fluid"
 
     ## species
 

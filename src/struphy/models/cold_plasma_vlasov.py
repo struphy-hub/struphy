@@ -1,6 +1,7 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -66,6 +67,8 @@ class ColdPlasmaVlasov(StruphyModel):
     5. :class:`~struphy.propagators.propagators_markers.PushEta`
     6. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
     """
+
+    model_type: ModelTypes = "Hybrid"
 
     ## species
 

@@ -1,6 +1,7 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -87,6 +88,8 @@ class VlasovAmpereOneSpecies(StruphyModel):
     2. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
     3. :class:`~struphy.propagators.propagators_markers.PushVxB`
     """
+
+    model_type: ModelTypes = "Kinetic"
 
     ## species
 

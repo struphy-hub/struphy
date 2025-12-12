@@ -1,5 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -50,6 +51,8 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     [1] Juan Vicente Gutiérrez-Santacreu, Omar Maj, Marco Restelli: Finite element discretization of a Stokes-like model arising
     in plasma physics, Journal of Computational Physics 2018.
     """
+
+    model_type: ModelTypes = "Fluid"
 
     ## species
 

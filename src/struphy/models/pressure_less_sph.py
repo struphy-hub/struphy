@@ -1,5 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     ParticleSpecies,
@@ -31,6 +32,8 @@ class PressureLessSPH(StruphyModel):
 
     This is discretized by particles going in straight lines.
     """
+
+    model_type: ModelTypes = "Fluid"
 
     ## species
 

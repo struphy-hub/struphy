@@ -1,5 +1,6 @@
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     ParticleSpecies,
@@ -48,6 +49,8 @@ class EulerSPH(StruphyModel):
     2. :class:`~struphy.propagators.propagators_markers.PushVxB`
     3. :class:`~struphy.propagators.propagators_markers.PushVinSPHpressure`
     """
+
+    model_type: ModelTypes = "Fluid"
 
     ## species
 

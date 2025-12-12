@@ -1,6 +1,7 @@
 import cunumpy as xp
 from feectools.ddm.mpi import mpi as MPI
 
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     ParticleSpecies,
@@ -45,6 +46,8 @@ class GuidingCenter(StruphyModel):
     1. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterBxEstar`
     2. :class:`~struphy.propagators.propagators_markers.PushGuidingCenterParallel`
     """
+
+    model_type: ModelTypes = "Kinetic"
 
     ## species
 

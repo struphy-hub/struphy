@@ -1,6 +1,7 @@
 from feectools.ddm.mpi import mpi as MPI
 from feectools.linalg.block import BlockVector
 
+from struphy.io.options import ModelTypes
 from struphy.models.base import StruphyModel
 from struphy.models.species import (
     FieldSpecies,
@@ -44,6 +45,8 @@ class LinearMHD(StruphyModel):
     1. :class:`~struphy.propagators.propagators_fields.ShearAlfven`
     2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
     """
+
+    model_type: ModelTypes = "Fluid"
 
     ## species
 

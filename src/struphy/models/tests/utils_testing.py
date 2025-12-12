@@ -5,13 +5,14 @@ from types import ModuleType
 
 from feectools.ddm.mpi import mpi as MPI
 
+import struphy.models as models
 from struphy import main
 from struphy.io.options import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
-import struphy.models as models
 from struphy.models.base import StruphyModel
 
 rank = MPI.COMM_WORLD.Get_rank()
+
 
 # generic function for calling model tests
 def call_test(model_name: str, module: ModuleType = None, verbose=True):
