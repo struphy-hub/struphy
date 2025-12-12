@@ -6,6 +6,7 @@ from feectools.ddm.mpi import mpi as MPI
 import struphy.models as models
 from struphy.models.base import StruphyModel
 
+
 def struphy_params(model_name: str, yes: bool = False, check_file: bool = False):
     """Create a model's default parameter file and save in current input path.
 

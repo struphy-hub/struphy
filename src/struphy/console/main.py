@@ -16,6 +16,7 @@ import yaml
 
 # struphy path
 import struphy
+import struphy.models.utils as models_utils
 from struphy.utils import utils
 
 libpath = struphy.__path__[0]
@@ -50,17 +51,13 @@ def struphy():
 
     # Load the models and messages
     model_message = "All models are listed on https://struphy-hub.github.io/struphy/sections/models.html"
-    list_models = []
-    ml_path = os.path.join(libpath, "models", "models_list")
-    if not os.path.isfile(ml_path):
-        utils.refresh_models()
 
-    with open(ml_path, "rb") as fp:
-        list_models = pickle.load(fp)
-    with open(os.path.join(libpath, "models", "models_message"), "rb") as fp:
-        model_message, fluid_message, kinetic_message, hybrid_message, toy_message = pickle.load(
-            fp,
-        )
+    list_models = models_utils.get_all_model_names()
+
+    model_message = models_utils.generate_models_message()
+    fluid_message = models_utils.get_model_type_message(model_type="Fluid")
+    kinetic_message = models_utils.get_model_type_message(model_type="Kinetic")
+    hybrid_message = models_utils.get_model_type_message(model_type="Hybrid")
 
     # 0. basic options
     add_parser_basic_options(parser)
@@ -112,7 +109,6 @@ def struphy():
         (args.fluid, fluid_message),
         (args.kinetic, kinetic_message),
         (args.hybrid, hybrid_message),
-        (args.toy, toy_message),
     ]
 
     for flag, message in model_flags:
@@ -120,10 +116,6 @@ def struphy():
             print(message)
             print("For more info on Struphy models, visit https://struphy-hub.github.io/struphy/sections/models.html")
             sys.exit(0)
-
-    if args.refresh_models:
-        utils.refresh_models()
-        sys.exit(0)
 
     # load sub-command function
     command_map = {
@@ -151,7 +143,6 @@ def struphy():
         "fluid",
         "kinetic",
         "hybrid",
-        "toy",
         "refresh_models",
         # These options are stored in kwargs.config
         "input_type",
@@ -195,16 +186,6 @@ def add_parser_basic_options(parser):
         "--hybrid",
         action="store_true",
         help="display available hybrid models",
-    )
-    parser.add_argument(
-        "--toy",
-        action="store_true",
-        help="display available toy models",
-    )
-    parser.add_argument(
-        "--refresh-models",
-        help="refresh list of available model names",
-        action="store_true",
     )
 
 
@@ -467,17 +448,10 @@ def add_parser_test(subparsers, list_models):
         parser_test.add_argument(
             "group",
             type=str,
-            choices=list_models
-            + ["models"]
-            + ["unit"]
-            + ["fluid"]
-            + ["kinetic"]
-            + ["hybrid"]
-            + ["toy"]
-            + ["verification"],
+            choices=list_models + ["models"] + ["unit"] + ["fluid"] + ["kinetic"] + ["hybrid"] + ["verification"],
             metavar="GROUP",
             help='can be either:\na) a model name \
-                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid", "toy" for testing just a sub-group) \
+                                    \nb) "models" for testing of all models (or "fluid", "kinetic", "hybrid" for testing just a sub-group) \
                                     \nc) "verification" for running all verification tests \
                                     \nd) "unit" for performing unit tests',
         )
