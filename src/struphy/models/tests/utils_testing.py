@@ -10,7 +10,7 @@ from struphy import main
 from struphy.io.options import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
-
+import struphy.models.utils as models_utils
 rank = MPI.COMM_WORLD.Get_rank()
 
 
@@ -25,6 +25,7 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
         return
 
     if module is None:
+        model = models_utils.get_model_by_name(model_name=model_name)()
         try:
             model = getattr(models, model_name)()
         except AttributeError:

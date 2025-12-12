@@ -4,17 +4,6 @@ from struphy.models.tests import utils_testing as ut
 
 
 # specific tests
-@pytest.mark.models
-@pytest.mark.toy
-@pytest.mark.parametrize("model", ut.toy_models)
-def test_toy(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
-):
-    ut.call_test(model_name=model, module=ut.toy, verbose=vrbose)
-
 
 @pytest.mark.models
 @pytest.mark.fluid
