@@ -7,15 +7,15 @@ from typing import Callable, Literal, get_args
 
 import cunumpy as xp
 import scipy as sc
+from feectools.api.essential_bc import apply_essential_bc_stencil
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
+from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from feectools.linalg.solvers import inverse
+from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from matplotlib import pyplot as plt
 from numpy import zeros
-from psydac.api.essential_bc import apply_essential_bc_stencil
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
-from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.solvers import inverse
-from psydac.linalg.stencil import StencilVector
 
 import struphy.feec.utilities as util
 from struphy.examples.restelli2018 import callables
@@ -1292,13 +1292,13 @@ class MagnetosonicUniform(Propagator):
 
     Parameters
     ----------
-    n : psydac.linalg.stencil.StencilVector
+    n : feectools.linalg.stencil.StencilVector
         FE coefficients of a discrete 3-form.
 
-    u : psydac.linalg.block.BlockVector
+    u : feectools.linalg.block.BlockVector
         FE coefficients of MHD velocity 2-form.
 
-    p : psydac.linalg.stencil.StencilVector
+    p : feectools.linalg.stencil.StencilVector
         FE coefficients of a discrete 3-form.
 
         **params : dict
@@ -1478,7 +1478,7 @@ class FaradayExtended(Propagator):
 
     Parameters
     ---------- 
-        a : psydac.linalg.block.BlockVector
+        a : feectools.linalg.block.BlockVector
             FE coefficients of vector potential.
 
         **params : dict
@@ -2707,7 +2707,7 @@ class ImplicitDiffusion(Propagator):
     @property
     def x0(self):
         """
-        psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
+        feectools.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
         """
         return self.options.x0
 
@@ -7394,7 +7394,7 @@ class AdiabaticPhi(Propagator):
     @property
     def x0(self):
         """
-        psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
+        feectools.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
         """
         return self._x0
 

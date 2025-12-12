@@ -2,7 +2,7 @@ import warnings
 from abc import ABCMeta, abstractmethod
 
 import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
+from feectools.ddm.mpi import mpi as MPI
 
 from struphy.io.options import Units
 from struphy.models.variables import Variable

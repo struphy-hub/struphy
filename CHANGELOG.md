@@ -1,5 +1,36 @@
 # Changelog
 
+
+## Struphy 3.0.1 - 2025-12-11
+
+* [PyPI](https://pypi.org/project/struphy/3.0.1)
+* [Github pages](https://struphy-hub.github.io/struphy/index.html)
+* [Github release](https://github.com/struphy-hub/struphy/releases/tag/v3.0.1)
+* [Diff to previous release](https://github.com/struphy-hub/struphy/compare/v3.0.0...v3.0.1)
+
+### Headlines
+
+`Psydac` is now installed via `pip` from our fork renamed to `feectools`, which is published on PyPI. This avoids installing from a `.whl` file.
+Functionality remains unchanged, but future releases of Struphy are much easier and quicker. We have kept the option to install the upstream `psydac`, once it is also on PyPI.
+See https://github.com/struphy-hub/struphy/pull/147.
+
+### User news
+
+None
+
+### Developer news
+
+* Removed legacy code (eigenvalue solver): https://github.com/struphy-hub/struphy/pull/129
+* Add context manager to h5py.File() calls: https://github.com/struphy-hub/struphy/pull/135
+* Fix undefined variables: https://github.com/struphy-hub/struphy/pull/141
+
+### Bug fixes
+
+* Fix setter in DESCequilibirum, update quickstart guide: https://github.com/struphy-hub/struphy/pull/132
+* Set defaults for given_in_basis: "0" for scalar and "v" for vector-valued: https://github.com/struphy-hub/struphy/pull/136
+* Fix the restart function: https://github.com/struphy-hub/struphy/pull/143
+
+
 ## Struphy 3.0.0 - 2025-11-13
 
 * [PyPI](https://pypi.org/project/struphy/3.0.0)
@@ -16,12 +47,10 @@ Struphy 3 represents a major refactoring with breaking changes with respect to S
 * Other deprecated console commands are `struphy pproc` and `struphy units`. Post-processing is now done through the API via `main.pproc()`.
 * The Struphy repo has moved to [Github](https://github.com/struphy-hub/struphy). The [old Gitlab repo](https://gitlab.mpcdf.mpg.de/struphy/struphy) will persist but not be maintained any longer. Issues, discussion and PRs will solely take place on the new Github repo.
 
-
 ### User news
 
 * Please consult the [Struphy README](https://github.com/struphy-hub/struphy) and links therein to get familiar with the new workflows. 
 * New tutorials can be found on [mybinder](https://mybinder.org/v2/gh/struphy-hub/struphy-tutorials/main).
-
 
 ### Developer news
 
@@ -42,7 +71,6 @@ Each species is a collection of Variables:
 
 These variables are updated by `Propagators`. All options for a simluation can be set in the new `.py` launch file.
 
-
 ### Bug fixes
 
 * Incorporate psydac updates: https://github.com/struphy-hub/struphy/pull/109
@@ -60,7 +88,6 @@ These variables are updated by `Propagators`. All options for a simluation can b
 ### Headlines
 
 * This is a test run for the relaease of Struphy 3.0 from the new Github repo
-
 
 
 ## Struphy 2.5.0 and prior releases

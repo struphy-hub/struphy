@@ -21,10 +21,10 @@ def test_exp_growth(spaces, algo, show_plots=False):
     from the ButcherTableau."""
 
     import cunumpy as xp
+    from feectools.ddm.mpi import mpi as MPI
+    from feectools.linalg.block import BlockVector
+    from feectools.linalg.stencil import StencilVector
     from matplotlib import pyplot as plt
-    from psydac.ddm.mpi import mpi as MPI
-    from psydac.linalg.block import BlockVector
-    from psydac.linalg.stencil import StencilVector
 
     from struphy.feec.psydac_derham import Derham
     from struphy.ode.solvers import ODEsolverFEEC

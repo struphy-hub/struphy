@@ -8,10 +8,10 @@ from textwrap import indent
 import cunumpy as xp
 import h5py
 import yaml
+from feectools.ddm.mpi import MockMPI
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
-from psydac.ddm.mpi import MockMPI
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.stencil import StencilVector
 
 import struphy
 from struphy.feec.basis_projection_ops import BasisProjectionOperators
