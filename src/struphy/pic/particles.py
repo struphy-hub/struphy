@@ -323,8 +323,8 @@ class Particles5D(Particles):
         #     kwargs["bckgr_params"] = self.default_bckgr_params()
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diag")
-        self._n_cols_aux = kwargs.pop("n_cols_aux")
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 3)
+        self._n_cols_aux = kwargs.pop("n_cols_aux", 12)
 
         # equation_params
         self._equation_params = kwargs.pop("equation_params")
@@ -635,8 +635,8 @@ class Particles3D(Particles):
             kwargs["background"] = self.default_background()
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diag")
-        self._n_cols_aux = kwargs.pop("n_cols_aux")
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 0)
+        self._n_cols_aux = kwargs.pop("n_cols_aux", 5)
 
         super().__init__(**kwargs)
 
@@ -776,8 +776,8 @@ class ParticlesSPH(Particles):
         #         kwargs["sorting_params"]["communicate"] = True
 
         # default number of diagnostics and auxiliary columns
-        self._n_cols_diagnostics = kwargs.pop("n_cols_diag")
-        self._n_cols_aux = kwargs.pop("n_cols_aux")
+        self._n_cols_diagnostics = kwargs.pop("n_cols_diag", 0)
+        self._n_cols_aux = kwargs.pop("n_cols_aux", 24)
 
         clone_config = kwargs.get("clone_config", None)
         assert clone_config is None, "SPH can only be launched with --nclones 1"
