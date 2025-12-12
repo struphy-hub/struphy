@@ -89,8 +89,8 @@ def dict_to_yaml(dictionary: dict, output: str):
             line_break="\n",
         )
     # print(f"dict written to {output}.")
-        
-        
+
+
 def kernels_to_txt(kernels: list, output: str):
     """Write state[kernels] to .txt file for pyccel make."""
     with open(output, "w") as file:
