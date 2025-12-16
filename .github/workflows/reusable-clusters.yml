@@ -26,4 +26,4 @@ jobs:
       - name: Install and run tests
         shell: bash
         run: |
-          .github/scripts/install_and_test.sh
+          sh .github/scripts/install_and_test.sh
