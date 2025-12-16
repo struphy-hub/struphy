@@ -5,7 +5,7 @@ from feectools.ddm.mpi import mpi as MPI
 
 import struphy.models as models
 from struphy.models.base import StruphyModel
-
+from struphy.models.utils import get_model_by_name
 
 def struphy_params(model_name: str, yes: bool = False, check_file: bool = False):
     """Create a model's default parameter file and save in current input path.
@@ -19,13 +19,10 @@ def struphy_params(model_name: str, yes: bool = False, check_file: bool = False)
         If true, say yes on prompt to overwrite .yml FILE
     """
 
-    try:
-        model_class = getattr(models, model_name)
-        model: StruphyModel = model_class()
-    except AttributeError:
-        raise ModuleNotFoundError(f"{model_name} not found!")
+    model_class = get_model_by_name(model_name = model_name)
+    model: StruphyModel = model_class()
 
-    print(f"{model_name =}")
+    # print(f"{model_name =} {model = }")
 
     # print units
     if check_file:

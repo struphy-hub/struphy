@@ -22,7 +22,7 @@ def get_all_models(model_type: ModelTypes | None = None) -> list[type[StruphyMod
     for name, obj in inspect.getmembers(models):
         # Only include classes that are subclasses of StruphyModel, excluding StruphyModel itself
         if inspect.isclass(obj) and issubclass(obj, StruphyModel) and obj is not StruphyModel:
-            if type is None or model_type == obj.model_type:
+            if model_type is None or model_type == obj.model_type:
                 model_classes.append(obj)
 
     return model_classes
