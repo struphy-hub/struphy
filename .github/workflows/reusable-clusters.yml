@@ -24,6 +24,6 @@ jobs:
 
       # TODO: maxlin, call with modules input
       - name: Install and run tests
-        shell: bash -l
+        shell: bash
         run: |
           .github/scripts/install_and_test.sh
