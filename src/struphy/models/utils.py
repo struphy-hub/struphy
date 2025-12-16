@@ -35,12 +35,12 @@ def get_model_names(model_type: ModelTypes | None = None) -> list[str]:
 
 
 def get_model_type_message(model_type: ModelTypes) -> str:
-    models = get_models(model_type=model_type)
+    model_names = get_model_names(model_type=model_type)
 
     # fluid message
     models_message = f"{model_type} models:\n"
     models_message += "-------------\n"
-    models_message += "\n".join([mod.__name__ for mod in models])
+    models_message += "\n".join(model_names)
 
     return models_message
 

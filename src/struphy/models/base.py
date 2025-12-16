@@ -376,7 +376,7 @@ class StruphyModel(metaclass=ABCMeta):
 
     @classmethod
     def name(cls) -> str:
-        return cls.__class__.__name__
+        return cls.__name__
 
     @classmethod
     def options(cls):
