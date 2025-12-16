@@ -3,7 +3,8 @@ set -euo pipefail
 
 # Load HPC modules
 module purge
-module load "$1"   # Pass modules as first argument
+#module load "$1"   # Pass modules as first argument
+module load gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake netcdf-serial mkl hdf5-serial
 module list
 
 # Python virtual environment setup
