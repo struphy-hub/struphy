@@ -25,8 +25,7 @@ Perform the following steps:
 
 a. In one of the four files above, copy-and-paste an existing model.
 b. Change the class name to ``<newname>``.
-c. Run ``struphy --refresh-models`` in the console.
-d. Type ``struphy params <newname>`` and run the new model.
+c. Type ``struphy params <newname>`` and run the new model.
 
 
 2. Derive Struphy discretization of your PDE 
@@ -106,7 +105,3 @@ you can run the model with::
     
     struphy params -y <yourmodel>
     python params_<yourmodel>.py
-
-If the model is not found::
-
-    struphy --refresh-models

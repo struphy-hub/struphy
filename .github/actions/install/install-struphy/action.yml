@@ -16,4 +16,3 @@ runs:
         pip install ".[${{ inputs.optional-deps }}]"
         pip list
         struphy -h
-        struphy --refresh-models

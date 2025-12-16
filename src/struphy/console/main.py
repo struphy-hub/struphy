@@ -143,7 +143,6 @@ def struphy():
         "fluid",
         "kinetic",
         "hybrid",
-        "refresh_models",
         # These options are stored in kwargs.config
         "input_type",
         "path",
