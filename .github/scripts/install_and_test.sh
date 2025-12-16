@@ -13,7 +13,8 @@ source env/bin/activate
 
 # Install Struphy
 pip install --upgrade pip
-pip install ".[dev,phys,doc]"
+pip install --no-binary=mpi4py mpi4py
+pip install ".[dev]"
 pip list
 struphy -h
 struphy --refresh-models
