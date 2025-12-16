@@ -7,6 +7,11 @@ module purge
 module load gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake netcdf-serial mkl hdf5-serial
 module list
 
+# For gvec
+export FC=`which gfortran`
+export CC=`which gcc`
+export CXX=`which g++`
+
 # Python virtual environment setup
 python -m venv env
 source env/bin/activate
