@@ -1,0 +1,15 @@
+name: Protected branch workflow
+
+on:
+  push:
+    branches:
+      - protected-install-on-clusters
+
+jobs:
+  build:
+    environment: protected
+    runs-on: [self-hosted, protected]
+    steps:
+      - uses: actions/checkout@v4
+      - run: make
+
