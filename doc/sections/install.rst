@@ -189,7 +189,7 @@ Install and compile
 
         .. code-block::
 
-            git clone https://github.com/struphy-hub/struphy.git
+            git clone --recurse-submodules https://github.com/struphy-hub/struphy.git
             cd struphy
             pip install -e .[dev]
             struphy compile
@@ -199,7 +199,7 @@ Install and compile
 
         .. code-block::
 
-            git clone https://github.com/struphy-hub/struphy.git
+            git clone --recurse-submodules https://github.com/struphy-hub/struphy.git
             cd struphy
             pip install -e .[all]
             struphy compile
