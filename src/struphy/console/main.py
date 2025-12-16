@@ -52,7 +52,7 @@ def struphy():
     # Load the models and messages
     model_message = "All models are listed on https://struphy-hub.github.io/struphy/sections/models.html"
 
-    list_models = models_utils.get_all_model_names()
+    list_models = models_utils.get_model_names()
 
     model_message = models_utils.generate_models_message()
     fluid_message = models_utils.get_model_type_message(model_type="Fluid")

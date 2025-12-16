@@ -1,56 +1,67 @@
 import pytest
 
+import struphy.models.utils as models_utils
 from struphy.models.tests import utils_testing as ut
 
 # specific tests
 
 
 @pytest.mark.models
-@pytest.mark.fluid
-@pytest.mark.parametrize("model", ut.fluid_models)
-def test_fluid(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
+@pytest.mark.toy
+def test_toy(
+    vrbose: bool = False,
+    nclones: int = 1,
+    show_plots: bool = False,
 ):
-    ut.call_test(model_name=model, module=ut.fluid, verbose=vrbose)
+    for model in models_utils.get_models(model_type="Toy"):
+        ut.call_test(model=model(), verbose=vrbose)
+
+
+@pytest.mark.models
+@pytest.mark.fluid
+def test_fluid(
+    vrbose: bool = False,
+    nclones: int = 1,
+    show_plots: bool = False,
+):
+    for model in models_utils.get_models(model_type="Fluid"):
+        ut.call_test(model=model(), verbose=vrbose)
 
 
 @pytest.mark.models
 @pytest.mark.kinetic
-@pytest.mark.parametrize("model", ut.kinetic_models)
 def test_kinetic(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
+    vrbose: bool = False,
+    nclones: int = 1,
+    show_plots: bool = False,
 ):
-    ut.call_test(model_name=model, module=ut.kinetic, verbose=vrbose)
+    for model in models_utils.get_models(model_type="Kinetic"):
+        ut.call_test(model=model(), verbose=vrbose)
 
 
 @pytest.mark.models
 @pytest.mark.hybrid
-@pytest.mark.parametrize("model", ut.hybrid_models)
 def test_hybrid(
-    model: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
+    vrbose: bool = False,
+    nclones: int = 1,
+    show_plots: bool = False,
 ):
-    ut.call_test(model_name=model, module=ut.hybrid, verbose=vrbose)
+    for model in models_utils.get_models(model_type="Kinetic"):
+        ut.call_test(model=model(), verbose=vrbose)
 
 
 @pytest.mark.single
 def test_single_model(
     model_name: str,
-    vrbose: bool,
-    nclones: int,
-    show_plots: bool,
+    vrbose: bool = False,
+    nclones: int = 1,
+    show_plots: bool = False,
 ):
-    ut.call_test(model_name=model_name, module=None, verbose=vrbose)
+    model = models_utils.get_model_by_name(model_name=model_name)
+    ut.call_test(model=model(), verbose=vrbose)
 
 
 if __name__ == "__main__":
-    test_toy("Maxwell")
-    test_fluid("LinearMHD")
+    test_toy()
+    test_fluid()
+    test_single_model("Maxwell")

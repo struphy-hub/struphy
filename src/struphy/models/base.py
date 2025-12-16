@@ -50,6 +50,8 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.
     """
 
+    model_type = ""
+
     ## abstract methods
 
     @abstractmethod
@@ -156,6 +158,10 @@ class StruphyModel(metaclass=ABCMeta):
                 if isinstance(v, DiagnosticSpecies):
                     self._diagnostic_species[k] = v
         return self._diagnostic_species
+
+    @property
+    def name(self) -> str:
+        return self.__class__.__name__
 
     @property
     def species(self):

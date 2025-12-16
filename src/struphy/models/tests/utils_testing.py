@@ -14,9 +14,10 @@ from struphy.models.base import StruphyModel
 
 rank = MPI.COMM_WORLD.Get_rank()
 
-
 # generic function for calling model tests
-def call_test(model_name: str, module: ModuleType = None, verbose=True):
+def call_test(model: StruphyModel, verbose: bool = True):
+
+    model_name = model.name
     if rank == 0:
         print(f"\n*** Testing '{model_name}':")
 
@@ -25,17 +26,7 @@ def call_test(model_name: str, module: ModuleType = None, verbose=True):
         print(f"WARNING: Model {model_name} cannot be tested for {MPI.COMM_WORLD.Get_size() =}")
         return
 
-    if module is None:
-        model = models_utils.get_model_by_name(model_name=model_name)()
-        try:
-            model = getattr(models, model_name)()
-        except AttributeError:
-            raise ModuleNotFoundError(f"{model_name} not found!")
-
-    else:
-        model = getattr(module, model_name)()
-
-    assert isinstance(model, StruphyModel)
+    assert isinstance(model, StruphyModel), f"{model} of {type(model) = } is not a StruphyModel"
 
     # generate paramater file for testing
     test_folder = os.path.join(os.getcwd(), "struphy_model_test")

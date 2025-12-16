@@ -7,17 +7,16 @@ from struphy.models.base import StruphyModel
 
 def get_model_by_name(model_name: str) -> type[StruphyModel]:
     try:
-        model_class = getattr(models, model_name)
+        model_class: StruphyModel = getattr(models, model_name)
+        if not issubclass(model_class, StruphyModel):
+            raise TypeError(f"{model_name} is not a StruphyModel subclass.")
+        else:
+            return model_class
     except AttributeError:
         raise ModuleNotFoundError(f"{model_name} not found in models.")
 
-    if not issubclass(model_class, StruphyModel):
-        raise TypeError(f"{model_name} is not a StruphyModel subclass.")
 
-    return model_class
-
-
-def get_all_models(model_type: ModelTypes | None = None) -> list[type[StruphyModel]]:
+def get_models(model_type: ModelTypes | None = None) -> list[type[StruphyModel]]:
     model_classes = []
 
     for name, obj in inspect.getmembers(models):
@@ -29,14 +28,14 @@ def get_all_models(model_type: ModelTypes | None = None) -> list[type[StruphyMod
     return model_classes
 
 
-def get_all_model_names(model_type: ModelTypes | None = None) -> list[str]:
-    model_classes = get_all_models(model_type=model_type)
+def get_model_names(model_type: ModelTypes | None = None) -> list[str]:
+    model_classes = get_models(model_type=model_type)
 
-    return [model.__name__ for model in model_classes]
+    return [model.name for model in model_classes]
 
 
 def get_model_type_message(model_type: ModelTypes) -> str:
-    models = get_all_models(model_type=model_type)
+    models = get_models(model_type=model_type)
 
     # fluid message
     models_message = f"{model_type} models:\n"
@@ -61,9 +60,9 @@ def generate_models_message() -> str:
 
 
 if __name__ == "__main__":
-    fluid_models = get_all_models(model_type="Fluid")
-    kinetic_models = get_all_models(model_type="Kinetic")
-    hybrid_models = get_all_models(model_type="Hybrid")
+    fluid_models = get_models(model_type="Fluid")
+    kinetic_models = get_models(model_type="Kinetic")
+    hybrid_models = get_models(model_type="Hybrid")
 
     print(f"Fluid models: {[mod.__name__ for mod in fluid_models]}")
     print(f"Kinetic_models: {[mod.__name__ for mod in kinetic_models]}")

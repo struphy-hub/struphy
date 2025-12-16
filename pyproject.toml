@@ -170,7 +170,6 @@ ignore = [
 [tool.pytest.ini_options]
 markers = [
     "models",
-    "toy",
     "fluid",
     "kinetic",
     "hybrid",
