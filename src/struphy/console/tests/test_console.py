@@ -117,7 +117,6 @@ def run_struphy(args):
         [["--fluid"], ["Fluid models"]],
         [["--kinetic"], ["Kinetic models"]],
         [["--hybrid"], ["Hybrid models"]],
-        [["--toy"], ["Toy models"]],
         [["--refresh-models"], ["Collecting available models"]],
     ],
 )
