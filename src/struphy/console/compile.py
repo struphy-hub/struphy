@@ -290,11 +290,3 @@ def struphy_compile(
             "--status",
         ]
         subp_run(cmd)
-
-        # collect available models
-        print("")
-        cmd = [
-            "struphy",
-            "--refresh-models",
-        ]
-        subp_run(cmd)
