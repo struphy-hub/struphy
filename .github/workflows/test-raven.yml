@@ -6,14 +6,14 @@ on:
       - protected-install-on-clusters
 
 jobs:
-  build:
+  raven-test:
     environment: protected
     runs-on: [self-hosted, protected]
     steps:
       - uses: actions/checkout@v4
 
       - name: Build and test on HPC runner
-        shell: bash -l
+        shell: bash
         run: |
           echo "Running on self-hosted protected runner"
 
