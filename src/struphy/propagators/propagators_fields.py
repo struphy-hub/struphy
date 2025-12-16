@@ -7,15 +7,15 @@ from typing import Callable, Literal, get_args
 
 import cunumpy as xp
 import scipy as sc
+from feectools.api.essential_bc import apply_essential_bc_stencil
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
+from feectools.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
+from feectools.linalg.solvers import inverse
+from feectools.linalg.stencil import StencilVector
 from line_profiler import profile
 from matplotlib import pyplot as plt
 from numpy import zeros
-from psydac.api.essential_bc import apply_essential_bc_stencil
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.basic import ComposedLinearOperator, IdentityOperator, ZeroOperator
-from psydac.linalg.block import BlockLinearOperator, BlockVector, BlockVectorSpace
-from psydac.linalg.solvers import inverse
-from psydac.linalg.stencil import StencilVector
 
 import struphy.feec.utilities as util
 from struphy.examples.restelli2018 import callables
@@ -1292,13 +1292,13 @@ class MagnetosonicUniform(Propagator):
 
     Parameters
     ----------
-    n : psydac.linalg.stencil.StencilVector
+    n : feectools.linalg.stencil.StencilVector
         FE coefficients of a discrete 3-form.
 
-    u : psydac.linalg.block.BlockVector
+    u : feectools.linalg.block.BlockVector
         FE coefficients of MHD velocity 2-form.
 
-    p : psydac.linalg.stencil.StencilVector
+    p : feectools.linalg.stencil.StencilVector
         FE coefficients of a discrete 3-form.
 
         **params : dict
@@ -1478,7 +1478,7 @@ class FaradayExtended(Propagator):
 
     Parameters
     ---------- 
-        a : psydac.linalg.block.BlockVector
+        a : feectools.linalg.block.BlockVector
             FE coefficients of vector potential.
 
         **params : dict
@@ -1639,22 +1639,23 @@ class FaradayExtended(Propagator):
             _RHS2 = HybridM1.dot(self._RHS) + self._rhs
 
             # TODO: unknown function 'pcg', use new solver API
-            a_new, info = pcg(
-                _LHS,
-                _RHS2,
-                self._pc,
-                x0=self._a,
-                tol=self._solver_params["tol"],
-                maxiter=self._solver_params["maxiter"],
-                verbose=self._solver_params["verbose"],
-            )
+            raise NotImplementedError("pcg solver not available, use new solver API!")
+            # a_new, info = pcg(
+            #     _LHS,
+            #     _RHS2,
+            #     self._pc,
+            #     x0=self._a,
+            #     tol=self._solver_params["tol"],
+            #     maxiter=self._solver_params["maxiter"],
+            #     verbose=self._solver_params["verbose"],
+            # )
 
             # write new coeffs into Propagator.variables
-            max_da = self.feec_vars_update(a_new)
-            print("++++====check_iteration_error=====+++++", max_da)
+            # max_da = self.feec_vars_update(a_new)
+            # print("++++====check_iteration_error=====+++++", max_da)
             # we can modify the diff function in in_place_update to get another type errors
-            if max_da[0] < 10 ** (-6):
-                break
+            # if max_da[0] < 10 ** (-6):
+            #     break
 
     @classmethod
     def options(cls):
@@ -2702,7 +2703,7 @@ class ImplicitDiffusion(Propagator):
     @property
     def x0(self):
         """
-        psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
+        feectools.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
         """
         return self.options.x0
 
@@ -7389,7 +7390,7 @@ class AdiabaticPhi(Propagator):
     @property
     def x0(self):
         """
-        psydac.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
+        feectools.linalg.stencil.StencilVector or struphy.polar.basic.PolarVector. First guess of the iterative solver.
         """
         return self._x0
 
@@ -7858,6 +7859,8 @@ class TwoFluidQuasiNeutralFull(Propagator):
         self._lifting = self.options.lifting
 
         solver_params = self.options.solver_params
+
+        u = self.variables.u.spline.vector
 
         # Lifting for nontrivial boundary conditions
         # derham had boundary conditions in eta1 direction, the following is in space Hdiv_0

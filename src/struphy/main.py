@@ -10,9 +10,9 @@ from typing import Optional, TypedDict
 
 import cunumpy as xp
 import h5py
+from feectools.ddm.mpi import MockMPI
+from feectools.ddm.mpi import mpi as MPI
 from line_profiler import profile
-from psydac.ddm.mpi import MockMPI
-from psydac.ddm.mpi import mpi as MPI
 from pyevtk.hl import gridToVTK
 from scope_profiler import ProfileManager
 

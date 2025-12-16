@@ -1,11 +1,10 @@
 "Base classes for particle deposition (accumulation) on the grid."
 
 import cunumpy as xp
-from psydac.ddm.mpi import mpi as MPI
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilMatrix, StencilVector
+from feectools.ddm.mpi import mpi as MPI
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilMatrix, StencilVector
 from scope_profiler import ProfileManager
-
 import struphy.pic.accumulation.accum_kernels as accums
 import struphy.pic.accumulation.accum_kernels_gc as accums_gc
 from struphy.feec.mass import WeightedMassOperators

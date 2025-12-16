@@ -1,8 +1,8 @@
 from inspect import signature
 
 import cunumpy as xp
-from psydac.linalg.block import BlockVector
-from psydac.linalg.stencil import StencilVector
+from feectools.linalg.block import BlockVector
+from feectools.linalg.stencil import StencilVector
 
 from struphy.ode.utils import ButcherTableau
 

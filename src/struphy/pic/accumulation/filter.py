@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+import cunumpy as xp
 import numpy as np
 from scipy.fft import irfft, rfft
 
