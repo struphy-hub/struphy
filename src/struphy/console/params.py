@@ -7,6 +7,7 @@ import struphy.models as models
 from struphy.models.base import StruphyModel
 from struphy.models.utils import get_model_by_name
 
+
 def struphy_params(model_name: str, yes: bool = False, check_file: bool = False):
     """Create a model's default parameter file and save in current input path.
 
@@ -19,7 +20,7 @@ def struphy_params(model_name: str, yes: bool = False, check_file: bool = False)
         If true, say yes on prompt to overwrite .yml FILE
     """
 
-    model_class = get_model_by_name(model_name = model_name)
+    model_class = get_model_by_name(model_name=model_name)
     model: StruphyModel = model_class()
 
     # print(f"{model_name =} {model = }")

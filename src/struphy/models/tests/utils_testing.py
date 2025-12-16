@@ -6,11 +6,12 @@ from types import ModuleType
 from feectools.ddm.mpi import mpi as MPI
 
 import struphy.models as models
+import struphy.models.utils as models_utils
 from struphy import main
 from struphy.io.options import EnvironmentOptions
 from struphy.io.setup import import_parameters_py
 from struphy.models.base import StruphyModel
-import struphy.models.utils as models_utils
+
 rank = MPI.COMM_WORLD.Get_rank()
 
 

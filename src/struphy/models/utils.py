@@ -1,8 +1,8 @@
 import inspect
 
 import struphy.models as models
-from struphy.models.base import StruphyModel
 from struphy.io.options import ModelTypes
+from struphy.models.base import StruphyModel
 
 
 def get_model_by_name(model_name: str) -> type[StruphyModel]:
@@ -16,6 +16,7 @@ def get_model_by_name(model_name: str) -> type[StruphyModel]:
 
     return model_class
 
+
 def get_all_models(model_type: ModelTypes | None = None) -> list[type[StruphyModel]]:
     model_classes = []
 
@@ -27,10 +28,12 @@ def get_all_models(model_type: ModelTypes | None = None) -> list[type[StruphyMod
 
     return model_classes
 
+
 def get_all_model_names(model_type: ModelTypes | None = None) -> list[str]:
     model_classes = get_all_models(model_type=model_type)
 
     return [model.__name__ for model in model_classes]
+
 
 def get_model_type_message(model_type: ModelTypes) -> str:
     models = get_all_models(model_type=model_type)
@@ -42,8 +45,8 @@ def get_model_type_message(model_type: ModelTypes) -> str:
 
     return models_message
 
-def generate_models_message() -> str:
 
+def generate_models_message() -> str:
     fluid_message = get_model_type_message(model_type="Fluid")
     kinetic_message = get_model_type_message(model_type="Kinetic")
     hybrid_message = get_model_type_message(model_type="Hybrid")
@@ -56,11 +59,12 @@ def generate_models_message() -> str:
 
     return model_message
 
+
 if __name__ == "__main__":
     fluid_models = get_all_models(model_type="Fluid")
     kinetic_models = get_all_models(model_type="Kinetic")
     hybrid_models = get_all_models(model_type="Hybrid")
-    
+
     print(f"Fluid models: {[mod.__name__ for mod in fluid_models]}")
     print(f"Kinetic_models: {[mod.__name__ for mod in kinetic_models]}")
     print(f"Hybrid models: {[mod.__name__ for mod in hybrid_models]}")
