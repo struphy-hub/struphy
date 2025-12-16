@@ -61,19 +61,8 @@ jobs:
           mpirun --version
           mpirun --oversubscribe --report-bindings -n 4 python -c "from mpi4py import MPI; comm=MPI.COMM_WORLD; print(f'Hello from rank {comm.Get_rank()} of {comm.Get_size()}'); assert comm.Get_size()==4"
 
-      # # Clone struphy-ci-testing
-      # - name: Install struphy
-      #   uses: ./.github/actions/install/install-struphy
-      #   with:
-      #     optional-deps: 'phys,mpi'
-      #   env:
-      #     FC: ${{ env.FC }}
-      #     CC: ${{ env.CC }}
-      #     CXX: ${{ env.CXX }}
 
       # Compile
-      # - name: Compile kernels
-      #   uses: ./.github/actions/compile
       - name: Checkout pyccel version
         shell: bash
         run: |
@@ -87,11 +76,11 @@ jobs:
           struphy compile -y --language ${{ matrix.compile-language }}
 
       # Run tests
-      - name: Run unit tests
-        if: matrix.test-type == 'unit'
-        shell: bash
-        run: |
-          struphy test unit
+      # - name: Run unit tests
+      #   if: matrix.test-type == 'unit'
+      #   shell: bash
+      #   run: |
+      #     struphy test unit
 
       - name: Run unit tests with MPI
         if: matrix.test-type == 'unit'
