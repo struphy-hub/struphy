@@ -7,39 +7,35 @@ on:
 
 jobs:
   raven-test:
-    environment: protected
-    runs-on: [self-hosted, protected]
-    steps:
-      - uses: actions/checkout@v4
+    uses: ./.github/workflows/reusable-clusters.yml
+    with:
+      modules: "gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake netcdf-serial mkl hdf5-serial"
 
-      - name: Build and test on HPC runner
-        shell: bash
-        run: |
-          echo "Running on self-hosted protected runner"
+# jobs:
+#   raven-test:
+#     environment: protected
+#     runs-on: [self-hosted, protected]
+#     steps:
+#       - uses: actions/checkout@v4
 
-          module purge
-          module list
-          module avail
+#       - name: Build and test on HPC runner
+#         shell: bash
+#         run: |
+#           echo "Running on self-hosted protected runner"
 
-          module load gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake netcdf-serial mkl hdf5-serial
-          module list
+          
 
-          export FC=$(which gfortran)
-          export CC=$(which gcc)
-          export CXX=$(which g++)
-          export JAX_DISABLE_JIT=1
+#           python -m venv env
+#           source env/bin/activate
 
-          python -m venv env
-          source env/bin/activate
+#           python -m pip install --upgrade pip
+#           pip install --no-binary=mpi4py mpi4py
+#           pip install gvec
+#           pip install ".[phys]"
 
-          python -m pip install --upgrade pip
-          pip install --no-binary=mpi4py mpi4py
-          pip install gvec
-          pip install ".[phys]"
+#           python -c "from mpi4py import MPI; print(MPI)"
 
-          python -c "from mpi4py import MPI; print(MPI)"
-
-          struphy -h
-          struphy --refresh-models
-          struphy compile
-          struphy test unit
+#           struphy -h
+#           struphy --refresh-models
+#           struphy compile
+#           struphy test unit
