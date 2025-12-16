@@ -35,7 +35,9 @@ class Maxwell(StruphyModel):
     1. :class:`~struphy.propagators.propagators_fields.Maxwell`
     """
 
-    model_type: ModelTypes = "Fluid"
+    @classmethod
+    def model_type(cls) -> ModelTypes:
+        return "Fluid"
 
     ## species
 

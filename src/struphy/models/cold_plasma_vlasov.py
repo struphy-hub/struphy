@@ -68,7 +68,9 @@ class ColdPlasmaVlasov(StruphyModel):
     6. :class:`~struphy.propagators.propagators_coupling.VlasovAmpere`
     """
 
-    model_type: ModelTypes = "Hybrid"
+    @classmethod
+    def model_type(cls) -> ModelTypes:
+        return "Hybrid"
 
     ## species
 

@@ -46,7 +46,9 @@ class LinearMHD(StruphyModel):
     2. :class:`~struphy.propagators.propagators_fields.Magnetosonic`
     """
 
-    model_type: ModelTypes = "Fluid"
+    @classmethod
+    def model_type(cls) -> ModelTypes:
+        return "Fluid"
 
     ## species
 

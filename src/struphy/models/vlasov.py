@@ -35,7 +35,9 @@ class Vlasov(StruphyModel):
     2. :class:`~struphy.propagators.propagators_markers.PushEta`
     """
 
-    model_type: ModelTypes = "Kinetic"
+    @classmethod
+    def model_type(cls) -> ModelTypes:
+        return "Kinetic"
 
     ## species
 

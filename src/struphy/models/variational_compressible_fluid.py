@@ -48,7 +48,9 @@ class VariationalCompressibleFluid(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    model_type: ModelTypes = "Fluid"
+    @classmethod
+    def model_type(cls) -> ModelTypes:
+        return "Fluid"
 
     ## species
 

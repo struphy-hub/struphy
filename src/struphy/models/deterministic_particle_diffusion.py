@@ -39,7 +39,9 @@ class DeterministicParticleDiffusion(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    model_type: ModelTypes = "Kinetic"
+    @classmethod
+    def model_type(cls) -> ModelTypes:
+        return "Kinetic"
 
     ## species
 

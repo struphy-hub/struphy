@@ -22,7 +22,7 @@ def get_models(model_type: ModelTypes | None = None) -> list[type[StruphyModel]]
     for name, obj in inspect.getmembers(models):
         # Only include classes that are subclasses of StruphyModel, excluding StruphyModel itself
         if inspect.isclass(obj) and issubclass(obj, StruphyModel) and obj is not StruphyModel:
-            if model_type is None or model_type == obj.model_type:
+            if model_type is None or model_type == obj.model_type():
                 model_classes.append(obj)
 
     return model_classes
@@ -31,7 +31,7 @@ def get_models(model_type: ModelTypes | None = None) -> list[type[StruphyModel]]
 def get_model_names(model_type: ModelTypes | None = None) -> list[str]:
     model_classes = get_models(model_type=model_type)
 
-    return [model.name for model in model_classes]
+    return [model.name() for model in model_classes]
 
 
 def get_model_type_message(model_type: ModelTypes) -> str:

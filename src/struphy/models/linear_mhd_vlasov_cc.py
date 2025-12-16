@@ -75,7 +75,9 @@ class LinearMHDVlasovCC(StruphyModel):
     :ref:`Model info <add_model>`:
     """
 
-    model_type: ModelTypes = "Hybrid"
+    @classmethod
+    def model_type(cls) -> ModelTypes:
+        return "Hybrid"
 
     ## species
 

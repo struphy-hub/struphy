@@ -33,7 +33,9 @@ class PressureLessSPH(StruphyModel):
     This is discretized by particles going in straight lines.
     """
 
-    model_type: ModelTypes = "Fluid"
+    @classmethod
+    def model_type(cls) -> ModelTypes:
+        return "Fluid"
 
     ## species
 

@@ -52,7 +52,9 @@ class TwoFluidQuasiNeutralToy(StruphyModel):
     in plasma physics, Journal of Computational Physics 2018.
     """
 
-    model_type: ModelTypes = "Fluid"
+    @classmethod
+    def model_type(cls) -> ModelTypes:
+        return "Fluid"
 
     ## species
 

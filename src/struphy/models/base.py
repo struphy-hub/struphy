@@ -27,7 +27,7 @@ from struphy.fields_background.projected_equils import (
     ProjectedMHDequilibrium,
 )
 from struphy.geometry.base import Domain
-from struphy.io.options import DerhamOptions, Units
+from struphy.io.options import DerhamOptions, ModelTypes, Units
 from struphy.io.output_handling import DataContainer
 from struphy.io.setup import setup_derham
 from struphy.models.species import DiagnosticSpecies, FieldSpecies, FluidSpecies, ParticleSpecies, Species
@@ -50,9 +50,13 @@ class StruphyModel(metaclass=ABCMeta):
     in one of the modules ``fluid.py``, ``kinetic.py``, ``hybrid.py`` or ``toy.py``.
     """
 
-    model_type = ""
-
     ## abstract methods
+
+    @classmethod
+    @abstractmethod
+    def model_type(cls) -> ModelTypes:
+        """Model type (Fluid, Kinetic, Hybrid, or Toy)"""
+        pass
 
     @abstractmethod
     class Propagators:
@@ -158,10 +162,6 @@ class StruphyModel(metaclass=ABCMeta):
                 if isinstance(v, DiagnosticSpecies):
                     self._diagnostic_species[k] = v
         return self._diagnostic_species
-
-    @property
-    def name(self) -> str:
-        return self.__class__.__name__
 
     @property
     def species(self):
@@ -373,6 +373,10 @@ class StruphyModel(metaclass=ABCMeta):
     def verbose(self, new):
         assert isinstance(new, bool)
         self._verbose = new
+
+    @classmethod
+    def name(cls) -> str:
+        return cls.__class__.__name__
 
     @classmethod
     def options(cls):

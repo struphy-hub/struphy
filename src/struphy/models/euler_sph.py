@@ -50,7 +50,9 @@ class EulerSPH(StruphyModel):
     3. :class:`~struphy.propagators.propagators_markers.PushVinSPHpressure`
     """
 
-    model_type: ModelTypes = "Fluid"
+    @classmethod
+    def model_type(cls) -> ModelTypes:
+        return "Fluid"
 
     ## species
 
