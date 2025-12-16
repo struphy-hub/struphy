@@ -49,7 +49,6 @@ def plot_time_vs_duration(
 
     import os
 
-    import matplotlib.pyplot as plt
     import numpy as np
 
     plt.figure(figsize=(10, 6))
@@ -117,7 +116,6 @@ def plot_avg_duration_bar_chart(
 
     import os
 
-    import matplotlib.pyplot as plt
     import numpy as np
 
     region_durations = {}
@@ -186,7 +184,6 @@ def plot_gantt_chart_plotly(
     import os
 
     import numpy as np
-    import plotly.graph_objects as go
 
     # ---- Compute earliest start time per region ----
     region_start_times = {}
