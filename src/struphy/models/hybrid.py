@@ -91,17 +91,23 @@ class LinearMHDVlasovCC(StruphyModel):
     ## propagators
 
     class Propagators:
-        def __init__(self):
-            self.couple_dens = propagators_fields.CurrentCoupling6DDensity()
-            self.shear_alf = propagators_fields.ShearAlfven()
-            self.couple_curr = propagators_coupling.CurrentCoupling6DCurrent()
-            self.push_eta = propagators_markers.PushEta()
-            self.push_vxb = propagators_markers.PushVxB()
-            self.mag_sonic = propagators_fields.Magnetosonic()
+        def __init__(self, turn_off: tuple[str, ...] = (None,)):
+            if "CurrentCoupling6DDensity" not in turn_off:
+                self.couple_dens = propagators_fields.CurrentCoupling6DDensity()
+            if "ShearAlfven" not in turn_off:
+                self.shear_alf = propagators_fields.ShearAlfven()
+            if "CurrentCoupling6DCurrent" not in turn_off:
+                self.couple_curr = propagators_coupling.CurrentCoupling6DCurrent()
+            if "PushEta" not in turn_off:
+                self.push_eta = propagators_markers.PushEta()
+            if "PushVxB" not in turn_off:
+                self.push_vxb = propagators_markers.PushVxB()
+            if "Magnetosonic" not in turn_off:
+                self.mag_sonic = propagators_fields.Magnetosonic()
 
     ## abstract methods
 
-    def __init__(self):
+    def __init__(self, turn_off: tuple[str, ...] = (None,)):
         if rank == 0:
             print(f"\n*** Creating light-weight instance of model '{self.__class__.__name__}':")
 
@@ -111,23 +117,25 @@ class LinearMHDVlasovCC(StruphyModel):
         self.energetic_ions = self.EnergeticIons()
 
         # 2. instantiate all propagators
-        self.propagators = self.Propagators()
+        self.propagators = self.Propagators(turn_off)
 
         # 3. assign variables to propagators
-        self.propagators.couple_dens.variables.u = self.mhd.velocity
-
-        self.propagators.shear_alf.variables.u = self.mhd.velocity
-        self.propagators.shear_alf.variables.b = self.em_fields.b_field
-
-        self.propagators.couple_curr.variables.ions = self.energetic_ions.var
-        self.propagators.couple_curr.variables.u = self.mhd.velocity
-
-        self.propagators.push_eta.variables.var = self.energetic_ions.var
-        self.propagators.push_vxb.variables.ions = self.energetic_ions.var
-
-        self.propagators.mag_sonic.variables.n = self.mhd.density
-        self.propagators.mag_sonic.variables.u = self.mhd.velocity
-        self.propagators.mag_sonic.variables.p = self.mhd.pressure
+        if "CurrentCoupling6DDensity" not in turn_off:
+            self.propagators.couple_dens.variables.u = self.mhd.velocity
+        if "ShearAlfven" not in turn_off:
+            self.propagators.shear_alf.variables.u = self.mhd.velocity
+            self.propagators.shear_alf.variables.b = self.em_fields.b_field
+        if "CurrentCoupling6DCurrent" not in turn_off:
+            self.propagators.couple_curr.variables.ions = self.energetic_ions.var
+            self.propagators.couple_curr.variables.u = self.mhd.velocity
+        if "PushEta" not in turn_off:
+            self.propagators.push_eta.variables.var = self.energetic_ions.var
+        if "PushVxB" not in turn_off:
+            self.propagators.push_vxb.variables.ions = self.energetic_ions.var
+        if "Magnetosonic" not in turn_off:
+            self.propagators.mag_sonic.variables.n = self.mhd.density
+            self.propagators.mag_sonic.variables.u = self.mhd.velocity
+            self.propagators.mag_sonic.variables.p = self.mhd.pressure
 
         # define scalars for update_scalar_quantities
         self.add_scalar("en_U", compute="from_field")

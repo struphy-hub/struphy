@@ -979,40 +979,43 @@ class CurrentCoupling6DCurrent(Propagator):
             filter_params=self.options.filter_params,
         )
 
-        # if self.particles[0].control_variate:
+        if particles.control_variate:
 
-        #     # control variate method is only valid with Maxwellian distributions
-        #     assert isinstance(self.particles[0].f0, Maxwellian)
+            # control variate method is only valid with Maxwellian distributions
+            assert isinstance(particles.f0, Maxwellian)
 
-        #     self._accumulator.init_control_variate(self.mass_ops)
+            self._accumulator.init_control_variate(self.mass_ops)
 
-        # evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
-        # quad_pts = [
-        #     quad_grid[nquad].points.flatten()
-        #     for quad_grid, nquad in zip(self.derham.get_quad_grids(self.derham.Vh_fem['0']), self.derham.nquads)
-        # ]
+            #evaluate and save nh0 (0-form) * uh0 (2-form if H1vec or vector if Hdiv) at quadrature points for control variate
+            quad_pts = [
+                quad_grid[nquad].points.flatten()
+                for quad_grid, nquad in zip(self.derham.get_quad_grids(self.derham.Vh_fem['0']), self.derham.nquads)
+            ]
 
-        #     uh0_cart = self.particles[0].f0.u
+            uh0_cart = particles.f0.u
 
-        #     self._nuh0_at_quad = self.domain.pull(
-        #         uh0_cart, *quad_pts, kind='v', squeeze_out=False, coordinates='logical')
+            self._nuh0_at_quad = self.domain.pull(
+                uh0_cart, *quad_pts, kind='v', squeeze_out=False, coordinates='logical')
 
-        #     self._nuh0_at_quad[0] *= self.domain.pull(
-        #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
-        #     self._nuh0_at_quad[1] *= self.domain.pull(
-        #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
-        #     self._nuh0_at_quad[2] *= self.domain.pull(
-        #         self.particles[0].f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
+            self._nuh0_at_quad[0] *= self.domain.pull(
+                particles.f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
+            self._nuh0_at_quad[1] *= self.domain.pull(
+                particles.f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
+            self._nuh0_at_quad[2] *= self.domain.pull(
+                particles.f0.n, *quad_pts, kind='0', squeeze_out=False, coordinates='logical')
 
-        #     # memory allocation for magnetic field at quadrature points
-        #     self._b_quad1 = xp.zeros_like(self._nuh0_at_quad[0])
-        #     self._b_quad2 = xp.zeros_like(self._nuh0_at_quad[0])
-        #     self._b_quad3 = xp.zeros_like(self._nuh0_at_quad[0])
+            # memory allocation for magnetic field at quadrature points
+            self._b_quad1 = xp.zeros_like(self._nuh0_at_quad[0])
+            self._b_quad2 = xp.zeros_like(self._nuh0_at_quad[0])
+            self._b_quad3 = xp.zeros_like(self._nuh0_at_quad[0])
 
-        #     # memory allocation for (self._b_quad x self._nuh0_at_quad) * self._coupling_vec
-        #     self._vec1 = xp.zeros_like(self._nuh0_at_quad[0])
-        #     self._vec2 = xp.zeros_like(self._nuh0_at_quad[0])
-        #     self._vec3 = xp.zeros_like(self._nuh0_at_quad[0])
+            # memory allocation for (self._b_quad x self._nuh0_at_quad) * self._coupling_vec
+            self._vec1 = xp.zeros_like(self._nuh0_at_quad[0])
+            self._vec2 = xp.zeros_like(self._nuh0_at_quad[0])
+            self._vec3 = xp.zeros_like(self._nuh0_at_quad[0])
+
+            # WeightedMassOperator
+            self._wmo = self.mass_ops.create_weighted_mass(self.options.u_space, self.options.u_space)
 
         # FEM spaces and basis extraction operators for u and b
         u_id = self.derham.space_to_form[self.options.u_space]
@@ -1098,39 +1101,40 @@ class CurrentCoupling6DCurrent(Propagator):
         self._b_full2.update_ghost_regions()
 
         # # perform accumulation (either with or without control variate)
-        # if self.particles[0].control_variate:
+        if particles.control_variate:
 
-        #     # evaluate magnetic field at quadrature points (in-place)
-        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
-        #                                    out=[self._b_quad1, self._b_quad2, self._b_quad3])
+            # evaluate magnetic field at quadrature points (in-place)
+            self._wmo.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+                                           out=[self._b_quad1, self._b_quad2, self._b_quad3])
 
-        #     self._vec1[:, :, :] = self._coupling_vec * \
-        #         (self._b_quad2 *
-        #          self._nuh0_at_quad[2] - self._b_quad3*self._nuh0_at_quad[1])
-        #     self._vec2[:, :, :] = self._coupling_vec * \
-        #         (self._b_quad3 *
-        #          self._nuh0_at_quad[0] - self._b_quad1*self._nuh0_at_quad[2])
-        #     self._vec3[:, :, :] = self._coupling_vec * \
-        #         (self._b_quad1 *
-        #          self._nuh0_at_quad[1] - self._b_quad2*self._nuh0_at_quad[0])
+            self._vec1[:, :, :] = self._coupling_vec * \
+                (self._b_quad2 *
+                 self._nuh0_at_quad[2] - self._b_quad3*self._nuh0_at_quad[1])
+            self._vec2[:, :, :] = self._coupling_vec * \
+                (self._b_quad3 *
+                 self._nuh0_at_quad[0] - self._b_quad1*self._nuh0_at_quad[2])
+            self._vec3[:, :, :] = self._coupling_vec * \
+                (self._b_quad1 *
+                 self._nuh0_at_quad[1] - self._b_quad2*self._nuh0_at_quad[0])
 
-        #     self._accumulator(self._b_full2[0]._data,
-        #                       self._b_full2[1]._data,
-        #                       self._b_full2[2]._data,
-        #                       self._space_key_int,
-        #                       self._coupling_mat,
-        #                       self._coupling_vec,
-        #                       control_vec=[self._vec1, self._vec2, self._vec3])
-        # else:
-        self._accumulator(
-            self._b_full2[0]._data,
-            self._b_full2[1]._data,
-            self._b_full2[2]._data,
-            self._space_key_int,
-            self._coupling_mat,
-            self._coupling_vec,
-            self._boundary_cut_e1,
-        )
+            self._accumulator(self._b_full2[0]._data,
+                              self._b_full2[1]._data,
+                              self._b_full2[2]._data,
+                              self._space_key_int,
+                              self._coupling_mat,
+                              self._coupling_vec,
+                              self._boundary_cut_e1,
+                              control_vec=[self._vec1, self._vec2, self._vec3])
+        else:
+            self._accumulator(
+                self._b_full2[0]._data,
+                self._b_full2[1]._data,
+                self._b_full2[2]._data,
+                self._space_key_int,
+                self._coupling_mat,
+                self._coupling_vec,
+                self._boundary_cut_e1,
+            )
 
         # solve linear system for updated u coefficients (in-place)
         un1, info = self._schur_solver(

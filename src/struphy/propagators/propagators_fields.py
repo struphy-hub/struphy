@@ -1711,7 +1711,7 @@ class CurrentCoupling6DDensity(Propagator):
         energetic_ions: PICVariable = None
         b_tilde: FEECVariable = None
         u_space: OptsVecSpace = "Hdiv"
-        solver: OptsSymmSolver = "pcg"
+        solver: OptsGenSolver = "pbicgstab"
         precond: OptsMassPrecond = "MassMatrixPreconditioner"
         solver_params: SolverParameters = None
         filter_params: FilterParameters = None
@@ -1720,7 +1720,7 @@ class CurrentCoupling6DDensity(Propagator):
         def __post_init__(self):
             # checks
             check_option(self.u_space, OptsVecSpace)
-            check_option(self.solver, OptsSymmSolver)
+            check_option(self.solver, OptsGenSolver)
             check_option(self.precond, OptsMassPrecond)
             assert self.energetic_ions.space == "Particles6D"
             assert self.b_tilde.space == "Hdiv"
@@ -1753,32 +1753,35 @@ class CurrentCoupling6DDensity(Propagator):
         self._b_eq = self.projected_equil.b2
         self._b_tilde = self.options.b_tilde.spline.vector
 
-        # if self._particles.control_variate:
+        if particles.control_variate:
 
-        #     # control variate method is only valid with Maxwellian distributions
-        #     assert isinstance(self._particles.f0, Maxwellian)
-        #     assert u_space == 'Hdiv'
+            # control variate method is only valid with Maxwellian distributions
+            assert isinstance(particles.f0, Maxwellian)
+            assert self.options.u_space == 'Hdiv'
 
-        #     # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
-        #     quad_pts = [quad_grid[nquad].points.flatten()
-        #                 for quad_grid, nquad in zip(self.derham.Vh_fem['0']._quad_grids, self.derham.Vh_fem['0'].nquads)]
+            # evaluate and save nh0/|det(DF)| (push-forward) at quadrature points for control variate
+            quad_pts = [quad_grid[nquad].points.flatten()
+                        for quad_grid, nquad in zip(self.derham.get_quad_grids(self.derham.Vh_fem['0']), self.derham.nquads)]
 
-        #     self._nh0_at_quad = self.domain.push(
-        #         self._particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
+            self._nh0_at_quad = self.domain.push(
+                particles.f0.n, *quad_pts, kind='3', squeeze_out=False)
 
-        #     # memory allocation of magnetic field at quadrature points
-        #     self._b_quad1 = xp.zeros_like(self._nh0_at_quad)
-        #     self._b_quad2 = xp.zeros_like(self._nh0_at_quad)
-        #     self._b_quad3 = xp.zeros_like(self._nh0_at_quad)
+            # memory allocation of magnetic field at quadrature points
+            self._b_quad1 = xp.zeros_like(self._nh0_at_quad)
+            self._b_quad2 = xp.zeros_like(self._nh0_at_quad)
+            self._b_quad3 = xp.zeros_like(self._nh0_at_quad)
 
-        #     # memory allocation for self._b_quad x self._nh0_at_quad * self._coupling_const
-        #     self._mat12 = xp.zeros_like(self._nh0_at_quad)
-        #     self._mat13 = xp.zeros_like(self._nh0_at_quad)
-        #     self._mat23 = xp.zeros_like(self._nh0_at_quad)
+            # memory allocation for self._b_quad x self._nh0_at_quad * self._coupling_const
+            self._mat12 = xp.zeros_like(self._nh0_at_quad)
+            self._mat13 = xp.zeros_like(self._nh0_at_quad)
+            self._mat23 = xp.zeros_like(self._nh0_at_quad)
 
-        #     self._mat21 = xp.zeros_like(self._nh0_at_quad)
-        #     self._mat31 = xp.zeros_like(self._nh0_at_quad)
-        #     self._mat32 = xp.zeros_like(self._nh0_at_quad)
+            self._mat21 = xp.zeros_like(self._nh0_at_quad)
+            self._mat31 = xp.zeros_like(self._nh0_at_quad)
+            self._mat32 = xp.zeros_like(self._nh0_at_quad)
+
+            # WeightedMassOperator
+            self._wmo = self.mass_ops.create_weighted_mass(self.options.u_space, self.options.u_space)
 
         self._type = self.options.solver
         self._tol = self.options.solver_params.tol
@@ -1857,41 +1860,42 @@ class CurrentCoupling6DDensity(Propagator):
         self._b_full2.update_ghost_regions()
 
         # perform accumulation (either with or without control variate)
-        # if self._particles.control_variate:
+        if self.options.energetic_ions.particles.control_variate:
 
-        #     # evaluate magnetic field at quadrature points (in-place)
-        #     WeightedMassOperator.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
-        #                                    out=[self._b_quad1, self._b_quad2, self._b_quad3])
+            # evaluate magnetic field at quadrature points (in-place)
+            self._wmo.eval_quad(self.derham.Vh_fem['2'], self._b_full2,
+                                           out=[self._b_quad1, self._b_quad2, self._b_quad3])
 
-        #     self._mat12[:, :, :] = self._coupling_const * \
-        #         self._b_quad3 * self._nh0_at_quad
-        #     self._mat13[:, :, :] = -self._coupling_const * \
-        #         self._b_quad2 * self._nh0_at_quad
-        #     self._mat23[:, :, :] = self._coupling_const * \
-        #         self._b_quad1 * self._nh0_at_quad
+            self._mat12[:, :, :] = self._coupling_const * \
+                self._b_quad3 * self._nh0_at_quad
+            self._mat13[:, :, :] = -self._coupling_const * \
+                self._b_quad2 * self._nh0_at_quad
+            self._mat23[:, :, :] = self._coupling_const * \
+                self._b_quad1 * self._nh0_at_quad
 
-        #     self._mat21[:, :, :] = -self._mat12
-        #     self._mat31[:, :, :] = -self._mat13
-        #     self._mat32[:, :, :] = -self._mat23
+            self._mat21[:, :, :] = -self._mat12
+            self._mat31[:, :, :] = -self._mat13
+            self._mat32[:, :, :] = -self._mat23
 
-        #     self._accumulator(self._b_full2[0]._data,
-        #                       self._b_full2[1]._data,
-        #                       self._b_full2[2]._data,
-        #                       self._space_key_int,
-        #                       self._coupling_const,
-        #                       control_mat=[[None, self._mat12, self._mat13],
-        #                                    [self._mat21, None,
-        #                                     self._mat23],
-        #                                    [self._mat31, self._mat32, None]])
-        # else:
-        self._accumulator(
-            self._b_full2[0]._data,
-            self._b_full2[1]._data,
-            self._b_full2[2]._data,
-            self._space_key_int,
-            self._coupling_const,
-            self._boundary_cut_e1,
-        )
+            self._accumulator(self._b_full2[0]._data,
+                              self._b_full2[1]._data,
+                              self._b_full2[2]._data,
+                              self._space_key_int,
+                              self._coupling_const,
+                              self._boundary_cut_e1,
+                              control_mat=[[None, self._mat12, self._mat13],
+                                           [self._mat21, None,
+                                            self._mat23],
+                                           [self._mat31, self._mat32, None]])
+        else:
+            self._accumulator(
+                self._b_full2[0]._data,
+                self._b_full2[1]._data,
+                self._b_full2[2]._data,
+                self._space_key_int,
+                self._coupling_const,
+                self._boundary_cut_e1,
+            )
 
         # define system (M - dt/2 * A)*u^(n + 1) = (M + dt/2 * A)*u^n
         lhs = self._M - dt / 2 * self._accumulator.operators[0]
