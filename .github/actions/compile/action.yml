@@ -1,5 +1,10 @@
 name: "Compile kernels with pyccel"
 
+inputs:
+  language:
+    required: true
+    default: c
+
 runs:
   using: composite
   steps:
@@ -11,8 +16,8 @@ runs:
     - name: Compile kernels
       shell: bash
       run: |
-        struphy compile -y --language ${{ matrix.compile-language }} || (
+        struphy compile -y --language ${{ inputs.language }} || (
           echo "Initial compile failed. Removing compiled kernels and trying again..." &&
           struphy compile -d -y &&
-          struphy compile -y --language ${{ matrix.compile-language }}
+          struphy compile -y --language ${{ inputs.language }}
         )

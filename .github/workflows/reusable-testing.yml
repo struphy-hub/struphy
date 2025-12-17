@@ -70,6 +70,8 @@ jobs:
       # Compile
       - name: Compile kernels
         uses: ./.github/actions/compile
+        with:
+          language: ${{ matrix.compile-language }}
 
       # Run tests
       # - name: Run unit tests
