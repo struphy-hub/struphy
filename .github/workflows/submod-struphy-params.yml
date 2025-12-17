@@ -37,8 +37,8 @@ jobs:
       # This checks if mymod's HEAD file changed (commit update)
         run: |
           git log -n 3 --pretty=short
-          git diff --name-only HEAD~2 HEAD~1 
-          if git diff --name-only HEAD~1 HEAD -- struphy-parameter-files | grep -q .; then
+          git diff --name-only ${{ github.ref }}~1 ${{ github.ref }}
+          if git diff --name-only ${{ github.ref }}~1 ${{ github.ref }} -- struphy-parameter-files | grep -q .; then
             echo "SM1_CHANGED=true" >> $GITHUB_ENV
             echo "SM1_NAME=struphy-parameter-files" >> $GITHUB_ENV
             exit 0
@@ -51,8 +51,8 @@ jobs:
       # This checks if mymod's HEAD file changed (commit update)
         run: |
           git log -n 3 --pretty=short
-          git diff --name-only HEAD~6 HEAD~1 
-          if git diff --name-only HEAD~4 HEAD -- struphy-parameter-files | grep -q .; then
+          git diff --name-only ${{ github.ref }}~8 ${{ github.ref }} 
+          if git diff --name-only ${{ github.ref }}~8 ${{ github.ref }} -- struphy-parameter-files | grep -q .; then
             echo "SM4_CHANGED=true" >> $GITHUB_ENV
             echo "SM4_NAME=struphy-parameter-files" >> $GITHUB_ENV
             exit 0
@@ -65,8 +65,8 @@ jobs:
       # This checks if mymod's HEAD file changed (commit update)
         run: |
           git log -n 3 --pretty=short
-          git diff --name-only HEAD~7 HEAD~1 
-          if git diff --name-only HEAD~5 HEAD -- struphy-parameter-files | grep -q .; then
+          git diff --name-only ${{ github.ref }}~9 ${{ github.ref }} 
+          if git diff --name-only ${{ github.ref }}~9 ${{ github.ref }} -- struphy-parameter-files | grep -q .; then
             echo "SM5_CHANGED=true" >> $GITHUB_ENV
             echo "SM5_NAME=struphy-parameter-files" >> $GITHUB_ENV
             exit 0
