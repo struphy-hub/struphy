@@ -22,7 +22,7 @@ esac
 
 if [[ "$HPC_SYSTEM" == *"pitagora"* ]]; then
     MACHINE="pitagora"
-    MODULES="intel-oneapi-compilers/2024.1.0 intel-oneapi-mpi/2021.12.1"
+    MODULES="gcc/12.3.0 openmpi/4.1.6--gcc--12.3.0 python/3.11.7 cmake/3.27.9 netcdf-c/4.9.2--gcc--12.3.0 hdf5/1.14.3--gcc--12.3.0"
 fi
 
 # Handle arguments
