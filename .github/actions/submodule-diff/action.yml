@@ -1,0 +1,24 @@
+name: Get diff in submodule to decide testing
+
+inputs:
+  submod-name:
+    required: true
+    default: struphy-parameter-files
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        submodules: true  # This is crucial!
+        fetch-depth: 3
+
+    - name: Check for changes in submodule
+      run: |
+        git diff --name-only HEAD~1 HEAD 
+        if git diff --name-only HEAD~1 HEAD -- ${{ inputs.submod-name }} | grep -q .; then
+          echo "SUBMOD_CHANGED=true" >> $GITHUB_ENV
+          exit 0
+        fi

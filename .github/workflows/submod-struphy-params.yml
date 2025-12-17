@@ -18,74 +18,69 @@ jobs:
   check-submodule-changes:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout code and get submodule diff
+        uses: ./.github/actions/submodule-diff
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          submodules: true  # This is crucial!
-          fetch-depth: 10
+          submod-name: struphy-parameter-files
 
-      - name: Check for submodule changes
-      # This checks if submodule commits have changed
-        run: |
-          if git diff --submodule=diff HEAD~1 HEAD -- .gitmodules; then
-          echo "SUBMODULE_CHANGED=true" >> $GITHUB_ENV
-          fi
-          echo $SUBMODULE_CHANGED
+      # - name: Checkout code
+      #   uses: actions/checkout@v4
+      #   with:
+      #     ref: ${{ github.event.pull_request.head.sha }}
+      #     submodules: true  # This is crucial!
+      #     fetch-depth: 10
 
-      - name: Check for changes in struphy-parameter-files 1
-      # Check if the specific submodule 'mymod' has changed
-      # This checks if mymod's HEAD file changed (commit update)
-        run: |
-          git log -n 3 --pretty=short
-          git diff --name-only HEAD~1 HEAD~ 
-          if git diff --name-only HEAD~1 HEAD -- struphy-parameter-files | grep -q .; then
-            echo "SM1_CHANGED=true" >> $GITHUB_ENV
-            echo "SM1_NAME=struphy-parameter-files" >> $GITHUB_ENV
-            exit 0
-          fi
-          echo $SM1_CHANGED
-          echo $SM1_NAME
+      # - name: Check for submodule changes
+      # # This checks if submodule commits have changed
+      #   run: |
+      #     if git diff --submodule=diff HEAD~1 HEAD -- .gitmodules; then
+      #     echo "SUBMODULE_CHANGED=true" >> $GITHUB_ENV
+      #     fi
+      #     echo $SUBMODULE_CHANGED
 
-      - name: Check for changes in struphy-parameter-files 4
-      # Check if the specific submodule 'mymod' has changed
-      # This checks if mymod's HEAD file changed (commit update)
-        run: |
-          git log -n 3 --pretty=short
-          git diff --name-only HEAD~4 HEAD 
-          if git diff --name-only HEAD~4 HEAD -- struphy-parameter-files | grep -q .; then
-            echo "SM4_CHANGED=true" >> $GITHUB_ENV
-            echo "SM4_NAME=struphy-parameter-files" >> $GITHUB_ENV
-            exit 0
-          fi
-          echo $SM4_CHANGED
-          echo $SM4_NAME
+      # - name: Check for changes in struphy-parameter-files 1
+      # # Check if the specific submodule 'mymod' has changed
+      # # This checks if mymod's HEAD file changed (commit update)
+      #   run: |
+      #     git log -n 3 --pretty=short
+      #     git diff --name-only HEAD~1 HEAD~ 
+      #     if git diff --name-only HEAD~1 HEAD -- struphy-parameter-files | grep -q .; then
+      #       echo "SM1_CHANGED=true" >> $GITHUB_ENV
+      #       echo "SM1_NAME=struphy-parameter-files" >> $GITHUB_ENV
+      #       exit 0
+      #     fi
+      #     echo $SM1_CHANGED
+      #     echo $SM1_NAME
 
-      - name: Check for changes in struphy-parameter-files 5
-      # Check if the specific submodule 'mymod' has changed
-      # This checks if mymod's HEAD file changed (commit update)
-        run: |
-          git log -n 3 --pretty=short
-          git diff --name-only HEAD~5 HEAD 
-          if git diff --name-only HEAD~5 HEAD -- struphy-parameter-files | grep -q .; then
-            echo "SM5_CHANGED=true" >> $GITHUB_ENV
-            echo "SM5_NAME=struphy-parameter-files" >> $GITHUB_ENV
-            exit 0
-          fi
-          echo $SM5_CHANGED
-          echo $SM5_NAME
+      # - name: Check for changes in struphy-parameter-files 4
+      # # Check if the specific submodule 'mymod' has changed
+      # # This checks if mymod's HEAD file changed (commit update)
+      #   run: |
+      #     git log -n 3 --pretty=short
+      #     git diff --name-only HEAD~4 HEAD 
+      #     if git diff --name-only HEAD~4 HEAD -- struphy-parameter-files | grep -q .; then
+      #       echo "SM4_CHANGED=true" >> $GITHUB_ENV
+      #       echo "SM4_NAME=struphy-parameter-files" >> $GITHUB_ENV
+      #       exit 0
+      #     fi
+      #     echo $SM4_CHANGED
+      #     echo $SM4_NAME
+
+      # - name: Check for changes in struphy-parameter-files 5
+      # # Check if the specific submodule 'mymod' has changed
+      # # This checks if mymod's HEAD file changed (commit update)
+      #   run: |
+      #     git log -n 3 --pretty=short
+      #     git diff --name-only HEAD~5 HEAD 
+      #     if git diff --name-only HEAD~5 HEAD -- struphy-parameter-files | grep -q .; then
+      #       echo "SM5_CHANGED=true" >> $GITHUB_ENV
+      #       echo "SM5_NAME=struphy-parameter-files" >> $GITHUB_ENV
+      #       exit 0
+      #     fi
+      #     echo $SM5_CHANGED
+      #     echo $SM5_NAME
           
-      - name: Run workflow if submodule changed 1
-        if: env.SM1_CHANGED == 'true'
+      - name: Run workflow if submodule changed
+        if: env.SUBMOD_CHANGED == 'true'
         run: |
-          echo "SM1 has changed, running relevant jobs..."
-
-      - name: Run workflow if submodule changed 4
-        if: env.SM4_CHANGED == 'true'
-        run: |
-          echo "SM4 has changed, running relevant jobs..."
-
-      - name: Run workflow if submodule changed 5
-        if: env.SM5_CHANGED == 'true'
-        run: |
-          echo "SM5 has changed, running relevant jobs..."
+          echo "${{ env.SUBMOD_NAME }} has changed, running tests..."
