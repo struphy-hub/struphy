@@ -8,6 +8,8 @@
 # Parse arguments
 LANGUAGE="${1:-fortran}"         # Default language if none given
 TEST_TYPE="${2:-install}"        # Default test_type is 'install'
+echo "Selected compilation language: $LANGUAGE"
+echo "Selected test type: $TEST_TYPE"
 
 # Load HPC modules
 module purge
