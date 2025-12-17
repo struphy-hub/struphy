@@ -8,25 +8,23 @@ MODULES="unknown"
 case "$CLUSTER" in
     TOK)
         MACHINE="tok"
-        MODULES="gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake/4.0 netcdf-serial/4.9.2 mkl/2025.1 hdf5-serial/2.0.0"
         ;;
     RAVEN)
         MACHINE="raven"
-        MODULES="gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake/4.0 netcdf-serial/4.9.2 mkl/2025.3 hdf5-serial/2.0.0"
         ;;
     VIPER)
         MACHINE="viper"
-        MODULES="gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake/4.0 netcdf-serial/4.9.2 mkl/2025.3 hdf5-serial/2.0.0"
         ;;
 esac
 
 if [[ "$HPC_SYSTEM" == *"pitagora"* ]]; then
     MACHINE="pitagora"
-    MODULES="gcc/12.3.0 openmpi/4.1.6--gcc--12.3.0 python/3.11.7 cmake/3.27.9 netcdf-c/4.9.2--gcc--12.3.0 hdf5/1.14.3--gcc--12.3.0"
 fi
 
 # Handle arguments
 ACTION="${1:-display}"  # Default to 'display' if no argument is given
+
+source setup/modules.${MACHINE}.sh
 
 case "$ACTION" in
     load)
