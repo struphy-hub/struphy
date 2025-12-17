@@ -1,4 +1,4 @@
-name: Submodule struphy-parameter-files
+name: Submodule struphy-tutorials
 
 on:
   pull_request:
@@ -33,4 +33,6 @@ jobs:
         if: env.SUBMOD_CHANGED == 'true'
         run: |
           echo "${{ env.SUBMOD_NAME }} has changed, running tests..."
+          ls
+          cd struphy-tutorials
           jupyter nbconvert --execute --to html tutorial_*.ipynb
