@@ -4,7 +4,7 @@ set -euo pipefail
 # Load HPC modules
 module purge
 #module load "$1"   # Pass modules as first argument
-.github/scripts/modules.sh load
+source .github/scripts/modules.sh load
 module list
 
 # For gvec
@@ -13,6 +13,8 @@ export CC=`which gcc`
 export CXX=`which g++`
 
 # Python virtual environment setup
+which python
+python --version
 python -m venv env
 source env/bin/activate
 
