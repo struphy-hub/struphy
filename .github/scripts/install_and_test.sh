@@ -3,7 +3,7 @@
 # 1: language (for compilation)
 # 2: test_type (unit, model, verification, or install; default=install)
 
-# set -euo pipefail
+set -euo pipefail
 
 # Parse arguments
 LANGUAGE="${1:-fortran}"         # Default language if none given
