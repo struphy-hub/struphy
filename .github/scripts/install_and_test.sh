@@ -4,7 +4,7 @@ set -euo pipefail
 # Load HPC modules
 module purge
 #module load "$1"   # Pass modules as first argument
-.github/scripts/modules.sh
+.github/scripts/modules.sh load
 module list
 
 # For gvec
