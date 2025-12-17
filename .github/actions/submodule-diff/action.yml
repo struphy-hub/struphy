@@ -8,12 +8,6 @@ inputs:
 runs:
   using: composite
   steps:
-    # - name: Checkout code
-    #   uses: actions/checkout@v4
-    #   with:
-    #     submodules: true  # This is crucial!
-    #     fetch-depth: 5
-
     - name: Check for changes in submodule
       shell: bash
       # the following compares the base branch to the current head of the feature branch (I verified)!
