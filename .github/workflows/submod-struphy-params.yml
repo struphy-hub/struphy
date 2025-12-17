@@ -18,7 +18,10 @@ jobs:
   check-submodule-changes:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code and get submodule diff
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Checkout code with ref and get submodule diff
         uses: ./.github/actions/submodule-diff
         with:
           submod-name: struphy-parameter-files

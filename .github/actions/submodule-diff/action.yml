@@ -20,5 +20,6 @@ runs:
         git diff --name-only HEAD~1 HEAD 
         if git diff --name-only HEAD~1 HEAD -- ${{ inputs.submod-name }} | grep -q .; then
           echo "SUBMOD_CHANGED=true" >> $GITHUB_ENV
+          echo "SUBMOD_NAME=${{ inputs.submod-name }}" >> $GITHUB_ENV
           exit 0
         fi
