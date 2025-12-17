@@ -83,7 +83,12 @@ jobs:
       #     echo $SM5_CHANGED
       #     echo $SM5_NAME
           
-      - name: Run workflow if submodule changed
+      - name: Run workflow if submodule changed (all PR commits)
         if: env.SUBMOD_CHANGED == 'true'
         run: |
           echo "${{ env.SUBMOD_NAME }} has changed, running tests..."
+
+      - name: Run workflow if submodule changed (just one commit)
+        if: env.ONE_COMMIT_SUBMOD_CHANGED == 'true'
+        run: |
+          echo "${{ env.ONE_COMMIT_SUBMOD_NAME }} has changed, running tests..."
