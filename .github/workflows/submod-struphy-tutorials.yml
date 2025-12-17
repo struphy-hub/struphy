@@ -29,6 +29,16 @@ jobs:
         with:
           submod-name: struphy-tutorials
           
+      - name: Install Struphy
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/install/install-struphy
+        with:
+          optional-deps: 'dev,doc'
+
+      - name: Compile Struphy
+        if: env.SUBMOD_CHANGED == 'true'
+        uses: ./.github/actions/compile
+      
       - name: Run workflow if submodule changed (all PR commits)
         if: env.SUBMOD_CHANGED == 'true'
         run: |
