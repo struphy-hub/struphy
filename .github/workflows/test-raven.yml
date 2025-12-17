@@ -12,7 +12,7 @@ jobs:
     uses: ./.github/workflows/reusable-clusters.yml
     with:
       modules: "gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake netcdf-serial mkl hdf5-serial"
-
+      runner_tags: '["self-hosted", "protected", "raven"]'
 # jobs:
 #   raven-test:
 #     environment: protected

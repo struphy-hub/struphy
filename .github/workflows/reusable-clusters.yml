@@ -6,11 +6,15 @@ on:
       modules:
         required: true
         type: string
+      runner_tags:
+        description: JSON array of runner labels
+        required: true
+        type: string
 
 jobs:
   test:
     environment: protected
-    runs-on: [self-hosted, protected]
+    runs-on: ${{ fromJSON(inputs.runner_tags) }}
     # strategy:
     #   fail-fast: false
     #   matrix:
