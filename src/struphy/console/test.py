@@ -154,7 +154,7 @@ def struphy_test(
             "-m",
             "single",
             "--testmon-forceselect",
-            "-s",
+            "-xvs",
             "--with-mpi",
             "--model-name",
             group,
@@ -166,4 +166,4 @@ def struphy_test(
         if show_plots:
             cmd += ["--show-plots"]
 
-        subp_run(cmd)
+        subp_run(cmd, check=True)

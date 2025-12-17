@@ -101,13 +101,12 @@ class MyDumper(yaml.SafeDumper):
 
 def subp_run(cmd, cwd="libpath", check=True):
     """Call subprocess.run and print run command."""
-
+    from struphy.utils.utils import STRUPHY_LIBPATH
     if cwd == "libpath":
-        cwd = struphy.__path__[0]
+        cwd = STRUPHY_LIBPATH
 
-    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}")
+    print(f"\nRunning the following command as a subprocess:\n{' '.join(cmd)}\nfrom {cwd}")
     subprocess.run(cmd, cwd=cwd, check=check)
-
 
 if __name__ == "__main__":
     state = read_state()
