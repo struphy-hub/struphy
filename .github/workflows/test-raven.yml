@@ -1,11 +1,8 @@
-name: Protected branch workflow
-
+name: Cluster workflow
 on:
   push:
     branches:
       - protected-install-on-clusters
-
-
 
 jobs:
   raven-test:
@@ -13,31 +10,8 @@ jobs:
     with:
       modules: "gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake netcdf-serial mkl hdf5-serial"
       runner_tags: '["self-hosted", "protected", "raven"]'
-# jobs:
-#   raven-test:
-#     environment: protected
-#     runs-on: [self-hosted, protected]
-#     steps:
-#       - uses: actions/checkout@v4
-
-#       - name: Build and test on HPC runner
-#         shell: bash
-#         run: |
-#           echo "Running on self-hosted protected runner"
-
-          
-
-#           python -m venv env
-#           source env/bin/activate
-
-#           python -m pip install --upgrade pip
-#           pip install --no-binary=mpi4py mpi4py
-#           pip install gvec
-#           pip install ".[phys]"
-
-#           python -c "from mpi4py import MPI; print(MPI)"
-
-#           struphy -h
-#           struphy --refresh-models
-#           struphy compile
-#           struphy test unit
+  tok-test:
+    uses: ./.github/workflows/reusable-clusters.yml
+    with:
+      modules: "gcc/14 openmpi/5.0 python-waterboa/2025.06 cmake/4.0 netcdf-serial/4.9.2 mkl/2025.1 hdf5-serial/2.0.0"
+      runner_tags: '["self-hosted", "protected", "tok"]'
