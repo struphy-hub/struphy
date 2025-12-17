@@ -45,7 +45,7 @@ source env/bin/activate
 # Install Struphy
 pip install --upgrade pip
 pip install --no-binary=mpi4py mpi4py
-pip install ".[dev,phys,doc]"
+pip install ".[dev,mpi,phys,doc]"
 pip list
 
 # Verify struphy installation
