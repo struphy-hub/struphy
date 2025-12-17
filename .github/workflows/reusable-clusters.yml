@@ -8,9 +8,9 @@ on:
         required: true
         type: string
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+# concurrency:
+#   group: ${{ github.workflow }}-${{ github.ref }}
+#   cancel-in-progress: true
 
 defaults:
   run:
@@ -32,7 +32,6 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Install and run tests
-        shell: bash
         run: |
           bash .github/scripts/install_and_test.sh "${{ matrix.compile-language }}"
         # "${{ matrix.test-type }}"
